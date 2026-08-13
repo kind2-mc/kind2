@@ -29,8 +29,17 @@ type float_item
 (** An integer statistics list *)
 type int_list_item 
 
-(** An generic statistics item *)
-type stat_item 
+(** An generic statistics item
+
+    Statistics items are domain-local: each domain reads and updates its
+    own copy of the values, as each engine process did when engines were
+    separate processes. *)
+type stat_item
+
+(** An immutable snapshot of the value of a statistics item, taken in
+    the domain that owns the values. This is what engines send to the
+    supervisor and what is printed. *)
+type snapshot
 
 (** {1 Accessor functions} *)
 
@@ -102,18 +111,31 @@ val continue_timer : float_timer -> unit
 *)
 
 
+(** {1 Snapshots} *)
+
+(** Take a snapshot of the domain-local values of a group of items *)
+val snapshot_of_group : stat_item list -> snapshot list
+
+(** Take a snapshot of titled groups of items, as sent to the
+    supervisor *)
+val snapshot_of_stats :
+  (string * stat_item list) list -> (string * snapshot list) list
+
 (** {1 Pretty-printing} *)
 
 (** {1 Statistics items} *)
 
-(** Print statistics  *)
-val pp_print_stats : Format.formatter -> stat_item list -> unit 
+(** Print statistics, reading the values of the calling domain *)
+val pp_print_stats : Format.formatter -> stat_item list -> unit
 
-(** Print statistics in XML *)
-val pp_print_stats_xml : Format.formatter -> stat_item list -> unit 
+(** Print snapshots *)
+val pp_print_snapshots : Format.formatter -> snapshot list -> unit
 
-(** Print statistics in JSON *)
-val pp_print_stats_json : Format.formatter -> stat_item list -> unit
+(** Print snapshots in XML *)
+val pp_print_snapshots_xml : Format.formatter -> snapshot list -> unit
+
+(** Print snapshots in JSON *)
+val pp_print_snapshots_json : Format.formatter -> snapshot list -> unit
 
 (** {2 BMC} *)
 

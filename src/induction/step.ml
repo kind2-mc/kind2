@@ -255,8 +255,13 @@ let eval_terms_assert_first_false trans solver eval k =
    solver. They are activated lazily: only when a counterexample to
    induction is found, to check whether it is spurious with respect to the
    intended (deterministic) semantics of functions with container-typed
-   arguments (see [TransSys.fn_congruence_instances]). *)
-let fn_congruence_activated = ref false
+   arguments (see [TransSys.fn_congruence_instances]).
+
+   Domain-local: each engine runs in its own domain with its own solver, and
+   the flag records whether the instances were asserted in *that* solver. *)
+let fn_congruence_activated_key = Domain.DLS.new_key (fun () -> ref false)
+
+let fn_congruence_activated () = Domain.DLS.get fn_congruence_activated_key
 
 (* Check-sat and splits properties.. *)
 let split (input_sys, analysis, trans) solver k to_split actlits =
@@ -312,14 +317,14 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
       (* A counterexample to induction without the functional congruence
          instances may be spurious; activate them and check again. *)
-      if not !fn_congruence_activated
+      if not !(fn_congruence_activated ())
          && TransSys.has_fn_congruence_groups trans
       then (
         SMTSolver.trace_comment solver
           "Activating functional congruence instances." ;
         TransSys.fn_congruence_instances_up_to trans k
         |> List.iter (SMTSolver.assert_term solver) ;
-        fn_congruence_activated := true ;
+        fn_congruence_activated () := true ;
         loop ()
       ) else (
 
@@ -539,7 +544,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      stop ()
   | [], _ ->
      (* Need to wait for base confirmation. *)
-     minisleep 0.001 ;
+     KEvent.wait_for_message () ;
      next input_sys aparam trans solver k unfalsifiables unknowns'
   | _ when Flags.BmcKind.max () > 0 && k_int + 1 > Flags.BmcKind.max () ->
      KEvent.log
@@ -580,7 +585,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
 
      (* Asserting functional congruence instances for the new bound, if
         they have been activated. *)
-     if !fn_congruence_activated then
+     if !(fn_congruence_activated ()) then
        TransSys.fn_congruence_instances trans k_p_1
        |> List.iter (SMTSolver.assert_term solver) ;
 
@@ -726,7 +731,7 @@ let launch input_sys aparam trans =
   TransSys.assert_global_constraints trans (SMTSolver.assert_term solver) ;
 
   (* Functional congruence instances start deactivated (see [split]). *)
-  fn_congruence_activated := false ;
+  fn_congruence_activated () := false ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero

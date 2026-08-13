@@ -48,18 +48,21 @@ let sys_name in_sys sys =
   let node_name = InputSystem.get_node_internal_name in_sys (Sys.scope_of_trans_sys sys) in
   node_name |> LustreIdent.string_of_ident true
 
-(** Counter for actlit's uids. *)
-let actlit_uid = ref 0
+(** Counter for actlit's uids. Domain-local: actlits are only declared
+    in the solvers of the engine domain that created them. *)
+let actlit_uid =
+  let key = Domain.DLS.new_key (fun () -> ref 0) in
+  fun () -> Domain.DLS.get key
 
 (** Maximal number of actlit created before solvers are reset. *)
 let max_actlit_count_before_reset = 50
 
 (** Indicates whether we should reset or not base on the number of actlits
 created so far. *)
-let shall_reset () = max_actlit_count_before_reset <= ! actlit_uid
+let shall_reset () = max_actlit_count_before_reset <= !(actlit_uid ())
 
 (** Resets the actlit uid counter. BEWARE OF COLLISIONS. *)
-let reset_actlit_uids () = actlit_uid := 0
+let reset_actlit_uids () = actlit_uid () := 0
 
 (* Returns an actlit built from a uid. Beware of name collisions. *)
 let fresh_actlit_of uid =
@@ -69,8 +72,8 @@ let fresh_actlit_of uid =
 
 (* Returns an actlit built from a uid. Beware of name collisions. *)
 let fresh_actlit () =
-  let fresh = ! actlit_uid |> fresh_actlit_of in
-  actlit_uid := 1 + ! actlit_uid ;
+  let fresh = !(actlit_uid ()) |> fresh_actlit_of in
+  actlit_uid () := 1 + !(actlit_uid ()) ;
   fresh
 
 (* Returns the term corresponding to the input actlit. *)

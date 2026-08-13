@@ -1,7 +1,9 @@
 import itertools
 import os
+import signal
+import subprocess
 from pathlib import Path
-from subprocess import run
+from subprocess import PIPE, CompletedProcess, Popen, TimeoutExpired
 
 import pytest
 
@@ -16,6 +18,18 @@ common_args = {
     "--check_subproperties": "true",
     "--check_sat_assume": "false",
 }
+
+# How long we let a single Kind 2 run take before killing it, in seconds.
+#
+# Kind 2 enforces `--timeout` itself, but that enforcement has gaps: it does
+# not cover parsing or the teardown of an analysis, and on Windows there is no
+# SIGALRM to fall back on. This is the backstop, and it only has to be loose
+# enough never to fire on a run that is making progress: without it a single
+# stuck run blocks the whole session until the CI job is killed hours later.
+run_timeout = float(common_args["--timeout"]) + 120
+
+# How long we wait for the output of a run we had to kill
+kill_timeout = 30
 
 # The test conditions that are always enabled. These override common_args if
 # there is a disagreement.
@@ -65,7 +79,8 @@ extra_files = [
 log_dir = Path("logs")
 
 # Where kind2 lives
-kind2_bin = Path("../bin/kind2").resolve()
+kind2_exe = "kind2.exe" if os.name == "nt" else "kind2"
+kind2_bin = (Path("../bin") / kind2_exe).resolve()
 
 ######################
 # Test running logic #
@@ -122,7 +137,92 @@ def pytest_collection_modifyitems(session, items):
     items[:] = extra_items + items
 
 
+# Tests whose run gave up before finishing, that is, exited 30 because it
+# reached the `--timeout` it was given.
+#
+# No test expects that outcome: the regression tree only holds `success`,
+# `falsifiable` and `error` cases. It is accepted anyway, since a large model
+# on a slow machine may legitimately run out of time, but accepting it
+# silently means a run that stops making progress passes without a trace.
+# Collect them so that the session reports them at the end.
+unfinished_runs = []
+
+
 class LustreException(Exception): ...
+
+
+class LustreTimeout(Exception):
+    def __init__(self, stdout: bytes, status):
+        super().__init__()
+        self.stdout = stdout
+        # Exit status of Kind 2 when we gave up on it, or None if it was
+        # still running then
+        self.status = status
+
+
+def kill_tree(proc: Popen):
+    """Kill `proc` and every process it spawned.
+
+    Killing only Kind 2 can leave its solvers running, and on Windows those
+    hold inherited copies of the pipes we read its output from, so reading
+    them would never see the end of the output.
+    """
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=kill_timeout,
+            )
+        except (OSError, TimeoutExpired):
+            pass
+    else:
+        # The run leads a process group of its own (see `run_kind2`), which
+        # its solvers belong to as well. Address the group by the pid of its
+        # leader rather than by asking for it: a group outlives its leader,
+        # but `os.getpgid` does not, so looking it up would fail exactly when
+        # Kind 2 has already exited and only the solvers are left to kill.
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+
+    proc.kill()
+
+
+def run_kind2(command) -> CompletedProcess:
+    """Run Kind 2, capturing its output, and give up on it after
+    `run_timeout` seconds. Raises `LustreTimeout` if we had to give up."""
+    popen_args = {}
+    if os.name != "nt":
+        # Put the run in a process group of its own, so that the solvers it
+        # spawns can be killed along with it
+        popen_args["start_new_session"] = True
+
+    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+
+    try:
+        stdout, _ = proc.communicate(timeout=run_timeout)
+    except TimeoutExpired:
+        # Whether Kind 2 is still running says where the run is stuck, and
+        # the two cases have nothing in common. Still running: it did not
+        # honour its own `--timeout`. Already gone: the pipes are held open
+        # by something it spawned and outlived it, and no timeout of its own
+        # could ever have helped. Ask before killing it, which would answer
+        # the question with our own signal.
+        status = proc.poll()
+
+        kill_tree(proc)
+        try:
+            stdout, _ = proc.communicate(timeout=kill_timeout)
+        except TimeoutExpired:
+            # Some process we could not kill still holds the pipes. Report
+            # what we have rather than wait for the rest forever: the reader
+            # threads are daemons, and they do not keep the session alive.
+            stdout = b""
+        raise LustreTimeout(stdout, status)
+
+    return CompletedProcess(command, proc.returncode, stdout, None)
 
 
 class LustreItem(pytest.Item):
@@ -144,12 +244,13 @@ class LustreItem(pytest.Item):
         return [kind2_bin, *arg_list, self.path]
 
     def runtest(self):
-        self.res = run(self._command(), capture_output=True)
+        self.res = run_kind2(self._command())
 
-        # Timeout is OK 
+        # Timeout is OK
         result = code_to_expected.get(self.res.returncode)
-        if result == "timeout": 
-          return   
+        if result == "timeout":
+          unfinished_runs.append(self.nodeid)
+          return
 
         if self.res.returncode != expected_to_code[self.expected]:
             raise LustreException
@@ -158,6 +259,26 @@ class LustreItem(pytest.Item):
         return self.path, 0, self.name
 
     def repr_failure(self, excinfo, style=None):
+        if isinstance(excinfo.value, LustreTimeout):
+            status = excinfo.value.status
+            if status is None:
+                stuck = "Kind 2 was still running when it was killed"
+            else:
+                stuck = (
+                    f"Kind 2 had already exited (status {status}), but its "
+                    "output pipes were still open: something it spawned "
+                    "outlived it"
+                )
+            return "\n".join(
+                [
+                    f"Killed after {run_timeout:.0f}s: the run did not stop "
+                    f"on its own, although it was given {common_args['--timeout']}s",
+                    stuck,
+                    " ".join(map(str, self._command())),
+                    excinfo.value.stdout.decode("utf-8"),
+                ]
+            )
+
         if isinstance(excinfo.value, LustreException):
             return_code = self.res.returncode
             actual = code_to_expected.get(
@@ -173,6 +294,20 @@ class LustreItem(pytest.Item):
             )
 
         return super().repr_failure(excinfo, style)
+
+
+# Report the runs that gave up, which pass and would otherwise leave no trace
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if not unfinished_runs:
+        return
+
+    terminalreporter.section("Kind 2 ran out of time")
+    terminalreporter.write_line(
+        f"{len(unfinished_runs)} test(s) exited 30 after the "
+        f"{common_args['--timeout']}s budget (not counted as failures):"
+    )
+    for nodeid in unfinished_runs:
+        terminalreporter.write_line(f"  {nodeid}")
 
 
 # Log test failures

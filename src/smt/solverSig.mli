@@ -51,6 +51,11 @@ module type Inst = sig
   (** Delete and stops the instance of the solver *)
   val delete_instance : unit -> unit
 
+  (** Kill the underlying solver process without interacting with it.
+      Unlike {!delete_instance} this is safe to call from a different
+      domain, to unblock an engine stuck in a solver call. *)
+  val kill_instance : unit -> unit
+
   (** {1 Declarations} *)
 
   (** Declare a new sort symbol *)

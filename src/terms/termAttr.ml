@@ -82,7 +82,16 @@ module Hattr = Hashcons.Make (Attr_node)
 
 
 (* Storage for hashconsed attributes *)
-let ht = Hattr.create 251
+(* The hash-cons table is private to the domain using it. A domain
+   spawned to run an engine starts with a copy of the table of its
+   parent, so it agrees with the parent on everything built before it
+   started, and numbers what it builds afterwards on its own. A value
+   built by another domain has to be imported before use. *)
+let ht_key =
+  Domain.DLS.new_key ~split_from_parent:Hattr.copy
+    (fun () -> Hattr.create 251)
+
+let ht () = Domain.DLS.get ht_key
 
 
 (* ********************************************************************* *)
@@ -247,12 +256,12 @@ let is_interp_group = function
 
 
 (* Return a hashconsed attribute which is a name *)    
-let mk_named s n = Hattr.hashcons ht (Named (s, n)) ()
+let mk_named s n = Hattr.hashcons (ht ()) (Named (s, n)) ()
 
-let mk_interp_group s = Hattr.hashcons ht (InterpGroup s) ()
+let mk_interp_group s = Hattr.hashcons (ht ()) (InterpGroup s) ()
 
 (* Return a hashconsed attribute which is a fun-def *)    
-let fundef = Hattr.hashcons ht FunDef ()
+let fundef = Hattr.hashcons (ht ()) FunDef ()
 
 
 (* 

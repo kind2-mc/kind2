@@ -133,8 +133,6 @@ module Signals: sig
   (** Sets a handler for sigterm. *)
   val set_sigterm: unit -> unit
 
-  (** Sets a handler for sigpipe. *)
-  val set_sigpipe: unit -> unit
 
   (** Sets a timeout. *)
   val set_timeout: float -> unit

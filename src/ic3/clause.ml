@@ -23,10 +23,14 @@ open Lib
 let actlit_prefix = "__ic3"
 
   
-(* Generate next unique identifier for clause *)
+(* Generate next unique identifier for clause. Domain-local: clause
+   identifiers are local to the IC3 engine of an analysis, and index
+   into the activation literal status arrays below. *)
 let next_clause_id =
-  let r = ref 0 in
-  fun () -> incr r; !r
+  let key = Domain.DLS.new_key (fun () -> ref 0) in
+  fun () ->
+    let r = Domain.DLS.get key in
+    incr r; !r
 
     
 (* Source of a clause *)
@@ -145,8 +149,11 @@ let pp_print_source ppf = function
 
   
 (* For each solver instance a set of clause identifiers whose p0, p1,
-   n0 and n1 activation literals have been declared and *)
-let solver_actlit_status = IntegerHashtbl.create 7
+   n0 and n1 activation literals have been declared and. Domain-local:
+   solver instances belong to the engine domain that created them. *)
+let solver_actlit_status =
+  let key = Domain.DLS.new_key (fun () -> IntegerHashtbl.create 7) in
+  fun () -> Domain.DLS.get key
 
   
 (* Initial value for activation literal status *)
@@ -180,7 +187,7 @@ let get_actlit_status_array solver clause_id =
     (* Get array of activation literal status from hash table for
        solver instance *)
     let actlit_status =
-      IntegerHashtbl.find solver_actlit_status solver_id
+      IntegerHashtbl.find (solver_actlit_status ()) solver_id
     in
 
     (* Does array contain an entry for the clause? *)
@@ -208,7 +215,7 @@ let get_actlit_status_array solver clause_id =
 
       (* Replace previous array with grown array *)
       IntegerHashtbl.replace
-        solver_actlit_status
+        (solver_actlit_status ())
         solver_id
         actlit_status';
 
@@ -226,7 +233,7 @@ let get_actlit_status_array solver clause_id =
     
     (* Add activation literal array for solver instance *)
     IntegerHashtbl.add
-      solver_actlit_status
+      (solver_actlit_status ())
       solver_id
       actlit_status;
 
@@ -682,8 +689,12 @@ let tag_of_actlit_type = function
   | Actlit_n1 -> "n1"
 
     
-(* Counters for activation literal groups *)
-let actlit_counts = ref []
+(* Counters for activation literal groups. Domain-local: activation
+   literal names are only declared in the solvers of the engine domain
+   that created them. *)
+let actlit_counts =
+  let key = Domain.DLS.new_key (fun () -> ref []) in
+  fun () -> Domain.DLS.get key
 
 
 (* Process term for type of type of activation literal *)
@@ -712,7 +723,7 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
     try 
 
       (* Return reference in association list *)
-      List.assoc tag !actlit_counts 
+      List.assoc tag !(actlit_counts ()) 
 
     with Not_found ->
 
@@ -720,7 +731,7 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
       let c = ref (-1) in 
 
       (* Add reference in association list *)
-      actlit_counts := (tag, c) :: !actlit_counts;
+      actlit_counts () := (tag, c) :: !(actlit_counts ());
 
       (* Return reference *)
       c

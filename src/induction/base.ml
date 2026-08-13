@@ -44,8 +44,13 @@ let on_exit _ =
    solver. They are activated lazily: only when a candidate counterexample
    is found, to check whether it is spurious with respect to the intended
    (deterministic) semantics of functions with container-typed arguments
-   (see [TransSys.fn_congruence_instances]). *)
-let fn_congruence_activated = ref false
+   (see [TransSys.fn_congruence_instances]).
+
+   Domain-local: each engine runs in its own domain with its own solver, and
+   the flag records whether the instances were asserted in *that* solver. *)
+let fn_congruence_activated_key = Domain.DLS.new_key (fun () -> ref false)
+
+let fn_congruence_activated () = Domain.DLS.get fn_congruence_activated_key
 
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
@@ -62,7 +67,7 @@ let rec split trans solver k to_split actlit =
 
     (* A candidate counterexample without the functional congruence
        instances may be spurious; activate them and check again. *)
-    if not !fn_congruence_activated
+    if not !(fn_congruence_activated ())
        && TransSys.has_fn_congruence_groups trans
     then `Activate
     else `Split (
@@ -115,7 +120,7 @@ let rec split trans solver k to_split actlit =
       "Activating functional congruence instances." ;
     TransSys.fn_congruence_instances_up_to trans k
     |> List.iter (SMTSolver.assert_term solver) ;
-    fn_congruence_activated := true ;
+    fn_congruence_activated () := true ;
     split trans solver k to_split actlit
 
 (* Splits its input list of properties between those that can be
@@ -188,7 +193,7 @@ let skip_steps_next trans solver k unknowns =
 
     (* Asserting functional congruence instances for the new bound, if
        they have been activated. *)
-    if !fn_congruence_activated then
+    if !(fn_congruence_activated ()) then
       TransSys.fn_congruence_instances trans !step
       |> List.iter (SMTSolver.assert_term solver) ;
 
@@ -368,7 +373,7 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
 
     (* Asserting functional congruence instances for the new bound, if
        they have been activated. *)
-    if !fn_congruence_activated then
+    if !(fn_congruence_activated ()) then
       TransSys.fn_congruence_instances trans k_p_1
       |> List.iter (SMTSolver.assert_term solver) ;
 
@@ -431,7 +436,7 @@ let init input_sys aparam trans skip =
   |> SMTSolver.assert_term solver ;
 
   (* Functional congruence instances start deactivated (see [split]). *)
-  fn_congruence_activated := false ;
+  fn_congruence_activated () := false ;
 
   SMTSolver.trace_comment solver "Initial state satisfiability check." ;
 

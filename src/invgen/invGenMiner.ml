@@ -112,7 +112,8 @@ let rec get_last = function
 | [] -> raise Not_found
 | _ :: t -> get_last t
 
-let flat_apply_warning_reported = ref false
+(* Atomic: miners run concurrently in several domains *)
+let flat_apply_warning_reported = Atomic.make false
 
 (* Applies something to all flat subterms of a term.
 
@@ -125,12 +126,10 @@ let flat_apply term work set =
       fun flat_term _ -> work flat_term !set_ref |> memorize
     ) term ;
    with Invalid_argument _ ->
-     (* Report warning once per miner instance *)
-     if not !flat_apply_warning_reported then (
+     (* Report warning once *)
+     if not (Atomic.exchange flat_apply_warning_reported true) then
        KEvent.log L_warn
-         "Cannot mine invariants in quantified terms";
-       flat_apply_warning_reported := true
-     )
+         "Cannot mine invariants in quantified terms"
   );
   !set_ref
 

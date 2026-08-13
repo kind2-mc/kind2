@@ -32,13 +32,23 @@ let debug_assert = true
 (* Solver instances and cleanup                                           *)
 (* ********************************************************************** *)
 
-(* Interpolation instance if created *)
-let ref_interpolator = ref None
+(* Per-engine state, domain-local: the IC3 engine of each analysis runs
+   in its own domain and must not share these with other engines. Each
+   accessor returns the domain-local reference. *)
 
-let max_unrolling = ref 0 
-  
+(* Interpolation instance if created *)
+let ref_interpolator =
+  let key = Domain.DLS.new_key (fun () -> ref None) in
+  fun () -> Domain.DLS.get key
+
+let max_unrolling =
+  let key = Domain.DLS.new_key (fun () -> ref 0) in
+  fun () -> Domain.DLS.get key
+
 (* Formatter to output inductive clauses to *)
-let ppf_inductive_assertions = ref Format.std_formatter
+let ppf_inductive_assertions =
+  let key = Domain.DLS.new_key (fun () -> ref Format.std_formatter) in
+  fun () -> Domain.DLS.get key
 
   
 (* Output statistics *)
@@ -761,18 +771,18 @@ let abstr_simulate trace trans_sys raise_cex =
   Stat.incr (Stat.ic3ia_num_simulations);
 
   let intrpo =
-    match !ref_interpolator with
+    match !(ref_interpolator ()) with
       | Some s ->
         
-        if (List.length trace) > !max_unrolling then (
+        if (List.length trace) > !(max_unrolling ()) then (
           
           TransSys.declare_vars_of_bounds
             trans_sys
             (SMTSolver.declare_fun s)
-            (Numeral.of_int (!max_unrolling + 1))
+            (Numeral.of_int (!(max_unrolling ()) + 1))
             (Numeral.of_int (List.length trace));
 
-          max_unrolling := List.length trace;
+          max_unrolling () := List.length trace;
         );
         s
 
@@ -793,8 +803,8 @@ let abstr_simulate trace trans_sys raise_cex =
           (Numeral.zero)
           (Numeral.of_int (List.length trace));
 
-        ref_interpolator := Some solver;
-        max_unrolling := List.length trace;
+        ref_interpolator () := Some solver;
+        max_unrolling () := List.length trace;
         solver
 
   in                             
@@ -1254,7 +1264,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                        aparam 
                        trans_sys
                        (C.props_of_prop_set prop_set);
-                     minisleep 0.01;
+                     KEvent.wait_for_message ();
                      wait ()
                    in
                    ignore (wait ()); 
@@ -2400,8 +2410,8 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
 
             (
 
-              (* Delay *)
-              minisleep 0.1;
+              (* Wait for the next message *)
+              KEvent.wait_for_message ();
 
               (* Wait *)
               wait_for_bmc ()
@@ -3161,7 +3171,7 @@ let main_ic3 input_sys aparam trans_sys =
       in
 
       (* Create formatter and store in reference *)
-      ppf_inductive_assertions := Format.formatter_of_out_channel oc);
+      ppf_inductive_assertions () := Format.formatter_of_out_channel oc);
 
   (* Properties to prove from the transition system *)
   let trans_sys_props =

@@ -18,31 +18,62 @@
 
 open Lib
 
-(* A generic statistics item *)
+(* The mutable state of a statistics item. Statistics are domain-local:
+   each engine domain updates its own copy of every item, as each engine
+   process did when engines were separate processes. *)
+type 'a cell =
+  { mutable value : 'a;
+    mutable temp : 'a }
+
+(* A generic statistics item: a global handle whose mutable state is
+   domain-local *)
 type 'a item =
   { display : string;
-    mutable value : 'a;
-    default : 'a; 
-    mutable temp : 'a }
+    default : 'a;
+    cell : 'a cell Domain.DLS.key }
 
 (* An integer statistics item *)
 type int_item = int item
 
 (* A float statistics item *)
-type float_item = float item 
+type float_item = float item
 
 (* An integer statistics list *)
 type int_list_item = int list item
 
 (* A statistics item of a certain type *)
-type stat_item = 
+type stat_item =
   | I of int_item
   | F of float_item
   | L of int_list_item
 
-(* Create a statistics item *)  
-let empty_item display default = 
-  { display = display; value = default; default = default; temp = default }
+(* An immutable snapshot of the value of a statistics item, taken in
+   the domain that owns the values. This is what is sent to the
+   supervisor and printed. *)
+type 'a snapshot_value =
+  { display : string;
+    value : 'a }
+
+(* A snapshot of a statistics item of a certain type *)
+type snapshot =
+  | SI of int snapshot_value
+  | SF of float snapshot_value
+  | SL of int list snapshot_value
+
+(* Create a statistics item. A domain spawned while values have already
+   been recorded starts from a copy of the values of the spawning
+   domain, like a forked process would. *)
+let empty_item (display : string) (default : 'a) : 'a item =
+  { display;
+    default;
+    cell =
+      Domain.DLS.new_key
+        ~split_from_parent:(fun (c : 'a cell) ->
+          ({ value = c.value; temp = c.temp } : 'a cell))
+        (fun () -> ({ value = default; temp = default } : 'a cell)) }
+
+(* The domain-local state of an item *)
+let cell_of_item (item : 'a item) : 'a cell = Domain.DLS.get item.cell
 
 
 (* ********************************************************************** *)
@@ -50,7 +81,7 @@ let empty_item display default =
 (* ********************************************************************** *)
 
 (* Set the value of a generic statistics item *)
-let set_value value item = item.value <- value
+let set_value value item = (cell_of_item item).value <- value
 
 (* Set an integer statistics item *)
 let set = set_value
@@ -62,30 +93,37 @@ let set_float = set_value
 let set_int_list = set_value
 
 (* Increment an integers statistics item *)
-let incr ?(by = 1) ({ value } as item) = set_value (value + by) item
+let incr ?(by = 1) item =
+  let c = cell_of_item item in
+  c.value <- c.value + by
 
 (* Increment the last element of an integers statistics list *)
-let incr_last ?(by = 1) ({ value } as item) = 
+let incr_last ?(by = 1) item =
 
-  let rec aux = 
-    function 
+  let rec aux =
+    function
       | [] -> []
       | [l] -> [l + by]
       | h :: tl -> h :: aux tl
   in
 
-  set_value (aux value) item
+  let c = cell_of_item item in
+  c.value <- aux c.value
 
 (*
 (* Increment an integers statistics item *)
-let incr_float by ({ value } as item) = set_value (value +. by) item
+let incr_float by item =
+  let c = cell_of_item item in
+  c.value <- c.value +. by
 *)
 
 (* Append at the end of an integers statistics list *)
-let append elem ({ value } as item) = set_value (value @ [elem]) item
+let append elem item =
+  let c = cell_of_item item in
+  c.value <- c.value @ [elem]
 
 (* Reset the value of a generic statistics item *)
-let reset_value item = item.value <- item.default
+let reset_value item = (cell_of_item item).value <- item.default
 
 (* Reset the value of an integer statistics item *)
 let reset item = reset_value item
@@ -97,7 +135,7 @@ let reset_float item = reset_value item
 let reset_int_list item = reset_value item
 
 (* Get the value of a generic statistics item *)
-let get_value { value } = value
+let get_value item = (cell_of_item item).value
 
 (* Get the value of an integer statistics item *)
 let get item = get_value item
@@ -109,31 +147,34 @@ let get_float item = get_value item
 let get_int_list item = get_value item
 
 (* Start the timer for the statistics item *)
-let start_timer item = 
+let start_timer item =
 
-  item.temp <- (Unix.gettimeofday ()) ;
-  item.value <- 0.
+  let c = cell_of_item item in
+  c.temp <- (Unix.gettimeofday ()) ;
+  c.value <- 0.
 
 (* Record the time since the call to {!start_timer} of this item, stop
    the timer *)
-let record_time ({ temp } as item) = 
+let record_time item =
 
-  if temp > 0. then 
-    (item.value <- item.value +. (Unix.gettimeofday () -. temp);
-     item.temp <- 0.)
+  let c = cell_of_item item in
+  if c.temp > 0. then
+    (c.value <- c.value +. (Unix.gettimeofday () -. c.temp);
+     c.temp <- 0.)
 
 (* Unpauses a timer previously paused by [record_time]. *)
 let unpause_time item =
-  item.temp <- (Unix.gettimeofday ())
+  (cell_of_item item).temp <- (Unix.gettimeofday ())
 
 (* Record the time since the call to {!start_timer} of this item, do
    not stop the timer *)
-let update_time ({ temp } as item) = 
+let update_time item =
 
-  if temp > 0. then 
+  let c = cell_of_item item in
+  if c.temp > 0. then
     (let t = Unix.gettimeofday () in
-     item.value <- item.value +. (t -. temp);
-     item.temp <- t)
+     c.value <- c.value +. (t -. c.temp);
+     c.temp <- t)
 
 (* Time a function call and add to the statistics item *)
 let time_fun item f = 
@@ -161,33 +202,47 @@ let stop_all_timers stats =
 (* Statistics output                                                      *)
 (* ********************************************************************** *)
 
+(* Take a snapshot of the domain-local value of an item *)
+let snapshot_of_item = function
+  | I item -> SI { display = item.display; value = get_value item }
+  | F item -> SF { display = item.display; value = get_value item }
+  | L item -> SL { display = item.display; value = get_value item }
+
+(* Take a snapshot of a group of items *)
+let snapshot_of_group items = List.map snapshot_of_item items
+
+(* Take a snapshot of titled groups of items, as sent to the
+   supervisor *)
+let snapshot_of_stats stats =
+  List.map (fun (title, items) -> (title, snapshot_of_group items)) stats
+
 (* Width of display name of statistics item *)
 let display_width = function
-  | I { display } | F { display } | L { display } -> String.length display
+  | SI { display } | SF { display } | SL { display } -> String.length display
 
 (* Maximal Width of display names *)
-let max_display_width stats = 
-  List.fold_left (fun a i -> max (display_width i) a) 1 stats 
+let max_display_width stats =
+  List.fold_left (fun a i -> max (display_width i) a) 1 stats
 
 (* Pretty-print one statistics item *)
-let pp_print_item width ppf = function 
+let pp_print_item width ppf = function
 
-  | I { display; value } -> Format.fprintf ppf "%-*s: %d" width display value
+  | SI { display; value } -> Format.fprintf ppf "%-*s: %d" width display value
 
-  | F { display; value } -> Format.fprintf ppf "%-*s: %.3f" width display value
+  | SF { display; value } -> Format.fprintf ppf "%-*s: %.3f" width display value
 
-  | L { display; value } -> 
+  | SL { display; value } ->
 
-    Format.fprintf ppf 
-      "%-*s: @[<hov>%a@]" 
-      width 
-      display 
-      (Lib.pp_print_list Format.pp_print_int "@ ") 
+    Format.fprintf ppf
+      "%-*s: @[<hov>%a@]"
+      width
+      display
+      (Lib.pp_print_list Format.pp_print_int "@ ")
       value
-  
-  
-(* Pretty-print a group of statistics items *)
-let pp_print_stats ppf stats = 
+
+
+(* Pretty-print a group of snapshots *)
+let pp_print_snapshots ppf stats =
 
   (* Get the maximal display width *)
   let w = max_display_width stats in
@@ -195,10 +250,16 @@ let pp_print_stats ppf stats =
   pp_print_list (pp_print_item w) "@," ppf stats
 
 
+(* Pretty-print a group of statistics items, reading the values of the
+   calling domain *)
+let pp_print_stats ppf stats =
+  pp_print_snapshots ppf (snapshot_of_group stats)
+
+
 (* Pretty-print one statistics item *)
 let pp_print_item_xml ppf = function 
 
-  | I { display; value } -> 
+  | SI { display; value } -> 
 
     Format.fprintf ppf 
       "@[<hv 2><item>@,\
@@ -208,7 +269,7 @@ let pp_print_item_xml ppf = function
       display 
       value
 
-  | F { display; value } -> 
+  | SF { display; value } -> 
 
     Format.fprintf ppf
       "@[<hv 2><item>@,\
@@ -218,7 +279,7 @@ let pp_print_item_xml ppf = function
       display 
       value
 
-  | L { display; value } -> 
+  | SL { display; value } -> 
 
     Format.fprintf ppf 
       "@[<hv 2><item>@,\
@@ -233,7 +294,7 @@ let pp_print_item_xml ppf = function
 
   
 (* Pretty-print a group of statistics items in XML *)
-let pp_print_stats_xml ppf stats = 
+let pp_print_snapshots_xml ppf stats = 
 
   pp_print_list pp_print_item_xml "@," ppf stats
 
@@ -247,7 +308,7 @@ let pp_print_list_attrib pp ppf = function
 (* Pretty-print one statistics item *)
 let pp_print_item_json ppf = function
 
-  | I { display; value } ->
+  | SI { display; value } ->
 
     Format.fprintf ppf
       "{@[<v 1>@,\
@@ -258,7 +319,7 @@ let pp_print_item_json ppf = function
       "
       display value
 
-  | F { display; value } ->
+  | SF { display; value } ->
 
     Format.fprintf ppf
       "{@[<v 1>@,\
@@ -269,7 +330,7 @@ let pp_print_item_json ppf = function
       "
       display value
 
-  | L { display; value } ->
+  | SL { display; value } ->
 
     let pp_print_value_json ppf value =
       Format.fprintf ppf
@@ -293,7 +354,7 @@ let pp_print_item_json ppf = function
 
 
 (* Pretty-print a group of statistics items in JSON *)
-let pp_print_stats_json ppf stats =
+let pp_print_snapshots_json ppf stats =
 
   (pp_print_list_attrib pp_print_item_json ppf) stats
 

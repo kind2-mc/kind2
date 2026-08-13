@@ -153,7 +153,7 @@ let error_message kind = match kind with
   | TupleIndexOutOfBounds (id, ty) -> "Index " ^ string_of_int id ^ " is out of bounds for tuple type " ^ string_of_tc_type ty
   | IlltypedTupleProjection ty -> "Cannot project field out of non tuple type " ^ string_of_tc_type ty
   | NonConcreteTupleProjection e -> "Tuple projection '" ^ LA.string_of_expr e ^ "' must be a concrete natural number"
-  | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else branch but found: "
+  | UnequalIteBranchTypes (ty1, ty2) -> "Expected equal types of each if-then-else or when-then-else branch but found: "
     ^ string_of_tc_type ty1 ^ " on the then-branch and " ^ string_of_tc_type ty2 ^ " on the the else-branch"
   | ExpectedBooleanExpression ty -> "Expected a boolean expression but found expression of type " ^ string_of_tc_type ty
   | ExpectedIntegerExpression ty -> "Expected an integer expression but found expression of type "  ^ string_of_tc_type ty
@@ -263,7 +263,7 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring id ^ "' expects " ^
     string_of_int expected ^ " argument(s) but got " ^ string_of_int got
   | MatchScrutineeNotADT ty ->
-    "Match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
+    "Tester argument or match scrutinee must be an algebraic data type but found type " ^ string_of_tc_type ty
   | UnequalMatchArmTypes (ty1, ty2) ->
     "Match arm types do not agree: found " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | DuplicateConstructor (ctor, ty1, ty2) ->
@@ -1313,7 +1313,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
                         (type_error pos (TypeMismatchOfRecordLabel (l, f_ty, e_ty)))
                     | None -> type_error pos (NotAFieldOfRecord l)))
               | _ -> type_error pos (IlltypedUpdateWithLabel ue_ty))
-      | LA.Index (pos, i) ->
+      | LA.Index (pos, i, _) ->
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
         let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
         (match ue_ty' with
@@ -1325,7 +1325,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           in
           let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
           let* ue, warnings3 = check_type_tuple_proj pos ctx nname ue idx e_ty in
-          R.ok (ue_ty', LA.StructUpdate (pos, ue, i_or_ls, Some e), warnings1 @ warnings2 @ warnings3)
+          R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.TupleSlot)], Some e), warnings1 @ warnings2 @ warnings3)
         )
         | ArrayType (_, (b_ty, _)) -> (
           let* index_type, i, warnings1 = infer_type_expr ctx nname i in
@@ -1333,9 +1333,23 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           let i, b = is_expr_int_type ctx nname i in
           if b then
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
-            R.ifM (eq_lustre_type ctx b_ty e_ty)
-              (R.ok (ue_ty', LA.StructUpdate (pos, ue, LA.Index (pos, i) :: List.tl i_or_ls, Some e), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (e_ty, b_ty)))
+            (*** TODO: Address the bug that makes this necessary ***)
+            let nested_array_update_pos = function
+              | LA.StructUpdate (p, _, [LA.Index (_, _, LA.ArrayElem)], Some _) -> Some p
+              | _ -> None
+            in
+            (match nested_array_update_pos ue, nested_array_update_pos e with
+            | Some p, _ | None, Some p ->
+              type_error p
+                (Unsupported "An array-element update whose updated array \
+                              or new value is itself an array-element \
+                              update is not supported; assign the inner \
+                              update to a local variable first")
+            | None, None ->
+              R.ifM (eq_lustre_type ctx b_ty e_ty)
+                (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
+                (type_error pos (ExpectedType (e_ty, b_ty))))
+            (*** (end) ***)
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
@@ -1833,9 +1847,9 @@ and desugar_generic_index ctx nname ue idx = match idx with
        (justification for ignoring expression output of `infer_type_expr` *)
     let* ty, _, _ = infer_type_expr ctx nname ue in 
     let* ty = expand_type_syn_reftype_history ctx ty in (
-    match ty with 
-    | LA.TupleType _ 
-    | LA.ArrayType _ -> Ok (LA.Index (pos, e2))
+    match ty with
+    | LA.TupleType _ -> Ok (LA.Index (pos, e2, LA.TupleSlot))
+    | LA.ArrayType _ -> Ok (LA.Index (pos, e2, LA.ArrayElem))
     | LA.Map _ -> Ok (LA.MapIndex (pos, e2))
     | LA.RecordType _ -> (
       match e2 with 
@@ -2851,7 +2865,7 @@ and check_no_index_access ctx nname ty e =
         | LA.MapIndex (_, e)
         | LA.SetIndex (_, e)
         | LA.GenericIndex (_, e)
-        | LA.Index (_, e) -> r e
+        | LA.Index (_, e, _) -> r e
       ) li) >>
     r e2
   | StructUpdate (_, e1, li, None) ->
@@ -2861,7 +2875,7 @@ and check_no_index_access ctx nname ty e =
         | LA.MapIndex (_, e)
         | LA.SetIndex (_, e)
         | LA.GenericIndex (_, e)
-        | LA.Index (_, e) -> r e
+        | LA.Index (_, e, _) -> r e
       ) li)
   | Pre (_, e) ->
     r e

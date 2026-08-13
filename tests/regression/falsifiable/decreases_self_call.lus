@@ -1,0 +1,18 @@
+-- A recursive function that calls itself on its own arguments: the measure
+-- stays equal instead of decreasing, so the decrease_check must be falsified.
+-- The defining equation "out = 1 + Loop(n)" has no solution, so tying every
+-- instance of Loop to its functional UF must not be assumed unconditionally:
+-- an inconsistent transition system would make every property (including the
+-- termination checks themselves) vacuously valid.
+function rec Loop(n: int) returns (out: int);
+(*@contract
+  decreases n;
+*)
+let
+  out = 1 + Loop(n);
+tel
+
+node main() returns ();
+let
+  check "should_be_falsifiable" Loop(0) < 0;
+tel

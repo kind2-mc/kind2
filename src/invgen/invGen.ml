@@ -150,29 +150,43 @@ module Make (Graph : GraphSig) : Out = struct
   (* Domain we're working with. *)
   module Domain = Graph.Domain
 
+  (* The references below are domain-local: the one-state and two-state
+     variants of the same graph module run concurrently in separate
+     domains and must not share the LSD instances they use. Each
+     accessor returns the domain-local reference. *)
+
   (* Reference to base checker for clean exit. *)
-  let base_ref = ref None
+  let base_ref =
+    let key = Stdlib.Domain.DLS.new_key (fun () -> ref None) in
+    fun () -> Stdlib.Domain.DLS.get key
   (* Reference to step checker for clean exit. *)
-  let step_ref = ref None
+  let step_ref =
+    let key = Stdlib.Domain.DLS.new_key (fun () -> ref None) in
+    fun () -> Stdlib.Domain.DLS.get key
   (* Reference to pruning checkers for clean exit. *)
-  let prune_ref = ref []
+  let prune_ref =
+    let key = Stdlib.Domain.DLS.new_key (fun () -> ref []) in
+    fun () -> Stdlib.Domain.DLS.get key
 
   (* Kills the LSD instance. *)
   let no_more_lsd () =
-    ( match !base_ref with
+    ( match !(base_ref ()) with
       | None -> ()
       | Some lsd -> try Lsd.kill_base lsd with _ -> () ) ;
-    ( match !step_ref with
+    ( match !(step_ref ()) with
       | None -> ()
       | Some lsd -> try Lsd.kill_step lsd with _ -> () ) ;
-    ! prune_ref |> List.iter (
+    !(prune_ref ()) |> List.iter (
       fun lsd -> try Lsd.kill_pruning lsd with _ -> ()
     )
 
-  (* Clean exit. *)
-  let exit _ =
-    no_more_lsd () ;
-    exit ExitCodes.success
+  (* Clean exit: only cleans up. The engine runs in a domain of the
+     Kind 2 process, so it must unwind normally instead of exiting the
+     process. *)
+  let exit _ = no_more_lsd ()
+
+  (* Stops the invariant generation engine: clean up and unwind. *)
+  let quit () = no_more_lsd () ; raise Exit
 
   (** Prefix used for logging two state invariants. *)
   let pref_s two_state =
@@ -447,14 +461,14 @@ module Make (Graph : GraphSig) : Out = struct
         KEvent.log L_fatal
           "%s could not find pruning checker for system [%s]"
           (pref_s two_state) (sys_name input_sys sys) ;
-        exit ()
+        quit ()
       )
     in
 
     (* Creating base checker. *)
     let lsd = Lsd.mk_base_checker input_sys sys k in
     (* Memorizing LSD instance for clean exit. *)
-    base_ref := Some lsd ;
+    base_ref () := Some lsd ;
 
     (* Format.printf "LSD instance is at %a@.@." Num.pp_print_numeral (Lsd.get_k lsd sys) ; *)
 
@@ -506,8 +520,8 @@ module Make (Graph : GraphSig) : Out = struct
     KEvent.log_uncond "%s Done checking consistency" (pref_s two_state) ; *)
 
     let lsd = Lsd.to_step lsd in
-    base_ref := None ;
-    step_ref := Some lsd ;
+    base_ref () := None ;
+    step_ref () := Some lsd ;
 
     (* Receiving messages. *)
     let new_os, new_ts =
@@ -618,7 +632,7 @@ module Make (Graph : GraphSig) : Out = struct
     (* Destroying LSD. *)
     Lsd.kill_step lsd ;
     (* Unmemorizing LSD instance. *)
-    step_ref := None ;
+    step_ref () := None ;
 
     let top_level_count = top_level_count + top_level_inc in
 
@@ -636,8 +650,6 @@ module Make (Graph : GraphSig) : Out = struct
       "./dot" "graph" suff Graph.fmt_graph_dot graph ;
     InvGenGraph.write_dot_to
       "./dot" "classes" suff Graph.fmt_graph_classes_dot graph ; *)
-    (* minisleep 2.0 ;
-    exit () ; *)
 
     let memory, res = (sys, graph, non_trivial, trivial) :: memory, res
     in
@@ -695,7 +707,7 @@ module Make (Graph : GraphSig) : Out = struct
       Graph.mine top_only two_state aparam sys (
         fun sys ->
           let pruning_checker = Lsd.mk_pruning_checker input_sys sys in
-          prune_ref := pruning_checker :: (! prune_ref) ;
+          prune_ref () := pruning_checker :: (!(prune_ref ())) ;
           SysMap.replace sys_map sys pruning_checker
       )
       |> List.filter (
@@ -710,30 +722,37 @@ module Make (Graph : GraphSig) : Out = struct
       |> function
         | [] ->
           KEvent.log L_info "%s no candidate to run on" (pref_s two_state) ;
-          exit ()
+          quit ()
         | graphs ->
           system_iterator
             max_depth two_state input_sys aparam sys [] [] k sys_map 0 graphs
 
     ) with
-    | KEvent.Terminate -> exit ()
+    | KEvent.Terminate -> quit ()
+    (* [quit] itself unwinds with [Exit], e.g. when there is no
+       candidate to run on: normal termination, not an error *)
+    | Exit -> quit ()
     | Failure msg -> (
-      let msg =
-        if msg = "SMT solver failed: Arrays with Bool as argument are not supported" ||
-           msg = "SMT solver failed: Higher-order compound types not supported" then
-        (
-          "MathSAT does not support maps, sets, or arrays over bool"
-        )
-        else msg
-      in
-      KEvent.log L_fatal "Caught failure in invariant generator: %s" msg ;
-      minisleep 0.5 ;
-      exit ()
+      (* During coordinated termination, failures are a consequence of
+         solvers being killed under the engine: quit silently. *)
+      if not (EngineDomains.is_terminating ()) then (
+        let msg =
+          if msg = "SMT solver failed: Arrays with Bool as argument are not supported" ||
+             msg = "SMT solver failed: Higher-order compound types not supported" then
+          (
+            "MathSAT does not support maps, sets, or arrays over bool"
+          )
+          else msg
+        in
+        KEvent.log L_fatal "Caught failure in invariant generator: %s" msg
+      ) ;
+      quit ()
     )
     | e -> (
-      KEvent.log L_fatal "Caught exception in invariant generator: %s" (Printexc.to_string e) ;
-      minisleep 0.5 ;
-      exit ()
+      if not (EngineDomains.is_terminating ()) then
+        KEvent.log L_fatal "Caught exception in invariant generator: %s"
+          (Printexc.to_string e) ;
+      quit ()
     )
 
 end
@@ -787,8 +806,7 @@ let run_main eq_cond eq_main main two_state in_sys param sys =
       Flags.modular ()
     )
     two_state in_sys param sys
-    |> ignore ;
-    exit ExitCodes.success
+    |> ignore
 
 let main_bool two_state in_sys param sys =
   run_main Flags.Invgen.bool_eq_only EqOnly.BoolInvGen.main BoolInvGen.main

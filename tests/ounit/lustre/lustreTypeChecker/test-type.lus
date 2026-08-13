@@ -12,7 +12,7 @@ type y = x;
 -- type z;
 
 -- Alias definition of record type
-type t = { one: x; two: real };
+type t = struct { one: x; two: real };
 
 -- Alias definition of tuple type
 type u = [t, bool, subrange [-1, 1] of int ];

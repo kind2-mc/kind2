@@ -44,14 +44,26 @@ val create_instance :
   Flags.Smt.solver ->
   t
 
+(** Set while the supervisor is terminating the engines of an
+    analysis: solver instances are then killed outright instead of
+    shut down gracefully. *)
+val set_shutting_down : bool -> unit
+
 (** Delete an instance of an SMT solver *)
 val delete_instance : t -> unit
 
-(** Destroys all live solver instances. *)
+(** Destroys all live solver instances owned by the calling domain. *)
 val destroy_all : unit -> unit
 
-(** Delete instance entries (should be called after forking, on child processes). *)
-val delete_instance_entries : unit -> unit
+(** Destroys every live solver instance of the whole process. Only for
+    final cleanup before the process exits. *)
+val destroy_all_of_process : unit -> unit
+
+(** Kills the solver processes owned by the given domain (as returned by
+    [(Domain.self () :> int)] in that domain) without interacting with
+    them. Used by the supervisor to unblock an engine domain stuck in a
+    solver call. *)
+val kill_solvers_of_domain : int -> unit
 
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int

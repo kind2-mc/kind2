@@ -920,22 +920,30 @@ let decimal_of_hstring s =
       n
 *)
 
-(* Cache for conversions of strings to bitvectors *)
-let hstring_bitvector_cache = HString.HStringHashtbl.create 7
+(* Cache for conversions of strings to bitvectors.
+
+   Private to each domain, copied from the parent at spawn: it
+   holds hash-consed values, which only mean anything in the
+   tables of the domain that built them. *)
+let hstring_bitvector_cache_key =
+  Domain.DLS.new_key ~split_from_parent:HString.HStringHashtbl.copy
+    (fun () -> HString.HStringHashtbl.create 7)
+
+let hstring_bitvector_cache () = Domain.DLS.get hstring_bitvector_cache_key
 
 (* Convert a hashconsed string to a bitvector using the cache *)
 let bitvector_of_hstring s =
 
   (* Return cached value if available *)
-  try HString.HStringHashtbl.find hstring_bitvector_cache s with 
+  try HString.HStringHashtbl.find (hstring_bitvector_cache ()) s with
 
-    | Not_found -> 
-      
+    | Not_found ->
+
       (* Convert string to a bitvector *)
       let n = bitvector_of_string (HString.string_of_hstring s) in
-      
+
       (* Add to cache *)
-      HString.HStringHashtbl.add hstring_bitvector_cache s n;
+      HString.HStringHashtbl.add (hstring_bitvector_cache ()) s n;
 
       (* Return bitvector *)
       n

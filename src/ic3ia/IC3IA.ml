@@ -30,12 +30,22 @@ let prime_abstr_offset = Numeral.succ base_abstr_offset
 let prime_offset = Numeral.of_int 3
 let max_offset = prime_abstr_offset
 
+(* Per-engine state, domain-local: several IC3IA instances run
+   concurrently in separate domains and must not share these. Each
+   accessor returns the domain-local reference. *)
+
 (* Interpolation instance if created *)
-let ref_interpolator = ref None
+let ref_interpolator =
+  let key = Domain.DLS.new_key (fun () -> ref None) in
+  fun () -> Domain.DLS.get key
 
-let max_unrolling = ref 0
+let max_unrolling =
+  let key = Domain.DLS.new_key (fun () -> ref 0) in
+  fun () -> Domain.DLS.get key
 
-let added_logic = ref None
+let added_logic =
+  let key = Domain.DLS.new_key (fun () -> ref None) in
+  fun () -> Domain.DLS.get key
 
 let init_svar () =
   StateVar.mk_state_var
@@ -60,8 +70,8 @@ let sys_def_guard () =
   UfSymbol.mk_uf_symbol "%sys_def" [] Type.t_bool
 
 let on_exit _ =
-  max_unrolling := 0 ;
-  match !ref_interpolator with
+  max_unrolling () := 0 ;
+  match !(ref_interpolator ()) with
   | None -> ()
   | Some s -> SMTSolver.delete_instance s
 
@@ -143,7 +153,7 @@ let sys_def_unrolling solver sys offset =
       ]
 
 let get_logic sys =
-  added_logic := None;
+  added_logic () := None;
   match Flags.Smt.itp_solver () with
   | `MathSAT_SMTLIB -> (
     let open TermLib in
@@ -153,9 +163,9 @@ let get_logic sys =
        (implemented using to_real/to_int in SMT-LIB 2)
     *)
     | `Inferred l when mem IA l && not (mem RA l) ->
-      added_logic := Some RA; `Inferred (FeatureSet.add RA l)
+      added_logic () := Some RA; `Inferred (FeatureSet.add RA l)
     | `Inferred l when mem RA l && not (mem IA l) ->
-      added_logic := Some IA; `Inferred (FeatureSet.add IA l)
+      added_logic () := Some IA; `Inferred (FeatureSet.add IA l)
     | l -> l
   )
   | _ -> TransSys.get_logic sys
@@ -287,23 +297,23 @@ let refine fwd solver sys predicates cubes =
   let len = List.length cubes in
 
   let intrpo =
-    match !ref_interpolator with
+    match !(ref_interpolator ()) with
       | Some s ->
         
-        if len > !max_unrolling then (
+        if len > !(max_unrolling ()) then (
           
           TransSys.declare_vars_of_bounds
             sys
             (SMTSolver.declare_fun s)
-            (Numeral.of_int (!max_unrolling + 1))
+            (Numeral.of_int (!(max_unrolling ()) + 1))
             (Numeral.of_int len);
 
           declare_init_var
             (SMTSolver.declare_fun s)
-            (Numeral.of_int (!max_unrolling + 1))
+            (Numeral.of_int (!(max_unrolling ()) + 1))
             (Numeral.of_int len);
 
-          max_unrolling := len;
+          max_unrolling () := len;
         );
         s
 
@@ -342,8 +352,8 @@ let refine fwd solver sys predicates cubes =
           (Numeral.(pred zero))
           (Numeral.of_int len);
 
-        ref_interpolator := Some solver;
-        max_unrolling := len;
+        ref_interpolator () := Some solver;
+        max_unrolling () := len;
         solver
 
   in
@@ -636,7 +646,7 @@ let get_invariant init c =
 
 let report_invariant sys inv =
   let broadcast_inv =
-    match !added_logic with
+    match !(added_logic ()) with
     | None -> true
     | Some f -> (
       let inv_logic = TermLib.logic_of_term [] inv in

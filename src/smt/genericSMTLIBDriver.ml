@@ -945,8 +945,8 @@ let const_of_smtlib_atom b t =
         with Invalid_argument _ -> 
           try 
             (* Return decimal of string *)
-            Term.mk_dec (Decimal.of_num (Num.num_of_string
-                                           (HString.string_of_hstring t)))
+            Term.mk_dec (Decimal.of_rational_string
+                           (HString.string_of_hstring t))
           with
             Invalid_argument _ | Failure _ -> 
             try 

@@ -82,11 +82,17 @@ let index_of_scope s =
   curr
 *)
 
-let node_num_id = ref 0
+(* Numbered in the range of the calling domain: the resulting tag names
+   state variable scopes, and a collision would alias the state
+   variables of two distinct recursive unrollings. *)
+let node_num_id =
+  Domain.DLS.new_key (fun () -> ref (Lib.fresh_name_base ()))
+
 let get_node_num_id () =
-  let res = ! node_num_id in
-  node_num_id := 1 + !node_num_id ;
-  res
+  let r = Domain.DLS.get node_num_id in
+  let id = !r in
+  r := id + 1 ;
+  id
 
 let get_rec_tag id = Format.asprintf "rec_%d" id
 
@@ -983,6 +989,34 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
 
   let node_props = node_assume_props @ func_termination_props @ node_props in
 
+  (* Guard the constraints of a recursive call with its termination checks.
+
+     At the recursion cutoff the callee is sliced to its contract abstraction,
+     so calling it *assumes* its guarantees: that is the inductive hypothesis
+     of the recursion, and it is only justified if the recursion is well
+     founded. Asserting it unconditionally lets a non-decreasing function or
+     lemma assume its own guarantees at the very same argument. With an
+     unsatisfiable guarantee the whole transition system becomes inconsistent
+     and every property is vacuously valid -- including the termination checks
+     meant to detect the problem, which are then of no help either.
+
+     Guarding leaves the caller's own variables untouched, so the termination
+     checks themselves (stated over the actual arguments) are unaffected and
+     stay falsifiable. *)
+  let guard_rec_call offset term =
+    match func_termination_props with
+    | [] -> term
+    | props ->
+      let guard =
+        props
+        |> List.map (fun { P.prop_term } -> prop_term)
+        |> Term.mk_and
+        (* The checks are stated at [TransSys.prop_base]. *)
+        |> Term.bump_state Numeral.(offset - TransSys.prop_base)
+      in
+      Term.mk_implies [guard; term]
+  in
+
   let node_assumes =
     if node_assume_props = [] then None
     else (
@@ -1049,15 +1083,17 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       (E.base_term_of_state_var TransSys.init_base)
 
     |> Term.mk_uf init_uf_symbol
+    |> guard_rec_call TransSys.init_base
 
   in
 
   (* Term for initial state constraint at current state *)
-  let init_call_term_trans = 
+  let init_call_term_trans =
     init_params_of_bound
       (E.cur_term_of_state_var TransSys.trans_base)
 
     |> Term.mk_uf init_uf_symbol
+    |> guard_rec_call TransSys.trans_base
 
   in
 
@@ -1067,6 +1103,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       (E.cur_term_of_state_var TransSys.trans_base)
       (E.pre_term_of_state_var TransSys.trans_base)
     |> Term.mk_uf trans_uf_symbol
+    |> guard_rec_call TransSys.trans_base
   in
 
   (* apply subsitutions on bounds also *)
@@ -2459,14 +2496,6 @@ let function_congruence_group state_var_bounds inputs uf_symbols
     )
   )
 
-(* Functional congruence groups of the subtree of an already created
-   transition system, keyed by its scope. Reset at each [trans_sys_of_nodes]
-   entry; used to lift the application tuples of the functions of a subtree
-   into each ancestor system. *)
-let fn_congruence_groups_tbl
-    : (Scope.t, TransSys.fn_congruence_group list) Hashtbl.t =
-  Hashtbl.create 7
-
 let rec trans_sys_of_node' options globals top_name analysis_param
   trans_sys_defs output_input_dep nodes definition_set = function
 
@@ -2823,30 +2852,20 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               (E.base_term_of_t TransSys.init_base)
               contract_asserts
 
-            (* Add functional constraints on ouputs if any. *)
-            |> List.rev_append function_constraints_at_0
-
           in
 
           (* Transition relation *)
-          let trans_terms = 
+          let trans_terms =
 
             (* Init flag becomes and stays false at the second
                tick *)
             (E.cur_term_of_state_var TransSys.trans_base init_flag
-             |> Term.negate) :: 
+             |> Term.negate) ::
 
             (* Add invariants from contracts as assertions *)
             List.map
               (E.cur_term_of_t TransSys.trans_base)
               contract_asserts
-
-            (* Add functional constraints on ouputs if any. *)
-            |> List.rev_append (
-              (* Bump to `1`. *)
-              function_constraints_at_0
-              |> List.map (Term.bump_state Numeral.one)
-            )
 
           in
 
@@ -2970,6 +2989,50 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               init_terms
               trans_terms
               calls
+          in
+
+          (* Add functional constraints on outputs if any.
+
+             For an expanded instance of a recursive function, tying the
+             output to the functional UF asserts the function's defining
+             equation at the instance's argument. That is only justified once
+             the recursion is known to be well founded: for a non-terminating
+             definition such as [f(n) = 1 + f(n)] the equation is
+             unsatisfiable, and an inconsistent transition system makes every
+             property vacuously valid -- including the very termination
+             checks meant to detect the non-termination.
+
+             We therefore guard the constraint with the termination checks of
+             the instance's recursive calls. The guarded axiom is satisfiable
+             for any recursive definition (define the function by
+             well-founded recursion on the measure wherever the guard holds,
+             and arbitrarily elsewhere), and it is as strong as the unguarded
+             one on functions whose measure does decrease. *)
+          let init_terms, trans_terms =
+            match function_constraints_at_0 with
+            | [] -> init_terms, trans_terms
+            | _ -> (
+              let termination_guards =
+                lifted_props |> List.filter_map (fun { P.prop_source; P.prop_term } ->
+                  match prop_source with
+                  | P.TerminationCheck _ -> Some prop_term
+                  | _ -> None
+                )
+              in
+              let function_constraints_at_0 =
+                match termination_guards with
+                | [] -> function_constraints_at_0
+                | _ ->
+                  let guard = Term.mk_and termination_guards in
+                  function_constraints_at_0
+                  |> List.map (fun c -> Term.mk_implies [guard; c])
+              in
+              List.rev_append function_constraints_at_0 init_terms,
+              List.rev_append
+                (* Bump to `1`. *)
+                (List.map (Term.bump_state Numeral.one) function_constraints_at_0)
+                trans_terms
+            )
           in
 
           let history_svars =
@@ -3397,12 +3460,13 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             in
             let lifted =
               List.concat_map (fun (t, instances) ->
-                match
-                  Hashtbl.find_opt fn_congruence_groups_tbl
-                    (TransSys.scope_of_trans_sys t)
-                with
-                | None -> []
-                | Some groups ->
+                (* The groups of a subsystem are carried by the subsystem
+                   itself, so nothing has to be shared between the
+                   constructions of two transition systems (they can run
+                   concurrently, in different domains) *)
+                match TransSys.fn_congruence_groups t with
+                | [] -> []
+                | groups ->
                   groups |> List.map (fun g ->
                     let apps =
                       List.concat_map (fun { TransSys.map_up; _ } ->
@@ -3442,8 +3506,6 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               | _ -> g :: acc
             ) [] all
           in
-          Hashtbl.replace fn_congruence_groups_tbl scope fn_congruence_groups ;
-
           (* Create transition system *)
           let trans_sys, _ =
             TransSys.mk_trans_sys
@@ -3505,13 +3567,22 @@ let trans_sys_of_nodes
     subsystems analysis_param
   =
 
-  (* Prevent the garbage collector from running too often during the frontend
-     operations *)
-  Lib.set_liberal_gc ();
+  (* Work on a private copy of the bounds of the state variables.
 
-  (* The same scope can recur across analyses with a different abstraction,
-     changing which outputs are undefined and thus which axioms exist *)
-  Hashtbl.reset fn_congruence_groups_tbl ;
+     The table of [globals] is shared by everything that was built from
+     the same input system, and the engines of an analysis read the one
+     of their transition system while they interpret the models of
+     their solver. Building a transition system adds entries to it, and
+     an IC3IA engine builds one of its own, in its own domain, while
+     the other engines are running: they would then be reading a table
+     that another domain is modifying. Every transition system gets its
+     own table instead, which nothing modifies once it is built. *)
+  let globals =
+    { globals with
+      G.state_var_bounds =
+        StateVar.StateVarHashtbl.copy globals.G.state_var_bounds }
+  in
+
 
   let { A.top } =
     A.info_of_param analysis_param
@@ -3604,9 +3675,6 @@ let trans_sys_of_nodes
     | _ -> ()
   ) ;
 
-  (* Reset garbage collector to its initial settings *)
-  Lib.reset_gc_params ();
-
   let trans_sys =
     if options.slice_nodes == `Experimental then (
       let graph =
@@ -3634,9 +3702,9 @@ let trans_sys_of_nodes
 
 
 
-(* 
+(*
    Local Variables:
    compile-command: "make -k -C .."
    indent-tabs-mode: nil
-   End: 
+   End:
 *)

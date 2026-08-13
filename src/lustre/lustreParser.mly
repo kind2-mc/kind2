@@ -494,8 +494,8 @@ tuple_type:
 (* A record type (V6) *)
 record_type:
 
-  (* Keyword "struct" is optional *)
-  | option(STRUCT); 
+  (* Keyword "struct" is required *)
+  | STRUCT; 
     f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, typed_idents)
   
     { List.flatten f  }

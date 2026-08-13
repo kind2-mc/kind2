@@ -1,4 +1,4 @@
-type y_t = { a: int; b: real };
+type y_t = struct { a: int; b: real };
 
 node x (i: int) returns (a, b, c: real)
 let

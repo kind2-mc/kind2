@@ -22,19 +22,29 @@ module VS = Var.VarSet
 
 exception QuantifiedTermFound of Term.t
 
-(* The current solver instance in use *)
-let solver_qe = ref None 
+(* Per-engine state, domain-local: the engine using quantifier
+   elimination runs in its own domain and must not share these with
+   other engines. Each accessor returns the domain-local reference. *)
 
 (* The current solver instance in use *)
-let solver_check = ref None
+let solver_qe =
+  let key = Domain.DLS.new_key (fun () -> ref None) in
+  fun () -> Domain.DLS.get key
+
+(* The current solver instance in use *)
+let solver_check =
+  let key = Domain.DLS.new_key (fun () -> ref None) in
+  fun () -> Domain.DLS.get key
 
 let initial_ubound = Numeral.zero
 
-let ubound = ref initial_ubound
+let ubound =
+  let key = Domain.DLS.new_key (fun () -> ref initial_ubound) in
+  fun () -> Domain.DLS.get key
 
-let get_ubound () = !ubound
+let get_ubound () = !(ubound ())
 
-let set_ubound bound = ubound := bound
+let set_ubound bound = ubound () := bound
 
 let get_qe_solver () =
   match Flags.Smt.qe_solver () with
@@ -46,7 +56,7 @@ let get_qe_solver () =
 let get_solver_instance trans_sys = 
 
   (* Solver instance created before? *)
-  match !solver_qe with 
+  match !(solver_qe ()) with 
 
     (* Need to create a new instance *)
     | None -> 
@@ -64,7 +74,7 @@ let get_solver_instance trans_sys =
            "Declaring state variables: %s@."
            (string_of_t 
               (pp_print_list Var.pp_print_var ",@ ") 
-              (TransSys.vars_of_bounds trans_sys Numeral.zero !ubound)));
+              (TransSys.vars_of_bounds trans_sys Numeral.zero !(ubound ()))));
       
       (* Defining uf's and declaring variables. *)
       TransSys.define_and_declare_of_bounds
@@ -72,7 +82,7 @@ let get_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.zero !ubound;
+        Numeral.zero !(ubound ());
       
       SMTSolver.trace_comment solver "Defining predicates";
 
@@ -84,7 +94,7 @@ let get_solver_instance trans_sys =
       *)
       
       (* Save instance *)
-      solver_qe := Some solver;
+      solver_qe () := Some solver;
 
 (*
       (* Z3 needs this option, default is 5 and we get let definitions
@@ -111,7 +121,7 @@ let get_solver_instance trans_sys =
 let get_checking_solver_instance trans_sys = 
 
   (* Solver instance created before? *)
-  match !solver_check with 
+  match !(solver_check ()) with 
 
     (* Need to create a new instance *)
     | None -> 
@@ -143,10 +153,10 @@ let get_checking_solver_instance trans_sys =
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
-        Numeral.zero !ubound;
+        Numeral.zero !(ubound ());
 
       (* Save instance *)
-      solver_check := Some solver;
+      solver_check () := Some solver;
 
       (* Return instance *)
       solver
@@ -158,14 +168,14 @@ let get_checking_solver_instance trans_sys =
 (* Kill created solver instances and reset ubound *)
 let on_exit () = 
 
-  ubound := initial_ubound ;
+  ubound () := initial_ubound ;
 
   (* Delete solver instance if created *)
   (try 
-     match !solver_qe with 
+     match !(solver_qe ()) with 
        | Some s -> 
          SMTSolver.delete_instance s; 
-         solver_qe := None
+         solver_qe () := None
        | None -> ()
    with 
      | e -> 
@@ -176,10 +186,10 @@ let on_exit () =
 
   (* Delete solver instance if created *)
   (try 
-     match !solver_check with 
+     match !(solver_check ()) with 
        | Some s -> 
          SMTSolver.delete_instance s; 
-         solver_check := None
+         solver_check () := None
        | None -> ()
    with 
      | e -> 

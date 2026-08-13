@@ -28,8 +28,13 @@ module Num = Numeral
    solver. They are activated lazily: only when a counterexample to
    2-induction is found, to check whether it is spurious with respect to the
    intended (deterministic) semantics of functions with container-typed
-   arguments (see [TransSys.fn_congruence_instances]). *)
-let fn_congruence_activated = ref false
+   arguments (see [TransSys.fn_congruence_instances]).
+
+   Domain-local: each engine runs in its own domain with its own solver, and
+   the flag records whether the instances were asserted in *that* solver. *)
+let fn_congruence_activated_key = Domain.DLS.new_key (fun () -> ref false)
+
+let fn_congruence_activated () = Domain.DLS.get fn_congruence_activated_key
 
 let zero = Num.zero
 let one = Num.one
@@ -130,7 +135,7 @@ let mk_ctx in_sys param sys =
   |> Smt.assert_term solver ;
 
   (* Functional congruence instances start deactivated (see [split]). *)
-  fn_congruence_activated := false ;
+  fn_congruence_activated () := false ;
 
   {
     solver ; in_sys ; param ; sys ;
@@ -178,8 +183,8 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
   match props with
     (* Nothing new property-wise, keep going if no new invariant. *)
     | [] -> if not new_stuff then (
-      (* No new invariants, sleeping and looping. *)
-      minisleep 0.07 ;
+      (* No new invariants, waiting for the next message and looping. *)
+      KEvent.wait_for_message () ;
       check_new_things false ctx
     )
     (* Some properties changed status. *)
@@ -213,7 +218,7 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
       ctx.map <- map ;
       (* We got new stuff we don't loop. *)
       if not new_stuff then (
-        minisleep 0.07 ;
+        KEvent.wait_for_message () ;
         check_new_things false ctx
       )
 
@@ -279,7 +284,7 @@ let split { solver ; sys ; map ; _ } =
         deactivate () ;
         unknowns |> List.map (fun t -> List.assq t map_back)
       | Some _
-        when not !fn_congruence_activated
+        when not !(fn_congruence_activated ())
              && Sys.has_fn_congruence_groups sys ->
         (* A counterexample to 2-induction without the functional congruence
            instances may be spurious; activate them and check again. *)
@@ -288,7 +293,7 @@ let split { solver ; sys ; map ; _ } =
           "Activating functional congruence instances." ;
         Sys.fn_congruence_instances_up_to sys Num.(succ one)
         |> List.iter (Smt.assert_term solver) ;
-        fn_congruence_activated := true ;
+        fn_congruence_activated () := true ;
         loop falsifiable
       | Some [] ->
         failwith "got empty list of falsifiable properties"
