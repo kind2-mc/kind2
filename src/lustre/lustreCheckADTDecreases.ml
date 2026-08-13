@@ -34,6 +34,7 @@ type error_kind =
   | NotAStructuralSubterm of LA.expr * LA.expr
   (* (substituted callee measure, caller measure) *)
   | MixedDecreasesKindsInScc of LA.ident list
+  | RecursiveCallInContract of LA.ident
 
 type error = [`LustreCheckADTDecreasesError of Lib.position * error_kind]
 
@@ -51,6 +52,12 @@ let error_message = function
     ^ " must all use the same kind of decreases measure (either all integer, \
        or all algebraic data type); mixing kinds within one mutually \
        recursive group is not supported"
+  | RecursiveCallInContract id ->
+    "Contract contains a call to '" ^ HString.string_of_hstring id
+    ^ "', which belongs to the same recursive group as the function being \
+       specified; a recursive call in a function's own contract is not \
+       supported, because the contract is what the call is abstracted to at \
+       the recursion cutoff. Move the call into the function's body"
 
 let check_error pos kind = Error (`LustreCheckADTDecreasesError (pos, kind))
 
@@ -67,10 +74,10 @@ let get_decreases = function
 (* Check whether the type of e is a recursive ADT according to adt_map. *)
 let is_adt_decreases ctx adt_map nname e =
   match Chk.infer_type_expr ctx (Some nname) e with
-  | Error _ -> false
+  | Error _ -> assert false
   | Ok (ty, _, _) ->
     match Chk.expand_type_syn_reftype_history ctx ty with
-    | Error _ -> false
+    | Error _ -> assert false
     | Ok ty_exp ->
       let name_opt = match ty_exp with
         | LA.UserType (_, _, n) | LA.ADT (_, n, _) -> Some n
@@ -243,15 +250,58 @@ let check_consistent_scc_kinds ctx adt_map scc_map decls =
     (scc_id, entry :: prev) :: List.remove_assoc scc_id acc
   ) [] entries in
   Res.seq_ (List.map (fun (_, members) ->
-    match members with
+    (* The fold above prepends, so restore declaration order for reporting *)
+    match List.rev members with
     | [] | [_] -> Ok ()
-    | (_, _, k0) :: _ ->
+    | ((pos, _, k0) :: _) as members ->
       if List.for_all (fun (_, _, k) -> k = k0) members then Ok ()
       else
-        let pos, _, _ = List.hd members in
         let ids = List.map (fun (_, id, _) -> id) members in
         check_error pos (MixedDecreasesKindsInScc ids)
   ) groups)
+
+(* The calls appearing in one contract item, each paired with the position to
+   report it at. *)
+let contract_item_calls item =
+  let at pos e = [(pos, LH.calls_of_expr e)] in
+  match item with
+  | LA.GhostConst (LA.FreeConst _) | LA.AssumptionVars _ -> []
+  | LA.GhostConst (LA.UntypedConst (pos, _, e))
+  | LA.GhostConst (LA.TypedConst (pos, _, e, _))
+  | LA.GhostVars (pos, _, e)
+  | LA.Assume (pos, _, _, e)
+  | LA.Guarantee (pos, _, _, e)
+  | LA.Decreases (pos, e) -> at pos e
+  | LA.Mode (_, _, reqs, ensures) ->
+    List.map (fun (pos, _, e) -> (pos, LH.calls_of_expr e)) reqs
+    @ List.map (fun (pos, _, e) -> (pos, LH.calls_of_expr e)) ensures
+  | LA.ContractCall (pos, _, _, es, _) ->
+    List.map (fun e -> (pos, LH.calls_of_expr e)) es
+
+(* Reject a recursive call in a recursive function's own contract. *)
+let check_no_rec_calls_in_contract scc_map decls =
+  let check_item caller_scc (pos, callees) =
+    let in_scc c =
+      match HStringMap.find_opt (NI.get_internal_name c) scc_map with
+      | Some id -> id = caller_scc
+      | None -> false
+    in
+    match List.find_opt in_scc (NI.Set.elements callees) with
+    | Some callee -> check_error pos (RecursiveCallInContract (NI.get_user_name callee))
+    | None -> Ok ()
+  in
+  Res.seq_ (List.map (fun decl ->
+    match decl with
+    | LA.FuncDecl (_, (fname_id, _, _, _, _, _, _, _, Some (_, items)),
+                   { LA.is_rec = true; _ }) -> (
+      match HStringMap.find_opt (NI.get_internal_name fname_id) scc_map with
+      | None -> Ok ()
+      | Some caller_scc ->
+        Res.seq_ (List.map (check_item caller_scc)
+                    (List.concat_map contract_item_calls items))
+    )
+    | _ -> Ok ()
+  ) decls)
 
 (* Build a map from function name → (formals, contract) for all FuncDecls. *)
 let build_func_map decls =
@@ -280,18 +330,38 @@ let substitute_formals callee_formals actuals expr =
     (fun e ph actual -> LH.substitute_naive ph actual e)
     to_placeholders placeholders actuals
 
+(* A parenthesized expression list is just several arguments written together,
+   so flatten it to keep every component aligned to its own formal: f((x, y))
+   must be treated exactly like f(x, y). *)
+let rec flatten_args args =
+  List.concat_map (function
+    | LA.GroupExpr (_, LA.ExprList, es) -> flatten_args es
+    | e -> [e]
+  ) args
+
 (* Positionally align callee_formals against the syntactic call args,
    accounting for a single argument expanding to several formals (e.g. a
-   call to a multi-output node passed directly as one argument). *)
-let rec align_formals_to_args ctx formals args =
-  match formals, args with
-  | [], _ -> []
-  | _, [] -> assert false
-  | _, arg :: rest_args ->
-    let arity = TypeCheckerContext.arity_of_expr ctx arg in
-    let taken, remaining_formals = Lib.list_split arity formals in
-    let mapped = List.map (fun f -> (f, arg, arity = 1)) taken in
-    mapped @ align_formals_to_args ctx remaining_formals rest_args
+   call to a multi-output node passed directly as one argument). Each formal
+   is paired with the argument covering it, and with whether that argument
+   denotes exactly that formal's value (false when several formals share one
+   argument, so no precise per-formal expression exists). *)
+let align_formals_to_args ctx formals args =
+  let rec aux formals args =
+    match formals, args with
+    | [], _ -> []
+    | f :: rest_formals, [] ->
+      (* Unreachable: the type checker has already matched the call's arity,
+         and arity_of_expr agrees with it. Kept as an imprecise alignment
+         rather than an assertion so that a future divergence rejects the
+         call instead of crashing the frontend. *)
+      (f, LA.Ident (Lib.dummy_pos, f), false) :: aux rest_formals []
+    | _, arg :: rest_args ->
+      let arity = TypeCheckerContext.arity_of_expr ctx arg in
+      let taken, remaining_formals = Lib.list_split arity formals in
+      let mapped = List.map (fun f -> (f, arg, arity = 1)) taken in
+      mapped @ aux remaining_formals rest_args
+  in
+  aux formals (flatten_args args)
 
 (* Whether `e`, once the callee's decreases measure has been substituted with
    the caller's actual arguments, witnesses a genuine structural decrease:
@@ -363,6 +433,7 @@ let check_func_decl ctx adt_map scc_map func_map decl =
   | _ -> Ok ()
 
 let check ctx adt_map scc_map decls =
+  let* () = check_no_rec_calls_in_contract scc_map decls in
   let* () = check_consistent_scc_kinds ctx adt_map scc_map decls in
   let func_map = build_func_map decls in
   let* _ = Res.seq (List.map (check_func_decl ctx adt_map scc_map func_map) decls) in

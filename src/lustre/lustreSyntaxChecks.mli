@@ -64,6 +64,7 @@ type error_kind = Unknown of string
   | IllegalDecreasesMeasure of HString.t
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
+  | MisplacedDecreasesClause of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t

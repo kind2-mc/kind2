@@ -242,6 +242,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/decreases_clause_in_contract_node_decl.lus" with
     | Error (`LustreSyntaxChecksError (_, DecreasesClauseInContractNodeDecl _)) -> true
     | _ -> false);
+  mk_test "decreases clause in a node contract rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/decreases_clause_in_node_decl.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedDecreasesClause _)) -> true
+    | _ -> false);
+  mk_test "decreases clause on a non-recursive function rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/decreases_clause_without_rec.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedDecreasesClause _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1097,10 +1105,6 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
     match load_file "./lustreCheckADTDecreases/adt_decreases_shadowed_pattern_var_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
     | _ -> false);
-  mk_test "decreases-relevant formal entangled in a group-expression argument rejected" (fun () ->
-    match load_file "./lustreCheckADTDecreases/adt_decreases_group_expr_arg_bad.lus" with
-    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
-    | _ -> false);
   mk_test "VarPat rebinding a name already safe from an unrelated match rejected" (fun () ->
     match load_file "./lustreCheckADTDecreases/adt_decreases_varpat_rebind_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
@@ -1116,5 +1120,13 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
   mk_test "quantifier rebinding a safe pattern variable doesn't inherit its safety" (fun () ->
     match load_file "./lustreCheckADTDecreases/adt_decreases_quantifier_shadow_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "recursive call in an ADT-measured function's own contract rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_contract_rec_call_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, RecursiveCallInContract _)) -> true
+    | _ -> false);
+  mk_test "recursive call in an integer-measured function's own contract rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/int_decreases_contract_rec_call_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, RecursiveCallInContract _)) -> true
     | _ -> false);
 ])

@@ -32,6 +32,9 @@ type error_kind =
   | MixedDecreasesKindsInScc of LustreAst.ident list
   (** The named functions are mutually recursive but do not all use the same
       kind of decreases measure (integer vs. algebraic data type). *)
+  | RecursiveCallInContract of LustreAst.ident
+  (** A recursive function's own contract calls the named function, which
+      belongs to the same recursive group. *)
 
 val error_message : error_kind -> string
 

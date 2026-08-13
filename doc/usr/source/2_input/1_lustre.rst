@@ -849,6 +849,17 @@ that has no solution). Kind 2 rejects a ``rec`` function that lacks a
 ``decreases`` clause, and rejects a plain (non-\ ``rec``\ ) function that is
 found to actually be part of a (recursive) call cycle.
 
+A ``decreases`` clause is only meaningful in the inline contract of a ``rec``
+function, and exactly one clause is allowed there. Declaring one anywhere
+else -- on a node, on a non-\ ``rec`` function, or in a standalone ``contract``
+declaration -- is an error rather than a silently ignored annotation.
+
+A recursive function's own contract may not call back into its recursive
+group. At a recursive call Kind 2 cuts the recursion off by slicing the
+callee down to its contract abstraction, so a contract that calls itself (or
+a mutually recursive sibling) has nothing left to be abstracted to. Write
+such calls in the function's body instead.
+
 A ``decreases`` clause takes one of two forms.
 
 **Integer measure.** A single integer expression, or a comma-separated tuple
