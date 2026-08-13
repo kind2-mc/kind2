@@ -51,6 +51,9 @@ assets/vendor/katex/dist/katex.min.css assets/vendor/flexsearch/dist/flexsearch.
 html: theme vendor-assets
 	hugo --minify
 
+portable: theme vendor-assets
+	HUGO_RELATIVEURLS=true hugo --minify -b "" -d public-portable
+
 VENV := pdf-tools/venv
 
 venv: $(VENV)/bin/activate
