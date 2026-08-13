@@ -49,24 +49,30 @@ let shall_keep trans (s,_) =
 
 (* Check-sat and splits properties..
 
-   The functional congruence instances are given to the solver as terms to
-   evaluate rather than asserted: those the model makes false are exactly
-   the ones that refute this counterexample, and they are the only ones
-   worth asserting. When none is false the model already satisfies
-   determinism, so the counterexample is genuine and nothing is asserted at
-   all (see [TransSys.fn_congruence_instances]). *)
-let rec split trans solver k to_split actlit congruence =
+   The functional congruence instances are evaluated in the model rather
+   than asserted. Their conjunction is one term, hence one query, and when
+   it holds the counterexample already satisfies determinism: it is genuine
+   and nothing is asserted at all. Only when it fails are the instances
+   evaluated one by one, to assert exactly those the counterexample
+   violates (see [TransSys.fn_congruence_instances]). *)
+let rec split trans solver k to_split actlit congruence congruence_holds =
 
   (* Function to run if sat. *)
-  let if_sat _ fn_congruence_values =
+  let if_sat s fn_congruence_values =
 
     match
-      List.filter_map (fun (i, v) ->
-        if Term.equal v Term.t_false then Some i else None
-      ) fn_congruence_values
+      List.exists (fun (_, v) -> Term.equal v Term.t_false)
+        fn_congruence_values
     with
-    | _ :: _ as spurious -> `Refine spurious
-    | [] -> `Split (
+    | true ->
+      (* Determinism is violated somewhere: ask which instances, so that
+         only those are asserted *)
+      `Refine (
+        SMTSolver.get_term_values s congruence
+        |> List.filter_map (fun (i, v) ->
+             if Term.equal v Term.t_false then Some i else None)
+      )
+    | false -> `Split (
 
     (* Get the full model *)
     let model =
@@ -112,7 +118,7 @@ let rec split trans solver k to_split actlit congruence =
   match
     SMTSolver.check_sat_assuming_and_get_term_values
       solver if_sat if_unsat [actlit]
-      congruence
+      congruence_holds
   with
   | `Split res -> res
   | `Refine spurious ->
@@ -122,7 +128,7 @@ let rec split trans solver k to_split actlit congruence =
       "Asserting the functional congruence instances the counterexample \
        violates." ;
     List.iter (SMTSolver.assert_term solver) spurious ;
-    split trans solver k to_split actlit congruence
+    split trans solver k to_split actlit congruence congruence_holds
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot after asserting the actlit
@@ -130,6 +136,11 @@ let rec split trans solver k to_split actlit congruence =
 let split_closure trans solver k to_split =
   (* Built once for the bound: the same instances serve every split *)
   let congruence = TransSys.fn_congruence_instances trans k in
+  (* Asked as a single question: the solver is queried for one term value at
+     a time, so evaluating them one by one would cost a round trip each *)
+  let congruence_holds =
+    if congruence = [] then [] else [Term.mk_and congruence]
+  in
 
   let rec loop falsifiable list =
     (* Building negative term. *)
@@ -150,7 +161,7 @@ let split_closure trans solver k to_split =
     Term.mk_implies [ actlit ; term ]
     |> SMTSolver.assert_term solver ;
     (* Splitting. *)
-    match split trans solver k list actlit congruence with
+    match split trans solver k list actlit congruence congruence_holds with
     | None ->
       deactivate () ;
       list, falsifiable

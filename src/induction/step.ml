@@ -285,20 +285,28 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
   in
 
-  (* The functional congruence instances are given to the solver as terms to
-     evaluate rather than asserted: those the model makes false are exactly
-     the ones that refute this counterexample to induction, and they are the
-     only ones worth asserting. When none is false the model already
-     satisfies determinism, so the counterexample is genuine and nothing is
-     asserted at all (see [TransSys.fn_congruence_instances]). *)
+  (* Built once: the same instances serve every iteration *)
+  let congruence = TransSys.fn_congruence_instances trans k in
+  let congruence_holds =
+    if congruence = [] then [] else [Term.mk_and congruence]
+  in
+
+  (* The functional congruence instances are evaluated in the model rather
+     than asserted. Their conjunction is one term, hence one query, and when
+     it holds the counterexample to induction already satisfies determinism:
+     it is genuine and nothing is asserted at all. Only when it fails are
+     the instances evaluated one by one, to assert exactly those the
+     counterexample violates (see [TransSys.fn_congruence_instances]). *)
   let if_sat s values =
-    match
-      List.filter_map (fun (i, v) ->
-        if Term.equal v Term.t_false then Some i else None
-      ) values
-    with
-    | _ :: _ as spurious -> `Refine spurious
-    | [] -> `Model (if_sat s)
+    if List.exists (fun (_, v) -> Term.equal v Term.t_false) values then
+      (* Determinism is violated somewhere: ask which instances, so that
+         only those are asserted *)
+      `Refine (
+        SMTSolver.get_term_values s congruence
+        |> List.filter_map (fun (i, v) ->
+             if Term.equal v Term.t_false then Some i else None)
+      )
+    else `Model (if_sat s)
   in
 
   let print_cex = Flags.BmcKind.ind_print_cex () in
@@ -309,16 +317,13 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
   (* Appending to the list of actlits. *)
   let all_actlits = path_comp_act_term :: actlits in
 
-  (* Built once: the same instances serve every iteration *)
-  let congruence = TransSys.fn_congruence_instances trans k in
-
   (* Loops as long as counterexamples can be compressed. *)
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
       SMTSolver.check_sat_assuming_and_get_term_values
         solver if_sat if_unsat all_actlits
-        congruence
+        congruence_holds
     with
 
     | `Refine spurious ->

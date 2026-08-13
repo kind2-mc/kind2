@@ -247,14 +247,19 @@ let split { solver ; sys ; map ; _ } =
       (* Deactivation function. *)
       let deactivate () = Term.mk_not nactlit |> Smt.assert_term solver in
 
-      (* The functional congruence instances ride along as terms to evaluate
-         rather than being asserted: those the model makes false are exactly
-         the ones that refute this counterexample to 2-induction, and they
-         are the only ones worth asserting. When none is false the model
-         already satisfies determinism, so the counterexample is genuine and
-         nothing is asserted at all
+      (* The functional congruence instances are evaluated in the model
+         rather than asserted: when their conjunction holds, the
+         counterexample to 2-induction already satisfies determinism, so it
+         is genuine and nothing is asserted at all. Only when it fails are
+         the instances asserted, and then only once, since they hold in
+         every model that follows. Asked as a single question: the solver is
+         queried for one term value at a time, so evaluating them one by one
+         would cost a round trip each
          (see [TransSys.fn_congruence_instances]). *)
       let congruence = Sys.fn_congruence_instances sys Num.(succ one) in
+      let congruence_holds =
+        if congruence = [] then [] else [Term.mk_and congruence]
+      in
 
       (* Check-sat. *)
       match
@@ -270,15 +275,23 @@ let split { solver ; sys ; map ; _ } =
                   else
                     match List.assq_opt term map_back with
                     | Some prop -> (sp, prop :: fa)
-                    | None -> (term :: sp, fa)
-              ) ([], [])
+                    | None -> (true, fa)
+              ) (false, [])
             in
-            if spurious <> [] then `Refine spurious else `Sat falsifiable
+            if spurious then
+              (* Ask which instances are violated, so that only those are
+                 asserted *)
+              `Refine (
+                Smt.get_term_values solver congruence
+                |> List.filter_map (fun (i, v) ->
+                     if Term.equal v Term.t_false then Some i else None)
+              )
+            else `Sat falsifiable
           )
           (fun _ -> (* If unsat. *)
             `Unsat
           )
-          (nactlit :: actlits) (unknowns @ congruence)
+          (nactlit :: actlits) (unknowns @ congruence_holds)
       with
       | `Unsat -> (* Unsat, remaining properties are unfalsifiable. *)
         deactivate () ;
