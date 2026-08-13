@@ -4,6 +4,8 @@
 all: doc
 doc: html pdf update
 
+# Hextra is a git submodule (see .gitmodules), not vendored in this repo — this
+# pulls it in automatically the first time you build after `git clone`.
 theme: themes/hextra/layouts
 
 themes/hextra/layouts:
@@ -49,6 +51,8 @@ assets/vendor/katex/dist/katex.min.css assets/vendor/flexsearch/dist/flexsearch.
 html: theme vendor-assets
 	hugo --minify
 
+VENV := pdf-tools/venv
+
 venv: $(VENV)/bin/activate
 
 $(VENV)/bin/activate: pdf-tools/requirements.txt
@@ -80,6 +84,9 @@ else
 pdf: html venv
 	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
 endif
+
+pdf: html venv
+	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
 
 serve: theme vendor-assets
 	hugo server -D
