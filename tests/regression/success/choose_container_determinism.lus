@@ -43,3 +43,17 @@ let
   check "imported fn deterministic over array"
     true -> ((arr = pre arr) => (H(arr) = pre (H(arr))));
 tel
+
+-- Congruence at two containers that are structurally equal but built
+-- differently, so that the cells the encoding never addresses (here the
+-- value slot of a key removed from the map) may hold different values.
+function imported K(m: map<int, int>) returns (out: int);
+
+node built_differently(v: int) returns (ok: bool);
+var m1, m2: map<int, int>;
+let
+  m1 = map[0 := 7];
+  m2 = (map[0 := 7; 1 := v]) - {1};
+  ok = (K(m1) = K(m2));
+  check "imported fn agrees on structurally equal maps" ok;
+tel
