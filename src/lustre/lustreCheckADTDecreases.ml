@@ -320,20 +320,27 @@ let check_consistent_scc_kinds ctx adt_map scc_map decls =
 (* The calls appearing in one contract item, each paired with the position to
    report it at. *)
 let contract_item_calls item =
+  let calls_of_ty =
+    LH.fold_lustre_ty LH.calls_of_expr NI.Set.empty NI.Set.union
+  in
   let at pos e = [(pos, LH.calls_of_expr e)] in
+  let at_ty pos ty = [(pos, calls_of_ty ty)] in
   match item with
-  | LA.GhostConst (LA.FreeConst _) | LA.AssumptionVars _ -> []
-  | LA.GhostConst (LA.UntypedConst (pos, _, e))
-  | LA.GhostConst (LA.TypedConst (pos, _, e, _))
-  | LA.GhostVars (pos, _, e)
+  | LA.AssumptionVars _ -> []
+  | LA.GhostConst (LA.FreeConst (pos, _, ty)) -> at_ty pos ty
+  | LA.GhostConst (LA.UntypedConst (pos, _, e)) -> at pos e
+  | LA.GhostConst (LA.TypedConst (pos, _, e, ty)) -> at pos e @ at_ty pos ty
+  | LA.GhostVars (pos, LA.GhostVarDec (_, tis), e) ->
+    at pos e @ List.concat_map (fun (p, _, ty) -> at_ty p ty) tis
   | LA.Assume (pos, _, _, e)
   | LA.Guarantee (pos, _, _, e)
   | LA.Decreases (pos, e) -> at pos e
   | LA.Mode (_, _, reqs, ensures) ->
     List.map (fun (pos, _, e) -> (pos, LH.calls_of_expr e)) reqs
     @ List.map (fun (pos, _, e) -> (pos, LH.calls_of_expr e)) ensures
-  | LA.ContractCall (pos, _, _, es, _) ->
-    List.map (fun e -> (pos, LH.calls_of_expr e)) es
+  | LA.ContractCall (pos, _, ty_args, es, _) ->
+    List.map (fun ty -> (pos, calls_of_ty ty)) ty_args
+    @ List.map (fun e -> (pos, LH.calls_of_expr e)) es
 
 (* Reject a recursive call in a recursive function's own contract. *)
 let check_no_rec_calls_in_contract scc_map decls =
