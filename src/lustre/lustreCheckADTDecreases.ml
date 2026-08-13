@@ -42,9 +42,9 @@ let error_message = function
   | NotAStructuralSubterm (callee_m, caller_m) ->
     Format.asprintf
       "Recursive call does not structurally decrease the measure: \
-       '%a' is not a strict subterm of '%a' (only a variable bound by an \
+       '%a' is not a strict subterm of '%a'. Only a variable bound by an \
        enclosing match's constructor pattern can witness a structural \
-       decrease; a bare field selector cannot)"
+       decrease"
       LA.pp_print_expr callee_m LA.pp_print_expr caller_m
   | MixedDecreasesKindsInScc ids ->
     "Mutually recursive functions "
@@ -90,12 +90,12 @@ let is_adt_decreases ctx adt_map nname e =
         | None -> false)
       | None -> false
 
-(* All variable names a pattern binds, at any depth (both a top-level
-   VarPat's own name and every name nested inside a constructor Pat). *)
-let rec pattern_bound_vars pat =
-  match pat with
-  | LA.VarPat (_, id) -> [id]
-  | LA.Pat (_, _, subpats) -> List.concat_map pattern_bound_vars subpats
+(* Whether `scrut` is a variable an earlier match already established as a
+   strict subterm of the caller's measure. *)
+let is_established_subterm safe_env scrut =
+  match scrut with
+  | LA.Ident (_, v) -> HStringSet.mem v safe_env
+  | _ -> false
 
 (* Whether it's safe to match on `scrut` and trust its pattern's bindings:
    true when `scrut` is caller_measure `t` itself (the base case), or when
@@ -105,9 +105,7 @@ let scrutinee_is_safe caller_measure shadowed safe_env scrut =
   ((LH.syn_expr_equal None scrut caller_measure |> Result.get_ok)
    && not (LA.SI.exists (fun v -> HStringSet.mem v shadowed)
              (LH.vars_without_node_call_ids caller_measure)))
-  || (match scrut with
-      | LA.Ident (_, v) -> HStringSet.mem v safe_env
-      | _ -> false)
+  || is_established_subterm safe_env scrut
 
 (* Shadow the measure's own variables, so that nothing can be established as a
    subterm of it. Used when descending into a type, whose binder may itself be
@@ -155,30 +153,22 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
   | LA.Match (_, scrut, arms, _) ->
     let scrut_calls = go scrut in
     let scrut_safe = scrutinee_is_safe caller_measure shadowed safe_env scrut in
-    (* Whether scrut is itself already an established strict subterm *)
-    let scrut_is_safe_alias =
-      match scrut with
-      | LA.Ident (_, v) -> HStringSet.mem v safe_env
-      | _ -> false
-    in
+    let scrut_is_safe_alias = is_established_subterm safe_env scrut in
     let arm_calls = List.concat_map (fun (pat, body) ->
-      let bound = pattern_bound_vars pat in
-      let arm_shadowed =
-        List.fold_left (fun s v -> HStringSet.add v s) shadowed bound
-      in
+      let bound = LH.pat_bound_vars pat in
+      let arm_shadowed = LA.SI.fold HStringSet.add bound shadowed in
       let arm_env =
         match pat with
         | LA.VarPat (_, x) ->
           if scrut_is_safe_alias then HStringSet.add x safe_env
           else HStringSet.remove x safe_env
         | LA.Pat (_, _, _) ->
-          if scrut_safe then
-            List.fold_left (fun s v -> HStringSet.add v s) safe_env bound
+          if scrut_safe then LA.SI.fold HStringSet.add bound safe_env
           else
             (* The pattern's own bindings are not safe here (the scrutinee
                isn't), and may shadow a same-named variable that *is* safe
                in the outer scope. *)
-            List.fold_left (fun s v -> HStringSet.remove v s) safe_env bound
+            LA.SI.fold HStringSet.remove bound safe_env
       in
       collect_rec_calls scc_map caller_scc caller_measure arm_shadowed arm_env body
     ) arms in

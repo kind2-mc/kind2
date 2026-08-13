@@ -484,6 +484,10 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
 
 (* The termination checks of a contract as properties. *)
 
+(* An empty ranking function marks an ADT measure, whose decrease is
+   established statically instead (LustreCheckADTDecreases). Caller and callee
+   are always empty together, since MixedDecreasesKindsInScc rejects an SCC
+   that mixes the two kinds of measure. *)
 let termination_checks call_pos svar_map src_expr caller_rf callee_rf =
   if caller_rf = [] || callee_rf = [] then []
   else

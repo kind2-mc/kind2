@@ -1982,6 +1982,14 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       ) xts yts |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 -> 
       Ok (l1 && l2 && xi = yi)
+    | ADTTerm (_, xts, xc, xl), ADTTerm (_, yts, yc, yl)
+      when List.length xts = List.length yts ->
+      List.map2 (fun xt yt -> syn_type_equal depth_limit xt yt) xts yts
+      |> join >>= fun t ->
+      rlist xl yl |> join >>= fun e ->
+      Ok (t && e && HString.equal xc yc)
+    | ADTTester (_, xe, xc), ADTTester (_, ye, yc) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xc yc)
     | _ -> Ok (false)
   in
   r 0 x y
