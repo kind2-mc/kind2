@@ -31,7 +31,7 @@ Then open http://localhost:1313/.
 To build the static site:
 
 ```bash
-hugo --minify
+make html
 ```
 
 Output goes to `public/`.

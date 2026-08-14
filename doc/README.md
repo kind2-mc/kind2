@@ -33,10 +33,10 @@ Then open http://localhost:1313/.
 To build the static site:
 
 ```bash
-HUGO_RELATIVEURLS=true hugo --minify -b "" -d public-portable
+make html
 ```
 
-Output goes to `public-portable/`.
+Output goes to `public/`.
 
 > **Note:** `hugo build` fetches FlexSearch (search) and KaTeX (math
 > rendering) from `cdn.jsdelivr.net` the first time it runs, so it needs
