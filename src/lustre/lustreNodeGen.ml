@@ -3377,7 +3377,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           LDAT.string_of_expr_as_source
             ~ref_type_names:cstate.ref_type_names cstate.adt_map oexpr
         in
-        let src = Property.Generated (Some pos, [sv], Property.Body) in
+        let gen_src = if is_extern then Property.Contract else Property.Body in
+        let src = Property.Generated (Some pos, [sv], gen_src) in
         (sv, name, src, Property.Invariant, soexpr) :: p
       ) props gids.GI.selector_obligations
     in
