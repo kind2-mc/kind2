@@ -1162,7 +1162,7 @@ pexpr(Q):
 
   (* A record field projection (not quantified) *)
   | s = pexpr(Q); DOT; t = ident
-    { A.FieldProject (mk_pos $startpos($2), s, t, None) }
+    { A.FieldProject (mk_pos $startpos($2), s, t, A.RecordField) }
 
   (* A record (not quantified) *)
   | t = ident; ps = call_static_params;

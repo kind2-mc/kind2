@@ -66,6 +66,12 @@ type t = {
     * LustreAst.expr
     * NodeId.t option) (* Node ID for type ascription substitution *)
   list;
+  (* Proof obligations that the constructor owning a user-written ADT selector
+     is active where the selector is read *)
+  selector_obligations: (Lib.position
+    * HString.t (* Generated name for the obligation *)
+    * LustreAst.expr) (* Obligation expression, for display *)
+    list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
   map_element_updates: (HString.t * 
@@ -198,6 +204,7 @@ let union ids1 ids2 = {
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
     refinement_type_constraints = ids1.refinement_type_constraints @ ids2.refinement_type_constraints;
+    selector_obligations = ids1.selector_obligations @ ids2.selector_obligations;
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
     empty_sets = ids1.empty_sets @ ids2.empty_sets;
     map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
@@ -230,6 +237,7 @@ let empty () = {
   calls = [];
   contract_calls = StringMap.empty;
   refinement_type_constraints = [];
+  selector_obligations = [];
   empty_maps = [];
   empty_sets = [];
   map_element_updates = [];
