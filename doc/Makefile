@@ -49,7 +49,7 @@ assets/vendor/katex/dist/katex.min.css assets/vendor/flexsearch/dist/flexsearch.
 	./fetch-vendor-assets.sh
 
 html: theme vendor-assets
-	HUGO_RELATIVEURLS=true hugo --minify -b "" -d public
+	HUGO_RELATIVEURLS=true hugo --minify -b ""
 
 VENV := pdf-tools/venv
 
