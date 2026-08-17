@@ -140,11 +140,12 @@ holds. The obligation is reported as a property named
 Discharging the obligation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-An obligation is weakened by the enclosing **lazy** context, so a selector
-guarded by a tester is discharged automatically. The constructs that guard a
-selector this way are the short-circuiting operators ``and then``, ``or else``
-and ``==>``, the ``when ... then ... else`` expression, ``when`` blocks, and the
-arms of a ``match`` expression:
+To discharge the proof obligations, one must only use selectors in contexts where 
+the constructor of the term is known. For example, the usage of a tester ``C?(t)`` 
+in an assumption, the antecedent of a lazy implication ``==>``, or 
+the guard of a ``when`` block is sufficient to prove the well-foundedness 
+of the corresponding selector in the node/function body, 
+lazy implication antecedent, or ``then`` branch expression, respectively.
 
 .. code-block:: none
 
@@ -154,18 +155,6 @@ arms of a ``match`` expression:
    let
      ok = Circle?(s) ==> s.radius > 10.0;
    tel
-
-Their **eager** counterparts do not, because they do not establish that the
-selector is applied to the right constructor -- they only make its value
-irrelevant. Writing ``Circle?(s) => s.radius > 10.0`` with the eager ``=>``
-therefore reports a failing obligation, as does a selector in the body of an
-eager ``if`` block. Replacing ``=>`` with ``==>``, ``and`` with ``and then``, or
-an ``if`` block with a ``when`` block resolves it.
-
-Selectors introduced by Kind 2 itself, such as those a ``match`` expression
-substitutes for its pattern variables, carry no obligation: the arm's guard
-already establishes the constructor. No obligation is generated for an ADT with
-a single constructor either, since the constructor is always active.
 
 Polymorphic ADTs
 ----------------
