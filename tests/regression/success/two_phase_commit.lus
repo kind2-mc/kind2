@@ -12,12 +12,7 @@ type Decision = enum {Commit, Abort};
 
 type HostId;
 
-type HostClass = enum { Coordinator, Participant, NoHost };
-
-type Token_Holder = struct {
-  class: HostClass;
-  id: HostId;
-};
+datatype Token_Holder = CoordinatorHost | ParticipantHost (id: HostId) | NoHost;
 
 const Preference : subtype { m : map<HostId,Vote> | forall (h:HostId) h in m };
 
@@ -143,7 +138,7 @@ node DistributedSystem(tk_holder: Token_Holder) returns (
 );
 (*@contract
   assume "No one's turn initially, then always somebody's turn"
-    tk_holder.class = NoHost -> tk_holder.class <> NoHost;
+    NoHost?(tk_holder) -> not NoHost?(tk_holder);
 
   guarantee "SafetyAC1"
     AllWithDecisionAgreeWithThisOne(
@@ -174,22 +169,22 @@ var sentMsgs: MsgSet; -- probe
 
 let
   coord_send, coord_decision, votes =
-    Coordinator(tk_holder.class = Coordinator, network_recv);
+    Coordinator(CoordinatorHost?(tk_holder), network_recv);
 
   partic_send, decision_id =
-    Participant(tk_holder.class = Participant, tk_holder.id, network_recv);
+    Participant(ParticipantHost?(tk_holder), tk_holder.id, network_recv);
 
   partic_decision = map[]@<HostId,Decision> ->
-    if tk_holder.class = Coordinator or not Some?(decision_id) then
+    if CoordinatorHost?(tk_holder) or not Some?(decision_id) then
       pre partic_decision
     else
       (pre partic_decision)[tk_holder.id := decision_id.value];
 
-  if tk_holder.class = Coordinator then
+  if CoordinatorHost?(tk_holder) then
     network_send = coord_send;
-  elsif tk_holder.class = Participant then
+  elsif ParticipantHost?(tk_holder) then
     network_send = partic_send;
-  else -- tk_holder.class = NoHost
+  else -- NoHost?(tk_holder)
     network_send = None@<Message>;
   fi
 
