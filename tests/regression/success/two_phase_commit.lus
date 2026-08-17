@@ -53,7 +53,7 @@ function imported GetDecision(votes: map<HostId,Vote>) returns (d: Decision);
   guarantee (not (forall (i: HostId) i in votes and votes[i]=Yes)) = (d = Abort);
 *)
 
-node Coordinator(my_turn: bool; nw_recv: Option<Message>)
+node Coordinator(nw_recv: Option<Message>)
   returns (nw_send: Option<Message>; decision: Option<Decision>;
            votes: map<HostId,Vote>);
 var sender: HostId;
@@ -68,50 +68,41 @@ let
     votes = map[]@<HostId,Vote>;
     nw_send = None@<Message>;
   let
-    if (my_turn) then
-      if (Some?(nw_recv) and VoteMsg?(nw_recv.value)) then
-        votes = map[]@<HostId,Vote> -> (pre votes)[sender := vote];
-        if AllVotesCollected(votes) then
-          decision = Some(GetDecision(votes));
-          nw_send = Some(DecisionMsg(GetDecision(votes)));
-        else
-          nw_send = None@<Message>;
-        fi
+    if (Some?(nw_recv) and VoteMsg?(nw_recv.value)) then
+      votes = (last votes)[sender := vote];
+      if AllVotesCollected(votes) then
+        decision = Some(GetDecision(votes));
+        nw_send = Some(DecisionMsg(GetDecision(votes)));
       else
-        if (nondet()) then
-          nw_send = Some(VoteReqMsg);
-        else
-          nw_send = None@<Message>;
-        fi
+        nw_send = None@<Message>;
       fi
     else
-      nw_send = None@<Message>;
+      if (nondet()) then
+        nw_send = Some(VoteReqMsg);
+      else
+        nw_send = None@<Message>;
+      fi
     fi
   tel
 tel
 
-node Participant(my_turn: bool; id: HostId; nw_recv: Option<Message>)
+node Participant(id: HostId; nw_recv: Option<Message>)
   returns (nw_send: Option<Message>; decision: Option<Decision>);
 let
   frame (nw_send, decision)
     decision = None@<Decision>;
     nw_send = None@<Message>;
   let
-    if (my_turn) then
-      if (Some?(nw_recv) and VoteReqMsg?(nw_recv.value)) then
-        nw_send = Some(VoteMsg(id, Preference[id]));
-        if Preference[id] = No then
-          decision = Some(Abort);
-        else
-          decision = None@<Decision>;
-        fi
-      elsif (Some?(nw_recv) and DecisionMsg?(nw_recv.value)) then
-        decision = Some(nw_recv.value.decision);
-        nw_send = None@<Message>;
+    if (Some?(nw_recv) and VoteReqMsg?(nw_recv.value)) then
+      nw_send = Some(VoteMsg(id, Preference[id]));
+      if Preference[id] = No then
+        decision = Some(Abort);
       else
-        nw_send = None@<Message>;
         decision = None@<Decision>;
       fi
+    elsif (Some?(nw_recv) and DecisionMsg?(nw_recv.value)) then
+      decision = Some(nw_recv.value.decision);
+      nw_send = None@<Message>;
     else
       nw_send = None@<Message>;
       decision = None@<Decision>;
@@ -168,17 +159,32 @@ var votes: map<HostId,Vote>; -- probe
 var sentMsgs: MsgSet; -- probe
 
 let
-  coord_send, coord_decision, votes =
-    Coordinator(CoordinatorHost?(tk_holder), network_recv);
+  frame (coord_send, coord_decision, votes)
+    coord_send = None@<Message>;
+    coord_decision = None@<Decision>;
+    votes = map[]@<HostId,Vote>;
+  let
+    when (CoordinatorHost?(tk_holder)) then
+      coord_send, coord_decision, votes = Coordinator(network_recv);
+    end
+  tel
 
-  partic_send, decision_id =
-    Participant(ParticipantHost?(tk_holder), tk_holder.id, network_recv);
+  frame (partic_send, decision_id)
+    partic_send = None@<Message>;
+    decision_id = None@<Decision>;
+  let
+    when (ParticipantHost?(tk_holder)) then
+      partic_send, decision_id = Participant(tk_holder.id, network_recv);
+    end
+  tel
 
-  partic_decision = map[]@<HostId,Decision> ->
-    if CoordinatorHost?(tk_holder) or not Some?(decision_id) then
-      pre partic_decision
-    else
-      (pre partic_decision)[tk_holder.id := decision_id.value];
+  frame (partic_decision)
+    partic_decision = map[]@<HostId,Decision>;
+  let
+    when (ParticipantHost?(tk_holder) and Some?(decision_id)) then
+      partic_decision = (last partic_decision)[tk_holder.id := decision_id.value];
+    end
+  tel
 
   if CoordinatorHost?(tk_holder) then
     network_send = coord_send;
