@@ -188,7 +188,8 @@ and lustre_type =
 
 and proj_kind =
   | RecordField
-  | Selector of selector_origin * lustre_type
+  (* Origin, the ADT type, and the constructor whose payload holds the field.*)
+  | Selector of selector_origin * lustre_type * ident
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type

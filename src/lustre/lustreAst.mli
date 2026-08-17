@@ -149,7 +149,8 @@ type lustre_type =
 
 and proj_kind =
   | RecordField
-  | Selector of selector_origin * lustre_type
+  (** Origin, the ADT type, and the constructor whose payload holds the field. *)
+  | Selector of selector_origin * lustre_type * ident
 
 (** A Lustre expression *)
 and expr =

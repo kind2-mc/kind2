@@ -1131,9 +1131,9 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       | _ :: (ctor2, _, _) :: _ ->
         let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
         type_error pos (DuplicateFieldName (fld, ctor1, ctor2))
-      | [(_, _, ty)] ->
+      | [(ctor, _, ty)] ->
         let* ty = expand_type_syn_reftype_history ctx ty in
-        R.ok (ty, LA.FieldProject (pos, e, fld, Selector (UserWritten, rec_ty)), warnings))
+        R.ok (ty, LA.FieldProject (pos, e, fld, Selector (UserWritten, rec_ty, ctor)), warnings))
     | _ -> type_error (LH.pos_of_expr e) (IlltypedFieldProjection rec_ty))
   | LA.ADTTester (pos, e, c) ->
     let* scrut_ty, e', warnings = infer_type_expr ctx nname e in
@@ -2070,9 +2070,9 @@ and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr
     | _ :: (ctor2, _, _) :: _ ->
       let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
       type_error pos (DuplicateFieldName (idx, ctor1, ctor2))
-    | [(_, _, fty)] ->
+    | [(ctor, _, fty)] ->
       R.ifM (eq_lustre_type ctx fty exp_ty)
-        (R.ok (LA.FieldProject (pos, expr, idx, Selector (UserWritten, adt_ty)), warnings))
+        (R.ok (LA.FieldProject (pos, expr, idx, Selector (UserWritten, adt_ty, ctor)), warnings))
         (type_error pos (UnificationFailed (exp_ty, fty))))
   | rec_ty, _, _ -> type_error (LH.pos_of_expr expr) (IlltypedFieldProjection rec_ty)
 

@@ -1947,31 +1947,11 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
-(* The constructor whose payload contains this field. A non-recursive ADT is
-   encoded as a record, so by this point the desugarer has rewritten the field
-   to its internal "Ctor_field" name; a recursive one keeps the user-written
-   name. Accepting both names at once would let a field of one constructor match
-   another constructor's mangled name. *)
-and ctor_owning_field adt_info field =
-  LDAT.HStringMap.fold (fun ctor fields acc ->
-    match acc with
-    | Some _ -> acc
-    | None ->
-      let target =
-        if adt_info.LDAT.is_recursive then
-          HString.concat2 (HString.concat2 ctor (HString.mk_hstring "_")) field
-        else field
-      in
-      if List.exists (fun (fn, _) -> HString.equal fn target) fields
-      then Some ctor
-      else None
-  ) adt_info.LDAT.ctor_fields None
-
 (* Proof obligation that the constructor owning a user-written selector is
    active where the selector is read. Each enclosing lazy guard is shifted to
    its own 'pre' depth, so a guard is only ever compared against the read it
    actually protects. *)
-and mk_selector_obligation info node_id pos adt_ty field base =
+and mk_selector_obligation info node_id pos adt_ty ctor base =
   let adt_info = match adt_ty with
     | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
     | _ -> None
@@ -1980,11 +1960,9 @@ and mk_selector_obligation info node_id pos adt_ty field base =
   | None -> assert false
   | Some adt_info ->
     (* A value of a single-constructor ADT is always built with that constructor *)
-    if List.length adt_info.LDAT.ctor_variants <= 1 then empty ()
-    else
-      match ctor_owning_field adt_info field with
-      | None -> assert false
-      | Some ctor ->
+    (match adt_info.LDAT.ctor_variants with
+      | [] | [_] -> empty ()
+      | _ :: _ :: _ ->
         let tester =
           if adt_info.LDAT.is_recursive then A.ADTTester (pos, base, ctor)
           else
@@ -2087,7 +2065,7 @@ and mk_selector_obligation info node_id pos adt_ty field base =
           { (empty ()) with
             selector_obligations = [(pos, name, AH.rename_contract_vars display)];
             equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
-        end
+        end)
 
 and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
   let inlined = vmap <> [] in
@@ -2575,9 +2553,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | FieldProject (pos, expr, fld, pk) ->
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     let gids2 = match pk with
-      | A.Selector (A.UserWritten, adt_ty) ->
-        mk_selector_obligation info node_id pos adt_ty fld nexpr
-      | A.Selector (A.Kind2Generated, _) | A.RecordField -> empty ()
+      | A.Selector (A.UserWritten, adt_ty, ctor) ->
+        mk_selector_obligation info node_id pos adt_ty ctor nexpr
+      | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> empty ()
     in
     FieldProject (pos, nexpr, fld, pk), union gids1 gids2, warnings
   | Const _ as expr -> expr, empty (), []

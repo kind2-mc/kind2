@@ -172,7 +172,9 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     in
     let sub_conds, sub_subs =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
-        let pk = LA.Selector (LA.Kind2Generated, LA.UserType (pos, [], info.type_name)) in
+        let pk =
+          LA.Selector (LA.Kind2Generated, LA.UserType (pos, [], info.type_name), ctor)
+        in
         let field_expr =
           if info.is_recursive then
             let ctor_str = HString.string_of_hstring ctor in
@@ -415,14 +417,14 @@ and desugar_expr ctx adt_map expr =
         LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _
   | LA.AbstractSymConst _ -> expr
-  | LA.FieldProject (p, e, fld, LA.Selector (origin, adt_ty)) ->
+  | LA.FieldProject (p, e, fld, LA.Selector (origin, adt_ty, ctor)) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
       |> (function Some i -> i | None -> assert false)
     in
     (* The projection stays marked as a selector even once the ADT is encoded as
-       a record, so the normalizer can still recover the owning constructor. *)
-    let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name)) in
+       a record, so the obligation can still name the owning constructor. *)
+    let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name), ctor) in
     (* Match arm bodies are desugared again after pattern variables are
        substituted (see the Match case), and the projections substituted for
        those variables already name the internal payload field. *)
@@ -433,19 +435,7 @@ and desugar_expr ctx adt_map expr =
     if info.is_recursive || already_internal then
       LA.FieldProject (p, e', fld, pk)
     else
-      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          let target = payload_field_name_of ctor fld in
-          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-          then Some ctor
-          else None
-      ) info.ctor_fields None
-      |> (function Some c -> c | None -> assert false)
-      in
-      let internal_fld = payload_field_name_of ctor fld in
-      LA.FieldProject (p, e', internal_fld, pk)
+      LA.FieldProject (p, e', payload_field_name_of ctor fld, pk)
   | LA.FieldProject (p, e, i, LA.RecordField) ->
     LA.FieldProject (p, r e, i, LA.RecordField)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
@@ -765,7 +755,8 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
   | LA.FieldProject (p, e, id, pk) ->
     let pk = match pk with
       | LA.RecordField -> LA.RecordField
-      | LA.Selector (origin, ty) -> LA.Selector (origin, LH.map_lustre_ty r ty)
+      | LA.Selector (origin, ty, ctor) ->
+        LA.Selector (origin, LH.map_lustre_ty r ty, ctor)
     in
     (* An internal payload field "Ctor_field" prints as the ADT selector "field". *)
     let id = match user_field_of_payload adt_map id with Some u -> u | None -> id in
