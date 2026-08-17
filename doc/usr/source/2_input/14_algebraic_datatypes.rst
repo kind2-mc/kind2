@@ -134,7 +134,8 @@ A **selector** ``e.f`` extracts field ``f`` from an ADT value ``e``. The field
 constructor that has field ``f``. Kind 2 generates a **proof obligation** for
 each selector use, requiring that the correct constructor is active at the point
 of use. For example, ``s.radius`` generates an obligation that ``Circle?(s)``
-holds. The obligation is reported as a property named ``Selector<line>:<column>``.
+holds. The obligation is reported as a property named
+``Selector[L<line>C<column>]``, positioned at the ``.`` of the selector.
 
 Discharging the obligation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
