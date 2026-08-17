@@ -10,9 +10,7 @@ type Vote = enum {Yes, No};
 
 type Decision = enum {Commit, Abort};
 
-const N: subrange [1,*] of int; -- Number of Participants
-
-type HostId = subtype { i : Nat | i < N };
+type HostId;
 
 type HostClass = enum { Coordinator, Participant, NoHost };
 
@@ -66,8 +64,10 @@ node Coordinator(my_turn: bool; nw_recv: Option<Message>)
 var sender: HostId;
     vote: Vote;
 let
-  sender = if Some?(nw_recv) and VoteMsg?(nw_recv.value) then nw_recv.value.id else 0;
-  vote = if Some?(nw_recv) and VoteMsg?(nw_recv.value) then nw_recv.value.vote else Yes;
+  sender =
+    if Some?(nw_recv) and VoteMsg?(nw_recv.value)
+    then nw_recv.value.id else any@<HostId>;
+  vote = nw_recv.value.vote;
   frame (votes, nw_send, decision)
     decision = None@<Decision>;
     votes = map[]@<HostId,Vote>;
@@ -107,15 +107,19 @@ let
         nw_send = Some(VoteMsg(id, Preference[id]));
         if Preference[id] = No then
           decision = Some(Abort);
+        else
+          decision = None@<Decision>;
         fi
       elsif (Some?(nw_recv) and DecisionMsg?(nw_recv.value)) then
         decision = Some(nw_recv.value.decision);
         nw_send = None@<Message>;
       else
         nw_send = None@<Message>;
+        decision = None@<Decision>;
       fi
     else
       nw_send = None@<Message>;
+      decision = None@<Decision>;
     fi
   tel
 tel
