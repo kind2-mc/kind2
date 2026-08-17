@@ -1,0 +1,23 @@
+-- The congruence instances for functions over containers must not over-merge:
+-- results at containers that actually differ remain unconstrained, and the
+-- system stays consistent.
+
+datatype D = A (a: int) | B (b: bool);
+
+function imported F(s: set<D>) returns (out: int);
+
+node main(b: bool) returns (r: int);
+var t: set<int>; u: set<D>; cnt: int;
+let
+  cnt = 0 -> pre cnt + 1;
+  t = if b then {1, 2} else {3};
+  u = if b then {A(1)} else {B(true)};
+  r = choose { x: int | x in t };
+
+  -- all three must be falsifiable
+  check "choose forced equal across different sets"
+    (cnt >= 1 and not (t = pre t)) => (r = pre r);
+  check "imported fn forced equal across different adt sets"
+    (cnt >= 1 and not (u = pre u)) => (F(u) = pre (F(u)));
+  check "system is vacuous" false;
+tel

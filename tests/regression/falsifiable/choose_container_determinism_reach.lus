@@ -1,0 +1,20 @@
+-- Reachability form of container-function determinism. Without the ground
+-- congruence instances the two applications below can take different values,
+-- and the reachability check succeeds with a witness that does not exist in
+-- the intended (deterministic) semantics. With them the check is proved
+-- unreachable, which is the expected outcome of this test (an unreachable
+-- 'check reachable' is reported as falsified).
+--
+-- 'm1' and 'm2' are structurally equal, but built so that the value slot of
+-- the key removed from 'm2' is a cell the encoding never addresses.
+
+function imported K(m: map<int, int>) returns (out: int);
+
+node main(v: int) returns (ok: bool);
+var m1, m2: map<int, int>;
+let
+  m1 = map[0 := 7];
+  m2 = (map[0 := 7; 1 := v]) - {1};
+  ok = true;
+  check reachable "fn disagrees on structurally equal maps" (K(m1) <> K(m2));
+tel
