@@ -42,7 +42,7 @@ let
       sentMsgs = prevSentMsgs + {send.value};
     end
   tel
-  recv = any { m: Option<Message> | Some?(m) => m.value in prevSentMsgs };
+  recv = any { m: Option<Message> | Some?(m) ==> m.value in prevSentMsgs };
 tel
 
 function imported AllVotesCollected(votes: map<HostId,Vote>) returns (r: bool);
@@ -127,7 +127,7 @@ function imported AllWithDecisionAgreeWithThisOne(
 );
 (*@contract
   guarantee r = (
-    (Some?(coord_decision) => coord_decision.value = decision) and
+    (Some?(coord_decision) ==> coord_decision.value = decision) and
     (forall (i: HostId) i in partic_decision => partic_decision[i] = decision)
   );
 *)

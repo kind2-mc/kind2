@@ -424,10 +424,11 @@ and desugar_expr ctx adt_map expr =
        a record, so the normalizer can still recover the owning constructor. *)
     let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name)) in
     (* Match arm bodies are desugared again after pattern variables are
-       substituted (see the Match case), so the field name may already have been
-       rewritten to its internal payload name. *)
-    let already_internal =
-      List.exists (fun (fn, _) -> HString.equal fn fld) info.all_payload_fields
+       substituted (see the Match case), and the projections substituted for
+       those variables already name the internal payload field. *)
+    let already_internal = match origin with
+      | LA.Kind2Generated -> true
+      | LA.UserWritten -> false
     in
     if info.is_recursive || already_internal then
       LA.FieldProject (p, e', fld, pk)

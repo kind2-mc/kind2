@@ -376,6 +376,24 @@ let rec index_types_of_array_type pos ty =
     )
   | _ -> []
 
+(* Pairs each index variable of an array equation with the size of the dimension
+   it ranges over, outermost first. Follows the same ordering assumption as
+   generalize_to_array_expr: index variables line up with the dimensions of the
+   array being defined in the order StringMap enumerates them. *)
+let index_sizes_of_inductive_vars ind_vars =
+  match StringMap.choose_opt ind_vars with
+  | None -> []
+  | Some (_, (_, _, array_ty)) ->
+    let rec dim_sizes ty =
+      match ty with
+      | A.ArrayType (_, (inner, size)) -> size :: dim_sizes inner
+      | _ -> []
+    in
+    let ids = List.map fst (StringMap.bindings ind_vars) in
+    let sizes = dim_sizes array_ty in
+    if List.length ids <> List.length sizes then []
+    else List.combine ids sizes
+
 let generalize_to_array_expr name ind_vars expr nexpr =
   let (eq_lhs, nexpr) =
     match get_inductive_vars ind_vars expr with
@@ -1929,18 +1947,22 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
-(* The constructor whose payload contains this field. *)
+(* The constructor whose payload contains this field. A non-recursive ADT is
+   encoded as a record, so by this point the desugarer has rewritten the field
+   to its internal "Ctor_field" name; a recursive one keeps the user-written
+   name. Accepting both names at once would let a field of one constructor match
+   another constructor's mangled name. *)
 and ctor_owning_field adt_info field =
   LDAT.HStringMap.fold (fun ctor fields acc ->
     match acc with
     | Some _ -> acc
     | None ->
-      let internal =
-        HString.concat2 (HString.concat2 ctor (HString.mk_hstring "_")) field
+      let target =
+        if adt_info.LDAT.is_recursive then
+          HString.concat2 (HString.concat2 ctor (HString.mk_hstring "_")) field
+        else field
       in
-      if List.exists
-           (fun (fn, _) -> HString.equal fn field || HString.equal fn internal)
-           fields
+      if List.exists (fun (fn, _) -> HString.equal fn target) fields
       then Some ctor
       else None
   ) adt_info.LDAT.ctor_fields None
@@ -1949,7 +1971,7 @@ and ctor_owning_field adt_info field =
    active where the selector is read. Each enclosing lazy guard is shifted to
    its own 'pre' depth, so a guard is only ever compared against the read it
    actually protects. *)
-and mk_selector_obligation info pos adt_ty field base =
+and mk_selector_obligation info node_id pos adt_ty field base =
   let adt_info = match adt_ty with
     | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
     | _ -> None
@@ -1974,16 +1996,43 @@ and mk_selector_obligation info pos adt_ty field base =
         let rec shift_display d e =
           if d <= 0 then e else mk_pre (shift_display (d - 1) e)
         in
+        (* A local generalized to an array equation is read as l[i]; 'pre' has
+           to sit under the index access, as it does everywhere else in the AST *)
+        let mk_pre_local e =
+          let rec push e =
+            match e with
+            | A.IndexAccess (p, e1, e2, kind) -> A.IndexAccess (p, push e1, e2, kind)
+            | e -> A.Pre (pos, e)
+          in
+          A.Arrow (pos, A.Const (pos, A.True), push e)
+        in
+        (* A local abstracting a 'pre' operand is generalized to an array
+           equation over the index variables the operand mentions, so its type
+           has to mirror those dimensions of the equation the selector sits in *)
+        let local_type e =
+          match get_inductive_vars info.inductive_variables e with
+          | [] -> A.Bool pos
+          | free_vars ->
+            let sizes = index_sizes_of_inductive_vars info.inductive_variables in
+            let sizes =
+              List.filter_map
+                (fun (id, size) ->
+                  if List.exists (HString.equal id) free_vars then Some size else None)
+                sizes
+            in
+            List.fold_right
+              (fun size acc -> A.ArrayType (pos, (acc, size))) sizes (A.Bool pos)
+        in
         (* Introduce locals to abstract the pre operands *)
         let shift_gids = ref (empty ()) in
         let rec shift d e =
           if d <= 0 then e
           else
             let ie, gids =
-              mk_fresh_local false info pos info.inductive_variables (A.Bool pos) e
+              mk_fresh_local false info pos info.inductive_variables (local_type e) e
             in
             shift_gids := union !shift_gids gids;
-            shift (d - 1) (mk_pre ie)
+            shift (d - 1) (mk_pre_local ie)
         in
         let mk_body shift_fn =
           let core = shift_fn info.pre_depth tester in
@@ -1997,23 +2046,40 @@ and mk_selector_obligation info pos adt_ty field base =
             in
             A.BinaryOp (pos, A.Impl, conj, core)
         in
-        let obligation = mk_body shift in
         let display = mk_body shift_display in
-        (* Handle selectors over quantified variables *)
-        let close e =
-          match info.quantified_variables with
-          | [] -> e
-          | vars -> A.Quantifier (pos, A.Forall, vars, e)
+        (* Close over the variables the selector is read under: the enclosing
+           quantifiers, and the index variables of an enclosing array equation. *)
+        let close =
+          let ind_vars =
+            get_inductive_vars info.inductive_variables display
+            |> List.map (fun id ->
+                 let (_, index_ty, _) = StringMap.find id info.inductive_variables in
+                 (pos, id, index_ty))
+          in
+          let vars = List.rev (info.quantified_variables @ ind_vars) in
+          fun e ->
+            List.fold_left (fun acc ((p, id, ty) as var) ->
+              match mk_enum_reftype_constraints node_id info [var] with
+              | None -> A.Quantifier (pos, A.Forall, [var], acc)
+              | Some c ->
+                let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+                A.Quantifier (pos, A.Forall, [(p, id, ty)],
+                  A.BinaryOp (pos, A.Impl, c, acc))
+            ) e vars
         in
-        let obligation, display = close obligation, close display in
-        let key = (pos, obligation) in
+        let display = close display in
+        (* Keyed on the display form, which is built without generating locals,
+           so that a repeated obligation is dropped before any are created *)
+        let key = (pos, display) in
         if SelectorCache.mem selector_cache key then empty ()
         else begin
         SelectorCache.add selector_cache key ();
+        let obligation = close (mk_body shift) in
         i := !i + 1;
         let prefix = HString.mk_hstring (string_of_int !i) in
         let name = HString.concat2 prefix (HString.mk_hstring "_selector") in
         let nexpr = A.Ident (pos, name) in
+        (* The obligation is closed, so it never generalizes to an array equation *)
         let eq_lhs, _ =
           generalize_to_array_expr name StringMap.empty obligation nexpr
         in
@@ -2510,7 +2576,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     let gids2 = match pk with
       | A.Selector (A.UserWritten, adt_ty) ->
-        mk_selector_obligation info pos adt_ty fld nexpr
+        mk_selector_obligation info node_id pos adt_ty fld nexpr
       | A.Selector (A.Kind2Generated, _) | A.RecordField -> empty ()
     in
     FieldProject (pos, nexpr, fld, pk), union gids1 gids2, warnings
