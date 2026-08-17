@@ -400,8 +400,7 @@ let index_sizes_of_inductive_vars ind_vars =
    built from the normalized guard and is unaffected. *)
 let rec process_for_display expr =
   match expr with
-  (* 'and then' and '==>' are normalized through a 'when' whose condition is
-     already negated, so negating it back recovers what the user wrote *)
+  (* Double negation elimination *)
   | A.UnaryOp (_, A.Not, A.UnaryOp (_, A.Not, e)) -> process_for_display e
   | e -> e
 
@@ -2579,6 +2578,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | A.Selector (A.UserWritten, adt_ty, ctor) ->
         mk_selector_obligation info node_id pos adt_ty ctor nexpr expr
       | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> empty ()
+      (* Only reachable through the refinement type of a node input or output,
+         whose predicate the type checker never rewrites; an ADT selector there
+         is already unsupported, so treat this as a record projection *)
+      | A.Unresolved -> empty ()
     in
     FieldProject (pos, nexpr, fld, pk), union gids1 gids2, warnings
   | Const _ as expr -> expr, empty (), []

@@ -1811,7 +1811,7 @@ and compile_ast_expr
     let recursive_selector = match pk with
       | A.Selector (_, A.UserType (_, _, ty_name), _) ->
         find_recursive_selector cstate.adt_map ty_name field
-      | A.Selector _ | A.RecordField -> None
+      | A.Selector _ | A.RecordField | A.Unresolved -> None
     in
     (match recursive_selector with
     | Some (selector_name, ftype) ->

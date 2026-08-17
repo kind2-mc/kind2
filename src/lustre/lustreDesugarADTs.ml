@@ -438,6 +438,8 @@ and desugar_expr ctx adt_map expr =
       LA.FieldProject (p, e', payload_field_name_of ctor fld, pk)
   | LA.FieldProject (p, e, i, LA.RecordField) ->
     LA.FieldProject (p, r e, i, LA.RecordField)
+  | LA.FieldProject (p, e, i, LA.Unresolved) ->
+    LA.FieldProject (p, r e, i, LA.Unresolved)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
@@ -754,6 +756,7 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
   | LA.FieldProject (p, e, id, pk) ->
     let pk = match pk with
+      | LA.Unresolved -> LA.Unresolved
       | LA.RecordField -> LA.RecordField
       | LA.Selector (origin, ty, ctor) ->
         LA.Selector (origin, LH.map_lustre_ty r ty, ctor)

@@ -148,6 +148,7 @@ type lustre_type =
   | ADT of position * ident * (ident * (ident * lustre_type) list) list
 
 and proj_kind =
+  | Unresolved
   | RecordField
   (** Origin, the ADT type, and the constructor whose payload holds the field. *)
   | Selector of selector_origin * lustre_type * ident
