@@ -167,28 +167,6 @@ substitutes for its pattern variables, carry no obligation: the arm's guard
 already establishes the constructor. No obligation is generated for an ADT with
 a single constructor either, since the constructor is always active.
 
-.. note::
-
-   Replacing an ``if ... then ... else`` **expression** with
-   ``when ... then ... else`` is not always meaning-preserving. If a branch
-   contains ``pre`` or ``->``, it is lifted into a node activated on the branch
-   condition, which makes ``pre`` refer to the previous *activation* rather than
-   the previous instant:
-
-   .. code-block:: none
-
-      -- 'pre x.value' is the value at the previous instant at which Some?(x) held
-      val = when Some?(x) then (0 -> pre x.value) else 0;
-
-   The obligation is discharged either way, since the selector is read only when
-   the node is active. But when the previous *instant* is what you meant, keep
-   the ``pre`` outside the guarded expression:
-
-   .. code-block:: none
-
-      value = when Some?(x) then x.value else 0;
-      val = 0 -> pre value;
-
 Polymorphic ADTs
 ----------------
 
