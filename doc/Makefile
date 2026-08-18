@@ -74,11 +74,9 @@ $(VENV)/bin/activate: pdf-tools/requirements.txt
 ifneq ($(filter command line environment,$(origin PYTHON)),)
 pdf: html
 	SKIP_HUGO_BUILD=1 PYTHON=$(PYTHON) ./pdf-tools/build_pdf.sh
-	cp print/kind2-user-documentation.pdf user-documentation.pdf
 else
 pdf: html venv
 	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
-	cp print/kind2-user-documentation.pdf user-documentation.pdf
 endif
 
 serve: theme vendor-assets

@@ -112,12 +112,13 @@ jobs:
     - name: Setup Hugo
       uses: peaceiris/actions-hugo@v3
       with:
-        hugo-version: '0.123.0'
+        hugo-version: 'latest'
         extended: true
 
     - name: Build user documentation
       if: runner.os == 'Linux'
       run: |
+        sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf2.0-0 poppler-utils
         make doc
 
     - name: Build developer documentation

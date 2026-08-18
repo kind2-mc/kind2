@@ -24,7 +24,7 @@ WeasyPrint also needs a few system libraries for font/text rendering, which
 pip does not install:
 
     # Debian/Ubuntu
-    sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf2.0-0
+    sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf2.0-0 poppler-utils
 
     # macOS
     brew install pango

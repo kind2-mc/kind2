@@ -1,5 +1,6 @@
 ---
 title: "Techniques"
+weight: 2
 ---
 
 This section presents the techniques available in Kind 2: how they work,

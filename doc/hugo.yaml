@@ -57,7 +57,7 @@ params:
 
   editURL:
     enable: true
-    base: "https://github.com/kind2-mc/kind2/edit/master/doc/content"
+    base: "https://github.com/kind2-mc/kind2/edit/main/doc/content"
 
   toc:
     displayToc: true
