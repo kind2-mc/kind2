@@ -67,10 +67,3 @@ params:
     katex:
       base: /vendor/katex/dist
       css: vendor/katex/dist/katex.min.css
-  
-  module:
-    mounts:
-      - source: static
-        target: static
-      - source: static/vendor/katex/dist/fonts
-        target: static/css/fonts

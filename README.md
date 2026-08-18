@@ -6,7 +6,7 @@ class="align-middle" alt="main" />](https://github.com/kind2-mc/kind2/actions?qu
 src="https://img.shields.io/github/v/release/kind2-mc/kind2?color=blue"
 class="align-middle" alt="release" />](https://github.com/kind2-mc/kind2/releases/latest)
  
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-green)](https://github.com/kind2-mc/kind2/blob/main/LICENSE.md)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/kind2-mc/kind2/blob/main/LICENSE.md)
 
 
 [Kind 2](http://kind.cs.uiowa.edu/) is a multi-engine, parallel,
