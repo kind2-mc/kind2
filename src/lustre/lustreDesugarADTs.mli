@@ -60,6 +60,12 @@ val record_type_of_adt :
   adt_info ->
   LustreAst.lustre_type
 
+val build_adt_map : LustreAst.declaration list -> adt_map
+(** Collect all ADT type declarations from a program into an [adt_map],
+    without performing any desugaring. Exposed so that passes needing
+    [is_recursive] classification (e.g. [LustreCheckADTDecreases]) can run
+    before [desugar_adts] eliminates [Match]/[ADTTerm] from the AST. *)
+
 val desugar_adts :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->

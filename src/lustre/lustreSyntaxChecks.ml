@@ -81,6 +81,9 @@ type error_kind = Unknown of string
   | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | MultipleDecreasesClauses of HString.t
+  | DecreasesClauseInContractNodeDecl of HString.t
+  | MisplacedDecreasesClause of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
@@ -163,6 +166,24 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
     ^ "mention the input parameters of the function and constants"
+  | MultipleDecreasesClauses id -> "Recursive function '"
+    ^ HString.string_of_hstring id
+    ^ "' has more than one decreases clause in its contract; combine them "
+    ^ "into a single clause (a comma-separated tuple for a lexicographic "
+    ^ "integer measure)"
+  | DecreasesClauseInContractNodeDecl id -> "Contract '"
+    ^ HString.string_of_hstring id
+    ^ "' declares a decreases clause; this is not currently supported -- a "
+    ^ "decreases clause declared in a standalone contract that is imported "
+    ^ "into a function has no effect on that function's termination check. "
+    ^ "Write the decreases clause directly in the recursive function's own "
+    ^ "contract instead"
+  | MisplacedDecreasesClause id -> "'"
+    ^ HString.string_of_hstring id
+    ^ "' declares a decreases clause, but only a recursive ('rec') function "
+    ^ "has a termination check for one to control, so it would have no "
+    ^ "effect here. Remove the clause, or -- if a recursive function was "
+    ^ "intended -- declare it with the 'rec' modifier"
   | MisplacedAuto -> "The 'auto' keyword is only allowed in the body of a lemma"
   | LemmaCallOutsideCallStatement id -> "Lemma '"
     ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
@@ -997,6 +1018,20 @@ and check_decreases_measures inputs outputs contract =
   |> List.map check_measure
   |> Res.seq_
 
+(* The positions of a contract's decreases clauses, in declaration order. *)
+and decreases_clause_positions contract =
+  match contract with
+  | Some (_, items) ->
+    List.filter_map (function LA.Decreases (pos, _) -> Some pos | _ -> None) items
+  | None -> []
+
+(* Only a recursive function's contract is ever scanned for a decreases
+   clause, so one declared anywhere else is silently ignored. *)
+and no_decreases_clause id contract =
+  match decreases_clause_positions contract with
+  | [] -> Ok ()
+  | pos :: _ -> syntax_error pos (MisplacedDecreasesClause id)
+
 and check_input_items (pos, _id, _ty, clock, _const) =
   no_clock_inputs_or_outputs pos clock
 
@@ -1017,7 +1052,8 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
-  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
+  no_decreases_clause (NI.get_user_name node_id) contract
+  >> check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (locals_exactly_one_definition locals items)
   >> (if ext then (Res.ok []) else (outputs_exactly_one_definition outputs items))
   >> (Res.seq_ (List.map check_input_items inputs))
@@ -1062,19 +1098,18 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   in
   let* () =
     if is_rec.LA.is_rec then
-      let has_decreases_clause =
-        match contract with
-        | Some (_, items) ->
-          List.exists (function LA.Decreases _ -> true | _ -> false) items
-        | None -> false
-      in
-      if not has_decreases_clause then
+      match decreases_clause_positions contract with
+      | [] ->
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
-      else
-        check_decreases_measures inputs outputs contract
+      | [_] -> check_decreases_measures inputs outputs contract
+      | _ :: _ :: _ ->
+        (* Downstream passes each pick "the" clause independently and can
+           disagree, each then trusting some other pass to check the rest. *)
+        syntax_error span.start_pos
+          (MultipleDecreasesClauses (NI.get_user_name node_id))
     else
-      Ok ()
+      no_decreases_clause (NI.get_user_name node_id) contract
   in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
@@ -1099,8 +1134,19 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-  (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs)) >> 
+  let (_, contract_items) = contract in
+  (* A decreases clause declared here would be silently ignored by every
+     downstream pass once imported into a recursive function's contract
+     (LustreCheckADTDecreases, LustreNodeGen.get_decreases_expr, and the
+     dual-decreases-clause syntax check above all only ever scan a
+     function's own inline contract items) -- rejected outright rather than
+     accepted and quietly not enforced. *)
+  (match List.find_opt (function LA.Decreases _ -> true | _ -> false) contract_items with
+   | Some (LA.Decreases (pos, _)) ->
+     syntax_error pos (DecreasesClauseInContractNodeDecl (NI.get_user_name id))
+   | Some _ | None -> Ok ())
+  >> (Res.seq_ (List.map check_input_items inputs))
+  >> (Res.seq_ (List.map check_output_items outputs)) >>
     let* (warnings, _) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
     (Ok (warnings, decl))
 

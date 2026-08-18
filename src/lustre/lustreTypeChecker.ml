@@ -125,6 +125,10 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
+  | InvalidDecreasesType of tc_type
+  | ADTInLexicographicDecreases of tc_type
+  | NonRecursiveADTDecreases of tc_type
+  | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | RecursiveFieldWithTypeArgs of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
@@ -285,6 +289,22 @@ let error_message kind = match kind with
   | NonWellFoundedDatatype ty_name ->
     "Datatype '" ^ HString.string_of_hstring ty_name
     ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
+  | InvalidDecreasesType ty ->
+    "Decreases measure must be an integer or algebraic data type expression, but found type "
+    ^ string_of_tc_type ty
+  | ADTInLexicographicDecreases ty ->
+    "Algebraic data type expressions are not supported as a component of a lexicographic \
+     (tuple) decreases measure, but found type " ^ string_of_tc_type ty
+  | NonRecursiveADTDecreases ty ->
+    "Decreases measure of algebraic data type " ^ string_of_tc_type ty
+    ^ " is not supported because this type is not recursive; only recursive algebraic \
+       data types (or integers) can be used as a decreases measure"
+  | NonInputInADTDecreasesMeasure id ->
+    "'" ^ HString.string_of_hstring id
+    ^ "' cannot occur in an algebraic-datatype decreases measure; unlike an integer \
+       measure, it may only reference the function's own input parameters, since only \
+       those can be shown to receive a genuine substructure of the caller's measure \
+       across a recursive call"
   | UnsupportedRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
@@ -2487,17 +2507,37 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       let* e, warnings = check_type_expr ctx (Some nname) e (Bool pos) in 
       R.ok (LA.Guarantee (pos, id, b, e), warnings)
     | Decreases (pos, e) ->
-      (* A decreases measure is a single integer expression, or a tuple of
-         integer expressions interpreted lexicographically. Every component
-         must be of integer type. *)
+      (* A decreases measure is a single integer or ADT expression, or a tuple
+         of integer expressions interpreted lexicographically. ADT expressions
+         are not (yet) supported as a tuple component. Unlike integer measures
+         (whose decrease is verified dynamically, as a real proof obligation
+         against the function's actual equations), ADT measures are verified
+         statically and purely syntactically (see LustreCheckADTDecreases),
+         which rejects any measure not built from the function's own inputs
+         since those are the only values a recursive call can be shown to
+         receive a genuine substructure of. *)
+      let check_decreases_component ~in_tuple e =
+        let* ty, e, warnings = infer_type_expr ctx (Some nname) e in
+        let* ty_exp = expand_type_syn_reftype_history ctx ty in
+        (match ty_exp with
+        | LA.Int _ -> R.ok (e, warnings)
+        | LA.ADT (_, name, ctors) when not in_tuple ->
+          if not (LH.is_directly_recursive_adt name ctors) then
+            type_error pos (NonRecursiveADTDecreases ty)
+          else
+            let (node_in_params, _) = node_params in
+            (match LA.SI.elements (LA.SI.diff (LH.vars_without_node_call_ids e) node_in_params) with
+            | [] -> R.ok (e, warnings)
+            | id :: _ -> type_error pos (NonInputInADTDecreasesMeasure id))
+        | LA.ADT _ -> type_error pos (ADTInLexicographicDecreases ty)
+        | _ -> type_error pos (InvalidDecreasesType ty))
+      in
       let* e, warnings = (match e with
         | LA.GroupExpr (gpos, LA.ExprList, es) ->
-          let* res = R.seq (List.map (fun e ->
-            check_type_expr ctx (Some nname) e (Int pos)) es)
-          in
+          let* res = R.seq (List.map (check_decreases_component ~in_tuple:true) es) in
           let es, warnings = List.split res in
           R.ok (LA.GroupExpr (gpos, LA.ExprList, es), List.flatten warnings)
-        | _ -> check_type_expr ctx (Some nname) e (Int pos))
+        | _ -> check_decreases_component ~in_tuple:false e)
       in
       R.ok (LA.Decreases (pos, e), warnings)
     | Mode (pos, id, reqs, ensures) ->
@@ -2927,29 +2967,36 @@ and check_ref_type_assumptions ctx src nname bound_var e =
   )
   | Output | Local | Ghost | Global -> R.ok ()
 
-and check_map_set_type pos ctx ty = let r = check_map_set_type pos ctx in match ty with  
-| LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 
-| TArr _ -> type_error pos (UnsupportedMapType ty) 
-| RecordType (_, _, tis) -> 
-  Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
-| RefinementType (_, (_, _, ty), _) -> 
-  r ty 
-| TupleType (_, tys) -> 
-  Res.seq_ (List.map r tys)
-| UserType (_, ty_args, i) ->
-  if (member_ty_syn ctx i || member_u_types ctx i)
-  then 
-    let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
-    let ty = expand_type_syn ctx ty in
-      r ty 
-  (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because 
-     this will be caught by `check_type_well_formed`, which recursively checks 
-     the map key and value types for wellformedness. *)
-  else R.ok () 
-| AbstractType _ | Bool _ | Int _ 
-| EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
-| ADT (_, _, cons) ->
-  Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
+and check_map_set_type pos ctx ty =
+  (* Guard against infinite recursion on recursive ADTs: expand each type
+     name at most once per traversal path. *)
+  let rec aux seen ty = let r = aux seen in match ty with
+  | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _
+  | TArr _ -> type_error pos (UnsupportedMapType ty)
+  | RecordType (_, _, tis) ->
+    Res.seq_ (List.map (fun (_, _, ty) -> r ty) tis)
+  | RefinementType (_, (_, _, ty), _) ->
+    r ty
+  | TupleType (_, tys) ->
+    Res.seq_ (List.map r tys)
+  | UserType (_, ty_args, i) ->
+    if (member_ty_syn ctx i || member_u_types ctx i)
+    then
+      if HString.HStringSet.mem i seen then R.ok ()
+      else
+        let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
+        let ty = expand_type_syn ctx ty in
+        aux (HString.HStringSet.add i seen) ty
+    (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because
+       this will be caught by `check_type_well_formed`, which recursively checks
+       the map key and value types for wellformedness. *)
+    else R.ok ()
+  | AbstractType _ | Bool _ | Int _
+  | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
+  | ADT (_, _, cons) ->
+    Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
+  in
+  aux HString.HStringSet.empty ty
 
 and expr_contains_set_binop ctx ni expr = 
   let r = expr_contains_set_binop ctx ni in 
@@ -3078,7 +3125,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
       if (member_ty_syn ctx i || member_u_types ctx i)
-      then 
+      then (
         (* Check that we are passing the correct number of type arguments *)
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty' ty_args in
         let expanded = expand_type_syn ctx ty' in
@@ -3090,7 +3137,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
              but don't substitute in the expanded UserType *)
           let* _, warnings = check_type_well_formed_rec is_nested expanded in
           R.ok (ty', warnings)
-      else (
+      ) else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
         | Some nname -> 
