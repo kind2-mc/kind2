@@ -112,13 +112,12 @@ jobs:
     - name: Setup Hugo
       uses: peaceiris/actions-hugo@v3
       with:
-        hugo-version: 'latest'
+        hugo-version: '0.123.0'
         extended: true
 
     - name: Build user documentation
       if: runner.os == 'Linux'
       run: |
-        pip install beautifulsoup4 lxml weasyprint
         make doc
 
     - name: Build developer documentation

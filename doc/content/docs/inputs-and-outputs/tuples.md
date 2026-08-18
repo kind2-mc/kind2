@@ -22,7 +22,7 @@ accesses were chained, as in `t.%1.%0`. For example, the definition
 `y = '(0, false, x[2]);` above would previously have been written
 `y = {0, false, x.%2};`.
 
-The change was motivated by the introduction of `set data types <10_sets>`:
+The change was motivated by the introduction of [set data types]({{< relref "/docs/inputs-and-outputs/sets" >}}):
 the `{...}` notation is now used for set constructors.
 {{< /callout >}}
 

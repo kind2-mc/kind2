@@ -38,9 +38,8 @@ menu:
 params:
   description: Kind 2 is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
 
-  # FlexSearch is loaded from a CDN (cdn.jsdelivr.net) by default, which requires
-  # internet access at `hugo build` time. Leave this enabled for normal use;
-  # set to false only if building in a network-restricted environment.
+  # FlexSearch and KaTeX are served from local assets populated by
+  # fetch-vendor-assets.sh, so normal builds do not depend on a CDN.
   search:
     enable: true
     type: flexsearch
@@ -58,7 +57,7 @@ params:
 
   editURL:
     enable: true
-    base: "https://github.com/kind2-mc/kind2/edit/main/doc/usr/source"
+    base: "https://github.com/kind2-mc/kind2/edit/master/doc/content"
 
   toc:
     displayToc: true
@@ -67,3 +66,11 @@ params:
     enable: true
     katex:
       base: /vendor/katex/dist
+      css: vendor/katex/dist/katex.min.css
+  
+  module:
+    mounts:
+      - source: static
+        target: static
+      - source: static/vendor/katex/dist/fonts
+        target: static/css/fonts

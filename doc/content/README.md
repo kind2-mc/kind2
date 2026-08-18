@@ -11,7 +11,7 @@ content/
     inputs-and-outputs/     # "Inputs and Outputs" toctree section
     advanced-features/       # "Advanced Features" toctree section
     license.md              # "License" toctree section
-themes/hextra/            # Hextra theme, vendored directly (not a Hugo Module)
+themes/hextra/            # Hextra theme, Git submodule
 hugo.yaml                  # Site configuration
 ```
 
@@ -37,7 +37,7 @@ make html
 Output goes to `public/`.
 
 > **Note:** `hugo build` fetches FlexSearch (search) and KaTeX (math
-> rendering) from `cdn.jsdelivr.net` the first time it runs, so it needs
+> rendering) using `fetch-vendor-assets.sh` the first time it runs, so it needs
 > normal internet access. If you're building in a network-restricted
 > environment, set `params.search.enable: false` and
 > `markup.goldmark.extensions.passthrough.enable: false` in `hugo.yaml`.

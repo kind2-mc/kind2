@@ -316,4 +316,4 @@ make test
 Documentation is available online in [HTML](http://kind.cs.uiowa.edu/kind2_user_doc/)
 or [PDF](http://kind.cs.uiowa.edu/kind2_user_doc/doc.pdf) forms.
 
-See `doc/usr/README.rst` for more information.
+See `doc/content/README.md` for more information.

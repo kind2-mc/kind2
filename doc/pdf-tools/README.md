@@ -31,11 +31,10 @@ pip does not install:
 
 ## How it works
 
-`pdf-tools/build_print_html.py` merges every docs page (in nav order,
-defined in `pdf-tools/destmap.py`) into `print/all-docs.html`, then
+`pdf-tools/build_print_html.py` discovers every docs page directly from the
+Hugo `content/docs/` tree and its `weight` front matter, then merges them into
+`print/all-docs.html`. This keeps PDF page order in sync with Hugo without a
+second Sphinx-era page map.
 `pdf-tools/build_pdf.sh` renders that to
 `print/kind2-user-documentation.pdf` with WeasyPrint.
 
-If you add or reorder pages, update the `DEST_MAP` / `SECTIONS` tables in
-`pdf-tools/destmap.py` to match — the print order is driven from there, not
-auto-discovered from the content tree.

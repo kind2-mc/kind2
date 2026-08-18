@@ -22,23 +22,16 @@ themes/hextra/layouts:
 	fi
 
 update:
-	# Generate the project README with CI links for Github
-	echo '<!-- DO NOT EDIT, see doc/README.md for details -->\n' > ../README.md
-	cat content/header.md >> ../README.md
-	cat content/home.md >> ../README.md
-	# Replace internal references with explicit ones to render README on Github
-	sed -E -i 's/:ref:`(.*)<(.*)>`/`\1<${doc_root}\2\.html>`_/g' ../README.md
-	# Replace include directives with the file contents, as the
-	# directives are not currently supported/rendered on Github.
-	# The source/ directory is where files included in
-	# this manner are expected to reside.
-	#     https://unix.stackexchange.com/a/128797/248178
-	sed -i '/\.\. include:: \(.*\)/{s//source\/\1/;s/'\''/&\\&&/g;s/.*/cat<'"'&'/e}" ../README.md
-	# Generate the documentation README
-	echo '<!-- DO NOT EDIT, edit content/README.md instead -->\n' > README.md
+	@printf "Updating root README.md and LICENSE.md...\n"
+	{ \
+		cat content/header.md; \
+		printf '\n'; \
+		awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1; next} front && /^---$$/{front=0; next} !front{print}' content/docs/_index.md | \
+		sed -E 's#\{\{< relref "/docs/([^"]+)" >\}\}#https://kind.cs.uiowa.edu/kind2_user_doc/docs/\1#g'; \
+	} > ../README.md
+	awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1; next} front && /^---$$/{front=0; next} !front{print}' content/docs/license.md > ../LICENSE.md
+	@printf '<!-- DO NOT EDIT, edit content/README.md instead -->\n' > README.md
 	cat content/README.md >> README.md
-	sed -i '/\.\. include:: \(.*\)/{s//source\/\1/;s/'\''/&\\&&/g;s/.*/cat<'"'&'/e}" README.md
-	cp content/docs/license.md ../LICENSE.md
 
 # KaTeX (math) and FlexSearch (search) are fetched via npm into assets/vendor/
 # on demand, not committed — see fetch-vendor-assets.sh. This avoids relying
@@ -80,13 +73,12 @@ $(VENV)/bin/activate: pdf-tools/requirements.txt
 ifneq ($(filter command line environment,$(origin PYTHON)),)
 pdf: html
 	SKIP_HUGO_BUILD=1 PYTHON=$(PYTHON) ./pdf-tools/build_pdf.sh
+	cp print/kind2-user-documentation.pdf user-documentation.pdf
 else
 pdf: html venv
 	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
+	cp print/kind2-user-documentation.pdf user-documentation.pdf
 endif
-
-pdf: html venv
-	SKIP_HUGO_BUILD=1 PYTHON=$(VENV)/bin/python3 ./pdf-tools/build_pdf.sh
 
 serve: theme vendor-assets
 	hugo server -D

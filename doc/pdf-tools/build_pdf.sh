@@ -30,4 +30,17 @@ from weasyprint import HTML
 HTML("print/all-docs.html", base_url="print").write_pdf("print/kind2-user-documentation.pdf")
 PY
 
+if ! command -v pdfinfo >/dev/null 2>&1 || ! pdfinfo print/kind2-user-documentation.pdf >/dev/null 2>&1; then
+  echo "ERROR: generated PDF is unreadable" >&2
+  exit 1
+fi
+if ! command -v pdfimages >/dev/null 2>&1; then
+  echo "ERROR: pdfimages is required to validate embedded images" >&2
+  exit 1
+fi
+if ! pdfimages -list print/kind2-user-documentation.pdf | awk 'NR > 2 && NF {found=1} END {exit found ? 0 : 1}'; then
+  echo "ERROR: generated PDF contains no embedded images" >&2
+  exit 1
+fi
+
 echo "Done: print/kind2-user-documentation.pdf"

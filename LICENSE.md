@@ -1,7 +1,3 @@
----
-title: "Apache License"
-weight: 5
----
 
 Version 2.0, January 2004
 
