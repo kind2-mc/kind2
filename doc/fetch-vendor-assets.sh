@@ -33,13 +33,12 @@ mkdir -p assets/css/fonts
 fetch "https://registry.npmjs.org/katex/-/katex-${KATEX_VERSION}.tgz" "$WORK/katex.tgz"
 tar xzf "$WORK/katex.tgz" -C "$WORK"
 
-cp "$WORK"/package/dist/katex.min.css assets/vendor/katex/dist/
-cp "$WORK"/package/dist/fonts/*.woff2 assets/css/fonts/
-
 sed \
   's|url(fonts/|url(/css/fonts/|g' \
   "$WORK/package/dist/katex.min.css" \
   > assets/vendor/katex/dist/katex.min.css
+
+cp "$WORK"/package/dist/fonts/*.woff2 assets/css/fonts/
 
 echo "==> fetching flexsearch@${FLEXSEARCH_VERSION}"
 mkdir -p assets/vendor/flexsearch/dist
