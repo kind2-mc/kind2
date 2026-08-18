@@ -106,9 +106,23 @@ let
   tel
 tel
 
+node ParticipantHosts(active_id: HostId; nw_recv: Option<Message>;
+                      last_decisions: map<HostId,Decision>)
+  returns (nw_send: Option<Message>;
+           decisions: map<HostId,Decision>);
+var decision: Option<Decision>;
+let
+  nw_send, decision = Participant(active_id, nw_recv);
+  when (Some?(decision)) then
+    decisions = last_decisions[active_id := decision.value];
+  else
+    decisions = last_decisions;
+  end
+tel
+
 function imported AllWithDecisionAgreeWithThisOne(
   coord_decision: Option<Decision>;
-  partic_decision: map<HostId,Decision>;
+  partic_decisions: map<HostId,Decision>;
   decision: Decision
 ) returns (
   r: bool
@@ -116,12 +130,12 @@ function imported AllWithDecisionAgreeWithThisOne(
 (*@contract
   guarantee r = (
     (Some?(coord_decision) ==> coord_decision.value = decision) and
-    (forall (i: HostId) i in partic_decision ==> partic_decision[i] = decision)
+    (forall (i: HostId) i in partic_decisions ==> partic_decisions[i] = decision)
   );
 *)
 
 node DistributedSystem(tk_holder: Token_Holder) returns (
-  coord_decision: Option<Decision>; partic_decision: map<HostId,Decision>
+  coord_decision: Option<Decision>; partic_decisions: map<HostId,Decision>
 );
 (*@contract
   assume "No one's turn initially, then always somebody's turn"
@@ -129,28 +143,27 @@ node DistributedSystem(tk_holder: Token_Holder) returns (
 
   guarantee "SafetyAC1"
     AllWithDecisionAgreeWithThisOne(
-      coord_decision, partic_decision, Commit)
+      coord_decision, partic_decisions, Commit)
     or
     AllWithDecisionAgreeWithThisOne(
-      coord_decision, partic_decision, Abort);
+      coord_decision, partic_decisions, Abort);
 
   guarantee "SafetyAC3" (
     (exists (hostid:HostId) Preference[hostid] = No)
     =>
     AllWithDecisionAgreeWithThisOne(
-      coord_decision, partic_decision, Abort)
+      coord_decision, partic_decisions, Abort)
   );
 
   guarantee "SafetyAC4" (
     (forall (hostid:HostId) Preference[hostid] = Yes)
     =>
     AllWithDecisionAgreeWithThisOne(
-      coord_decision, partic_decision, Commit)
+      coord_decision, partic_decisions, Commit)
   );
 *)
 var coord_send, partic_send: Option<Message>;
 var network_send, network_recv: Option<Message>;
-var decision_id: Option<Decision>;
 var votes: map<HostId,Vote>; -- probe
 var sentMsgs: MsgSet; -- probe
 
@@ -168,20 +181,13 @@ let
     end
   tel
 
-  frame (partic_send, decision_id)
+  frame (partic_send, partic_decisions)
     partic_send = None@<Message>;
-    decision_id = None@<Decision>;
+    partic_decisions = map[]@<HostId,Decision>;
   let
     when (ParticipantHost?(tk_holder)) then
-      partic_send, decision_id = Participant(tk_holder.id, network_recv);
-    end
-  tel
-
-  frame (partic_decision)
-    partic_decision = map[]@<HostId,Decision>;
-  let
-    when (ParticipantHost?(tk_holder) and Some?(decision_id)) then
-      partic_decision = (last partic_decision)[tk_holder.id := decision_id.value];
+      partic_send, partic_decisions =
+        ParticipantHosts(tk_holder.id, network_recv, last partic_decisions);
     end
   tel
 
@@ -212,10 +218,12 @@ let
        decisionOfVotes = msg.decision);
 
   check "Participant Commit Decision Agree With Decision Msg"
-    Some?(decision_id) and then decision_id.value = Commit =>
+    forall (idx: HostId) (idx in partic_decisions and
+                          partic_decisions[idx] = Commit) ==>
       DecisionMsg(Commit) in sentMsgs;
 
   check "Participant Decision Agree With Participant Preferences"
-    ((forall (idx: HostId) Preference[idx]=Yes) and Some?(decision_id)) ==>
-      decision_id.value = Commit;
+    forall (idx: HostId) ((forall (i: HostId) Preference[i] = Yes) and
+                          idx in partic_decisions) ==>
+      partic_decisions[idx] = Commit;
 tel
