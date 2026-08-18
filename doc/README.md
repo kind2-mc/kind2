@@ -37,10 +37,10 @@ make html
 
 Output goes to `public/`.
 
-> **Note:** `hugo build` fetches FlexSearch (search) and KaTeX (math
+> **Note:** `make html` or `make vendor-assets` fetches FlexSearch (search) and KaTeX (math
 > rendering) using `fetch-vendor-assets.sh` the first time it runs, so it needs
 > normal internet access. If you're building in a network-restricted
-> environment, set `params.search.enable: false`
+> environment, set `params.search.enable: false`.
 
 ## Deploying
 

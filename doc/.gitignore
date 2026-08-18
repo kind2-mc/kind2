@@ -3,5 +3,6 @@ resources/_gen/
 .hugo_build.lock
 print/
 pdf-tools/venv/
-assets/
+assets/vendor
+assets/css/fonts/
 themes/
