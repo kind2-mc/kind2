@@ -27,10 +27,10 @@ update:
 		printf '<!-- DO NOT EDIT, edit content/docs/_index.md instead -->\n'; \
 		cat content/header.md; \
 		printf '\n'; \
-		awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1; next} front && /^---$$/{front=0; next} !front{print}' content/docs/_index.md | \
+		awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1;next} front && /^title:/{title=$$0;sub(/^title:[[:space:]]*/,"",title);gsub(/^"|"$$/,"",title);next} front && /^---$$/{front=0;if(title!=""){print "# " title;print ""}next} !front{print}' content/docs/_index.md | \
 		sed -E 's#\{\{< relref "/docs/([^"]+)" >\}\}#https://kind.cs.uiowa.edu/kind2_user_doc/docs/\1#g'; \
 	} > ../README.md
-	awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1; next} front && /^---$$/{front=0; next} !front{print}' content/docs/license.md > ../LICENSE.md
+	awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1;next} front && /^title:[[:space:]]*/{title=$$0;sub(/^title:[[:space:]]*/,"",title);gsub(/^"|"$$/,"",title);next} front && /^---$$/{front=0;if(title!=""){print "# " title;print ""}next} !front{print}' content/docs/license.md > ../LICENSE.md
 	@printf '<!-- DO NOT EDIT, edit content/README.md instead -->\n' > README.md
 	cat content/README.md >> README.md
 

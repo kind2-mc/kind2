@@ -8,6 +8,8 @@ class="align-middle" alt="release" />](https://github.com/kind2-mc/kind2/release
  
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/kind2-mc/kind2/blob/main/LICENSE.md)
 
+# Kind 2
+
 
 [Kind 2](http://kind.cs.uiowa.edu/) is a multi-engine, parallel,
 SMT-based automatic model checker for safety properties of Lustre programs.
