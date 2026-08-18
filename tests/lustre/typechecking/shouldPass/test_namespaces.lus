@@ -1,6 +1,6 @@
 type two = int ;
 
-type one = { blah: two } ;
+type one = struct { blah: two } ;
 
 const two_c = 0.0 ;
 

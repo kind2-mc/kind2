@@ -195,6 +195,11 @@ val check_sat_and_get_term_values : t ->
   'a
 
 
+(** Get the values of the given terms in the current context. The context
+    must be satisfiable, as after a [check_sat] that returned true. *)
+val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
+
+
 (** Check satisfiability under assumptions as with {!check_sat_assuming},
     but if the solver returns satisfiable, the values of the terms in the
     current context are given to the continuation [t] as its second argument *)

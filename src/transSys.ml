@@ -38,7 +38,28 @@ type pred_def = UfSymbol.t * (Var.t list * Term.t)
 
 
 (* Instance of a subsystem *)
-type instance = 
+(* Functional congruence group of an (abstracted) function with
+   container-typed arguments.
+
+   The template is a quantifier-free formula over the free variables
+   [fcg_a_vars] and [fcg_b_vars] (one pair per function argument, in
+   argument order) stating: some pair of corresponding arguments differs
+   (containers are compared pointwise at canonical positions, via difference
+   witness functions), or the function results at the two argument tuples
+   coincide. [fcg_apps] are the argument state variable tuples of the
+   applications of the function in this system's subtree, lifted to this
+   system's state variables. Substituting two applications (at two bounds)
+   into the template yields a ground congruence instance, a valid formula of
+   the intended (deterministic) semantics. *)
+type fn_congruence_group =
+  {
+    fcg_template : Term.t;
+    fcg_a_vars : Var.t list;
+    fcg_b_vars : Var.t list;
+    fcg_apps : StateVar.t list list;
+  }
+
+type instance =
   {
     (* Unique identifier of the instance *)
     uid : int;
@@ -100,8 +121,14 @@ type t =
 
     global_consts : Var.t list;
     (** List of global free constants *)
-    
+
     global_constraints : Term.t list;
+
+    fn_congruence_groups : fn_congruence_group list;
+    (** Functional congruence groups of the (abstracted) functions with
+        container-typed arguments in this system's subtree; used to generate
+        ground congruence instances per unrolling bound
+        (see {!fn_congruence_instances}) *)
 
     state_vars : StateVar.t list;
     (** State variables in the scope of this transition system 
@@ -491,6 +518,59 @@ let collect_instances ({ scope } as trans_sys) =
 (* ********************************************************************** *)
 
 let global_constraints { global_constraints } = global_constraints
+
+let fn_congruence_groups { fn_congruence_groups } = fn_congruence_groups
+
+let has_fn_congruence_groups { fn_congruence_groups } =
+  fn_congruence_groups <> []
+
+(* Ground congruence instances for every pair of function applications over
+   bounds [0..k].
+
+   Each is a valid formula of the intended semantics, so asserting any
+   subset of them is sound, and an engine can leave them all out until a
+   query comes back satisfiable. The engines pass them to the solver as
+   terms to evaluate: those the model makes false are exactly the instances
+   that refute it, and when there are none the model satisfies determinism,
+   so the counterexample it represents is genuine. *)
+let fn_congruence_instances { fn_congruence_groups } k =
+  let inst { fcg_template; fcg_a_vars; fcg_b_vars; _ } app1 o1 app2 o2 =
+    let bind vars app o =
+      List.map2 (fun v sv ->
+        v, Term.mk_var (Var.mk_state_var_instance sv o)
+      ) vars app
+    in
+    Term.apply_subst
+      (bind fcg_a_vars app1 o1 @ bind fcg_b_vars app2 o2)
+      fcg_template
+  in
+  List.fold_left (fun acc ({ fcg_apps; _ } as g) ->
+    let rec bounds j acc =
+      if Numeral.(j > k) then acc
+      else
+        (* every application at [j], against every application at a bound
+           at most [j] (itself included, at a strictly smaller bound) *)
+        let rec over_apps acc = function
+          | [] -> acc
+          | app1 :: tl ->
+            let acc =
+              List.fold_left (fun acc app2 -> inst g app1 j app2 j :: acc)
+                acc tl
+            in
+            let rec earlier i acc =
+              if Numeral.(i >= j) then acc
+              else
+                earlier Numeral.(succ i) (
+                  List.fold_left (fun acc app2 -> inst g app1 j app2 i :: acc)
+                    acc fcg_apps
+                )
+            in
+            over_apps (earlier Numeral.zero acc) tl
+        in
+        bounds Numeral.(succ j) (over_apps acc fcg_apps)
+    in
+    bounds Numeral.zero acc
+  ) [] fn_congruence_groups
 
 (* Close term by binding variables to terms with a let binding *)
 let close_term bindings term = 
@@ -1734,9 +1814,10 @@ let copy t =
   ) Scope.Map.empty t in
   Scope.Map.find (scope_of_trans_sys t) copies
 
-let mk_trans_sys 
+let mk_trans_sys
   ?(instance_var_id_start = 0)
   ?(datatype_types = [])
+  ?(fn_congruence_groups = [])
   scope
   instance_state_var
   init_flag_state_var
@@ -1935,6 +2016,7 @@ let mk_trans_sys
       subsystems;
       global_consts;
       global_constraints;
+      fn_congruence_groups;
       ufs;
       init_uf_symbol;
       init_formals;

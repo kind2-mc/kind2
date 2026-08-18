@@ -3285,6 +3285,24 @@ let main input_sys aparam trans_sys =
   )
   | _ -> () );
 
+  (* Note: IC3 does not assert the functional congruence instances that
+     enforce determinism of (abstracted) functions with container-typed
+     arguments (see [TransSys.fn_congruence_instances]); without them, the
+     counterexamples it finds for such systems may be spurious with respect
+     to the intended (deterministic) semantics. Today this is subsumed by
+     the abstract-function check below, since a system with congruence
+     groups always includes a function symbol; the explicit check makes the
+     dependency visible in case that limitation is ever lifted. To support
+     these systems, the instances for bounds 0 and 1 would have to be
+     asserted alongside the transition relation in the frame solvers, and
+     clause generalization would have to account for the difference witness
+     functions the instances contain. *)
+  if TransSys.has_fn_congruence_groups trans_sys then
+    raise (UnsupportedFeature
+      "Shutting down IC3: system requires functional congruence instances \
+       for functions with container-typed arguments.")
+  ;
+
   match Flags.IC3QE.abstr () with
   | `IA -> main_ic3 input_sys aparam trans_sys
   | `None -> (

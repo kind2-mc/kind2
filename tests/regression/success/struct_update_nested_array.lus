@@ -1,6 +1,6 @@
-type Rec = { f: int^2 };
-type Inner = { f: int; g: int };
-type RecArr = { a: Inner; f: int^3 };
+type Rec = struct { f: int^2 };
+type Inner = struct { f: int; g: int };
+type RecArr = struct { a: Inner; f: int^3 };
 
 datatype Shape = Circle (radius: int) | Rect (width: int, height: int);
 
