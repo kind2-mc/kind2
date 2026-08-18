@@ -1,3 +1,4 @@
+<!-- DO NOT EDIT, edit content/docs/_index.md instead -->
 [<img
 src="https://github.com/kind2-mc/kind2/actions/workflows/kind2-ci.yml/badge.svg?branch=main"
 class="align-middle" alt="main" />](https://github.com/kind2-mc/kind2/actions?query=workflow%3A%22Kind2+CI%22)

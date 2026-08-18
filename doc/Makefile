@@ -24,6 +24,7 @@ themes/hextra/layouts:
 update:
 	@printf "Updating root README.md and LICENSE.md...\n"
 	{ \
+		printf '<!-- DO NOT EDIT, edit content/docs/_index.md instead -->\n'; \
 		cat content/header.md; \
 		printf '\n'; \
 		awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1; next} front && /^---$$/{front=0; next} !front{print}' content/docs/_index.md | \
