@@ -1,0 +1,4 @@
+node Top(c: bool; a: int^3; b: int^3; i: int; v: int) returns ();
+let
+  check (i>=0 and i<3 and c) => ((if c then a[i := v] else b)[i] = v);
+tel

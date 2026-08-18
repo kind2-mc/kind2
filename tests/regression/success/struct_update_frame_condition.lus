@@ -1,0 +1,7 @@
+node Top(base: int^3; i: int; j: int; v: int) returns ();
+var arr: int^3;
+let
+  arr = base[i := v];
+  check (i >= 0 and i < 3 and j >= 0 and j < 3 and i <> j) => (arr[j] = base[j]);
+  check (i >= 0 and i < 3) => (arr[i] = v);
+tel
