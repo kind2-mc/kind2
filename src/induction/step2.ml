@@ -122,6 +122,7 @@ let mk_ctx in_sys param sys =
   Sys.trans_of_bound (Some (Smt.declare_fun solver)) sys Numeral.(succ one)
   |> Smt.assert_term solver ;
 
+
   {
     solver ; in_sys ; param ; sys ;
     (* Creating map from properties to positive actlit/term pairs. *)
@@ -208,7 +209,7 @@ let rec check_new_things new_stuff ({ solver ; sys ; map } as ctx) =
       )
 
 (* Returns the properties that cannot be falsified. *)
-let split { solver ; map } =
+let split { solver ; sys ; map ; _ } =
 
   let rec loop falsifiable =
     if (List.length falsifiable) = (List.length map) then
@@ -246,31 +247,67 @@ let split { solver ; map } =
       (* Deactivation function. *)
       let deactivate () = Term.mk_not nactlit |> Smt.assert_term solver in
 
+      (* The functional congruence instances are evaluated in the model
+         rather than asserted: when their conjunction holds, the
+         counterexample to 2-induction already satisfies determinism, so it
+         is genuine and nothing is asserted at all. Only when it fails are
+         the instances asserted, and then only once, since they hold in
+         every model that follows. Asked as a single question: the solver is
+         queried for one term value at a time, so evaluating them one by one
+         would cost a round trip each
+         (see [TransSys.fn_congruence_instances]). *)
+      let congruence = Sys.fn_congruence_instances sys Num.(succ one) in
+      let congruence_holds =
+        if congruence = [] then [] else [Term.mk_and congruence]
+      in
+
       (* Check-sat. *)
       match
         Smt.check_sat_assuming_and_get_term_values
           solver
           (fun _ term_values -> (* If sat. *)
-            (* Retrieve values. *)
-            term_values |> List.fold_left (
-              fun l (term, value) ->
-                if value == Term.t_false then
-                  (List.assq term map_back) :: l
-                else l
-            ) []
-            |> fun l -> Some l
+            (* Retrieve values: a term of [map_back] is a property, any
+               other one is a congruence instance. *)
+            let spurious, falsifiable =
+              term_values |> List.fold_left (
+                fun (sp, fa) (term, value) ->
+                  if not (Term.equal value Term.t_false) then (sp, fa)
+                  else
+                    match List.assq_opt term map_back with
+                    | Some prop -> (sp, prop :: fa)
+                    | None -> (true, fa)
+              ) (false, [])
+            in
+            if spurious then
+              (* Ask which instances are violated, so that only those are
+                 asserted *)
+              `Refine (
+                Smt.get_term_values solver congruence
+                |> List.filter_map (fun (i, v) ->
+                     if Term.equal v Term.t_false then Some i else None)
+              )
+            else `Sat falsifiable
           )
           (fun _ -> (* If unsat. *)
-            None
+            `Unsat
           )
-          (nactlit :: actlits) unknowns
+          (nactlit :: actlits) (unknowns @ congruence_holds)
       with
-      | None -> (* Unsat, remaining properties are unfalsifiable. *)
+      | `Unsat -> (* Unsat, remaining properties are unfalsifiable. *)
         deactivate () ;
         unknowns |> List.map (fun t -> List.assq t map_back)
-      | Some [] ->
+      | `Refine spurious ->
+        (* The counterexample violates determinism of a function over
+           containers; rule it out and look again *)
+        deactivate () ;
+        Smt.trace_comment solver
+          "Asserting the functional congruence instances the counterexample \
+           violates." ;
+        List.iter (Smt.assert_term solver) spurious ;
+        loop falsifiable
+      | `Sat [] ->
         failwith "got empty list of falsifiable properties"
-      | Some nu_falsifiable ->
+      | `Sat nu_falsifiable ->
         deactivate () ;
         (* Sat, we need to check the remaining properties. *)
         List.rev_append nu_falsifiable falsifiable |> loop

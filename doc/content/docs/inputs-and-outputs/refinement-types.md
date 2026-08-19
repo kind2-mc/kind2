@@ -36,7 +36,7 @@ For example,
 
 ``` 
 type Nat = subtype { x: int | x >= 0 };
-type LessThan100 = { x: Nat | x < 100 };
+type LessThan100 = subtype { x: Nat | x < 100 };
 ```
 
 declares a refinement type `LessThan100` whose base type `Nat` is itself a refinement type.

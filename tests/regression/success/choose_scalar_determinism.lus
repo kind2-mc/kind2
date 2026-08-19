@@ -1,0 +1,17 @@
+-- 'choose' over scalar arguments is deterministic: the generated function's
+-- SMT symbol is congruent over equal arguments.
+
+node main(c: int; b: bool) returns (r, s: int);
+let
+  r = choose { x: int | x > c };
+  s = choose { x: int | x > 0 };
+
+  check "choose is a function of its scalar argument"
+    true -> ((c = pre c) => (r = pre r));
+
+  check "choose with no argument is constant"
+    true -> (s = pre s);
+
+  check "choose satisfies its predicate"
+    r > c and s > 0;
+tel

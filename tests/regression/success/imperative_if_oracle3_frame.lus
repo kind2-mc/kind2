@@ -1,5 +1,5 @@
-type r1 = { v1: bool; v2: int; v3: bool };
-type r2 = { v3: int; v4: r1 };
+type r1 = struct { v1: bool; v2: int; v3: bool };
+type r2 = struct { v3: int; v4: r1 };
 
 node test(x: int) returns (y1: int^2; 
                            y2: [int, bool, bool]; 

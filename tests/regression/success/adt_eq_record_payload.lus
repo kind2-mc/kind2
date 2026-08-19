@@ -1,4 +1,4 @@
-type Point = { x: int; y: int };
+type Point = struct { x: int; y: int };
 datatype Shape = Pt (val: Point) | None;
 
 node main(p1, p2: Point) returns (ok: bool);

@@ -1,0 +1,59 @@
+-- Determinism of 'choose' and imported functions over container arguments
+-- (sets, maps, arrays). Containers compile to uninterpreted arrays, so UF
+-- congruence alone cannot equate two containers holding the same elements;
+-- ground congruence instances modulo structural equality, activated lazily
+-- by the engines when a candidate counterexample is found, restore
+-- determinism.
+
+type Color = enum { Red, Green, Blue };
+datatype D = A (a: int) | B (b: bool);
+
+function imported F(s: set<D>) returns (out: int);
+function imported G(m: map<Color, int>) returns (out: int);
+function imported H(a: int^2) returns (out: int);
+
+node main(b: bool; c: int) returns (r, q: int);
+var t: set<int>; u: set<D>; m: map<Color, int>; arr: int^2; cnt: int;
+let
+  cnt = 0 -> pre cnt + 1;
+  t = if b then {1, 2} else {3};
+  u = if b then {A(1)} else {B(true)};
+  m = if b then map[Red := 1] else map[Green := 2];
+  arr[i] = if b then 0 else 1;
+  r = choose { x: int | x in t };
+  q = choose { x: int | x > c };
+
+  check "choose satisfies its predicate" r in t;
+
+  check "scalar choose is a function of its argument"
+    true -> ((c = pre c) => (q = pre q));
+
+  -- full determinism: the result is a function of the container value,
+  -- even when the value recurs after an intermediate change
+  check "choose is a function of a recurring set"
+    (cnt >= 2 and t = pre (pre t) and not (t = pre t)) => (r = pre (pre r));
+
+  -- congruence at structurally equal consecutive arguments
+  check "imported fn deterministic over adt set"
+    true -> ((u = pre u) => (F(u) = pre (F(u))));
+
+  check "imported fn deterministic over map"
+    true -> ((m = pre m) => (G(m) = pre (G(m))));
+
+  check "imported fn deterministic over array"
+    true -> ((arr = pre arr) => (H(arr) = pre (H(arr))));
+tel
+
+-- Congruence at two containers that are structurally equal but built
+-- differently, so that the cells the encoding never addresses (here the
+-- value slot of a key removed from the map) may hold different values.
+function imported K(m: map<int, int>) returns (out: int);
+
+node built_differently(v: int) returns (ok: bool);
+var m1, m2: map<int, int>;
+let
+  m1 = map[0 := 7];
+  m2 = (map[0 := 7; 1 := v]) - {1};
+  ok = (K(m1) = K(m2));
+  check "imported fn agrees on structurally equal maps" ok;
+tel

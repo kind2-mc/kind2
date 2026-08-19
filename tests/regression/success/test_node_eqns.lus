@@ -1,4 +1,4 @@
-type y_t = { a: int; b: real };
+type y_t = struct { a: int; b: real };
 
 node y (const a: bool) returns (b: int);
 -- Local constant declarations

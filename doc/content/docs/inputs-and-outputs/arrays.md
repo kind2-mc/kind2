@@ -73,7 +73,7 @@ Kind 2 also allows one to nest datatypes, so it is possible to write arrays of
 records, records of arrays, arrays of tuples, and so on.
 
 ```text
-type rational = { n: int; d: int };
+type rational = struct { n: int; d: int };
 
 rats: rational^array_size;
 mm: [int, bool]^array_size;
