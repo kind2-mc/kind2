@@ -111,7 +111,11 @@ def build_merged_html():
         print(f"MISSING KaTeX CSS: {KATEX_CSS}", file=sys.stderr)
         sys.exit(1)
     katex_css = KATEX_CSS.read_text(encoding="utf-8")
-    font_dir = KATEX_CSS.parent / "fonts"
+    font_dir = ROOT / "assets" / "css" / "fonts"
+
+    if not font_dir.exists():
+        print(f"MISSING KaTeX fonts: {font_dir}", file=sys.stderr)
+        sys.exit(1)
     # The CSS is inlined into print/all-docs.html, so font URLs must be
     # relative to that file rather than absolute file:// URLs.
     font_url = Path(os.path.relpath(font_dir, OUT_HTML.parent)).as_posix() + "/"
