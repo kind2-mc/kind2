@@ -277,6 +277,21 @@ let rec pat_bound_vars = function
   | VarPat (_, id) -> SI.singleton id
   | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
 
+(* Renames a variable bound by a pattern. Reached only after type checking, so
+   a VarPat is always a genuine binder and never a 0-arg constructor. *)
+let rec rename_pat_var id id' = function
+  | VarPat (pos, i) -> if i = id then VarPat (pos, id') else VarPat (pos, i)
+  | Pat (pos, ctor, sub_pats) ->
+    Pat (pos, ctor, List.map (rename_pat_var id id') sub_pats)
+
+let alpha_rename_counter = ref 0
+
+(* A fresh identifier, guaranteed not to clash with any source-level Lustre
+   identifier (which can never start with '.'). *)
+let fresh_alpha_ident () =
+  incr alpha_rename_counter;
+  HString.mk_hstring (Format.sprintf ".alpha_%d" !alpha_rename_counter)
+
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
   | Ident (_, i) as e -> if i = var then t else e
@@ -301,11 +316,24 @@ let rec substitute_naive (var:HString.t) t = function
   (* Not supported due to introduction of bound variables *)
   | AnyOp _ -> assert false 
   | ChooseOp _ -> assert false 
+  (* Match arms introduce bound variables, so substituting into an arm body
+     must avoid capture *)
   | Match (pos, e, arms, ty) ->
     let e = substitute_naive var t e in
     let arms = List.map (fun (pat, arm_e) ->
-      let arm_e = if SI.mem var (pat_bound_vars pat) then arm_e else substitute_naive var t arm_e in
-      (pat, arm_e)
+      let bound = pat_bound_vars pat in
+      if SI.mem var bound then (pat, arm_e)
+      else
+        let pat, arm_e =
+          SI.fold (fun i (pat, arm_e) ->
+            if expr_contains_id i t then
+              let fresh = fresh_alpha_ident () in
+              (rename_pat_var i fresh pat,
+               substitute_naive i (Ident (pos, fresh)) arm_e)
+            else (pat, arm_e)
+          ) bound (pat, arm_e)
+        in
+        (pat, substitute_naive var t arm_e)
     ) arms in
     Match (pos, e, arms, ty)
   | ADTTerm (pos, ty_args, ctor, args) ->
