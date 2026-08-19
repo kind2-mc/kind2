@@ -109,11 +109,17 @@ jobs:
         opam exec -- dune build @runtest
         cd tests && ./run
 
+    - name: Setup Hugo
+      if: runner.os == 'Linux'
+      uses: peaceiris/actions-hugo@v3
+      with:
+        hugo-version: '0.146.0'
+        extended: true
+
     - name: Build user documentation
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get install -y latexmk texlive-xetex lmodern
-        pip install sphinx==8.2.3 sphinx-press-theme==0.9.1
+        sudo apt-get -y install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf2.0-0 poppler-utils
         make doc
 
     - name: Build developer documentation
