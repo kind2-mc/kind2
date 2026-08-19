@@ -1,0 +1,5 @@
+node Top(x: int; s1: map<int, map<int,int>>; s2: map<int, map<int,int>>) returns ();
+let
+  check not ((x in s1) and (x in s2) and s1[x] = s2[x]
+             and (100 in s1[x]) and not (100 in s2[x]));
+tel
