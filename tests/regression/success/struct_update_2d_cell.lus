@@ -1,0 +1,7 @@
+node Top(base: int^2^2; i: int; j: int; v: int) returns (x: int);
+var arr: int^2^2;
+let
+  arr = base[i := base[i][j := v]];
+  x = arr[i][j];
+  check (i >= 0 and i < 2 and j >= 0 and j < 2) => (x = v);
+tel

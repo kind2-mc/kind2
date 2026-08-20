@@ -1,0 +1,6 @@
+node Top(i: int; v: int) returns ();
+var arr: int^3;
+let
+  arr = (0^3) -> (pre arr)[i := v];
+  check (i>=0 and i<3) => (true -> arr[i] = v);
+tel
