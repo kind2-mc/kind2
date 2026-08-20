@@ -1,5 +1,0 @@
-node Top(c: bool; m1: map<int,int>; m2: map<int,int>) returns (ok: bool);
-let
-  ok = ((if c then m1 else m2) = (if c then m1 else m2));
-  check ok;
-tel

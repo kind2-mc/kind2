@@ -1,5 +1,0 @@
-node Top(x: int; y: int; st: map<int, map<int, set<int>>>) returns (ok: bool);
-let
-  ok = (st[x][y] = st[x][y]);
-  check ok;
-tel
