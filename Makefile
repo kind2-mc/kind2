@@ -52,7 +52,7 @@ kind2-doc:
 TEST_ARGS ?=
 
 test: build
-	@dune build @runtest
+	@dune build --profile release @runtest
 	@cd $(CURDIR)/tests/ && ./run $(TEST_ARGS)
 
 uninstall:
