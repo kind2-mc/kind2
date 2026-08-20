@@ -1,0 +1,29 @@
+datatype Box = B (v: int);
+datatype BoxBox = BB (inner: Box);
+datatype Pair = P (x: Box, y: Box);
+
+node ShadowedByInnerArm (b: Box; c: BoxBox) returns (y: int)
+let
+  y = match b with
+      | B (v) : (match c with
+                 | BB (b) : v
+                 end)
+      end;
+tel
+
+node ShadowedTwice (b: Box; p: Pair) returns (y: int)
+let
+  y = match b with
+      | B (v) : (match p with
+                 | P (b, v2) : (match b with
+                                | B (v) : v2.v - v
+                                end)
+                 end)
+      end;
+tel
+
+node main (b: Box; c: BoxBox; p: Pair) returns ()
+let
+  check ShadowedByInnerArm(b, c) = b.v;
+  check ShadowedTwice(b, p) = p.y.v - p.x.v;
+tel
