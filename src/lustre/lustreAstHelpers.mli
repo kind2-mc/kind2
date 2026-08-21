@@ -52,8 +52,10 @@ val type_arity : lustre_type -> int * int
     every other type has arity `(0, 0)` *)
 
 val substitute_naive : HString.t -> expr -> expr -> expr
-(** Substitute second param for first param in third param. 
-    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+(** Substitute second param for first param in third param.
+    Bound variables introduced by match arms and quantifiers are alpha-renamed
+    when needed to avoid capture.
+    AnyOp and ChooseOp are not supported due to introduction of bound variables. *)
 
 val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
 (** [apply_subst_in_expr s e] applies the substitution defined by association list [s]
