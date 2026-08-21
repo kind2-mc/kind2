@@ -119,6 +119,21 @@ end
 
 module LocalCache = Hashtbl.Make(LocalHash)
 
+(* Key of a selector proof obligation: its source position and the obligation
+   itself, compared structurally rather than through their printed form. *)
+module SelectorHash = struct
+  type t = Lib.position * A.expr
+  let equal (p1, e1) (p2, e2) =
+    Lib.equal_pos p1 p2
+    && (match AH.syn_expr_equal None e1 e2 with
+        | Ok true -> true
+        | _ -> false)
+
+  let hash (_, e) = AH.hash None e
+end
+
+module SelectorCache = Hashtbl.Make(SelectorHash)
+
 module NodeArgHash = struct
   type t = A.expr
   let equal x y = (match AH.syn_expr_equal None x y with
@@ -146,10 +161,13 @@ let force_fresh = true
 
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
+(* For deduplication of selector-related proof obligations *)
+let selector_cache = SelectorCache.create 20
 
 let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
+  SelectorCache.reset selector_cache;
 
 type info = {
   context : Ctx.tc_context;
@@ -163,7 +181,14 @@ type info = {
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
-  call_context : LustreAst.expr list;
+  (* Branch conditions of the enclosing lazy contexts: the normalized condition,
+     the same condition as the user wrote it (kept for display only), and the
+     'pre' nesting depth at which it was pushed. The depth lets selector proof
+     obligations line up a guard with a selector that sits under a different
+     number of 'pre's (see mk_selector_obligation). *)
+  call_context : (LustreAst.expr * LustreAst.expr * int) list;
+  (* Number of enclosing 'pre' operators *)
+  pre_depth : int;
   inlined_expr_ctx : bool;
   adt_map : LDAT.adt_map;
 }
@@ -226,6 +251,12 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
+  let pp_print_selector_obligation ppf (pos, id, oexpr) =
+    Format.fprintf ppf "(%a, %a, %a)"
+      Lib.pp_print_position pos
+      HString.pp_print_hstring id
+      A.pp_print_expr oexpr
+  in
   let pp_print_empty_map ppf (id, kt, vt) =
     Format.fprintf ppf "(%a, %a, %a)"
       HString.pp_print_hstring id
@@ -262,13 +293,14 @@ let pp_print_generated_identifiers ppf gids =
     A.pp_print_expr expr1 
     A.pp_print_expr expr2
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
+    (pp_print_list pp_print_selector_obligation "\n") gids.selector_obligations
     (pp_print_list pp_print_empty_map "\n") gids.empty_maps
     (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
@@ -344,6 +376,33 @@ let rec index_types_of_array_type pos ty =
     | _ -> (None, index_ty) :: r 
     )
   | _ -> []
+
+(* Pairs each index variable of an array equation with the size of the dimension
+   it ranges over, outermost first. Follows the same ordering assumption as
+   generalize_to_array_expr: index variables line up with the dimensions of the
+   array being defined in the order StringMap enumerates them. *)
+let index_sizes_of_inductive_vars ind_vars =
+  match StringMap.choose_opt ind_vars with
+  | None -> []
+  | Some (_, (_, _, array_ty)) ->
+    let rec dim_sizes ty =
+      match ty with
+      | A.ArrayType (_, (inner, size)) -> size :: dim_sizes inner
+      | _ -> []
+    in
+    let ids = List.map fst (StringMap.bindings ind_vars) in
+    let sizes = dim_sizes array_ty in
+    if List.length ids <> List.length sizes then []
+    else List.combine ids sizes
+
+(* Clean-ups applied to a guard built for display in a selector obligation.
+   Rewrites the top of the expression only; the obligation the solver sees is
+   built from the normalized guard and is unaffected. *)
+let rec process_for_display expr =
+  match expr with
+  (* Double negation elimination *)
+  | A.UnaryOp (_, A.Not, A.UnaryOp (_, A.Not, e)) -> process_for_display e
+  | e -> e
 
 let generalize_to_array_expr name ind_vars expr nexpr =
   let (eq_lhs, nexpr) =
@@ -448,11 +507,11 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
          if the constructor is selected *)
       (match LDAT.HStringMap.find_opt rname adt_map with
       | Some adt_info ->
-        let tag_expr = A.FieldProject (dpos, expr, adt_info.LDAT.disc_field, None) in
+        let tag_expr = A.FieldProject (dpos, expr, adt_info.LDAT.disc_field, A.RecordField) in
         List.concat_map (fun (_, fname, ftype) ->
           if not (Ctx.type_contains_enum ctx ftype) then []
           else
-            let constraints = mk ctx n ftype (A.FieldProject (dpos, expr, fname, None)) in
+            let constraints = mk ctx n ftype (A.FieldProject (dpos, expr, fname, A.RecordField)) in
             if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
             else
               let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
@@ -466,7 +525,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
                 List.map (fun (c, is_orig) -> A.BinaryOp (dpos, A.Impl, guard, c), is_orig) constraints
         ) tys
       | None ->
-        let mk_proj i = A.FieldProject (dpos, expr, i, None) in
+        let mk_proj i = A.FieldProject (dpos, expr, i, A.RecordField) in
         let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum ctx ty) tys in
         let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
         List.fold_left (@) [] tys)
@@ -555,9 +614,9 @@ and mk_ref_type_expr
        if the constructor is selected *)
     (match LDAT.HStringMap.find_opt rname adt_map with
     | Some adt_info ->
-      let tag_expr = A.FieldProject (p, expr, adt_info.LDAT.disc_field, None) in
+      let tag_expr = A.FieldProject (p, expr, adt_info.LDAT.disc_field, A.RecordField) in
       List.concat_map (fun (_, fname, ftype) ->
-        let fexpr = A.FieldProject (p, expr, fname, None) in
+        let fexpr = A.FieldProject (p, expr, fname, A.RecordField) in
         let constraints = mk_ref_type_expr adt_map ctx node_id fexpr ftype in
         if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
         else
@@ -573,7 +632,7 @@ and mk_ref_type_expr
       ) tis
     | None ->
       List.map (fun (_, id2, ty) ->
-        let expr = A.FieldProject (p, expr, id2, None) in
+        let expr = A.FieldProject (p, expr, id2, A.RecordField) in
         mk_ref_type_expr adt_map ctx node_id expr ty
       ) tis |> List.flatten)
   | ArrayType (_, (ty, len)) -> 
@@ -896,9 +955,9 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   )
   | Last _ -> StringSet.empty, expr
   | ModeRef _ -> StringSet.empty, expr
-  | FieldProject (pos, e, idx, ty_opt) ->
+  | FieldProject (pos, e, idx, pk) ->
     let vars, e' = r map e in
-    vars, FieldProject (pos, e', idx, ty_opt)
+    vars, FieldProject (pos, e', idx, pk)
   | Const _ -> StringSet.empty, expr
   | UnaryOp (pos, op, e) ->
     let vars, e' = r map e in
@@ -1063,6 +1122,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
+    pre_depth = 0;
     inlined_expr_ctx = false;
     adt_map; }
   in
@@ -1165,7 +1225,10 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
         let nguard, gids0, warnings0 =
           normalize_expr info (Some node_id) gids_map guard
         in
-        let info = { info with call_context = nguard :: info.call_context } in
+        let info =
+          { info with
+            call_context = (nguard, guard, info.pre_depth) :: info.call_context }
+        in
         let neq, gids, warnings =
           normalize_equation info node_id gids_map (A.Equation (Lib.dummy_pos, lhs, expr))
         in
@@ -1895,16 +1958,148 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
     iexpr, union gids1 gids2, warnings
 
+(* Proof obligation that the constructor owning a user-written selector is
+   active where the selector is read. Each enclosing lazy guard is shifted to
+   its own 'pre' depth, so a guard is only ever compared against the read it
+   actually protects. 'base' is the normalized scrutinee, which the obligation
+   is built from; 'src_base' is the scrutinee as written, used for display. *)
+and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
+  let adt_info = match adt_ty with
+    | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
+    | _ -> None
+  in
+  match adt_info with
+  | None -> assert false
+  | Some adt_info ->
+    (* A value of a single-constructor ADT is always built with that constructor *)
+    (match adt_info.LDAT.ctor_variants with
+      | [] | [_] -> empty ()
+      | _ :: _ :: _ ->
+        let mk_tester scrut =
+          if adt_info.LDAT.is_recursive then A.ADTTester (pos, scrut, ctor)
+          else
+            A.CompOp (pos, A.Eq,
+              A.FieldProject (pos, scrut, adt_info.LDAT.disc_field, A.RecordField),
+              A.Ident (pos, ctor))
+        in
+        let tester = mk_tester base in
+        let mk_pre e = A.Arrow (pos, A.Const (pos, A.True), A.Pre (pos, e)) in
+        let rec shift_display d e =
+          if d <= 0 then e else mk_pre (shift_display (d - 1) e)
+        in
+        (* A local generalized to an array equation is read as l[i]; 'pre' has
+           to sit under the index access, as it does everywhere else in the AST *)
+        let mk_pre_local e =
+          let rec push e =
+            match e with
+            | A.IndexAccess (p, e1, e2, kind) -> A.IndexAccess (p, push e1, e2, kind)
+            | e -> A.Pre (pos, e)
+          in
+          A.Arrow (pos, A.Const (pos, A.True), push e)
+        in
+        (* A local abstracting a 'pre' operand is generalized to an array
+           equation over the index variables the operand mentions, so its type
+           has to mirror those dimensions of the equation the selector sits in *)
+        let local_type e =
+          match get_inductive_vars info.inductive_variables e with
+          | [] -> A.Bool pos
+          | free_vars ->
+            let sizes = index_sizes_of_inductive_vars info.inductive_variables in
+            let sizes =
+              List.filter_map
+                (fun (id, size) ->
+                  if List.exists (HString.equal id) free_vars then Some size else None)
+                sizes
+            in
+            List.fold_right
+              (fun size acc -> A.ArrayType (pos, (acc, size))) sizes (A.Bool pos)
+        in
+        (* Introduce locals to abstract the pre operands *)
+        let shift_gids = ref (empty ()) in
+        let rec shift d e =
+          if d <= 0 then e
+          else
+            let ie, gids =
+              mk_fresh_local false info pos info.inductive_variables (local_type e) e
+            in
+            shift_gids := union !shift_gids gids;
+            shift (d - 1) (mk_pre_local ie)
+        in
+        (* 'pick' selects the normalized or the source form of each guard *)
+        let mk_body pick core shift_fn =
+          let core = shift_fn info.pre_depth core in
+          match info.call_context with
+          | [] -> core
+          | c :: cs ->
+            let shift_guard acc c' =
+              let g', d' = pick c' in
+              A.BinaryOp (pos, A.And, shift_fn d' g', acc)
+            in
+            let g, d = pick c in
+            let conj = List.fold_left shift_guard (shift_fn d g) cs in
+            A.BinaryOp (pos, A.Impl, conj, core)
+        in
+        let normalized_pick (g, _, d) = (g, d) in
+        let source_pick (_, g, d) = (g, d) in
+        (* Same shape as the obligation but with no generated locals: used to
+           discover the variables to close over and as the deduplication key *)
+        let probe = mk_body normalized_pick tester shift_display in
+        (* Close over the variables the selector is read under: the enclosing
+           quantifiers, and the index variables of an enclosing array equation. *)
+        let close =
+          let ind_vars =
+            get_inductive_vars info.inductive_variables probe
+            |> List.map (fun id ->
+                 let (_, index_ty, _) = StringMap.find id info.inductive_variables in
+                 (pos, id, index_ty))
+          in
+          let vars = List.rev (info.quantified_variables @ ind_vars) in
+          fun e ->
+            List.fold_left (fun acc ((p, id, ty) as var) ->
+              match mk_enum_reftype_constraints node_id info [var] with
+              | None -> A.Quantifier (pos, A.Forall, [var], acc)
+              | Some c ->
+                let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+                A.Quantifier (pos, A.Forall, [(p, id, ty)],
+                  A.BinaryOp (pos, A.Impl, c, acc))
+            ) e vars
+        in
+        (* Keyed on the probe, so that a repeated obligation is dropped before
+           any locals are created *)
+        let key = (pos, close probe) in
+        if SelectorCache.mem selector_cache key then empty ()
+        else begin
+        SelectorCache.add selector_cache key ();
+        let obligation = close (mk_body normalized_pick tester shift) in
+        (* Displayed in terms of the input model *)
+        let display =
+          close (mk_body source_pick (mk_tester src_base) shift_display)
+        in
+        i := !i + 1;
+        let prefix = HString.mk_hstring (string_of_int !i) in
+        let name = HString.concat2 prefix (HString.mk_hstring "_selector") in
+        let nexpr = A.Ident (pos, name) in
+        (* The obligation is closed, so it never generalizes to an array equation *)
+        let eq_lhs, _ =
+          generalize_to_array_expr name StringMap.empty obligation nexpr
+        in
+        union !shift_gids
+          { (empty ()) with
+            selector_obligations = [(pos, name, AH.rename_contract_vars display)];
+            equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
+        end)
+
 and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
   let inlined = vmap <> [] in
   let call_ctx, gids1 =
+    (* Node calls conjoin every enclosing guard regardless of 'pre' depth *)
     match info.call_context with
     | [] -> None, empty ()
-    | c :: cs -> (
+    | (c, _, _) :: cs -> (
       let conj =
         let c = if inlined then AH.apply_subst_in_expr vmap c else c in
         List.fold_left
-          (fun acc c' ->
+          (fun acc (c', _, _) ->
             let c' = if inlined then AH.apply_subst_in_expr vmap c' else c' in
             A.BinaryOp (dpos, A.And, c', acc))
           c cs
@@ -2077,7 +2272,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         let vars = AH.vars_without_node_call_ids e in
         List.exists (fun q -> A.SI.mem q vars) quant_ids
       in
-      List.exists has_quant_vars info.call_context
+      List.exists (fun (e, _, _) -> has_quant_vars e) info.call_context
     in
     let should_inline =
       vmap <> [] || info.inlined_expr_ctx ||
@@ -2192,6 +2387,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       else
         infer_type info node_id expr, false
       in
+    let info = { info with pre_depth = info.pre_depth + 1 } in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
     let guard, gids2, warnings2, previously_guarded = match guard with
       | Some guard -> guard, empty (), [], true
@@ -2376,9 +2572,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
     nexpr, gids, warnings1 @ warnings2 
 
-  | FieldProject (pos, expr, i, ty_opt) ->
-    let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    FieldProject (pos, nexpr, i, ty_opt), gids, warnings
+  | FieldProject (pos, expr, fld, pk) ->
+    let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
+    let gids2 = match pk with
+      | A.Selector (A.UserWritten, adt_ty, ctor) ->
+        mk_selector_obligation info node_id pos adt_ty ctor nexpr expr
+      | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> empty ()
+      (* Only reachable through the refinement type of a node input or output,
+         whose predicate the type checker never rewrites; an ADT selector there
+         is already unsupported, so treat this as a record projection *)
+      | A.Unresolved -> empty ()
+    in
+    FieldProject (pos, nexpr, fld, pk), union gids1 gids2, warnings
   | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
@@ -2482,10 +2687,16 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings
   | TernaryOp (pos, LazyIte, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
-    let info2 = { info with call_context = nexpr1 :: info.call_context } in
+    let info2 = { info with
+      call_context = (nexpr1, expr1, info.pre_depth) :: info.call_context }
+    in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info2 node_id map expr2 in
+    let neg_pos = AH.pos_of_expr expr1 in
     let info3 = { info with call_context =
-      A.UnaryOp (AH.pos_of_expr expr1, Not, nexpr1) :: info.call_context }
+      (A.UnaryOp (neg_pos, Not, nexpr1),
+       process_for_display (A.UnaryOp (neg_pos, Not, expr1)),
+       info.pre_depth)
+      :: info.call_context }
     in
     let nexpr3, gids3, warnings3 = normalize_expr ?guard info3 node_id map expr3 in
     let gids = union (union gids1 gids2) gids3 in
@@ -2594,7 +2805,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
 and expand_node_calls_in_place info node_id var count expr =
   let r = expand_node_calls_in_place info node_id var count in
   match expr with
-  | A.FieldProject (p, e, i, ty_opt) -> A.FieldProject (p, r e, i, ty_opt)
+  | A.FieldProject (p, e, i, pk) -> A.FieldProject (p, r e, i, pk)
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)

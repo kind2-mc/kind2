@@ -32,6 +32,7 @@ Improvements:
 - Updated parser code for compatibility with Menhir >= 20260112.
 
 Breaking changes:
+- A user-written [ADT selector](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/14_algebraic_datatypes.html#selectors) `e.f` now generates a proof obligation that the constructor owning `f` is active, reported as a property named `Selector[L<line>C<column>]`. Models that read a field without establishing its constructor will report a new failing property. The obligation is discharged by the short-circuiting operators (`and then`, `or else`, `==>`), `when ... then ... else` expressions, `when` blocks, and `match` arms; their eager counterparts (`and`, `or`, `=>`, `if` expressions and `if` blocks) do not discharge it.
 - [Frame block](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#frame-conditions) initialization: Initialization values are now only provided in branches of `if` blocks where variables are left undefined.
 - New syntax for [polymorphic types/nodes/contracts](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/1_lustre.html#polymorphic-nodes).
 - New syntax for constructing/accessing [tuples](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/9_tuples.html).

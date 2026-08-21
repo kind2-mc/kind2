@@ -1,0 +1,9 @@
+datatype IntOpt = None | Some (val: int);
+
+type PosOpt = subtype { m: IntOpt | m.val > 0 };
+
+node main(p: PosOpt) returns (ok: bool);
+let
+  ok = true;
+  check ok;
+tel

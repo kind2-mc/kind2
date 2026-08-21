@@ -1160,9 +1160,9 @@ pexpr(Q):
   | c = ident; QUESTION; LPAREN; e = pexpr(Q); RPAREN
     { A.ADTTester (mk_pos $startpos, e, c) }
 
-  (* A record field projection (not quantified) *)
+  (* A record field projection or an ADT selector (not quantified) *)
   | s = pexpr(Q); DOT; t = ident
-    { A.FieldProject (mk_pos $startpos($2), s, t, None) }
+    { A.FieldProject (mk_pos $startpos($2), s, t, A.Unresolved) }
 
   (* A record (not quantified) *)
   | t = ident; ps = call_static_params;

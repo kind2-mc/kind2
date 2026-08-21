@@ -123,7 +123,7 @@ let record_type_of_adt pos ?(ty_args = []) info =
 
 (* Build a FieldProject accessing the tag field of an expression. *)
 let tag_of pos info scrut =
-  LA.FieldProject (pos, scrut, info.disc_field, None)
+  LA.FieldProject (pos, scrut, info.disc_field, LA.RecordField)
 
 (* Direct lookup: only matches types that are themselves an ADT name.
    Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
@@ -172,6 +172,9 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     in
     let sub_conds, sub_subs =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
+        let pk =
+          LA.Selector (LA.Kind2Generated, LA.UserType (pos, [], info.type_name), ctor)
+        in
         let field_expr =
           if info.is_recursive then
             let ctor_str = HString.string_of_hstring ctor in
@@ -180,9 +183,9 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
             (* Recursive datatypes don't use the "ctor_" prefix *)
             let user_fname = HString.mk_hstring
               (String.sub fname_str prefix_len (String.length fname_str - prefix_len)) in
-            LA.FieldProject (pos, scrut, user_fname, Some (LA.UserType (pos, [], info.type_name)))
+            LA.FieldProject (pos, scrut, user_fname, pk)
           else
-            LA.FieldProject (pos, scrut, fname, None)
+            LA.FieldProject (pos, scrut, fname, pk)
         in
         match sub_pat with
         | LA.VarPat (_, sub_name) ->
@@ -414,28 +417,29 @@ and desugar_expr ctx adt_map expr =
         LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _
   | LA.AbstractSymConst _ -> expr
-  | LA.FieldProject (p, e, fld, Some adt_ty) ->
+  | LA.FieldProject (p, e, fld, LA.Selector (origin, adt_ty, ctor)) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
       |> (function Some i -> i | None -> assert false)
     in
-    if info.is_recursive then
-      LA.FieldProject (p, e', fld, Some (LA.UserType (p, [], info.type_name)))
+    (* The projection stays marked as a selector even once the ADT is encoded as
+       a record, so the obligation can still name the owning constructor. *)
+    let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name), ctor) in
+    (* Match arm bodies are desugared again after pattern variables are
+       substituted (see the Match case), and the projections substituted for
+       those variables already name the internal payload field. *)
+    let already_internal = match origin with
+      | LA.Kind2Generated -> true
+      | LA.UserWritten -> false
+    in
+    if info.is_recursive || already_internal then
+      LA.FieldProject (p, e', fld, pk)
     else
-      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          let target = payload_field_name_of ctor fld in
-          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-          then Some ctor
-          else None
-      ) info.ctor_fields None
-      |> (function Some c -> c | None -> assert false)
-      in
-      let internal_fld = payload_field_name_of ctor fld in
-      LA.FieldProject (p, e', internal_fld, None)
-  | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
+      LA.FieldProject (p, e', payload_field_name_of ctor fld, pk)
+  | LA.FieldProject (p, e, i, LA.RecordField) ->
+    LA.FieldProject (p, r e, i, LA.RecordField)
+  | LA.FieldProject (p, e, i, LA.Unresolved) ->
+    LA.FieldProject (p, r e, i, LA.Unresolved)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
@@ -750,11 +754,16 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.FieldProject (p, e, id, ty_opt) ->
-    let ty_opt = Option.map (LH.map_lustre_ty r) ty_opt in
+  | LA.FieldProject (p, e, id, pk) ->
+    let pk = match pk with
+      | LA.Unresolved -> LA.Unresolved
+      | LA.RecordField -> LA.RecordField
+      | LA.Selector (origin, ty, ctor) ->
+        LA.Selector (origin, LH.map_lustre_ty r ty, ctor)
+    in
     (* An internal payload field "Ctor_field" prints as the ADT selector "field". *)
     let id = match user_field_of_payload adt_map id with Some u -> u | None -> id in
-    LA.FieldProject (p, r e, id, ty_opt)
+    LA.FieldProject (p, r e, id, pk)
   | LA.CompOp (p, LA.Eq, e1, e2) ->
     (* A tag equality "e.<Type>_tag = Ctor" prints as the tester "Ctor?(e)". *)
     (match tag_equality_as_tester adt_map e1 e2 with
