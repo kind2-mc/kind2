@@ -288,13 +288,17 @@ let rec rename_pat_var id id' = function
   | Pat (pos, ctor, sub_pats) ->
     Pat (pos, ctor, List.map (rename_pat_var id id') sub_pats)
 
-let alpha_rename_counter = ref 0
+let bound_rename_counter = ref 0
 
-(* A fresh identifier, guaranteed not to clash with any source-level Lustre
-   identifier (which can never start with '.'). *)
-let fresh_alpha_ident () =
-  incr alpha_rename_counter;
-  HString.mk_hstring (Format.sprintf ".alpha_%d" !alpha_rename_counter)
+(* A fresh name for an alpha-renamed binder. The leading '.' cannot occur in a
+   source identifier; keeping the original name keeps printed properties readable. *)
+let fresh_bound_ident id =
+  incr bound_rename_counter;
+  let base = HString.string_of_hstring id in
+  let base =
+    if String.starts_with ~prefix:".bound_" base then base else ".bound_" ^ base
+  in
+  HString.mk_hstring (Format.sprintf "%s_%d" base !bound_rename_counter)
 
 (* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
 let rec substitute_naive (var:HString.t) t = function
@@ -325,12 +329,14 @@ let rec substitute_naive (var:HString.t) t = function
   | Match (pos, e, arms, ty) ->
     let e = substitute_naive var t e in
     let arms = List.map (fun (pat, arm_e) ->
-      if SI.mem var (pat_bound_vars pat) then (pat, arm_e)
+      (* Nothing to substitute, so nothing to rename either *)
+      if SI.mem var (pat_bound_vars pat) || not (expr_contains_id var arm_e) then
+        (pat, arm_e)
       else
         let pat, arm_e =
           List.fold_left (fun (pat, arm_e) (i, ipos) ->
             if expr_contains_id i t then
-              let fresh = fresh_alpha_ident () in
+              let fresh = fresh_bound_ident i in
               (rename_pat_var i fresh pat,
                substitute_naive i (Ident (ipos, fresh)) arm_e)
             else (pat, arm_e)
@@ -347,7 +353,9 @@ let rec substitute_naive (var:HString.t) t = function
   (* Quantifiers introduce bound variables, so substituting into the body must
      avoid capture, as for match arms *)
   | Quantifier (pos, q, tis, e) ->
-    if List.exists (fun (_, i, _) -> i = var) tis then Quantifier (pos, q, tis, e)
+    (* Nothing to substitute, so nothing to rename either *)
+    if List.exists (fun (_, i, _) -> i = var) tis || not (expr_contains_id var e) then
+      Quantifier (pos, q, tis, e)
     else
       (* A repeated name is renamed to a single fresh name at all of its binders,
          which preserves the shadowing between them *)
@@ -357,7 +365,7 @@ let rec substitute_naive (var:HString.t) t = function
       let tis, e =
         List.fold_left (fun (tis, e) (ipos, i, _) ->
           if expr_contains_id i t then
-            let fresh = fresh_alpha_ident () in
+            let fresh = fresh_bound_ident i in
             (rename i fresh tis, substitute_naive i (Ident (ipos, fresh)) e)
           else (tis, e)
         ) (tis, e) tis
