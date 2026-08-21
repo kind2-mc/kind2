@@ -219,10 +219,10 @@ let rec expr_contains_id id = function
   | Ident (_, id2) | Last (_, id2) -> id = id2
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptyMap (_, Some (kt, vt)) -> 
-    fold_lustre_ty expr_is_id false (||) kt || 
-    fold_lustre_ty expr_is_id false (||) vt 
-  | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
+  | EmptyMap (_, Some (kt, vt)) ->
+    fold_lustre_ty (expr_contains_id id) false (||) kt ||
+    fold_lustre_ty (expr_contains_id id) false (||) vt
+  | EmptySet (_, Some ty) -> fold_lustre_ty (expr_contains_id id) false (||) ty
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e)
   | Extract (_, e, _, _)
@@ -277,10 +277,14 @@ let rec pat_bound_vars = function
   | VarPat (_, id) -> SI.singleton id
   | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
 
+let rec pat_bound_vars_with_pos = function
+  | VarPat (pos, id) -> [(id, pos)]
+  | Pat (_, _, sub_pats) -> List.concat_map pat_bound_vars_with_pos sub_pats
+
 (* Renames a variable bound by a pattern. Reached only after type checking, so
    a VarPat is always a genuine binder and never a 0-arg constructor. *)
 let rec rename_pat_var id id' = function
-  | VarPat (pos, i) -> if i = id then VarPat (pos, id') else VarPat (pos, i)
+  | VarPat (pos, i) as p -> if i = id then VarPat (pos, id') else p
   | Pat (pos, ctor, sub_pats) ->
     Pat (pos, ctor, List.map (rename_pat_var id id') sub_pats)
 
@@ -321,17 +325,16 @@ let rec substitute_naive (var:HString.t) t = function
   | Match (pos, e, arms, ty) ->
     let e = substitute_naive var t e in
     let arms = List.map (fun (pat, arm_e) ->
-      let bound = pat_bound_vars pat in
-      if SI.mem var bound then (pat, arm_e)
+      if SI.mem var (pat_bound_vars pat) then (pat, arm_e)
       else
         let pat, arm_e =
-          SI.fold (fun i (pat, arm_e) ->
+          List.fold_left (fun (pat, arm_e) (i, ipos) ->
             if expr_contains_id i t then
               let fresh = fresh_alpha_ident () in
               (rename_pat_var i fresh pat,
-               substitute_naive i (Ident (pos, fresh)) arm_e)
+               substitute_naive i (Ident (ipos, fresh)) arm_e)
             else (pat, arm_e)
-          ) bound (pat, arm_e)
+          ) (pat, arm_e) (pat_bound_vars_with_pos pat)
         in
         (pat, substitute_naive var t arm_e)
     ) arms in
