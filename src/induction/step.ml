@@ -285,10 +285,34 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
 
   in
 
+  (* Built once: the same instances serve every iteration *)
+  let congruence = TransSys.fn_congruence_instances trans k in
+  let congruence_holds =
+    if congruence = [] then [] else [Term.mk_and congruence]
+  in
+
+  (* The functional congruence instances are evaluated in the model rather
+     than asserted. Their conjunction is one term, hence one query, and when
+     it holds the counterexample to induction already satisfies determinism:
+     it is genuine and nothing is asserted at all. Only when it fails are
+     the instances evaluated one by one, to assert exactly those the
+     counterexample violates (see [TransSys.fn_congruence_instances]). *)
+  let if_sat s values =
+    if List.exists (fun (_, v) -> Term.equal v Term.t_false) values then
+      (* Determinism is violated somewhere: ask which instances, so that
+         only those are asserted *)
+      `Refine (
+        SMTSolver.get_term_values s congruence
+        |> List.filter_map (fun (i, v) ->
+             if Term.equal v Term.t_false then Some i else None)
+      )
+    else `Model (if_sat s)
+  in
+
   let print_cex = Flags.BmcKind.ind_print_cex () in
 
   (* Function to run if unsat. *)
-  let if_unsat _ = None in
+  let if_unsat _ = `Model None in
 
   (* Appending to the list of actlits. *)
   let all_actlits = path_comp_act_term :: actlits in
@@ -297,12 +321,23 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
-      SMTSolver.check_sat_assuming
+      SMTSolver.check_sat_assuming_and_get_term_values
         solver if_sat if_unsat all_actlits
+        congruence_holds
     with
 
-    | Some model ->
-        
+    | `Refine spurious ->
+      (* The counterexample violates determinism of a function over
+         containers; rule it out and look again *)
+      SMTSolver.trace_comment solver
+        "Asserting the functional congruence instances the counterexample \
+         violates." ;
+      List.iter (SMTSolver.assert_term solver) spurious ;
+      loop ()
+
+    | `Model (Some model) ->
+      (
+
       (* Evaluation function. *)
       let term_to_val =
         Eval.eval_term (TransSys.uf_defs trans) model
@@ -365,9 +400,9 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
                 |> SMTSolver.assert_term solver ;
               (* Rechecking satisfiability. *)
               loop () )
-      )
+      ) )
 
-    | None ->
+    | `Model None ->
       (* Returning the unsat result. *)
       None
   in
@@ -558,6 +593,7 @@ let rec next input_sys aparam trans solver k unfalsifiables unknowns =
      |> SMTSolver.assert_term solver
      |> ignore ;
 
+
      (* Asserting invariants if we are not in lazy invariants mode. *)
      if not (Flags.BmcKind.lazy_invariants ()) then (
        (* Asserting new invariants from 0 to k. *)
@@ -698,6 +734,7 @@ let launch input_sys aparam trans =
     Compress.init (SMTSolver.declare_fun solver) trans ;
 
   TransSys.assert_global_constraints trans (SMTSolver.assert_term solver) ;
+
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound ~one_state_only:true trans Numeral.zero
