@@ -18,6 +18,19 @@
 -- checking falsifies in seconds. The three-host original is not in the suite
 -- because falsifying it takes longer than the suite's timeout allows.
 --
+-- To reproduce the wrong result on the unfixed code, take BMC out of the
+-- race -- under the default engines it finds the depth-8 counterexample
+-- before invariant generation can mislead induction, which is what the suite
+-- checks here:
+--
+--     kind2 --enable IND --enable INVGEN --enable INVGENOS <this file>
+--
+-- Unfixed, that reports the property "valid (k=1)" every run; fixed, it
+-- reports "unknown" every run. Smaller hand-written models (a single condact
+-- around a counter, or around a one-step delay) do not trigger it: invariant
+-- generation needs enough structure in the callee to mine and lift an
+-- invariant in the first place.
+--
 -- The model is a two-phase commit protocol: the coordinator can decide
 -- Commit, so the property is falsifiable.
 
