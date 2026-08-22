@@ -1026,6 +1026,54 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     )
   in
 
+  (* Candidate invariant: the assumptions of the call have held so far.
+
+     The guarantees of a node abstracted by its contract are asserted under
+     its 'sofar' flag, the history of its assumptions. Proving an assumption
+     obligation of the callee therefore needs the guarantees, which need the
+     flag, which needs the obligation at every earlier step. k-induction sees
+     the flag as a free variable at the start of its window and cannot close
+     that loop, whereas the one-state invariant generator discovers that the
+     flag is invariant and does. Stating the flag as a candidate property,
+     proven before it is used, makes the history visible to k-induction, in
+     the same way the when-block ties make the hold semantics of a clocked
+     call visible to it.
+
+     The candidate is a property of the callee lifted into this node, so it
+     joins the other lifted properties here and goes through the same
+     instantiation and guarding as they do. *)
+  let node_props =
+    if node_assume_props = [] then node_props
+    else
+      match contract with
+      | None -> node_props
+      | Some { C.sofar_assump = None } -> node_props
+      | Some { C.sofar_assump = Some sofar_assump } ->
+        let sofar_term =
+          Var.mk_state_var_instance sofar_assump TransSys.prop_base
+          |> Term.mk_var
+          |> lift_term state_var_map_up
+        in
+        let row, col = row_col_of_pos call_pos in
+        let prop =
+          { P.prop_name =
+              Format.asprintf
+                "Assumptions of call at l%dc%d have held so far" row col;
+            P.prop_source =
+              P.Candidate
+                (Some (P.Generated
+                         (Some call_pos,
+                          [lift_state_var state_var_map_up sofar_assump],
+                          P.Body)));
+            P.prop_term = sofar_term;
+            P.prop_status = P.PropUnknown;
+            P.prop_kind = P.Invariant;
+            P.prop_expr = None;
+          }
+        in
+        add_call_context_to_prop call_context prop :: node_props
+  in
+
   (* Return actual parameters of initial state constraint at bound in
      the correct order *)
   let init_params_of_bound term_of_state_var =
