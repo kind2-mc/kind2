@@ -18,15 +18,17 @@
 -- checking falsifies in seconds. The three-host original is not in the suite
 -- because falsifying it takes longer than the suite's timeout allows.
 --
--- To reproduce the wrong result on the unfixed code, take BMC out of the
--- race -- under the default engines it finds the depth-8 counterexample
--- before invariant generation can mislead induction, which is what the suite
--- checks here:
+-- To reproduce the wrong result on the unfixed code, run invariant
+-- generation on its own -- under the default engines BMC finds the depth-8
+-- counterexample first, which is what the suite checks here:
 --
---     kind2 --enable IND --enable INVGEN --enable INVGENOS <this file>
+--     kind2 --enable INVGEN --enable INVGENOS <this file>
 --
 -- Unfixed, that reports the property "valid (k=1)" every run; fixed, it
--- reports "unknown" every run. Smaller hand-written models (a single condact
+-- reports "unknown" every run. Both generators are needed: INVGENOS is the
+-- only one with this (one-state) property term among its candidates, and
+-- INVGEN supplies the two-state invariants lifted past the clock that make
+-- the candidate come out k-inductive. k-induction is not involved. Smaller hand-written models (a single condact
 -- around a counter, or around a one-step delay) do not trigger it: invariant
 -- generation needs enough structure in the callee to mine and lift an
 -- invariant in the first place.
