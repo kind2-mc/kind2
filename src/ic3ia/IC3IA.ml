@@ -339,14 +339,20 @@ let refine fwd solver sys predicates cubes =
         in
 
         (* An interpolating solver that cannot represent the array encoding
-           rejects it either when the instance is created (OpenSMT and
-           Bitwuzla refuse arrays outright, and their drivers fail on the
-           logic) or when the select function is declared (MathSAT refuses
-           arrays whose elements are Bool, as sets and maps have). Report
-           either as an unsupported feature, the way the checks in [main] do,
-           rather than letting the engine die with a runtime failure. Note
-           that this is reached only once interpolation is actually needed:
-           a property IC3IA settles without refining is still proved. *)
+           rejects it either when the instance is created (OpenSMT refuses
+           arrays outright, and its driver fails on the logic) or when the
+           select function is declared (MathSAT refuses arrays whose elements
+           are Bool, as sets and maps have). Report either as an unsupported
+           feature, the way the checks in [main] do, rather than letting the
+           engine die with a runtime failure. Note that this is reached only
+           once interpolation is actually needed: a property IC3IA settles
+           without refining is still proved.
+
+           Match only on what the solvers say about arrays. Bitwuzla reports
+           an unsupported logic for anything that is not bit vectors, and it
+           does so from `header_logic`, after the process is already up: that
+           failure is not this one, and swallowing it would both misreport it
+           and strand the process outside [SMTSolver]'s registry. *)
         let unsupported_array_encoding msg =
           let mentions sub =
             (* The solver echoes its error quoted, so match on a substring. *)
@@ -356,8 +362,7 @@ let refine fwd solver sys predicates cubes =
           in
           mentions "Arrays with Bool as argument are not supported" ||
           mentions "Higher-order compound types not supported" ||
-          mentions "does not support arrays" ||
-          mentions "only supports BV logics"
+          mentions "does not support arrays"
         in
 
         let solver =
@@ -997,6 +1002,33 @@ let main_ic3ia fwd prop in_sys param sys =
 
    SMTSolver.delete_instance solver
 
+(* [TransSys.get_logic] reports the logic that gets declared to the solver,
+   which is whatever `--smt_logic` says whenever it is not `detect`: it says
+   nothing about the terms then, and `ALL` in particular lists no features at
+   all. Anything the soundness of an answer rests on has to be decided on the
+   terms, so recompute the features the way the `detect` branch of
+   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
+   one. The subsystems are covered too, since their definitions sit behind
+   uninterpreted symbols in the top system's init and trans terms. *)
+let features_of_terms sys =
+  let open TermLib.FeatureSet in
+  TransSys.fold_subsystems ~include_top:true
+    (fun acc t ->
+      TransSys.init_of_bound None t Numeral.zero ::
+      TransSys.trans_of_bound None t Numeral.one ::
+      TransSys.global_constraints t @
+      List.map Property.get_prop_term (TransSys.get_properties t)
+      |> List.fold_left
+           (fun acc term -> union acc (TermLib.logic_of_term [] term))
+           acc)
+    empty
+    sys
+
+let features sys =
+  match TransSys.get_logic sys with
+  | `Inferred l -> l
+  | `SMTLogic _ | `None -> features_of_terms sys
+
 let main fwd slice_to_prop prop in_sys param sys =
 
   let param = Analysis.param_clone param in
@@ -1021,8 +1053,9 @@ let main fwd slice_to_prop prop in_sys param sys =
 
   let open TermLib in
   let open TermLib.FeatureSet in
-  (match TransSys.get_logic sys with
-  | `Inferred l when mem A l && mem Q l ->
+  let l = features sys in
+
+  (if mem A l && mem Q l then
     (* The array encoding turns selects into applications of an uninterpreted
        function over an uninterpreted sort. Quantifying over those is beyond
        what the interpolating solvers handle reliably: MathSAT answers such
@@ -1033,13 +1066,12 @@ let main fwd slice_to_prop prop in_sys param sys =
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg)
-  | `Inferred l when mem DT l ->
+  else if mem DT l then
     let msg =
       Format.sprintf "IC3IA disabled for property %s: algebraic datatypes are not supported."
         prop.Property.prop_name
     in
-    raise (UnsupportedFeature msg)
-  | _ -> () ) ;
+    raise (UnsupportedFeature msg) ) ;
 
   (* Note: IC3IA does not assert the functional congruence instances that
      enforce determinism of (abstracted) functions with container-typed
@@ -1076,15 +1108,13 @@ let main fwd slice_to_prop prop in_sys param sys =
      when the interpolating instance is created (handled in [refine]), these
      fail in the middle of computing an interpolant, so rule them out here. *)
   let check_arrays_are_supported itp_solver =
-    match TransSys.get_logic sys with
-    | `Inferred l when mem A l ->
+    if mem A l then
       let msg =
         Format.sprintf "IC3IA (%s) disabled for property %s: arrays are not supported. \
           Use MathSAT or SMTInterpol instead."
           itp_solver prop.Property.prop_name
       in
       raise (UnsupportedFeature msg)
-    | _ -> ()
   in
 
   (match Flags.Smt.itp_solver () with
