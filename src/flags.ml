@@ -2231,6 +2231,64 @@ module Arrays = struct
 end
 
 
+(* Quantifier handling flags. *)
+module Quant = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "quant"
+  (* Short description of the module. *)
+  let desc = "quantifier instantiation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Quantifiers coming from a Lustre model may range over types with a@ \
+      finite domain (enumerated types, and the enum-encoded tags and@ \
+      payloads of algebraic datatypes). Such quantifiers can be eliminated@ \
+      up front by expanding them into a finite conjunction (forall) or@ \
+      disjunction (exists) over every value of the domain.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let inst_enums_default = true
+  let inst_enums = ref inst_enums_default
+  let _ = add_spec
+    "--instantiate_enum_quant"
+    (bool_arg inst_enums)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Eliminate quantifiers over finite (enumerated) domains by@ \
+         expanding them into a conjunction/disjunction over all the values@ \
+         of the domain.@ Default: %a@]"
+        fmt_bool inst_enums_default
+    )
+  let set_inst_enums b = inst_enums := b
+  let inst_enums () = !inst_enums
+
+  let inst_enums_limit_default = 1024
+  let inst_enums_limit = ref inst_enums_limit_default
+  let _ = add_spec
+    "--instantiate_enum_quant_limit"
+    (Arg.Set_int inst_enums_limit)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Maximal number of instances generated for a single quantifier@ \
+         by --instantiate_enum_quant. A quantifier whose domain is larger@ \
+         than this is left untouched.@ Default: %d@]"
+        inst_enums_limit_default
+    )
+  let inst_enums_limit () = !inst_enums_limit
+
+end
+
+
 (* Testgen flags. *)
 module Testgen = struct
 
@@ -2755,6 +2813,9 @@ let module_map = [
   ) ;
   (Arrays.id,
     (module Arrays: FlagModule)
+  ) ;
+  (Quant.id,
+    (module Quant: FlagModule)
   ) ;
   (Certif.id,
     (module Certif: FlagModule)

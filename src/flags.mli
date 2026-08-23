@@ -686,6 +686,20 @@ module Arrays : sig
   val var_size : unit -> bool
 end
 
+(** {2 Quantifier instantiation flags} *)
+
+module Quant : sig
+
+  (** Expand quantifiers over finite (enum) domains into
+      conjunctions/disjunctions *)
+  val inst_enums : unit -> bool
+
+  val set_inst_enums : bool -> unit
+
+  (** Maximal number of instances generated for a single quantifier *)
+  val inst_enums_limit : unit -> int
+end
+
 (** {2 Testgen flags} *)
 
 module Testgen : sig

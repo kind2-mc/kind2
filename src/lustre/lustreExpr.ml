@@ -2115,12 +2115,186 @@ let apply_subst sigma expr =
 
 (* ********************************************************************** *)
 
+(* Constant-fold a term in which numerals have been substituted for
+   quantified variables.
+
+   Applied bottom-up, this collapses the range constraints guarding the
+   quantified variables ([0 <= 1 and 1 <= 2]) and the constructor tests
+   selecting the payload fields of an algebraic datatype ([ite (= 10 11) x 3]),
+   which would otherwise be left in the term for the solver to deal with. Only
+   the operators that such guards are built from are handled; anything else is
+   returned unchanged. *)
+let fold_ground_term t =
+  (* [Term.is_numeral] and [Term.is_bool] go through [Term.destruct], which
+     raises on anything that is not a plain application; only look at leaves,
+     which is where the substituted constants are. *)
+  let numeral t =
+    if Term.is_leaf t && Term.is_numeral t then Some (Term.numeral_of_term t)
+    else None
+  in
+  let boolean t =
+    if Term.is_leaf t && Term.is_bool t then Some (Term.bool_of_term t) else None
+  in
+  let num_args args =
+    List.fold_right
+      (fun t acc -> match acc, numeral t with
+        | Some ns, Some n -> Some (n :: ns)
+        | _ -> None)
+      args (Some [])
+  in
+  (* A chainable relation holds if it holds of every consecutive pair *)
+  let chainable rel args = match num_args args with
+    | None -> None
+    | Some ns ->
+      let rec chain = function
+        | a :: (b :: _ as tl) -> rel a b && chain tl
+        | _ -> true
+      in
+      Some (Term.mk_bool (chain ns))
+  in
+  Term.map (fun _ t ->
+    if not (Term.is_node t) then t
+    else
+      let args = Term.node_args_of_term t in
+      let folded =
+        match Symbol.node_of_symbol (Term.node_symbol_of_term t) with
+        | `LEQ -> chainable Numeral.( <= ) args
+        | `LT -> chainable Numeral.( < ) args
+        | `GEQ -> chainable Numeral.( >= ) args
+        | `GT -> chainable Numeral.( > ) args
+        | `EQ -> (
+          (* [`EQ] is chainable and also applies to non-numeric arguments;
+             two hashconsed constants are equal iff they are the same term *)
+          match args with
+          | [a; b] when numeral a <> None && numeral b <> None ->
+            Some (Term.mk_bool (Term.equal a b))
+          | _ -> None
+        )
+        | `NOT -> (
+          match args with
+          | [a] -> (
+            match boolean a with
+            | Some b -> Some (Term.mk_bool (not b))
+            | None -> None
+          )
+          | _ -> None
+        )
+        | `AND ->
+          if List.exists (Term.equal Term.t_false) args then Some Term.t_false
+          else (
+            match List.filter (fun a -> not (Term.equal Term.t_true a)) args with
+            | [] -> Some Term.t_true
+            | [a] -> Some a
+            | args' when List.length args' <> List.length args ->
+              Some (Term.mk_and args')
+            | _ -> None
+          )
+        | `OR ->
+          if List.exists (Term.equal Term.t_true) args then Some Term.t_true
+          else (
+            match List.filter (fun a -> not (Term.equal Term.t_false a)) args with
+            | [] -> Some Term.t_false
+            | [a] -> Some a
+            | args' when List.length args' <> List.length args ->
+              Some (Term.mk_or args')
+            | _ -> None
+          )
+        | `IMPLIES -> (
+          (* [`IMPLIES] is right-associative: [a => (b => c)] *)
+          match args with
+          | a :: (_ :: _ as tl) when Term.equal a Term.t_true ->
+            Some (match tl with [c] -> c | _ -> Term.mk_implies tl)
+          | a :: _ :: _ when Term.equal a Term.t_false -> Some Term.t_true
+          | _ -> None
+        )
+        | `ITE -> (
+          match args with
+          | [c; a; b] -> (
+            match boolean c with
+            | Some c -> Some (if c then a else b)
+            | None -> if Term.equal a b then Some a else None
+          )
+          | _ -> None
+        )
+        | _ -> None
+      in
+      match folded with Some t' -> t' | None -> t
+  ) t
+
+(* Values of a quantified variable ranging over a finite domain.
+
+   Enumerated types (including the tags and enum-typed payload fields an
+   algebraic datatype is compiled into) are encoded as integer ranges, so the
+   domain of such a variable is known statically and the quantifier binding it
+   can be expanded into a finite conjunction or disjunction. *)
+let finite_domain_of_var v =
+  let ty = Var.type_of_var v in
+  if not (Type.is_enum ty) then None
+  else
+    let l, u = Type.bounds_of_enum ty in
+    let rec values n acc =
+      if Numeral.(n < l) then acc
+      else values Numeral.(pred n) (Term.mk_num n :: acc)
+    in
+    Some (values u [])
+
+(* Expand a quantifier binding [vars] into the finite conjunction (resp.
+   disjunction) of its instances, combined with [mk_junct] ([Term.mk_and] for a
+   universal quantifier, [Term.mk_or] for an existential one).
+
+   Only quantifiers that this eliminates outright are expanded: if some of
+   [vars] range over an infinite (or uninterpreted) type, expanding the rest
+   would just replicate a body that stays under a quantifier, which costs the
+   solver more than the single quantifier it started with. A body that is
+   itself quantified is declined for the same reason: a quantifier over
+   several variables is normalized into nested single-variable ones, so
+   [forall (c: Color; i: int)] reaches us as an enum quantifier wrapped around
+   an integer one, and expanding the outer one alone is exactly the case
+   above.
+
+   Returns [None] when the quantifier is left untouched. *)
+let expand_finite_quant mk_junct vars t =
+  if not (Flags.Quant.inst_enums ()) || Term.has_quantifier t then None
+  else
+    let domains = List.map (fun v -> (v, finite_domain_of_var v)) vars in
+    if List.exists (fun (_, d) -> d = None) domains then None
+    else
+      let finite =
+        List.map (function (v, Some d) -> (v, d) | _ -> assert false) domains
+      in
+      let instances =
+        List.fold_left
+          (fun acc (_, values) -> acc * List.length values) 1 finite
+      in
+      (* Bail out rather than blow up the term on a large domain *)
+      if instances > Flags.Quant.inst_enums_limit () then None
+      else
+        (* All the substitutions assigning a value to every finite variable *)
+        let sigmas =
+          List.fold_left
+            (fun sigmas (v, values) ->
+              List.concat_map
+                (fun sigma -> List.map (fun c -> (v, c) :: sigma) values)
+                sigmas)
+            [[]] finite
+        in
+        let t =
+          mk_junct (List.map (fun sigma -> Term.apply_subst sigma t) sigmas)
+        in
+        (* Substituting constants for the bound variables turns the range
+           constraints guarding them into ground terms; fold them away. *)
+        Some (fold_ground_term t)
+
 (* Evaluate universal quantification *)
 let eval_forall vars t = match vars, t with
   | [], _ -> Term.t_true
   | _, t when t == Term.t_true -> Term.t_true
   | _, t when t == Term.t_false -> Term.t_false
-  | _ -> Term.mk_forall vars t 
+  | _ -> (
+    match expand_finite_quant Term.mk_and vars t with
+    | Some t -> t
+    | None -> Term.mk_forall vars t
+  )
 
 let type_of_forall = type_of_bool_bool
 
@@ -2136,7 +2310,11 @@ let eval_exists vars t = match vars, t with
   | [], _ -> Term.t_false
   | _, t when t == Term.t_true -> Term.t_true
   | _, t when t == Term.t_false -> Term.t_false
-  | _ -> Term.mk_exists vars t 
+  | _ -> (
+    match expand_finite_quant Term.mk_or vars t with
+    | Some t -> t
+    | None -> Term.mk_exists vars t
+  )
 
 let type_of_exists = type_of_bool_bool
 
