@@ -122,6 +122,13 @@ return_codes = (
 expected_to_code = {expected: code for expected, code in return_codes}
 code_to_expected = {code: expected for expected, code in return_codes}
 
+# What a declined run is allowed to exit with: 30 is Kind 2's
+# `incomplete_analysis`, which is what turning the system down looks like, and
+# 0 covers IC3IA one day being able to answer. Every other code -- a crash, a
+# usage error, a solver it could not start -- is a failure rather than a
+# decline, and naming them keeps the test honest about what it pins down.
+ic3ia_declined_codes = (expected_to_code["success"], expected_to_code["timeout"])
+
 def pytest_collect_file(parent, file_path: Path):
     try:
         # We only want to collect lustre files which live under the regression dir
@@ -272,11 +279,20 @@ class LustreItem(pytest.Item):
         arg_list = list(itertools.chain.from_iterable(args.items()))
         return [kind2_bin, *arg_list, self.path]
 
+    def _regression_parts(self):
+        # Relative to the regression tree: an absolute path would also match a
+        # checkout that happens to sit under a directory of the same name, and
+        # pin the whole suite to IC3IA. `extra_files` live outside the tree.
+        try:
+            return self.path.relative_to(regression_dir).parts
+        except ValueError:
+            return ()
+
     def _is_ic3ia(self):
-        return ic3ia_dir_name in self.path.parts
+        return ic3ia_dir_name in self._regression_parts()
 
     def _ic3ia_declines(self):
-        return self._is_ic3ia() and ic3ia_declined_dir_name in self.path.parts
+        return self._is_ic3ia() and ic3ia_declined_dir_name in self._regression_parts()
 
     def runtest(self):
         if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
@@ -286,7 +302,7 @@ class LustreItem(pytest.Item):
 
         if self._ic3ia_declines():
             # Answering is allowed, answering `falsifiable` is not
-            if self.res.returncode == expected_to_code["falsifiable"]:
+            if self.res.returncode not in ic3ia_declined_codes:
                 raise LustreException
             return
 
