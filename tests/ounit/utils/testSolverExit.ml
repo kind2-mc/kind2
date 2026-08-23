@@ -29,6 +29,15 @@ open OUnit2
 
 let new_solver () = SMTSolver.create_instance `None `Z3_SMTLIB
 
+(* Whether the solver [new_solver] asks for can be found. The rest of
+   the unit suite needs nothing installed, and a checkout without a
+   solver should not start failing it. CI installs Z3 on every platform
+   it tests, so this skips nowhere that matters. *)
+let solver_missing () =
+  match Lib.find_on_path (Flags.Smt.z3_bin ()) with
+  | _ -> false
+  | exception Not_found -> true
+
 (* Reap whatever has exited and report whether a child process is still
    running. The only children here are the solvers created above. *)
 let rec no_child_left deadline =
@@ -42,6 +51,8 @@ let rec no_child_left deadline =
   | _ -> no_child_left deadline
 
 let test_no_solver_outlives_the_sweep _ =
+  skip_if (solver_missing ()) "no Z3 on PATH" ;
+
   ignore (new_solver ()) ;
 
   SMTSolver.destroy_all_of_process () ;

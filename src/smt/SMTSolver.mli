@@ -36,7 +36,10 @@ exception Exiting
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
-    the given flags *)
+    the given flags.
+
+    @raise Exiting if the process is exiting, in which case no solver
+    is left running. *)
 val create_instance :
   ?timeout: int ->
   ?produce_models:bool ->

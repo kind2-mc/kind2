@@ -426,7 +426,13 @@ let post_clean_exit process base_status exn =
              killing it does not kill them. One left behind holds the
              standard output of Kind 2 open on Windows, where a child
              inherits every inheritable handle, so whoever reads that
-             output keeps waiting for an end that never comes. *)
+             output keeps waiting for an end that never comes.
+
+             This is the path that must not hang, and it now waits for
+             a lock to take it. Every critical section that lock
+             guards is a map operation with no I/O in it, held for as
+             long as an insertion or a swap takes, so waiting for it
+             cannot become the reason we never get to [_exit]. *)
           ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
           Unix._exit status)
         ()
@@ -434,6 +440,12 @@ let post_clean_exit process base_status exn =
     with _ -> () ) ;
   (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
+  (* The engines that are still running are on their way out with the
+     process, whatever they are in the middle of. Saying so before the
+     sweep is what keeps an engine that was given up on from being
+     reported as having crashed when the solver it asks for is refused,
+     the way one is not reported for the solvers killed under it. *)
+  EngineDomains.set_terminating true ;
   (* Kill all live solvers of the whole process. *)
   SMTSolver.destroy_all_of_process () ;
   (* Exit with status. *)

@@ -90,8 +90,12 @@ let all_solvers_lock = Mutex.create ()
    output of Kind 2 open, since a child there inherits every
    inheritable handle rather than only the ones it was given. Whoever
    reads that output, the regression harness for one, then waits for an
-   end that never comes, long after Kind 2 itself is gone. *)
-let no_new_solvers = Atomic.make false
+   end that never comes, long after Kind 2 itself is gone.
+
+   Guarded by [all_solvers_lock], like the map: it has to be read and
+   the registration decided in one go, or the two could interleave and
+   let exactly the solver this bars through. *)
+let no_new_solvers = ref false
 
 (** Registers a solver, owned by the calling domain. Raises [Exiting]
     if the process is on its way out, in which case the caller must
@@ -100,7 +104,7 @@ let no_new_solvers = Atomic.make false
 let add_solver ( { id } as solver ) =
   let owner = (Domain.self () :> int) in
   Mutex.protect all_solvers_lock (fun () ->
-    if Atomic.get no_new_solvers then raise Exiting ;
+    if !no_new_solvers then raise Exiting ;
     all_solvers := IntMap.add id (owner, solver) !all_solvers)
 
 (** Forgets a solver. *)
@@ -227,6 +231,9 @@ let create_instance
      If the sweep has been and gone, kill it here, since it would
      otherwise be the one solver that outlives Kind 2. *)
   ( try add_solver solver with Exiting ->
+      (* Only the process is disposed of. The pipes to it go with the
+         process image moments later, and there is no instance left to
+         close them through. *)
       let module S = (val fomodule) in
       S.kill_instance () ;
       raise Exiting ) ;
@@ -256,6 +263,15 @@ let destroy_all () =
   in
   IntMap.iter (fun _ (_, s) -> destroy s) mine
 
+(* Kills the solver processes of the given registry entries, without
+   interacting with them. *)
+let kill_entries entries =
+  IntMap.iter
+    (fun _ (_, s) ->
+      let module S = (val s.solver_inst) in
+      S.kill_instance ())
+    entries
+
 (* Destroys every live solver of the whole process and bars any
    further one. Only for final cleanup before the process exits.
 
@@ -270,16 +286,12 @@ let destroy_all () =
 let destroy_all_of_process () =
   let entries =
     Mutex.protect all_solvers_lock (fun () ->
-      Atomic.set no_new_solvers true ;
+      no_new_solvers := true ;
       let entries = !all_solvers in
       all_solvers := IntMap.empty ;
       entries)
   in
-  IntMap.iter
-    (fun _ (_, s) ->
-      let module S = (val s.solver_inst) in
-      S.kill_instance ())
-    entries
+  kill_entries entries
 
 (* Kills the solver processes owned by the given domain without
    interacting with them. Used by the supervisor to unblock an engine
@@ -294,11 +306,7 @@ let kill_solvers_of_domain owner =
       all_solvers := others ;
       mine)
   in
-  IntMap.iter
-    (fun _ (_, s) ->
-      let module S = (val s.solver_inst) in
-      S.kill_instance ())
-    entries
+  kill_entries entries
 
 (* Return the unique identifier of the solver instance *)
 let id_of_instance { id } = id
