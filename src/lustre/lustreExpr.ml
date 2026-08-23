@@ -2225,6 +2225,17 @@ let fold_ground_term t =
       match folded with Some t' -> t' | None -> t
   ) t
 
+(* The number of nodes of a term, counting a subterm once for each place it
+   occurs.
+
+   What an expansion costs is the term it hands the solver, and that is written
+   out in full however much of it is shared. Only called on a term already
+   known to have no quantifier in it, so folding it meets no bound variable. *)
+let term_size t =
+  Term.eval_t ~fail_on_quantifiers:false
+    (fun _ sizes -> List.fold_left ( + ) 1 sizes)
+    t
+
 (* Values of a quantified variable ranging over a finite domain.
 
    Enumerated types (including the tags and enum-typed payload fields an
@@ -2268,12 +2279,33 @@ let expand_finite_quant mk_junct vars t =
       let finite =
         List.map (function (v, Some d) -> (v, d) | _ -> assert false) domains
       in
+      let budget = Flags.Quant.inst_finite_budget () in
+      (* How many instances the expansion would make.
+
+         Saturated rather than left to overflow: a quantifier over an algebraic
+         datatype binds one variable for its tag and one for each payload
+         field, all in the one list, so a datatype with enough fields wraps the
+         product round to a negative number and the test below lets it
+         through. *)
       let instances =
         List.fold_left
-          (fun acc (_, values) -> acc * List.length values) 1 finite
+          (fun acc (_, values) ->
+            match List.length values with
+            | 0 -> 0
+            | n when acc > budget / n -> budget + 1
+            | n -> acc * n)
+          1 finite
       in
-      (* Bail out rather than blow up the term on a large domain *)
-      if instances > Flags.Quant.inst_finite_limit () then None
+      (* Budget the term the expansion produces, rather than the number of
+         copies it makes of the body.
+
+         A quantifier over several variables is normalized into nested
+         single-variable ones, so once the innermost has been expanded away its
+         body holds no quantifier and the one around it expands in turn,
+         multiplying what the level below it already built. Counting copies
+         cannot see that: every level makes few of them. Measuring the result
+         can, because each level is charged for the body it was handed. *)
+      if instances > budget / max 1 (term_size t) then None
       else
         (* All the substitutions assigning a value to every finite variable *)
         let sigmas =

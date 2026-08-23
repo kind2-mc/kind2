@@ -2272,19 +2272,20 @@ module Quant = struct
   let set_inst_finite b = inst_finite := b
   let inst_finite () = !inst_finite
 
-  let inst_finite_limit_default = 1024
-  let inst_finite_limit = ref inst_finite_limit_default
+  let inst_finite_budget_default = 100000
+  let inst_finite_budget = ref inst_finite_budget_default
   let _ = add_spec
-    "--instantiate_finite_quant_limit"
-    (Arg.Set_int inst_finite_limit)
+    "--instantiate_finite_quant_budget"
+    (Arg.Set_int inst_finite_budget)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Maximal number of instances generated for a single quantifier@ \
-         by --instantiate_finite_quant. A quantifier whose domain is larger@ \
-         than this is left untouched.@ Default: %d@]"
-        inst_finite_limit_default
+        "@[<v>Maximal size, in term nodes, of the term@ \
+         --instantiate_finite_quant may produce for a single quantifier.@ \
+         A quantifier whose expansion would be larger than this is left@ \
+         untouched.@ Default: %d@]"
+        inst_finite_budget_default
     )
-  let inst_finite_limit () = !inst_finite_limit
+  let inst_finite_budget () = !inst_finite_budget
 
 end
 

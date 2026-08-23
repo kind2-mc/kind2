@@ -696,8 +696,9 @@ module Quant : sig
 
   val set_inst_finite : bool -> unit
 
-  (** Maximal number of instances generated for a single quantifier *)
-  val inst_finite_limit : unit -> int
+  (** Maximal size, in term nodes, of the term the expansion of a single
+      quantifier may produce *)
+  val inst_finite_budget : unit -> int
 end
 
 (** {2 Testgen flags} *)
