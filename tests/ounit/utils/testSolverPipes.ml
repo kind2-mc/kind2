@@ -26,12 +26,7 @@ open OUnit2
    on that pipe for an end that will not come until the last solver
    goes. Counting the pipes a solver holds is the way to see it. *)
 
-let new_solver () = SMTSolver.create_instance `None `Z3_SMTLIB
-
-let solver_missing () =
-  match Lib.find_on_path (Flags.Smt.z3_bin ()) with
-  | _ -> false
-  | exception Not_found -> true
+open TestSolverCommon
 
 (* The children of this process, as reported by the kernel. Each thread
    keeps its own list. *)
