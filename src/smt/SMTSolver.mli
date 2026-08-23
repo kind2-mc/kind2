@@ -28,6 +28,11 @@ type t
 exception Unknown
 exception Timeout
 
+(** Exception raised by {!create_instance} when the process is exiting.
+    No solver can be created from then on: the ones that exist have
+    been killed, and a new one would be left running. *)
+exception Exiting
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
@@ -55,8 +60,10 @@ val delete_instance : t -> unit
 (** Destroys all live solver instances owned by the calling domain. *)
 val destroy_all : unit -> unit
 
-(** Destroys every live solver instance of the whole process. Only for
-    final cleanup before the process exits. *)
+(** Destroys every live solver instance of the whole process and bars
+    any further one, so that no solver outlives Kind 2. Only for final
+    cleanup before the process exits: {!create_instance} raises
+    {!Exiting} once this has been called. *)
 val destroy_all_of_process : unit -> unit
 
 (** Kills the solver processes owned by the given domain (as returned by

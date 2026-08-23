@@ -422,6 +422,12 @@ let post_clean_exit process base_status exn =
           Thread.delay 10.0 ;
           prerr_endline "Kind 2 did not exit in time, terminating." ;
           Stdlib.flush_all () ;
+          (* The solvers first: they are children of this process, and
+             killing it does not kill them. One left behind holds the
+             standard output of Kind 2 open on Windows, where a child
+             inherits every inheritable handle, so whoever reads that
+             output keeps waiting for an end that never comes. *)
+          ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
           Unix._exit status)
         ()
       |> ignore

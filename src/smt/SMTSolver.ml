@@ -21,6 +21,7 @@ open Lib
 
 exception Unknown
 exception Timeout
+exception Exiting
 
 
 module IntMap = Map.Make(
@@ -76,10 +77,30 @@ See [destroy_all]. *)
 let all_solvers = ref IntMap.empty
 let all_solvers_lock = Mutex.create ()
 
-(** Registers a solver, owned by the calling domain. *)
+(* Latched by [destroy_all_of_process]: no solver may be created from
+   then on.
+
+   The sweep before the process exits is only final if nothing can
+   start a solver behind it. Something can: an engine the supervisor
+   gave up on keeps running in the background, and it dies with the
+   process rather than at a point we choose. A solver it starts after
+   the sweep is left running, with nobody to kill it.
+
+   Such a solver outlives Kind 2, and on Windows it holds the standard
+   output of Kind 2 open, since a child there inherits every
+   inheritable handle rather than only the ones it was given. Whoever
+   reads that output, the regression harness for one, then waits for an
+   end that never comes, long after Kind 2 itself is gone. *)
+let no_new_solvers = Atomic.make false
+
+(** Registers a solver, owned by the calling domain. Raises [Exiting]
+    if the process is on its way out, in which case the caller must
+    dispose of the instance it just created: past that point nothing
+    else will. *)
 let add_solver ( { id } as solver ) =
   let owner = (Domain.self () :> int) in
   Mutex.protect all_solvers_lock (fun () ->
+    if Atomic.get no_new_solvers then raise Exiting ;
     all_solvers := IntMap.add id (owner, solver) !all_solvers)
 
 (** Forgets a solver. *)
@@ -201,7 +222,14 @@ let create_instance
       last_assumptions = [| |]; }
   in
 
-  add_solver solver ;
+  (* The solver process is already running: it is started by the
+     functor application above, before there is anything to register.
+     If the sweep has been and gone, kill it here, since it would
+     otherwise be the one solver that outlives Kind 2. *)
+  ( try add_solver solver with Exiting ->
+      let module S = (val fomodule) in
+      S.kill_instance () ;
+      raise Exiting ) ;
 
   solver
 
@@ -228,16 +256,30 @@ let destroy_all () =
   in
   IntMap.iter (fun _ (_, s) -> destroy s) mine
 
-(* Destroys every live solver of the whole process. Only for final
-   cleanup before the process exits. *)
+(* Destroys every live solver of the whole process and bars any
+   further one. Only for final cleanup before the process exits.
+
+   Solvers are killed rather than asked to exit: nothing is left to
+   compute, and an engine that was given up on may still be inside a
+   call to one of them.
+
+   Latching [no_new_solvers] under the lock that guards the map is what
+   makes the sweep final. A solver registering at that moment either
+   makes it into the map, and is killed here, or finds the latch set
+   and kills itself; there is no in between. *)
 let destroy_all_of_process () =
   let entries =
     Mutex.protect all_solvers_lock (fun () ->
+      Atomic.set no_new_solvers true ;
       let entries = !all_solvers in
       all_solvers := IntMap.empty ;
       entries)
   in
-  IntMap.iter (fun _ (_, s) -> destroy s) entries
+  IntMap.iter
+    (fun _ (_, s) ->
+      let module S = (val s.solver_inst) in
+      S.kill_instance ())
+    entries
 
 (* Kills the solver processes owned by the given domain without
    interacting with them. Used by the supervisor to unblock an engine
