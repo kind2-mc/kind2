@@ -1,5 +1,6 @@
 import itertools
 import os
+import shutil
 import signal
 import subprocess
 from pathlib import Path
@@ -74,6 +75,31 @@ regression_dir = Path("regression").absolute()
 extra_files = [
     (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
 ]
+
+# Tests under a directory with this name pin the engine to IC3IA, so that they
+# exercise IC3IA itself instead of whichever engine happens to answer first.
+#
+# They also pin the interpolating solver. IC3IA reaches arrays only through an
+# interpolating solver that can represent them: the ones driven by quantifier
+# elimination turn the engine off for such systems, so leaving the choice to
+# auto-detection would make these tests vacuous wherever MathSAT is missing.
+# They are skipped instead, which says so rather than reporting a run that
+# never finished.
+#
+# These models are tiny and settle in milliseconds, so the allowance that lets
+# any other test exit 30 does not apply to them: with one engine and one solver
+# pinned, a 30 means IC3IA turned the system down, not that it ran out of time.
+# It is therefore a failure here, which is what makes these tests notice the
+# engine losing the ability to answer for such a system.
+#
+# The exception is the tests under `ic3ia_declined_dir_name`, which pin down
+# what IC3IA must *not* say about systems it cannot reason about soundly. All
+# they require is that the property is not reported falsifiable; declining to
+# answer is the outcome expected today.
+ic3ia_dir_name = "ic3ia"
+ic3ia_declined_dir_name = "declined"
+ic3ia_args = {"--enable": "IC3IA", "--smt_itp_solver": "MathSAT"}
+ic3ia_solver = "mathsat"
 
 # Where to write log files
 log_dir = Path("logs")
@@ -240,15 +266,33 @@ class LustreItem(pytest.Item):
         if self.expected == "error":
             args |= {"--lus_strict": "true"}
 
+        if self._is_ic3ia():
+            args |= ic3ia_args
+
         arg_list = list(itertools.chain.from_iterable(args.items()))
         return [kind2_bin, *arg_list, self.path]
 
+    def _is_ic3ia(self):
+        return ic3ia_dir_name in self.path.parts
+
+    def _ic3ia_declines(self):
+        return self._is_ic3ia() and ic3ia_declined_dir_name in self.path.parts
+
     def runtest(self):
+        if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
+            pytest.skip(f"{ic3ia_solver} is not installed")
+
         self.res = run_kind2(self._command())
 
-        # Timeout is OK
+        if self._ic3ia_declines():
+            # Answering is allowed, answering `falsifiable` is not
+            if self.res.returncode == expected_to_code["falsifiable"]:
+                raise LustreException
+            return
+
+        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`
         result = code_to_expected.get(self.res.returncode)
-        if result == "timeout":
+        if result == "timeout" and not self._is_ic3ia():
           unfinished_runs.append(self.nodeid)
           return
 

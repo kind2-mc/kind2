@@ -1,0 +1,9 @@
+-- The property does not hold inductively at k = 1, so IC3IA has to refine its
+-- predicate abstraction: this exercises the interpolating solver on terms that
+-- contain the array encoding, not just the initial abstraction.
+node Top() returns (c: int^3);
+let
+  c[k] = 0 -> (if pre c[k] < 5 then pre c[k] + 1 else pre c[k]);
+  check c[1] <= 5;
+  check c[1] >= 0;
+tel
