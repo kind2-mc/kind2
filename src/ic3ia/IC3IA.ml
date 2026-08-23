@@ -1120,10 +1120,8 @@ let main fwd slice_to_prop prop in_sys param sys =
   (match Flags.Smt.itp_solver () with
   | `cvc5_QE -> check_system_is_supported "cvc5qe" ; check_arrays_are_supported "cvc5qe"
   | `Z3_QE -> check_system_is_supported "Z3qe" ; check_arrays_are_supported "Z3qe"
-  | `MathSAT_SMTLIB -> (let open TermLib in
-    let open TermLib.FeatureSet in
-    match TransSys.get_logic sys with
-    | `Inferred l when mem BV l && (mem IA l || mem RA l) -> (
+  | `MathSAT_SMTLIB -> (
+    if mem BV l && (mem IA l || mem RA l) then
       let msg =
         Format.sprintf
           "IC3IA disabled for property %s: MathSAT does not support programs with \
@@ -1131,8 +1129,6 @@ let main fwd slice_to_prop prop in_sys param sys =
            prop.Property.prop_name
       in
       raise (UnsupportedFeature msg)
-    )
-    | _ -> ()
   )
   | _ -> () ) ;
 
