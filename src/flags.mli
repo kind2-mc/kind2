@@ -690,14 +690,14 @@ end
 
 module Quant : sig
 
-  (** Expand quantifiers over finite (enum) domains into
-      conjunctions/disjunctions *)
-  val inst_enums : unit -> bool
+  (** Expand quantifiers over finite domains (Booleans, enumerated types)
+      into conjunctions/disjunctions *)
+  val inst_finite : unit -> bool
 
-  val set_inst_enums : bool -> unit
+  val set_inst_finite : bool -> unit
 
   (** Maximal number of instances generated for a single quantifier *)
-  val inst_enums_limit : unit -> int
+  val inst_finite_limit : unit -> int
 end
 
 (** {2 Testgen flags} *)

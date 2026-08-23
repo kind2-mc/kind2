@@ -2244,10 +2244,10 @@ module Quant = struct
   let fmt_explain fmt =
     Format.fprintf fmt "@[<v>\
       Quantifiers coming from a Lustre model may range over types with a@ \
-      finite domain (enumerated types, and the enum-encoded tags and@ \
-      payloads of algebraic datatypes). Such quantifiers can be eliminated@ \
-      up front by expanding them into a finite conjunction (forall) or@ \
-      disjunction (exists) over every value of the domain.\
+      finite domain: the Booleans, enumerated types, and the tags and@ \
+      payloads of the algebraic datatypes built from them. Such quantifiers@ \
+      can be eliminated up front by expanding them into a finite conjunction@ \
+      (forall) or disjunction (exists) over every value of the domain.\
     @]"
 
   (* All the flag specification of this module. *)
@@ -2257,34 +2257,34 @@ module Quant = struct
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
 
-  let inst_enums_default = true
-  let inst_enums = ref inst_enums_default
+  let inst_finite_default = true
+  let inst_finite = ref inst_finite_default
   let _ = add_spec
-    "--instantiate_enum_quant"
-    (bool_arg inst_enums)
+    "--instantiate_finite_quant"
+    (bool_arg inst_finite)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Eliminate quantifiers over finite (enumerated) domains by@ \
-         expanding them into a conjunction/disjunction over all the values@ \
-         of the domain.@ Default: %a@]"
-        fmt_bool inst_enums_default
+        "@[<v>Eliminate quantifiers over finite domains (the Booleans and@ \
+         enumerated types) by expanding them into a conjunction/disjunction@ \
+         over all the values of the domain.@ Default: %a@]"
+        fmt_bool inst_finite_default
     )
-  let set_inst_enums b = inst_enums := b
-  let inst_enums () = !inst_enums
+  let set_inst_finite b = inst_finite := b
+  let inst_finite () = !inst_finite
 
-  let inst_enums_limit_default = 1024
-  let inst_enums_limit = ref inst_enums_limit_default
+  let inst_finite_limit_default = 1024
+  let inst_finite_limit = ref inst_finite_limit_default
   let _ = add_spec
-    "--instantiate_enum_quant_limit"
-    (Arg.Set_int inst_enums_limit)
+    "--instantiate_finite_quant_limit"
+    (Arg.Set_int inst_finite_limit)
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Maximal number of instances generated for a single quantifier@ \
-         by --instantiate_enum_quant. A quantifier whose domain is larger@ \
+         by --instantiate_finite_quant. A quantifier whose domain is larger@ \
          than this is left untouched.@ Default: %d@]"
-        inst_enums_limit_default
+        inst_finite_limit_default
     )
-  let inst_enums_limit () = !inst_enums_limit
+  let inst_finite_limit () = !inst_finite_limit
 
 end
 

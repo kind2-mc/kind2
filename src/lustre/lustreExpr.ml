@@ -2163,10 +2163,14 @@ let fold_ground_term t =
         | `GEQ -> chainable Numeral.( >= ) args
         | `GT -> chainable Numeral.( > ) args
         | `EQ -> (
-          (* [`EQ] is chainable and also applies to non-numeric arguments;
-             two hashconsed constants are equal iff they are the same term *)
+          (* [`EQ] applies to arguments of any type, but only numerals and
+             Booleans can be decided by comparing them: two of those are equal
+             exactly when they are the same hashconsed term, which is not true
+             of constants in general (two distinct uninterpreted constants may
+             still denote the same value). *)
+          let decidable t = numeral t <> None || boolean t <> None in
           match args with
-          | [a; b] when numeral a <> None && numeral b <> None ->
+          | [a; b] when decidable a && decidable b ->
             Some (Term.mk_bool (Term.equal a b))
           | _ -> None
         )
@@ -2226,10 +2230,12 @@ let fold_ground_term t =
    Enumerated types (including the tags and enum-typed payload fields an
    algebraic datatype is compiled into) are encoded as integer ranges, so the
    domain of such a variable is known statically and the quantifier binding it
-   can be expanded into a finite conjunction or disjunction. *)
+   can be expanded into a finite conjunction or disjunction. The Booleans are
+   such a domain too, and the cheapest one there is. *)
 let finite_domain_of_var v =
   let ty = Var.type_of_var v in
-  if not (Type.is_enum ty) then None
+  if Type.is_bool ty then Some [Term.t_false; Term.t_true]
+  else if not (Type.is_enum ty) then None
   else
     let l, u = Type.bounds_of_enum ty in
     let rec values n acc =
@@ -2254,7 +2260,7 @@ let finite_domain_of_var v =
 
    Returns [None] when the quantifier is left untouched. *)
 let expand_finite_quant mk_junct vars t =
-  if not (Flags.Quant.inst_enums ()) || Term.has_quantifier t then None
+  if not (Flags.Quant.inst_finite ()) || Term.has_quantifier t then None
   else
     let domains = List.map (fun v -> (v, finite_domain_of_var v)) vars in
     if List.exists (fun (_, d) -> d = None) domains then None
@@ -2267,7 +2273,7 @@ let expand_finite_quant mk_junct vars t =
           (fun acc (_, values) -> acc * List.length values) 1 finite
       in
       (* Bail out rather than blow up the term on a large domain *)
-      if instances > Flags.Quant.inst_enums_limit () then None
+      if instances > Flags.Quant.inst_finite_limit () then None
       else
         (* All the substitutions assigning a value to every finite variable *)
         let sigmas =

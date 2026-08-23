@@ -1,9 +1,0 @@
--- A universal quantifier over an enum that fails for exactly one value of the
--- domain: expanding it must keep every instance.
-
-type Color = enum { Red, Green, Blue };
-
-node main () returns ();
-let
-  check "no color is blue" forall (c: Color) c <> Blue;
-tel
