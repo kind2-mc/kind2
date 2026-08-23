@@ -50,6 +50,8 @@ sig
 
   val mk_fresh_var : sort -> var
 
+  val mk_binder_var : sort -> int -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var
@@ -989,9 +991,6 @@ struct
     (* Cached evaluation *)
     | E of 'a
 
-    (* Skip evaluation *)
-    | Skip
-
   (* ********************************************************************* *)
   (* Folding function keeping the term                                     *)
   (* ********************************************************************* *)
@@ -1154,10 +1153,7 @@ struct
 
             )
 
-          | Skip -> fold fail_quant f subst accum tl
-            
           | exception Not_found -> assert false
-                                     
 
       )
 
@@ -1199,11 +1195,27 @@ struct
                  }) :: tl ->
 
       if fail_quant then raise (Invalid_argument "Ltree.fold : quantified term");
-      
-      let vs = int_seq (db + 1) (List.length n) in
 
-      let s = List.map (fun dbi -> (dbi, Skip)) vs in
-      
+      (* Open the quantifier: assign to each of its variables the variable
+         standing for it, exactly as the let binding above assigns the terms it
+         binds. That variable is free, so the body can be folded as if it had
+         no binder over it.
+
+         Folding the body with its variables left bound is not an option. The
+         value of a term is built from what [f] returns at each of its leaves,
+         and [f] receives a leaf as a [flat], which has no representation for a
+         bound variable. Passing over such a variable without folding a value
+         for it leaves the result stack one element short, which silently
+         rebuilds the enclosing application without that argument, and fails
+         the assertion at the top of this function when nothing else is
+         accumulated. *)
+      let s =
+        List.map2
+          (fun dbi srt -> (dbi, S (db, ht_free_var (T.mk_binder_var srt dbi))))
+          (int_seq (db + 1) (List.length n))
+          n
+      in
+
       (* Add to the context stack *)
       let subst' = s @ subst in
 

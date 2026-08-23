@@ -70,6 +70,16 @@ val mk_free_var : HString.t -> Type.t -> t
 (** Return a fresh free variable *)
 val mk_fresh_var : Type.t -> t
 
+(** [mk_binder_var t d] is the variable standing for the variable of type [t]
+    of a binder at binding depth [d], used to open that binder. Memoized: the
+    same [t] and [d] always give the same variable. *)
+val mk_binder_var : Type.t -> int -> t
+
+(** Return [true] if the variable was made by {!mk_binder_var}, and so stands
+    for the variable of an opened binder rather than for a variable of the
+    term that binder occurs in. *)
+val is_binder_var : t -> bool
+
 (** Import a variable from a different instance into this hashcons table *)
 val import : t -> t
 
