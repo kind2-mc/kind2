@@ -456,8 +456,14 @@ let mk_binder_var var_type depth =
 
 (* Return true if the variable was made by [mk_binder_var], and so stands for
    the variable of an opened binder rather than for a variable of the term
-   that binder occurs in. *)
-let is_binder_var v = VarHashtbl.mem (is_binder_vars ()) v
+   that binder occurs in.
+
+   Asked of every variable of every term folded to its variables, so answer
+   the common case -- a term with no binder in it anywhere, which has left
+   this table empty -- without hashing the variable. *)
+let is_binder_var v =
+  VarHashtbl.length (is_binder_vars ()) > 0
+  && VarHashtbl.mem (is_binder_vars ()) v
 
 
 (* ********************************************************************* *)
