@@ -49,6 +49,12 @@ let bound_and_free () =
   let b = Var.mk_fresh_var t_bool in
   Term.mk_forall [b] (Term.mk_or [Term.mk_var b; t_x])
 
+(* forall (b1: bool) forall (b2: bool) b2 -- binds at depth 2 as well as 1 *)
+let nested_bound_body () =
+  let b1 = Var.mk_fresh_var t_bool in
+  let b2 = Var.mk_fresh_var t_bool in
+  Term.mk_forall [b1] (Term.mk_forall [b2] (Term.mk_var b2))
+
 (* forall (i: int) a[i] *)
 let bound_index () =
   let i = Var.mk_fresh_var t_int in
@@ -97,6 +103,35 @@ let test_application_arity_is_kept _ =
   assert_equal ~msg:"select of an array at an index" 2
     (List.length (Term.node_args_of_term s))
 
+(* A variable standing for a bound one belongs to the domain that made it.
+
+   The table taking a type and a binding depth to one of these is copied when
+   a domain splits. A shallow copy of a table whose values are themselves
+   tables goes on sharing the inner ones, so a domain could be handed a
+   variable another domain had made and had registered only there. Not
+   knowing it for a binder variable, it would report it among the variables of
+   the term it was folding. *)
+let test_binder_variables_are_per_domain _ =
+  (* The parent folds at depth 1, so the tables are not empty when a domain
+     splits from it *)
+  let _ = Term.vars_of_term (bare_bound_body ()) in
+  (* One domain folds at depth 2 *)
+  let a = Domain.spawn (fun () -> Term.vars_of_term (nested_bound_body ())) in
+  assert_equal ~msg:"no variables of its own, in the domain that split first"
+    true (Var.VarSet.is_empty (Domain.join a));
+  (* A second domain folds at the same depth. If it were handed the first
+     domain's variable it would not know it for a binder variable. *)
+  let b = Domain.spawn (fun () ->
+    let vars = Term.vars_of_term (nested_bound_body ()) in
+    let v = Var.mk_binder_var t_bool 2 in
+    (Var.VarSet.is_empty vars, Var.is_binder_var v))
+  in
+  let no_vars, recognised = Domain.join b in
+  assert_equal ~msg:"a binder variable is known for one in its own domain"
+    true recognised;
+  assert_equal ~msg:"so it is not reported among the variables of the term"
+    true no_vars
+
 (* A quantifier is still refused when the caller asks for it to be. *)
 let test_fail_on_quantifiers _ =
   let t = bare_bound_body () in
@@ -110,6 +145,7 @@ let tests =
     "bound variables are not free" >:: test_bound_variables_are_not_free;
     "folding is deterministic" >:: test_folding_is_deterministic;
     "application arity is kept" >:: test_application_arity_is_kept;
+    "binder variables are per domain" >:: test_binder_variables_are_per_domain;
     "quantifiers still refused when asked" >:: test_fail_on_quantifiers;
   ]
 

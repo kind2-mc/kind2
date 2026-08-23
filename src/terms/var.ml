@@ -404,11 +404,23 @@ let mk_fresh_var var_type =
   mk_free_var v var_type 
 
 
-(* Variables standing for the variables of a binder, keyed by the binding
-   depth of the binder.
+(* The binding depths a type has been asked for *)
+module DepthMap = Map.Make (Int)
+
+
+(* Variables standing for the variables of a binder, keyed by the type of the
+   variable and then by the binding depth of the binder.
 
    Private to each domain, copied from the parent at spawn, for the same
-   reason as the counter above. *)
+   reason as the counter above.
+
+   The depths of a type are held in a map and not in a second table, because
+   [Type.TypeHashtbl.copy] copies the outer table alone. Were its values
+   tables, every domain would go on sharing the ones its parent made: they
+   would write to them at the same time, and a domain would be handed
+   variables that its own [is_binder_vars] below had never been told about,
+   which is to say variables [is_binder_var] does not know are binder
+   variables. A map is immutable, so copying the outer table is enough. *)
 let binder_vars_key =
   Domain.DLS.new_key ~split_from_parent:Type.TypeHashtbl.copy
     (fun () -> Type.TypeHashtbl.create 7)
@@ -417,7 +429,8 @@ let binder_vars () = Domain.DLS.get binder_vars_key
 
 
 (* The variables [mk_binder_var] has made, so that they can be told apart from
-   the variables of a term. *)
+   the variables of a term. Its values are immutable, so the shallow copy the
+   split makes of it is a copy in full. *)
 let is_binder_vars_key =
   Domain.DLS.new_key ~split_from_parent:VarHashtbl.copy
     (fun () -> VarHashtbl.create 7)
@@ -441,15 +454,14 @@ let is_binder_vars () = Domain.DLS.get is_binder_vars_key
 let mk_binder_var var_type depth =
   let by_depth =
     try Type.TypeHashtbl.find (binder_vars ()) var_type
-    with Not_found ->
-      let h = Hashtbl.create 7 in
-      Type.TypeHashtbl.add (binder_vars ()) var_type h;
-      h
+    with Not_found -> DepthMap.empty
   in
-  try Hashtbl.find by_depth depth
-  with Not_found ->
+  match DepthMap.find_opt depth by_depth with
+  | Some v -> v
+  | None ->
     let v = mk_fresh_var var_type in
-    Hashtbl.add by_depth depth v;
+    Type.TypeHashtbl.replace (binder_vars ()) var_type
+      (DepthMap.add depth v by_depth);
     VarHashtbl.replace (is_binder_vars ()) v ();
     v
 
