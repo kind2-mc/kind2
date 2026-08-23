@@ -88,6 +88,28 @@ let setup : unit -> any_input = fun () ->
     /!\ ================================================================== /!\
   *)
 
+  (* Keep the output of Kind 2 to itself.
+
+     On Windows a child inherits every handle marked inheritable, not
+     only the three it is given, so a solver ends up holding the
+     standard output and error of Kind 2 as well as its own pipes. A
+     solver that outlives Kind 2 then keeps them open, and whoever is
+     reading that output waits for an end that never comes, long after
+     Kind 2 is gone. Clearing the flag leaves the solvers with the
+     pipes they are given: [Unix.create_process] duplicates those as
+     inheritable itself.
+
+     Only on Windows. Elsewhere a child of [Unix.create_process] gets
+     the three descriptors it is given duplicated over its own, and
+     never sees these; whereas [Sys.command], which the certificate
+     paths use, does expect to inherit them. *)
+  if Sys.win32 then (
+    try
+      Unix.set_close_on_exec Unix.stdout ;
+      Unix.set_close_on_exec Unix.stderr
+    with Unix.Unix_error _ -> ()
+  ) ;
+
   (* Raise exception on CTRL+C. *)
   Sys.catch_break true ;
 
