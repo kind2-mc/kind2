@@ -74,8 +74,19 @@ let solvers = 3
    Whatever runs the test may hand it pipes of its own — dune does, on
    some runners — and a solver inherits those exactly as it inherits
    anything else of ours. They say nothing about what Kind 2 hands its
-   solvers, so discount them. The pipes of a solver cannot be among
-   them: they are made after this is taken. *)
+   solvers, so discount them.
+
+   Discounting by the name the kernel gives a pipe is sound only while
+   every pipe in [ours] stays open. A closed one could have its name
+   taken by a pipe made for a solver later, and that solver would then
+   be let off. They all do stay open for the whole test: the one made
+   below is held to the end, and the ones from the runner are the
+   runner's to close. Being made after the reading is not on its own
+   what makes a solver's pipes safe to count.
+
+   What this cannot see is a solver inheriting a pipe Kind 2 held
+   before it began making them. There is none here, and a descriptor
+   Kind 2 never created is not what closing its own on exec is about. *)
 let own_pipes ours held =
   List.filter (fun (_, pipe) -> not (List.mem pipe ours)) held
 
@@ -99,8 +110,9 @@ let test_a_solver_holds_only_its_own_pipes _ =
      would strand the first the same way. *)
   Fun.protect ~finally:SMTSolver.destroy_all_of_process (fun () ->
     (* Stand in for the pipes the runner may hand us, so that a run here
-       covers what a run under CI does *)
-    let stray_r, stray_w = Unix.pipe () in
+       covers what a run under CI does. Inheritable on purpose: the
+       whole point is that the solvers are handed it. *)
+    let stray_r, stray_w = Unix.pipe ~cloexec:false () in
     Fun.protect
       ~finally:(fun () -> Unix.close stray_r ; Unix.close stray_w)
       (fun () ->
@@ -125,12 +137,21 @@ let test_a_solver_holds_only_its_own_pipes _ =
                | None -> assert_failure (Printf.sprintf "solver %s is gone" pid)
                | Some held ->
                  let own = own_pipes ours held in
+                 let discounted = List.length held - List.length own in
+                 (* Both ends of the pipe made above, at least. If a
+                    solver was handed none of it, nothing here exercises
+                    the discounting, and the test would keep passing
+                    without it -- which is how the runner's own pipes
+                    reached CI unnoticed. *)
+                 assert_bool
+                   "the pipe made for the solvers to inherit did not reach \
+                    them, so nothing exercises the discounting"
+                   (discounted >= 2) ;
                  assert_equal
                    ~msg:
                      (Printf.sprintf
                         "solver %s holds %s, of which %d were already ours"
-                        pid (describe held)
-                        (List.length held - List.length own))
+                        pid (describe held) discounted)
                    ~printer:string_of_int given (List.length own))))
 
 let tests = "SolverPipes" >::: [
