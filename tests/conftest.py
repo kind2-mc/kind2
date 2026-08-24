@@ -4,7 +4,7 @@ import shutil
 import signal
 import subprocess
 from pathlib import Path
-from subprocess import PIPE, CompletedProcess, Popen, TimeoutExpired
+from subprocess import PIPE, STDOUT, CompletedProcess, Popen, TimeoutExpired
 
 import pytest
 
@@ -185,9 +185,9 @@ class LustreException(Exception): ...
 
 
 class LustreTimeout(Exception):
-    def __init__(self, stdout: bytes, status):
+    def __init__(self, output: bytes, status):
         super().__init__()
-        self.stdout = stdout
+        self.output = output
         # Exit status of Kind 2 when we gave up on it, or None if it was
         # still running then
         self.status = status
@@ -232,10 +232,18 @@ def run_kind2(command) -> CompletedProcess:
         # spawns can be killed along with it
         popen_args["start_new_session"] = True
 
-    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+    # Standard error goes into the same stream as standard output rather
+    # than into a pipe of its own that nothing read: what Kind 2 says when
+    # its exit goes wrong goes to standard error and nowhere else -- the
+    # last-resort "did not exit in time" line, an uncaught exception, a
+    # warning that clearing handle inheritance failed. A run that hangs
+    # without them in its report cannot be told apart from a run that never
+    # got that far. The verdict of a test reads the exit code alone, so the
+    # merge changes what a failure shows, not what passes.
+    proc = Popen(command, stdout=PIPE, stderr=STDOUT, **popen_args)
 
     try:
-        stdout, _ = proc.communicate(timeout=run_timeout)
+        output, _ = proc.communicate(timeout=run_timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -247,15 +255,15 @@ def run_kind2(command) -> CompletedProcess:
 
         kill_tree(proc)
         try:
-            stdout, _ = proc.communicate(timeout=kill_timeout)
+            output, _ = proc.communicate(timeout=kill_timeout)
         except TimeoutExpired:
             # Some process we could not kill still holds the pipes. Report
             # what we have rather than wait for the rest forever: the reader
             # threads are daemons, and they do not keep the session alive.
-            stdout = b""
-        raise LustreTimeout(stdout, status)
+            output = b""
+        raise LustreTimeout(output, status)
 
-    return CompletedProcess(command, proc.returncode, stdout, None)
+    return CompletedProcess(command, proc.returncode, output, None)
 
 
 class LustreItem(pytest.Item):
@@ -335,7 +343,7 @@ class LustreItem(pytest.Item):
                     f"on its own, although it was given {common_args['--timeout']}s",
                     stuck,
                     " ".join(map(str, self._command())),
-                    excinfo.value.stdout.decode("utf-8"),
+                    excinfo.value.output.decode("utf-8", errors="replace"),
                 ]
             )
 
@@ -349,7 +357,7 @@ class LustreItem(pytest.Item):
                 [
                     f"Expected: {self.expected}, got {actual}",
                     " ".join(map(str, self._command())),
-                    self.res.stdout.decode("utf-8"),
+                    self.res.stdout.decode("utf-8", errors="replace"),
                 ]
             )
 
