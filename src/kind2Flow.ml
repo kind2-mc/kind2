@@ -420,26 +420,48 @@ let slaughter_kids ?(exiting = false) process sys =
    only the tail of what can wedge.
 
    The status the watchdog exits with is kept in a cell rather than
-   captured, so that arming early does not mean exiting with a status
-   from before the exception was looked at: [post_clean_exit] refines
-   it once [status_of_exn] has run. *)
+   captured, and it is not lowered before [status_of_exn] has run: until
+   the exception has been accounted for, the only honest thing to report
+   is that Kind 2 had to be terminated. [post_clean_exit] sets the
+   verdict of the run once it knows it.
+
+   It never reports success. A run the watchdog had to kill did not
+   finish, whatever it had proved by then, and the output saying so is
+   the output that was cut short. A hang fails loudly wherever Kind 2
+   runs; a zero passes silently. *)
 let watchdog_status = Atomic.make ExitCodes.error
 let watchdog_armed = Atomic.make false
 
-let arm_exit_watchdog status =
-  Atomic.set watchdog_status status ;
+(* Run [f] on a thread of its own and wait at most [seconds] for it.
+
+   For the steps of the last resort that write to a descriptor: the
+   standard output of Kind 2 may be a pipe whose reader has stalled,
+   and a write to it blocks rather than failing. Catching exceptions
+   does not bound a blocking call, so the call goes somewhere it can
+   block without taking [_exit] with it. *)
+let within seconds f =
+  let over = Atomic.make false in
+  match Thread.create (fun () -> ( try f () with _ -> () ) ; Atomic.set over true) () with
+  | exception _ -> ()
+  | _ ->
+    let deadline = Unix.gettimeofday () +. seconds in
+    while not (Atomic.get over) && Unix.gettimeofday () < deadline do
+      Thread.delay 0.02
+    done
+
+let arm_exit_watchdog () =
   if not (Atomic.exchange watchdog_armed true) then
     ( try
         Thread.create
           (fun () ->
             Thread.delay 10.0 ;
-            prerr_endline "Kind 2 did not exit in time, terminating." ;
-            (* The solvers first: they are children of this process,
-               and killing it does not kill them. One left behind
-               holds the standard output of Kind 2 open on Windows,
-               where a child inherits every inheritable handle, so
-               whoever reads that output keeps waiting for an end that
-               never comes.
+            (* The solvers first, before anything that writes: they are
+               children of this process, and killing it does not kill
+               them. One left behind holds the standard output of Kind 2
+               open on Windows, where a child inherits every inheritable
+               handle, so whoever reads that output keeps waiting for an
+               end that never comes. Freeing that reader first is also
+               what gives the lines below their best chance of landing.
 
                This is the path that must not hang, and it waits for a
                lock to take it. Every critical section that lock
@@ -447,26 +469,32 @@ let arm_exit_watchdog status =
                as long as an insertion or a swap takes, so waiting for
                it cannot become the reason we never get to [_exit]. *)
             ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
-            (* Flushing after the sweep, not before: the sweep is what
-               frees whoever reads the output of Kind 2, so nothing may
-               stand between the watchdog waking and it running --
-               [prerr_endline] has already flushed the one channel this
-               path writes to. The tail of standard output is worth a
-               try once the sweep is done, and no more than a try. *)
-            ( try Stdlib.flush_all () with _ -> () ) ;
+            (* Saying so, and the tail of the output, are worth a
+               moment and no more. Both write to descriptors that may
+               be pipes nobody is draining, and neither may become the
+               reason we do not exit. *)
+            within 1.0 (fun () ->
+              prerr_endline "Kind 2 did not exit in time, terminating." ;
+              Stdlib.flush_all ()) ;
             Unix._exit (Atomic.get watchdog_status))
           ()
         |> ignore
       with _ -> () )
+
+(* The verdict of the run, for the watchdog to exit with if it has to.
+   Never success: see [watchdog_status]. *)
+let watchdog_reports status =
+  if status <> ExitCodes.success then Atomic.set watchdog_status status
 
 (** Called after everything has been cleaned up. *)
 let post_clean_exit process base_status exn =
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
   (* Arms on the paths that come here directly; on the path through
-     [on_exit] the watchdog is already running and this refines the
-     status it will use. *)
-  arm_exit_watchdog status ;
+     [on_exit] the watchdog is already running, and either way this is
+     where it learns the verdict of the run. *)
+  arm_exit_watchdog () ;
+  watchdog_reports status ;
   (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
   (* The engines that are still running are on their way out with the
@@ -483,8 +511,11 @@ let post_clean_exit process base_status exn =
 (** Clean up before exit *)
 let on_exit sys process status exn =
   (* From here to [exit] nothing bounds the teardown but the watchdog,
-     so it starts now, with the status as understood so far. *)
-  arm_exit_watchdog status ;
+     so it starts now. Without a status: [status] here has not been
+     through [status_of_exn], and on the paths that pass a results
+     verdict it can be success, which is not something a killed run may
+     report. *)
+  arm_exit_watchdog () ;
   try
     slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn
