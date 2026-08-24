@@ -88,6 +88,48 @@ let setup : unit -> any_input = fun () ->
     /!\ ================================================================== /!\
   *)
 
+  (* Keep the descriptors of Kind 2 to itself.
+
+     On Windows a child inherits every handle marked inheritable, not
+     only the three it is given, so a solver ends up holding the
+     standard input, output and error of Kind 2 as well as its own
+     pipes. A solver that outlives Kind 2 then keeps them open, and
+     whoever is reading that output waits for an end that never comes,
+     long after Kind 2 is gone. Its standard input goes the same way:
+     a harness writing to Kind 2 would not see its reader go away.
+     Clearing the flag leaves the solvers with the pipes they are
+     given, which [Unix.create_process] duplicates as inheritable
+     itself.
+
+     Only on Windows. Elsewhere a child of [Unix.create_process] gets
+     the three descriptors it is given duplicated over its own, and
+     never sees these.
+
+     [Sys.command] does expect to inherit them, and the certificate
+     paths, which use it, are not guarded against running here: the
+     output of what they start goes nowhere from now on. What those
+     paths produce is unusable on Windows in any case, being [#!/bin/sh]
+     scripts and command lines that redirect to [/dev/null], so what is
+     lost is the console output of something that cannot work there
+     anyway. Making them work is a matter of handing them the
+     descriptors, not of leaving these inheritable for every child. *)
+  if Sys.win32 then (
+    let keep fd name =
+      try Unix.set_close_on_exec fd with Unix.Unix_error (e, _, _) ->
+        (* Loud rather than logged: failing here quietly puts the
+           output of Kind 2 back within reach of its solvers, on the one
+           platform where that leaves whoever reads it waiting. It
+           should never happen, and there is no sign of it if it does. *)
+        KEvent.log L_warn
+          "Could not keep %s from the children of Kind 2 (%s).@ A solver \
+           outliving Kind 2 may hold it open."
+          name (Unix.error_message e)
+    in
+    keep Unix.stdin "stdin" ;
+    keep Unix.stdout "stdout" ;
+    keep Unix.stderr "stderr"
+  ) ;
+
   (* Raise exception on CTRL+C. *)
   Sys.catch_break true ;
 

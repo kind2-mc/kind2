@@ -27,16 +27,7 @@ open OUnit2
    standard output of Kind 2 open, so whoever reads that output waits
    for an end that never comes. *)
 
-let new_solver () = SMTSolver.create_instance `None `Z3_SMTLIB
-
-(* Whether the solver [new_solver] asks for can be found. The rest of
-   the unit suite needs nothing installed, and a checkout without a
-   solver should not start failing it. CI installs Z3 on every platform
-   it tests, so this skips nowhere that matters. *)
-let solver_missing () =
-  match Lib.find_on_path (Flags.Smt.z3_bin ()) with
-  | _ -> false
-  | exception Not_found -> true
+open TestSolverCommon
 
 (* Reap whatever has exited and report whether a child process is still
    running. The only children here are the solvers created above. *)
