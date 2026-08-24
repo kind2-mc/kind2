@@ -60,8 +60,7 @@ let pipes_held pid =
            match Unix.readlink (Filename.concat dir fd) with
            | exception _ -> None
            | target ->
-             if String.starts_with ~prefix:"pipe:" target then
-               Some (Printf.sprintf "%s -> %s" fd target)
+             if String.starts_with ~prefix:"pipe:" target then Some (fd, target)
              else None)
     |> Option.some
 
@@ -69,6 +68,21 @@ let pipes_held pid =
 let given = 3
 
 let solvers = 3
+
+(* The pipes a solver holds that were not already ours.
+
+   Whatever runs the test may hand it pipes of its own — dune does, on
+   some runners — and a solver inherits those exactly as it inherits
+   anything else of ours. They say nothing about what Kind 2 hands its
+   solvers, so discount them. The pipes of a solver cannot be among
+   them: they are made after this is taken. *)
+let own_pipes ours held =
+  List.filter (fun (_, pipe) -> not (List.mem pipe ours)) held
+
+let describe held =
+  held
+  |> List.map (fun (fd, pipe) -> Printf.sprintf "%s -> %s" fd pipe)
+  |> String.concat ", "
 
 let test_a_solver_holds_only_its_own_pipes _ =
   (* The descriptors of a process are read from /proc, which is Linux
@@ -84,23 +98,40 @@ let test_a_solver_holds_only_its_own_pipes _ =
      of this test used to leave behind. The second one failing to start
      would strand the first the same way. *)
   Fun.protect ~finally:SMTSolver.destroy_all_of_process (fun () ->
-    for _ = 1 to solvers do ignore (new_solver ()) done ;
-    let started = match children () with Some pids -> pids | None -> [] in
+    (* Stand in for the pipes the runner may hand us, so that a run here
+       covers what a run under CI does *)
+    let stray_r, stray_w = Unix.pipe () in
+    Fun.protect
+      ~finally:(fun () -> Unix.close stray_r ; Unix.close stray_w)
+      (fun () ->
+        let ours =
+          match pipes_held "self" with
+          | Some held -> List.map snd held
+          | None -> []
+        in
 
-    assert_equal
-      ~msg:"number of solvers started" ~printer:string_of_int
-      solvers (List.length started) ;
+        for _ = 1 to solvers do ignore (new_solver ()) done ;
+        let started =
+          match children () with Some pids -> pids | None -> []
+        in
 
-    started
-    |> List.iter (fun pid ->
-           match pipes_held pid with
-           | None -> assert_failure (Printf.sprintf "solver %s is gone" pid)
-           | Some held ->
-             assert_equal
-               ~msg:
-                 (Printf.sprintf "solver %s holds %s" pid
-                    (String.concat ", " held))
-               ~printer:string_of_int given (List.length held)))
+        assert_equal
+          ~msg:"number of solvers started" ~printer:string_of_int
+          solvers (List.length started) ;
+
+        started
+        |> List.iter (fun pid ->
+               match pipes_held pid with
+               | None -> assert_failure (Printf.sprintf "solver %s is gone" pid)
+               | Some held ->
+                 let own = own_pipes ours held in
+                 assert_equal
+                   ~msg:
+                     (Printf.sprintf
+                        "solver %s holds %s, of which %d were already ours"
+                        pid (describe held)
+                        (List.length held - List.length own))
+                   ~printer:string_of_int given (List.length own))))
 
 let tests = "SolverPipes" >::: [
   "a solver holds only its own pipes" >:: test_a_solver_holds_only_its_own_pipes ;
