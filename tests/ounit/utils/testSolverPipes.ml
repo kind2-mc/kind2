@@ -28,8 +28,9 @@ open OUnit2
 
 open TestSolverCommon
 
-(* The children of this process, as reported by the kernel. Each thread
-   keeps its own list. *)
+(* The children of this process, in the order they were started, or
+   [None] where the kernel does not keep the list. Each thread has a
+   file of its own. *)
 let children () =
   let of_task acc task =
     let path = Filename.concat "/proc/self/task" (task ^ "/children") in
@@ -38,56 +39,66 @@ let children () =
     | ic ->
       let line = try input_line ic with End_of_file -> "" in
       close_in ic ;
-      String.split_on_char ' ' line
-      |> List.filter (fun pid -> pid <> "")
-      |> List.rev_append acc
+      let pids =
+        String.split_on_char ' ' line |> List.filter (fun pid -> pid <> "")
+      in
+      Some (match acc with None -> pids | Some acc -> acc @ pids)
   in
-  Array.fold_left of_task [] (Sys.readdir "/proc/self/task")
+  Array.fold_left of_task None (Sys.readdir "/proc/self/task")
 
-(* How many of the descriptors [pid] holds are pipes *)
+(* How many of the descriptors [pid] holds are pipes, or [None] if it is
+   already gone *)
 let pipes_held pid =
   let dir = Filename.concat "/proc" (pid ^ "/fd") in
-  Sys.readdir dir
-  |> Array.to_list
-  |> List.filter (fun fd ->
-         match Unix.readlink (Filename.concat dir fd) with
-         | target -> String.starts_with ~prefix:"pipe:" target
-         | exception _ -> false)
-  |> List.length
+  match Sys.readdir dir with
+  | exception Sys_error _ -> None
+  | fds ->
+    Array.to_list fds
+    |> List.filter (fun fd ->
+           match Unix.readlink (Filename.concat dir fd) with
+           | target -> String.starts_with ~prefix:"pipe:" target
+           | exception _ -> false)
+    |> List.length
+    |> Option.some
+
+(* What a solver is given: its own standard input, output and error *)
+let given = 3
+
+let solvers = 3
 
 let test_a_solver_holds_only_its_own_pipes _ =
-  (* The fd table of a process is read from /proc, which is Linux only *)
+  (* The descriptors of a process are read from /proc, which is Linux
+     only, and its children from a file the kernel keeps only when it
+     was built to *)
   skip_if (not (Sys.file_exists "/proc/self/task")) "no /proc" ;
+  skip_if (children () = None) "the kernel does not list the children" ;
   skip_if (solver_missing ()) "no Z3 on PATH" ;
 
-  ignore (new_solver ()) ;
-  let first =
-    match children () with
-    | [ pid ] -> pid
-    | pids ->
-      assert_failure
-        (Printf.sprintf "expected one solver, found %d" (List.length pids))
-  in
-  let held_by_first = pipes_held first in
+  for _ = 1 to solvers do ignore (new_solver ()) done ;
+  let started = match children () with Some pids -> pids | None -> [] in
 
-  (* Two more, so that the last one could have inherited from three *)
-  ignore (new_solver ()) ;
-  ignore (new_solver ()) ;
-  let last =
-    match List.filter (fun pid -> pid <> first) (children ()) with
-    | pid :: _ -> pid
-    | [] -> assert_failure "the solvers started later are gone"
-  in
-  let held_by_last = pipes_held last in
+  (* Read what they hold before disposing of them, and dispose of them
+     whatever the counts turn out to be: a solver handed the pipes of
+     another never sees the end of its own standard input, so a failing
+     run would leave them behind for good. *)
+  let held = List.map (fun pid -> (pid, pipes_held pid)) started in
+  SMTSolver.destroy_all_of_process () ;
 
-  (* What a solver holds does not grow with the ones before it. It was
-     three more pipes per earlier solver. *)
-  assert_bool
-    (Printf.sprintf
-       "a solver holds %d pipes where the first holds %d: it was handed \
-        the pipes of the solvers before it"
-       held_by_last held_by_first)
-    (held_by_last <= held_by_first)
+  assert_equal
+    ~msg:"number of solvers started" ~printer:string_of_int
+    solvers (List.length held) ;
+
+  held
+  |> List.iter (fun (pid, held) ->
+         match held with
+         | None -> assert_failure (Printf.sprintf "solver %s is gone" pid)
+         | Some held ->
+           assert_equal
+             ~msg:
+               (Printf.sprintf
+                  "solver %s holds pipes it was not given, the ones of the \
+                   solvers before it" pid)
+             ~printer:string_of_int given held)
 
 let tests = "SolverPipes" >::: [
   "a solver holds only its own pipes" >:: test_a_solver_holds_only_its_own_pipes ;
