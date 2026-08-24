@@ -406,38 +406,67 @@ let slaughter_kids ?(exiting = false) process sys =
   if not exiting then Signals.set_sigalrm_timeout_from_flag ()
 
 
+(* Last resort for the whole exit path: a deadlock, a join that never
+   returns or a solver that refuses to die would leave Kind 2 hanging
+   forever once the teardown has begun, since the wall clock timeout is
+   disabled while an analysis is torn down, and on Windows there is no
+   wall clock timeout at all outside the polling loop of the
+   supervisor. Leave the process a few seconds to exit in an orderly
+   way, and terminate it the hard way if it does not.
+
+   Armed before the first step of the teardown rather than after the
+   engines have been dealt with: most of the teardown happens in
+   [slaughter_kids], and a watchdog that only starts after it covers
+   only the tail of what can wedge.
+
+   The status the watchdog exits with is kept in a cell rather than
+   captured, so that arming early does not mean exiting with a status
+   from before the exception was looked at: [post_clean_exit] refines
+   it once [status_of_exn] has run. *)
+let watchdog_status = Atomic.make ExitCodes.error
+let watchdog_armed = Atomic.make false
+
+let arm_exit_watchdog status =
+  Atomic.set watchdog_status status ;
+  if not (Atomic.exchange watchdog_armed true) then
+    ( try
+        Thread.create
+          (fun () ->
+            Thread.delay 10.0 ;
+            prerr_endline "Kind 2 did not exit in time, terminating." ;
+            (* The solvers first: they are children of this process,
+               and killing it does not kill them. One left behind
+               holds the standard output of Kind 2 open on Windows,
+               where a child inherits every inheritable handle, so
+               whoever reads that output keeps waiting for an end that
+               never comes.
+
+               This is the path that must not hang, and it waits for a
+               lock to take it. Every critical section that lock
+               guards is a map operation with no I/O in it, held for
+               as long as an insertion or a swap takes, so waiting for
+               it cannot become the reason we never get to [_exit]. *)
+            ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
+            (* Flushing after the sweep, not before: the sweep is what
+               frees whoever reads the output of Kind 2, so nothing may
+               stand between the watchdog waking and it running --
+               [prerr_endline] has already flushed the one channel this
+               path writes to. The tail of standard output is worth a
+               try once the sweep is done, and no more than a try. *)
+            ( try Stdlib.flush_all () with _ -> () ) ;
+            Unix._exit (Atomic.get watchdog_status))
+          ()
+        |> ignore
+      with _ -> () )
+
 (** Called after everything has been cleaned up. *)
 let post_clean_exit process base_status exn =
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
-  (* Last resort: engines abandoned in the background hold no lock the
-     exit path needs, but a deadlock or a solver that refuses to die
-     would otherwise leave Kind 2 hanging forever, since the wall clock
-     timeout is disabled while an analysis is torn down. Leave the
-     process a few seconds to exit in an orderly way, and terminate it
-     the hard way if it does not. *)
-  ( try
-      Thread.create
-        (fun () ->
-          Thread.delay 10.0 ;
-          prerr_endline "Kind 2 did not exit in time, terminating." ;
-          Stdlib.flush_all () ;
-          (* The solvers first: they are children of this process, and
-             killing it does not kill them. One left behind holds the
-             standard output of Kind 2 open on Windows, where a child
-             inherits every inheritable handle, so whoever reads that
-             output keeps waiting for an end that never comes.
-
-             This is the path that must not hang, and it now waits for
-             a lock to take it. Every critical section that lock
-             guards is a map operation with no I/O in it, held for as
-             long as an insertion or a swap takes, so waiting for it
-             cannot become the reason we never get to [_exit]. *)
-          ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
-          Unix._exit status)
-        ()
-      |> ignore
-    with _ -> () ) ;
+  (* Arms on the paths that come here directly; on the path through
+     [on_exit] the watchdog is already running and this refines the
+     status it will use. *)
+  arm_exit_watchdog status ;
   (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
   (* The engines that are still running are on their way out with the
@@ -453,6 +482,9 @@ let post_clean_exit process base_status exn =
 
 (** Clean up before exit *)
 let on_exit sys process status exn =
+  (* From here to [exit] nothing bounds the teardown but the watchdog,
+     so it starts now, with the status as understood so far. *)
+  arm_exit_watchdog status ;
   try
     slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn
