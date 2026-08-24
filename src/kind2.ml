@@ -116,10 +116,13 @@ let setup : unit -> any_input = fun () ->
   if Sys.win32 then (
     let keep fd name =
       try Unix.set_close_on_exec fd with Unix.Unix_error (e, _, _) ->
-        (* Worth a line: this is the failure that puts the standard
-           output of Kind 2 back within reach of its solvers, on the
-           one platform where that hangs whoever reads it. *)
-        Debug.kind2 "Could not keep %s from the children of Kind 2: %s"
+        (* Loud rather than logged: failing here quietly puts the
+           output of Kind 2 back within reach of its solvers, on the one
+           platform where that leaves whoever reads it waiting. It
+           should never happen, and there is no sign of it if it does. *)
+        KEvent.log L_warn
+          "Could not keep %s from the children of Kind 2 (%s).@ A solver \
+           outliving Kind 2 may hold it open."
           name (Unix.error_message e)
     in
     keep Unix.stdin "stdin" ;

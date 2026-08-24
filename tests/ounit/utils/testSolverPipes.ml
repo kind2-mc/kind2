@@ -46,19 +46,23 @@ let children () =
   in
   Array.fold_left of_task None (Sys.readdir "/proc/self/task")
 
-(* How many of the descriptors [pid] holds are pipes, or [None] if it is
-   already gone *)
+(* The pipes [pid] holds, as the kernel names them, or [None] if it is
+   already gone. Named rather than counted: a count that comes out wrong
+   says nothing about which pipes, and the same pipe under two
+   descriptors is the whole point. *)
 let pipes_held pid =
   let dir = Filename.concat "/proc" (pid ^ "/fd") in
   match Sys.readdir dir with
   | exception Sys_error _ -> None
   | fds ->
     Array.to_list fds
-    |> List.filter (fun fd ->
+    |> List.filter_map (fun fd ->
            match Unix.readlink (Filename.concat dir fd) with
-           | target -> String.starts_with ~prefix:"pipe:" target
-           | exception _ -> false)
-    |> List.length
+           | exception _ -> None
+           | target ->
+             if String.starts_with ~prefix:"pipe:" target then
+               Some (Printf.sprintf "%s -> %s" fd target)
+             else None)
     |> Option.some
 
 (* What a solver is given: its own standard input, output and error *)
@@ -74,31 +78,29 @@ let test_a_solver_holds_only_its_own_pipes _ =
   skip_if (children () = None) "the kernel does not list the children" ;
   skip_if (solver_missing ()) "no Z3 on PATH" ;
 
-  for _ = 1 to solvers do ignore (new_solver ()) done ;
-  let started = match children () with Some pids -> pids | None -> [] in
+  (* Start them inside the cleanup rather than before it. A solver
+     handed the pipes of another holds the write end of its own standard
+     input and so never sees the end of it, which is what a failing run
+     of this test used to leave behind. The second one failing to start
+     would strand the first the same way. *)
+  Fun.protect ~finally:SMTSolver.destroy_all_of_process (fun () ->
+    for _ = 1 to solvers do ignore (new_solver ()) done ;
+    let started = match children () with Some pids -> pids | None -> [] in
 
-  (* Read what they hold before disposing of them, and dispose of them
-     whatever the counts turn out to be: a solver handed the pipes of
-     another never sees the end of its own standard input, so a failing
-     run would leave them behind for good. *)
-  let held = List.map (fun pid -> (pid, pipes_held pid)) started in
-  SMTSolver.destroy_all_of_process () ;
+    assert_equal
+      ~msg:"number of solvers started" ~printer:string_of_int
+      solvers (List.length started) ;
 
-  assert_equal
-    ~msg:"number of solvers started" ~printer:string_of_int
-    solvers (List.length held) ;
-
-  held
-  |> List.iter (fun (pid, held) ->
-         match held with
-         | None -> assert_failure (Printf.sprintf "solver %s is gone" pid)
-         | Some held ->
-           assert_equal
-             ~msg:
-               (Printf.sprintf
-                  "solver %s holds pipes it was not given, the ones of the \
-                   solvers before it" pid)
-             ~printer:string_of_int given held)
+    started
+    |> List.iter (fun pid ->
+           match pipes_held pid with
+           | None -> assert_failure (Printf.sprintf "solver %s is gone" pid)
+           | Some held ->
+             assert_equal
+               ~msg:
+                 (Printf.sprintf "solver %s holds %s" pid
+                    (String.concat ", " held))
+               ~printer:string_of_int given (List.length held)))
 
 let tests = "SolverPipes" >::: [
   "a solver holds only its own pipes" >:: test_a_solver_holds_only_its_own_pipes ;
