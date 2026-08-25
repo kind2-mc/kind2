@@ -203,7 +203,9 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     ([], [(name, scrut)])
 
 (* Desugar a single match arm into a (condition option, body) pair.
-   Substitutes pattern variables with field projections in body. *)
+   Substitutes pattern variables with field projections in body.  The body must
+   already be desugared: the projections substituted in mention the desugared
+   scrutinee, which must not be desugared a second time. *)
 let desugar_arm pos ctx adt_map info scrut pat body =
   let (conds, subs) = collect_pattern_constraints pos ctx adt_map info scrut pat in
   let body =
@@ -397,8 +399,7 @@ and desugar_expr ctx adt_map expr =
     in
     let scrut' = r scrut in
     let desugared_arms = List.map (fun (pat, body) ->
-      let (cond_opt, body') = desugar_arm pos ctx adt_map adt_info scrut' pat body in
-      (cond_opt, r body')
+      desugar_arm pos ctx adt_map adt_info scrut' pat (r body)
     ) arms in
     build_ite pos desugared_arms
   | LA.ADTTester (pos, e, c) ->
@@ -425,14 +426,9 @@ and desugar_expr ctx adt_map expr =
     (* The projection stays marked as a selector even once the ADT is encoded as
        a record, so the obligation can still name the owning constructor. *)
     let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name), ctor) in
-    (* Match arm bodies are desugared again after pattern variables are
-       substituted (see the Match case), and the projections substituted for
-       those variables already name the internal payload field. *)
-    let already_internal = match origin with
-      | LA.Kind2Generated -> true
-      | LA.UserWritten -> false
-    in
-    if info.is_recursive || already_internal then
+    (* Recursive datatypes keep the user-written field name; they are compiled
+       to SMT datatypes rather than records *)
+    if info.is_recursive then
       LA.FieldProject (p, e', fld, pk)
     else
       LA.FieldProject (p, e', payload_field_name_of ctor fld, pk)

@@ -171,8 +171,12 @@ let clear_cache () =
 
 type info = {
   context : Ctx.tc_context;
-  (* (index variable bound * Index variable type * array type) StringMap.t *)
-  inductive_variables : (int option * LustreAst.lustre_type * LustreAst.lustre_type) StringMap.t;
+  (* Index variables of the enclosing array equation, each mapped to the bound
+     and the size expression of the dimension it ranges over, its index type,
+     and the type of the array being defined *)
+  inductive_variables :
+    (int option * LustreAst.expr * LustreAst.lustre_type * LustreAst.lustre_type)
+      StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) NI.Map.t;
   contract_calls_info : LustreAst.contract_node_decl NI.Map.t;
@@ -189,6 +193,11 @@ type info = {
   call_context : (LustreAst.expr * LustreAst.expr * int) list;
   (* Number of enclosing 'pre' operators *)
   pre_depth : int;
+  (* Which operand of each enclosing 'arrow' the expression sits in, as a
+     condition on the instant, with the 'pre' depth at which it was pushed.
+     Kept apart from call_context because an enclosing arrow does not restrict
+     a node call's activation condition. *)
+  arrow_context : (LustreAst.expr * int) list;
   inlined_expr_ctx : bool;
   adt_map : LDAT.adt_map;
 }
@@ -372,28 +381,10 @@ let rec index_types_of_array_type pos ty =
     let index_ty = mk_index_type pos size_expr in
     match size_expr with 
     | A.Const (_, A.Num n) -> 
-      (Some (n |> HString.string_of_hstring |> int_of_string), index_ty) :: r 
-    | _ -> (None, index_ty) :: r 
+      (Some (n |> HString.string_of_hstring |> int_of_string), size_expr, index_ty) :: r 
+    | _ -> (None, size_expr, index_ty) :: r 
     )
   | _ -> []
-
-(* Pairs each index variable of an array equation with the size of the dimension
-   it ranges over, outermost first. Follows the same ordering assumption as
-   generalize_to_array_expr: index variables line up with the dimensions of the
-   array being defined in the order StringMap enumerates them. *)
-let index_sizes_of_inductive_vars ind_vars =
-  match StringMap.choose_opt ind_vars with
-  | None -> []
-  | Some (_, (_, _, array_ty)) ->
-    let rec dim_sizes ty =
-      match ty with
-      | A.ArrayType (_, (inner, size)) -> size :: dim_sizes inner
-      | _ -> []
-    in
-    let ids = List.map fst (StringMap.bindings ind_vars) in
-    let sizes = dim_sizes array_ty in
-    if List.length ids <> List.length sizes then []
-    else List.combine ids sizes
 
 (* Clean-ups applied to a guard built for display in a selector obligation.
    Rewrites the top of the expression only; the obligation the solver sees is
@@ -829,7 +820,7 @@ let get_expr_ty info map node_id expr =
   let ty =
   let ivars = info.inductive_variables in
   if expr_has_inductive_var ivars expr then
-    let _, (_, _, ty) = (StringMap.choose_opt info.inductive_variables) |> get in 
+    let _, (_, _, _, ty) = (StringMap.choose_opt info.inductive_variables) |> get in 
     ty 
   else
     let ctx =
@@ -1123,6 +1114,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
     pre_depth = 0;
+    arrow_context = [];
     inlined_expr_ctx = false;
     adt_map; }
   in
@@ -1746,7 +1738,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
           in the future.*)
           let array_sizes =
             StringMap.fold
-              (fun v (size_opt, _, _) acc ->
+              (fun v (size_opt, _, _, _) acc ->
                 if A.SI.mem v vars_of_calls then
                   (v, size_opt) :: acc
                 else acc
@@ -1765,7 +1757,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let (nexpr, gids1, warnings), expanded = (
           if expand && lhs_arity <> rhs_arity then
             (match StringMap.choose_opt info.inductive_variables with
-            | Some (ivar, (size_opt, _, _)) ->
+            | Some (ivar, (size_opt, _, _, _)) ->
               let size = Option.get size_opt in
               let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
               let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
@@ -1783,7 +1775,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
             
           else if expand && lhs_arity = rhs_arity then
             let expanded_expr = List.fold_left
-              (fun acc (v, (size_opt, _, _)) -> 
+              (fun acc (v, (size_opt, _, _, _)) -> 
                 let size = Option.get size_opt in
                 expand_node_calls_in_place info node_id v size acc)
               expr
@@ -1861,14 +1853,15 @@ and normalize_equation info node_id map = function
         in
         let index_types = index_types_of_array_type pos ty in
         let info = List.fold_left2
-          (fun info i (_, index_ty) ->
+          (fun info i (_, _, index_ty) ->
             { info with context = Ctx.add_ty info.context i index_ty })
           info
           is
           index_types 
         in
         let ivars = List.fold_left2
-          (fun m i (size_opt, index_ty) -> StringMap.add i (size_opt, index_ty, ty) m)
+          (fun m i (size_opt, size, index_ty) ->
+            StringMap.add i (size_opt, size, index_ty, ty) m)
           StringMap.empty
           is
           index_types
@@ -1885,7 +1878,7 @@ and normalize_equation info node_id map = function
     let vars_of_calls = AH.vars_of_node_calls expr in
     let array_sizes =
       StringMap.fold
-        (fun v (size_opt, _, _) acc ->
+        (fun v (size_opt, _, _, _) acc ->
           if A.SI.mem v vars_of_calls then
             (v, size_opt) :: acc
           else acc
@@ -1904,7 +1897,7 @@ and normalize_equation info node_id map = function
     let (nexpr, gids1, warnings), expanded = (
       if expand && lhs_arity <> rhs_arity then
         (match StringMap.choose_opt info.inductive_variables with
-        | Some (ivar, (size_opt, _, _)) ->
+        | Some (ivar, (size_opt, _, _, _)) ->
           let size = Option.get size_opt in
           let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
           let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
@@ -1918,7 +1911,7 @@ and normalize_equation info node_id map = function
         | None -> normalize_expr info (Some node_id) map expr, false)
       else if expand && lhs_arity = rhs_arity then
         let expanded_expr = List.fold_left
-          (fun acc (v, (size_opt, _, _)) -> 
+          (fun acc (v, (size_opt, _, _, _)) -> 
             let size = Option.get size_opt in
             expand_node_calls_in_place info node_id v size acc)
           expr
@@ -1950,7 +1943,7 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
       match ty with
       | Some ty -> ty
       | None when expr_has_inductive_var ivars expr ->
-        let _, (_, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
+        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
         ty
       | None ->
         Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
@@ -1998,21 +1991,16 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
           A.Arrow (pos, A.Const (pos, A.True), push e)
         in
         (* A local abstracting a 'pre' operand is generalized to an array
-           equation over the index variables the operand mentions, so its type
-           has to mirror those dimensions of the equation the selector sits in *)
+           equation over the index variables the operand mentions, in the order
+           generalize_to_array_expr uses, so its type mirrors the dimensions
+           those variables range over *)
         let local_type e =
-          match get_inductive_vars info.inductive_variables e with
-          | [] -> A.Bool pos
-          | free_vars ->
-            let sizes = index_sizes_of_inductive_vars info.inductive_variables in
-            let sizes =
-              List.filter_map
-                (fun (id, size) ->
-                  if List.exists (HString.equal id) free_vars then Some size else None)
-                sizes
-            in
-            List.fold_right
-              (fun size acc -> A.ArrayType (pos, (acc, size))) sizes (A.Bool pos)
+          List.fold_right
+            (fun id acc ->
+              let (_, size, _, _) = StringMap.find id info.inductive_variables in
+              A.ArrayType (pos, (acc, size)))
+            (get_inductive_vars info.inductive_variables e)
+            (A.Bool pos)
         in
         (* Introduce locals to abstract the pre operands *)
         let shift_gids = ref (empty ()) in
@@ -2025,10 +2013,16 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
             shift_gids := union !shift_gids gids;
             shift (d - 1) (mk_pre_local ie)
         in
+        (* An arrow guard is a constant, so its normalized and source forms
+           coincide *)
+        let guards =
+          info.call_context
+          @ List.map (fun (g, d) -> (g, g, d)) info.arrow_context
+        in
         (* 'pick' selects the normalized or the source form of each guard *)
         let mk_body pick core shift_fn =
           let core = shift_fn info.pre_depth core in
-          match info.call_context with
+          match guards with
           | [] -> core
           | c :: cs ->
             let shift_guard acc c' =
@@ -2050,7 +2044,7 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
           let ind_vars =
             get_inductive_vars info.inductive_variables probe
             |> List.map (fun id ->
-                 let (_, index_ty, _) = StringMap.find id info.inductive_variables in
+                 let (_, _, index_ty, _) = StringMap.find id info.inductive_variables in
                  (pos, id, index_ty))
           in
           let vars = List.rev (info.quantified_variables @ ind_vars) in
@@ -2171,7 +2165,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
     let ty = if expr_has_inductive_var ivars expr then
-      let _, (_, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
+      let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
       ty
     else 
       Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
@@ -2196,7 +2190,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
       let ty = if expr_has_inductive_var ivars expr then
-        let _, (_, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
+        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
         ty
       else
         infer_type info node_id expr
@@ -2219,7 +2213,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
             args
         in
         let ind_vars = List.map 
-          (fun (v, (_, ind_ty, _)) -> (Lib.dummy_pos, v, ind_ty))
+          (fun (v, (_, _, ind_ty, _)) -> (Lib.dummy_pos, v, ind_ty))
           (StringMap.bindings info.inductive_variables)
         in
         List.fold_left
@@ -2371,8 +2365,22 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* Guarding and abstracting pres                                            *)
   (* ************************************************************************ *)
   | Arrow (pos, expr1, expr2) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard:(Some nexpr1) info node_id map expr2 in
+    (* "true -> false" holds exactly at the initial instant, "false -> true"
+       exactly at the others *)
+    let mk_instant b =
+      let c v = A.Const (pos, if v then A.True else A.False) in
+      A.Arrow (pos, c b, c (not b))
+    in
+    let with_instant b =
+      { info with
+        arrow_context = (mk_instant b, info.pre_depth) :: info.arrow_context }
+    in
+    let nexpr1, gids1, warnings1 =
+      normalize_expr ?guard (with_instant true) node_id map expr1
+    in
+    let nexpr2, gids2, warnings2 =
+      normalize_expr ?guard:(Some nexpr1) (with_instant false) node_id map expr2
+    in
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
@@ -2382,7 +2390,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
     let ty, force = if expr_has_inductive_var ivars expr then
-        let _, (_, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
+        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
         ty, true
       else
         infer_type info node_id expr, false

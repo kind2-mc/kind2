@@ -1,0 +1,8 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(a: IntOpt^3^2) returns (p: int^3^2; o: int^3^2);
+let
+  p[i][j] = 0;
+  o[j][i] = 0 -> pre (when not None?(a[j][i]) then a[j][i].val else 0);
+  check o[0][0] = o[0][0];
+tel

@@ -1798,6 +1798,16 @@ let sort_idents: ident list -> ident list = fun ids ->
   List.sort (fun i1 i2 -> HString.compare i1 i2) ids
 (** sort typed identifiers *)
 
+(* Structural equality of match patterns, used by syn_expr_equal *)
+let rec syn_pattern_equal p1 p2 =
+  match p1, p2 with
+  | VarPat (_, x), VarPat (_, y) -> HString.equal x y
+  | Pat (_, x, xs), Pat (_, y, ys) ->
+    HString.equal x y
+    && List.length xs = List.length ys
+    && List.for_all2 syn_pattern_equal xs ys
+  | VarPat _, Pat _ | Pat _, VarPat _ -> false
+
 let rec syn_expr_equal depth_limit x y : (bool, unit) result =
   let (>>=) = Res.(>>=) in
   let rec r depth x y =
@@ -1952,6 +1962,49 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       ) xts yts |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 -> 
       Ok (l1 && l2 && xi = yi)
+    | AnyOp (_, (_, xi, xt), xe), AnyOp (_, (_, yi, yt), ye)
+    | ChooseOp (_, (_, xi, xt), xe), ChooseOp (_, (_, yi, yt), ye) ->
+      syn_type_equal depth_limit xt yt >>= fun t ->
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (t && e && HString.equal xi yi)
+    | Extract (_, xe, xi1, xi2), Extract (_, ye, yi1, yi2) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && xi1 = yi1 && xi2 = yi2)
+    (* An empty container is determined by its type alone *)
+    | EmptyMap (_, None), EmptyMap (_, None) -> Ok (true)
+    | EmptyMap (_, Some (xk, xv)), EmptyMap (_, Some (yk, yv)) ->
+      syn_type_equal depth_limit xk yk >>= fun k ->
+      syn_type_equal depth_limit xv yv >>= fun v ->
+      Ok (k && v)
+    | EmptyMap _, EmptyMap _ -> Ok (false)
+    | EmptySet (_, None), EmptySet (_, None) -> Ok (true)
+    | EmptySet (_, Some xt), EmptySet (_, Some yt) -> syn_type_equal depth_limit xt yt
+    | EmptySet _, EmptySet _ -> Ok (false)
+    | Last (_, x), Last (_, y) -> Ok (HString.equal x y)
+    (* Compiles to the default value of the type, so the type decides *)
+    | AbstractSymConst (_, xt), AbstractSymConst (_, yt) ->
+      syn_type_equal depth_limit xt yt
+    | ADTTester (_, xe, xc), ADTTester (_, ye, yc) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xc yc)
+    | ADTTerm (_, xts, xc, xl), ADTTerm (_, yts, yc, yl) ->
+      (if List.length xts = List.length yts then
+         List.map2 (syn_type_equal depth_limit) xts yts |> join
+       else Ok (false)) >>= fun t ->
+      rlist xl yl |> join >>= fun l ->
+      Ok (t && l && HString.equal xc yc)
+    | Match (_, xe, xarms, xty), Match (_, ye, yarms, yty) ->
+      (match xty, yty with
+       | None, None -> Ok (true)
+       | Some xt, Some yt -> syn_type_equal depth_limit xt yt
+       | Some _, None | None, Some _ -> Ok (false)) >>= fun t ->
+      let arms = if List.length xarms = List.length yarms then
+          List.map2 (fun (xp, xb) (yp, yb) ->
+            r (depth + 1) xb yb >>= fun b -> Ok (b && syn_pattern_equal xp yp))
+          xarms yarms
+        else [Ok (false)]
+      in
+      arms |> join >>= fun a ->
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (t && a && e)
     | _ -> Ok (false)
   in
   r 0 x y

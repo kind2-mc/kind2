@@ -1,0 +1,10 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(x: IntOpt) returns (o: int);
+(*@contract
+  assume Some?(x) -> true;
+*)
+let
+  o = x.val -> 0;
+  check o = o;
+tel
