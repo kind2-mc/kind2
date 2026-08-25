@@ -193,11 +193,6 @@ type info = {
   call_context : (LustreAst.expr * LustreAst.expr * int) list;
   (* Number of enclosing 'pre' operators *)
   pre_depth : int;
-  (* Which operand of each enclosing 'arrow' the expression sits in, as a
-     condition on the instant, with the 'pre' depth at which it was pushed.
-     Kept apart from call_context because an enclosing arrow does not restrict
-     a node call's activation condition. *)
-  arrow_context : (LustreAst.expr * int) list;
   inlined_expr_ctx : bool;
   adt_map : LDAT.adt_map;
 }
@@ -1114,7 +1109,6 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
     pre_depth = 0;
-    arrow_context = [];
     inlined_expr_ctx = false;
     adt_map; }
   in
@@ -2013,16 +2007,10 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
             shift_gids := union !shift_gids gids;
             shift (d - 1) (mk_pre_local ie)
         in
-        (* An arrow guard is a constant, so its normalized and source forms
-           coincide *)
-        let guards =
-          info.call_context
-          @ List.map (fun (g, d) -> (g, g, d)) info.arrow_context
-        in
         (* 'pick' selects the normalized or the source form of each guard *)
         let mk_body pick core shift_fn =
           let core = shift_fn info.pre_depth core in
-          match guards with
+          match info.call_context with
           | [] -> core
           | c :: cs ->
             let shift_guard acc c' =
@@ -2365,22 +2353,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* Guarding and abstracting pres                                            *)
   (* ************************************************************************ *)
   | Arrow (pos, expr1, expr2) ->
-    (* "true -> false" holds exactly at the initial instant, "false -> true"
-       exactly at the others *)
-    let mk_instant b =
-      let c v = A.Const (pos, if v then A.True else A.False) in
-      A.Arrow (pos, c b, c (not b))
-    in
-    let with_instant b =
-      { info with
-        arrow_context = (mk_instant b, info.pre_depth) :: info.arrow_context }
-    in
-    let nexpr1, gids1, warnings1 =
-      normalize_expr ?guard (with_instant true) node_id map expr1
-    in
-    let nexpr2, gids2, warnings2 =
-      normalize_expr ?guard:(Some nexpr1) (with_instant false) node_id map expr2
-    in
+    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard:(Some nexpr1) info node_id map expr2 in
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
