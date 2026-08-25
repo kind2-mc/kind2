@@ -1,0 +1,26 @@
+-- A nullary ADT constructor is parsed as an identifier, but it denotes a
+-- value, not a variable, so it must not be turned into an argument of the
+-- nodes generated for 'any'/'choose' expressions and abstracted temporal
+-- branches.
+
+datatype T = A (v: int) | B;
+
+node main(i: int; c: bool) returns (ok1, ok2, ok3: bool);
+var x, y, z: T;
+var seen_c: bool;
+let
+  x = any { t: T | t <> B };
+  ok1 = x <> B;
+  check ok1;
+
+  y = choose { t: T | t <> B };
+  ok2 = y <> B;
+  check ok2;
+
+  -- The '->' of the branch is clocked by the guard, so the branch only steps
+  -- while 'c' holds and 'z' can only be an 'A' after 'c' has already held.
+  z = when c then (B -> A(i)) else B;
+  seen_c = false -> (pre c or pre seen_c);
+  ok3 = A?(z) => seen_c;
+  check ok3;
+tel
