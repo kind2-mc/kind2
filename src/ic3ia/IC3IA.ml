@@ -591,19 +591,25 @@ let refine fwd solver sys predicates cubes =
     |> List.iteri (fun i t -> Format.printf "ATOM%d: %a@." i Term.pp_print_term t);*)
 
     (* A congruence instance spans two bounds, so once instances are in the
-       query an interpolant can too. The abstraction only supports
-       single-state predicates: keep the atoms over the cut point's own
-       bound (offset 0 after the bump above), and those over none. *)
+       query an interpolant can too: sitting in the partition of its later
+       bound, an instance lets the interpolants of the cut points in between
+       mention its earlier bound as well. The abstraction only supports
+       single-state predicates, so an atom over two bounds is dropped; an
+       atom over one bound is a state predicate whichever bound that is,
+       and is kept once bumped to the cut point's own (offset 0 after the
+       bump above). Atoms over no bound are kept as they are. *)
     let atoms =
       if asserted = [] then atoms
       else
-        TS.filter
-          (fun t ->
+        TS.fold
+          (fun t acc ->
             match Term.var_offsets_of_term t with
-            | Some lo, Some hi ->
-              Numeral.(equal lo zero) && Numeral.(equal hi zero)
-            | _ -> true)
+            | Some lo, Some hi when Numeral.equal lo hi ->
+              TS.add (Term.bump_state (Numeral.neg lo) t) acc
+            | Some _, Some _ -> acc
+            | _ -> TS.add t acc)
           atoms
+          TS.empty
     in
 
     let predicates' = add_predicates solver predicates atoms in

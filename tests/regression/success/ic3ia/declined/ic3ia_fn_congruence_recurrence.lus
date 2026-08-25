@@ -5,15 +5,18 @@
 -- implicit abstraction cannot be refined for it: the engine turns the
 -- property down (and k-induction proves it at k=3). IC3IA must not claim it
 -- is falsifiable: reporting `unknown` is the expected outcome here.
-type Color = enum { Red, Green, Blue };
-
-function imported F(s: set<Color>) returns (out: int);
+--
+-- The container is an array of integers on purpose: the harness pins
+-- MathSAT as the interpolating solver here, and MathSAT rejects the
+-- Bool-element arrays that sets and maps compile to before the refinement
+-- this test is about is ever reached.
+function imported F(a: int^2) returns (out: int);
 
 node Top(b: bool) returns (r: int);
-var t: set<Color>; cnt: int;
+var arr: int^2; cnt: int;
 let
   cnt = 0 -> pre cnt + 1;
-  t = if (cnt mod 2 = 0) then {Red, Green} else {Blue};
-  r = F(t);
-  check "fn of a recurring set" (cnt >= 2) => (r = pre (pre r));
+  arr[i] = if (cnt mod 2 = 0) then i else 5;
+  r = F(arr);
+  check "fn of a recurring array" (cnt >= 2) => (r = pre (pre r));
 tel
