@@ -1,0 +1,19 @@
+-- A valid property that rests on determinism of a function over a container
+-- across two steps, with a different argument in between. The congruence
+-- instance that rules the spurious counterexample out relates two distant
+-- bounds, and no single-state predicate can stand in for it, so IC3IA's
+-- implicit abstraction cannot be refined for it: the engine turns the
+-- property down (and k-induction proves it at k=3). IC3IA must not claim it
+-- is falsifiable: reporting `unknown` is the expected outcome here.
+type Color = enum { Red, Green, Blue };
+
+function imported F(s: set<Color>) returns (out: int);
+
+node Top(b: bool) returns (r: int);
+var t: set<Color>; cnt: int;
+let
+  cnt = 0 -> pre cnt + 1;
+  t = if (cnt mod 2 = 0) then {Red, Green} else {Blue};
+  r = F(t);
+  check "fn of a recurring set" (cnt >= 2) => (r = pre (pre r));
+tel

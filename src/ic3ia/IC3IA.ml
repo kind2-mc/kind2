@@ -134,7 +134,17 @@ let sys_def solver sys offset =
         Term.mk_not init_term_prev
       ]
    in
-   Term.mk_and (global_constraints sys @
+   (* Ground functional congruence instances over the two concrete offsets of
+      the transition query, enforcing determinism of (abstracted) functions
+      with container-typed arguments within the one-step window. Each is a
+      valid formula of the intended semantics, so conjoining them preserves
+      the over-approximation the frames rest on
+      (see [TransSys.fn_congruence_instances]). *)
+   let congruence =
+     TransSys.fn_congruence_instances sys Numeral.one
+     |> List.map (Term.bump_state (Numeral.pred offset))
+   in
+   Term.mk_and (global_constraints sys @ congruence @
      [Term.mk_or [init; trans]])
 
 let sys_def_unrolling solver sys offset =
@@ -404,27 +414,65 @@ let refine fwd solver sys predicates cubes =
 
   in
 
-  let interpolizers =
+  (* Ground functional congruence instances over the bounds of the concrete
+     unrolling; empty when no function of the system has container-typed
+     arguments. They are not asserted up front: a satisfiable answer stands
+     only if it satisfies all of them, so their conjunction is evaluated in
+     the model first, and exactly the instances the model violates are added
+     to the query before looking again
+     (see [TransSys.fn_congruence_instances]). *)
+  let congruence =
+    TransSys.fn_congruence_instances sys (Numeral.of_int (len - 2))
+  in
+
+  (* The interpolation partition must cover every assertion, so an instance
+     is conjoined into the interpolizer of the last bound it mentions rather
+     than asserted on its own. Sitting there, it lets an interpolant at an
+     earlier cut point mention the instance's earlier bound too; such
+     two-state atoms cannot serve as abstraction predicates and are filtered
+     out below. *)
+  let interpolizer_index inst =
+    match Term.var_offsets_of_term inst with
+    | _, Some mx -> Numeral.to_int mx
+    | _, None -> 0
+  in
+
+  let mk_interpolizers asserted =
+    let extras = Array.make len [] in
+    List.iter
+      (fun i ->
+        let g = interpolizer_index i in
+        extras.(g) <- i :: extras.(g))
+      asserted ;
     cubes
     |> List.mapi (fun i c ->
       let cube = Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1)) in
-      if i < (len - 1) then
-        Term.mk_and
-          [ cube; sys_def_unrolling intrpo sys (Numeral.of_int i) ]
-      else
-        cube
-      (* If prop is not in the set of initial predicates: *)
-      (*Term.mk_and
-        [ Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1));
-          if i < (len - 1) then
-            sys_def_unrolling intrpo sys (Numeral.of_int i)
-          else
-            Term.mk_not (prop |> Term.bump_state (Numeral.of_int (i - 1)))
-        ]*)
+      let base =
+        if i < (len - 1) then
+          Term.mk_and
+            [ cube; sys_def_unrolling intrpo sys (Numeral.of_int i) ]
+        else
+          cube
+        (* If prop is not in the set of initial predicates: *)
+        (*Term.mk_and
+          [ Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1));
+            if i < (len - 1) then
+              sys_def_unrolling intrpo sys (Numeral.of_int i)
+            else
+              Term.mk_not (prop |> Term.bump_state (Numeral.of_int (i - 1)))
+          ]*)
+      in
+      match extras.(i) with
+      | [] -> base
+      | l -> Term.mk_and (base :: l)
     )
   in
 
-  SMTSolver.push intrpo;  
+  let rec solve asserted =
+
+  let interpolizers = mk_interpolizers asserted in
+
+  SMTSolver.push intrpo;
 
   (* Compute the interpolants *)
   let names =
@@ -457,9 +505,28 @@ let refine fwd solver sys predicates cubes =
     | _ -> failwith ("Interpolating solver not found or unsupported")
   in
 
-  if SMTSolver.check_sat 
+  if SMTSolver.check_sat
       intrpo
   then (
+    (* A model of the unrolling represents a genuine counterexample only if
+       it satisfies determinism. The conjunction is asked first, one term
+       hence one query; only when it fails are the instances evaluated one
+       by one, to find exactly those the model violates. *)
+    let violated =
+      match congruence with
+      | [] -> []
+      | _ -> (
+        match SMTSolver.get_term_values intrpo [Term.mk_and congruence] with
+        | [(_, v)] when Term.equal v Term.t_false ->
+          SMTSolver.get_term_values intrpo congruence
+          |> List.filter_map (fun (i, v) ->
+               if Term.equal v Term.t_false then Some i else None)
+        | _ -> []
+      )
+    in
+
+    match violated with
+    | [] ->
     let cex_path =
       (* Use [get_var_values] rather than [get_model]: it retrieves the value
          of an array-typed variable by evaluating its elements one index at a
@@ -479,9 +546,17 @@ let refine fwd solver sys predicates cubes =
     in
 
     raise (Counterexample cex_path)
+
+    | _ ->
+      (* The path violates determinism of a function over containers: rule
+         it out and look again *)
+      SMTSolver.trace_comment intrpo
+        "Asserting the functional congruence instances the path violates." ;
+      SMTSolver.pop intrpo ;
+      solve (asserted @ violated)
   )
   else (
-    
+
     let interpolants =
       match Flags.Smt.itp_solver () with
       | `cvc5_QE
@@ -515,8 +590,40 @@ let refine fwd solver sys predicates cubes =
     |> Term.TermSet.elements
     |> List.iteri (fun i t -> Format.printf "ATOM%d: %a@." i Term.pp_print_term t);*)
 
-    add_predicates solver predicates atoms
+    (* A congruence instance spans two bounds, so once instances are in the
+       query an interpolant can too. The abstraction only supports
+       single-state predicates: keep the atoms over the cut point's own
+       bound (offset 0 after the bump above), and those over none. *)
+    let atoms =
+      if asserted = [] then atoms
+      else
+        TS.filter
+          (fun t ->
+            match Term.var_offsets_of_term t with
+            | Some lo, Some hi ->
+              Numeral.(equal lo zero) && Numeral.(equal hi zero)
+            | _ -> true)
+          atoms
+    in
+
+    let predicates' = add_predicates solver predicates atoms in
+
+    (* Every single-state atom of the interpolants is already a predicate:
+       the abstraction cannot make progress on this spurious path, which is
+       ruled out by determinism alone across bounds no single-state
+       predicate relates. Stop instead of looping on it forever. *)
+    if asserted <> [] && TS.cardinal predicates' = TS.cardinal predicates
+    then
+      raise (UnsupportedFeature
+        "IC3IA disabled: the functional congruence instances of a function \
+         with container-typed arguments leave no single-state predicate to \
+         refine the abstraction with.")
+    else
+      predicates'
   )
+
+  in
+  solve []
 
 
 let is_blocked solver frames s =
@@ -1073,24 +1180,11 @@ let main fwd slice_to_prop prop in_sys param sys =
     in
     raise (UnsupportedFeature msg) ) ;
 
-  (* Note: IC3IA does not assert the functional congruence instances that
-     enforce determinism of (abstracted) functions with container-typed
-     arguments (see [TransSys.fn_congruence_instances]); without them, the
-     counterexamples it finds for such systems may be spurious with respect
-     to the intended (deterministic) semantics. Today this is subsumed by
-     [has_fn_congruence_groups] check below. To support these systems, the
-     instances would have to be asserted in the solvers (bounds 0 and 1 for
-     the transition queries), and the implicit abstraction would have to
-     account for the difference witness functions the instances contain. *)
-  if TransSys.has_fn_congruence_groups sys then (
-    let msg =
-      Format.sprintf
-        "IC3IA disabled for property %s: system requires functional \
-         congruence instances for functions with container-typed arguments."
-        prop.Property.prop_name
-    in
-    raise (UnsupportedFeature msg)
-  ) ;
+  (* Note: the functional congruence instances that enforce determinism of
+     (abstracted) functions with container-typed arguments are part of the
+     transition queries ([sys_def]) and of the concrete unrolling that
+     validates counterexamples ([refine]), so these systems are supported
+     (see [TransSys.fn_congruence_instances]). *)
 
   let check_system_is_supported itp_solver =
     if TransSys.subsystem_includes_function_symbol sys then
