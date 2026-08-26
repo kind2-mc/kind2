@@ -48,6 +48,36 @@
 static DWORD kind2_timeout_ms = 0;
 static UINT kind2_timeout_status = 0;
 static HANDLE kind2_timeout_job = NULL;
+static LONG kind2_timeout_solvers = -1;
+
+/* How many processes the job holds besides this one, or -1 if it
+   cannot be told.
+
+   The count is what makes the job visible from outside: a line saying
+   the run was ended along with the solvers it started is evidence that
+   they were in the job when it fired, which counting the ones left
+   behind afterwards is not -- an idle solver reads the end of its
+   standard input and goes whether or not anything killed it.
+
+   Room for one id is enough. The number of assigned processes comes
+   back in the header even when the buffer cannot hold the list, which
+   is the ERROR_MORE_DATA case, and the ids themselves are of no use
+   here. */
+static LONG kind2_solvers_in_job(void)
+{
+  JOBOBJECT_BASIC_PROCESS_ID_LIST ids;
+  DWORD returned = 0;
+
+  if (kind2_timeout_job == NULL) return -1;
+  ZeroMemory(&ids, sizeof ids);
+  if (!QueryInformationJobObject(kind2_timeout_job,
+                                 JobObjectBasicProcessIdList,
+                                 &ids, sizeof ids, &returned)
+      && GetLastError() != ERROR_MORE_DATA)
+    return -1;
+  if (ids.NumberOfAssignedProcesses == 0) return -1;
+  return (LONG) ids.NumberOfAssignedProcesses - 1;   /* less this one */
+}
 
 /* Say what is happening, from a thread of its own.
 
@@ -58,8 +88,14 @@ static HANDLE kind2_timeout_job = NULL;
 static DWORD WINAPI kind2_timeout_announce(LPVOID unused)
 {
   (void)unused;
-  fprintf(stderr,
-          "Kind 2 ran past its timeout without stopping, terminating.\n");
+  if (kind2_timeout_solvers > 0)
+    fprintf(stderr,
+            "Kind 2 ran past its timeout without stopping, terminating it "
+            "and the %ld solver processes its job holds.\n",
+            kind2_timeout_solvers);
+  else
+    fprintf(stderr,
+            "Kind 2 ran past its timeout without stopping, terminating.\n");
   fflush(stderr);
   return 0;
 }
@@ -70,9 +106,16 @@ static DWORD WINAPI kind2_timeout_thread(LPVOID unused)
   (void)unused;
   Sleep(kind2_timeout_ms);
 
+  /* Before anything is ended, while the job still holds them. */
+  kind2_timeout_solvers = kind2_solvers_in_job();
+
   /* Nothing below enters the runtime, so a rendezvous holding every
-     domain does not hold this. */
-  announce = CreateThread(NULL, 0, kind2_timeout_announce, NULL, 0, NULL);
+     domain does not hold this.
+
+     Suspended, so that it is raised before it can be scheduled at
+     ordinary priority. */
+  announce = CreateThread(NULL, 0, kind2_timeout_announce, NULL,
+                          CREATE_SUSPENDED, NULL);
   if (announce != NULL) {
     /* Above the rest, and given several seconds. This fires on a
        machine whose every core is held by domains spinning at a
@@ -82,6 +125,7 @@ static DWORD WINAPI kind2_timeout_thread(LPVOID unused)
        Bounded still, since a standard error nobody drains must not be
        what keeps us from exiting. */
     SetThreadPriority(announce, THREAD_PRIORITY_HIGHEST);
+    ResumeThread(announce);
     WaitForSingleObject(announce, 5000);
     CloseHandle(announce);
   }
@@ -124,8 +168,19 @@ CAMLprim value kind2_arm_native_timeout(value seconds, value status)
     kind2_timeout_job = NULL;   /* fall back to ending this process alone */
   }
 
+  /* Raised for the same reason the announcing thread is, and for the
+     whole of its life rather than at the end of it: this thread has to
+     wake from `Sleep` and then reach `TerminateJobObject`, both on a
+     machine whose every core is held by domains spinning at a
+     rendezvous. Ordinary priority put the observed bound thirteen
+     seconds past the nominal one. It cannot raise itself after waking,
+     since making that call is already the part that needs a slice, and
+     it costs nothing meanwhile -- it is asleep for the whole run. */
   thread = CreateThread(NULL, 0, kind2_timeout_thread, NULL, 0, NULL);
-  if (thread != NULL) CloseHandle(thread);
+  if (thread != NULL) {
+    SetThreadPriority(thread, THREAD_PRIORITY_HIGHEST);
+    CloseHandle(thread);
+  }
   CAMLreturn(Val_unit);
 }
 
