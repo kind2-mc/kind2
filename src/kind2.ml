@@ -167,8 +167,19 @@ let setup : unit -> any_input = fun () ->
   ( if Sys.win32 then
       match Flags.timeout_wall () with
       | timeout when timeout > 0. ->
-        NativeTimeout.arm
-          (int_of_float timeout + 30) ExitCodes.incomplete_analysis
+        (* A count of seconds the other side can hold. It reaches a
+           thirty-two bit count of milliseconds, and it comes from a
+           float the user chose: [--timeout inf] converts to zero, which
+           would arm the backstop at the grace alone and kill a run that
+           asked for no limit, and a large enough value wraps the
+           multiplication instead. Anything past the ceiling is a run
+           that means to go on indefinitely, and the backstop simply
+           does not arm for it. *)
+        let ceiling = 1_000_000. in
+        if Float.is_nan timeout || timeout > ceiling then ()
+        else
+          NativeTimeout.arm
+            (int_of_float timeout + 30) ExitCodes.incomplete_analysis
       | _ -> () ) ;
 
   (* Install generic signal handlers for other signals. *)
