@@ -493,11 +493,20 @@ let arm_exit_watchdog () =
                as long as an insertion or a swap takes, so waiting for
                it cannot become the reason we never get to [_exit]. *)
             ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
-            (* Saying so, and the tail of the output, are worth a
-               moment and no more. Both write to descriptors that may
-               be pipes nobody is draining, and neither may become the
-               reason we do not exit. *)
-            within 1.0 (fun () ->
+            (* Saying so, and the tail of the output, are worth
+               waiting a little for and no more. Both write to
+               descriptors that may be pipes nobody is draining, and
+               neither may become the reason we do not exit.
+
+               Five seconds rather than one. The bound has to survive a
+               reader that never drains, which one second does; but it
+               also has to let the write happen on a machine in the
+               state that made this thread necessary, and one second is
+               not enough for that. A run that reaches here has already
+               waited ten, and this line is the only account anyone
+               gets of why it ended: losing it turns a kill that
+               explains itself into one that looks like a crash. *)
+            within 5.0 (fun () ->
               prerr_endline "Kind 2 did not exit in time, terminating." ;
               Stdlib.flush_all ()) ;
             Unix._exit (Atomic.get watchdog_status))
