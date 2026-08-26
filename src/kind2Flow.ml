@@ -420,15 +420,18 @@ let slaughter_kids ?(exiting = false) process sys =
    only the tail of what can wedge.
 
    The status the watchdog exits with is kept in a cell rather than
-   captured, and it is not lowered before [status_of_exn] has run: until
-   the exception has been accounted for, the only honest thing to report
-   is that Kind 2 had to be terminated. [post_clean_exit] sets the
-   verdict of the run once it knows it.
+   captured, and it carries the best verdict known so far.
+   [post_clean_exit] sets the final one once [status_of_exn] has run;
+   before that, [on_exit] sets what the results already say, which for
+   a run out of time is [incomplete_analysis] and for a falsified one
+   is [unsafe_result]. Those are the answers the run had reached, and
+   reporting them beats reporting an error the run did not have.
 
-   It never reports success. A run the watchdog had to kill did not
-   finish, whatever it had proved by then, and the output saying so is
+   It never reports success, though, whatever the results say: a run
+   the watchdog had to kill did not finish, and the output saying so is
    the output that was cut short. A hang fails loudly wherever Kind 2
-   runs; a zero passes silently. *)
+   runs; a zero passes silently. So success becomes [error], and
+   nothing else is touched. *)
 let watchdog_status = Atomic.make ExitCodes.error
 let watchdog_armed = Atomic.make false
 
@@ -482,9 +485,11 @@ let arm_exit_watchdog () =
       with _ -> () )
 
 (* The verdict of the run, for the watchdog to exit with if it has to.
-   Never success: see [watchdog_status]. *)
+   Success becomes an error, since a killed run did not finish; every
+   other verdict is what the run had reached. See [watchdog_status]. *)
 let watchdog_reports status =
-  if status <> ExitCodes.success then Atomic.set watchdog_status status
+  Atomic.set watchdog_status
+    (if status = ExitCodes.success then ExitCodes.error else status)
 
 (** Called after everything has been cleaned up. *)
 let post_clean_exit process base_status exn =
@@ -511,11 +516,19 @@ let post_clean_exit process base_status exn =
 (** Clean up before exit *)
 let on_exit sys process status exn =
   (* From here to [exit] nothing bounds the teardown but the watchdog,
-     so it starts now. Without a status: [status] here has not been
-     through [status_of_exn], and on the paths that pass a results
-     verdict it can be success, which is not something a killed run may
-     report. *)
+     so it starts now, carrying what the results already say.
+
+     [status] has not been through [status_of_exn] yet, but it is not
+     nothing: on the paths that reach here with a results verdict it is
+     what the analysis reached, and [status_of_exn] leaves it alone for
+     the exceptions that end a run normally, a wall clock timeout among
+     them. Arming with [ExitCodes.error] instead cost a run its answer:
+     on Windows the teardown can outlast the watchdog's ten seconds, and
+     a run that had printed `Incomplete analysis result` exited 1 rather
+     than 30, which reads as a crash rather than as running out of
+     time. *)
   arm_exit_watchdog () ;
+  watchdog_reports status ;
   try
     slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn
