@@ -145,14 +145,30 @@ let setup : unit -> any_input = fun () ->
      given. Measured on a four core runner, a run given 20s took 227s.
 
      So the last word on the wall clock there belongs to a thread the
-     operating system schedules, which the runtime cannot stop. It is a
-     backstop and not the timeout: a generous grace on top, so that it
-     only ever fires on a run that has already failed to stop itself. *)
+     operating system schedules, which the runtime cannot stop.
+
+     It is a backstop and not the timeout. Windows has the ordinary path
+     too -- the polling loop notices the clock and raises [TimeoutWall],
+     which unwinds through the exit path and reports what was proved,
+     the same as SIGALRM does elsewhere -- and that path works on every
+     run whose supervisor is running, which is every healthy one. The
+     grace is how long to wait for it before concluding it will not
+     come. Measured on a four core runner, a healthy run finishes about
+     ten seconds past its timeout: the polling loop looks at the clock
+     once an iteration, and the teardown prints what it found. Thirty is
+     three times that.
+
+     Not less, and never zero. This ends the process rather than
+     unwinding it, so it forfeits the results and forces its own status
+     -- fire it while an orderly teardown is still running and a run
+     that had disproved a property would report an incomplete analysis
+     instead. The grace is the width of that window, and it is worth
+     being generous with. *)
   ( if Sys.win32 then
       match Flags.timeout_wall () with
       | timeout when timeout > 0. ->
         NativeTimeout.arm
-          (int_of_float timeout + 60) ExitCodes.incomplete_analysis
+          (int_of_float timeout + 30) ExitCodes.incomplete_analysis
       | _ -> () ) ;
 
   (* Install generic signal handlers for other signals. *)
