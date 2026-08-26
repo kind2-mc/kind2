@@ -59,32 +59,27 @@ static LONG kind2_timeout_solvers = -1;
    behind afterwards is not -- an idle solver reads the end of its
    standard input and goes whether or not anything killed it.
 
-   Room for one id is enough. The number of assigned processes comes
-   back in the header even when the buffer cannot hold the list, which
-   is the ERROR_MORE_DATA case, and the ids themselves are of no use
-   here. */
+   The accounting information is a fixed size structure, so there is no
+   buffer that can be too small and nothing to distinguish a short
+   answer from a failed one: -1 here means the query failed and zero
+   means the job really did hold nothing else. */
 static LONG kind2_solvers_in_job(void)
 {
-  JOBOBJECT_BASIC_PROCESS_ID_LIST ids;
+  JOBOBJECT_BASIC_ACCOUNTING_INFORMATION acc;
   DWORD returned = 0;
 
   if (kind2_timeout_job == NULL) return -1;
-  ZeroMemory(&ids, sizeof ids);
+  ZeroMemory(&acc, sizeof acc);
   if (!QueryInformationJobObject(kind2_timeout_job,
-                                 JobObjectBasicProcessIdList,
-                                 &ids, sizeof ids, &returned)
-      && GetLastError() != ERROR_MORE_DATA)
+                                 JobObjectBasicAccountingInformation,
+                                 &acc, sizeof acc, &returned))
     return -1;
-  if (ids.NumberOfAssignedProcesses == 0) return -1;
-  return (LONG) ids.NumberOfAssignedProcesses - 1;   /* less this one */
+  /* Cannot happen while this process is in the job, so treat it as a
+     query that did not answer rather than as an answer of none. */
+  if (acc.ActiveProcesses == 0) return -1;
+  return (LONG) acc.ActiveProcesses - 1;     /* less this one */
 }
 
-/* Say what is happening, from a thread of its own.
-
-   A write to the standard error of Kind 2 blocks rather than failing
-   when it is a pipe whose reader has stopped, and this is the path that
-   must not be stoppable. The OCaml last resort bounds its own writes
-   for the same reason. */
 static DWORD WINAPI kind2_timeout_announce(LPVOID unused)
 {
   (void)unused;
@@ -93,6 +88,10 @@ static DWORD WINAPI kind2_timeout_announce(LPVOID unused)
             "Kind 2 ran past its timeout without stopping, terminating it "
             "and the %ld solver processes its job holds.\n",
             kind2_timeout_solvers);
+  else if (kind2_timeout_solvers == 0)
+    fprintf(stderr,
+            "Kind 2 ran past its timeout without stopping, terminating it. "
+            "Its job holds no other process.\n");
   else
     fprintf(stderr,
             "Kind 2 ran past its timeout without stopping, terminating.\n");

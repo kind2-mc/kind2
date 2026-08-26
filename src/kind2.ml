@@ -153,10 +153,18 @@ let setup : unit -> any_input = fun () ->
      the same as SIGALRM does elsewhere -- and that path works on every
      run whose supervisor is running, which is every healthy one. The
      grace is how long to wait for it before concluding it will not
-     come. Measured on a four core runner, a healthy run finishes about
-     ten seconds past its timeout: the polling loop looks at the clock
-     once an iteration, and the teardown prints what it found. Thirty is
-     three times that.
+     come.
+
+     Sixty, from what CI measures rather than from a multiple. The
+     ordinary path is not quick and steady: it waits out the same
+     stalls the backstop exists because of, so how late it is has no
+     bound to take a multiple of. One test on the Windows runner came
+     in 4.2s past its timeout on one commit, 11.5s on another and 29.0s
+     on a third, all healthy runs reporting what they had proved. A
+     grace of thirty would have killed the third one had it been a
+     second slower, taking its verdict with it -- and the run that most
+     needs the grace is exactly the stalled one, which is the run most
+     likely to exhaust it.
 
      Not less, and never zero. This ends the process rather than
      unwinding it, so it forfeits the results and forces its own status
@@ -179,7 +187,7 @@ let setup : unit -> any_input = fun () ->
         if Float.is_nan timeout || timeout > ceiling then ()
         else
           NativeTimeout.arm
-            (int_of_float timeout + 30) ExitCodes.incomplete_analysis
+            (int_of_float timeout + 60) ExitCodes.incomplete_analysis
       | _ -> () ) ;
 
   (* Install generic signal handlers for other signals. *)
