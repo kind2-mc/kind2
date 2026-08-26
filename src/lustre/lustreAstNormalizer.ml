@@ -119,15 +119,19 @@ end
 
 module LocalCache = Hashtbl.Make(LocalHash)
 
-(* Key of a selector proof obligation: its source position and the obligation
-   itself, compared structurally rather than through their printed form. *)
+(* Structural equality of expressions, ignoring positions *)
+let expr_equal e1 e2 =
+  match AH.syn_expr_equal None e1 e2 with
+  | Ok true -> true
+  | Ok false | Error () -> false
+
+(* Key of a selector proof obligation: its source position and the tester it
+   requires. The enclosing guards are deliberately not part of the key; they live in the value
+   so that an obligation implied by an already emitted one can be dropped (see
+   mk_selector_obligation). *)
 module SelectorHash = struct
   type t = Lib.position * A.expr
-  let equal (p1, e1) (p2, e2) =
-    Lib.equal_pos p1 p2
-    && (match AH.syn_expr_equal None e1 e2 with
-        | Ok true -> true
-        | _ -> false)
+  let equal (p1, e1) (p2, e2) = Lib.equal_pos p1 p2 && expr_equal e1 e2
 
   let hash (_, e) = AH.hash None e
 end
@@ -161,8 +165,10 @@ let force_fresh = true
 
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
-(* For deduplication of selector-related proof obligations *)
-let selector_cache = SelectorCache.create 20
+(* Selector proof obligations already emitted, each recording the enclosing
+   quantifiers and guards it was emitted under *)
+let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
+  SelectorCache.create 20
 
 let clear_cache () =
   LocalCache.clear local_cache;
@@ -2008,23 +2014,25 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
             shift (d - 1) (mk_pre_local ie)
         in
         (* 'pick' selects the normalized or the source form of each guard *)
+        let shifted_guards pick shift_fn =
+          List.map
+            (fun c -> let g, d = pick c in shift_fn d g)
+            info.call_context
+        in
         let mk_body pick core shift_fn =
           let core = shift_fn info.pre_depth core in
-          match info.call_context with
+          match shifted_guards pick shift_fn with
           | [] -> core
-          | c :: cs ->
-            let shift_guard acc c' =
-              let g', d' = pick c' in
-              A.BinaryOp (pos, A.And, shift_fn d' g', acc)
+          | g :: gs ->
+            let conj =
+              List.fold_left (fun acc g' -> A.BinaryOp (pos, A.And, g', acc)) g gs
             in
-            let g, d = pick c in
-            let conj = List.fold_left shift_guard (shift_fn d g) cs in
             A.BinaryOp (pos, A.Impl, conj, core)
         in
         let normalized_pick (g, _, d) = (g, d) in
         let source_pick (_, g, d) = (g, d) in
         (* Same shape as the obligation but with no generated locals: used to
-           discover the variables to close over and as the deduplication key *)
+           discover the variables to close over *)
         let probe = mk_body normalized_pick tester shift_display in
         (* Close over the variables the selector is read under: the enclosing
            quantifiers, and the index variables of an enclosing array equation. *)
@@ -2046,12 +2054,24 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
                   A.BinaryOp (pos, A.Impl, c, acc))
             ) e vars
         in
-        (* Keyed on the probe, so that a repeated obligation is dropped before
-           any locals are created *)
-        let key = (pos, close probe) in
-        if SelectorCache.mem selector_cache key then empty ()
+        let key = (pos, shift_display info.pre_depth tester) in
+        let guards = shifted_guards normalized_pick shift_display in
+        let quantifiers = List.map (fun (_, id, _) -> id) info.quantified_variables in
+        let emitted =
+          match SelectorCache.find_opt selector_cache key with
+          | Some e -> e
+          | None -> []
+        in
+        let implies (quantifiers', guards') =
+          List.length quantifiers' = List.length quantifiers
+          && List.for_all2 HString.equal quantifiers' quantifiers
+          && List.for_all
+               (fun g' -> List.exists (expr_equal g') guards)
+               guards'
+        in
+        if List.exists implies emitted then empty ()
         else begin
-        SelectorCache.add selector_cache key ();
+        SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
         let obligation = close (mk_body normalized_pick tester shift) in
         (* Displayed in terms of the input model *)
         let display =
