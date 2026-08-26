@@ -136,6 +136,25 @@ let setup : unit -> any_input = fun () ->
   (* Set sigalrm handler. *)
   Signals.set_sigalrm_timeout_from_flag () ;
 
+  (* On Windows there is no SIGALRM, and the wall clock is looked at
+     only in the polling loop of the supervisor. That is enough while
+     the supervisor runs, and on a machine with fewer cores than there
+     are busy engines it stops running: every domain parks in a
+     stop-the-world rendezvous none of them can complete, no OCaml code
+     executes anywhere, and the run goes minutes past the time it was
+     given. Measured on a four core runner, a run given 20s took 227s.
+
+     So the last word on the wall clock there belongs to a thread the
+     operating system schedules, which the runtime cannot stop. It is a
+     backstop and not the timeout: a generous grace on top, so that it
+     only ever fires on a run that has already failed to stop itself. *)
+  ( if Sys.win32 then
+      match Flags.timeout_wall () with
+      | timeout when timeout > 0. ->
+        NativeTimeout.arm
+          (int_of_float timeout + 60) ExitCodes.incomplete_analysis
+      | _ -> () ) ;
+
   (* Install generic signal handlers for other signals. *)
   Signals.set_sigint () ;
   (* SIGPIPE is ignored, not turned into an exception: signal handlers
