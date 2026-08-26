@@ -1,0 +1,9 @@
+(* `(1, true)` is an expression list, not a tuple -- a tuple literal is written
+   `'(1, true)`. The element type of a set literal is inferred rather than
+   written down, so it used to skip the check a declared one gets, and the
+   frontend crashed later instead of reporting the error. *)
+node N() returns (ok: bool);
+let
+  ok = true;
+  check { (1, true) } = { (1, true) };
+tel

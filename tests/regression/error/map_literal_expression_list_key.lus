@@ -1,0 +1,6 @@
+(* Same as set_literal_expression_list_element, for the key of a map literal. *)
+node N() returns (ok: bool);
+let
+  ok = true;
+  check map[ (1, true) := 3 ] = map[ (1, true) := 3 ];
+tel

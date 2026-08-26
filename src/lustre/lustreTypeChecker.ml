@@ -1089,10 +1089,16 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.StructUpdate (pos, (EmptyMap (_, None) as e1), [MapIndex (p2, e2)], Some e3) ->
     let* ty1, e2, warnings1 = infer_type_expr ctx nname e2 in 
     let* ty2, e3, warnings2 = infer_type_expr ctx nname e3 in 
+    (* The key type of a map literal is inferred rather than written down, so
+       it has not been through the check a declared one gets *)
+    let* _ = check_map_set_key_expr_type ctx (LH.pos_of_expr e2) ty1 in
     let e = LA.StructUpdate (pos, e1, [MapIndex (p2, e2)], Some e3) in 
     R.ok (LA.Map (pos, ty1, ty2), e, warnings1 @ warnings2)
   | LA.StructUpdate (pos, (EmptySet (_, None) as e1), [SetIndex (p2, e2)], None) ->
     let* ty, e2, warnings = infer_type_expr ctx nname e2 in 
+    (* The element type of a set literal is inferred rather than written down,
+       so it has not been through the check a declared one gets *)
+    let* _ = check_map_set_key_expr_type ctx (LH.pos_of_expr e2) ty in
     let e = LA.StructUpdate (pos, e1, [SetIndex (p2, e2)], None) in
     R.ok (LA.Set (pos, ty), e, warnings)
   (* only reachable through previous 2 cases *)
@@ -2933,6 +2939,19 @@ and check_ref_type_assumptions ctx src nname bound_var e =
     | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
   )
   | Output | Local | Ghost | Global -> R.ok ()
+
+(* Check that the inferred type of an expression used as a set element or a map
+   key is a legal one. An expression list is singled out because a user reaching
+   for a tuple is the way one shows up here, and the type of a list prints just
+   like the tuple that was meant. *)
+and check_map_set_key_expr_type ctx pos ty =
+  match ty with
+  | LA.GroupType _ ->
+    type_error pos
+      (Unsupported "A set element or a map key must be a single expression, \
+                    not a list of them; a tuple is written '(e1, e2) rather \
+                    than (e1, e2)")
+  | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty = let r = check_map_set_type pos ctx in match ty with  
 | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _ 

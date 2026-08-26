@@ -1,0 +1,8 @@
+(* A set cannot hold sets, maps, or arrays; the element type of a set literal
+   is inferred rather than written down, so this used to crash the frontend
+   instead of being reported. *)
+node N(s: set<int>) returns (ok: bool);
+let
+  ok = true;
+  check { s } = { s };
+tel

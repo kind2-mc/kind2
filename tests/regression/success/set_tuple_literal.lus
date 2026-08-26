@@ -1,0 +1,9 @@
+(* A tuple set element is written with the tuple literal syntax `'(...)` *)
+node N(s: set<[int, bool]>) returns (ok: bool);
+let
+  ok = true;
+  check "member" '(1, true) in { '(1, true), '(2, false) };
+  check "non member" not ('(3, true) in { '(1, true), '(2, false) });
+  check "equality" { '(1, true), '(2, false) } = { '(2, false), '(1, true) };
+  check "insertion" forall (p: [int, bool]) (p in s) => (p in s + { '(0, false) });
+tel
