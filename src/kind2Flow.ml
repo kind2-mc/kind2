@@ -307,6 +307,27 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
+(* The exceptions for which [status_of_exn] returns the status it was
+   given rather than one of its own.
+
+   Kept beside it deliberately: the two have to agree. An exception not
+   named here ends the run with a verdict of its own -- a signal, a
+   parse error, a runtime failure -- and the status the results reached
+   is not what such a run should report.
+
+   [Failure] is left out although two of its messages do pass through:
+   which they are depends on the text of the message, and reporting an
+   error for the rest is the safe way to be wrong. *)
+let keeps_the_given_status = function
+  | Exit
+  | SMTSolver.Unknown
+  | KEvent.Terminate
+  | TimeoutWall
+  | TimeoutVirtual
+  | IC3.UnsupportedFeature _
+  | IC3IA.UnsupportedFeature _ -> true
+  | _ -> false
+
 (** Terminate all engine domains of the current analysis.
 
     Termination is cooperative: {!InvarManager.on_exit} broadcasts a
@@ -518,17 +539,23 @@ let on_exit sys process status exn =
   (* From here to [exit] nothing bounds the teardown but the watchdog,
      so it starts now, carrying what the results already say.
 
-     [status] has not been through [status_of_exn] yet, but it is not
-     nothing: on the paths that reach here with a results verdict it is
-     what the analysis reached, and [status_of_exn] leaves it alone for
-     the exceptions that end a run normally, a wall clock timeout among
-     them. Arming with [ExitCodes.error] instead cost a run its answer:
-     on Windows the teardown can outlast the watchdog's ten seconds, and
-     a run that had printed `Incomplete analysis result` exited 1 rather
-     than 30, which reads as a crash rather than as running out of
-     time. *)
+     [status] has not been through [status_of_exn] yet, but for the
+     exceptions that end a run without a verdict of their own it is
+     already the answer: it is what the analysis reached, and
+     [status_of_exn] will return it unchanged. Arming with
+     [ExitCodes.error] instead cost a run its answer: on Windows the
+     teardown can outlast the watchdog's ten seconds, and a run that had
+     printed `Incomplete analysis result` exited 1 rather than 30, which
+     reads as a crash rather than as running out of time.
+
+     Only for those exceptions, though. A signal, a parse error or a
+     runtime failure ends the run with a verdict of its own, and
+     reporting what the results happened to say would be worse than
+     reporting an error: a crash that exits 40, or a Ctrl-C that exits
+     30, reads as an ordinary answer, and 30 passes a regression run as
+     silently as a zero would. *)
   arm_exit_watchdog () ;
-  watchdog_reports status ;
+  if keeps_the_given_status exn then watchdog_reports status ;
   try
     slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn
