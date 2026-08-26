@@ -1372,8 +1372,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
               (let* e_ty, e, warnings3 = infer_type_expr ctx nname (Option.get e) in
                 R.ifM (eq_lustre_type ctx e_ty vt)
                   (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.MapIndex (p, idx_e)], Some e), warnings1 @ warnings2 @ warnings3))
-                  (type_error pos (ExpectedType (e_ty, vt))))
-              (type_error pos (ExpectedType (index_type, kt)))
+                  (type_error pos (ExpectedType (vt, e_ty))))
+              (type_error pos (ExpectedType (kt, index_type)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
       | LA.SetIndex (p, idx_e) ->
@@ -1385,7 +1385,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
               (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.SetIndex (p, idx_e)], None), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (index_type, kt)))
+              (type_error pos (ExpectedType (kt, index_type)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
 
