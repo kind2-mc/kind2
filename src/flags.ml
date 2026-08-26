@@ -3342,6 +3342,37 @@ module Global = struct
   ])
   let timeout_analysis () = !timeout_analysis
 
+
+  (* How many engines may run at once.
+
+     Every engine is a domain of its own and holds solver processes of
+     its own, so an analysis of the default ten engines puts some forty
+     runnable things on the machine. Where that is well beyond what the
+     machine has, they do not share it, they thrash: on a four core
+     runner the process was descheduled for 95% of the wall clock and
+     failed to reach a counterexample that two engines find in a second.
+
+     Zero asks the runtime what the machine can carry, which is what
+     nearly every run should use: it is a ceiling rather than a target,
+     so it changes nothing where the engines already fit. *)
+  let max_engines_default = 0
+  let max_engines = ref max_engines_default
+  let _ = add_specs ([
+    ( "--max_engines",
+      Arg.Set_int max_engines,
+      fun fmt ->
+        Format.fprintf fmt
+          "\
+            Maximum number of engines running at once (0 to suit the machine)@ \
+            Engines beyond the limit are not run, dropping the last of@ \
+            \"--enable\" first, so the ones that decide properties are kept@ \
+            Default: %d\
+          "
+          max_engines_default
+    )
+  ])
+  let max_engines () = !max_engines
+
   (* Only parse mode. *)
   let only_parse_default = false
   let only_parse = ref only_parse_default
@@ -3877,6 +3908,7 @@ let input_format = Global.input_format
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
+let max_engines = Global.max_engines
 let input_file = Global.input_file
 let all_input_files = Global.get_all_input_files
 let clear_input_files = Global.clear_input_files

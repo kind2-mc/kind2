@@ -215,6 +215,9 @@ val timeout_wall : unit -> float
 (** Per-run wallclock timeout. *)
 val timeout_analysis : unit -> float
 
+(** Maximum number of engines to run at once, 0 to suit the machine. *)
+val max_engines : unit -> int
+
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
 

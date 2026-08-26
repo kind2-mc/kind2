@@ -725,6 +725,110 @@ let run_process in_sys param sys messaging_setup process =
   |> spawn_process in_sys param
 
 
+(* Engines to run at once, at most.
+
+   Every engine is a domain of its own, and each holds solver processes
+   of its own: the default ten put some forty runnable things on the
+   machine. Where that is well beyond what the machine has they do not
+   share it, they thrash. Measured on a four core runner, an analysis of
+   the whole set was descheduled for 95% of its wall clock and did not
+   reach a counterexample that two engines find in a second, while the
+   same test under this limit stalled not at all and answered in one.
+
+   The runtime's own count is what the machine can carry; the supervisor
+   is one of them. Never below two, so that there is always more than
+   one engine on any machine that runs Kind 2 at all. *)
+let max_engines () =
+  match Flags.max_engines () with
+  | n when n > 0 -> n
+  | _ -> max 2 (Domain.recommended_domain_count () - 1)
+
+(* Whether an engine generates invariants, and over which values. *)
+let generator_domain = function
+  | `INVGEN | `INVGENOS -> Some `Bool
+  | `INVGENINT | `INVGENINTOS -> Some `Int
+  | `INVGENREAL | `INVGENREALOS -> Some `Real
+  | `INVGENMACH | `INVGENMACHOS
+  | `INVGENBV _ | `INVGENBVOS _
+  | `INVGENUBV _ | `INVGENUBVOS _ -> Some `Machine
+  | _ -> None
+
+(* Whether an engine can generate anything for this system.
+
+   An invariant generator works over one kind of value, and there is one
+   of them per kind: a system with no reals in it gets nothing from the
+   generator over reals, whatever else it gets. So when there is not
+   room for them all, the ones whose values the system does not use go
+   first -- otherwise which generator survives is decided by the order
+   of [--enable], which knows nothing about the system.
+
+   Only asked of a system whose logic was inferred. Where it was given
+   rather than inferred, nothing here can tell, and none is demoted. *)
+let generates_something_for sys m =
+  match generator_domain m with
+  | None -> true
+  | Some domain ->
+    match TSys.get_logic sys with
+    | `Inferred fs ->
+      let has f = TermLib.FeatureSet.mem f fs in
+      ( match domain with
+        | `Bool -> true            (* every Lustre system has booleans *)
+        | `Int -> has TermLib.IA
+        | `Real -> has TermLib.RA
+        | `Machine -> has TermLib.BV )
+    | `None | `SMTLogic _ -> true
+
+(* The order engines are given up in when the machine cannot carry them
+   all, most worth keeping first.
+
+   Not the order of [--enable], which puts IND2 third. IND2 earns its
+   keep from the invariants another engine generates, so it goes after
+   the first generator that can generate something here, and a prefix
+   too short to reach one is better spent on an engine that decides
+   properties by itself. What a machine that can carry only three should
+   run is BMC, k-induction and IC3QE. *)
+let core_rank = function
+  | `BMC -> 0
+  | `IND -> 1
+  | `IC3 | `IC3QE -> 2
+  | `BMCSKIP -> 3
+  | `IC3IA -> 4
+  | _ -> 5
+
+let is_core m = core_rank m < 5
+
+(* Keep the engines a machine can carry, and say which were left out. *)
+let cap_engines_to_machine sys modules =
+  let cap = max_engines () in
+  if List.length modules <= cap then modules
+  else (
+    let core, rest = List.partition is_core modules in
+    let core =
+      List.stable_sort (fun a b -> compare (core_rank a) (core_rank b)) core
+    in
+    let generators, rest =
+      List.partition (fun m -> generator_domain m <> None) rest
+    in
+    let useful, idle =
+      List.partition (generates_something_for sys) generators
+    in
+    let ind2, others = List.partition (fun m -> m = `IND2) rest in
+    let ordered =
+      match useful with
+      | first :: more -> core @ (first :: ind2) @ more @ idle @ others
+      | [] -> core @ ind2 @ idle @ others
+    in
+    let kept, dropped = list_split cap ordered in
+    KEvent.log L_note
+      "@[<hov>Running %d of %d engines at once, which is what this machine \
+       carries.@ Not run:@ %a.@ Use `--max_engines` to ask for more.@]"
+      cap (List.length modules)
+      (pp_print_list pp_print_kind_module ",@ ") dropped ;
+    (* Back in the order they were given, so nothing downstream sees the
+       ranking *)
+    List.filter (fun m -> List.mem m kept) modules
+  )
+
 let create_processes slice_to_prop modules sys =
   let ic3ia_module, other_modules = modules |> List.partition (
     function `IC3IA -> true | _ -> false)
@@ -859,6 +963,8 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
         query with a lower bound *)
       let modules = process_bmc_modules sys modules in
       let modules = process_ic3_modules modules in
+      (* Last, so that the count is of the engines that would really run *)
+      let modules = cap_engines_to_machine sys modules in
 
       let to_run, pending = create_processes slice_to_prop modules sys in
 
