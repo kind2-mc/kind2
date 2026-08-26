@@ -1470,40 +1470,40 @@ and normalize_item info node_id map = function
       match k with
       (* expr or counter < b *) 
       | Reachable Some (From b) -> 
-        let expr =
+        let query =
           A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
           A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
-        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map query in
         let gids = record_source_expr gids nexpr expr in
         [A.AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter != b *)
       | Reachable Some (At b) -> 
-        let expr = 
+        let query = 
           A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
           A.CompOp(pos, A.Neq, Ident(dpos, ctr_id), 
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
-        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map query in
         let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       (* expr or counter > b *)
       | Reachable Some (Within b) -> 
-        let expr = 
+        let query = 
           A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
           A.CompOp(pos, A.Gt, Ident(dpos, ctr_id), 
                               Const (dpos, Num (HString.mk_hstring (string_of_int b)))))
         in
-        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map query in
         let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
       
       (* expr or counter < b1 or counter > b2 *)
       | Reachable Some (FromWithin (b1, b2)) -> 
-        let expr = 
+        let query = 
           A.BinaryOp (pos, Or, A.UnaryOp (pos, A.Not, expr), 
           A.BinaryOp (pos, Or, 
             A.CompOp(pos, A.Lt, Ident(dpos, ctr_id), 
@@ -1512,13 +1512,13 @@ and normalize_item info node_id map = function
                                 Const (dpos, Num (HString.mk_hstring (string_of_int b2)))))
           )
         in
-        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map query in
         let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
       | Reachable _ -> 
-        let expr = A.UnaryOp (pos, A.Not, expr) in
-        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map expr in
+        let query = A.UnaryOp (pos, A.Not, expr) in
+        let nexpr, gids, warnings = abstract_expr false info (Some node_id) map query in
         let gids = record_source_expr gids nexpr expr in
         [AnnotProperty (pos, name', nexpr, k)], gids, warnings
 
@@ -1528,8 +1528,8 @@ and normalize_item info node_id map = function
         let inv_prop = A.AnnotProperty (pos, name', nexpr1, Invariant) in
         if Flags.check_nonvacuity () then (
           let pos' =  AH.pos_of_expr expr2 in
-          let expr2 = A.UnaryOp (pos', A.Not, expr2) in
-          let nexpr2, gids2, warnings2 = abstract_expr false info (Some node_id) map expr2 in
+          let guard_query = A.UnaryOp (pos', A.Not, expr2) in
+          let nexpr2, gids2, warnings2 = abstract_expr false info (Some node_id) map guard_query in
           let gids1 = record_source_expr gids1 nexpr1 expr1 in
           let gids2 = record_source_expr gids2 nexpr2 expr2 in
           let name'', gids2 = match name' with
