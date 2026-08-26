@@ -3354,7 +3354,10 @@ module Global = struct
 
      Zero asks the runtime what the machine can carry, which is what
      nearly every run should use: it is a ceiling rather than a target,
-     so it changes nothing where the engines already fit. *)
+     so it changes nothing where the engines already fit. It only asks
+     on Windows, since that is the only platform measured to collapse
+     rather than merely slow down, and limiting costs proofs. Give a
+     number to have the limit anywhere. *)
   let max_engines_default = 0
   let max_engines = ref max_engines_default
   let _ = add_specs ([
@@ -3363,7 +3366,8 @@ module Global = struct
       fun fmt ->
         Format.fprintf fmt
           "\
-            Maximum number of engines running at once (0 to suit the machine)@ \
+            Maximum number of engines running at once@ \
+            0 suits the machine, which limits on Windows and nowhere else@ \
             Engines beyond the limit are not run, dropping the last of@ \
             \"--enable\" first, so the ones that decide properties are kept@ \
             Default: %d\

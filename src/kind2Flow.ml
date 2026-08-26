@@ -737,11 +737,23 @@ let run_process in_sys param sys messaging_setup process =
 
    The runtime's own count is what the machine can carry; the supervisor
    is one of them. Never below two, so that there is always more than
-   one engine on any machine that runs Kind 2 at all. *)
+   one engine on any machine that runs Kind 2 at all.
+
+   By default only on Windows, because only there does the crowd
+   collapse. The same ten engines and thirty solvers pinned to a single
+   Linux core stall not at all and finish in 8.3s: a scheduler that
+   shares the machine proportionally gets the missing domain to the
+   rendezvous, and everything is merely slow. Limiting is not free --
+   forced to three where a machine did not need it, the regression suite
+   takes 211s instead of 35s and one test falls from proved to timed out
+   -- so a platform that does not have the problem should not pay for
+   it. The flag is there on all of them for anyone who wants the limit
+   anyway, on a shared machine or a small one. *)
 let max_engines () =
   match Flags.max_engines () with
   | n when n > 0 -> n
-  | _ -> max 2 (Domain.recommended_domain_count () - 1)
+  | _ when Sys.win32 -> max 2 (Domain.recommended_domain_count () - 1)
+  | _ -> max_int
 
 (* Whether an engine generates invariants, and over which values. *)
 let generator_domain = function
