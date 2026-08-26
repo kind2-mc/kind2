@@ -74,7 +74,15 @@ static DWORD WINAPI kind2_timeout_thread(LPVOID unused)
      domain does not hold this. */
   announce = CreateThread(NULL, 0, kind2_timeout_announce, NULL, 0, NULL);
   if (announce != NULL) {
-    WaitForSingleObject(announce, 1000);
+    /* Above the rest, and given several seconds. This fires on a
+       machine whose every core is held by domains spinning at a
+       rendezvous, and a thread of ordinary priority given a second did
+       not get to run at all: the process was ended on time and said
+       nothing about why, which is the one thing it is here to do.
+       Bounded still, since a standard error nobody drains must not be
+       what keeps us from exiting. */
+    SetThreadPriority(announce, THREAD_PRIORITY_HIGHEST);
+    WaitForSingleObject(announce, 5000);
     CloseHandle(announce);
   }
 
