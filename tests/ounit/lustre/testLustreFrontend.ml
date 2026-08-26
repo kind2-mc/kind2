@@ -621,7 +621,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test polymorphism 4" (fun () ->
     match load_file "./lustreTypeChecker/poly_type_checking.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test abstract type" (fun () ->
     match load_file "./lustreTypeChecker/abstract_type.lus" with
@@ -781,7 +781,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test invalid type for bound variable" (fun () ->
     match load_file "./lustreTypeChecker/bad_bound_var_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
@@ -841,7 +841,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test nondeterministic choice type error" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test nondeterministic choice type error 2" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice_2.lus" with

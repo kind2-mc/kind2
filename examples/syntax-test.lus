@@ -785,6 +785,11 @@ let
   -- `in` is set (and map) membership
   check forall (i: int) not (i in s1 + s2) = (not (i in s1) and not (i in s2));
   check forall (i: int) i in out => (i = 1 or i = 2 or i = 3);
+
+  -- Subset, proper subset, superset, and proper superset
+  check out <= { 1, 2, 3 };
+  check s1 * s2 <= s1 and s1 + s2 >= s1;
+  check {}@<int> < { 1 } and { 1, 2 } > { 1 };
 tel
 
 -- ------------------------------------------------------------
