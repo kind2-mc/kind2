@@ -1313,7 +1313,14 @@ and compile_ast_expr
            drop the leading ones and keep the [List.length idx_tys] bounds that
            correspond to [e1]'s own remaining dimensions. *)
         let bounds =
-          let all_bounds = SVT.find !map.bounds sv in
+          let all_bounds =
+            try SVT.find !map.bounds sv with
+            | Not_found ->
+              (* A global free constant is compiled with the map of the
+                 declaration it appears in, not with the map of the node that
+                 uses it, so its bounds are only in the global table. *)
+              SVT.find cstate.state_var_bounds sv
+          in
           let drop = List.length all_bounds - List.length idx_tys in
           if drop > 0 then snd (list_split drop all_bounds) else all_bounds
         in
@@ -2789,8 +2796,23 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
       let src_expr_str =
-        let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
-        let desugared = try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr in
+        (* What the property was written as, if the normalizer had to ask
+           about something else -- a reachability query is checked by
+           proving its negation, and the negation is not what was asked.
+           Looked up by name, since the abstracted expression is shared
+           with anything that normalizes the same way. *)
+        let written_as =
+          match name_opt with
+          | Some n -> GI.StringMap.find_opt n gids.GI.prop_source_map
+          | None -> None
+        in
+        let desugared =
+          match written_as with
+          | Some expr -> expr
+          | None ->
+            let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+            try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+        in
         LDAT.string_of_expr_as_source
           ~ref_type_names:cstate.ref_type_names cstate.adt_map desugared
       in

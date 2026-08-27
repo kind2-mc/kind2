@@ -35,6 +35,18 @@ fun pos node_name node_type ->
   let name = HString.concat2 name pos |> HString.concat2 (NI.get_name node_name)  in
   NI.mk_node_id ~node_type ~user_name:name name
 
+(* Not every identifier occurring in an expression or a type denotes a variable
+   that a generated node must take as an argument. Global constants are in
+   scope everywhere, and nullary ADT constructors are parsed as identifiers
+   even though they denote values. *)
+let node_arguments: Ctx.tc_context -> HString.t list -> HString.t list =
+fun ctx ids ->
+  List.filter (fun i ->
+    match Ctx.lookup_const ctx i with
+    | Some (_, _, Ctx.Global) -> false
+    | _ -> Ctx.lookup_constructor ctx i |> Option.is_none
+  ) ids
+
 (* When a branch of a when-then-else expression is temporal (it uses '->' or
    'pre'), abstract it into a call to a fresh internal node whose single output
    equals the original expression and whose arguments are the variables used in
@@ -48,13 +60,7 @@ fun ctx node_name e ->
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let node_id = mk_fresh_fn_name pos node_name ClockedExpr in
     (* The variables used in the expression become the node's arguments *)
-    let inputs = AH.vars_without_node_call_ids e |> Ctx.SI.elements in
-    (* Global constants don't need to be passed as arguments to generated nodes *)
-    let inputs = List.filter (fun i ->
-      match Ctx.lookup_const ctx i with
-        | Some (_, _, Ctx.Global) -> false
-        | _ -> true
-    ) inputs in
+    let inputs = AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
     let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
     (* If the type of any free variable cannot be determined here (e.g. a
@@ -162,13 +168,7 @@ fun ctx node_name fun_ids expr ->
     in 
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let ty = Ctx.expand_type_syn ctx ty in
-    let inputs = AH.vars_of_type ty |> Ctx.SI.elements in
-    (* Global constants don't need to be passed as arguments to generated nodes *)
-    let inputs = List.filter (fun i -> 
-      match Ctx.lookup_const ctx i with 
-        | Some (_, _, Ctx.Global) -> false 
-        | _ -> true
-    ) inputs in 
+    let inputs = AH.vars_of_type ty |> Ctx.SI.elements |> node_arguments ctx in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
     let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
     let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
@@ -194,14 +194,9 @@ fun ctx node_name fun_ids expr ->
       let vars_of_exprs =
         Ctx.SI.diff vars_of_expr1 (Ctx.SI.singleton id)
       in 
-      Ctx.SI.union vars_of_exprs (AH.vars_of_type ty) |> Ctx.SI.elements
+      Ctx.SI.union vars_of_exprs (AH.vars_of_type ty)
+      |> Ctx.SI.elements |> node_arguments ctx
     in
-    (* Global constants don't need to be passed as arguments to generated nodes *)
-    let inputs = List.filter (fun i -> 
-      match Ctx.lookup_const ctx i with 
-        | Some (_, _, Ctx.Global) -> false 
-        | _ -> true
-    ) inputs in 
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
     let ctx = Ctx.add_ty ctx id ty in
     let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in

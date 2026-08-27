@@ -1,0 +1,8 @@
+datatype Option<T> = Some (value: T) | None;
+
+node N() returns (r: bool);
+var o: Option<int>;
+let
+  o = None@<Nat>;
+  r = None?(o);
+tel

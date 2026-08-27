@@ -118,6 +118,7 @@ type t = {
       held variable to the (frozen) call output. *)
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
   expr_source_map: LustreAst.expr StringMap.t;
+  prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }

@@ -117,6 +117,16 @@ type t = {
      (see lustreDesugarIfBlocks.ml). *)
   array_literal_vars: StringSet.t;
   expr_source_map: LustreAst.expr StringMap.t;
+  (* The expression a property was written as, by property name.
+
+     [expr_source_map] is keyed by the variable an expression was
+     abstracted to, and one variable serves every item that normalizes
+     to the same expression -- so a reachability query for [P], which
+     normalizes to [not P], shares its entry with any property or
+     contract item written as [not P]. They ask about different things
+     and cannot share one answer, so what a property was written as is
+     kept apart, under a name that is its own. *)
+  prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }
@@ -217,6 +227,7 @@ let union ids1 ids2 = {
     clocked_call_ties = ids1.clocked_call_ties @ ids2.clocked_call_ties;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
+    prop_source_map = StringMap.union (fun _ src _ -> Some src) ids1.prop_source_map ids2.prop_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
     history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
@@ -250,6 +261,7 @@ let empty () = {
   clocked_call_ties = [];
   array_literal_vars = StringSet.empty;
   expr_source_map = StringMap.empty;
+  prop_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
 }
