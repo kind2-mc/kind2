@@ -1795,11 +1795,11 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
-  | A.FieldProject (_, expr, field, adt_ty_opt) ->
-    let recursive_selector = match adt_ty_opt with
-      | Some (A.UserType (_, _, ty_name)) ->
+  | A.FieldProject (_, expr, field, pk) ->
+    let recursive_selector = match pk with
+      | A.Selector (_, A.UserType (_, _, ty_name), _) ->
         find_recursive_selector cstate.adt_map ty_name field
-      | _ -> None
+      | A.Selector _ | A.RecordField | A.Unresolved -> None
     in
     (match recursive_selector with
     | Some (selector_name, ftype) ->
@@ -2453,27 +2453,35 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       result :: glocals
     in List.fold_left over_generated_locals [] locals_list
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Refinement Type Constraints        *)
+  (* (State Variables for) Generated Boolean Proof Obligations          *)
   (* ****************************************************************** *)
+  (* Refinement type constraints and selector obligations are both defined by
+     an equation over a generated boolean local. *)
+  in let add_generated_bool_local glocals id =
+    let ident = mk_ident id in
+    let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
+    let over_indices = fun index index_type accum ->
+      let possible_state_var = mk_state_var
+        map
+        (node_scope @ I.reserved_scope)
+        ident
+        index
+        index_type
+        (Some (N.Generated N.Plain))
+      in
+      match possible_state_var with
+      | Some state_var -> X.add index state_var accum
+      | None -> accum
+    in
+    X.fold over_indices index_types X.empty :: glocals
   in let glocals =
-    let over_generated_locals glocals (_, _, id, _, _) =
-      let ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
-      let over_indices = fun index index_type accum ->
-        let possible_state_var = mk_state_var
-          map
-          (node_scope @ I.reserved_scope)
-          ident
-          index
-          index_type
-          (Some (N.Generated N.Plain))
-        in
-        match possible_state_var with
-        | Some state_var -> X.add index state_var accum
-        | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
-      result :: glocals
-    in List.fold_left over_generated_locals glocals gids.GI.refinement_type_constraints
+    List.fold_left
+      (fun glocals (_, _, id, _, _) -> add_generated_bool_local glocals id)
+      glocals gids.GI.refinement_type_constraints
+  in let glocals =
+    List.fold_left
+      (fun glocals (_, id, _) -> add_generated_bool_local glocals id)
+      glocals gids.GI.selector_obligations
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -3305,6 +3313,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     let create_constraint_name_pos (pos : position)=
       Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
     in
+    let create_selector_name_pos (pos : position) =
+      Format.asprintf "@[<h>Selector%a@]" pp_print_line_and_column pos
+    in
     let uniq_name =
       make_uniquifier
         (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
@@ -3349,10 +3360,30 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           (a, ac, g, gc, (sv, name, src, Property.Invariant, srexpr) :: p)
         | _ -> assert false
     in
-    let (assumes, _, guarantees, _, props) = 
+    let (assumes, _, guarantees, _, props) =
       List.fold_left over_ref_type_constraints
       (assumes, List.length assumes, guarantees, List.length guarantees, props)
       gids.GI.refinement_type_constraints
+    in
+    (* Selector obligations are always body properties: they are about a read
+       inside an expression, not about the interface of the node. *)
+    let props =
+      let uniq_name =
+        make_uniquifier
+          (List.map (fun (pos, _, _) -> create_selector_name_pos pos)
+            gids.GI.selector_obligations)
+      in
+      List.fold_left (fun p (pos, id, oexpr) ->
+        let sv = H.find !map.state_var (mk_ident id) in
+        let name = uniq_name (create_selector_name_pos pos) in
+        let soexpr =
+          LDAT.string_of_expr_as_source
+            ~ref_type_names:cstate.ref_type_names cstate.adt_map oexpr
+        in
+        let gen_src = if is_extern then Property.Contract else Property.Body in
+        let src = Property.Generated (Some pos, [sv], gen_src) in
+        (sv, name, src, Property.Invariant, soexpr) :: p
+      ) props gids.GI.selector_obligations
     in
     (assumes, guarantees, props)
   (* ****************************************************************** *)

@@ -1,0 +1,12 @@
+datatype List = Nil | Cons (hd: int, tl: List);
+
+function f(l: List) returns (b: bool);
+let
+  b = l.hd >= 0;
+tel
+
+node main(x: int) returns (ok: bool);
+let
+  ok = true;
+  check forall (l: List) (Nil?(l) and then (f(l) and f(l) and f(l)));
+tel

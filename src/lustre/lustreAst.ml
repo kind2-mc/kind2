@@ -103,6 +103,9 @@ type access_kind =
    tuple slot or an array element. *)
 type struct_update_index_kind = TupleSlot | ArrayElem
 
+(* Only user-written selectors carry a proof obligation *)
+type selector_origin = UserWritten | Kind2Generated
+
 (** Pattern for match expressions *)
 type pattern =
   | VarPat of position * ident              (* variable binding *)
@@ -113,12 +116,8 @@ type expr =
   (* Identifiers *)
   | Ident of position * ident
   | ModeRef of position * ident list
-  (* Field projection e.f, used for both record and ADT selector expressions.
-     The lustre_type option is Some adt_ty when the scrutinee is an ADT and the
-     field name is still the user-written name (set by the type checker); the
-     desugarer rewrites it to the internal payload field name and clears it to
-     None. It is None for record projections and for already-desugared ADT ones. *)
-  | FieldProject of position * expr * index * lustre_type option
+  (* Field projection e.f, used for both record and ADT selector expressions *)
+  | FieldProject of position * expr * index * proj_kind
   (* Values *)
   | Const of position * constant
   (* Operators *)
@@ -186,6 +185,12 @@ and lustre_type =
   | Map of position * lustre_type * lustre_type
   | Set of position * lustre_type
   | ADT of position * ident * (ident * (ident * lustre_type) list) list
+
+and proj_kind =
+  | Unresolved
+  | RecordField
+  (* Origin, the ADT type, and the constructor whose payload holds the field.*)
+  | Selector of selector_origin * lustre_type * ident
 
 (* A declaration of an unclocked type *)
 and typed_ident = position * ident * lustre_type
