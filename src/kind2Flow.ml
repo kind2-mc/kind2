@@ -876,12 +876,19 @@ let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
     (* Logic given rather than inferred: nothing to consult. *)
     | _ -> true
   in
+  (* One question per domain, not one per module: the one state and two state
+     generators of a domain stand or fall together, and the miner walks the
+     init and trans of every subsystem to answer. *)
+  let mineable_int =
+    lazy (logic_has TermLib.IA && InvGenMiner.has_mineable_int_terms sys)
+  in
+  let mineable_real =
+    lazy (logic_has TermLib.RA && InvGenMiner.has_mineable_real_terms sys)
+  in
   modules |> List.filter (
     function
-    | `INVGENINT | `INVGENINTOS ->
-      logic_has TermLib.IA && InvGenMiner.has_mineable_int_terms sys
-    | `INVGENREAL | `INVGENREALOS ->
-      logic_has TermLib.RA && InvGenMiner.has_mineable_real_terms sys
+    | `INVGENINT | `INVGENINTOS -> Lazy.force mineable_int
+    | `INVGENREAL | `INVGENREALOS -> Lazy.force mineable_real
     | _ -> true
   )
 
