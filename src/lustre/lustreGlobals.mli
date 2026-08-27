@@ -55,5 +55,9 @@ type t =
 
     recursive_datatypes : Type.t list;
     (** Recursive ADTs, in dependency order *)
+
+    adt_junk_ufs : UfSymbol.t list;
+    (** Uninterpreted functions giving a selector applied to an ADT value
+        built with another constructor its (arbitrary, fixed) value *)
   }
 

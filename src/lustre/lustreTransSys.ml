@@ -2550,6 +2550,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             N.equations;
             N.calls;
             N.asserts;
+            N.adt_constraints;
             N.props;
             N.history_svars;
             N.contract;
@@ -2878,6 +2879,34 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             oracles @
             (D.values outputs) @ 
             (List.concat (List.map D.values locals))
+          in
+
+          (* Canonical-form constraints of the ADT values held by the node's
+             variables, for the variables the current system has (slicing
+             and abstraction by contract remove locals). Constants (global
+             free constants and the defaults of abstract types) are not
+             state variables of the node. *)
+          let adt_constraints =
+            let svars = SVS.of_list all_state_vars in
+            adt_constraints |> List.filter (fun e ->
+              E.state_vars_of_expr e |> SVS.for_all (fun sv ->
+                StateVar.is_const sv || SVS.mem sv svars))
+          in
+
+          let init_terms =
+            List.rev_append
+              (List.map (fun e ->
+                 E.base_term_of_t TransSys.init_base e |> Term.convert_select)
+                 adt_constraints)
+              init_terms
+          in
+
+          let trans_terms =
+            List.rev_append
+              (List.map (fun e ->
+                 E.cur_term_of_t TransSys.trans_base e |> Term.convert_select)
+                 adt_constraints)
+              trans_terms
           in
 
           (* Only keep assumptions that are defined given the current sys. *)
@@ -3426,7 +3455,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           in
 
           (* UFs of the system. *)
-          let ufs = function_ufs in
+          let ufs = function_ufs @ globals.G.adt_junk_ufs in
           
           (* let ty_args_opt = match node_id with 
           | (_, tags) -> Lib.find_map (fun tag -> match tag with 

@@ -25,7 +25,23 @@
                  C1_0: t1_0; C1_1: t1_1;
                  C2_0: t2_0 }
     where the enum tag field encodes the active constructor and the
-    payload fields for non-selected constructors carry junk values.
+    payload fields for non-selected constructors carry the default value of
+    their type.  Every ADT value is kept in this canonical form: constructor
+    applications fill the inactive payload slots with defaults, and free
+    values (inputs, oracles, undefined outputs, free constants, quantified
+    variables) are constrained with [mk_canonical_exprs].  Equality and
+    set/map membership on ADT values can therefore be plain structural
+    operations on the record.
+
+    A selector [e.f] applied to a value built with a constructor other than
+    the one declaring [f] yields an arbitrary value that is fixed for a given
+    ADT value; it is not the default the record holds.  Where the desugaring
+    can establish from an enclosing lazy construct ([when C?(e) then ...],
+    [C?(e) and then ...], [C?(e) or else ...], [C?(e) ==> ...], or a match
+    arm) that the constructor is the active one, the selector is a plain
+    projection; otherwise it is kept as a selector marked with its ADT type
+    and compiled by LustreNodeGen into a projection guarded by the tag, with
+    an uninterpreted function of the value in the other case.
 
     ADTTerm expressions and Match expressions are desugared during
     normalization: ADTTerm becomes a RecordExpr, and Match becomes
@@ -243,7 +259,52 @@ let update_context adt_map ctx =
     List.fold_left Ctx.remove_adt_ctor acc_ctx info.ctor_variants
   ) adt_map ctx
 
-(* Generate a default (junk) value for a type. Used for unused ADT payload fields. *)
+let canonical_var_count = ref 0
+
+let canonical_var_suffix = "_canon"
+
+(* Whether a bound variable was introduced by [mk_canonical_exprs] *)
+let is_canonical_bound_var id =
+  let s = HString.string_of_hstring id in
+  let n = String.length canonical_var_suffix in
+  String.length s > n && String.sub s (String.length s - n) n = canonical_var_suffix
+
+(* The ADT declaring constructor [ctor], if any *)
+let adt_info_of_ctor adt_map ctor =
+  HStringMap.fold (fun _ info acc ->
+    match acc with
+    | Some _ -> acc
+    | None -> if List.mem ctor info.ctor_variants then Some info else None
+  ) adt_map None
+
+(* The facts "[e] is built with constructor [c]", as [(e, c)] pairs, implied
+   by the truth (if [polarity]) or falsity of a condition. The negation of a
+   tester is a fact for a two-constructor ADT only, where it makes the other
+   constructor the active one. *)
+let rec ctor_facts_of_cond adt_map polarity = function
+  | LA.ADTTester (_, e, c) ->
+    if polarity then [(e, c)]
+    else (
+      match adt_info_of_ctor adt_map c with
+      | Some { ctor_variants = [c1; c2]; _ } ->
+        [(e, if HString.equal c c1 then c2 else c1)]
+      | _ -> [])
+  | LA.BinaryOp (_, (LA.And | LA.AndThen), a, b) when polarity ->
+    ctor_facts_of_cond adt_map true a @ ctor_facts_of_cond adt_map true b
+  | LA.BinaryOp (_, (LA.Or | LA.OrElse), a, b) when not polarity ->
+    ctor_facts_of_cond adt_map false a @ ctor_facts_of_cond adt_map false b
+  | LA.UnaryOp (_, LA.Not, a) -> ctor_facts_of_cond adt_map (not polarity) a
+  | _ -> []
+
+(* Whether [facts] establish that [e] is built with constructor [ctor] *)
+let has_ctor_fact facts e ctor =
+  List.exists (fun (e', c) ->
+    HString.equal c ctor
+    && (match LH.syn_expr_equal None e' e with Ok b -> b | Error () -> false)
+  ) facts
+
+(* Generate the default value of a type, held by the payload fields of the
+   non-selected constructors of an ADT value in canonical form. *)
 let rec default_value ctx adt_map pos ty =
   let ty = desugar_type pos ctx adt_map ty in
   match ty with
@@ -335,9 +396,167 @@ and desugar_type pos ctx adt_map ty =
     | LA.RefinementType _ -> assert false (* handled above *)
     | LA.ADT _ -> assert false (* unreachable: handled above *)
 
-(* Desugar ADTTerm and Match expressions throughout an expression. *)
-and desugar_expr ctx adt_map expr =
-  let r e = desugar_expr ctx adt_map e in
+(* Constraints stating that [expr], of type [ty], is the default value of its
+   type (see [default_value]), as equalities on the scalar leaves of the value:
+   an array is default when all its elements are, a set or map when it is
+   empty, and a record, tuple or ADT value when its fields are.  Unlike an
+   equality with [default_value ctx adt_map pos ty], this needs no container
+   literal and so can be compiled outside of the normalizer. *)
+and mk_is_default ctx adt_map pos expr ty =
+  let mk = mk_is_default ctx adt_map pos in
+  let fresh_var () =
+    incr canonical_var_count;
+    HString.mk_hstring (string_of_int !canonical_var_count ^ canonical_var_suffix)
+  in
+  (* forall (k: kt) not (k in expr) *)
+  let empty kind kt =
+    let k = fresh_var () in
+    let ke = LA.Ident (pos, k) in
+    [LA.Quantifier (pos, LA.Forall, [(pos, k, kt)],
+       LA.UnaryOp (pos, LA.Not, LA.BinaryOp (pos, LA.In kind, ke, expr)))]
+  in
+  let ty = desugar_type pos ctx adt_map ty in
+  match ty with
+  | LA.RecordType (_, _, fields) ->
+    List.concat_map (fun (_, fname, ftype) ->
+      mk (LA.FieldProject (pos, expr, fname, None)) ftype
+    ) fields
+  | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
+    List.concat (List.mapi (fun i t ->
+      let i = LA.Const (pos, LA.Num (HString.mk_hstring (string_of_int i))) in
+      mk (LA.IndexAccess (pos, expr, i, LA.Tuple)) t
+    ) tys)
+  | LA.ArrayType (_, (ety, len)) ->
+    let i = fresh_var () in
+    let ie = LA.Ident (pos, i) in
+    let in_bounds =
+      LA.BinaryOp (pos, LA.And,
+        LA.CompOp (pos, LA.Lte, LA.Const (pos, LA.Num (HString.mk_hstring "0")), ie),
+        LA.CompOp (pos, LA.Lt, ie, len))
+    in
+    List.map (fun c ->
+      LA.Quantifier (pos, LA.Forall, [(pos, i, LA.Int pos)],
+        LA.BinaryOp (pos, LA.Impl, in_bounds, c))
+    ) (mk (LA.IndexAccess (pos, expr, ie, LA.Array)) ety)
+  | LA.Set (_, kt) -> empty LA.Set kt
+  | LA.Map (_, kt, _) -> empty LA.Map kt
+  | LA.RefinementType (_, (_, _, t), _) -> mk expr t
+  | LA.History (_, id) ->
+    (match Ctx.lookup_ty ctx id with Some t -> mk expr t | None -> [])
+  | LA.UserType _ ->
+    (match Ctx.expand_type_syn ctx ty with
+    | LA.UserType _ -> [LA.CompOp (pos, LA.Eq, expr, default_value ctx adt_map pos ty)]
+    | expanded -> mk expr expanded)
+  | LA.ADT _ | LA.TArr _
+  | LA.Bool _ | LA.Int _ | LA.Real _ | LA.EnumType _ | LA.AbstractType _
+  | LA.SBitVector _ | LA.UBitVector _ ->
+    [LA.CompOp (pos, LA.Eq, expr, default_value ctx adt_map pos ty)]
+
+(* Constraints stating that every ADT value reachable from [expr], of type
+   [ty], is in canonical form: for each constructor other than the active one,
+   its payload slots hold the default value of their type (see
+   [default_value]).  Values inside records, tuples, arrays, sets and maps are
+   reached through projections, and quantifiers over indexes or keys; a set or
+   map may only hold canonical keys.  Recursive ADTs are SMT-LIB datatypes with
+   no inactive slots, so they contribute nothing.  The bound variables
+   introduced here are Kind 2-generated names (see [is_generated_bound_var]). *)
+and mk_canonical_exprs ctx adt_map pos expr ty =
+  let mk = mk_canonical_exprs ctx adt_map pos in
+  let conj = function
+    | [] -> LA.Const (pos, LA.True)
+    | c :: cs -> List.fold_left (fun acc c -> LA.BinaryOp (pos, LA.And, acc, c)) c cs
+  in
+  let fresh_var () =
+    incr canonical_var_count;
+    HString.mk_hstring (string_of_int !canonical_var_count ^ canonical_var_suffix)
+  in
+  (* forall (x: kt) not canonical(x) => not (x in expr) *)
+  let only_canonical_keys kind kt =
+    let x = fresh_var () in
+    let xe = LA.Ident (pos, x) in
+    match mk xe kt with
+    | [] -> []
+    | cs ->
+      [LA.Quantifier (pos, LA.Forall, [(pos, x, kt)],
+         LA.BinaryOp (pos, LA.Impl,
+           LA.UnaryOp (pos, LA.Not, conj cs),
+           LA.UnaryOp (pos, LA.Not, LA.BinaryOp (pos, LA.In kind, xe, expr))))]
+  in
+  match ty with
+  | LA.RecordType (_, rname, fields) ->
+    (match HStringMap.find_opt rname adt_map with
+    | Some info when not info.is_recursive ->
+      let tag = LA.FieldProject (pos, expr, info.disc_field, None) in
+      List.concat_map (fun (_, fname, ftype) ->
+        if HString.equal fname info.disc_field then []
+        else
+          let fexpr = LA.FieldProject (pos, expr, fname, None) in
+          let ctor =
+            HStringMap.fold (fun ctor fs acc ->
+              match acc with
+              | Some _ -> acc
+              | None -> if List.mem_assoc fname fs then Some ctor else None
+            ) info.ctor_fields None
+            |> (function Some c -> c | None -> assert false)
+          in
+          let inactive = LA.CompOp (pos, LA.Neq, tag, LA.Ident (pos, ctor)) in
+          List.map (fun is_default ->
+            LA.BinaryOp (pos, LA.Impl, inactive, is_default)
+          ) (mk_is_default ctx adt_map pos fexpr ftype)
+          @ mk fexpr ftype
+      ) fields
+    | _ ->
+      List.concat_map (fun (_, fname, ftype) ->
+        mk (LA.FieldProject (pos, expr, fname, None)) ftype
+      ) fields)
+  | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
+    List.concat (List.mapi (fun i t ->
+      let i = LA.Const (pos, LA.Num (HString.mk_hstring (string_of_int i))) in
+      mk (LA.IndexAccess (pos, expr, i, LA.Tuple)) t
+    ) tys)
+  | LA.ArrayType (_, (ety, len)) ->
+    let i = fresh_var () in
+    let ie = LA.Ident (pos, i) in
+    let in_bounds =
+      LA.BinaryOp (pos, LA.And,
+        LA.CompOp (pos, LA.Lte, LA.Const (pos, LA.Num (HString.mk_hstring "0")), ie),
+        LA.CompOp (pos, LA.Lt, ie, len))
+    in
+    List.map (fun c ->
+      LA.Quantifier (pos, LA.Forall, [(pos, i, LA.Int pos)],
+        LA.BinaryOp (pos, LA.Impl, in_bounds, c))
+    ) (mk (LA.IndexAccess (pos, expr, ie, LA.Array)) ety)
+  | LA.Set (_, kt) -> only_canonical_keys LA.Set kt
+  | LA.Map (_, kt, vt) ->
+    let values =
+      let k = fresh_var () in
+      let ke = LA.Ident (pos, k) in
+      List.map (fun c ->
+        LA.Quantifier (pos, LA.Forall, [(pos, k, kt)],
+          LA.BinaryOp (pos, LA.Impl, LA.BinaryOp (pos, LA.In LA.Map, ke, expr), c))
+      ) (mk (LA.IndexAccess (pos, expr, ke, LA.Map)) vt)
+    in
+    only_canonical_keys LA.Map kt @ values
+  | LA.RefinementType (_, (_, _, t), _) -> mk expr t
+  | LA.History (_, id) ->
+    (match Ctx.lookup_ty ctx id with Some t -> mk expr t | None -> [])
+  | LA.UserType (_, args, name) ->
+    (match Ctx.lookup_ty_syn ctx name args with
+    | Some (LA.UserType (_, _, n)) when HString.equal n name -> []
+    | Some t -> mk expr t
+    | None -> [])
+  | LA.ADT _ | LA.TArr _
+  | LA.Bool _ | LA.Int _ | LA.Real _ | LA.EnumType _ | LA.AbstractType _
+  | LA.SBitVector _ | LA.UBitVector _ -> []
+
+(* Desugar ADTTerm and Match expressions throughout an expression. [facts]
+   are the constructor facts (see [ctor_facts_of_cond]) established by the
+   enclosing lazy constructs. *)
+and desugar_expr ?(facts = []) ctx adt_map expr =
+  let r e = desugar_expr ~facts ctx adt_map e in
+  let r_under cond polarity e =
+    desugar_expr ~facts:(ctor_facts_of_cond adt_map polarity cond @ facts) ctx adt_map e
+  in
   let rlist es = List.map r es in
   let rilist ies = List.map (fun (i, e) -> (i, r e)) ies in
   let rloi = function
@@ -395,7 +614,11 @@ and desugar_expr ctx adt_map expr =
     let scrut' = r scrut in
     let desugared_arms = List.map (fun (pat, body) ->
       let (cond_opt, body') = desugar_arm pos ctx adt_map adt_info scrut' pat body in
-      (cond_opt, r body')
+      let arm_facts = match pat with
+        | LA.Pat (_, ctor, _) when List.mem ctor adt_info.ctor_variants -> [(scrut, ctor)]
+        | _ -> []
+      in
+      (cond_opt, desugar_expr ~facts:(arm_facts @ facts) ctx adt_map body')
     ) arms in
     build_ite pos desugared_arms
   | LA.ADTTester (pos, e, c) ->
@@ -434,9 +657,22 @@ and desugar_expr ctx adt_map expr =
       |> (function Some c -> c | None -> assert false)
       in
       let internal_fld = payload_field_name_of ctor fld in
-      LA.FieldProject (p, e', internal_fld, None)
+      if has_ctor_fact facts e ctor then
+        LA.FieldProject (p, e', internal_fld, None)
+      else
+        (* The constructor is not known to be the active one: the selector
+           stays marked with its ADT type for LustreNodeGen *)
+        LA.FieldProject (p, e', internal_fld, Some (LA.UserType (p, [], info.type_name)))
   | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
+  (* Only the lazy constructs establish constructor facts for their operands:
+     the eager ones evaluate every operand, whatever the condition *)
+  | LA.BinaryOp (p, (LA.AndThen | LA.LazyImpl as op), e1, e2) ->
+    LA.BinaryOp (p, op, r e1, r_under e1 true e2)
+  | LA.BinaryOp (p, LA.OrElse, e1, e2) ->
+    LA.BinaryOp (p, LA.OrElse, r e1, r_under e1 false e2)
+  | LA.TernaryOp (p, LA.LazyIte, e1, e2, e3) ->
+    LA.TernaryOp (p, LA.LazyIte, r e1, r_under e1 true e2, r_under e1 false e3)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
   | LA.ConvOp (p, op, e) -> LA.ConvOp (p, op, r e)
@@ -461,6 +697,9 @@ and desugar_expr ctx adt_map expr =
     LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
   | LA.Quantifier (p, k, idents, e) ->
+    (* A bound variable of a type involving an ADT ranges over the canonical
+       values of that type; LustreNodeGen.compile_quantifier restricts it, so
+       that the property keeps its source form *)
     let idents' = List.map (fun (p, id, ty) -> (p, id, desugar_type p ctx adt_map ty)) idents in
     LA.Quantifier (p, k, idents', r e)
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
@@ -491,8 +730,8 @@ let desugar_contract_item ctx adt_map item =
     LA.GhostVars (p, LA.GhostVarDec (p2, tis'), r e)
   | LA.AssumptionVars _ as a -> a
 
-let rec desugar_node_item ctx adt_map item =
-  let r = desugar_expr ctx adt_map in
+let rec desugar_node_item ?(facts = []) ctx adt_map item =
+  let r = desugar_expr ~facts ctx adt_map in
   match item with
   | LA.Auto _ -> item
   | LA.Body (LA.Equation (p, lhs, e)) -> LA.Body (LA.Equation (p, lhs, r e))
@@ -502,13 +741,16 @@ let rec desugar_node_item ctx adt_map item =
     LA.AnnotProperty (p, n, r e, LA.Provided (r e2))
   | LA.AnnotProperty (p, n, e, k) -> LA.AnnotProperty (p, n, r e, k)
   | LA.IfBlock (p, e, then_items, else_items) ->
-    let di = desugar_node_item ctx adt_map in
+    (* An if block is eager: no constructor fact for its branches *)
+    let di = desugar_node_item ~facts ctx adt_map in
     LA.IfBlock (p, r e, List.map di then_items, List.map di else_items)
   | LA.WhenBlock (p, e, then_items, else_items) ->
-    let di = desugar_node_item ctx adt_map in
-    LA.WhenBlock (p, r e, List.map di then_items, List.map di else_items)
+    let d_under polarity =
+      desugar_node_item ~facts:(ctor_facts_of_cond adt_map polarity e @ facts) ctx adt_map
+    in
+    LA.WhenBlock (p, r e, List.map (d_under true) then_items, List.map (d_under false) else_items)
   | LA.FrameBlock (p, vars, eqs, items) ->
-    let di = desugar_node_item ctx adt_map in
+    let di = desugar_node_item ~facts ctx adt_map in
     let de = function
       | LA.Assert (p2, e) -> LA.Assert (p2, r e)
       | LA.Equation (p2, lhs, e) -> LA.Equation (p2, lhs, r e)

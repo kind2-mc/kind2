@@ -1,0 +1,34 @@
+(* A set or map over an ADT is compiled into an array with one dimension per
+   payload field of every constructor, and membership reads it at an index
+   whose junk payload fields (those of the constructors the tag does not
+   select) are canonicalized. Structural equality must ignore the indices that
+   canonicalization rules out: no element can observe them, so two containers
+   holding exactly the same elements must compare equal whatever they hold
+   there. *)
+
+datatype T = A (x: int) | B (y: bool);
+datatype Nested = C (t: T) | D (r: real);
+
+node Sets(s1, s2: set<T>) returns (ok: bool);
+let
+  ok = true;
+  check "set eq iff same elements"
+    (s1 = s2) = (forall (v: T) (v in s1) = (v in s2));
+  check "set neq iff some element differs"
+    (s1 <> s2) = (exists (v: T) (v in s1) <> (v in s2));
+tel
+
+node Maps(m1, m2: map<T, int>) returns (ok: bool);
+let
+  ok = true;
+  check "map eq iff same keys and values"
+    (m1 = m2) = (forall (v: T) ((v in m1) = (v in m2))
+                            and ((v in m1) => m1[v] = m2[v]));
+tel
+
+node NestedSets(s1, s2: set<Nested>) returns (ok: bool);
+let
+  ok = true;
+  check "nested set eq iff same elements"
+    (s1 = s2) = (forall (v: Nested) (v in s1) = (v in s2));
+tel

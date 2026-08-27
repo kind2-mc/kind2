@@ -1,0 +1,45 @@
+-- ADT values only exist in canonical form: the payload slots of the
+-- constructors other than the active one hold the default value of their
+-- type. Free values (inputs, the initial value of an unguarded pre, the
+-- outputs of an imported node, quantified variables) are constrained
+-- accordingly, so two values with the same active constructor and payload
+-- are equal however they were obtained.
+
+datatype Inner = X (s: int) | Y (t: bool);
+datatype D = A (a: int) | B (b: Inner) | C;
+
+node imported pick(i: int) returns (d: D);
+(*@contract guarantee A?(d) and d.a = i; *)
+
+node main(x, y: D; i: int; arr: D^3; m: map<int, D>; s: set<D>) returns (ok: bool);
+var p, d1: D; u, v: set<D>;
+let
+  check "inputs with same ctor and payload are equal"
+    (A?(x) and A?(y) and x.a = y.a) => x = y;
+  check "nested payload"
+    (B?(x) and B?(y) and X?(x.b) and X?(y.b) and x.b.s = y.b.s) => x = y;
+  check "nullary ctor"
+    (C?(x) and C?(y)) => x = y;
+
+  p = pre x;
+  check "initial value of unguarded pre"
+    (A?(p) and A?(x) and p.a = x.a) => p = x;
+
+  d1 = pick(i);
+  check "imported node output" d1 = A(i);
+
+  check "array element"
+    forall (k: int) (0 <= k and k < 3) =>
+      ((A?(arr[k]) and arr[k].a = i) => arr[k] = A(i));
+  check "map value"
+    forall (k: int) (k in m) =>
+      ((A?(m[k]) and m[k].a = i) => m[k] = A(i));
+
+  u = { A(i) };
+  v = any { w: set<D> | forall (d: D) (d in w) = (d = A(i)) };
+  check "set with the same members is equal" u = v;
+  check "free set member" (x in s and A?(x) and x.a = i) => A(i) in s;
+  check "quantified value" forall (d: D) (d in u) => d = A(i);
+  check "exists value" exists (d: D) (d in u) and A?(d);
+  ok = true;
+tel

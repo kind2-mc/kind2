@@ -60,6 +60,28 @@ val record_type_of_adt :
   adt_info ->
   LustreAst.lustre_type
 
+(** Whether a bound variable was introduced by [mk_canonical_exprs]. Its
+    quantifier characterizes the non-canonical positions of a container and
+    must not itself be restricted to canonical values. *)
+val is_canonical_bound_var : HString.t -> bool
+
+(** [mk_canonical_exprs ctx adt_map pos expr ty] is the list of constraints
+    stating that every ADT value reachable from [expr], of type [ty], is in
+    canonical form: the payload fields of the constructors other than the
+    active one hold the default value of their type, and sets and maps only
+    hold canonical keys.  Every ADT value in a program is kept in this form,
+    so ADT equality and set/map membership are plain operations on the
+    desugared record; the constraints are what free values (inputs, oracles,
+    undefined outputs, free constants and quantified variables) are subject
+    to. *)
+val mk_canonical_exprs :
+  TypeCheckerContext.tc_context ->
+  adt_map ->
+  Lib.position ->
+  LustreAst.expr ->
+  LustreAst.lustre_type ->
+  LustreAst.expr list
+
 val desugar_adts :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->

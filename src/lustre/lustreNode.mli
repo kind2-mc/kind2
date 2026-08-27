@@ -241,6 +241,12 @@ type t = {
   asserts : (position * StateVar.t) list;
   (** Assertions of node *)
 
+  adt_constraints : LustreExpr.t list;
+  (** Constraints keeping the ADT values held by the node's variables in
+      canonical form (see {!LustreDesugarADTs.mk_canonical_exprs}). Like the
+      range constraints of enumerated types, they hold in every instance of
+      the node, whether it is abstracted by its contract or not. *)
+
   props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
   (** Proof obligations for the node *)
 
