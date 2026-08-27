@@ -1663,6 +1663,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
+    (* Explicit type arguments are user-written, so they must be validated
+       before they are used to instantiate the constructor's field types *)
+    let* ty_args, warnings0 =
+      R.seq (List.map (check_type_well_formed ctx Local nname false) ty_args)
+      |> R.map List.split
+    in
+    let warnings0 = List.flatten warnings0 in
     (match lookup_constructor ctx ctor with
     | None -> type_error pos (UnboundConstructor ctor)
     | Some (ty_name, field_tys) ->
@@ -1705,7 +1712,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           check_type_expr ctx nname arg ft
         ) args field_tys) in
         let checked_args, warnings = List.split pairs in
-        R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), List.flatten warnings)
+        R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), warnings0 @ List.flatten warnings)
     )
   | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)

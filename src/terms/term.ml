@@ -77,6 +77,8 @@ struct
   let sort_of_var = Var.type_of_var
 
   let mk_fresh_var = Var.mk_fresh_var
+
+  let mk_binder_var = Var.mk_binder_var
   
   let import_symbol = Symbol.import 
 
@@ -1833,9 +1835,14 @@ let state_vars_of_term term  =
 (* Return all variables in term *)
 let vars_of_term term = 
 
-  (* Collect all variables in a set *)
+  (* Collect all variables in a set.
+
+     Folding a quantified subterm opens it, so the variables it binds are met
+     as free variables. They are not variables of [term], so drop them. *)
   eval_t ~fail_on_quantifiers:false 
     (function 
+      | T.Var v when Var.is_binder_var v ->
+        (function [] -> Var.VarSet.empty | _ -> assert false)
       | T.Var v -> 
         (function [] -> Var.VarSet.singleton v | _ -> assert false)
       | T.Const _ -> 

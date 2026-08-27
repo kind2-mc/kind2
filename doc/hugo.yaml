@@ -1,0 +1,91 @@
+baseURL: "https://kind.cs.uiowa.edu/kind2_user_doc/"
+title: Kind 2 User Documentation
+
+theme: hextra
+
+markup:
+  # allow raw html (needed for figures/images carried over from RST)
+  goldmark:
+    renderer:
+      unsafe: true
+    extensions:
+      passthrough:
+        delimiters:
+          block:
+            - ["\\[", "\\]"]
+            - ["$$", "$$"]
+          inline:
+            - ["\\(", "\\)"]
+        enable: true
+
+  # enable hextra syntax highlight
+  highlight:
+    noClasses: false
+
+enableGitInfo: false
+
+menu:
+  main:
+    - name: Documentation
+      pageRef: /docs
+      weight: 1
+    - name: GitHub
+      weight: 2
+      url: "https://github.com/kind2-mc/kind2"
+      params:
+        icon: github
+
+params:
+  description: Kind 2 is a multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs.
+
+  # FlexSearch and KaTeX are served from local assets populated by
+  # fetch-vendor-assets.sh, so normal builds do not depend on a CDN.
+  search:
+    enable: true
+    type: flexsearch
+    flexsearch:
+      base: /vendor/flexsearch/dist
+      js: vendor/flexsearch/dist/flexsearch.bundle.min.js
+
+  navbar:
+    displayTitle: true
+    displayLogo: false
+
+  footer:
+    displayCopyright: false
+    displayPoweredBy: true
+
+  editURL:
+    enable: true
+    base: "https://github.com/kind2-mc/kind2/edit/main/doc/content"
+
+  toc:
+    displayToc: true
+
+  math:
+    enable: true
+    katex:
+      base: /vendor/katex/dist
+      css: vendor/katex/dist/katex.min.css
+      assets:
+        - css/fonts/KaTeX_AMS-Regular.woff2
+        - css/fonts/KaTeX_Caligraphic-Bold.woff2
+        - css/fonts/KaTeX_Caligraphic-Regular.woff2
+        - css/fonts/KaTeX_Fraktur-Bold.woff2
+        - css/fonts/KaTeX_Fraktur-Regular.woff2
+        - css/fonts/KaTeX_Main-Bold.woff2
+        - css/fonts/KaTeX_Main-BoldItalic.woff2
+        - css/fonts/KaTeX_Main-Italic.woff2
+        - css/fonts/KaTeX_Main-Regular.woff2
+        - css/fonts/KaTeX_Math-BoldItalic.woff2
+        - css/fonts/KaTeX_Math-Italic.woff2
+        - css/fonts/KaTeX_SansSerif-Bold.woff2
+        - css/fonts/KaTeX_SansSerif-Italic.woff2
+        - css/fonts/KaTeX_SansSerif-Regular.woff2
+        - css/fonts/KaTeX_Script-Regular.woff2
+        - css/fonts/KaTeX_Size1-Regular.woff2
+        - css/fonts/KaTeX_Size2-Regular.woff2
+        - css/fonts/KaTeX_Size3-Regular.woff2
+        - css/fonts/KaTeX_Size4-Regular.woff2
+        - css/fonts/KaTeX_Typewriter-Regular.woff2
+

@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  Z3_VERSION: "4.15.3"
+  MATHSAT_VERSION: "5.6.17"
+
 jobs:
   kind2-build:
     strategy:
@@ -60,36 +64,84 @@ jobs:
       with:
         ocaml-version: ${{ matrix.ocaml-version }}
 
-    - name: Install Z3 (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        Z3_VERSION=4.15.3
-        ARCH=$(uname -m)
-        if [[ "$ARCH" == "x86_64" ]]; then
-          Z3_OS_VERSION=x64-glibc-2.39
-        else
-          Z3_OS_VERSION=arm64-glibc-2.34
-        fi
-        Z3_ZIP_NAME=z3-$Z3_VERSION-$Z3_OS_VERSION
-        wget -q https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
-        unzip -q $Z3_ZIP_NAME.zip
-        sudo cp $Z3_ZIP_NAME/bin/z3 /usr/bin/
+    # Z3 is the SMT solver the tests run with; MathSAT is the interpolating
+    # solver, which IC3IA needs to reach the systems the `ic3ia` regression
+    # tests cover (they skip themselves when it is missing). Both are pinned
+    # and cached the way the benchmark workflows do it, so only the first run
+    # for a given pair of versions pays for the download.
+    #
+    # The cache lives in the workspace rather than the home directory so that
+    # the same path can go on PATH on Windows, where it has to be a native
+    # path. `actions/checkout` runs before the restore, so its clean does not
+    # take the restored directory with it.
+    - name: Cache SMT solvers
+      id: cache-solvers
+      uses: actions/cache@v6
+      with:
+        path: solver-bin
+        key: smt-solvers-${{ matrix.name }}-z3-${{ env.Z3_VERSION }}-mathsat-${{ env.MATHSAT_VERSION }}
 
-    - name: Install Z3 (macOS)
-      if: runner.os == 'macOS'
-      run: brew install z3
-
-    - name: Install Z3 (Windows)
-      if: runner.os == 'Windows'
+    - name: Download SMT solvers (on cache miss)
+      if: steps.cache-solvers.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        Z3_VERSION=4.15.3
-        Z3_ZIP_NAME=z3-$Z3_VERSION-x64-win
-        curl -sL -o z3.zip https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION/$Z3_ZIP_NAME.zip
+        set -euo pipefail
+        mkdir -p solver-bin
+        case "${{ matrix.name }}" in
+          linux-x86_64)   Z3_DIR=z3-${Z3_VERSION}-x64-glibc-2.39   ; MS_DIR=mathsat-${MATHSAT_VERSION}-linux-x86_64  ;;
+          linux-arm64)    Z3_DIR=z3-${Z3_VERSION}-arm64-glibc-2.34 ; MS_DIR=mathsat-${MATHSAT_VERSION}-linux-aarch64 ;;
+          macos-x86_64)   Z3_DIR=z3-${Z3_VERSION}-x64-osx-13.7.6   ; MS_DIR=mathsat-${MATHSAT_VERSION}-macos         ;;
+          macos-arm64)    Z3_DIR=z3-${Z3_VERSION}-arm64-osx-13.7.6 ; MS_DIR=mathsat-${MATHSAT_VERSION}-macos         ;;
+          windows-x86_64) Z3_DIR=z3-${Z3_VERSION}-x64-win          ; MS_DIR=mathsat-${MATHSAT_VERSION}-win64         ;;
+        esac
+        curl -sSL -o z3.zip "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DIR}.zip"
         unzip -q z3.zip
-        # Use the Windows-style workspace path: the PATH entry must be
-        # usable by the native kind2 executable, not only by bash
-        echo "$GITHUB_WORKSPACE/$Z3_ZIP_NAME/bin" >> $GITHUB_PATH
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # The Windows builds load their libraries from beside the
+          # executable, so the DLLs have to travel with it
+          curl -sSL -o mathsat.zip "https://mathsat.fbk.eu/release/${MS_DIR}.zip"
+          unzip -q mathsat.zip
+          cp "$Z3_DIR"/bin/z3.exe "$Z3_DIR"/bin/*.dll solver-bin/
+          cp "$MS_DIR"/bin/mathsat.exe "$MS_DIR"/bin/*.dll solver-bin/
+        else
+          curl -sSL -o mathsat.tar.gz "https://mathsat.fbk.eu/release/${MS_DIR}.tar.gz"
+          tar xzf mathsat.tar.gz
+          cp "$Z3_DIR/bin/z3" solver-bin/
+          cp "$MS_DIR/bin/mathsat" solver-bin/
+        fi
+
+    # The macOS build of MathSAT is universal, so it runs on both macOS
+    # runners, but it loads GMP from the MacPorts path it was linked against
+    # and the runners carry Homebrew. Put the library where it looks for it.
+    - name: Give MathSAT the GMP it links against (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        set -euo pipefail
+        brew install gmp
+        sudo mkdir -p /opt/local/lib
+        sudo ln -sf "$(brew --prefix gmp)/lib/libgmp.10.dylib" /opt/local/lib/libgmp.10.dylib
+
+    - name: Install SMT solvers
+      shell: bash
+      run: |
+        set -euo pipefail
+        chmod +x solver-bin/*
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # Use the Windows-style workspace path: the PATH entry must be
+          # usable by the native kind2 executable, not only by bash
+          echo "${GITHUB_WORKSPACE}\\solver-bin" >> $GITHUB_PATH
+        else
+          sudo cp solver-bin/z3 solver-bin/mathsat /usr/local/bin/
+        fi
+
+    # A solver Kind 2 cannot start is not distinguishable from one it decided
+    # not to use: the tests would quietly fall back or skip. Check here.
+    - name: Check the solvers run
+      shell: bash
+      run: |
+        set -euo pipefail
+        z3 --version
+        mathsat -version | head -1
 
     - name: Install uv
       uses: astral-sh/setup-uv@v7
@@ -109,11 +161,17 @@ jobs:
         opam exec -- dune build @runtest
         cd tests && ./run
 
+    - name: Setup Hugo
+      if: runner.os == 'Linux'
+      uses: peaceiris/actions-hugo@v3
+      with:
+        hugo-version: '0.146.0'
+        extended: true
+
     - name: Build user documentation
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get install -y latexmk texlive-xetex lmodern
-        pip install sphinx==8.2.3 sphinx-press-theme==0.9.1
+        sudo apt-get -y install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf2.0-0 poppler-utils
         make doc
 
     - name: Build developer documentation

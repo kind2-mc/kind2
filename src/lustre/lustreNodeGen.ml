@@ -2769,8 +2769,23 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
       let src_expr_str =
-        let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
-        let desugared = try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr in
+        (* What the property was written as, if the normalizer had to ask
+           about something else -- a reachability query is checked by
+           proving its negation, and the negation is not what was asked.
+           Looked up by name, since the abstracted expression is shared
+           with anything that normalizes the same way. *)
+        let written_as =
+          match name_opt with
+          | Some n -> GI.StringMap.find_opt n gids.GI.prop_source_map
+          | None -> None
+        in
+        let desugared =
+          match written_as with
+          | Some expr -> expr
+          | None ->
+            let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+            try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+        in
         LDAT.string_of_expr_as_source
           ~ref_type_names:cstate.ref_type_names cstate.adt_map desugared
       in

@@ -1,9 +1,11 @@
 import itertools
 import os
+import shutil
 import signal
 import subprocess
+import time
 from pathlib import Path
-from subprocess import PIPE, CompletedProcess, Popen, TimeoutExpired
+from subprocess import PIPE, STDOUT, CompletedProcess, Popen, TimeoutExpired
 
 import pytest
 
@@ -75,6 +77,31 @@ extra_files = [
     (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
 ]
 
+# Tests under a directory with this name pin the engine to IC3IA, so that they
+# exercise IC3IA itself instead of whichever engine happens to answer first.
+#
+# They also pin the interpolating solver. IC3IA reaches arrays only through an
+# interpolating solver that can represent them: the ones driven by quantifier
+# elimination turn the engine off for such systems, so leaving the choice to
+# auto-detection would make these tests vacuous wherever MathSAT is missing.
+# They are skipped instead, which says so rather than reporting a run that
+# never finished.
+#
+# These models are tiny and settle in milliseconds, so the allowance that lets
+# any other test exit 30 does not apply to them: with one engine and one solver
+# pinned, a 30 means IC3IA turned the system down, not that it ran out of time.
+# It is therefore a failure here, which is what makes these tests notice the
+# engine losing the ability to answer for such a system.
+#
+# The exception is the tests under `ic3ia_declined_dir_name`, which pin down
+# what IC3IA must *not* say about systems it cannot reason about soundly. All
+# they require is that the property is not reported falsifiable; declining to
+# answer is the outcome expected today.
+ic3ia_dir_name = "ic3ia"
+ic3ia_declined_dir_name = "declined"
+ic3ia_args = {"--enable": "IC3IA", "--smt_itp_solver": "MathSAT"}
+ic3ia_solver = "mathsat"
+
 # Where to write log files
 log_dir = Path("logs")
 
@@ -95,6 +122,13 @@ return_codes = (
 
 expected_to_code = {expected: code for expected, code in return_codes}
 code_to_expected = {code: expected for expected, code in return_codes}
+
+# What a declined run is allowed to exit with: 30 is Kind 2's
+# `incomplete_analysis`, which is what turning the system down looks like, and
+# 0 covers IC3IA one day being able to answer. Every other code -- a crash, a
+# usage error, a solver it could not start -- is a failure rather than a
+# decline, and naming them keeps the test honest about what it pins down.
+ic3ia_declined_codes = (expected_to_code["success"], expected_to_code["timeout"])
 
 def pytest_collect_file(parent, file_path: Path):
     try:
@@ -144,7 +178,12 @@ def pytest_collection_modifyitems(session, items):
 # `falsifiable` and `error` cases. It is accepted anyway, since a large model
 # on a slow machine may legitimately run out of time, but accepting it
 # silently means a run that stops making progress passes without a trace.
-# Collect them so that the session reports them at the end.
+# Collect them, with how long each took, so that the session reports them at
+# the end. The elapsed time is what separates a run the polling loop of the
+# supervisor ended at its own timeout from one a last resort had to kill:
+# the first comes in around the budget, the second only after the grace
+# those add to it. Both exit 30, and the output that would tell them apart
+# is printed only when a test fails.
 unfinished_runs = []
 
 
@@ -152,9 +191,9 @@ class LustreException(Exception): ...
 
 
 class LustreTimeout(Exception):
-    def __init__(self, stdout: bytes, status):
+    def __init__(self, output: bytes, status):
         super().__init__()
-        self.stdout = stdout
+        self.output = output
         # Exit status of Kind 2 when we gave up on it, or None if it was
         # still running then
         self.status = status
@@ -199,10 +238,18 @@ def run_kind2(command) -> CompletedProcess:
         # spawns can be killed along with it
         popen_args["start_new_session"] = True
 
-    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+    # Standard error goes into the same stream as standard output rather
+    # than into a pipe of its own that nothing read: what Kind 2 says when
+    # its exit goes wrong goes to standard error and nowhere else -- the
+    # last-resort "did not exit in time" line, an uncaught exception, a
+    # warning that clearing handle inheritance failed. A run that hangs
+    # without them in its report cannot be told apart from a run that never
+    # got that far. The verdict of a test reads the exit code alone, so the
+    # merge changes what a failure shows, not what passes.
+    proc = Popen(command, stdout=PIPE, stderr=STDOUT, **popen_args)
 
     try:
-        stdout, _ = proc.communicate(timeout=run_timeout)
+        output, _ = proc.communicate(timeout=run_timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -214,15 +261,15 @@ def run_kind2(command) -> CompletedProcess:
 
         kill_tree(proc)
         try:
-            stdout, _ = proc.communicate(timeout=kill_timeout)
+            output, _ = proc.communicate(timeout=kill_timeout)
         except TimeoutExpired:
             # Some process we could not kill still holds the pipes. Report
             # what we have rather than wait for the rest forever: the reader
             # threads are daemons, and they do not keep the session alive.
-            stdout = b""
-        raise LustreTimeout(stdout, status)
+            output = b""
+        raise LustreTimeout(output, status)
 
-    return CompletedProcess(command, proc.returncode, stdout, None)
+    return CompletedProcess(command, proc.returncode, output, None)
 
 
 class LustreItem(pytest.Item):
@@ -240,16 +287,47 @@ class LustreItem(pytest.Item):
         if self.expected == "error":
             args |= {"--lus_strict": "true"}
 
+        if self._is_ic3ia():
+            args |= ic3ia_args
+
         arg_list = list(itertools.chain.from_iterable(args.items()))
         return [kind2_bin, *arg_list, self.path]
 
-    def runtest(self):
-        self.res = run_kind2(self._command())
+    def _regression_parts(self):
+        # Relative to the regression tree: an absolute path would also match a
+        # checkout that happens to sit under a directory of the same name, and
+        # pin the whole suite to IC3IA. `extra_files` live outside the tree.
+        try:
+            return self.path.relative_to(regression_dir).parts
+        except ValueError:
+            return ()
 
-        # Timeout is OK
+    def _is_ic3ia(self):
+        return ic3ia_dir_name in self._regression_parts()
+
+    def _ic3ia_declines(self):
+        return self._is_ic3ia() and ic3ia_declined_dir_name in self._regression_parts()
+
+    def runtest(self):
+        if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
+            pytest.skip(f"{ic3ia_solver} is not installed")
+
+        started = time.monotonic()
+        try:
+            self.res = run_kind2(self._command())
+        finally:
+            self.elapsed = time.monotonic() - started
+
+        if self._ic3ia_declines():
+            # Answering is allowed, answering `falsifiable` is not
+            if self.res.returncode not in ic3ia_declined_codes:
+                raise LustreException
+            return
+
+        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`
         result = code_to_expected.get(self.res.returncode)
-        if result == "timeout":
-          unfinished_runs.append(self.nodeid)
+        if result == "timeout" and not self._is_ic3ia():
+          unfinished_runs.append((self.nodeid, self.elapsed))
           return
 
         if self.res.returncode != expected_to_code[self.expected]:
@@ -275,7 +353,7 @@ class LustreItem(pytest.Item):
                     f"on its own, although it was given {common_args['--timeout']}s",
                     stuck,
                     " ".join(map(str, self._command())),
-                    excinfo.value.stdout.decode("utf-8"),
+                    excinfo.value.output.decode("utf-8", errors="replace"),
                 ]
             )
 
@@ -289,7 +367,7 @@ class LustreItem(pytest.Item):
                 [
                     f"Expected: {self.expected}, got {actual}",
                     " ".join(map(str, self._command())),
-                    self.res.stdout.decode("utf-8"),
+                    self.res.stdout.decode("utf-8", errors="replace"),
                 ]
             )
 
@@ -306,8 +384,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         f"{len(unfinished_runs)} test(s) exited 30 after the "
         f"{common_args['--timeout']}s budget (not counted as failures):"
     )
-    for nodeid in unfinished_runs:
-        terminalreporter.write_line(f"  {nodeid}")
+    for nodeid, elapsed in unfinished_runs:
+        terminalreporter.write_line(f"  {elapsed:6.1f}s  {nodeid}")
 
 
 # Log test failures
