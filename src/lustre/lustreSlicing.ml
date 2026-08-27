@@ -1262,6 +1262,7 @@ let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
       )
     else
       (roots_of_contract ~with_sofar_var:true contract)
+      |> SVS.union (roots_of_props_contract props)
   in
   Some vars
 
