@@ -859,6 +859,24 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
     | _ -> other_modules
   )
 
+(* Drop the integer (resp. real) invariant generators when the system's
+   inferred logic has no integer (resp. real) arithmetic: their candidate
+   term miners would come up empty. Machine integers are handled separately
+   by [process_invgen_mach_modules]. *)
+let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
+= fun sys modules ->
+  match TSys.get_logic sys with
+  | `Inferred fs -> (
+    let open TermLib.FeatureSet in
+    modules |> List.filter (
+      function
+      | `INVGENINT | `INVGENINTOS -> mem IA fs
+      | `INVGENREAL | `INVGENREALOS -> mem RA fs
+      | _ -> true
+    )
+  )
+  | _ -> modules
+
  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
     query with a lower bound *)
 let process_bmc_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
@@ -904,6 +922,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
       KEvent.purge_im msg_setup ;
 
       let modules = process_invgen_mach_modules sys in_sys modules in
+      let modules = process_invgen_arith_modules sys modules in
       (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
         query with a lower bound *)
       let modules = process_bmc_modules sys modules in
