@@ -36,7 +36,7 @@ let
   -- An algebraic datatype compiles to a tag plus its payload fields; here all
   -- three are enum-encoded, so the quantifier is eliminated outright
   check "a tagged message carries a color and a vote"
-    forall (m: Msg) (Tagged?(m) => ((m.c = Red or m.c = Green or m.c = Blue)
+    forall (m: Msg) (Tagged?(m) ==> ((m.c = Red or m.c = Green or m.c = Blue)
                                     and (m.v = Yes or m.v = No)));
 
   check "some message is a ping"
@@ -45,7 +45,7 @@ let
   -- A datatype mixing an enum payload with a Boolean one: finite only once
   -- the Booleans count as a domain
   check "a flagged value carries a color and a bool"
-    forall (f: Flagged) (On?(f) => ((f.c = Red or f.c = Green or f.c = Blue)
+    forall (f: Flagged) (On?(f) ==> ((f.c = Red or f.c = Green or f.c = Blue)
                                     and (f.b or not f.b)));
 
   -- A mixed domain: `i` ranges over the integers, so this quantifier is left
