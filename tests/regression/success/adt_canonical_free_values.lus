@@ -15,30 +15,30 @@ node main(x, y: D; i: int; arr: D^3; m: map<int, D>; s: set<D>) returns (ok: boo
 var p, d1: D; u, v: set<D>;
 let
   check "inputs with same ctor and payload are equal"
-    (A?(x) and A?(y) and x.a = y.a) => x = y;
+    (A?(x) and A?(y)) ==> (x.a = y.a => x = y);
   check "nested payload"
-    (B?(x) and B?(y) and X?(x.b) and X?(y.b) and x.b.s = y.b.s) => x = y;
+    (B?(x) and B?(y)) ==> ((X?(x.b) and X?(y.b)) ==> (x.b.s = y.b.s => x = y));
   check "nullary ctor"
     (C?(x) and C?(y)) => x = y;
 
   p = pre x;
   check "initial value of unguarded pre"
-    (A?(p) and A?(x) and p.a = x.a) => p = x;
+    (A?(p) and A?(x)) ==> (p.a = x.a => p = x);
 
   d1 = pick(i);
   check "imported node output" d1 = A(i);
 
   check "array element"
     forall (k: int) (0 <= k and k < 3) =>
-      ((A?(arr[k]) and arr[k].a = i) => arr[k] = A(i));
+      (A?(arr[k]) ==> (arr[k].a = i => arr[k] = A(i)));
   check "map value"
     forall (k: int) (k in m) =>
-      ((A?(m[k]) and m[k].a = i) => m[k] = A(i));
+      (A?(m[k]) ==> (m[k].a = i => m[k] = A(i)));
 
   u = { A(i) };
   v = any { w: set<D> | forall (d: D) (d in w) = (d = A(i)) };
   check "set with the same members is equal" u = v;
-  check "free set member" (x in s and A?(x) and x.a = i) => A(i) in s;
+  check "free set member" (x in s and A?(x)) ==> (x.a = i => A(i) in s);
   check "quantified value" forall (d: D) (d in u) => d = A(i);
   check "exists value" exists (d: D) (d in u) and A?(d);
   ok = true;

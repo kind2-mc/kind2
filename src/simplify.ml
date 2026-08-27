@@ -1594,6 +1594,13 @@ let if_then_else = function
             (term_of_dec_polynomial l)
             (term_of_dec_polynomial r)))
 
+  (* Branches of another sort: the predicate is not constant, so the
+     conditional stays *)
+  | [Bool p; Abstr l; Abstr r] -> Abstr (Term.mk_ite p l r)
+  | [Bool p; ADT l; ADT r] -> ADT (Term.mk_ite p l r)
+  | [Bool p; BV l; BV r] -> BV (Term.mk_ite p l r)
+  | [Bool p; Array l; Array r] -> Array (Term.mk_ite p l r)
+
   (* Not well-typed or wrong arity *)
   | _ -> assert false
 

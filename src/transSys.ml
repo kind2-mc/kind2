@@ -1971,6 +1971,13 @@ let mk_trans_sys
                 Var.type_of_var v
                 |> TermLib.logic_of_sort
               ) global_consts)
+
+         (* Add logics from the signatures of the uninterpreted functions *)
+         |> List.rev_append
+           (List.concat_map (fun uf ->
+                UfSymbol.res_type_of_uf_symbol uf :: UfSymbol.arg_type_of_uf_symbol uf
+                |> List.map TermLib.logic_of_sort
+              ) ufs)
            
          (* Join logics to the logic required for this system *)
          |> TermLib.sup_logics

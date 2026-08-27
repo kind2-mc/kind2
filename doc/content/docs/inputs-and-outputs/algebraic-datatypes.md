@@ -127,7 +127,24 @@ A **selector** `e.f` extracts field `f` from an ADT value `e`. The field
 constructor that has field `f`. Kind 2 generates a **proof obligation** for
 each selector use, requiring that the correct constructor is active at the point
 of use. For example, `s.radius` generates an obligation that `Circle?(s)`
-holds.
+holds. The obligation is reported as a property named
+`Selector[L<line>C<column>]`, positioned at the `.` of the selector.
+When the obligation does not hold, the value of the selector is arbitrary but
+fixed for a given ADT value: two reads of the same value agree, and equal
+values give equal results.
+
+### Discharging the obligation
+
+To discharge the proof obligations, one must only use selectors in contexts where
+the constructor of the term is known. For example, the usage of a tester `C?(t)`
+in an assumption, the antecedent of a lazy implication `==>`, or
+the guard of a `when` block is sufficient to prove the well-foundedness
+of the corresponding selector in the node/function body,
+lazy implication antecedent, or `then` branch expression, respectively.
+Only the *lazy* forms guard a selector. The branches of `if ... then ... else
+...`, the operands of `and`, `or` and `=>`, the operands of an `arrow`, and the
+arms of a `merge` are all evaluated unconditionally, so a tester there does not
+discharge an obligation.
 
 ```text
 datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);

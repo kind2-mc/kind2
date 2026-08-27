@@ -1266,12 +1266,16 @@ let rec constraints_of_node_calls
       with Not_found -> assert false
     in
 
-    let state_var_map_up, state_var_map_down, node_locals, node_props, node_hist_svars,
+    (* Only the properties lifted from this call are guarded with its
+       restart condition below, so the accumulator of properties lifted
+       from previous calls is not handed to [call_terms_of_node_call]
+       but appended afterwards. *)
+    let state_var_map_up, state_var_map_down, node_locals, call_props, node_hist_svars,
         node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
         mk_fresh_state_var globals comp_type node_call node_locals
-        node_props node_hist_svars node_crt_svars node_def
+        [] node_hist_svars node_crt_svars node_def
     in
 
     (* Guard lifted property with restart conditions of node *)
@@ -1289,7 +1293,8 @@ let rec constraints_of_node_calls
              { p with
                P.prop_term =
                  Term.mk_implies [Term.negate restart_prop; prop_term] })
-        node_props
+        call_props
+      @ node_props
     in
 
     
@@ -1454,7 +1459,7 @@ let rec constraints_of_node_calls
       state_var_map_up, 
       state_var_map_down, 
       node_locals, 
-      node_props,
+      call_props,
       node_hist_svars,
       node_crt_svars,
       node_assumes,
@@ -1463,6 +1468,10 @@ let rec constraints_of_node_calls
       init_term_trans, 
       trans_term =
 
+      (* Only the properties lifted from this call are guarded with its
+         activation condition below, so the accumulator of properties
+         lifted from previous calls is not handed to
+         [call_terms_of_node_call] but appended afterwards. *)
       call_terms_of_node_call
         mk_fresh_state_var
         globals
@@ -1470,7 +1479,7 @@ let rec constraints_of_node_calls
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
-        node_props
+        []
         node_hist_svars
         node_crt_svars
         node_def
@@ -1695,7 +1704,8 @@ let rec constraints_of_node_calls
            { p with
              P.prop_term =
                Term.mk_implies [guard_prop is_one_state; prop_term] })
-        node_props
+        call_props
+      @ node_props
     in
 
     (* Candidate invariants from when-block ties: once the activation clock

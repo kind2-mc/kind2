@@ -1,0 +1,16 @@
+-- A selector read on a value built with another constructor has an arbitrary
+-- value that is fixed for a given ADT value: reading it twice, or from two
+-- equal values, gives the same result. The only falsifiable properties are
+-- the obligations of the unguarded selectors.
+
+datatype D = A (a: int) | B (b: bool) | C;
+
+node main(x, y: D; i: int) returns (ok: bool);
+var z: D;
+let
+  check "fixed for a value"       x.a = x.a;
+  check "function of the value"   (x = y) => x.a = y.a;
+  z = if i > 0 then A(i) else B(true);
+  check "constructed value"       z.a = z.a;
+  ok = true;
+tel

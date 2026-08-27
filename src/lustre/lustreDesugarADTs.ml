@@ -35,13 +35,14 @@
 
     A selector [e.f] applied to a value built with a constructor other than
     the one declaring [f] yields an arbitrary value that is fixed for a given
-    ADT value; it is not the default the record holds.  Where the desugaring
-    can establish from an enclosing lazy construct ([when C?(e) then ...],
-    [C?(e) and then ...], [C?(e) or else ...], [C?(e) ==> ...], or a match
-    arm) that the constructor is the active one, the selector is a plain
-    projection; otherwise it is kept as a selector marked with its ADT type
-    and compiled by LustreNodeGen into a projection guarded by the tag, with
-    an uninterpreted function of the value in the other case.
+    ADT value; it is not the default the record holds.  The selector stays
+    marked as such ([LA.Selector]); the normalizer, which knows the enclosing
+    lazy guards of every selector, turns it into a plain record projection
+    when a guard establishes its constructor, and LustreNodeGen compiles the
+    other ones into a projection guarded by the tag, with an uninterpreted
+    function of the value in the other case.  The projections a match arm
+    substitutes for its pattern variables are plain: the arm establishes the
+    constructor.
 
     ADTTerm expressions and Match expressions are desugared during
     normalization: ADTTerm becomes a RecordExpr, and Match becomes
@@ -139,7 +140,7 @@ let record_type_of_adt pos ?(ty_args = []) info =
 
 (* Build a FieldProject accessing the tag field of an expression. *)
 let tag_of pos info scrut =
-  LA.FieldProject (pos, scrut, info.disc_field, None)
+  LA.FieldProject (pos, scrut, info.disc_field, LA.RecordField)
 
 (* Direct lookup: only matches types that are themselves an ADT name.
    Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
@@ -190,15 +191,18 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr =
           if info.is_recursive then
+            let pk =
+              LA.Selector (LA.Kind2Generated, LA.UserType (pos, [], info.type_name), ctor)
+            in
             let ctor_str = HString.string_of_hstring ctor in
             let fname_str = HString.string_of_hstring fname in
             let prefix_len = String.length ctor_str + 1 in
             (* Recursive datatypes don't use the "ctor_" prefix *)
             let user_fname = HString.mk_hstring
               (String.sub fname_str prefix_len (String.length fname_str - prefix_len)) in
-            LA.FieldProject (pos, scrut, user_fname, Some (LA.UserType (pos, [], info.type_name)))
+            LA.FieldProject (pos, scrut, user_fname, pk)
           else
-            LA.FieldProject (pos, scrut, fname, None)
+            LA.FieldProject (pos, scrut, fname, LA.RecordField)
         in
         match sub_pat with
         | LA.VarPat (_, sub_name) ->
@@ -216,7 +220,9 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     ([], [(name, scrut)])
 
 (* Desugar a single match arm into a (condition option, body) pair.
-   Substitutes pattern variables with field projections in body. *)
+   Substitutes pattern variables with field projections in body.  The body must
+   already be desugared: the projections substituted in mention the desugared
+   scrutinee, which must not be desugared a second time. *)
 let desugar_arm pos ctx adt_map info scrut pat body =
   let (conds, subs) = collect_pattern_constraints pos ctx adt_map info scrut pat in
   let body =
@@ -268,40 +274,6 @@ let is_canonical_bound_var id =
   let s = HString.string_of_hstring id in
   let n = String.length canonical_var_suffix in
   String.length s > n && String.sub s (String.length s - n) n = canonical_var_suffix
-
-(* The ADT declaring constructor [ctor], if any *)
-let adt_info_of_ctor adt_map ctor =
-  HStringMap.fold (fun _ info acc ->
-    match acc with
-    | Some _ -> acc
-    | None -> if List.mem ctor info.ctor_variants then Some info else None
-  ) adt_map None
-
-(* The facts "[e] is built with constructor [c]", as [(e, c)] pairs, implied
-   by the truth (if [polarity]) or falsity of a condition. The negation of a
-   tester is a fact for a two-constructor ADT only, where it makes the other
-   constructor the active one. *)
-let rec ctor_facts_of_cond adt_map polarity = function
-  | LA.ADTTester (_, e, c) ->
-    if polarity then [(e, c)]
-    else (
-      match adt_info_of_ctor adt_map c with
-      | Some { ctor_variants = [c1; c2]; _ } ->
-        [(e, if HString.equal c c1 then c2 else c1)]
-      | _ -> [])
-  | LA.BinaryOp (_, (LA.And | LA.AndThen), a, b) when polarity ->
-    ctor_facts_of_cond adt_map true a @ ctor_facts_of_cond adt_map true b
-  | LA.BinaryOp (_, (LA.Or | LA.OrElse), a, b) when not polarity ->
-    ctor_facts_of_cond adt_map false a @ ctor_facts_of_cond adt_map false b
-  | LA.UnaryOp (_, LA.Not, a) -> ctor_facts_of_cond adt_map (not polarity) a
-  | _ -> []
-
-(* Whether [facts] establish that [e] is built with constructor [ctor] *)
-let has_ctor_fact facts e ctor =
-  List.exists (fun (e', c) ->
-    HString.equal c ctor
-    && (match LH.syn_expr_equal None e' e with Ok b -> b | Error () -> false)
-  ) facts
 
 (* Generate the default value of a type, held by the payload fields of the
    non-selected constructors of an ADT value in canonical form. *)
@@ -419,7 +391,7 @@ and mk_is_default ctx adt_map pos expr ty =
   match ty with
   | LA.RecordType (_, _, fields) ->
     List.concat_map (fun (_, fname, ftype) ->
-      mk (LA.FieldProject (pos, expr, fname, None)) ftype
+      mk (LA.FieldProject (pos, expr, fname, LA.RecordField)) ftype
     ) fields
   | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
     List.concat (List.mapi (fun i t ->
@@ -486,11 +458,11 @@ and mk_canonical_exprs ctx adt_map pos expr ty =
   | LA.RecordType (_, rname, fields) ->
     (match HStringMap.find_opt rname adt_map with
     | Some info when not info.is_recursive ->
-      let tag = LA.FieldProject (pos, expr, info.disc_field, None) in
+      let tag = LA.FieldProject (pos, expr, info.disc_field, LA.RecordField) in
       List.concat_map (fun (_, fname, ftype) ->
         if HString.equal fname info.disc_field then []
         else
-          let fexpr = LA.FieldProject (pos, expr, fname, None) in
+          let fexpr = LA.FieldProject (pos, expr, fname, LA.RecordField) in
           let ctor =
             HStringMap.fold (fun ctor fs acc ->
               match acc with
@@ -507,7 +479,7 @@ and mk_canonical_exprs ctx adt_map pos expr ty =
       ) fields
     | _ ->
       List.concat_map (fun (_, fname, ftype) ->
-        mk (LA.FieldProject (pos, expr, fname, None)) ftype
+        mk (LA.FieldProject (pos, expr, fname, LA.RecordField)) ftype
       ) fields)
   | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
     List.concat (List.mapi (fun i t ->
@@ -549,14 +521,9 @@ and mk_canonical_exprs ctx adt_map pos expr ty =
   | LA.Bool _ | LA.Int _ | LA.Real _ | LA.EnumType _ | LA.AbstractType _
   | LA.SBitVector _ | LA.UBitVector _ -> []
 
-(* Desugar ADTTerm and Match expressions throughout an expression. [facts]
-   are the constructor facts (see [ctor_facts_of_cond]) established by the
-   enclosing lazy constructs. *)
-and desugar_expr ?(facts = []) ctx adt_map expr =
-  let r e = desugar_expr ~facts ctx adt_map e in
-  let r_under cond polarity e =
-    desugar_expr ~facts:(ctor_facts_of_cond adt_map polarity cond @ facts) ctx adt_map e
-  in
+(* Desugar ADTTerm and Match expressions throughout an expression. *)
+and desugar_expr ctx adt_map expr =
+  let r e = desugar_expr ctx adt_map e in
   let rlist es = List.map r es in
   let rilist ies = List.map (fun (i, e) -> (i, r e)) ies in
   let rloi = function
@@ -613,12 +580,7 @@ and desugar_expr ?(facts = []) ctx adt_map expr =
     in
     let scrut' = r scrut in
     let desugared_arms = List.map (fun (pat, body) ->
-      let (cond_opt, body') = desugar_arm pos ctx adt_map adt_info scrut' pat body in
-      let arm_facts = match pat with
-        | LA.Pat (_, ctor, _) when List.mem ctor adt_info.ctor_variants -> [(scrut, ctor)]
-        | _ -> []
-      in
-      (cond_opt, desugar_expr ~facts:(arm_facts @ facts) ctx adt_map body')
+      desugar_arm pos ctx adt_map adt_info scrut' pat (r body)
     ) arms in
     build_ite pos desugared_arms
   | LA.ADTTester (pos, e, c) ->
@@ -637,42 +599,25 @@ and desugar_expr ?(facts = []) ctx adt_map expr =
         LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _
   | LA.AbstractSymConst _ -> expr
-  | LA.FieldProject (p, e, fld, Some adt_ty) ->
+  | LA.FieldProject (p, e, fld, LA.Selector (origin, adt_ty, ctor)) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
       |> (function Some i -> i | None -> assert false)
     in
+    (* The projection stays marked as a selector even once the ADT is encoded as
+       a record, so the obligation can still name the owning constructor. *)
+    let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name), ctor) in
+    (* Recursive datatypes keep the user-written field name; they are compiled
+       to SMT datatypes rather than records *)
     if info.is_recursive then
-      LA.FieldProject (p, e', fld, Some (LA.UserType (p, [], info.type_name)))
+      LA.FieldProject (p, e', fld, pk)
     else
-      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          let target = payload_field_name_of ctor fld in
-          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-          then Some ctor
-          else None
-      ) info.ctor_fields None
-      |> (function Some c -> c | None -> assert false)
-      in
-      let internal_fld = payload_field_name_of ctor fld in
-      if has_ctor_fact facts e ctor then
-        LA.FieldProject (p, e', internal_fld, None)
-      else
-        (* The constructor is not known to be the active one: the selector
-           stays marked with its ADT type for LustreNodeGen *)
-        LA.FieldProject (p, e', internal_fld, Some (LA.UserType (p, [], info.type_name)))
-  | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
+      LA.FieldProject (p, e', payload_field_name_of ctor fld, pk)
+  | LA.FieldProject (p, e, i, LA.RecordField) ->
+    LA.FieldProject (p, r e, i, LA.RecordField)
+  | LA.FieldProject (p, e, i, LA.Unresolved) ->
+    LA.FieldProject (p, r e, i, LA.Unresolved)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
-  (* Only the lazy constructs establish constructor facts for their operands:
-     the eager ones evaluate every operand, whatever the condition *)
-  | LA.BinaryOp (p, (LA.AndThen | LA.LazyImpl as op), e1, e2) ->
-    LA.BinaryOp (p, op, r e1, r_under e1 true e2)
-  | LA.BinaryOp (p, LA.OrElse, e1, e2) ->
-    LA.BinaryOp (p, LA.OrElse, r e1, r_under e1 false e2)
-  | LA.TernaryOp (p, LA.LazyIte, e1, e2, e3) ->
-    LA.TernaryOp (p, LA.LazyIte, r e1, r_under e1 true e2, r_under e1 false e3)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
   | LA.ConvOp (p, op, e) -> LA.ConvOp (p, op, r e)
@@ -730,8 +675,8 @@ let desugar_contract_item ctx adt_map item =
     LA.GhostVars (p, LA.GhostVarDec (p2, tis'), r e)
   | LA.AssumptionVars _ as a -> a
 
-let rec desugar_node_item ?(facts = []) ctx adt_map item =
-  let r = desugar_expr ~facts ctx adt_map in
+let rec desugar_node_item ctx adt_map item =
+  let r = desugar_expr ctx adt_map in
   match item with
   | LA.Auto _ -> item
   | LA.Body (LA.Equation (p, lhs, e)) -> LA.Body (LA.Equation (p, lhs, r e))
@@ -741,16 +686,13 @@ let rec desugar_node_item ?(facts = []) ctx adt_map item =
     LA.AnnotProperty (p, n, r e, LA.Provided (r e2))
   | LA.AnnotProperty (p, n, e, k) -> LA.AnnotProperty (p, n, r e, k)
   | LA.IfBlock (p, e, then_items, else_items) ->
-    (* An if block is eager: no constructor fact for its branches *)
-    let di = desugar_node_item ~facts ctx adt_map in
+    let di = desugar_node_item ctx adt_map in
     LA.IfBlock (p, r e, List.map di then_items, List.map di else_items)
   | LA.WhenBlock (p, e, then_items, else_items) ->
-    let d_under polarity =
-      desugar_node_item ~facts:(ctor_facts_of_cond adt_map polarity e @ facts) ctx adt_map
-    in
-    LA.WhenBlock (p, r e, List.map (d_under true) then_items, List.map (d_under false) else_items)
+    let di = desugar_node_item ctx adt_map in
+    LA.WhenBlock (p, r e, List.map di then_items, List.map di else_items)
   | LA.FrameBlock (p, vars, eqs, items) ->
-    let di = desugar_node_item ~facts ctx adt_map in
+    let di = desugar_node_item ctx adt_map in
     let de = function
       | LA.Assert (p2, e) -> LA.Assert (p2, r e)
       | LA.Equation (p2, lhs, e) -> LA.Equation (p2, lhs, r e)
@@ -992,11 +934,16 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.FieldProject (p, e, id, ty_opt) ->
-    let ty_opt = Option.map (LH.map_lustre_ty r) ty_opt in
+  | LA.FieldProject (p, e, id, pk) ->
+    let pk = match pk with
+      | LA.Unresolved -> LA.Unresolved
+      | LA.RecordField -> LA.RecordField
+      | LA.Selector (origin, ty, ctor) ->
+        LA.Selector (origin, LH.map_lustre_ty r ty, ctor)
+    in
     (* An internal payload field "Ctor_field" prints as the ADT selector "field". *)
     let id = match user_field_of_payload adt_map id with Some u -> u | None -> id in
-    LA.FieldProject (p, r e, id, ty_opt)
+    LA.FieldProject (p, r e, id, pk)
   | LA.CompOp (p, LA.Eq, e1, e2) ->
     (* A tag equality "e.<Type>_tag = Ctor" prints as the tester "Ctor?(e)". *)
     (match tag_equality_as_tester adt_map e1 e2 with
