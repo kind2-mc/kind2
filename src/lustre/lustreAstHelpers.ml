@@ -287,7 +287,7 @@ let rec substitute_naive (var:HString.t) t = function
     EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, substitute_naive var t e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, substitute_naive var t e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
@@ -380,7 +380,7 @@ let rec apply_subst_in_expr sigma = function
     EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
@@ -479,7 +479,7 @@ let rec apply_type_subst_in_expr
   | Last _
   | AbstractSymConst _ -> expr
   | ModeRef _  -> expr
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
@@ -1450,7 +1450,7 @@ let rec replace_with_constants: expr -> expr =
   | Ident(p, _) | Last (p, _) -> c p
     | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, replace_with_constants e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, replace_with_constants e, i, pk)
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
   | EmptySet (p, Some ty) -> 
@@ -1554,7 +1554,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
     EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, abstract_pre_subexpressions e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, abstract_pre_subexpressions e, i, pk)
   (* Values *)
   | Const _ as e -> e
 
@@ -1668,7 +1668,7 @@ let rec replace_idents locals1 locals2 expr =
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
+  | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
@@ -2231,7 +2231,7 @@ let rec rename_contract_vars = function
     EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
   | EmptySet (p, Some ty) ->
     EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, rename_contract_vars e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, rename_contract_vars e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
@@ -2329,7 +2329,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ModeRef _ as e -> e
   | Last _ as e -> e
 
-  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
+  | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)

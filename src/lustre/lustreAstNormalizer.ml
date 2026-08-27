@@ -108,27 +108,25 @@ let unwrap result = match result with
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
 
+(* Structural equality of expressions, ignoring positions. Beyond [depth], if
+   given, expressions are conservatively treated as unequal. *)
+let expr_equal ?depth e1 e2 =
+  match AH.syn_expr_equal depth e1 e2 with
+  | Ok true -> true
+  | Ok false | Error () -> false
+
 module LocalHash = struct
   type t = A.expr
-  let equal x y = (match AH.syn_expr_equal (Some 6) x y with
-    | Ok true -> true
-    | _ -> false)
-  
+  let equal x y = expr_equal ~depth:6 x y
+
   let hash = AH.hash (Some 6)
 end
 
 module LocalCache = Hashtbl.Make(LocalHash)
 
-(* Structural equality of expressions, ignoring positions *)
-let expr_equal e1 e2 =
-  match AH.syn_expr_equal None e1 e2 with
-  | Ok true -> true
-  | Ok false | Error () -> false
-
 (* Key of a selector proof obligation: its source position and the tester it
-   requires. The enclosing guards are deliberately not part of the key; they live in the value
-   so that an obligation implied by an already emitted one can be dropped (see
-   mk_selector_obligation). *)
+   requires. The guards are not part of the key but of the value, so that an
+   obligation implied by an emitted one can be dropped (mk_selector_obligation). *)
 module SelectorHash = struct
   type t = Lib.position * A.expr
   let equal (p1, e1) (p2, e2) = Lib.equal_pos p1 p2 && expr_equal e1 e2
@@ -140,10 +138,8 @@ module SelectorCache = Hashtbl.Make(SelectorHash)
 
 module NodeArgHash = struct
   type t = A.expr
-  let equal x y = (match AH.syn_expr_equal None x y with
-    | Ok true -> true
-    | _ -> false)
-  
+  let equal x y = expr_equal x y
+
   let hash = AH.hash (Some 6)
 end
 
@@ -173,7 +169,7 @@ let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
 let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
-  SelectorCache.reset selector_cache;
+  SelectorCache.clear selector_cache;
 
 type info = {
   context : Ctx.tc_context;
@@ -199,6 +195,9 @@ type info = {
   call_context : (LustreAst.expr * LustreAst.expr * int) list;
   (* Number of enclosing 'pre' operators *)
   pre_depth : int;
+  (* False while normalizing arguments a second time for the node instance an
+     inlined call retains, whose obligations the inlined expansion already emitted *)
+  emit_selector_obligations : bool;
   inlined_expr_ctx : bool;
   adt_map : LDAT.adt_map;
 }
@@ -1115,6 +1114,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
     pre_depth = 0;
+    emit_selector_obligations = true;
     inlined_expr_ctx = false;
     adt_map; }
   in
@@ -2071,24 +2071,24 @@ and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
         in
         if List.exists implies emitted then empty ()
         else begin
-        SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
-        let obligation = close (mk_body normalized_pick tester shift) in
-        (* Displayed in terms of the input model *)
-        let display =
-          close (mk_body source_pick (mk_tester src_base) shift_display)
-        in
-        i := !i + 1;
-        let prefix = HString.mk_hstring (string_of_int !i) in
-        let name = HString.concat2 prefix (HString.mk_hstring "_selector") in
-        let nexpr = A.Ident (pos, name) in
-        (* The obligation is closed, so it never generalizes to an array equation *)
-        let eq_lhs, _ =
-          generalize_to_array_expr name StringMap.empty obligation nexpr
-        in
-        union !shift_gids
-          { (empty ()) with
-            selector_obligations = [(pos, name, AH.rename_contract_vars display)];
-            equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
+          SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
+          let obligation = close (mk_body normalized_pick tester shift) in
+          (* Displayed in terms of the input model *)
+          let display =
+            close (mk_body source_pick (mk_tester src_base) shift_display)
+          in
+          i := !i + 1;
+          let prefix = HString.mk_hstring (string_of_int !i) in
+          let name = HString.concat2 prefix (HString.mk_hstring "_selector") in
+          let nexpr = A.Ident (pos, name) in
+          (* The obligation is closed, so it never generalizes to an array equation *)
+          let eq_lhs, _ =
+            generalize_to_array_expr name StringMap.empty obligation nexpr
+          in
+          union !shift_gids
+            { (empty ()) with
+              selector_obligations = [(pos, name, AH.rename_contract_vars display)];
+              equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
         end)
 
 and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
@@ -2247,6 +2247,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
+      (* An inlined call keeps a node instance whose arguments have the enclosing
+         quantifiers replaced by free constants. The inlined expansion already
+         emitted the obligations, and the constants carry no information. *)
+      let info =
+        if vmap = [] then info
+        else { info with emit_selector_obligations = false }
+      in
       let nargs, gids1, warnings = normalize_list
         (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
         (combine_args_with_const info args flags)
@@ -2576,16 +2583,24 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
 
   | FieldProject (pos, expr, fld, pk) ->
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
-    let gids2 = match pk with
+    (* A user-written selector accounts for its obligation here, once. The
+       normalized projection is marked as generated so that re-normalizing this
+       output cannot produce the obligation a second time. *)
+    let npk, gids2 = match pk with
       | A.Selector (A.UserWritten, adt_ty, ctor) ->
-        mk_selector_obligation info node_id pos adt_ty ctor nexpr expr
-      | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> empty ()
+        let gids =
+          if info.emit_selector_obligations then
+            mk_selector_obligation info node_id pos adt_ty ctor nexpr expr
+          else empty ()
+        in
+        A.Selector (A.Kind2Generated, adt_ty, ctor), gids
+      | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> pk, empty ()
       (* Only reachable through the refinement type of a node input or output,
          whose predicate the type checker never rewrites; an ADT selector there
          is already unsupported, so treat this as a record projection *)
-      | A.Unresolved -> empty ()
+      | A.Unresolved -> pk, empty ()
     in
-    FieldProject (pos, nexpr, fld, pk), union gids1 gids2, warnings
+    FieldProject (pos, nexpr, fld, npk), union gids1 gids2, warnings
   | Const _ as expr -> expr, empty (), []
   | UnaryOp (pos, op, expr) ->
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in

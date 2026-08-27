@@ -99,7 +99,7 @@ let rec replace_last acc e =
   | EmptyMap (_, None) | EmptySet (_, None) -> e
   | EmptyMap (p, Some (kt, vt)) -> EmptyMap (p, Some (kt, vt))
   | EmptySet (p, Some ty) -> EmptySet (p, Some ty)
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, r e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, r e, idx, pk)
   | Extract (pos, e, idx1, idx2) -> Extract (pos, r e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, r e)
   | ADTTerm (pos, tis, id, es) -> ADTTerm (pos, tis, id, List.map r es)
