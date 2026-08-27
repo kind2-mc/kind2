@@ -1303,27 +1303,8 @@ and compile_ast_expr
       (* For LustreNode array types (LustreAst arrays, maps, and sets) we need quantification 
          for structural equality *)
       | ty when Type.is_array ty ->
-        let sv = state_var_of_expr e1 in
         let idx_tys = Type.all_index_types_of_array ty in
-        (* [bounds] are recorded for the whole state variable [sv], so they cover
-           all of its array/map/set dimensions. When [e1] is a sub-selection of
-           [sv] (e.g. a map value [m\[k\]] whose type is itself a set or array),
-           the outer, already-indexed dimensions are not part of [e1]'s type.
-           Those dimensions come first (dimensions are ordered outer-to-inner), so
-           drop the leading ones and keep the [List.length idx_tys] bounds that
-           correspond to [e1]'s own remaining dimensions. *)
-        let bounds =
-          let all_bounds =
-            try SVT.find !map.bounds sv with
-            | Not_found ->
-              (* A global free constant is compiled with the map of the
-                 declaration it appears in, not with the map of the node that
-                 uses it, so its bounds are only in the global table. *)
-              SVT.find cstate.state_var_bounds sv
-          in
-          let drop = List.length all_bounds - List.length idx_tys in
-          if drop > 0 then snd (list_split drop all_bounds) else all_bounds
-        in
+        let bounds = bounds_of_index i in
         assert (List.length bounds = List.length idx_tys);
         let idx_vars = List.map (Var.mk_fresh_var) idx_tys in
         let arr_is = List.map E.mk_free_var idx_vars in
