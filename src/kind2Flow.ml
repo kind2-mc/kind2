@@ -859,6 +859,39 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
     | _ -> other_modules
   )
 
+(* Drop the integer (resp. real) invariant generators when the system holds no
+   integer (resp. real) term their candidate miner can relate to another one.
+   Machine integers are handled separately by [process_invgen_mach_modules].
+
+   The logic answers the cheap half of the question -- no [IA] anywhere means
+   nothing to mine -- and the miner the exact half, which the logic cannot:
+   [IA] also stands for enumerations, which the integer rules skip, and for
+   bare numerals, which give the miner constants and nothing to relate them
+   to. *)
+let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
+= fun sys modules ->
+  let logic_has feature =
+    match TSys.get_logic sys with
+    | `Inferred fs -> TermLib.FeatureSet.mem feature fs
+    (* Logic given rather than inferred: nothing to consult. *)
+    | _ -> true
+  in
+  (* One question per domain, not one per module: the one state and two state
+     generators of a domain stand or fall together, and the miner walks the
+     init and trans of every subsystem to answer. *)
+  let mineable_int =
+    lazy (logic_has TermLib.IA && InvGenMiner.has_mineable_int_terms sys)
+  in
+  let mineable_real =
+    lazy (logic_has TermLib.RA && InvGenMiner.has_mineable_real_terms sys)
+  in
+  modules |> List.filter (
+    function
+    | `INVGENINT | `INVGENINTOS -> Lazy.force mineable_int
+    | `INVGENREAL | `INVGENREALOS -> Lazy.force mineable_real
+    | _ -> true
+  )
+
  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
     query with a lower bound *)
 let process_bmc_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
@@ -904,6 +937,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
       KEvent.purge_im msg_setup ;
 
       let modules = process_invgen_mach_modules sys in_sys modules in
+      let modules = process_invgen_arith_modules sys modules in
       (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
         query with a lower bound *)
       let modules = process_bmc_modules sys modules in
