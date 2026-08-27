@@ -859,23 +859,31 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
     | _ -> other_modules
   )
 
-(* Drop the integer (resp. real) invariant generators when the system's
-   inferred logic has no integer (resp. real) arithmetic: their candidate
-   term miners would come up empty. Machine integers are handled separately
-   by [process_invgen_mach_modules]. *)
+(* Drop the integer (resp. real) invariant generators when the system holds no
+   integer (resp. real) term their candidate miner can relate to another one.
+   Machine integers are handled separately by [process_invgen_mach_modules].
+
+   The logic answers the cheap half of the question -- no [IA] anywhere means
+   nothing to mine -- and the miner the exact half, which the logic cannot:
+   [IA] also stands for enumerations, which the integer rules skip, and for
+   bare numerals, which give the miner constants and nothing to relate them
+   to. *)
 let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
 = fun sys modules ->
-  match TSys.get_logic sys with
-  | `Inferred fs -> (
-    let open TermLib.FeatureSet in
-    modules |> List.filter (
-      function
-      | `INVGENINT | `INVGENINTOS -> mem IA fs
-      | `INVGENREAL | `INVGENREALOS -> mem RA fs
-      | _ -> true
-    )
+  let logic_has feature =
+    match TSys.get_logic sys with
+    | `Inferred fs -> TermLib.FeatureSet.mem feature fs
+    (* Logic given rather than inferred: nothing to consult. *)
+    | _ -> true
+  in
+  modules |> List.filter (
+    function
+    | `INVGENINT | `INVGENINTOS ->
+      logic_has TermLib.IA && InvGenMiner.has_mineable_int_terms sys
+    | `INVGENREAL | `INVGENREALOS ->
+      logic_has TermLib.RA && InvGenMiner.has_mineable_real_terms sys
+    | _ -> true
   )
-  | _ -> modules
 
  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
     query with a lower bound *)
