@@ -3,6 +3,7 @@ import os
 import shutil
 import signal
 import subprocess
+import time
 from pathlib import Path
 from subprocess import PIPE, STDOUT, CompletedProcess, Popen, TimeoutExpired
 
@@ -177,29 +178,13 @@ def pytest_collection_modifyitems(session, items):
 # `falsifiable` and `error` cases. It is accepted anyway, since a large model
 # on a slow machine may legitimately run out of time, but accepting it
 # silently means a run that stops making progress passes without a trace.
-# Collect them so that the session reports them at the end.
+# Collect them, with how long each took, so that the session reports them at
+# the end. The elapsed time is what separates a run the polling loop of the
+# supervisor ended at its own timeout from one a last resort had to kill:
+# the first comes in around the budget, the second only after the grace
+# those add to it. Both exit 30, and the output that would tell them apart
+# is printed only when a test fails.
 unfinished_runs = []
-
-
-# Runs the Windows stalls of #1449 take past the harness budget.
-#
-# On Windows the whole Kind 2 process stops running for seconds at a time,
-# repeatedly, so a run overruns the `--timeout` it was given by minutes and
-# this one, the longest of the suite, sometimes crosses `run_timeout` and is
-# killed. Accepting that here is a workaround for the CI noise and not a
-# mitigation: Kind 2 still does not honour its timeout on Windows, which is
-# what #1449 is about.
-#
-# Narrow on purpose -- this test, that platform, that one outcome -- so that
-# any other test crossing the budget, or this one failing any other way,
-# still fails. Reported at the end rather than passed over in silence, so
-# that the day it stops happening is visible.
-stalled_on_windows = {
-    "regression/falsifiable/test-issue-127.lus::test-issue-127 [slice_on]",
-}
-
-# The runs of `stalled_on_windows` that had to be killed this session.
-stalled_runs = []
 
 
 class LustreException(Exception): ...
@@ -327,13 +312,11 @@ class LustreItem(pytest.Item):
         if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
             pytest.skip(f"{ic3ia_solver} is not installed")
 
+        started = time.monotonic()
         try:
             self.res = run_kind2(self._command())
-        except LustreTimeout:
-            if os.name == "nt" and self.nodeid in stalled_on_windows:
-                stalled_runs.append(self.nodeid)
-                return
-            raise
+        finally:
+            self.elapsed = time.monotonic() - started
 
         if self._ic3ia_declines():
             # Answering is allowed, answering `falsifiable` is not
@@ -344,7 +327,7 @@ class LustreItem(pytest.Item):
         # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`
         result = code_to_expected.get(self.res.returncode)
         if result == "timeout" and not self._is_ic3ia():
-          unfinished_runs.append(self.nodeid)
+          unfinished_runs.append((self.nodeid, self.elapsed))
           return
 
         if self.res.returncode != expected_to_code[self.expected]:
@@ -391,27 +374,18 @@ class LustreItem(pytest.Item):
         return super().repr_failure(excinfo, style)
 
 
-# Report the runs that gave up, and the ones we had to kill and accepted,
-# which pass and would otherwise leave no trace
+# Report the runs that gave up, which pass and would otherwise leave no trace
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    if unfinished_runs:
-        terminalreporter.section("Kind 2 ran out of time")
-        terminalreporter.write_line(
-            f"{len(unfinished_runs)} test(s) exited 30 after the "
-            f"{common_args['--timeout']}s budget (not counted as failures):"
-        )
-        for nodeid in unfinished_runs:
-            terminalreporter.write_line(f"  {nodeid}")
+    if not unfinished_runs:
+        return
 
-    if stalled_runs:
-        terminalreporter.section("Killed and accepted (see #1449)")
-        terminalreporter.write_line(
-            f"{len(stalled_runs)} test(s) did not stop within {run_timeout:.0f}s "
-            f"and were accepted rather than failed, which only happens on "
-            f"Windows and only for these:"
-        )
-        for nodeid in stalled_runs:
-            terminalreporter.write_line(f"  {nodeid}")
+    terminalreporter.section("Kind 2 ran out of time")
+    terminalreporter.write_line(
+        f"{len(unfinished_runs)} test(s) exited 30 after the "
+        f"{common_args['--timeout']}s budget (not counted as failures):"
+    )
+    for nodeid, elapsed in unfinished_runs:
+        terminalreporter.write_line(f"  {elapsed:6.1f}s  {nodeid}")
 
 
 # Log test failures
