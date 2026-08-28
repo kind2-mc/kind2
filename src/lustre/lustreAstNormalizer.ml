@@ -193,6 +193,13 @@ type info = {
      obligations line up a guard with a selector that sits under a different
      number of 'pre's (see mk_selector_obligation). *)
   call_context : (LustreAst.expr * LustreAst.expr * int) list;
+  (* Conditions of the enclosing eager constructs ('if', 'and', 'or', '=>')
+     under which the value of the expression being normalized matters, with
+     the 'pre' nesting depth at which each was pushed. They establish nothing
+     about the definedness of a selector, so they play no part in its proof
+     obligation, but they do establish its constructor as far as its value is
+     concerned (see selector_statically_guarded). *)
+  value_context : (LustreAst.expr * int) list;
   (* Number of enclosing 'pre' operators *)
   pre_depth : int;
   (* False while normalizing arguments a second time for the node instance an
@@ -1125,6 +1132,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
+    value_context = [];
     pre_depth = 0;
     emit_selector_obligations = true;
     inlined_expr_ctx = false;
@@ -1974,12 +1982,18 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
    its own 'pre' depth, so a guard is only ever compared against the read it
    actually protects. 'base' is the normalized scrutinee, which the obligation
    is built from; 'src_base' is the scrutinee as written, used for display. *)
-(* Whether an enclosing lazy guard establishes, at the selector's own 'pre'
-   depth, that [scrut] is built with [ctor]: a conjunct of the guard is the
-   tester of [ctor], or, for a two-constructor ADT, the negated tester of the
-   other constructor. Such a selector is a plain projection of the record;
-   see [LustreDesugarADTs]. Recursive ADTs are compiled to SMT-LIB datatypes
-   and keep their selectors. *)
+(* [info] with the eager condition [cond] recorded as a value fact at the
+   current 'pre' depth *)
+and under_value_fact info cond =
+  { info with value_context = (cond, info.pre_depth) :: info.value_context }
+
+(* Whether an enclosing construct establishes, at the selector's own 'pre'
+   depth, that [scrut] is built with [ctor] wherever the selector's value
+   matters: a conjunct of a lazy guard, or of an eager condition the value is
+   evaluated under, is the tester of [ctor], or, for a two-constructor ADT,
+   the negated tester of the other constructor. Such a selector is a plain
+   projection of the record; see [LustreDesugarADTs]. Recursive ADTs are
+   compiled to SMT-LIB datatypes and keep their selectors. *)
 and selector_statically_guarded info adt_ty ctor scrut =
   let adt_info = match adt_ty with
     | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
@@ -2014,6 +2028,9 @@ and selector_statically_guarded info adt_ty ctor scrut =
     List.exists (fun (_, g, d) ->
       d = info.pre_depth && List.exists establishes (conjuncts g)
     ) info.call_context
+    || List.exists (fun (g, d) ->
+      d = info.pre_depth && List.exists establishes (conjuncts g)
+    ) info.value_context
   | _ -> false
 
 and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
@@ -2756,14 +2773,32 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let nexpr = A.Ident (pos, name1) in
       let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
       nexpr, gids, warnings1 @ warnings2)
+  (* The value of an operand of an eager Boolean connective only matters when
+     the other operand does not decide the result, and the value of a branch
+     of an eager conditional only when the branch is selected *)
+  | BinaryOp (pos, (And | Or | Impl as op), expr1, expr2) ->
+    let neg e = A.UnaryOp (AH.pos_of_expr e, Not, e) in
+    let fact1, fact2 = match op with
+      | And -> expr2, expr1
+      | Or -> neg expr2, neg expr1
+      | _ -> neg expr2, expr1
+    in
+    let nexpr1, gids1, warnings1 =
+      normalize_expr ?guard (under_value_fact info fact1) node_id map expr1 in
+    let nexpr2, gids2, warnings2 =
+      normalize_expr ?guard (under_value_fact info fact2) node_id map expr2 in
+    BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | TernaryOp (pos, Ite, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in
+    let neg_expr1 = A.UnaryOp (AH.pos_of_expr expr1, Not, expr1) in
+    let nexpr2, gids2, warnings2 =
+      normalize_expr ?guard (under_value_fact info expr1) node_id map expr2 in
+    let nexpr3, gids3, warnings3 =
+      normalize_expr ?guard (under_value_fact info neg_expr1) node_id map expr3 in
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings

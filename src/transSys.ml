@@ -1985,6 +1985,11 @@ let mk_trans_sys
          |> (fun features ->
              if datatype_types <> [] then
                TermLib.FeatureSet.add TermLib.DT features
+             else features)
+         (* The uninterpreted functions of the system are declared whether
+            or not its terms mention them *)
+         |> (fun features ->
+             if ufs <> [] then TermLib.FeatureSet.add TermLib.UF features
              else features))
 
   in
