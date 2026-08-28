@@ -524,11 +524,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
             let constraints = mk ctx n ftype (A.FieldProject (dpos, expr, fname, A.RecordField)) in
             if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
             else
-              let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
-                match acc with Some _ -> acc | None ->
-                if List.exists (fun (fn, _) -> HString.equal fn fname) fields then Some ctor else None
-              ) adt_info.LDAT.ctor_fields None in
-              match ctor_opt with
+              match LDAT.ctor_of_payload_field adt_info fname with
               | None -> constraints
               | Some ctor ->
                 let guard = A.CompOp (dpos, A.Eq, tag_expr, A.Ident (dpos, ctor)) in
@@ -630,11 +626,7 @@ and mk_ref_type_expr
         let constraints = mk_ref_type_expr adt_map ctx node_id fexpr ftype in
         if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
         else
-          let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
-            match acc with Some _ -> acc | None ->
-            if List.exists (fun (fn, _) -> HString.equal fn fname) fields then Some ctor else None
-          ) adt_info.LDAT.ctor_fields None in
-          match ctor_opt with
+          match LDAT.ctor_of_payload_field adt_info fname with
           | None -> constraints
           | Some ctor ->
             let guard = A.CompOp (p, A.Eq, tag_expr, A.Ident (p, ctor)) in

@@ -83,6 +83,10 @@ val mk_canonical_exprs :
   LustreAst.lustre_type ->
   LustreAst.expr list
 
+(** The constructor whose payload field has the given internal record field
+    name, if any *)
+val ctor_of_payload_field : adt_info -> HString.t -> HString.t option
+
 (** The ADT underlying a type, through type synonyms and refinement types *)
 val adt_info_of_type :
   TypeCheckerContext.tc_context -> adt_map -> LustreAst.lustre_type -> adt_info option

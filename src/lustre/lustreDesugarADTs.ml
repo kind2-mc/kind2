@@ -128,6 +128,13 @@ let payload_field_name_of info ctor user_fname =
   | Some (_, _, internal) -> internal
   | None -> assert false
 
+(* The constructor whose payload field has the internal name [fname], if
+   any (the discriminant field has none) *)
+let ctor_of_payload_field info fname =
+  List.find_map (fun (c, _, i) ->
+    if HString.equal i fname then Some c else None
+  ) info.field_names
+
 (* User-written name of the payload field with internal name [fname] *)
 let user_field_name_of info fname =
   match List.find_opt (fun (_, _, i) -> HString.equal i fname) info.field_names with
@@ -525,8 +532,8 @@ and mk_canonical_exprs ctx adt_map pos expr ty =
       else
         let fexpr = LA.FieldProject (pos, expr, fname, LA.RecordField) in
         let ctor =
-          match List.find_opt (fun (_, _, i) -> HString.equal i fname) info.field_names with
-          | Some (c, _, _) -> c
+          match ctor_of_payload_field info fname with
+          | Some c -> c
           | None -> assert false
         in
         let inactive = LA.CompOp (pos, LA.Neq, tag, LA.Ident (pos, ctor)) in
