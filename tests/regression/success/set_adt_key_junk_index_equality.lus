@@ -1,11 +1,3 @@
-(* A set or map over an ADT is compiled into an array with one dimension per
-   payload field of every constructor, and membership reads it at an index
-   whose junk payload fields (those of the constructors the tag does not
-   select) are canonicalized. Structural equality must ignore the indices that
-   canonicalization rules out: no element can observe them, so two containers
-   holding exactly the same elements must compare equal whatever they hold
-   there. *)
-
 datatype T = A (x: int) | B (y: bool);
 datatype Nested = C (t: T) | D (r: real);
 
