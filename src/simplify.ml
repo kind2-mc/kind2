@@ -772,7 +772,9 @@ let rec negate_nnf term = match Term.destruct term with
       | `UF _, _
       | `SELECT _, _
       | `CONST_ARRAY _, _
-      | `STORE, _ -> Term.mk_not term
+      | `STORE, _
+      | `IsConstructor _, _
+      | `Selector _, _ -> Term.mk_not term
 
       (* Negate both cases of ite term *)
       | `ITE, [p; l; r] -> 
@@ -834,9 +836,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
       | `BVSIGNEXT _ , _
-      | `BVZEROEXT _ , _ 
-      | `IsConstructor _, _ 
-      | `Selector _, _ -> assert false
+      | `BVZEROEXT _ , _ -> assert false
     )
 
   (* | Term.T.Attr (t, _) -> t *)
@@ -1564,6 +1564,48 @@ let binary_equivalence simplify_term_node' a b =
     (Term.destruct (Term.mk_or [term_a'; term_b']))
     [Bool term_a'; Bool term_b']
 
+
+
+(* The constructor and arguments of a term that is a datatype value, i.e. an
+   application of a constructor, whose symbol is the uninterpreted function
+   named after it (see LustreNodeGen) *)
+let datatype_value_of_term t =
+  if not (Type.is_datatype (Term.type_of_term t)) then None
+  else
+    match Term.destruct t with
+    | Term.T.App (s, args) when Symbol.is_uf s ->
+      Some (UfSymbol.name_of_uf_symbol (Symbol.uf_of_symbol s), args)
+    | Term.T.Const s when Symbol.is_uf s ->
+      Some (UfSymbol.name_of_uf_symbol (Symbol.uf_of_symbol s), [])
+    | _ -> None
+    | exception Invalid_argument _ -> None
+
+(* A tester applied to a datatype value evaluates to a Boolean, a selector to
+   the argument it selects; either applied to any other term stays an atom *)
+let is_constructor_of_nf ctor a =
+  let t = term_of_nf a in
+  match datatype_value_of_term t with
+  | Some (c, _) -> Bool (if String.equal c ctor then Term.t_true else Term.t_false)
+  | None -> atom_of_term (Term.mk_is_constructor ctor t)
+
+let selector_of_nf selector ty a =
+  let t = term_of_nf a in
+  let selected =
+    match datatype_value_of_term t with
+    | Some (c, args) ->
+      (* The selector of the i-th field of constructor C is named C_i *)
+      let prefix = c ^ "_" in
+      let n = String.length prefix in
+      if String.length selector > n && String.sub selector 0 n = prefix then
+        (match int_of_string_opt (String.sub selector n (String.length selector - n)) with
+         | Some i -> List.nth_opt args i
+         | None -> None)
+      else None
+    | None -> None
+  in
+  match selected with
+  | Some t -> atom_of_term t
+  | None -> atom_of_term (Term.mk_selector selector ty t)
 
 let if_then_else = function
 
@@ -2319,12 +2361,12 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `IsConstructor s ->
             (match args with
-             | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+             | [a] -> is_constructor_of_nf s a
              | _ -> assert false)
 
           | `Selector (s, ty) ->
             (match args with
-             | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+             | [a] -> selector_of_nf s ty a
              | _ -> assert false)
 
           (* Constant symbols *)
@@ -3008,12 +3050,12 @@ let rec remove_ite' fterm args =
 
         | `IsConstructor s ->
           (match args with
-           | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+           | [a] -> is_constructor_of_nf s a
            | _ -> assert false)
 
         | `Selector (s, ty) ->
           (match args with
-           | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+           | [a] -> selector_of_nf s ty a
            | _ -> assert false)
 
         (* Constant symbols *)

@@ -49,6 +49,20 @@ module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
 
+(* Key of the uninterpreted function giving a selector its value outside of
+   its constructor: the ADT, field and component it stands for, and the
+   types of the record's components and of the result, so that every
+   instantiation of a polymorphic ADT has its own function *)
+module JunkTbl = Hashtbl.Make (struct
+  type t = string * Type.t list * Type.t
+  let equal (n1, a1, r1) (n2, a2, r2) =
+    String.equal n1 n2
+    && List.length a1 = List.length a2
+    && List.for_all2 Type.equal_types a1 a2
+    && Type.equal_types r1 r2
+  let hash (n, a, r) = Hashtbl.hash (n, List.map Type.hash_type a, Type.hash_type r)
+end)
+
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
   usr_state_var : StateVar.t LustreIndex.t LustreIdent.Hashtbl.t;
@@ -89,8 +103,10 @@ type compiler_state = {
      explicitly to preserve ordering *)
   recursive_datatypes : Type.t list;
   (* Uninterpreted functions for selectors applied outside of the
-     constructor declaring them, by name; see [compile_unguarded_selector] *)
-  adt_junk_ufs : (string, UfSymbol.t) Hashtbl.t;
+     constructor declaring them; see [compile_unguarded_selector] *)
+  adt_junk_ufs : UfSymbol.t JunkTbl.t;
+  (* Canonical-form constraints of the free constants *)
+  adt_global_constraints : E.t list;
 }
 
 (*
@@ -188,7 +204,8 @@ let empty_compiler_state () = {
   abstract_type_defaults = Hashtbl.create 4;
   ref_type_names = [];
   recursive_datatypes = [];
-  adt_junk_ufs = Hashtbl.create 4;
+  adt_junk_ufs = JunkTbl.create 4;
+  adt_global_constraints = [];
 }
 
 (*
@@ -785,8 +802,13 @@ let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
     { G.disc_field = info.LDAT.disc_field;
       G.ctor_fields = StringMap.map (fun fields ->
         List.map (fun (fname, ftype) ->
+          (* A recursive ADT is a single datatype-sorted state variable, not
+             a record with a tag of its own *)
           let field_info = match ftype with
-            | A.UserType (_, _, tname) when StringMap.mem tname ldat_map ->
+            | A.UserType (_, _, tname)
+              when (match StringMap.find_opt tname ldat_map with
+                    | Some nested -> not nested.LDAT.is_recursive
+                    | None -> false) ->
               G.AdtFieldNested tname
             | _ -> G.AdtFieldPlain
           in
@@ -903,7 +925,8 @@ let rec compile ctx gids adt_map scc_map decls =
       G.global_constraints = output.global_constraints;
       G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map;
       G.recursive_datatypes = output.recursive_datatypes;
-      G.adt_junk_ufs = Hashtbl.fold (fun _ uf acc -> uf :: acc) output.adt_junk_ufs [] }
+      G.adt_junk_ufs = JunkTbl.fold (fun _ uf acc -> uf :: acc) output.adt_junk_ufs [];
+      G.adt_global_constraints = output.adt_global_constraints }
 
 and compile_ast_type
   ?(expand=false)
@@ -1417,35 +1440,93 @@ and compile_ast_expr
     let type_name = HString.string_of_hstring info.LDAT.type_name in
     let tag = X.find [X.AdtTagIndex type_name] cexpr in
     let active = E.mk_eq tag (E.mk_constr ctor (E.type_of_lustre_expr tag)) in
-    let args = X.values cexpr in
+    let default_of_type = default_of_type cstate.abstract_type_defaults in
+    (* The functions take no Boolean argument and return none (the
+       interpolating solvers do not support them): a Boolean component is
+       passed as 0/1 and a Boolean result read back from an integer one *)
+    let as_uf_arg e =
+      if Type.is_bool (E.type_of_lustre_expr e) then
+        E.mk_ite e (E.mk_int Numeral.one) (E.mk_int Numeral.zero)
+      else e
+    in
+    let args = List.map as_uf_arg (X.values cexpr) in
     let arg_types = List.map E.type_of_lustre_expr args in
-    X.find_prefix [index] cexpr
-    |> X.mapi (fun idx e ->
-      let ty = E.type_of_lustre_expr e in
-      if Type.is_array ty then e
-      else
-        (* The name carries the leaf and the component types: a polymorphic
-           ADT has one function per instantiation *)
-        let name =
-          let sanitize s =
-            String.map (fun c ->
-              if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-                 || (c >= '0' && c <= '9') || c = '_' || c = '.' then c else '_'
-            ) s
+    let field_str = HString.string_of_hstring field in
+    (* The arbitrary value of the scalar component [idx] of the field, of
+       type [ty]: it is a legal value of that type *)
+    let junk_of idx ty =
+      let res_ty = if Type.is_bool ty then Type.t_int else ty in
+      let component = type_name ^ "." ^ field_str ^ X.string_of_index true idx in
+      let key = (component, arg_types, res_ty) in
+      let uf = match JunkTbl.find_opt cstate.adt_junk_ufs key with
+        | Some uf -> uf
+        | None ->
+          let name =
+            Format.asprintf "%s.junk.%d" component (JunkTbl.length cstate.adt_junk_ufs)
           in
-          Format.asprintf "%s.%s%s.junk.%s"
-            type_name (HString.string_of_hstring field) (X.string_of_index true idx)
-            (List.map (fun t -> Format.asprintf "%a" Type.pp_print_type t) (arg_types @ [ty])
-             |> String.concat "." |> sanitize)
+          let uf = UfSymbol.mk_uf_symbol name arg_types res_ty in
+          JunkTbl.add cstate.adt_junk_ufs key uf;
+          uf
+      in
+      let app = E.mk_uf uf res_ty args in
+      if Type.is_bool ty then E.mk_eq app (E.mk_int Numeral.one)
+      else
+        let in_range = match Type.node_of_type ty with
+          | Type.Enum (l, u) ->
+            let ctors = Type.constructors_of_enum ty in
+            let ctor_of n = E.mk_constr (List.nth ctors Numeral.(to_int (n - l))) ty in
+            Some (E.mk_and (E.mk_lte (ctor_of l) app) (E.mk_lte app (ctor_of u)))
+          | Type.IntRange (Some l, Some u) ->
+            Some (E.mk_and (E.mk_lte (E.mk_int l) app) (E.mk_lte app (E.mk_int u)))
+          | Type.IntRange (Some l, None) -> Some (E.mk_lte (E.mk_int l) app)
+          | Type.IntRange (None, Some u) -> Some (E.mk_lte app (E.mk_int u))
+          | _ -> None
         in
-        let uf = match Hashtbl.find_opt cstate.adt_junk_ufs name with
-          | Some uf -> uf
-          | None ->
-            let uf = UfSymbol.mk_uf_symbol name arg_types ty in
-            Hashtbl.add cstate.adt_junk_ufs name uf;
-            uf
-        in
-        E.mk_ite active e (E.mk_uf uf ty args))
+        match in_range with
+        | Some c -> E.mk_ite c app (default_of_type ty)
+        | None -> app
+    in
+    let payload = X.find_prefix [index] cexpr in
+    (* The arbitrary value of every scalar component; a component of an
+       array, set or map type keeps the default the canonical form holds *)
+    let junk =
+      X.mapi (fun idx e ->
+        let ty = E.type_of_lustre_expr e in
+        if Type.is_array ty then e else junk_of idx ty
+      ) payload
+    in
+    (* The (prefix, constructor) pairs of the ADT levels a component lies
+       under, innermost first; the tag of such a level is bound at
+       prefix @ [AdtTagIndex type] *)
+    let levels idx =
+      let rec collect acc prefix = function
+        | [] -> acc
+        | X.AdtPayloadIndex (c, _) as x :: rest ->
+          collect ((List.rev prefix, c) :: acc) (x :: prefix) rest
+        | x :: rest -> collect acc (x :: prefix) rest
+      in
+      collect [] [] idx
+    in
+    let type_of_ctor c =
+      StringMap.fold (fun tn (i : LDAT.adt_info) acc ->
+        if List.mem (HString.mk_hstring c) i.LDAT.ctor_variants
+        then Some (HString.string_of_hstring tn) else acc
+      ) cstate.adt_map None
+      |> (function Some tn -> tn | None -> assert false)
+    in
+    (* Where the field's type involves an ADT, the arbitrary value is itself
+       canonical: the components of the constructors its arbitrary tag does
+       not select hold the default *)
+    let junk =
+      X.mapi (fun idx e ->
+        List.fold_left (fun e (prefix, c) ->
+          let jtag = X.find (prefix @ [X.AdtTagIndex (type_of_ctor c)]) junk in
+          let selected = E.mk_eq jtag (E.mk_constr c (E.type_of_lustre_expr jtag)) in
+          E.mk_ite selected e (default_of_type (E.type_of_lustre_expr e))
+        ) e (levels idx)
+      ) junk
+    in
+    X.map2 (fun _ e j -> E.mk_ite active e j) payload junk
 
   and compile_projection bounds expr = function
     | X.RecordIndex _
@@ -3575,18 +3656,23 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
           AN.mk_ref_type_expr cstate.adt_map ctx None (A.Ident(p, i)) ty
         else []
       in
-      (* A free constant of a type involving an ADT is a canonical value *)
-      let canonical_exprs =
-        LDAT.mk_canonical_exprs ctx cstate.adt_map p (A.Ident (p, i)) ty
-      in
       List.map (fun expr ->
         let c_expr = compile_ast_expr cstate ctx [] map expr in
         X.max_binding c_expr |> snd
-      ) (ref_type_exprs @ canonical_exprs) @ cstate.global_constraints
+      ) ref_type_exprs @ cstate.global_constraints
+    in
+    (* A free constant of a type involving an ADT is a canonical value *)
+    let adt_global_constraints =
+      let ctx = Ctx.add_ty ctx i ty in
+      LDAT.mk_canonical_exprs ctx cstate.adt_map p (A.Ident (p, i)) ty
+      |> List.map (fun expr ->
+           compile_ast_expr cstate ctx [] map expr |> X.max_binding |> snd)
+      |> (fun cs -> cs @ cstate.adt_global_constraints)
     in
     { cstate with
       free_constants = (!map.node_name, i, vt, is_generated) :: cstate.free_constants;
-      global_constraints
+      global_constraints;
+      adt_global_constraints
     }
   )
   (* TODO: Old code does some subtyping checks for Typed constants

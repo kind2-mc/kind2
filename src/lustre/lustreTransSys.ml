@@ -3184,10 +3184,27 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             )
           ;
 
+          (* The canonical-form constraints of the free constants some node
+             mentions; the others cannot matter and would only burden the
+             solver (a quantified one turns IC3IA off) *)
+          let adt_global_constraints =
+            let mentioned =
+              List.fold_left (fun acc n ->
+                List.fold_left (fun acc (_, e) ->
+                  SVS.union acc (E.state_vars_of_expr e)
+                ) acc n.N.equations
+              ) SVS.empty nodes
+            in
+            let consts = SVS.of_list global_const_svars in
+            globals.G.adt_global_constraints |> List.filter (fun e ->
+              E.state_vars_of_expr e |> SVS.for_all (fun sv ->
+                not (SVS.mem sv consts) || SVS.mem sv mentioned))
+          in
+
           let global_constraints =
             List.map
               (E.base_term_of_t TransSys.init_base)
-              globals.G.global_constraints
+              (globals.G.global_constraints @ adt_global_constraints)
           in
 
           let global_constraints =
@@ -3464,8 +3481,27 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               Type.t_bool
           in
 
-          (* UFs of the system. *)
-          let ufs = function_ufs @ globals.G.adt_junk_ufs in
+          (* UFs of the system: those of its functions, and the ones giving
+             selectors their value outside of their constructor that its own
+             terms apply *)
+          let ufs =
+            let applied =
+              List.fold_left (fun acc t ->
+                let acc = ref acc in
+                Term.map (fun _ t ->
+                  (match Term.node_of_term t with
+                   | Term.T.Node (s, _) when Symbol.is_uf s ->
+                     acc := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !acc
+                   | _ -> ());
+                  t
+                ) t |> ignore;
+                !acc
+              ) UfSymbol.UfSymbolSet.empty (init_terms @ trans_terms)
+            in
+            function_ufs
+            @ List.filter (fun uf -> UfSymbol.UfSymbolSet.mem uf applied)
+                globals.G.adt_junk_ufs
+          in
           
           (* let ty_args_opt = match node_id with 
           | (_, tags) -> Lib.find_map (fun tag -> match tag with 

@@ -1994,26 +1994,18 @@ and under_value_fact info cond =
    the negated tester of the other constructor. Such a selector is a plain
    projection of the record; see [LustreDesugarADTs]. Recursive ADTs are
    compiled to SMT-LIB datatypes and keep their selectors. *)
-and selector_statically_guarded info adt_ty ctor scrut =
-  let adt_info = match adt_ty with
-    | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
-    | _ -> None
-  in
+and selector_statically_guarded info (adt_info : LDAT.adt_info) ctor scrut =
   match adt_info with
   (* A value of a single-constructor ADT is always built with that constructor *)
-  | Some { LDAT.is_recursive = false; ctor_variants = [_]; _ } -> true
-  | Some adt_info when not adt_info.LDAT.is_recursive ->
+  | { LDAT.is_recursive = false; ctor_variants = [_]; _ } -> true
+  | adt_info when not adt_info.LDAT.is_recursive ->
     let tester c =
       A.CompOp (dpos, A.Eq,
         A.FieldProject (dpos, scrut, adt_info.LDAT.disc_field, A.RecordField),
         A.Ident (dpos, c))
     in
-    let rec strip_not = function
-      | A.UnaryOp (_, A.Not, A.UnaryOp (_, A.Not, e)) -> strip_not e
-      | e -> e
-    in
     let rec conjuncts e =
-      match strip_not e with
+      match process_for_display e with
       | A.BinaryOp (_, (A.And | A.AndThen), a, b) -> conjuncts a @ conjuncts b
       | e -> [e]
     in
@@ -2022,7 +2014,7 @@ and selector_statically_guarded info adt_ty ctor scrut =
       || (match adt_info.LDAT.ctor_variants, g with
           | [c1; c2], A.UnaryOp (_, A.Not, g') ->
             let other = if HString.equal ctor c1 then c2 else c1 in
-            expr_equal (strip_not g') (tester other)
+            expr_equal (process_for_display g') (tester other)
           | _ -> false)
     in
     List.exists (fun (_, g, d) ->
@@ -2033,14 +2025,9 @@ and selector_statically_guarded info adt_ty ctor scrut =
     ) info.value_context
   | _ -> false
 
-and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
-  let adt_info = match adt_ty with
-    | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
-    | _ -> None
-  in
+and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base src_base =
   match adt_info with
-  | None -> assert false
-  | Some adt_info ->
+  | adt_info ->
     (* A value of a single-constructor ADT is always built with that constructor *)
     (match adt_info.LDAT.ctor_variants with
       | [] | [_] -> empty ()
@@ -2324,6 +2311,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
+      (* The callee's state advances on every step whatever the enclosing
+         eager conditions, so its arguments are evaluated under none of them;
+         the lazy guards gate the call itself *)
+      let info = { info with value_context = [] } in
       (* An inlined call keeps a node instance whose arguments have the enclosing
          quantifiers replaced by free constants. The inlined expansion already
          emitted the obligations, and the constants carry no information. *)
@@ -2368,7 +2359,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     then (
       assert (is_inlinable);
       let nargs, gids1, warnings1 = normalize_list
-        (fun arg -> normalize_expr ?guard info node_id map arg)
+        (fun arg -> normalize_expr ?guard { info with value_context = [] } node_id map arg)
         args
       in
       let expr = get_inline_func_expr info.inlinable_funcs id nargs in
@@ -2666,13 +2657,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
        establishes its constructor it is a plain projection of the record. *)
     let npk, gids2 = match pk with
       | A.Selector (A.UserWritten, adt_ty, ctor) ->
+        let adt_info =
+          match LDAT.adt_info_of_type info.context info.adt_map adt_ty with
+          | Some adt_info -> adt_info
+          | None -> assert false
+        in
         let gids =
           if info.emit_selector_obligations then
-            mk_selector_obligation info node_id pos adt_ty ctor nexpr expr
+            mk_selector_obligation info node_id pos adt_info ctor nexpr expr
           else empty ()
         in
         let npk =
-          if selector_statically_guarded info adt_ty ctor expr then A.RecordField
+          if selector_statically_guarded info adt_info ctor expr then A.RecordField
           else A.Selector (A.Kind2Generated, adt_ty, ctor)
         in
         npk, gids

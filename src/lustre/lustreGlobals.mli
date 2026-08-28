@@ -59,5 +59,10 @@ type t =
     adt_junk_ufs : UfSymbol.t list;
     (** Uninterpreted functions giving a selector applied to an ADT value
         built with another constructor its (arbitrary, fixed) value *)
+
+    adt_global_constraints : LustreExpr.t list;
+    (** Canonical-form constraints of the free constants of a type involving
+        an ADT (see {!LustreDesugarADTs.mk_canonical_exprs}); a system only
+        needs those of the constants some node mentions *)
   }
 

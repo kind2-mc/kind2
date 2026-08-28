@@ -42,6 +42,7 @@ type adt_info = {
   ctor_variants : HString.t list;
   ctor_fields : (HString.t * LustreAst.lustre_type) list HStringMap.t;
   all_payload_fields : (HString.t * LustreAst.lustre_type) list;
+  field_names : (HString.t * HString.t * HString.t) list;
   is_recursive : bool;
 }
 
@@ -81,6 +82,10 @@ val mk_canonical_exprs :
   LustreAst.expr ->
   LustreAst.lustre_type ->
   LustreAst.expr list
+
+(** The ADT underlying a type, through type synonyms and refinement types *)
+val adt_info_of_type :
+  TypeCheckerContext.tc_context -> adt_map -> LustreAst.lustre_type -> adt_info option
 
 val desugar_adts :
   TypeCheckerContext.tc_context ->
