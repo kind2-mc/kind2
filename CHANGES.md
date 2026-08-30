@@ -1,10 +1,5 @@
 # Unreleased
 
-Bug fixes:
-- An `if` block whose branches assigned the same values under different conditions
-  could have a branch condition dropped during simplification, silently giving the
-  node the wrong semantics.
-
 Breaking changes:
 - A user-written [ADT selector](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/14_algebraic_datatypes.html#selectors) `e.f` now generates a proof obligation that the constructor owning `f` is active, reported as a property named `Selector[L<line>C<column>]`. Models that read a field without establishing its constructor will report a new failing property. The obligation is discharged by the short-circuiting operators (`and then`, `or else`, `==>`), `when ... then ... else` expressions, `when` blocks, and `match` arms; their eager counterparts (`and`, `or`, `=>`, `if` expressions and `if` blocks) do not discharge it.
 
