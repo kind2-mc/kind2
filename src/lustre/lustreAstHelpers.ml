@@ -172,6 +172,50 @@ let fold_label_or_index empty union f idx =
       union acc (f e)
   ) empty idx
 
+(* Whether an expression can be deleted from the AST without changing what
+   Kind 2 verifies, i.e. whether evaluating it contributes nothing besides its
+   value.
+
+   A user-written ADT selector carries a proof obligation that the scrutinee was
+   built with the constructor owning the field (see 'mk_selector_obligation' in
+   LustreAstNormalizer), so an expression containing one has to be kept even
+   where its value is irrelevant, or the obligation silently disappears.
+
+   The test is a conservative whitelist: only the forms matched below as
+   droppable are recognized as such, and every other form, including any added
+   later, is reported as not droppable. The only caller (LustreDesugarIfBlocks)
+   uses the answer to decide whether it may simplify a branch condition away,
+   and keeping a condition is always sound, so a too-strict answer costs no
+   more than a redundant 'ite'.
+
+   Only expressions are inspected. The types carried by the droppable forms
+   below (the type arguments of a record or ADT construction, and the type of
+   an abstract symbolic constant) are type instantiations: unlike a variable
+   declaration, they carry no refinement-type obligation of their own. *)
+let rec expr_is_droppable = function
+  | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
+  | EmptyMap (_, None) | EmptySet (_, None) -> true
+  (* Only user-written selectors carry a proof obligation *)
+  | FieldProject (_, _, _, Selector (UserWritten, _, _)) -> false
+  | FieldProject (_, e, _, (RecordField | Unresolved | Selector (Kind2Generated, _, _)))
+  | UnaryOp (_, _, e) | ConvOp (_, _, e) | Extract (_, e, _, _)
+  | When (_, e, _) | Pre (_, e) | ADTTester (_, e, _) -> expr_is_droppable e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) ->
+    expr_is_droppable e1 && expr_is_droppable e2
+  | TernaryOp (_, _, e1, e2, e3) ->
+    expr_is_droppable e1 && expr_is_droppable e2 && expr_is_droppable e3
+  | GroupExpr (_, _, es) | ADTTerm (_, _, _, es) -> List.for_all expr_is_droppable es
+  | RecordExpr (_, _, _, fields) ->
+    List.for_all (fun (_, e) -> expr_is_droppable e) fields
+  (* Everything else is kept without further analysis: node calls and the clock
+     operators over them bring in a callee, the binders and pattern matching
+     introduce bound variables, and the remaining forms are not worth
+     recognizing here *)
+  | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ | Condact _
+  | Activate _ | Merge _ | RestartEvery _ | TypeAscription _ | StructUpdate _
+  | ArrayConstr _ | IndexAccess _ | EmptyMap (_, Some _)
+  | EmptySet (_, Some _) -> false
+
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
   | EmptySet (_, Some ty) -> 

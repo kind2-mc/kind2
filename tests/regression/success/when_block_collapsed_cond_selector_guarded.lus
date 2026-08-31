@@ -1,0 +1,21 @@
+-- The inner when block collapses, but its condition is kept because of the
+-- 'p.val' selector. The obligation the selector carries is still discharged by
+-- the enclosing 'Some?(p)' branch, so keeping the condition must not turn into
+-- a false alarm.
+
+datatype IntOpt = None | Some (val: int);
+
+node main(p: IntOpt) returns (g: bool);
+let
+  when Some?(p) then
+    when p.val > 0 then
+      g = true ;
+    else
+      g = true ;
+    end
+  else
+    g = false ;
+  end
+
+  check None?(p) => not g ;
+tel
