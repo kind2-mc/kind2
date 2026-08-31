@@ -1,0 +1,7 @@
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node main(l: List) returns (o: int);
+let
+  o = l.tl.hd;
+  check o = o;
+tel

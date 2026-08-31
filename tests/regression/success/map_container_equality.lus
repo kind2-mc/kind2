@@ -1,0 +1,17 @@
+node IteOperand(c: bool; m1: map<int,int>; m2: map<int,int>) returns (ok: bool);
+let
+  ok = ((if c then m1 else m2) = (if c then m1 else m2));
+  check ok;
+tel
+
+node NestedSelect(x: int; y: int; st: map<int, map<int, set<int>>>) returns (ok: bool);
+let
+  ok = (st[x][y] = st[x][y]);
+  check ok;
+tel
+
+node AgreesAtKey(x: int; s1: map<int, map<int,int>>; s2: map<int, map<int,int>>) returns ();
+let
+  check not ((x in s1) and (x in s2) and s1[x] = s2[x]
+             and (100 in s1[x]) and not (100 in s2[x]));
+tel
