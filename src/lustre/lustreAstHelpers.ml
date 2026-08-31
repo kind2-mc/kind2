@@ -181,10 +181,17 @@ let fold_label_or_index empty union f idx =
    LustreAstNormalizer), so an expression containing one has to be kept even
    where its value is irrelevant, or the obligation silently disappears.
 
-   The test is a whitelist: node calls, binders, pattern matching, and any
-   expression form added later are all reported as not droppable. The only
-   caller (LustreDesugarIfBlocks) uses the answer to decide whether it may
-   simplify away a branch condition, and keeping a condition is always sound. *)
+   The test is a conservative whitelist: only the forms matched below as
+   droppable are recognized as such, and every other form, including any added
+   later, is reported as not droppable. The only caller (LustreDesugarIfBlocks)
+   uses the answer to decide whether it may simplify a branch condition away,
+   and keeping a condition is always sound, so a too-strict answer costs no
+   more than a redundant 'ite'.
+
+   Only expressions are inspected. The types carried by the droppable forms
+   below (the type arguments of a record or ADT construction, and the type of
+   an abstract symbolic constant) are type instantiations: unlike a variable
+   declaration, they carry no refinement-type obligation of their own. *)
 let rec expr_is_droppable = function
   | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
   | EmptyMap (_, None) | EmptySet (_, None) -> true
@@ -200,9 +207,10 @@ let rec expr_is_droppable = function
   | GroupExpr (_, _, es) | ADTTerm (_, _, _, es) -> List.for_all expr_is_droppable es
   | RecordExpr (_, _, _, fields) ->
     List.for_all (fun (_, e) -> expr_is_droppable e) fields
-  (* Node calls, binders, pattern matching, and every construct whose operands
-     include a type (which may carry a refinement predicate) are conservatively
-     reported as not droppable *)
+  (* Everything else is kept without further analysis: node calls and the clock
+     operators over them bring in a callee, the binders and pattern matching
+     introduce bound variables, and the remaining forms are not worth
+     recognizing here *)
   | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ | Condact _
   | Activate _ | Merge _ | RestartEvery _ | TypeAscription _ | StructUpdate _
   | ArrayConstr _ | IndexAccess _ | EmptyMap (_, Some _)

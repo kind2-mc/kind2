@@ -42,9 +42,11 @@ val id_of_expr : expr -> HString.t option
 
 val expr_is_droppable : expr -> bool
 (** Checks whether the expression can be deleted from the AST without losing a
-    proof obligation, i.e. whether it contains neither a user-written ADT
-    selector nor a node call. Answers conservatively: an expression form the
-    check does not recognize is reported as not droppable. *)
+    proof obligation. The check is a conservative whitelist: an expression form
+    it does not explicitly recognize as droppable, including any form added
+    later, is reported as not droppable. Answering [false] is always sound, so
+    a new expression form only needs to be listed as droppable if the caller
+    should be allowed to delete it. *)
 
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
