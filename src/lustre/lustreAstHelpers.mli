@@ -40,6 +40,12 @@ val pos_of_expr : expr -> Lib.position
 val id_of_expr : expr -> HString.t option
 (** Return a lustre id if the expression is an Ident variant or None otherwise *)
 
+val expr_is_droppable : expr -> bool
+(** Checks whether the expression can be deleted from the AST without losing a
+    proof obligation, i.e. whether it contains neither a user-written ADT
+    selector nor a node call. Answers conservatively: an expression form the
+    check does not recognize is reported as not droppable. *)
+
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
