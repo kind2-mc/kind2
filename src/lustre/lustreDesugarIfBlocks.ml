@@ -370,8 +370,11 @@ let rec trees_eq node1 node2 = match node1, node2 with
     | Ok n -> n
     | Error _ -> false
   )
-  | Node (l1, _, r1), Node (l2, _, r2) -> 
-    trees_eq l1 l2 && trees_eq r1 r2
+  | Node (l1, c1, r1), Node (l2, c2, r2) ->
+    (match (AH.syn_expr_equal None c1 c2) with
+      | Ok n -> n && trees_eq l1 l2 && trees_eq r1 r2
+      | Error _ -> false
+    )
   | _ -> false
 
   
