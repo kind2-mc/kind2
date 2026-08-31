@@ -25,24 +25,15 @@
 -- Auxiliary nodes
 ----------------------
 
--- bool_choose() simulates a non-deterministic choice,
--- at each step of the computation, between the two Boolean values.
-node imported bool_choose() returns (b: bool) ;
-
--- real_choose(a, b) simulates a non-deterministic choice
--- at each step of the computation, of a real (actually, rational) 
--- value from the close interval [a,b], provided that a <= b.
-node imported real_choose(a, b: real) returns (z: real) ;
-(*@contract
-  assume a <= b;
-  guarantee a <= z and z <= b ;
-*)
-
+-- The book's nondeterministic choice is the 'any' operator: 'any@<bool>'
+-- picks, at each step of the computation, one of the two Boolean values;
+-- 'any { z: real | a <= z and z <= b }' picks a real (actually, rational)
+-- value from the closed interval [a,b], provided that a <= b.
 
 -- First(b) is constant stream consisting of the first value of b. 
-node First(b: bool) returns (f: bool) ;
+node First<T>(inp: T) returns (f: T) ;
 let
-  f = b -> pre f ;
+  f = inp -> pre f ;
 tel
 
 
@@ -51,21 +42,13 @@ tel
 ----------------------
 
 -- One-step delay component
--- For all steps > 0, Delay(inp) is the previous value of inp;
--- at step 0 it is false.
-node Delay(inp: bool) returns (out: bool) ;
-  var x: bool ;
+-- For all steps > 0, Delay(init, inp) is the previous value of inp;
+-- at step 0 it is init.
+node Delay<T>(init, inp: T) returns (out: T) ;
+  var x: T ;
 let
   out = x ;
-  x = false -> pre inp ;
-tel
-
--- Delay node for integer streams
-node IntDelay(inp: int) returns (out: int) ;
-  var x: int ;
-let
-  out = x ;
-  x = 0 -> pre inp ;
+  x = init -> pre inp ;
 tel
 
 
@@ -81,14 +64,31 @@ tel
 type status = enum {on, off};
 
 node Switch(press: bool) returns (mode: status);
-  var x: int ;
+  var x: subrange [0, 10] of int ;
 let
-  mode = off -> if pre mode = off then if press then on else off
-                else if press or x >= 10 then off
-                else on;
-  x = 0 -> if pre mode = off then pre x
-           else if press or pre x >= 10 then 0
-           else pre x + 1;
+  if true -> false then 
+    mode = off ;
+  elsif false -> (pre mode = off) then
+    if press then
+      mode = on ;
+    else
+      mode = off ;
+    fi
+  elsif press or x >= 10 then
+    mode = off ;
+  else
+    mode = on ;
+  fi
+
+  if true -> false then
+    x = 0 ;
+  elsif false -> (pre mode = off) then
+    x = 0 -> pre x ;
+  elsif press or (0 -> pre x) >= 10 then
+    x = 0 ;
+  else
+    x = (0 -> pre x) + 1 ;
+  fi
 tel
 
 
@@ -96,14 +96,12 @@ tel
 -- Figure 2.4
 ----------------------
 
--- The assumptions on the input values restrict their
--- range to natural numbers during verification,
--- obviating the need for a nat type.
-node Comparator(in1, in2: int) returns (out: bool) ;
-(*@contract
-  assume in1 >= 0 ;
-  assume in2 >= 0 ;
- *)
+-- The type of the input values restricts their range to natural numbers
+-- during verification, obviating the need for assumptions on them:
+-- Kind 2 reads a refinement type on an input as an assumption.
+type nat = subrange [0, *] of int ;
+
+node Comparator(in1, in2: nat) returns (out: bool) ;
 let
   out = (in1 >= in2) ;
 tel
@@ -113,53 +111,40 @@ tel
 -- Event type
 ----------------------
 
--- Kind 2's type system does not have event types 
--- but they can be simulated by suitable user-defined types
+-- The book's event type is parameterized by the type of the value carried
+-- by a present event, so it is a polymorphic datatype in Kind 2.
+-- The book's presence test 'e?' is the tester 'Present?(e)', and its dual
+-- is 'Absent?(e)'.
 
--- 'Bot' and 'Top' respectively denote the absence and 
+datatype event<T> = Absent | Present (value: T) ;
+
+-- An event carrying no value is an event over the type with a single value,
+-- so 'Bot' and 'Top' below respectively denote the absence and 
 -- the presence of the event.
-type event = enum {Bot, Top} ;
 
--- At all steps, Pres(e) is true iff e is Top
-function Pres(e: event) returns (b: bool) ;
-let
-  b = (e = Top) ;
-tel
+datatype unit = Unit ;
+type signal = event<unit> ;
 
--- At all steps, Abs(e) is true iff e is Bot
-function Abs(e: event) returns (b: bool) ;
-let
-  b = (e = Bot) ;
-tel
+const Bot: signal = Absent@<unit> ;
+const Top: signal = Present(Unit) ;
 
 
 ----------------------
 -- Figure 2.6
 ----------------------
 
-node Clocked(inp: bool; clock: event) returns (out: bool) ;
-  var x: bool ;
+node Clocked<T>(init, inp: T; clock: signal) returns (out: T) ;
+  var x: T ;
 let
   out = x ;
 
-  x = if Pres(clock) then inp else (false -> pre x) ;
-tel
-
-
-----------------------
--- Boolean events
-----------------------
-
--- Boolean event types can be simulated by a record with two fields:
--- 'status', specifying whether the event is present or not; and
--- 'value', containing the Boolean value of the event.
--- The content of 'value' is meaningful only when 'status' is 'Top'.
-
-type bool_event = struct { status: event; value: bool } ;
-
-function bool_Pres(e: bool_event) returns (b: bool) ;
-let
-  b = (e.status = Top) ;
+  frame (x)
+  x = init ;
+  let
+    if Present?(clock) then   -- if clock? then
+      x = inp ;               --   x := in
+    fi
+  tel
 tel
 
 
@@ -168,15 +153,18 @@ tel
 ----------------------
 
 -- The output event of Triggered(inp) is the same as 'inp';
--- if that input is "present", that is, inp.status = Top;
--- otherwise, out gets a value denoting an absent event. 
-node Triggered(inp: bool_event) returns (out: bool_event) ;
-  var x: int ;
+-- if that input is "present"; otherwise, out gets a value denoting 
+-- an absent event. 
+node Triggered(inp: event<bool>) returns (out: event<bool>) ;
+  var x: nat ;
 let
-  out = if bool_Pres(inp) then inp 
-        else bool_event { status = Bot; value = bool_choose() } ;
-
-  x = 0 -> if bool_Pres(inp) then pre x + 1 else pre x ;
+  if Present?(inp) then       -- if in? then
+    out = inp ;               --   out ! in
+    x = 0 -> pre x + 1 ;      --   x := x + 1
+  else
+    out = Absent@<bool> ;
+    x = 0 -> pre x ;
+  fi
 tel
 
 
@@ -190,76 +178,95 @@ tel
 -- second input is analogous. When both inputs contain a request, one of  
 -- the two is granted, with a non-deterministic choice.
 --
-node Arbiter(req1, req2: event) returns (gra1, gra2: event) ;
+node Arbiter(req1, req2: signal) returns (gra1, gra2: signal) ;
   var c: bool; 
 let
-  c = bool_choose();
-  gra1 = if Abs(req1) then Bot
-         else if Abs(req2) then Top 
-         else if c then Top
-         else Bot ;
-  gra2 = if Abs(req2) then Bot
-         else if Abs(req1) then Top 
-         else if c then Bot 
-         else Top ;
+  c = any@<bool>;
+
+  if Present?(req1) and Present?(req2) then
+    if c then
+      gra1 = Top ;
+      gra2 = Bot ;
+    else
+      gra1 = Bot ;
+      gra2 = Top ;
+    fi
+  elsif Present?(req1) then
+    gra1 = Top ;
+    gra2 = Bot ;
+  elsif Present?(req2) then
+    gra1 = Bot ;
+    gra2 = Top ;
+  else
+    gra1 = Bot ;
+    gra2 = Bot ;
+  fi
 
 -- We expect these two properties to fail. Since the choice of which 
 -- request to grant is non-derministic and so can change over time and 
 -- over executions. 
-check "P1.1" Pres(req1) and Pres(req2) => Pres(gra1) ; 
-check "P1.2" Pres(req1) and Pres(req2) => Pres(gra2) ; 
+check "P1.1" Present?(req1) and Present?(req2) => Present?(gra1) ; 
+check "P1.2" Present?(req1) and Present?(req2) => Present?(gra2) ; 
 
 -- We expect all the following properties to hold, i.e., to be invariant.
 
 -- In the presence of both requests, exactly one is granted.
-check "P2" Pres(req1) and Pres(req2) => Pres(gra1) xor Pres(gra2) ; 
+check "P2" Present?(req1) and Present?(req2) => Present?(gra1) xor Present?(gra2) ; 
 -- In the presence of one request only, that request is granted.
-check "P3.1" Pres(req1) and Abs(req2) => Pres(gra1) ; 
-check "P3.2" Pres(req2) and Abs(req1) => Pres(gra2) ; 
+check "P3.1" Present?(req1) and Absent?(req2) => Present?(gra1) ; 
+check "P3.2" Present?(req2) and Absent?(req1) => Present?(gra2) ; 
 
 -- Requests are granted only if present.
-check "P4.1" Pres(gra1) => Pres(req1) ; 
-check "P4.2" Pres(gra2) => Pres(req2) ; 
+check "P4.1" Present?(gra1) => Present?(req1) ; 
+check "P4.2" Present?(gra2) => Present?(req2) ; 
 
 --% MAIN ; 
 tel
 
 
 -- Alternative, more compact definition of 'Arbiter'. 
-node ArbiterS(req1, req2: event) returns (gra1, gra2: event) ;
-  var choice: int;
+node ArbiterS(req1, req2: signal) returns (gra1, gra2: signal) ;
+  var first: bool;
 let
-  choice = if bool_choose() then 1 else 2;
-  gra1 = if Pres(req1) and (Abs(req2) or choice = 1) 
+  first = any@<bool>;
+  gra1 = if Present?(req1) and (Absent?(req2) or first) 
          then Top else Bot ;
-  gra2 = if Pres(req2) and (Abs(req1) or choice = 2) 
+  gra2 = if Present?(req2) and (Absent?(req1) or not first) 
          then Top else Bot ;
 tel
 
 
 -- Version of 'Arbiter' where the non-deterministic choice is provided
 -- by the environment as the input variable 'c'.
-node Arbiter_in(c: bool; req1, req2: event) returns (gra1, gra2: event) ;
+node Arbiter_in(c: bool; req1, req2: signal) returns (gra1, gra2: signal) ;
 let
-  gra1 = if Abs(req1) then Bot
-         else if Abs(req2) then Top 
-         else if c then Top
-         else Bot ;
-  gra2 = if Abs(req2) then Bot
-         else if Abs(req1) then Top 
-         else if c then Bot 
-         else Top ;
+  if Present?(req1) and Present?(req2) then
+    if c then
+      gra1 = Top ;
+      gra2 = Bot ;
+    else
+      gra1 = Bot ;
+      gra2 = Top ;
+    fi
+  elsif Present?(req1) then
+    gra1 = Top ;
+    gra2 = Bot ;
+  elsif Present?(req2) then
+    gra1 = Bot ;
+    gra2 = Top ;
+  else
+    gra1 = Bot ;
+    gra2 = Bot ;
+  fi
 tel
 
 -- Version of 'ArbiterS' where the non-deterministic choice is provided
 -- by the environment as the input variable 'c'.
-node ArbiterS_in(c: bool; req1, req2: event) returns (gra1, gra2: event) ;
-  var choice: int;
+node ArbiterS_in(c: bool; req1, req2: signal) returns (gra1, gra2: signal) ;
 let
-  choice = if c then 1 else 2;
-  gra1 = if Pres(req1) and (Abs(req2) or choice = 1) 
+  gra1 = if Present?(req1) and (Absent?(req2) or c) 
          then Top else Bot ;
-  gra2 = if Pres(req2) and (Abs(req1) or choice = 2) 
+  gra2 = if Present?(req2) and (Absent?(req1) or not c) 
          then Top else Bot ;
 tel
 
@@ -268,15 +275,15 @@ tel
 -- _behaviorally equivalent_, i.e., provide the same output when 
 -- given the same requests and the same non-deterministic decisions
 -- in case of concurrent requests.  
-node Monitor(c: bool; req1, req2: event) returns (b: bool);
-  var g1, g2, g1S, g2S: event ;
+node Monitor(c: bool; req1, req2: signal) returns (b: bool);
+  var g1, g2, g1S, g2S: signal ;
 let
   (g1,  g2)  = Arbiter_in(c, req1, req2) ;
   (g1S, g2S) = ArbiterS_in(c, req1, req2) ; 
 
-  -- 'b' is true iff 'Arbiter_in' and 'Arbiter_in' produce 
+  -- 'b' is true iff 'Arbiter_in' and 'ArbiterS_in' produce 
   -- the same output when fed the same input.
-  b = (g1 = g1S and g2S = g2S);
+  b = (g1 = g1S and g2 = g2S);
 
   check "Arbiter and ArbiterS are behaviorally equivalent" b ;
   -- %MAIN ;
@@ -289,35 +296,30 @@ tel
 
 -- Parallel composition of nodes is achieved by applying nodes
 -- as macros. 
-node int_Delay(inp: int) returns (out: int) ;
-  var x: int ;
-let
-  out = x ;
-  x = 0 -> pre inp ;
-tel
 
 (*          
      +------------------------------------+
-     |   int_DoubleDelay                  |
+     |   DoubleDelay                      |
      |                                    |
      |  +-----------+      +-----------+  |
   inp |  |           | temp |           |  | out
- ----+->| int_Delay |----->| int_Delay |--+---->
+ ----+->|   Delay   |----->|   Delay   |--+---->
      |  |           |      |           |  |
      |  +-----------+      +-----------+  |
      |                                    |
      +------------------------------------+
 *)
-node int_DoubleDelay(inp: int) returns (out: int) ;
-  var temp: int  ;
+node DoubleDelay<T>(init, inp: T) returns (out: T) ;
+  var temp: T  ;
 let
-  out  = int_Delay(temp) ; temp = int_Delay(inp) ;
+  out  = Delay@<T>(init, temp) ;
+  temp = Delay@<T>(init, inp) ;
 tel
 
 -- the temp variable is actually not needed
-node int_DoubleDelay2(inp: int) returns (out: int) ;
+node DoubleDelay2<T>(init, inp: T) returns (out: T) ;
 let 
-  out = int_Delay(int_Delay(inp)) ;
+  out = Delay@<T>(init, Delay@<T>(init, inp)) ;
 tel
 
 
@@ -339,14 +341,21 @@ node Latch1(b: bool; set_req, reset: bool) returns (out: bool) ;
   var x, next_x: bool ;
 let
   out = x ;
-  
-  next_x = if          reset and     set_req then b
-           else if     reset and not set_req then false
-           else if not reset and     set_req then true
-           else x ;
- 
-   x = b -> pre next_x ;
-  tel
+
+  -- One branch per mode-switch of figure 2.25; in the last one neither
+  -- request is issued, so the state is carried over unchanged.
+  if reset and set_req then
+    next_x = b ;
+  elsif reset then
+    next_x = false ;
+  elsif set_req then
+    next_x = true ;
+  else
+    next_x = x ;
+  fi
+
+  x = b -> pre next_x ;
+tel
 
 
 -- 'Latch2' has the same behavior as 'Latch1' but its definition
@@ -382,7 +391,7 @@ tel
 node Latch(set_req, reset: bool) returns (out: bool) ;
   var next_out, b: bool ;
 let
-  b = bool_choose() ;
+  b = any@<bool> ;
 
   out = b -> pre next_out ;
   
@@ -453,12 +462,20 @@ tel
 
 -- 'DelayedCounter' is a delayed, resettable integer counter 
 -- that ranges from 0 to 7. Its initial value is 0.
-node DelayedCounter(inc, start: bool) returns (n: int) ;
-  var next: int ;
+node DelayedCounter(inc, start: bool) returns (n: subrange [0, 7] of int) ;
+  var next: subrange [0, 7] of int ;
 let
-  next = if start then 0 
-         else if inc then if n = 7 then 0 else n + 1
-         else n ;
+  if start then
+    next = 0 ;
+  elsif inc then
+    if n = 7 then
+      next = 0 ;
+    else
+      next = n + 1 ;
+    fi
+  else
+    next = n ;
+  fi
 
   n = 0 -> pre next ; 
 tel
@@ -468,14 +485,18 @@ tel
 -- bits to ints to bits
 ------------------------
 
-function ToBit(b: bool) returns (n: int) ;
+function ToBit(b: bool) returns (n: subrange [0, 1] of int) ;
 let
-   n = if b then 1 else 0 ;
+   if b then
+     n = 1 ;
+   else
+     n = 0 ;
+   fi
 tel
 
 -- ToInt(b2, b1, b0) computes the integer denoted
 -- by bit string b2b1b0 when seen as a binary number 
-function ToInt(b2, b1, b0: bool) returns (n: int) ;
+function ToInt(b2, b1, b0: bool) returns (n: subrange [0, 7] of int) ;
 let
    n = 4 * ToBit(b2) + 2 * ToBit(b1) + ToBit(b0) ;
 tel
