@@ -942,16 +942,16 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let solver_executable = solver_cmd.(0) in
     
     (* Create pipes for input, output and error output *)
-    (* Close these on exec, so that the only process to get them is
-       the solver they belong to. [Unix.create_process] passes the
-       three ends it is given to the child whatever this says, by
+    (* [pipe_for_child] closes these on exec, so that the only process
+       to get them is the solver they belong to. [Unix.create_process]
+       passes the three ends it is given to the child all the same, by
        duplicating them onto its standard descriptors; what this stops
        is every later solver inheriting the pipes of every earlier
        one. A solver holding the write end of a pipe of a solver that
        has died keeps Kind 2 from ever reading the end of its output. *)
-    let solver_stdin_in, solver_stdin_out = Unix.pipe ~cloexec:true () in
-    let solver_stdout_in, solver_stdout_out = Unix.pipe ~cloexec:true () in
-    let solver_stderr_in, solver_stderr_out = Unix.pipe ~cloexec:true () in
+    let solver_stdin_in, solver_stdin_out = pipe_for_child () in
+    let solver_stdout_in, solver_stdout_out = pipe_for_child () in
+    let solver_stderr_in, solver_stderr_out = pipe_for_child () in
     
     (* Create solver process *)
     let solver_pid = 
