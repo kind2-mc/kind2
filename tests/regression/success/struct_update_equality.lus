@@ -1,0 +1,9 @@
+node Top(i: int; v: int) returns (ok: bool);
+var arr1: int^3;
+    arr2: int^3;
+let
+  arr1 = 1^3;
+  arr2 = arr1[i := v];
+  ok = (arr1[i := v] = arr2);
+  check ok;
+tel

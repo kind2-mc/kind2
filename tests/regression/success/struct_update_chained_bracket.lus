@@ -1,0 +1,6 @@
+node Top(v1: int; v2: int) returns ();
+var arr: int^3;
+let
+  arr = (0^3)[0 := v1; 1 := v2];
+  check arr[0] = v1 and arr[1] = v2 and arr[2] = 0;
+tel

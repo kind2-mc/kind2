@@ -1,0 +1,5 @@
+node Top(x: int; st: map<int, map<int, int>>) returns (ok: bool);
+let
+  ok = (st[x] = st[x]);
+  check ok;
+tel
