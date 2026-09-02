@@ -2,6 +2,7 @@
 title: "Kind 2 Input"
 weight: 2
 ---
+
 Kind 2 reads input models written in an extension of the dataflow Lustre language
 (see this [primer]({{< relref "/docs/inputs-and-outputs/lustre-primer" >}}) for
 a quick introduction to the Lustre language).
@@ -497,13 +498,13 @@ tel
 Here, `x` is only defined when `in_pos`, its clock, is `true`.
 That is, a trace of execution of `example` sliced to `x` could be
 
-| step | i   | i_pos | x  |
-| ---- | --- | ----- | -- |
-| 0    | 3   | true  | 3  |
-| 1    | -2  | false | // |
-| 2    | -1  | false | // |
-| 3    | 7   | true  | 7  |
-| 4    | -42 | true  | // |
+| step | i   | i_pos | x   |
+|------|-----|-------|-----|
+| 0    | 3   | true  | 3   |
+| 1    | -2  | false | //  |
+| 2    | -1  | false | //  |
+| 3    | 7   | true  | 7   |
+| 4    | -42 | true  | //  |
 
 where // indicates that `x` undefined.
 
@@ -543,15 +544,15 @@ example trace of `example` sliced to `tmp`; notice how the internal state of
 `sum_ge_10` (*i.e.* `pre sum_ge_10.sum`) is maintained so that it does refer to the value
 of `sum_ge_10.sum` *at the last clock tick of the* `activate`:
 
-| step | i  | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
-| ---- | -- | ----- | ----- | ----------- | ----------------- | ------------- |
-| 0    | 3  | true  | false | 3           | nil               | 3             |
-| 1    | 2  | true  | false | 2           | 3                 | 5             |
-| 2    | -1 | false | nil   | nil         | 5                 | nil           |
-| 3    | 2  | true  | false | 2           | 5                 | 7             |
-| 4    | -7 | false | nil   | nil         | 7                 | nil           |
-| 5    | 35 | true  | true  | 35          | 7                 | 42            |
-| 6    | -2 | false | nil   | nil         | 42                | nil           |
+| step | i   | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
+|------|-----|-------|-------|-------------|-------------------|---------------|
+| 0    | 3   | true  | false | 3           | nil               | 3             |
+| 1    | 2   | true  | false | 2           | 3                 | 5             |
+| 2    | -1  | false | nil   | nil         | 5                 | nil           |
+| 3    | 2   | true  | false | 2           | 5                 | 7             |
+| 4    | -7  | false | nil   | nil         | 7                 | nil           |
+| 5    | 35  | true  | true  | 35          | 7                 | 42            |
+| 6    | -2  | false | nil   | nil         | 42                | nil           |
 
 Now, as mentioned above the `merge` operator combines two streams defined on
 **complimentary** clocks. The syntax of `merge` is:
@@ -583,15 +584,15 @@ That is, `safe_tmp` is the value of `tmp` whenever it is defined, otherwise it
 is the previous value of `safe_tmp` if any, and `false` otherwise.
 The execution trace given above becomes
 
-| step | i  | i_pos | tmp   | pre_tmp | safe_tmp |
-| ---- | -- | ----- | ----- | ------- | -------- |
-| 0    | 3  | true  | false | false   | false    |
-| 1    | 2  | true  | false | false   | false    |
-| 2    | -1 | false | nil   | false   | false    |
-| 3    | 2  | true  | false | false   | false    |
-| 4    | -7 | false | nil   | false   | false    |
-| 5    | 35 | true  | true  | false   | true     |
-| 6    | -2 | false | nil   | true    | true     |
+| step | i   | i_pos | tmp   | pre_tmp | safe_tmp |
+|------|-----|-------|-------|---------|----------|
+| 0    | 3   | true  | false | false   | false    |
+| 1    | 2   | true  | false | false   | false    |
+| 2    | -1  | false | nil   | false   | false    |
+| 3    | 2   | true  | false | false   | false    |
+| 4    | -7  | false | nil   | false   | false    |
+| 5    | 35  | true  | true  | false   | true     |
+| 6    | -2  | false | nil   | true    | true     |
 
 Just like with uninitialized `pre`s, if not careful one can easily end up
 manipulating undefined streams. Kind 2 forces good practice by allowing
@@ -647,18 +648,18 @@ tel
 
 A trace of execution for the node top could be:
 
-| step | reset | c |
-| ---- | ----- | - |
-| 0    | false | 0 |
-| 1    | false | 1 |
-| 2    | false | 2 |
-| 3    | false | 3 |
-| 4    | true  | 0 |
-| 5    | false | 1 |
-| 6    | false | 2 |
-| 7    | true  | 0 |
-| 8    | true  | 0 |
-| 9    | false | 1 |
+| step | reset | c   |
+|------|-------|-----|
+| 0    | false | 0   |
+| 1    | false | 1   |
+| 2    | false | 2   |
+| 3    | false | 3   |
+| 4    | true  | 0   |
+| 5    | false | 1   |
+| 6    | false | 2   |
+| 7    | true  | 0   |
+| 8    | true  | 0   |
+| 9    | false | 1   |
 
 > **Note:** This construction can be encoded in traditional Lustre by having a
 > Boolean input for the reset stream for each node. However providing a
@@ -1023,9 +1024,12 @@ not selected are not evaluated.
 
 Current restrictions for `cond` blocks are the same as for `when` blocks:
 
-- Branch expressions cannot contain temporal operators (for example `pre` or`->`).
+- Branch expressions cannot contain temporal operators (for example `pre` or  
+  `->`).
+
 - Branch expressions cannot call Lustre nodes (calls to functions are allowed).
-- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
+
+- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks  
   cannot be nested inside `if` blocks.
 
 ### Frame conditions
