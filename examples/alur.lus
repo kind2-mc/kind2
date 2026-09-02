@@ -342,8 +342,6 @@ node Latch1(b: bool; set_req, reset: bool) returns (out: bool) ;
 let
   out = x ;
 
-  -- One branch per mode-switch of figure 2.25; in the last one neither
-  -- request is issued, so the state is carried over unchanged.
   if reset and set_req then
     next_x = b ;
   elsif reset then
