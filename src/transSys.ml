@@ -2106,13 +2106,29 @@ let instantiate_term_cert_all_levels
           )
           t
         |> fun t ->
-        (* let is_one_state = *)
-        (*   match Term.var_offsets_of_term t with *)
-        (*   | Some lo, Some up -> Numeral.(equal lo up) *)
-        (*   | _ -> true *)
-        (* in *)
-        (* if is_one_state then t else guard_clock offset t *)
-        if two_state then guard_clock offset t else t
+        (* A two-state invariant of the called system relates two consecutive
+        steps OF THAT SYSTEM. Under an activation condition the system only
+        steps when its clock is true, so at the caller the pair
+        [(offset-1, offset)] is a step of the callee only when the clock is
+        true at both instants: guarding at [offset] alone left [offset-1]
+        unconstrained -- on a caller step whose predecessor had the clock
+        false, the callee's variables at [offset-1] carry arbitrary values,
+        and the lifted "invariant" excludes reachable states of the caller.
+        Invariant generation then strengthened its checkers with these, and
+        certified batches of falsifiable candidates against them (reporting a
+        false property valid when a property term was among the candidates).
+
+        A one-state invariant needs the guard as well: on a caller step where
+        the clock is false -- in particular any step before the first
+        activation -- the callee has not stepped and its variables are
+        unconstrained, so the unguarded term excludes reachable caller states
+        just the same.
+
+        [guard_clock] is the identity for a call without an activation
+        condition, so unconditional calls are unaffected. *)
+        if two_state then
+          guard_clock Numeral.(pred offset) (guard_clock offset t)
+        else guard_clock offset t
       in
 
       let term' = inst_term term in

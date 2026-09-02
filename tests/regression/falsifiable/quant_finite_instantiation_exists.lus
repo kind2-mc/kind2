@@ -1,0 +1,10 @@
+-- An existential quantifier over an enum with no witness in the domain:
+-- expanding it must not introduce one.
+
+type Color = enum { Red, Green, Blue };
+
+node main () returns ();
+let
+  check "some color is none of the three"
+    exists (c: Color) (c <> Red and c <> Green and c <> Blue);
+tel

@@ -172,6 +172,50 @@ let fold_label_or_index empty union f idx =
       union acc (f e)
   ) empty idx
 
+(* Whether an expression can be deleted from the AST without changing what
+   Kind 2 verifies, i.e. whether evaluating it contributes nothing besides its
+   value.
+
+   A user-written ADT selector carries a proof obligation that the scrutinee was
+   built with the constructor owning the field (see 'mk_selector_obligation' in
+   LustreAstNormalizer), so an expression containing one has to be kept even
+   where its value is irrelevant, or the obligation silently disappears.
+
+   The test is a conservative whitelist: only the forms matched below as
+   droppable are recognized as such, and every other form, including any added
+   later, is reported as not droppable. The only caller (LustreDesugarIfBlocks)
+   uses the answer to decide whether it may simplify a branch condition away,
+   and keeping a condition is always sound, so a too-strict answer costs no
+   more than a redundant 'ite'.
+
+   Only expressions are inspected. The types carried by the droppable forms
+   below (the type arguments of a record or ADT construction, and the type of
+   an abstract symbolic constant) are type instantiations: unlike a variable
+   declaration, they carry no refinement-type obligation of their own. *)
+let rec expr_is_droppable = function
+  | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
+  | EmptyMap (_, None) | EmptySet (_, None) -> true
+  (* Only user-written selectors carry a proof obligation *)
+  | FieldProject (_, _, _, Selector (UserWritten, _, _)) -> false
+  | FieldProject (_, e, _, (RecordField | Unresolved | Selector (Kind2Generated, _, _)))
+  | UnaryOp (_, _, e) | ConvOp (_, _, e) | Extract (_, e, _, _)
+  | When (_, e, _) | Pre (_, e) | ADTTester (_, e, _) -> expr_is_droppable e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) ->
+    expr_is_droppable e1 && expr_is_droppable e2
+  | TernaryOp (_, _, e1, e2, e3) ->
+    expr_is_droppable e1 && expr_is_droppable e2 && expr_is_droppable e3
+  | GroupExpr (_, _, es) | ADTTerm (_, _, _, es) -> List.for_all expr_is_droppable es
+  | RecordExpr (_, _, _, fields) ->
+    List.for_all (fun (_, e) -> expr_is_droppable e) fields
+  (* Everything else is kept without further analysis: node calls and the clock
+     operators over them bring in a callee, the binders and pattern matching
+     introduce bound variables, and the remaining forms are not worth
+     recognizing here *)
+  | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ | Condact _
+  | Activate _ | Merge _ | RestartEvery _ | TypeAscription _ | StructUpdate _
+  | ArrayConstr _ | IndexAccess _ | EmptyMap (_, Some _)
+  | EmptySet (_, Some _) -> false
+
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
   | EmptySet (_, Some ty) -> 
@@ -322,7 +366,7 @@ let rec apply_subst_in_expr sigma = function
     EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
@@ -490,7 +534,7 @@ let rec apply_type_subst_in_expr
   | Last _
   | AbstractSymConst _ -> expr
   | ModeRef _  -> expr
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
@@ -1461,7 +1505,7 @@ let rec replace_with_constants: expr -> expr =
   | Ident(p, _) | Last (p, _) -> c p
     | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, replace_with_constants e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, replace_with_constants e, i, pk)
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
   | EmptySet (p, Some ty) -> 
@@ -1565,7 +1609,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
     EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, abstract_pre_subexpressions e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, abstract_pre_subexpressions e, i, pk)
   (* Values *)
   | Const _ as e -> e
 
@@ -1679,7 +1723,7 @@ let rec replace_idents locals1 locals2 expr =
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
+  | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
@@ -1808,6 +1852,16 @@ let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
 let sort_idents: ident list -> ident list = fun ids ->
   List.sort (fun i1 i2 -> HString.compare i1 i2) ids
 (** sort typed identifiers *)
+
+(* Structural equality of match patterns, used by syn_expr_equal *)
+let rec syn_pattern_equal p1 p2 =
+  match p1, p2 with
+  | VarPat (_, x), VarPat (_, y) -> HString.equal x y
+  | Pat (_, x, xs), Pat (_, y, ys) ->
+    HString.equal x y
+    && List.length xs = List.length ys
+    && List.for_all2 syn_pattern_equal xs ys
+  | VarPat _, Pat _ | Pat _, VarPat _ -> false
 
 let rec syn_expr_equal depth_limit x y : (bool, unit) result =
   let (>>=) = Res.(>>=) in
@@ -1963,6 +2017,49 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       ) xts yts |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 -> 
       Ok (l1 && l2 && xi = yi)
+    | AnyOp (_, (_, xi, xt), xe), AnyOp (_, (_, yi, yt), ye)
+    | ChooseOp (_, (_, xi, xt), xe), ChooseOp (_, (_, yi, yt), ye) ->
+      syn_type_equal depth_limit xt yt >>= fun t ->
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (t && e && HString.equal xi yi)
+    | Extract (_, xe, xi1, xi2), Extract (_, ye, yi1, yi2) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && xi1 = yi1 && xi2 = yi2)
+    (* An empty container is determined by its type alone *)
+    | EmptyMap (_, None), EmptyMap (_, None) -> Ok (true)
+    | EmptyMap (_, Some (xk, xv)), EmptyMap (_, Some (yk, yv)) ->
+      syn_type_equal depth_limit xk yk >>= fun k ->
+      syn_type_equal depth_limit xv yv >>= fun v ->
+      Ok (k && v)
+    | EmptyMap _, EmptyMap _ -> Ok (false)
+    | EmptySet (_, None), EmptySet (_, None) -> Ok (true)
+    | EmptySet (_, Some xt), EmptySet (_, Some yt) -> syn_type_equal depth_limit xt yt
+    | EmptySet _, EmptySet _ -> Ok (false)
+    | Last (_, x), Last (_, y) -> Ok (HString.equal x y)
+    (* Compiles to the default value of the type, so the type decides *)
+    | AbstractSymConst (_, xt), AbstractSymConst (_, yt) ->
+      syn_type_equal depth_limit xt yt
+    | ADTTester (_, xe, xc), ADTTester (_, ye, yc) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xc yc)
+    | ADTTerm (_, xts, xc, xl), ADTTerm (_, yts, yc, yl) ->
+      (if List.length xts = List.length yts then
+         List.map2 (syn_type_equal depth_limit) xts yts |> join
+       else Ok (false)) >>= fun t ->
+      rlist xl yl |> join >>= fun l ->
+      Ok (t && l && HString.equal xc yc)
+    | Match (_, xe, xarms, xty), Match (_, ye, yarms, yty) ->
+      (match xty, yty with
+       | None, None -> Ok (true)
+       | Some xt, Some yt -> syn_type_equal depth_limit xt yt
+       | Some _, None | None, Some _ -> Ok (false)) >>= fun t ->
+      let arms = if List.length xarms = List.length yarms then
+          List.map2 (fun (xp, xb) (yp, yb) ->
+            r (depth + 1) xb yb >>= fun b -> Ok (b && syn_pattern_equal xp yp))
+          xarms yarms
+        else [Ok (false)]
+      in
+      arms |> join >>= fun a ->
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (t && a && e)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -2189,7 +2286,7 @@ let rec rename_contract_vars = function
     EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
   | EmptySet (p, Some ty) ->
     EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, rename_contract_vars e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, rename_contract_vars e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
@@ -2287,7 +2384,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ModeRef _ as e -> e
   | Last _ as e -> e
 
-  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
+  | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)

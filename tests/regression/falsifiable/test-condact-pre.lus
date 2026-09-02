@@ -1,0 +1,43 @@
+-- Re-enabled: this test was disabled long ago because it sporadically
+-- produced incorrect results -- the property 'ok', falsifiable at depth 4,
+-- was sometimes reported valid. The cause was invariant generation lifting
+-- the invariants of 'sub' past the condact (clocked call) without guarding
+-- them with the clock: while the clock is inactive the instance does not
+-- step and its variables are unconstrained, so the lifted invariants
+-- excluded reachable states and made false properties 2-inductive. With the
+-- lifting guarded, the wrong result is no longer reproducible (it can still
+-- be exhibited on the unfixed code by disabling BMC, which otherwise wins
+-- the race: --enable IND --enable INVGEN --enable INVGENOS).
+--
+-- The inputs of 'sub' were renamed (in -> i1, in2 -> i2) because 'in' has
+-- since become a keyword.
+
+node sub(i1, i2 : bool) returns (out, out2 : bool);
+var
+  loc: int;
+let
+  loc = 0 -> pre loc + 1;
+  out = true -> pre i1;
+  out2 = pre i2;
+  --%PROPERTY out = i1;
+  --%PROPERTY loc >= 0;
+tel;
+
+node main(clk : bool; a, b : bool) returns ();
+var
+  counter : int;
+  ok, ok2, ok3, ok4 : bool;
+let
+  ok, ok2 = condact(clk, sub(a, b), true, true);
+
+  ok3, ok4 = condact(not clk, sub(b, a), false, false);
+
+  counter = 0 -> 1 + pre counter;
+
+  assert (counter = 0) => a and clk;
+  assert (counter = 1) => (not a) and (not clk);
+  assert (counter = 2) => a and clk;
+
+  --%PROPERTY ok;
+  --%PROPERTY ok3;
+tel;

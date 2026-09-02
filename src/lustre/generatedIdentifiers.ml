@@ -66,6 +66,12 @@ type t = {
     * LustreAst.expr
     * NodeId.t option) (* Node ID for type ascription substitution *)
   list;
+  (* Proof obligations that the constructor owning a user-written ADT selector
+     is active where the selector is read *)
+  selector_obligations: (Lib.position
+    * HString.t (* Generated name for the obligation *)
+    * LustreAst.expr) (* Obligation expression, for display *)
+    list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
   map_element_updates: (HString.t * 
@@ -111,6 +117,16 @@ type t = {
      (see lustreDesugarIfBlocks.ml). *)
   array_literal_vars: StringSet.t;
   expr_source_map: LustreAst.expr StringMap.t;
+  (* The expression a property was written as, by property name.
+
+     [expr_source_map] is keyed by the variable an expression was
+     abstracted to, and one variable serves every item that normalizes
+     to the same expression -- so a reachability query for [P], which
+     normalizes to [not P], shares its entry with any property or
+     contract item written as [not P]. They ask about different things
+     and cannot share one answer, so what a property was written as is
+     kept apart, under a name that is its own. *)
+  prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }
@@ -198,6 +214,7 @@ let union ids1 ids2 = {
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
     refinement_type_constraints = ids1.refinement_type_constraints @ ids2.refinement_type_constraints;
+    selector_obligations = ids1.selector_obligations @ ids2.selector_obligations;
     empty_maps = ids1.empty_maps @ ids2.empty_maps;
     empty_sets = ids1.empty_sets @ ids2.empty_sets;
     map_element_updates = ids1.map_element_updates @ ids2.map_element_updates;
@@ -210,6 +227,7 @@ let union ids1 ids2 = {
     clocked_call_ties = ids1.clocked_call_ties @ ids2.clocked_call_ties;
     array_literal_vars = StringSet.union ids1.array_literal_vars ids2.array_literal_vars;
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
+    prop_source_map = StringMap.union (fun _ src _ -> Some src) ids1.prop_source_map ids2.prop_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
     history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
@@ -230,6 +248,7 @@ let empty () = {
   calls = [];
   contract_calls = StringMap.empty;
   refinement_type_constraints = [];
+  selector_obligations = [];
   empty_maps = [];
   empty_sets = [];
   map_element_updates = [];
@@ -242,6 +261,7 @@ let empty () = {
   clocked_call_ties = [];
   array_literal_vars = StringSet.empty;
   expr_source_map = StringMap.empty;
+  prop_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
 }

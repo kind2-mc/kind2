@@ -1,0 +1,8 @@
+public/
+resources/_gen/
+.hugo_build.lock
+print/
+pdf-tools/venv/
+assets/vendor
+assets/css/fonts/
+themes/

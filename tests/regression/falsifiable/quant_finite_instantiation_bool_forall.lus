@@ -1,0 +1,7 @@
+-- A universal quantifier over the Booleans that fails for exactly one of the
+-- two values: expanding it must keep both instances.
+
+node main () returns ();
+let
+  check "every bool is true" forall (b: bool) b;
+tel

@@ -100,6 +100,13 @@ let handle_events in_sys param sys prop_name =
   | Property.PropInvariant _ -> raise Terminate
   | _ -> ()
 
+(* [TransSys.assert_global_constraints] converts the selects of the global
+   constraints before asserting them; these are asserted directly, so do the
+   same here. Without it, printing a select over a free variable of array type
+   hits an assertion in the SMT-LIB driver. *)
+let global_constraints sys =
+  TransSys.global_constraints sys |> List.map Term.convert_select
+
 let sys_def solver sys offset =
   let init_term_curr =
     get_init offset
@@ -127,7 +134,17 @@ let sys_def solver sys offset =
         Term.mk_not init_term_prev
       ]
    in
-   Term.mk_and (TransSys.global_constraints sys @
+   (* Ground functional congruence instances over the two concrete offsets of
+      the transition query, enforcing determinism of (abstracted) functions
+      with container-typed arguments within the one-step window. Each is a
+      valid formula of the intended semantics, so conjoining them preserves
+      the over-approximation the frames rest on
+      (see [TransSys.fn_congruence_instances]). *)
+   let congruence =
+     TransSys.fn_congruence_instances sys Numeral.one
+     |> List.map (Term.bump_state (Numeral.pred offset))
+   in
+   Term.mk_and (global_constraints sys @ congruence @
      [Term.mk_or [init; trans]])
 
 let sys_def_unrolling solver sys offset =
@@ -136,7 +153,7 @@ let sys_def_unrolling solver sys offset =
   in
   if Numeral.(equal offset zero) then
     Term.mk_and
-      (TransSys.global_constraints sys @
+      (global_constraints sys @
       [TransSys.init_of_bound
         (Some (SMTSolver.declare_fun solver))
         sys
@@ -331,21 +348,60 @@ let refine fwd solver sys predicates cubes =
           )
         in
 
-        let solver = 
-          SMTSolver.create_instance
-            ~produce_models:true
-            ~produce_interpolants
-            logic
-            (Flags.Smt.get_itp_solver ())
+        (* An interpolating solver that cannot represent the array encoding
+           rejects it either when the instance is created (OpenSMT refuses
+           arrays outright, and its driver fails on the logic) or when the
+           select function is declared (MathSAT refuses arrays whose elements
+           are Bool, as sets and maps have). Report either as an unsupported
+           feature, the way the checks in [main] do, rather than letting the
+           engine die with a runtime failure. Note that this is reached only
+           once interpolation is actually needed: a property IC3IA settles
+           without refining is still proved.
+
+           Match only on what the solvers say about arrays. Bitwuzla reports
+           an unsupported logic for anything that is not bit vectors, and it
+           does so from `header_logic`, after the process is already up: that
+           failure is not this one, and swallowing it would both misreport it
+           and strand the process outside [SMTSolver]'s registry. *)
+        let unsupported_array_encoding msg =
+          let mentions sub =
+            (* The solver echoes its error quoted, so match on a substring. *)
+            let n = String.length sub and m = String.length msg in
+            let rec at i = i + n <= m && (String.sub msg i n = sub || at (i + 1)) in
+            at 0
+          in
+          mentions "Arrays with Bool as argument are not supported" ||
+          mentions "Higher-order compound types not supported" ||
+          mentions "does not support arrays"
         in
 
-        TransSys.define_and_declare_of_bounds
-          sys
-          (SMTSolver.define_fun solver)
-          (SMTSolver.declare_fun solver)
-          (SMTSolver.declare_sort solver)
-          (Numeral.(pred zero))
-          (Numeral.of_int len);
+        let solver =
+          try
+            SMTSolver.create_instance
+              ~produce_models:true
+              ~produce_interpolants
+              logic
+              (Flags.Smt.get_itp_solver ())
+          with Failure msg when unsupported_array_encoding msg ->
+            raise (UnsupportedFeature
+              "IC3IA disabled: the interpolating solver does not support the \
+               arrays this system uses. Use MathSAT or SMTInterpol instead.")
+        in
+
+        (try
+          TransSys.define_and_declare_of_bounds
+            sys
+            (SMTSolver.define_fun solver)
+            (SMTSolver.declare_fun solver)
+            (SMTSolver.declare_sort solver)
+            (Numeral.(pred zero))
+            (Numeral.of_int len)
+        with Failure msg when unsupported_array_encoding msg -> (
+          SMTSolver.delete_instance solver ;
+          raise (UnsupportedFeature
+            "IC3IA disabled: the interpolating solver does not support the \
+             arrays this system uses. Use SMTInterpol instead.")
+        )) ;
 
         declare_init_var
           (SMTSolver.declare_fun solver)
@@ -358,27 +414,65 @@ let refine fwd solver sys predicates cubes =
 
   in
 
-  let interpolizers =
+  (* Ground functional congruence instances over the bounds of the concrete
+     unrolling; empty when no function of the system has container-typed
+     arguments. They are not asserted up front: a satisfiable answer stands
+     only if it satisfies all of them, so their conjunction is evaluated in
+     the model first, and exactly the instances the model violates are added
+     to the query before looking again
+     (see [TransSys.fn_congruence_instances]). *)
+  let congruence =
+    TransSys.fn_congruence_instances sys (Numeral.of_int (len - 2))
+  in
+
+  (* The interpolation partition must cover every assertion, so an instance
+     is conjoined into the interpolizer of the last bound it mentions rather
+     than asserted on its own. Sitting there, it lets an interpolant at an
+     earlier cut point mention the instance's earlier bound too; such
+     two-state atoms cannot serve as abstraction predicates and are filtered
+     out below. *)
+  let interpolizer_index inst =
+    match Term.var_offsets_of_term inst with
+    | _, Some mx -> Numeral.to_int mx
+    | _, None -> 0
+  in
+
+  let mk_interpolizers asserted =
+    let extras = Array.make len [] in
+    List.iter
+      (fun i ->
+        let g = interpolizer_index i in
+        extras.(g) <- i :: extras.(g))
+      asserted ;
     cubes
     |> List.mapi (fun i c ->
       let cube = Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1)) in
-      if i < (len - 1) then
-        Term.mk_and
-          [ cube; sys_def_unrolling intrpo sys (Numeral.of_int i) ]
-      else
-        cube
-      (* If prop is not in the set of initial predicates: *)
-      (*Term.mk_and
-        [ Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1));
-          if i < (len - 1) then
-            sys_def_unrolling intrpo sys (Numeral.of_int i)
-          else
-            Term.mk_not (prop |> Term.bump_state (Numeral.of_int (i - 1)))
-        ]*)
+      let base =
+        if i < (len - 1) then
+          Term.mk_and
+            [ cube; sys_def_unrolling intrpo sys (Numeral.of_int i) ]
+        else
+          cube
+        (* If prop is not in the set of initial predicates: *)
+        (*Term.mk_and
+          [ Cube.to_term c |> Term.bump_state (Numeral.of_int (i - 1));
+            if i < (len - 1) then
+              sys_def_unrolling intrpo sys (Numeral.of_int i)
+            else
+              Term.mk_not (prop |> Term.bump_state (Numeral.of_int (i - 1)))
+          ]*)
+      in
+      match extras.(i) with
+      | [] -> base
+      | l -> Term.mk_and (base :: l)
     )
   in
 
-  SMTSolver.push intrpo;  
+  let rec solve asserted =
+
+  let interpolizers = mk_interpolizers asserted in
+
+  SMTSolver.push intrpo;
 
   (* Compute the interpolants *)
   let names =
@@ -411,20 +505,58 @@ let refine fwd solver sys predicates cubes =
     | _ -> failwith ("Interpolating solver not found or unsupported")
   in
 
-  if SMTSolver.check_sat 
+  if SMTSolver.check_sat
       intrpo
   then (
+    (* A model of the unrolling represents a genuine counterexample only if
+       it satisfies determinism. The conjunction is asked first, one term
+       hence one query; only when it fails are the instances evaluated one
+       by one, to find exactly those the model violates. *)
+    let violated =
+      match congruence with
+      | [] -> []
+      | _ -> (
+        match SMTSolver.get_term_values intrpo [Term.mk_and congruence] with
+        | [(_, v)] when Term.equal v Term.t_false ->
+          SMTSolver.get_term_values intrpo congruence
+          |> List.filter_map (fun (i, v) ->
+               if Term.equal v Term.t_false then Some i else None)
+        | _ -> []
+      )
+    in
+
+    match violated with
+    | [] ->
     let cex_path =
+      (* Use [get_var_values] rather than [get_model]: it retrieves the value
+         of an array-typed variable by evaluating its elements one index at a
+         time, whereas the models solvers print for such variables are not
+         parsable back (they range over the uninterpreted sort that encodes
+         arrays). This is what BMC does too, see {!Base.solve}. *)
+      let model =
+        SMTSolver.get_var_values
+          intrpo
+          (TransSys.get_state_var_bounds sys)
+          (TransSys.vars_of_bounds sys Numeral.zero (Numeral.of_int (len - 2)))
+      in
       Model.path_from_model
         (TransSys.state_vars sys)
-        (SMTSolver.get_model intrpo)
+        model
         (Numeral.of_int (len - 2))
     in
 
     raise (Counterexample cex_path)
+
+    | _ ->
+      (* The path violates determinism of a function over containers: rule
+         it out and look again *)
+      SMTSolver.trace_comment intrpo
+        "Asserting the functional congruence instances the path violates." ;
+      SMTSolver.pop intrpo ;
+      solve (asserted @ violated)
   )
   else (
-    
+
     let interpolants =
       match Flags.Smt.itp_solver () with
       | `cvc5_QE
@@ -458,8 +590,46 @@ let refine fwd solver sys predicates cubes =
     |> Term.TermSet.elements
     |> List.iteri (fun i t -> Format.printf "ATOM%d: %a@." i Term.pp_print_term t);*)
 
-    add_predicates solver predicates atoms
+    (* A congruence instance spans two bounds, so once instances are in the
+       query an interpolant can too: sitting in the partition of its later
+       bound, an instance lets the interpolants of the cut points in between
+       mention its earlier bound as well. The abstraction only supports
+       single-state predicates, so an atom over two bounds is dropped; an
+       atom over one bound is a state predicate whichever bound that is,
+       and is kept once bumped to the cut point's own (offset 0 after the
+       bump above). Atoms over no bound are kept as they are. *)
+    let atoms =
+      if asserted = [] then atoms
+      else
+        TS.fold
+          (fun t acc ->
+            match Term.var_offsets_of_term t with
+            | Some lo, Some hi when Numeral.equal lo hi ->
+              TS.add (Term.bump_state (Numeral.neg lo) t) acc
+            | Some _, Some _ -> acc
+            | _ -> TS.add t acc)
+          atoms
+          TS.empty
+    in
+
+    let predicates' = add_predicates solver predicates atoms in
+
+    (* Every single-state atom of the interpolants is already a predicate:
+       the abstraction cannot make progress on this spurious path, which is
+       ruled out by determinism alone across bounds no single-state
+       predicate relates. Stop instead of looping on it forever. *)
+    if asserted <> [] && TS.cardinal predicates' = TS.cardinal predicates
+    then
+      raise (UnsupportedFeature
+        "IC3IA disabled: the functional congruence instances of a function \
+         with container-typed arguments leave no single-state predicate to \
+         refine the abstraction with.")
+    else
+      predicates'
   )
+
+  in
+  solve []
 
 
 let is_blocked solver frames s =
@@ -945,6 +1115,33 @@ let main_ic3ia fwd prop in_sys param sys =
 
    SMTSolver.delete_instance solver
 
+(* [TransSys.get_logic] reports the logic that gets declared to the solver,
+   which is whatever `--smt_logic` says whenever it is not `detect`: it says
+   nothing about the terms then, and `ALL` in particular lists no features at
+   all. Anything the soundness of an answer rests on has to be decided on the
+   terms, so recompute the features the way the `detect` branch of
+   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
+   one. The subsystems are covered too, since their definitions sit behind
+   uninterpreted symbols in the top system's init and trans terms. *)
+let features_of_terms sys =
+  let open TermLib.FeatureSet in
+  TransSys.fold_subsystems ~include_top:true
+    (fun acc t ->
+      TransSys.init_of_bound None t Numeral.zero ::
+      TransSys.trans_of_bound None t Numeral.one ::
+      TransSys.global_constraints t @
+      List.map Property.get_prop_term (TransSys.get_properties t)
+      |> List.fold_left
+           (fun acc term -> union acc (TermLib.logic_of_term [] term))
+           acc)
+    empty
+    sys
+
+let features sys =
+  match TransSys.get_logic sys with
+  | `Inferred l -> l
+  | `SMTLogic _ | `None -> features_of_terms sys
+
 let main fwd slice_to_prop prop in_sys param sys =
 
   let param = Analysis.param_clone param in
@@ -969,41 +1166,31 @@ let main fwd slice_to_prop prop in_sys param sys =
 
   let open TermLib in
   let open TermLib.FeatureSet in
-  (match TransSys.get_logic sys with
-  | `Inferred l when mem A l ->
+  let l = features sys in
+
+  (if mem A l && mem Q l then
+    (* The array encoding turns selects into applications of an uninterpreted
+       function over an uninterpreted sort. Quantifying over those is beyond
+       what the interpolating solvers handle reliably: MathSAT answers such
+       queries unsoundly, which makes IC3IA report spurious counterexamples. *)
     let msg =
-      Format.sprintf "IC3IA disabled for property %s: arrays are not supported."
+      Format.sprintf
+        "IC3IA disabled for property %s: quantified formulas over arrays are not supported."
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg)
-  | `Inferred l when mem DT l ->
+  else if mem DT l then
     let msg =
       Format.sprintf "IC3IA disabled for property %s: algebraic datatypes are not supported."
         prop.Property.prop_name
     in
-    raise (UnsupportedFeature msg)
-  | _ -> () ) ;
+    raise (UnsupportedFeature msg) ) ;
 
-  (* Note: IC3IA does not assert the functional congruence instances that
-     enforce determinism of (abstracted) functions with container-typed
-     arguments (see [TransSys.fn_congruence_instances]); without them, the
-     counterexamples it finds for such systems may be spurious with respect
-     to the intended (deterministic) semantics. Today this is subsumed by
-     the array check above, since container-typed arguments put arrays in
-     the system's logic; the explicit check makes the dependency visible in
-     case array support is ever added. To support these systems, the
-     instances would have to be asserted in the solvers (bounds 0 and 1 for
-     the transition queries), and the implicit abstraction would have to
-     account for the difference witness functions the instances contain. *)
-  if TransSys.has_fn_congruence_groups sys then (
-    let msg =
-      Format.sprintf
-        "IC3IA disabled for property %s: system requires functional \
-         congruence instances for functions with container-typed arguments."
-        prop.Property.prop_name
-    in
-    raise (UnsupportedFeature msg)
-  ) ;
+  (* Note: the functional congruence instances that enforce determinism of
+     (abstracted) functions with container-typed arguments are part of the
+     transition queries ([sys_def]) and of the concrete unrolling that
+     validates counterexamples ([refine]), so these systems are supported
+     (see [TransSys.fn_congruence_instances]). *)
 
   let check_system_is_supported itp_solver =
     if TransSys.subsystem_includes_function_symbol sys then
@@ -1015,13 +1202,26 @@ let main fwd slice_to_prop prop in_sys param sys =
       raise (UnsupportedFeature msg)
   in
 
+  (* Arrays are encoded with an uninterpreted sort and an uninterpreted select
+     function, which the quantifier elimination tactics behind these
+     interpolating solvers reject. Unlike the solvers that refuse the encoding
+     when the interpolating instance is created (handled in [refine]), these
+     fail in the middle of computing an interpolant, so rule them out here. *)
+  let check_arrays_are_supported itp_solver =
+    if mem A l then
+      let msg =
+        Format.sprintf "IC3IA (%s) disabled for property %s: arrays are not supported. \
+          Use MathSAT or SMTInterpol instead."
+          itp_solver prop.Property.prop_name
+      in
+      raise (UnsupportedFeature msg)
+  in
+
   (match Flags.Smt.itp_solver () with
-  | `cvc5_QE -> check_system_is_supported "cvc5qe"
-  | `Z3_QE -> check_system_is_supported "Z3qe"
-  | `MathSAT_SMTLIB -> (let open TermLib in
-    let open TermLib.FeatureSet in
-    match TransSys.get_logic sys with
-    | `Inferred l when mem BV l && (mem IA l || mem RA l) -> (
+  | `cvc5_QE -> check_system_is_supported "cvc5qe" ; check_arrays_are_supported "cvc5qe"
+  | `Z3_QE -> check_system_is_supported "Z3qe" ; check_arrays_are_supported "Z3qe"
+  | `MathSAT_SMTLIB -> (
+    if mem BV l && (mem IA l || mem RA l) then
       let msg =
         Format.sprintf
           "IC3IA disabled for property %s: MathSAT does not support programs with \
@@ -1029,8 +1229,6 @@ let main fwd slice_to_prop prop in_sys param sys =
            prop.Property.prop_name
       in
       raise (UnsupportedFeature msg)
-    )
-    | _ -> ()
   )
   | _ -> () ) ;
 
