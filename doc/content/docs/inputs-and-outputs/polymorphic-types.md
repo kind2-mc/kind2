@@ -1,6 +1,6 @@
 ---
 title: "Polymorphic User Types"
-weight: 8
+weight: 9
 ---
 
 Kind 2 supports **polymorphic user types**,

@@ -1,6 +1,6 @@
 ---
 title: "Maps"
-weight: 11
+weight: 12
 ---
 
 Map types have the syntax `map<K, V>` (or `map<K; V>`), where `V` is any type, and

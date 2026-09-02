@@ -1,6 +1,6 @@
 ---
 title: "Refinement Types"
-weight: 4
+weight: 5
 ---
 
 Kind 2 supports refinement types. A refinement type is comprised of two components:

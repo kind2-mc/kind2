@@ -1,6 +1,6 @@
 ---
 title: "Machine Integers"
-weight: 3
+weight: 4
 ---
 
 Kind2 supports both signed and unsigned versions of C-style machine integers.

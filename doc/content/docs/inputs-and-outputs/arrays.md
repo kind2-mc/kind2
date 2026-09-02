@@ -1,6 +1,6 @@
 ---
 title: "Arrays"
-weight: 2
+weight: 3
 ---
 
 > **Experimental feature**
