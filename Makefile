@@ -1,4 +1,4 @@
-DUNE_DOCDIR=$(CURDIR)/_build/default/_doc/_html
+DUNE_DOCDIR=$(CURDIR)/_build/default/_doc_new/html
 LOCAL_ALLDOCDIR=$(CURDIR)/doc
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
@@ -37,8 +37,14 @@ install:
 	@opam depext -y kind2
 	@opam install -y kind2
 
+# @doc-new is dune's odoc 3 driver. Unlike @doc-private it documents the
+# dependencies as well, which is what makes references into them resolve: under
+# @doc-private every mention of a standard library signature was left dangling,
+# and modules defined by one -- HString.HStringMap and HString.HStringSet, both
+# `Map.S`/`Set.S` -- got no page at all while other modules still linked to them.
+# Verified with dune 3.24.2 and odoc 3.2.1; older dune has no such alias.
 kind2-doc:
-	@dune build @doc-private
+	@dune build @doc-new
 	@rm -rf $(LOCAL_DOCDIR)
 	@mkdir -p $(LOCAL_DOCDIR)
 	@cp -rf $(DUNE_DOCDIR)/* $(LOCAL_DOCDIR)
