@@ -821,9 +821,9 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     R.ok (LA.Quantifier (pos, q, tis, e))
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> R.ok expr
-  | FieldProject (pos, e, idx, ty_opt) ->
+  | FieldProject (pos, e, idx, pk) ->
     let* e = call e in
-    R.ok (LA.FieldProject (pos, e, idx, ty_opt))
+    R.ok (LA.FieldProject (pos, e, idx, pk))
   | LA.ADTTester (pos, e, c) ->
     let* e = call e in
     R.ok (LA.ADTTester (pos, e, c))
@@ -1140,7 +1140,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         (match (List.assoc_opt fld typed_fields) with
         | Some ty ->
           let* ty = expand_type_syn_reftype_history ctx ty in
-          R.ok (ty, LA.FieldProject (pos, e, fld, None), warnings)
+          R.ok (ty, LA.FieldProject (pos, e, fld, RecordField), warnings)
         | None -> type_error pos (NotAFieldOfRecord fld))
     | LA.ADT (_, _, adt_cons) ->
       let all_ctor_fields = List.concat_map (fun (ctor, flds) ->
@@ -1151,9 +1151,9 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       | _ :: (ctor2, _, _) :: _ ->
         let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
         type_error pos (DuplicateFieldName (fld, ctor1, ctor2))
-      | [(_, _, ty)] ->
+      | [(ctor, _, ty)] ->
         let* ty = expand_type_syn_reftype_history ctx ty in
-        R.ok (ty, LA.FieldProject (pos, e, fld, Some rec_ty), warnings))
+        R.ok (ty, LA.FieldProject (pos, e, fld, Selector (UserWritten, rec_ty, ctor)), warnings))
     | _ -> type_error (LH.pos_of_expr e) (IlltypedFieldProjection rec_ty))
   | LA.ADTTester (pos, e, c) ->
     let* scrut_ty, e', warnings = infer_type_expr ctx nname e in
@@ -1683,6 +1683,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
+    (* Explicit type arguments are user-written, so they must be validated
+       before they are used to instantiate the constructor's field types *)
+    let* ty_args, warnings0 =
+      R.seq (List.map (check_type_well_formed ctx Local nname false) ty_args)
+      |> R.map List.split
+    in
+    let warnings0 = List.flatten warnings0 in
     (match lookup_constructor ctx ctor with
     | None -> type_error pos (UnboundConstructor ctor)
     | Some (ty_name, field_tys) ->
@@ -1725,7 +1732,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           check_type_expr ctx nname arg ft
         ) args field_tys) in
         let checked_args, warnings = List.split pairs in
-        R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), List.flatten warnings)
+        R.ok (LA.UserType (pos, ty_args, ty_name), LA.ADTTerm (pos, ty_args, ctor, checked_args), warnings0 @ List.flatten warnings)
     )
   | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
@@ -2079,7 +2086,7 @@ and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr
     | Some f -> R.ok f)
     >>= fun (_, _, fty) ->
     R.ifM (eq_lustre_type ctx fty exp_ty)
-      (R.ok (LA.FieldProject (pos, expr, idx, None), warnings))
+      (R.ok (LA.FieldProject (pos, expr, idx, RecordField), warnings))
       (type_error pos (UnificationFailed (exp_ty, fty)))
   | LA.ADT (_, _, adt_cons) as adt_ty, expr, warnings ->
     let all_ctor_fields = List.concat_map (fun (ctor, flds) ->
@@ -2090,9 +2097,9 @@ and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr
     | _ :: (ctor2, _, _) :: _ ->
       let ctor1 = (fun (c, _, _) -> c) (List.hd fields_with_name) in
       type_error pos (DuplicateFieldName (idx, ctor1, ctor2))
-    | [(_, _, fty)] ->
+    | [(ctor, _, fty)] ->
       R.ifM (eq_lustre_type ctx fty exp_ty)
-        (R.ok (LA.FieldProject (pos, expr, idx, Some adt_ty), warnings))
+        (R.ok (LA.FieldProject (pos, expr, idx, Selector (UserWritten, adt_ty, ctor)), warnings))
         (type_error pos (UnificationFailed (exp_ty, fty))))
   | rec_ty, _, _ -> type_error (LH.pos_of_expr expr) (IlltypedFieldProjection rec_ty)
 

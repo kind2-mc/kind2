@@ -40,6 +40,14 @@ val pos_of_expr : expr -> Lib.position
 val id_of_expr : expr -> HString.t option
 (** Return a lustre id if the expression is an Ident variant or None otherwise *)
 
+val expr_is_droppable : expr -> bool
+(** Checks whether the expression can be deleted from the AST without losing a
+    proof obligation. The check is a conservative whitelist: an expression form
+    it does not explicitly recognize as droppable, including any form added
+    later, is reported as not droppable. Answering [false] is always sound, so
+    a new expression form only needs to be listed as droppable if the caller
+    should be allowed to delete it. *)
+
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
@@ -52,13 +60,15 @@ val type_arity : lustre_type -> int * int
     every other type has arity `(0, 0)` *)
 
 val substitute_naive : HString.t -> expr -> expr -> expr
-(** Substitute second param for first param in third param. 
-    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+(** Substitute second param for first param in third param.
+    Bound variables introduced by match arms, quantifiers and [any]/[choose] are
+    alpha-renamed when needed to avoid capture. *)
 
 val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
 (** [apply_subst_in_expr s e] applies the substitution defined by association list [s]
-    to the expression [e]
-    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+    to the expression [e].
+    Bound variables introduced by match arms, quantifiers and [any]/[choose] are
+    alpha-renamed when needed to avoid capture. *)
 
 val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
 (** [apply_subst_in_type s t] applies the substitution defined by association list [s]

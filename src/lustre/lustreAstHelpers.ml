@@ -177,6 +177,50 @@ let fold_label_or_index empty union f idx =
       union acc (f e)
   ) empty idx
 
+(* Whether an expression can be deleted from the AST without changing what
+   Kind 2 verifies, i.e. whether evaluating it contributes nothing besides its
+   value.
+
+   A user-written ADT selector carries a proof obligation that the scrutinee was
+   built with the constructor owning the field (see 'mk_selector_obligation' in
+   LustreAstNormalizer), so an expression containing one has to be kept even
+   where its value is irrelevant, or the obligation silently disappears.
+
+   The test is a conservative whitelist: only the forms matched below as
+   droppable are recognized as such, and every other form, including any added
+   later, is reported as not droppable. The only caller (LustreDesugarIfBlocks)
+   uses the answer to decide whether it may simplify a branch condition away,
+   and keeping a condition is always sound, so a too-strict answer costs no
+   more than a redundant 'ite'.
+
+   Only expressions are inspected. The types carried by the droppable forms
+   below (the type arguments of a record or ADT construction, and the type of
+   an abstract symbolic constant) are type instantiations: unlike a variable
+   declaration, they carry no refinement-type obligation of their own. *)
+let rec expr_is_droppable = function
+  | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
+  | EmptyMap (_, None) | EmptySet (_, None) -> true
+  (* Only user-written selectors carry a proof obligation *)
+  | FieldProject (_, _, _, Selector (UserWritten, _, _)) -> false
+  | FieldProject (_, e, _, (RecordField | Unresolved | Selector (Kind2Generated, _, _)))
+  | UnaryOp (_, _, e) | ConvOp (_, _, e) | Extract (_, e, _, _)
+  | When (_, e, _) | Pre (_, e) | ADTTester (_, e, _) -> expr_is_droppable e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) ->
+    expr_is_droppable e1 && expr_is_droppable e2
+  | TernaryOp (_, _, e1, e2, e3) ->
+    expr_is_droppable e1 && expr_is_droppable e2 && expr_is_droppable e3
+  | GroupExpr (_, _, es) | ADTTerm (_, _, _, es) -> List.for_all expr_is_droppable es
+  | RecordExpr (_, _, _, fields) ->
+    List.for_all (fun (_, e) -> expr_is_droppable e) fields
+  (* Everything else is kept without further analysis: node calls and the clock
+     operators over them bring in a callee, the binders and pattern matching
+     introduce bound variables, and the remaining forms are not worth
+     recognizing here *)
+  | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ | Condact _
+  | Activate _ | Merge _ | RestartEvery _ | TypeAscription _ | StructUpdate _
+  | ArrayConstr _ | IndexAccess _ | EmptyMap (_, Some _)
+  | EmptySet (_, Some _) -> false
+
 let rec expr_contains_call = function
   | Ident (_, _) | ModeRef (_, _) | Const (_, _) | Last (_, _) -> false
   | EmptySet (_, Some ty) -> 
@@ -224,10 +268,10 @@ let rec expr_contains_id id = function
   | Ident (_, id2) | Last (_, id2) -> id = id2
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) | Const (_, _) -> false 
-  | EmptyMap (_, Some (kt, vt)) -> 
-    fold_lustre_ty expr_is_id false (||) kt || 
-    fold_lustre_ty expr_is_id false (||) vt 
-  | EmptySet (_, Some ty) -> fold_lustre_ty expr_is_id false (||) ty
+  | EmptyMap (_, Some (kt, vt)) ->
+    fold_lustre_ty (expr_contains_id id) false (||) kt ||
+    fold_lustre_ty (expr_contains_id id) false (||) vt
+  | EmptySet (_, Some ty) -> fold_lustre_ty (expr_contains_id id) false (||) ty
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e)
   | Extract (_, e, _, _)
@@ -252,8 +296,11 @@ let rec expr_contains_id id = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_id id e1 || expr_contains_id id e2
     || List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | AnyOp (_, (_, id2, _), e) -> if id != id2 then expr_contains_id id e else false
-  | ChooseOp (_, (_, id2, _), e) -> if id != id2 then expr_contains_id id e else false
+  (* A binder's type lies outside its own scope, so an occurrence there counts
+     even when the binder shadows id *)
+  | AnyOp (_, (_, id2, ty), e) | ChooseOp (_, (_, id2, ty), e) ->
+    fold_lustre_ty (expr_contains_id id) false (||) ty
+    || (id <> id2 && expr_contains_id id e)
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     expr_contains_id id e1 || expr_contains_id id e2 || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
@@ -282,120 +329,34 @@ let rec pat_bound_vars = function
   | VarPat (_, id) -> SI.singleton id
   | Pat (_, _, sub_pats) -> SI.flatten (List.map pat_bound_vars sub_pats)
 
-let alpha_rename_counter = ref 0
+let rec pat_bound_vars_with_pos = function
+  | VarPat (pos, id) -> [(id, pos)]
+  | Pat (_, _, sub_pats) -> List.concat_map pat_bound_vars_with_pos sub_pats
 
-(* A fresh identifier, guaranteed not to clash with any source-level Lustre
-   identifier (which can never start with '.'). *)
-let fresh_alpha_ident () =
-  incr alpha_rename_counter;
-  HString.mk_hstring (Format.sprintf ".alpha_%d" !alpha_rename_counter)
+(* Renames a variable bound by a pattern. Reached only after type checking, so
+   a VarPat is always a genuine binder and never a 0-arg constructor. *)
+let rec rename_pat_var id id' = function
+  | VarPat (pos, i) as p -> if i = id then VarPat (pos, id') else p
+  | Pat (pos, ctor, sub_pats) ->
+    Pat (pos, ctor, List.map (rename_pat_var id id') sub_pats)
 
-(* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
-let rec substitute_naive (var:HString.t) t = function
-  | Ident (_, i) as e -> if i = var then t else e
-  | Last (_, _) as e -> e
-  | EmptyMap (_, None) | EmptySet (_, None)
-  | ModeRef (_, _) as e -> e
-  | EmptyMap (p, Some (kt, vt)) ->
-    EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
-  | EmptySet (p, Some ty) -> 
-    EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, substitute_naive var t e, idx, ty_opt)
-  | Const (_, _) as e -> e
-  | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
-  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
-  | BinaryOp (pos, op, e1, e2) ->
-    BinaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
-  | TernaryOp (pos, op, e1, e2, e3) ->
-    TernaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2, substitute_naive var t e3)
-  | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive var t e)
-  | CompOp (pos, op, e1, e2) ->
-    CompOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
-  (* Not supported due to introduction of bound variables *)
-  | AnyOp _ -> assert false 
-  | ChooseOp _ -> assert false 
-  | Match (pos, e, arms, ty) ->
-    let e = substitute_naive var t e in
-    let arms = List.map (fun (pat, arm_e) ->
-      let arm_e = if SI.mem var (pat_bound_vars pat) then arm_e else substitute_naive var t arm_e in
-      (pat, arm_e)
-    ) arms in
-    Match (pos, e, arms, ty)
-  | ADTTerm (pos, ty_args, ctor, args) ->
-    let ty_args = List.map (map_lustre_ty (substitute_naive var t)) ty_args in
-    ADTTerm (pos, ty_args, ctor, List.map (substitute_naive var t) args)
-  | AbstractSymConst _ as e -> e
-  | ADTTester (pos, e, c) -> ADTTester (pos, substitute_naive var t e, c)
-  (* Quantifiers introduce bound variables, so substituting into the body
-     must avoid capture in both directions: if var is itself one of the
-     quantifier's own bound names, it is shadowed here and t is never
-     inserted underneath; otherwise, any bound name that occurs (anywhere)
-     in t is alpha-renamed first, so a free variable of t can't be captured
-     by the quantifier's own binder. *)
-  | Quantifier (pos, q, tis, e) ->
-    if List.exists (fun (_, i, _) -> i = var) tis then
-      Quantifier (pos, q, tis, e)
-    else
-      let tis, e =
-        List.fold_left (fun (tis, e) (_, i, _) ->
-          if expr_contains_id i t then
-            let fresh = fresh_alpha_ident () in
-            let tis = List.map (fun (p', i', ty') ->
-              if i' = i then (p', fresh, ty') else (p', i', ty')
-            ) tis in
-            (tis, substitute_naive i (Ident (pos, fresh)) e)
-          else (tis, e)
-        ) (tis, e) tis
-      in
-      Quantifier (pos, q, tis, substitute_naive var t e)
-  | RecordExpr (pos, ident, ps, expr_list) ->
-    RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
-  | GroupExpr (pos, kind, expr_list) ->
-    GroupExpr (pos, kind, List.map (fun e -> substitute_naive var t e) expr_list)
-  | StructUpdate (pos, e1, idx, Some e2) ->
-    let idx = List.map (function
-      | Label _ as l -> l
-      | Index (p, e, k) -> Index (p, substitute_naive var t e, k)
-      | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
-      | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
-      | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
-    ) idx in
-    StructUpdate (pos, substitute_naive var t e1, idx, Some (substitute_naive var t e2))
-  | StructUpdate (pos, e1, idx, None) ->
-    let idx = List.map (function
-      | Label _ as l -> l
-      | Index (p, e, k) -> Index (p, substitute_naive var t e, k)
-      | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
-      | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
-      | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
-    ) idx in
-    StructUpdate (pos, substitute_naive var t e1, idx, None)
-  | ArrayConstr (pos, e1, e2) ->
-    ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | IndexAccess (pos, e1, e2, kind) ->
-    IndexAccess (pos, substitute_naive var t e1, substitute_naive var t e2, kind)
-  | When (pos, e, clock) -> When (pos, substitute_naive var t e, clock)
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
-    let expr_list1 = List.map (fun e -> substitute_naive var t e) expr_list1 in
-    let expr_list2 = List.map (fun e -> substitute_naive var t e) expr_list2 in
-    Condact (pos, e1, e2, id, expr_list1, expr_list2)
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
-    let expr_list = List.map (fun e -> substitute_naive var t e) expr_list in
-    Activate (pos, ident, e1, e2, expr_list)
-  | Merge (pos, ident, expr_list) ->
-    Merge (pos, ident, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
-  | RestartEvery (pos, ident, expr_list, e) ->
-    let expr_list = List.map (fun e -> substitute_naive var t e) expr_list in
-    let e = substitute_naive var t e in
-    RestartEvery (pos, ident, expr_list, e)
-  | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
-  | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | TypeAscription (pos, e, ty) ->
-    TypeAscription (pos, substitute_naive var t e, map_lustre_ty (substitute_naive var t) ty)
-  | Call (pos, ty_args, id, expr_list) ->
-    Call (pos, ty_args, id, List.map (fun e -> substitute_naive var t e) expr_list)
+let bound_rename_counter = ref 0
+
+(* A fresh name for an alpha-renamed binder. The leading '.' cannot occur in a
+   source identifier, so the name cannot collide and prints as "$n". *)
+let fresh_bound_ident id =
+  incr bound_rename_counter;
+  let base = HString.string_of_hstring id in
+  let base =
+    if String.starts_with ~prefix:".bound_" base then base else ".bound_" ^ base
+  in
+  HString.mk_hstring (Format.sprintf "%s_%d" base !bound_rename_counter)
+
+(* A binder must be renamed before sigma is pushed under it when some
+   substitution that actually fires in e would move a free occurrence of the
+   binder's name into its scope *)
+let subst_captures sigma i e =
+  List.exists (fun (v, t) -> expr_contains_id i t && expr_contains_id v e) sigma
 
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
@@ -410,7 +371,7 @@ let rec apply_subst_in_expr sigma = function
     EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_subst_in_expr sigma e)
@@ -421,15 +382,59 @@ let rec apply_subst_in_expr sigma = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, apply_subst_in_expr sigma e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
-  | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
-  | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
+  (* any/choose bind a variable, so substituting into the predicate must avoid
+     capture, as for match arms and quantifiers *)
+  | AnyOp (pos, ti, e) ->
+    let ti, e = subst_under_binder sigma ti e in
+    AnyOp (pos, ti, e)
+  | ChooseOp (pos, ti, e) ->
+    let ti, e = subst_under_binder sigma ti e in
+    ChooseOp (pos, ti, e)
+  (* Quantifiers introduce bound variables, so substituting into the body must
+     avoid capture, as for match arms *)
+  | Quantifier (pos, q, tis, e) -> (
+    (* A binder type can only be a refinement type over constants, and no caller
+       substitutes for a constant, so only the body is rewritten *)
+    let bound = List.fold_left (fun acc (_, i, _) -> SI.add i acc) SI.empty tis in
+    match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+    (* Every substitution is shadowed by a binder, so nothing to rename either *)
+    | [] -> Quantifier (pos, q, tis, e)
+    | sigma ->
+      (* A repeated name is renamed to a single fresh name at all of its binders,
+         which preserves the shadowing between them *)
+      let rename i i' =
+        List.map (fun (ipos, j, ty) -> if j = i then (ipos, i', ty) else (ipos, j, ty))
+      in
+      let tis, e =
+        List.fold_left (fun (tis, e) (ipos, i, _) ->
+          if subst_captures sigma i e then
+            let fresh = fresh_bound_ident i in
+            (rename i fresh tis, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
+          else (tis, e)
+        ) (tis, e) tis
+      in
+      Quantifier (pos, q, tis, apply_subst_in_expr sigma e)
+  )
+  (* Match arms introduce bound variables, so substituting into an arm body
+     must avoid capture *)
   | Match (pos, e, arms, ty) ->
     let e = apply_subst_in_expr sigma e in
     let arms = List.map (fun (pat, arm_e) ->
       let bound = pat_bound_vars pat in
-      let sigma' = List.filter (fun (v, _) -> not (SI.mem v bound)) sigma in
-      (pat, apply_subst_in_expr sigma' arm_e)
+      match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+      (* Every substitution is shadowed by a binder, so nothing to rename either *)
+      | [] -> (pat, arm_e)
+      | sigma ->
+        let pat, arm_e =
+          List.fold_left (fun (pat, arm_e) (i, ipos) ->
+            if subst_captures sigma i arm_e then
+              let fresh = fresh_bound_ident i in
+              (rename_pat_var i fresh pat,
+               apply_subst_in_expr [(i, Ident (ipos, fresh))] arm_e)
+            else (pat, arm_e)
+          ) (pat, arm_e) (pat_bound_vars_with_pos pat)
+        in
+        (pat, apply_subst_in_expr sigma arm_e)
     ) arms in
     Match (pos, e, arms, ty)
   | ADTTerm (pos, ty_args, ctor, args) ->
@@ -441,10 +446,16 @@ let rec apply_subst_in_expr sigma = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, Some e2) ->
-    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, Some (apply_subst_in_expr sigma e2))
-  | StructUpdate (pos, e1, idx, None) ->
-    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, None) 
+  | StructUpdate (pos, e1, idx, e2_opt) ->
+    let idx = List.map (function
+      | Label _ as l -> l
+      | Index (p, e, k) -> Index (p, apply_subst_in_expr sigma e, k)
+      | MapIndex (p, e) -> MapIndex (p, apply_subst_in_expr sigma e)
+      | SetIndex (p, e) -> SetIndex (p, apply_subst_in_expr sigma e)
+      | GenericIndex (p, e) -> GenericIndex (p, apply_subst_in_expr sigma e)
+    ) idx in
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx,
+                  Option.map (apply_subst_in_expr sigma) e2_opt)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -472,6 +483,25 @@ let rec apply_subst_in_expr sigma = function
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
+(* Substitute under a single binder, alpha-renaming it when needed to avoid
+   capture. An any/choose binder's type may depend on outer variables, and lies
+   outside the binder's own scope, so the unfiltered substitution applies there. *)
+and subst_under_binder sigma (ipos, i, ty) e =
+  let ty = map_lustre_ty (apply_subst_in_expr sigma) ty in
+  match List.filter (fun (v, _) -> v <> i) sigma with
+  (* The binder shadows every substitution, so nothing to rename either *)
+  | [] -> ((ipos, i, ty), e)
+  | sigma ->
+    let i, e =
+      if subst_captures sigma i e then
+        let fresh = fresh_bound_ident i in
+        (fresh, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
+      else (i, e)
+    in
+    ((ipos, i, ty), apply_subst_in_expr sigma e)
+
+(* Substitute t for var *)
+let substitute_naive (var:HString.t) t e = apply_subst_in_expr [(var, t)] e
 
 (* Type level substitutions at the expression level *)
 let rec apply_type_subst_in_expr
@@ -509,7 +539,7 @@ let rec apply_type_subst_in_expr
   | Last _
   | AbstractSymConst _ -> expr
   | ModeRef _  -> expr
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_type_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_type_subst_in_expr sigma e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, apply_type_subst_in_expr sigma e)
@@ -1480,7 +1510,7 @@ let rec replace_with_constants: expr -> expr =
   | Ident(p, _) | Last (p, _) -> c p
     | EmptySet (_, None) | EmptyMap (_, None)
     | ModeRef _ as e -> e
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, replace_with_constants e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, replace_with_constants e, i, pk)
   | EmptyMap (p, Some (kt, vt)) -> 
     EmptyMap (p, Some (map_lustre_ty replace_with_constants kt, map_lustre_ty replace_with_constants vt))
   | EmptySet (p, Some ty) -> 
@@ -1584,7 +1614,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
     EmptyMap (p, Some (map_lustre_ty abstract_pre_subexpressions kt, map_lustre_ty abstract_pre_subexpressions vt))
   | EmptySet (p, Some ty) -> 
     EmptySet (p, Some (map_lustre_ty abstract_pre_subexpressions ty))
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, abstract_pre_subexpressions e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, abstract_pre_subexpressions e, i, pk)
   (* Values *)
   | Const _ as e -> e
 
@@ -1698,7 +1728,7 @@ let rec replace_idents locals1 locals2 expr =
   | Const _ as e -> e
   | ModeRef _ as e -> e
     
-  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
+  | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
@@ -1827,6 +1857,16 @@ let sort_typed_ident: typed_ident list -> typed_ident list = fun ty_idents ->
 let sort_idents: ident list -> ident list = fun ids ->
   List.sort (fun i1 i2 -> HString.compare i1 i2) ids
 (** sort typed identifiers *)
+
+(* Structural equality of match patterns, used by syn_expr_equal *)
+let rec syn_pattern_equal p1 p2 =
+  match p1, p2 with
+  | VarPat (_, x), VarPat (_, y) -> HString.equal x y
+  | Pat (_, x, xs), Pat (_, y, ys) ->
+    HString.equal x y
+    && List.length xs = List.length ys
+    && List.for_all2 syn_pattern_equal xs ys
+  | VarPat _, Pat _ | Pat _, VarPat _ -> false
 
 let rec syn_expr_equal depth_limit x y : (bool, unit) result =
   let (>>=) = Res.(>>=) in
@@ -1982,14 +2022,49 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       ) xts yts |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 -> 
       Ok (l1 && l2 && xi = yi)
-    | ADTTerm (_, xts, xc, xl), ADTTerm (_, yts, yc, yl)
-      when List.length xts = List.length yts ->
-      List.map2 (fun xt yt -> syn_type_equal depth_limit xt yt) xts yts
-      |> join >>= fun t ->
-      rlist xl yl |> join >>= fun e ->
-      Ok (t && e && HString.equal xc yc)
+    | AnyOp (_, (_, xi, xt), xe), AnyOp (_, (_, yi, yt), ye)
+    | ChooseOp (_, (_, xi, xt), xe), ChooseOp (_, (_, yi, yt), ye) ->
+      syn_type_equal depth_limit xt yt >>= fun t ->
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (t && e && HString.equal xi yi)
+    | Extract (_, xe, xi1, xi2), Extract (_, ye, yi1, yi2) ->
+      r (depth + 1) xe ye >>= fun e -> Ok (e && xi1 = yi1 && xi2 = yi2)
+    (* An empty container is determined by its type alone *)
+    | EmptyMap (_, None), EmptyMap (_, None) -> Ok (true)
+    | EmptyMap (_, Some (xk, xv)), EmptyMap (_, Some (yk, yv)) ->
+      syn_type_equal depth_limit xk yk >>= fun k ->
+      syn_type_equal depth_limit xv yv >>= fun v ->
+      Ok (k && v)
+    | EmptyMap _, EmptyMap _ -> Ok (false)
+    | EmptySet (_, None), EmptySet (_, None) -> Ok (true)
+    | EmptySet (_, Some xt), EmptySet (_, Some yt) -> syn_type_equal depth_limit xt yt
+    | EmptySet _, EmptySet _ -> Ok (false)
+    | Last (_, x), Last (_, y) -> Ok (HString.equal x y)
+    (* Compiles to the default value of the type, so the type decides *)
+    | AbstractSymConst (_, xt), AbstractSymConst (_, yt) ->
+      syn_type_equal depth_limit xt yt
     | ADTTester (_, xe, xc), ADTTester (_, ye, yc) ->
       r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xc yc)
+    | ADTTerm (_, xts, xc, xl), ADTTerm (_, yts, yc, yl) ->
+      (if List.length xts = List.length yts then
+         List.map2 (syn_type_equal depth_limit) xts yts |> join
+       else Ok (false)) >>= fun t ->
+      rlist xl yl |> join >>= fun l ->
+      Ok (t && l && HString.equal xc yc)
+    | Match (_, xe, xarms, xty), Match (_, ye, yarms, yty) ->
+      (match xty, yty with
+       | None, None -> Ok (true)
+       | Some xt, Some yt -> syn_type_equal depth_limit xt yt
+       | Some _, None | None, Some _ -> Ok (false)) >>= fun t ->
+      let arms = if List.length xarms = List.length yarms then
+          List.map2 (fun (xp, xb) (yp, yb) ->
+            r (depth + 1) xb yb >>= fun b -> Ok (b && syn_pattern_equal xp yp))
+          xarms yarms
+        else [Ok (false)]
+      in
+      arms |> join >>= fun a ->
+      r (depth + 1) xe ye >>= fun e ->
+      Ok (t && a && e)
     | _ -> Ok (false)
   in
   r 0 x y
@@ -2216,7 +2291,7 @@ let rec rename_contract_vars = function
     EmptyMap (p, Some (map_lustre_ty rename_contract_vars kt, map_lustre_ty rename_contract_vars vt))
   | EmptySet (p, Some ty) ->
     EmptySet (p, Some (map_lustre_ty rename_contract_vars ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, rename_contract_vars e, idx, ty_opt)
+  | FieldProject (pos, e, idx, pk) -> FieldProject (pos, rename_contract_vars e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, rename_contract_vars e, idx1, idx2)
   | UnaryOp (pos, op, e) -> UnaryOp (pos, op, rename_contract_vars e)
@@ -2314,7 +2389,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ModeRef _ as e -> e
   | Last _ as e -> e
 
-  | FieldProject (p, e, idx, ty_opt) -> FieldProject (p, r e, idx, ty_opt)
+  | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)

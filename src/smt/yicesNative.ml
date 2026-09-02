@@ -1206,10 +1206,13 @@ let create_instance
      TODO: expand ~ *)
   let solver_executable = solver_cmd.(0) in
 
-  (* Create pipes for input, output and error output *)
-  let solver_stdin_in, solver_stdin_out = Unix.pipe () in
-  let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
-  let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
+  (* Create pipes for input, output and error output.
+
+     Closed on exec, so that the only process to get them is the solver
+     they belong to: see the same call in [SMTLIBSolver]. *)
+  let solver_stdin_in, solver_stdin_out = pipe_for_child () in
+  let solver_stdout_in, solver_stdout_out = pipe_for_child () in
+  let solver_stderr_in, solver_stderr_out = pipe_for_child () in
 
   
   (* Create solver process *)

@@ -54,7 +54,7 @@ let rec flatten_ref_type ctx ty = match ty with
     | RecordType (_, _, tis) ->
       List.map (fun (_, id2, ty) -> 
         let exprs = chase_refinements ty in 
-        List.map (AH.substitute_naive id (A.FieldProject(pos, Ident(pos, id), id2, None))) exprs
+        List.map (AH.substitute_naive id (A.FieldProject(pos, Ident(pos, id), id2, A.RecordField))) exprs
       ) tis |> List.flatten
     | TupleType (pos, tys) | GroupType (pos, tys) -> 
       List.mapi (fun i ty ->
@@ -153,7 +153,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   (* Everything else *)
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ as e -> e
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, rec_call e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, rec_call e, i, pk)
   | Const _ as e -> e
   | UnaryOp (p, op, e) -> UnaryOp (p, op, rec_call e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, rec_call e1, rec_call e2) 

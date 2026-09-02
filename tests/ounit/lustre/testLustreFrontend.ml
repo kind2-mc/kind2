@@ -933,6 +933,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
+  mk_test "test undeclared type argument of ADT constructor" (fun () ->
+    match load_file "./lustreTypeChecker/adt_undeclared_type_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
   mk_test "test non-well-founded ADT (every constructor has a recursive field)" (fun () ->
     match load_file "./lustreTypeChecker/adt_non_well_founded.lus" with
     | Error (`LustreTypeCheckerError (_, NonWellFoundedDatatype _)) -> true

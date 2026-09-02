@@ -1,0 +1,11 @@
+-- A valid property that quantifies over the indices of an array. The array
+-- encoding turns the selects into an uninterpreted function over an
+-- uninterpreted sort, and quantifying over those is answered unsoundly by the
+-- interpolating solvers, which made IC3IA report a counterexample for this
+-- property. IC3IA must not claim it is falsifiable: reporting `unknown` (and
+-- leaving it to the other engines) is the expected outcome here.
+node Top() returns (c: int^10);
+let
+  c[k] = 0 -> pre c[k] + 1;
+  check forall (j: subrange [0, 9] of int) c[j] >= 0;
+tel
