@@ -627,5 +627,5 @@ For more examples, see the Kind 2 web application at
 <https://kind.cs.uiowa.edu/app/>. Note that these examples contain some language
 features that are extensions to Lucent (for example, contracts) that are not
 covered in this page. For more information on Kind 2 and its extensions to
-Lucent, see [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/Lucent" >}}) and
+Lucent, see [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}) and
 the rest of this documentation.
