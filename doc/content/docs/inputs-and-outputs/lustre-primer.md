@@ -1,20 +1,19 @@
 ---
-title: "A Lucent Primer"
+title: "A Lustre Primer"
 weight: 1
 ---
-
-This page is a self-contained introduction to Lucent, 
+This page is a self-contained introduction to Lustre,
 the input language of Kind 2, intended for new users.
 
 ## Basic Concepts
 
-### Lucent Nodes
+### Lustre Nodes
 
-Lucent is a language for modeling and implementing
+Lustre is a language for modeling and implementing
 reactive systems in the synchronous model.
 It can be seen indifferently as either a declarative parallel programming language
 or as an executable specification language.
-The most basic unit of computation in a Lucent program, or model, is a **node**,
+The most basic unit of computation in a Lustre program, or model, is a **node**,
 which can be viewed as a stream transformer:
 it takes streams of input and produces streams of output.
 Operationally, a node reads its input and generates its output incrementally
@@ -25,7 +24,7 @@ By default, all nodes in a model compute synchronously and in parallel according
 to the global clock.
 
 A **stream** is an infinite sequence of values, all of the same (given) type.
-Hence, a Lucent node can be viewed as modeling an infinite sequence of discrete
+Hence, a Lustre node can be viewed as modeling an infinite sequence of discrete
 timesteps, where at each timestep, each node variable takes its next value.
 
 Below, the node `Combine` takes as input two integer streams \(x\) and \(y\), and
@@ -35,17 +34,17 @@ and \(y = (y_0, y_1, \dots)\), then `Combine` produces output
 \(z_n = x_n + 2 \cdot y_n\) at each timestep \(n\)).
 
 {{< callout type="info" >}}
-It is not possible to specify a stream pointwise in Lucent, so when we write
+It is not possible to specify a stream pointwise in Lustre, so when we write
 \(x = (1, 2, 3, \dots)\), say, we are writing a mathematical statement about
-stream \(x\), not an equation in Lucent.
+stream \(x\), not an equation in Lustre.
 {{< /callout >}}
 
 Notice that `z = x + 2*y` is an equation between streams of integers.
 The operators `=`, `+` and `*` are stream operators
 obtained by lifting to streams the corresponding operators over integers.
-The same is true of concrete constants in Lucent, such as `2` below,
+The same is true of concrete constants in Lustre, such as `2` below,
 which are streams with the same value at each time step.
-Lucent respects typical rules of operator precedence, so `x + 2*y` will be
+Lustre respects typical rules of operator precedence, so `x + 2*y` will be
 parsed as `x + (2*y)` rather than `(x + 2)*y`.
 
 ```text
@@ -77,7 +76,7 @@ let
 tel
 ```
 
-Another optional component that can be added to a Lucent node is a set of
+Another optional component that can be added to a Lustre node is a set of
 **local declarations**. The local variables and constants declared in this
 section can be used in the node implementation, but they are not exposed in the
 node interface.
@@ -104,7 +103,7 @@ However, the definition of a variable provided by the equations
 cannot be *circular*, as explained in
 [Declarative Semantics](#declarative-semantics).
 
-In Lucent, identifiers (for constants, variables, types, and keywords)
+In Lustre, identifiers (for constants, variables, types, and keywords)
 are delimited by whitespace characters, separators
 such as parentheses and semicolons, and other symbols such as `+`, `*` and so on,
 as in most programming languages.
@@ -113,15 +112,15 @@ For instance, indentation does not change the parsing of an expression.
 
 ### Node Analyses
 
-Lucent was designed to be a programming language.
-Well-formed Lucent nodes are executable in the sense that they can be compiled
+Lustre was designed to be a programming language.
+Well-formed Lustre nodes are executable in the sense that they can be compiled
 to executable programs computing their output values incrementally
 from their input values and internal state.
 
-Here, we are mostly interested in *analyzing* Lucent programs and their possible
+Here, we are mostly interested in *analyzing* Lustre programs and their possible
 behavior with a tool like Kind 2.
 
-A basic form of analysis that can be applied to a Lucent program is **node
+A basic form of analysis that can be applied to a Lustre program is **node
 simulation**. During simulation, the user specifies a number \(n\) of timesteps
 to simulate, as well as the first \(n\) values of each input variable. Given this
 information, the first \(n\) values of each output variable are computed. For the
@@ -158,33 +157,33 @@ so further details are outside the scope of this page.
 
 ## Comments
 
-The example above shows the two ways to add comments in Lucent programs.
+The example above shows the two ways to add comments in Lustre programs.
 Single line comments are introduced by the character sequence `--`.
 Multiline comments are delimited by the sequences `(*` and `*)`.
 Nested multiline comments are not allowed.
 
 ## Primitive Types
 
-Lucent's primitive types are `bool`, `int`, and `real`.
+Lustre's primitive types are `bool`, `int`, and `real`.
 Informally, we say that `bool` is the type of Boolean values (`true`, `false`).
 Strictly speaking, `bool` is the type of *streams* of Boolean values.
 We identify the two for brevity since there is no possibility of confusion
-as all values in Lucent are streams.
+as all values in Lustre are streams.
 The same is true for the other types.
 
 {{< callout type="info" >}}
-It is not possible to refer directly to the scalar values in a stream in Lucent.
+It is not possible to refer directly to the scalar values in a stream in Lustre.
 Even constants, such as `true`, `2`, `3.6` denote streams of values, not
 individual values.
 {{< /callout >}}
 
-In the **idealized** semantics of Lucent, `int` is the type of mathematical
+In the **idealized** semantics of Lustre, `int` is the type of mathematical
 (infinite precision) integers, and `real` is the type of real numbers.
-Lucent compilers approximate that semantics by using machine integers
+Lustre compilers approximate that semantics by using machine integers
 for `int` and floating point numbers for `real`.
 In contrast, Kind 2 is faithful to the idealized semantics.
 
-Lucent supports the Boolean operators `not`, `and`, `or`, `xor`, and `=>`
+Lustre supports the Boolean operators `not`, `and`, `or`, `xor`, and `=>`
 (implies), as well as the arithmetic operators `+`, `-` (both unary and binary),
 `*`, `/`, `mod`, and `div` (integer division), all with the expected arity and
 (pointwise) semantics.
@@ -195,7 +194,7 @@ The binary operators, however, are applicable only to arguments of the same type
 Numerals (`0`, `1`, ...) have type `int`
 while decimals (e.g., `0.0`, `31.97`) have type `real`.
 
-Additionally, Lucent supports if-then-else expressions with the syntax
+Additionally, Lustre supports if-then-else expressions with the syntax
 
 ```text
 if <expr_0> then <expr_1> else <expr_2>
@@ -206,7 +205,7 @@ where `<expr_0>` has type `bool` and
 
 ## Temporal Operators
 
-Lucent contains two temporal operators:
+Lustre contains two temporal operators:
 the binary operator `->`
 (pronounced "arrow" and not to be confused with `=>`) and
 the unary operator `pre`.
@@ -240,7 +239,7 @@ then \(\texttt{0 -> pre b} = (0, 1, 2, 3, \dots)\),
 where the arrow operator supplies the initial value \(0\) for the resulting stream.
 If an application of `pre` occurs without a corresponding application of `->`,
 the `pre` is **unguarded**.
-While unguarded `pre`s are allowed in Lucent, Kind 2 will produce warnings
+While unguarded `pre`s are allowed in Lustre, Kind 2 will produce warnings
 for nodes that contain them as this is usually an oversight by the user and
 may lead to unexpected results.
 
@@ -256,13 +255,13 @@ To further reinforce how operators work over streams,
 the computation of the expression `1 -> (1 + pre x)` is
 illustrated in the table below.
 
-| Expression | \(0\) | \(1\) | \(2\) | ... | \(n\) |
-|---|---|---|---|---|---|
-| `1` | \(1\) | \(1\) | \(1\) | ... | \(1\) |
-| `x` | \(x_0\) | \(x_1\) | \(x_2\) | ... | \(x_n\) |
-| `pre x` | \(?\) | \(x_0\) | \(x_1\) | ... | \(x_{n-1}\) |
-| `1 + pre x` | \(1 + ?\) | \(1 + x_0\) | \(1 + x_1\) | ... | \(1 + x_{n-1}\) |
-| `1 -> (1 + pre x)` | \(1\) | \(1 + x_0\) | \(1 + x_1\) | ... | \(1 + x_{n-1}\) |
+| Expression           | \(0\)     | \(1\)       | \(2\)       | ... | \(n\)           |
+| -------------------- | --------- | ----------- | ----------- | --- | --------------- |
+| `1`                | \(1\)     | \(1\)       | \(1\)       | ... | \(1\)           |
+| `x`                | \(x_0\)   | \(x_1\)     | \(x_2\)     | ... | \(x_n\)         |
+| `pre x`            | \(?\)     | \(x_0\)     | \(x_1\)     | ... | \(x_{n-1}\)     |
+| `1 + pre x`        | \(1 + ?\) | \(1 + x_0\) | \(1 + x_1\) | ... | \(1 + x_{n-1}\) |
+| `1 -> (1 + pre x)` | \(1\)     | \(1 + x_0\) | \(1 + x_1\) | ... | \(1 + x_{n-1}\) |
 
 Using temporal operators, we can define a `Counter` node as follows.
 
@@ -287,7 +286,7 @@ Initially, the value of `out` is that of `init`.
 At each successive iteration, the new value of `out` is its old value
 (denoted as `pre out`) plus one.
 
-A deceptively difficult example is defining in Lucent a stream with value
+A deceptively difficult example is defining in Lustre a stream with value
 \((1, 2, 3, 3, 3, \dots)\), with infinite repetitions of \(3\) from the third
 step on.
 A first guess might be the term `1 -> (2 -> 3)` or perhaps the term
@@ -302,16 +301,16 @@ and the remaining values from the stream \((?, 2, 3, 3, 3, \dots)\).
 The table below helps illustrate the difference between the various expressions
 above.
 
-| Expression | \(0\) | \(1\) | \(2\) | \(3\) | ... |
-|---|---|---|---|---|---|
-| `1` | \(1\) | \(1\) | \(1\) | \(1\) | ... |
-| `2` | \(2\) | \(2\) | \(2\) | \(2\) | ... |
-| `3` | \(3\) | \(3\) | \(3\) | \(3\) | ... |
-| `1 -> 2` | \(1\) | \(2\) | \(2\) | \(2\) | ... |
-| `2 -> 3` | \(2\) | \(3\) | \(3\) | \(3\) | ... |
-| `pre (2 -> 3)` | \(?\) | \(2\) | \(3\) | \(3\) | ... |
-| `1 -> (2 -> 3)` | \(1\) | \(3\) | \(3\) | \(3\) | ... |
-| `(1 -> 2) -> 3` | \(1\) | \(3\) | \(3\) | \(3\) | ... |
+| Expression            | \(0\) | \(1\) | \(2\) | \(3\) | ... |
+| --------------------- | ----- | ----- | ----- | ----- | --- |
+| `1`                 | \(1\) | \(1\) | \(1\) | \(1\) | ... |
+| `2`                 | \(2\) | \(2\) | \(2\) | \(2\) | ... |
+| `3`                 | \(3\) | \(3\) | \(3\) | \(3\) | ... |
+| `1 -> 2`            | \(1\) | \(2\) | \(2\) | \(2\) | ... |
+| `2 -> 3`            | \(2\) | \(3\) | \(3\) | \(3\) | ... |
+| `pre (2 -> 3)`      | \(?\) | \(2\) | \(3\) | \(3\) | ... |
+| `1 -> (2 -> 3)`     | \(1\) | \(3\) | \(3\) | \(3\) | ... |
+| `(1 -> 2) -> 3`     | \(1\) | \(3\) | \(3\) | \(3\) | ... |
 | `1 -> pre (2 -> 3)` | \(1\) | \(2\) | \(3\) | \(3\) | ... |
 
 A node that generates the stream \((1, 2, 3, 3, 3, \dots)\) from no inputs
@@ -325,11 +324,11 @@ let
 tel
 ```
 
-Another deceptively difficult example is the following Lucent node which outputs
+Another deceptively difficult example is the following Lustre node which outputs
 the stream of all Fibonacci numbers in increasing order.
 Because `Fib` is defined in terms of the two previous Fibonacci values, the first
 *two* steps need to be initialized. The example is tricky and may require some
-thought for those new to Lucent.
+thought for those new to Lustre.
 
 ```text
 node Fibonacci() returns(Fib: int);
@@ -354,7 +353,7 @@ tel
 
 ## Declarative Semantics
 
-Lucent has a **declarative** semantics, meaning that the order of equations in
+Lustre has a **declarative** semantics, meaning that the order of equations in
 node bodies does not matter. Because of this, node equations should not be viewed
 imperatively as assignments; instead, a node body is a set of stream constraints
 of the form `<var> = <expr>`.
@@ -375,9 +374,9 @@ let
 tel
 ```
 
-Even though Lucent has a declarative semantics and allows recursive definitions,
+Even though Lustre has a declarative semantics and allows recursive definitions,
 circular definitions are rejected. For example, the following node is invalid
-Lucent because the \(n\)th value of `out1` is defined in terms of the \(n\)th
+Lustre because the \(n\)th value of `out1` is defined in terms of the \(n\)th
 value of `out2`, and the \(n\)th value of `out2` is defined in terms of the
 \(n\)th value of `out1`.
 
@@ -408,9 +407,9 @@ not in terms of `N` itself.
 
 ## Composite Types
 
-In addition to the primitive types, Lucent supports records and arrays.
+In addition to the primitive types, Lustre supports records and arrays.
 Kind 2 also supports a number of composite types that are not part of standard
-Lucent, such as [tuples]({{< relref "/docs/inputs-and-outputs/tuples" >}}),
+Lustre, such as [tuples]({{< relref "/docs/inputs-and-outputs/tuples" >}}),
 [sets]({{< relref "/docs/inputs-and-outputs/sets" >}}),
 [maps]({{< relref "/docs/inputs-and-outputs/maps" >}}), and
 [algebraic datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}}).
@@ -468,7 +467,7 @@ Array types have the syntax
 ```
 
 Values of an array type can be constructed in two different ways.
-Lucent supports the **array literal** syntax of the form
+Lustre supports the **array literal** syntax of the form
 
 ```text
 [<element_1>, ..., <element_n>]
@@ -503,7 +502,7 @@ additional array features supported by Kind 2.
 
 ## Composition
 
-A Lucent model can be hierarchically defined
+A Lustre model can be hierarchically defined
 by defining nodes in terms of other nodes through the use of **node applications**.
 Revisiting the `Counter` node, we can use node applications to instantiate two
 distinct counter streams.
@@ -547,7 +546,7 @@ Note that the definition of node `Top` includes an application
 of node `Counter`,
 even though `Top` is defined before `Counter`.
 Similarly to equations in a node body, the order of node definitions
-in a Lucent model is immaterial.
+in a Lustre model is immaterial.
 However, the application graph cannot contain cycles.
 In other words, a node cannot be defined, directly or indirectly (through
 subnodes), in terms of itself.
@@ -624,8 +623,8 @@ tel
 ## More Examples
 
 For more examples, see the Kind 2 web application at
-<https://kind.cs.uiowa.edu/app/>. Note that these examples contain some language
-features that are extensions to Lucent (for example, contracts) that are not
+[https://kind.cs.uiowa.edu/app/](https://kind.cs.uiowa.edu/app/). Note that these examples contain some language
+features that are extensions to Lustre (for example, contracts) that are not
 covered in this page. For more information on Kind 2 and its extensions to
-Lucent, see [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}) and
+Lustre, see [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}) and
 the rest of this documentation.
