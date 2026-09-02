@@ -203,9 +203,7 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
    Substitutes pattern variables with field projections in body. *)
 let desugar_arm pos ctx adt_map info scrut pat body =
   let (conds, subs) = collect_pattern_constraints pos ctx adt_map info scrut pat in
-  let body =
-    List.fold_left (fun b (var, expr) -> LH.substitute_naive var expr b) body subs
-  in
+  let body = LH.apply_subst_in_expr subs body in
   match conds with
   | [] -> (None, body)
   | first :: rest ->
@@ -646,12 +644,12 @@ let tag_equality_as_tester adt_map e1 e2 =
   in
   match check e1 e2 with Some r -> Some r | None -> check e2 e1
 
-(* A bound variable is Kind 2-generated iff its name starts with a digit: source
-   Lustre identifiers cannot, so this reliably distinguishes generated names
-   (e.g. "69_index") from user-written ones without risk of misclassification. *)
+(* A bound variable is Kind 2-generated iff its name starts with a digit or with
+   the alpha-renaming prefix ".bound_"; a source identifier can start with neither. *)
 let is_generated_bound_var id =
   let s = HString.string_of_hstring id in
-  String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
+  (String.length s > 0 && s.[0] >= '0' && s.[0] <= '9')
+  || String.starts_with ~prefix:".bound_" s
 
 (* Canonical string key for a refinement type, used to recognize a refinement
    type as an instance of a named refinement synonym for display.  The bound

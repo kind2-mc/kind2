@@ -247,8 +247,11 @@ let rec expr_contains_id id = function
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_id id e1 || expr_contains_id id e2
     || List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | AnyOp (_, (_, id2, _), e) -> if id != id2 then expr_contains_id id e else false
-  | ChooseOp (_, (_, id2, _), e) -> if id != id2 then expr_contains_id id e else false
+  (* A binder's type lies outside its own scope, so an occurrence there counts
+     even when the binder shadows id *)
+  | AnyOp (_, (_, id2, ty), e) | ChooseOp (_, (_, id2, ty), e) ->
+    fold_lustre_ty (expr_contains_id id) false (||) ty
+    || (id <> id2 && expr_contains_id id e)
   | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
     expr_contains_id id e1 || expr_contains_id id e2 || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
@@ -291,7 +294,7 @@ let rec rename_pat_var id id' = function
 let bound_rename_counter = ref 0
 
 (* A fresh name for an alpha-renamed binder. The leading '.' cannot occur in a
-   source identifier; keeping the original name keeps printed properties readable. *)
+   source identifier, so the name cannot collide and prints as "$n". *)
 let fresh_bound_ident id =
   incr bound_rename_counter;
   let base = HString.string_of_hstring id in
@@ -300,125 +303,11 @@ let fresh_bound_ident id =
   in
   HString.mk_hstring (Format.sprintf "%s_%d" base !bound_rename_counter)
 
-(* Substitute t for var. AnyOp/ChooseOp is not supported due to introduction of bound variables. *)
-let rec substitute_naive (var:HString.t) t = function
-  | Ident (_, i) as e -> if i = var then t else e
-  | Last (_, _) as e -> e
-  | EmptyMap (_, None) | EmptySet (_, None)
-  | ModeRef (_, _) as e -> e
-  | EmptyMap (p, Some (kt, vt)) ->
-    EmptyMap (p, Some (map_lustre_ty (substitute_naive var t) kt, map_lustre_ty (substitute_naive var t) vt))
-  | EmptySet (p, Some ty) -> 
-    EmptySet (p, Some (map_lustre_ty (substitute_naive var t) ty))
-  | FieldProject (pos, e, idx, ty_opt) -> FieldProject (pos, substitute_naive var t e, idx, ty_opt)
-  | Const (_, _) as e -> e
-  | Extract (pos, e, idx1, idx2) -> Extract (pos, substitute_naive var t e, idx1, idx2)
-  | UnaryOp (pos, op, e) -> UnaryOp (pos, op, substitute_naive var t e)
-  | BinaryOp (pos, op, e1, e2) ->
-    BinaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
-  | TernaryOp (pos, op, e1, e2, e3) ->
-    TernaryOp (pos, op, substitute_naive var t e1, substitute_naive var t e2, substitute_naive var t e3)
-  | ConvOp (pos, op, e) -> ConvOp (pos, op, substitute_naive var t e)
-  | CompOp (pos, op, e1, e2) ->
-    CompOp (pos, op, substitute_naive var t e1, substitute_naive var t e2)
-  (* Not supported due to introduction of bound variables *)
-  | AnyOp _ -> assert false 
-  | ChooseOp _ -> assert false 
-  (* Match arms introduce bound variables, so substituting into an arm body
-     must avoid capture *)
-  | Match (pos, e, arms, ty) ->
-    let e = substitute_naive var t e in
-    let arms = List.map (fun (pat, arm_e) ->
-      (* Nothing to substitute, so nothing to rename either *)
-      if SI.mem var (pat_bound_vars pat) || not (expr_contains_id var arm_e) then
-        (pat, arm_e)
-      else
-        let pat, arm_e =
-          List.fold_left (fun (pat, arm_e) (i, ipos) ->
-            if expr_contains_id i t then
-              let fresh = fresh_bound_ident i in
-              (rename_pat_var i fresh pat,
-               substitute_naive i (Ident (ipos, fresh)) arm_e)
-            else (pat, arm_e)
-          ) (pat, arm_e) (pat_bound_vars_with_pos pat)
-        in
-        (pat, substitute_naive var t arm_e)
-    ) arms in
-    Match (pos, e, arms, ty)
-  | ADTTerm (pos, ty_args, ctor, args) ->
-    let ty_args = List.map (map_lustre_ty (substitute_naive var t)) ty_args in
-    ADTTerm (pos, ty_args, ctor, List.map (substitute_naive var t) args)
-  | AbstractSymConst _ as e -> e
-  | ADTTester (pos, e, c) -> ADTTester (pos, substitute_naive var t e, c)
-  (* Quantifiers introduce bound variables, so substituting into the body must
-     avoid capture, as for match arms *)
-  | Quantifier (pos, q, tis, e) ->
-    (* Nothing to substitute, so nothing to rename either *)
-    if List.exists (fun (_, i, _) -> i = var) tis || not (expr_contains_id var e) then
-      Quantifier (pos, q, tis, e)
-    else
-      (* A repeated name is renamed to a single fresh name at all of its binders,
-         which preserves the shadowing between them *)
-      let rename i i' =
-        List.map (fun (ipos, j, ty) -> if j = i then (ipos, i', ty) else (ipos, j, ty))
-      in
-      let tis, e =
-        List.fold_left (fun (tis, e) (ipos, i, _) ->
-          if expr_contains_id i t then
-            let fresh = fresh_bound_ident i in
-            (rename i fresh tis, substitute_naive i (Ident (ipos, fresh)) e)
-          else (tis, e)
-        ) (tis, e) tis
-      in
-      Quantifier (pos, q, tis, substitute_naive var t e)
-  | RecordExpr (pos, ident, ps, expr_list) ->
-    RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
-  | GroupExpr (pos, kind, expr_list) ->
-    GroupExpr (pos, kind, List.map (fun e -> substitute_naive var t e) expr_list)
-  | StructUpdate (pos, e1, idx, Some e2) ->
-    let idx = List.map (function
-      | Label _ as l -> l
-      | Index (p, e, k) -> Index (p, substitute_naive var t e, k)
-      | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
-      | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
-      | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
-    ) idx in
-    StructUpdate (pos, substitute_naive var t e1, idx, Some (substitute_naive var t e2))
-  | StructUpdate (pos, e1, idx, None) ->
-    let idx = List.map (function
-      | Label _ as l -> l
-      | Index (p, e, k) -> Index (p, substitute_naive var t e, k)
-      | MapIndex (p, e) -> MapIndex (p, substitute_naive var t e)
-      | SetIndex (p, e) -> SetIndex (p, substitute_naive var t e)
-      | GenericIndex (p, e) -> GenericIndex (p, substitute_naive var t e)
-    ) idx in
-    StructUpdate (pos, substitute_naive var t e1, idx, None)
-  | ArrayConstr (pos, e1, e2) ->
-    ArrayConstr (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | IndexAccess (pos, e1, e2, kind) ->
-    IndexAccess (pos, substitute_naive var t e1, substitute_naive var t e2, kind)
-  | When (pos, e, clock) -> When (pos, substitute_naive var t e, clock)
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
-    let expr_list1 = List.map (fun e -> substitute_naive var t e) expr_list1 in
-    let expr_list2 = List.map (fun e -> substitute_naive var t e) expr_list2 in
-    Condact (pos, e1, e2, id, expr_list1, expr_list2)
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let e1, e2 = substitute_naive var t e1, substitute_naive var t e2 in
-    let expr_list = List.map (fun e -> substitute_naive var t e) expr_list in
-    Activate (pos, ident, e1, e2, expr_list)
-  | Merge (pos, ident, expr_list) ->
-    Merge (pos, ident, List.map (fun (i, e) -> (i, substitute_naive var t e)) expr_list)
-  | RestartEvery (pos, ident, expr_list, e) ->
-    let expr_list = List.map (fun e -> substitute_naive var t e) expr_list in
-    let e = substitute_naive var t e in
-    RestartEvery (pos, ident, expr_list, e)
-  | Pre (pos, e) -> Pre (pos, substitute_naive var t e)
-  | Arrow (pos, e1, e2) -> Arrow (pos, substitute_naive var t e1, substitute_naive var t e2)
-  | TypeAscription (pos, e, ty) ->
-    TypeAscription (pos, substitute_naive var t e, map_lustre_ty (substitute_naive var t) ty)
-  | Call (pos, ty_args, id, expr_list) ->
-    Call (pos, ty_args, id, List.map (fun e -> substitute_naive var t e) expr_list)
+(* A binder must be renamed before sigma is pushed under it when some
+   substitution that actually fires in e would move a free occurrence of the
+   binder's name into its scope *)
+let subst_captures sigma i e =
+  List.exists (fun (v, t) -> expr_contains_id i t && expr_contains_id v e) sigma
 
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
@@ -444,15 +333,59 @@ let rec apply_subst_in_expr sigma = function
   | ConvOp (pos, op, e) -> ConvOp (pos, op, apply_subst_in_expr sigma e)
   | CompOp (pos, op, e1, e2) ->
     CompOp (pos, op, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
-  | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
-  | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
-  | Quantifier _ -> assert false (* Not supported due to introduction of bound variables *)
+  (* any/choose bind a variable, so substituting into the predicate must avoid
+     capture, as for match arms and quantifiers *)
+  | AnyOp (pos, ti, e) ->
+    let ti, e = subst_under_binder sigma ti e in
+    AnyOp (pos, ti, e)
+  | ChooseOp (pos, ti, e) ->
+    let ti, e = subst_under_binder sigma ti e in
+    ChooseOp (pos, ti, e)
+  (* Quantifiers introduce bound variables, so substituting into the body must
+     avoid capture, as for match arms *)
+  | Quantifier (pos, q, tis, e) -> (
+    (* A binder type can only be a refinement type over constants, and no caller
+       substitutes for a constant, so only the body is rewritten *)
+    let bound = List.fold_left (fun acc (_, i, _) -> SI.add i acc) SI.empty tis in
+    match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+    (* Every substitution is shadowed by a binder, so nothing to rename either *)
+    | [] -> Quantifier (pos, q, tis, e)
+    | sigma ->
+      (* A repeated name is renamed to a single fresh name at all of its binders,
+         which preserves the shadowing between them *)
+      let rename i i' =
+        List.map (fun (ipos, j, ty) -> if j = i then (ipos, i', ty) else (ipos, j, ty))
+      in
+      let tis, e =
+        List.fold_left (fun (tis, e) (ipos, i, _) ->
+          if subst_captures sigma i e then
+            let fresh = fresh_bound_ident i in
+            (rename i fresh tis, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
+          else (tis, e)
+        ) (tis, e) tis
+      in
+      Quantifier (pos, q, tis, apply_subst_in_expr sigma e)
+  )
+  (* Match arms introduce bound variables, so substituting into an arm body
+     must avoid capture *)
   | Match (pos, e, arms, ty) ->
     let e = apply_subst_in_expr sigma e in
     let arms = List.map (fun (pat, arm_e) ->
       let bound = pat_bound_vars pat in
-      let sigma' = List.filter (fun (v, _) -> not (SI.mem v bound)) sigma in
-      (pat, apply_subst_in_expr sigma' arm_e)
+      match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+      (* Every substitution is shadowed by a binder, so nothing to rename either *)
+      | [] -> (pat, arm_e)
+      | sigma ->
+        let pat, arm_e =
+          List.fold_left (fun (pat, arm_e) (i, ipos) ->
+            if subst_captures sigma i arm_e then
+              let fresh = fresh_bound_ident i in
+              (rename_pat_var i fresh pat,
+               apply_subst_in_expr [(i, Ident (ipos, fresh))] arm_e)
+            else (pat, arm_e)
+          ) (pat, arm_e) (pat_bound_vars_with_pos pat)
+        in
+        (pat, apply_subst_in_expr sigma arm_e)
     ) arms in
     Match (pos, e, arms, ty)
   | ADTTerm (pos, ty_args, ctor, args) ->
@@ -464,10 +397,16 @@ let rec apply_subst_in_expr sigma = function
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, Some e2) ->
-    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, Some (apply_subst_in_expr sigma e2))
-  | StructUpdate (pos, e1, idx, None) ->
-    StructUpdate (pos, apply_subst_in_expr sigma e1, idx, None) 
+  | StructUpdate (pos, e1, idx, e2_opt) ->
+    let idx = List.map (function
+      | Label _ as l -> l
+      | Index (p, e, k) -> Index (p, apply_subst_in_expr sigma e, k)
+      | MapIndex (p, e) -> MapIndex (p, apply_subst_in_expr sigma e)
+      | SetIndex (p, e) -> SetIndex (p, apply_subst_in_expr sigma e)
+      | GenericIndex (p, e) -> GenericIndex (p, apply_subst_in_expr sigma e)
+    ) idx in
+    StructUpdate (pos, apply_subst_in_expr sigma e1, idx,
+                  Option.map (apply_subst_in_expr sigma) e2_opt)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
@@ -495,6 +434,25 @@ let rec apply_subst_in_expr sigma = function
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
+(* Substitute under a single binder, alpha-renaming it when needed to avoid
+   capture. An any/choose binder's type may depend on outer variables, and lies
+   outside the binder's own scope, so the unfiltered substitution applies there. *)
+and subst_under_binder sigma (ipos, i, ty) e =
+  let ty = map_lustre_ty (apply_subst_in_expr sigma) ty in
+  match List.filter (fun (v, _) -> v <> i) sigma with
+  (* The binder shadows every substitution, so nothing to rename either *)
+  | [] -> ((ipos, i, ty), e)
+  | sigma ->
+    let i, e =
+      if subst_captures sigma i e then
+        let fresh = fresh_bound_ident i in
+        (fresh, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
+      else (i, e)
+    in
+    ((ipos, i, ty), apply_subst_in_expr sigma e)
+
+(* Substitute t for var *)
+let substitute_naive (var:HString.t) t e = apply_subst_in_expr [(var, t)] e
 
 (* Type level substitutions at the expression level *)
 let rec apply_type_subst_in_expr
