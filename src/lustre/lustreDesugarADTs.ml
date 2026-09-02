@@ -92,10 +92,7 @@ let build_adt_info type_name type_params ctors ~is_recursive =
     all_payload_fields; is_recursive }
 
 (* True if any constructor field type directly references type_name itself. *)
-let is_directly_recursive type_name ctors =
-  List.exists (fun (_ctor, fields) ->
-    List.exists (fun (_, ty) -> LH.is_direct_self_reference type_name ty) fields
-  ) ctors
+let is_directly_recursive = LH.is_directly_recursive_adt
 
 (* Collect all ADT type declarations from a program into an adt_map. *)
 let build_adt_map decls =

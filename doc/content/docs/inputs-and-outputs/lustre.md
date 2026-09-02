@@ -2,7 +2,6 @@
 title: "Kind 2 Input"
 weight: 1
 ---
-
 Kind 2 reads input models written in an extension of the dataflow Lustre language
 (see this [primer](https://kind.cs.uiowa.edu/kind2_user_docs/lustre_primer.pdf) for
 a quick introduction to the Lustre language).
@@ -498,13 +497,13 @@ tel
 Here, `x` is only defined when `in_pos`, its clock, is `true`.
 That is, a trace of execution of `example` sliced to `x` could be
 
-| step | i   | i_pos | x   |
-|------|-----|-------|-----|
-| 0    | 3   | true  | 3   |
-| 1    | -2  | false | //  |
-| 2    | -1  | false | //  |
-| 3    | 7   | true  | 7   |
-| 4    | -42 | true  | //  |
+| step | i   | i_pos | x  |
+| ---- | --- | ----- | -- |
+| 0    | 3   | true  | 3  |
+| 1    | -2  | false | // |
+| 2    | -1  | false | // |
+| 3    | 7   | true  | 7  |
+| 4    | -42 | true  | // |
 
 where // indicates that `x` undefined.
 
@@ -544,15 +543,15 @@ example trace of `example` sliced to `tmp`; notice how the internal state of
 `sum_ge_10` (*i.e.* `pre sum_ge_10.sum`) is maintained so that it does refer to the value
 of `sum_ge_10.sum` *at the last clock tick of the* `activate`:
 
-| step | i   | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
-|------|-----|-------|-------|-------------|-------------------|---------------|
-| 0    | 3   | true  | false | 3           | nil               | 3             |
-| 1    | 2   | true  | false | 2           | 3                 | 5             |
-| 2    | -1  | false | nil   | nil         | 5                 | nil           |
-| 3    | 2   | true  | false | 2           | 5                 | 7             |
-| 4    | -7  | false | nil   | nil         | 7                 | nil           |
-| 5    | 35  | true  | true  | 35          | 7                 | 42            |
-| 6    | -2  | false | nil   | nil         | 42                | nil           |
+| step | i  | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
+| ---- | -- | ----- | ----- | ----------- | ----------------- | ------------- |
+| 0    | 3  | true  | false | 3           | nil               | 3             |
+| 1    | 2  | true  | false | 2           | 3                 | 5             |
+| 2    | -1 | false | nil   | nil         | 5                 | nil           |
+| 3    | 2  | true  | false | 2           | 5                 | 7             |
+| 4    | -7 | false | nil   | nil         | 7                 | nil           |
+| 5    | 35 | true  | true  | 35          | 7                 | 42            |
+| 6    | -2 | false | nil   | nil         | 42                | nil           |
 
 Now, as mentioned above the `merge` operator combines two streams defined on
 **complimentary** clocks. The syntax of `merge` is:
@@ -584,15 +583,15 @@ That is, `safe_tmp` is the value of `tmp` whenever it is defined, otherwise it
 is the previous value of `safe_tmp` if any, and `false` otherwise.
 The execution trace given above becomes
 
-| step | i   | i_pos | tmp   | pre_tmp | safe_tmp |
-|------|-----|-------|-------|---------|----------|
-| 0    | 3   | true  | false | false   | false    |
-| 1    | 2   | true  | false | false   | false    |
-| 2    | -1  | false | nil   | false   | false    |
-| 3    | 2   | true  | false | false   | false    |
-| 4    | -7  | false | nil   | false   | false    |
-| 5    | 35  | true  | true  | false   | true     |
-| 6    | -2  | false | nil   | true    | true     |
+| step | i  | i_pos | tmp   | pre_tmp | safe_tmp |
+| ---- | -- | ----- | ----- | ------- | -------- |
+| 0    | 3  | true  | false | false   | false    |
+| 1    | 2  | true  | false | false   | false    |
+| 2    | -1 | false | nil   | false   | false    |
+| 3    | 2  | true  | false | false   | false    |
+| 4    | -7 | false | nil   | false   | false    |
+| 5    | 35 | true  | true  | false   | true     |
+| 6    | -2 | false | nil   | true    | true     |
 
 Just like with uninitialized `pre`s, if not careful one can easily end up
 manipulating undefined streams. Kind 2 forces good practice by allowing
@@ -648,18 +647,18 @@ tel
 
 A trace of execution for the node top could be:
 
-| step | reset | c   |
-|------|-------|-----|
-| 0    | false | 0   |
-| 1    | false | 1   |
-| 2    | false | 2   |
-| 3    | false | 3   |
-| 4    | true  | 0   |
-| 5    | false | 1   |
-| 6    | false | 2   |
-| 7    | true  | 0   |
-| 8    | true  | 0   |
-| 9    | false | 1   |
+| step | reset | c |
+| ---- | ----- | - |
+| 0    | false | 0 |
+| 1    | false | 1 |
+| 2    | false | 2 |
+| 3    | false | 3 |
+| 4    | true  | 0 |
+| 5    | false | 1 |
+| 6    | false | 2 |
+| 7    | true  | 0 |
+| 8    | true  | 0 |
+| 9    | false | 1 |
 
 > **Note:** This construction can be encoded in traditional Lustre by having a
 > Boolean input for the reset stream for each node. However providing a
@@ -775,6 +774,133 @@ assumptions having held at every step up to and including the current one (the
 [Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})). This mirrors the fact
 that a function's outputs depend only on the current values of its inputs,
 whereas a node may also depend on their previous values.
+
+### Recursive functions
+
+A function may call itself, directly or through a cycle of other functions,
+if it is declared with the `rec` modifier:
+
+```text
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec to_int (n: Nat) returns (out: int)
+con
+  decreases n;
+noc
+let
+  out = match n with
+    | Zero      : 0
+    | Succ (m)  : 1 + to_int (m)
+  end;
+tel
+```
+
+Every function marked `rec`, and every function reachable from it through a
+call cycle, must carry a `decreases` contract item. This measure is what lets
+Kind 2 establish that the recursion terminates (without it, a call could be
+given a definition that has no solution). Kind 2 rejects a `rec` function that
+lacks a `decreases` clause, and rejects a plain (non-`rec`) function that is
+found to actually be part of a (recursive) call cycle.
+
+A `decreases` clause is only meaningful in the inline contract of a `rec`
+function, and exactly one clause is allowed there. Declaring one anywhere else
+is an error.
+
+A `decreases` clause takes one of two forms.
+
+**Integer measure.** A single integer expression, or a comma-separated tuple of
+integer expressions read lexicographically:
+
+```text
+type Count = subrange [0,*] of int;
+
+function rec sum_to (n: Count) returns (out: int)
+con
+  decreases n;
+noc
+let
+  out = when n = 0 then 0 else n + sum_to (n - 1);
+tel
+```
+
+For an integer measure, Kind 2 generates two proof obligations per recursive
+call and verifies them like any other property: the measure must be bounded
+below by `0`, and it must strictly decrease (lexicographically, for tuples)
+from caller to callee.
+
+Note the use of `when ... then ... else` rather than plain `if ... then ... else`:
+in Lustre, both branches of an `if` are part of the expression's definition
+regardless of which one is selected, so the `else` branch's `sum_to (n - 1)`
+would still need to be well-defined (and its argument still in range) even when
+`n = 0`. `when ... then ... else` guards the untaken branch instead, so the
+recursive call is only ever made with `n - 1`, which stays within `Count`
+precisely because it is guarded by `n = 0` being false. This is also why the
+input is restricted to `Count`: the measure must be bounded below by `0` for
+the recursion to be well-founded, and this only holds for non-negative `n`.
+
+**Algebraic-datatype measure.** A single expression whose type is a recursive
+ADT (see [Algebraic Datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}})).
+This form cannot be used as a component of a tuple measure. Instead of
+generating a property, Kind 2 checks ADT measures **statically**, at compile
+time: for every recursive call, the callee's measure (after substituting the
+actual call arguments for the callee's parameters) must be a variable that the
+caller obtained by pattern-matching — possibly through several nested matches —
+on its own measure. Concretely: matching on the measure itself (or on a
+variable already known, from an earlier match, to be such a variable) and
+binding one of the resulting constructor's fields makes that field's variable
+an accepted witness that the recursion is decreasing. For example:
+
+```text
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec is_even (n: Nat) returns (b: bool)
+con
+  decreases n;
+noc
+let
+  b = match n with
+    | Zero      : true
+    | Succ (m)  : is_odd (m)
+  end;
+tel
+
+function rec is_odd (n: Nat) returns (b: bool)
+con
+  decreases n;
+noc
+let
+  b = match n with
+    | Zero      : false
+    | Succ (m)  : is_even (m)
+  end;
+tel
+```
+
+Here `is_even`'s call to `is_odd (m)` passes `m` in the position of `is_odd`'s
+own measure `n`. The match arm `Succ (m)` is matching directly on `is_even`'s
+measure `n`, so `m` — the field it binds — is accepted as a witness that the
+call decreases. The same reasoning applies to `is_odd`'s call back into
+`is_even`, so the mutual recursion is accepted as terminating.
+
+Because a match's tester (e.g. `Succ?(n)`) is what actually guarantees a
+pattern-bound variable is a genuine substructure of the matched value, only
+such variables are accepted. A **raw field selector is never accepted**, even
+when applied to the exact same field a match would have bound, and even when it
+appears directly guarded by an `if`/`when` on the right tester (e.g.
+`if Succ?(n) then is_even (n.pred) else ...`): applied to the wrong constructor
+a selector is unconstrained, and the checker has no way to confirm, from an
+`if`/`when` alone, that the guard actually holds at the call. Likewise, an
+argument computed through an intermediate local variable, an auxiliary call, or
+any other indirection is rejected even if it is semantically equal to a
+directly pattern-matched variable.
+
+The check applies to every form that names a callee (not just ordinary calls):
+`restart f every c`, `condact (c, f (...), d)` and `activate f every c` are all
+recursive calls when `f` is in the recursive group, and must decrease just the
+same. It also applies to calls written inside a type annotation — a refinement
+predicate on an input, output or local, or an array bound. Such a call can
+never be decreasing, since only a match in the function's body can witness a
+decrease, so it is always rejected.
 
 ### Benefits and limitations
 
@@ -1024,12 +1150,9 @@ not selected are not evaluated.
 
 Current restrictions for `cond` blocks are the same as for `when` blocks:
 
-- Branch expressions cannot contain temporal operators (for example `pre` or  
-  `->`).
-
+- Branch expressions cannot contain temporal operators (for example `pre` or`->`).
 - Branch expressions cannot call Lustre nodes (calls to functions are allowed).
-
-- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks  
+- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
   cannot be nested inside `if` blocks.
 
 ### Frame conditions

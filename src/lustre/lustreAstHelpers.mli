@@ -206,8 +206,15 @@ val get_const_num_value : expr -> int option
 
 val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
 (** `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
-    combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types 
+    combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types
     with `f` *)
+
+val fold_label_or_index : 'a -> ('a -> 'a -> 'a) -> (expr -> 'a) -> label_or_index list -> 'a
+(** `fold_label_or_index empty union f idx` folds `f` over the index expressions
+    of a [label_or_index list], as used in the update part of a [StructUpdate]
+    (e.g. the key of a map update `m[k := v]`). A [Label] carries no expression
+    and contributes `empty`; every other kind holds an arbitrary expression
+    that may reference variables or node calls. *)
 
 val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
 (** `map_lustre_ty f ty` applies function `f` to each Lustre expression within `ty` *)
@@ -222,6 +229,11 @@ val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 val is_direct_self_reference: ident -> lustre_type -> bool
 (** `is_direct_self_reference type_name ty` returns true iff `ty` is a reference
     to the type named `type_name` *)
+
+val is_directly_recursive_adt: ident -> (ident * (ident * lustre_type) list) list -> bool
+(** `is_directly_recursive_adt type_name ctors` returns true iff some constructor
+    in `ctors` (the constructors of the ADT named `type_name`) directly
+    references `type_name` in one of its fields *)
 
 val pos_of_type: lustre_type -> Lib.position 
 (** `pos_of_type ty` returns the position of `ty` *)

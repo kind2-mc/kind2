@@ -1,0 +1,5 @@
+node N (n: int) returns (y: int)
+con decreases n; noc
+let
+  y = 0;
+tel
