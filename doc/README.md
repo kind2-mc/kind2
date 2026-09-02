@@ -45,5 +45,16 @@ Output goes to `public/`.
 ## Deploying
 
 Any static host works (GitHub Pages, Netlify, Vercel, Cloudflare Pages).
-Update `baseURL` in `hugo.yaml` to match your production domain before
-building for deployment.
+`hugo.yaml` sets no `baseURL`, so Hugo defaults to `/`, which is what
+`hugo server` and the PDF build want. Hugo bakes the baseURL into every asset
+and cross-page link, so set `HUGO_BASEURL` to the URL the site will actually be
+served from when building for deployment:
+
+```bash
+HUGO_BASEURL=https://example.org/kind2/docs/main/user/ make html
+```
+
+The website is published from the `kind2-mc/kind2-mc.github.io` repository,
+which does this for you: it publishes this documentation to
+<https://kind2-mc.github.io/docs/main/user> on every push to `main`, and a copy
+of each release's to `docs/<version>/user` alongside it.

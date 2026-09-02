@@ -10,6 +10,14 @@ PUBLIC = ROOT / "public"
 OUT_HTML = ROOT / "print" / "all-docs.html"
 KATEX_CSS = ROOT / "assets" / "vendor" / "katex" / "dist" / "katex.min.css"
 
+# Hugo bakes the baseURL's path into every site-root-absolute URL it writes, so
+# mapping one back to a file under public/ means stripping that path first.
+# HUGO_BASEURL is the only thing that sets it (hugo.yaml deliberately carries no
+# baseURL), and unset means Hugo defaulted to "/".
+BASE_PATH = urlparse(os.environ.get("HUGO_BASEURL", "/")).path or "/"
+if not BASE_PATH.endswith("/"):
+    BASE_PATH += "/"
+
 def frontmatter_weight(path):
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---"):
@@ -66,8 +74,7 @@ def rewrite_image_sources(main, page_path):
         if parsed.scheme in {"http", "https", "data"} or src.startswith("//"):
             continue
         if src.startswith("/"):
-            base = "/kind2_user_doc/"
-            rel = src[len(base):] if src.startswith(base) else src.lstrip("/")
+            rel = src[len(BASE_PATH):] if src.startswith(BASE_PATH) else src.lstrip("/")
             candidate = PUBLIC / rel
         else:
             candidate = (page_path.parent / src).resolve()
