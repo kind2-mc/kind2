@@ -1,6 +1,6 @@
 ---
 title: "Sets"
-weight: 10
+weight: 11
 ---
 
 Set types have the syntax `set<T>`, where `T` is any type that does not contain

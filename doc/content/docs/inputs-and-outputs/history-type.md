@@ -1,6 +1,6 @@
 ---
 title: "History Types"
-weight: 6
+weight: 7
 ---
 
 In order to improve the expressivity of Kind 2's specification language,

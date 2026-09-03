@@ -1,6 +1,6 @@
 ---
 title: "JSON / XML Output"
-weight: 15
+weight: 16
 ---
 
 Kind 2 can output its results in two structured formats:

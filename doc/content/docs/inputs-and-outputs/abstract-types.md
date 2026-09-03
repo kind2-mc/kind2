@@ -1,6 +1,6 @@
 ---
 title: "Abstract Types"
-weight: 7
+weight: 8
 ---
 
 Kind 2 supports Lustre's **abstract types**,
