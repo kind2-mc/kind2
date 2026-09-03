@@ -152,8 +152,9 @@ let
 tel
 ```
 
-Property checking is performed by model checkers such as Kind 2,
-so further details are outside the scope of this page.
+We discuss properties in greater detail in 
+[Specifying and Checking Properties](#specifying-and-checking-properties)
+below. 
 
 ## Comments
 
@@ -194,14 +195,55 @@ The binary operators, however, are applicable only to arguments of the same type
 Numerals (`0`, `1`, ...) have type `int`
 while decimals (e.g., `0.0`, `31.97`) have type `real`.
 
-Additionally, Lustre supports if-then-else expressions with the syntax
+Alongside the mathematical `int` and `real`, Lustre offers fixed-width
+**machine integers**, signed as `sint<N>` and unsigned as `uint<N>` for a
+width `N` in bits, with the concise names `int8`, `uint8`, `int16`, and so on
+for the widths 8, 16, 32, and 64. Unlike `int`, these types are finite: their
+values are built by applying a conversion operator to a literal, as in
+`uint8 27`, and their arithmetic wraps around modulo the width of the type, as
+in C, with signed values represented in two's complement. They also support the
+bitwise operators `&&`, `||`, and `!`, and the shifts `lsh` and `rsh`. See
+[Machine Integers]({{< relref "/docs/inputs-and-outputs/machine-ints" >}}) for
+the conversion rules between widths and the solver restrictions these types
+imply.
+
+## Conditionals
+
+Equations can be grouped under a condition with an `if` *statement*, closed
+with `fi`:
+
+```text
+node Sign(x: int) returns (neg, pos: bool);
+let
+  if x < 0 then
+    neg = true; pos = false;
+  elsif x > 0 then
+    neg = false; pos = true;
+  else
+    neg = false; pos = false;
+  fi
+tel
+```
+
+Each condition is evaluated once per timestep, and every variable assigned by
+the block takes the same branch. 
+
+Conditions can also be encoded as 
+`if` *expressions*:
 
 ```text
 if <expr_0> then <expr_1> else <expr_2>
 ```
 
-where `<expr_0>` has type `bool` and
-`<expr_1>` and `<expr_2>` must have the same type.
+where `<expr_0>` has type `bool`, and `<expr_1>` and `<expr_2>` must have the
+same type. 
+
+```text
+node Max(x, y: int) returns (m: int);
+let
+  m = if x > y then x else y;
+tel
+```
 
 ## Temporal Operators
 
@@ -351,6 +393,29 @@ let
 tel
 ```
 
+## Frame Blocks
+
+A `frame` block names a set of variables, gives them optional initial values,
+and defines them in a body between `let` and `tel`. Any variable the body
+leaves undefined at a step *stutters*: it keeps the value it had at the previous step, starting
+from its initialization.
+
+```text
+node Hold(latch: bool; v: int) returns (out: int);
+let
+  frame ( out )
+  out = 0;
+  let
+    if latch then
+      out = v;
+    fi
+  tel
+tel
+```
+
+Here `out` starts at `0`, takes the value of `v` whenever `latch` is true, and
+otherwise holds its previous value.
+
 ## Declarative Semantics
 
 Lustre has a **declarative** semantics, meaning that the order of equations in
@@ -407,12 +472,8 @@ not in terms of `N` itself.
 
 ## Composite Types
 
-In addition to the primitive types, Lustre supports records and arrays.
-Kind 2 also supports a number of composite types that are not part of standard
-Lustre, such as [tuples]({{< relref "/docs/inputs-and-outputs/tuples" >}}),
-[sets]({{< relref "/docs/inputs-and-outputs/sets" >}}),
-[maps]({{< relref "/docs/inputs-and-outputs/maps" >}}), and
-[algebraic datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}}).
+In addition to the primitive types, Lustre provides records, arrays, tuples,
+sets, maps, and algebraic datatypes.
 
 ### Records
 
@@ -456,7 +517,7 @@ tel
 ```
 
 See [Records]({{< relref "/docs/inputs-and-outputs/records" >}}) for the
-additional record features supported by Kind 2.
+remaining record operations, such as element updates.
 
 ### Arrays
 
@@ -497,8 +558,193 @@ let
 tel
 ```
 
-See [Arrays]({{< relref "/docs/inputs-and-outputs/arrays" >}}) for the
-additional array features supported by Kind 2.
+See [Arrays]({{< relref "/docs/inputs-and-outputs/arrays" >}}) for element
+update, structural equality, and inductively defined arrays.
+
+### Tuples
+
+A tuple type is written `[<type_1>, ..., <type_n>]`. Tuples are constructed
+with the syntax `'(<expr_1>, ..., <expr_n>)`, and their components are read
+back by position with `<tuple>[<index>]`, using zero-based indexing. The index
+must be a concrete numeral, since it selects a component rather than computing
+one.
+
+```text
+type Pair = [int, bool];
+
+node Swap(p: Pair) returns (q: [bool, int]);
+let
+  q = '(p[1], p[0]);
+tel
+```
+
+### Sets and Maps
+
+The type `set<T>` denotes streams of finite sets of elements of type `T`, and
+the type `map<K, V>` denotes streams of finite maps from keys of type `K` to
+values of type `V`. Set literals are written with braces, and map literals with
+the `map[...]` constructor:
+
+```text
+node N(s: set<int>; m: map<int, int>) returns (u: set<int>; v: int);
+let
+  u = s + { 1, 2, 3 };
+  v = m[0];
+tel
+```
+
+The set operators are union `+`, intersection `*`, difference `-`, and
+membership `in`. A map is updated (functionally, producing a copy) with
+`m[k := v]`, read with `m[k]`, and restricted with `m - s`, which removes every
+key in the set `s`. Membership `k in m` tests for a key.
+
+Empty map and set literals carry no element type of their own, so the user must annotate types:
+`{}@<int>` and `map[]@<int, int>`.
+
+Reading a key that a map does not bind, as in `m[k]` where `k` is absent,
+yields an unconstrained value rather than an error. The read is still
+*functional*, though: the same key always yields the same value at the same
+timestep.
+
+See [Sets]({{< relref "/docs/inputs-and-outputs/sets" >}}) and
+[Maps]({{< relref "/docs/inputs-and-outputs/maps" >}}) for the full operator
+set and the restrictions on element and key types.
+
+### Algebraic Datatypes
+
+An algebraic datatype packages a fixed set of *constructors*, each carrying
+zero or more named fields. They are introduced with the `datatype` keyword,
+with constructors separated by `|`:
+
+```text
+datatype Shape =
+  | Circle (radius: real)
+  | Rectangle (width: real, height: real)
+  | Point;
+```
+
+A value is built by applying a constructor to its field values, with nullary
+constructors such as `Point` written without parentheses. Values are taken
+apart with a `match` expression, whose arms must cover every constructor. Each
+arm names fresh variables for the fields of its constructor, in scope only
+within that arm:
+
+```text
+datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
+
+node Area(s: Shape) returns (a: real);
+let
+  a = match s with
+    | Circle (r)       : 3.14 * r * r
+    | Rectangle (w, h) : w * h
+  end;
+tel
+```
+
+Datatypes may be recursive, which makes it possible to describe unbounded
+structures such as lists:
+
+```text
+datatype IntList = Cons (head: int, tail: IntList) | Nil;
+```
+
+See [Algebraic Datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}})
+for testers, selectors, and polymorphic datatypes.
+
+## Enumerations and Subranges
+
+Two named types describe restricted sets of scalar values.
+
+An **enumeration** is a finite set of named constants:
+
+```text
+type Color = enum { Red, Green, Blue };
+```
+
+A **subrange** describes the integers within given inclusive bounds, with the
+syntax `subrange [LB, UB] of int`. Either bound may be `*`, leaving that side
+unbounded, and either may be a symbolic constant expression rather than a
+literal:
+
+```text
+type Percent = subrange [0, 100] of int;
+type Pos = subrange [1, *] of int;
+```
+
+Subranges are not merely documentation. A subrange on an input or a free
+constant is an *assumption* Kind 2 may rely on; a subrange on an output, a
+local variable, or a defined constant is a *proof obligation* Kind 2 must
+discharge. The node below type-checks, but Kind 2 falsifies the obligation on
+its output, since nothing prevents `x + y` from exceeding `100`:
+
+```text
+type Percent = subrange [0, 100] of int;
+
+node Add(x, y: Percent) returns (z: Percent);
+let
+  z = x + y;
+tel
+```
+
+Kind 2 reports this as a failed property named for the position of the
+offending declaration, alongside a counterexample — here, any two inputs
+summing above `100`.
+
+This assumption/obligation split is the same one that governs refinement
+types, described next; a subrange is really a special case of one.
+
+## Refinement Types
+
+A **refinement type** restricts a base type with a predicate. It is written
+`subtype { <var>: <base_type> | <predicate> }`:
+
+```text
+type Nat = subtype { x: int | x >= 0 };
+```
+
+The base type can be any type, including another refinement type, and
+refinement types may appear inside composite types (as the element type of an
+array or set, for instance).
+
+Where a variable is declared, a more concise form is available: writing
+`<var>: <base_type> | <predicate>` in a node's interface or local declarations
+means the same thing.
+
+```text
+node Sqrt(x: real | x >= 0.0) returns (y: real | y >= 0.0);
+```
+
+Refinement types follow exactly the rule given for subranges above:
+a refinement type on an input or a free constant is an **assumption**, while
+one on an output, a local variable, or a defined constant is a **proof
+obligation**. So in `Sqrt`, Kind 2 may assume `x >= 0.0` and must prove
+`y >= 0.0`.
+
+See [Refinement Types]({{< relref "/docs/inputs-and-outputs/refinement-types" >}})
+for the treatment of defined versus free constants, and for refinement types
+nested inside structured types.
+
+## Abstract Types
+
+An **abstract type** is a type declared without a definition:
+
+```text
+type T;
+```
+
+Kind 2 treats it as an uninterpreted domain: the only operations on its values
+are equality `=` and disequality `<>`, and nothing is assumed about how many
+values it holds. This is useful to model data whose representation is
+irrelevant to the properties being checked.
+
+```text
+type T;
+
+function IdT(x: T) returns (y: T);
+let
+  y = x;
+tel
+```
 
 ## Composition
 
@@ -588,6 +834,228 @@ let
 tel
 ```
 
+### Functions
+
+Besides `node`, the language provides the keyword `function`, used in exactly
+the same way but with stricter semantics: a function's outputs must be a
+*non-temporal* combination of its inputs
+(i.e., *combinational*). 
+A function may not use `->`, `pre`,
+`merge`, `when`, `condact`, or `activate`, and it may only call other
+functions, never nodes. Functions are, in other words, stateless.
+
+```text
+function Abs(x: real) returns (y: real);
+let
+  y = if x < 0.0 then -x else x;
+tel
+```
+
+A function behaves as a mathematical function: the same inputs always yield the
+same outputs, whatever the timestep. This also narrows the scope of its
+contract assumptions: a function's guarantees rest on its assumptions holding
+at the current step alone, whereas a node's rest on them having held at every
+step so far.
+
+### Imported Nodes
+
+A node or function declared `imported` has an interface but no body:
+
+```text
+node imported Sensor(t: int) returns (reading: real);
+```
+
+For example, this is useful to model an
+external routines where the specification is known, but not the implementation. 
+For Kind 2 it means the component is *always* abstract: it is
+represented solely by its contract (see [Contracts](#contracts) below), and
+Kind 2 never looks inside it, because there is nothing to look at. With no contract, the implicit one is
+`assume true; guarantee true;`, which says nothing at all — so an imported node
+without a contract may produce any 
+(well-typed) output whatsoever. 
+
+### Polymorphic Nodes
+
+Nodes and functions may take type parameters, declared in angle brackets after
+the name:
+
+```text
+node SafePre<T>(x: T) returns (y: T);
+let
+  y = x -> pre x;
+tel
+
+node Top() returns (y1: int; y2: bool);
+let
+  y1 = SafePre@<int>(0);
+  y2 = SafePre@<bool>(false);
+tel
+```
+
+The `@<...>` instantiation at the call site is usually optional: Kind 2 infers
+the type arguments *bottom-up*, by matching the declared parameter types
+against the types of the actual arguments, so `SafePre(x1)` (without the annotation) 
+would also work here.
+
+However, in some cases, Kind 2 cannot 
+infer the type bottom-up.
+
+```text
+node Default<T>() returns (y: T);
+let
+  y = any@<T>;
+tel
+
+node Top() returns (b: bool);
+let
+  b = Default();
+tel
+```
+
+Kind 2 rejects this during type checking, with
+
+```text
+Call requires explicit annotation; type variable T cannot be inferred bottom-up
+```
+
+The fix is to supply the type argument explicitly (here, writing `Default@<bool>()`). In short: leave the annotation out, and
+add one at the call site if Kind 2 
+asks for it.
+
+Type declarations take parameters in the same way, so a user-defined type can
+be polymorphic as well. Such a type acts as a *type constructor*: applying it
+to types yields a type, which is then written `<name><...>` wherever a type is
+expected.
+
+```text
+type Pair<T; U> = [T, U];
+
+node Swap<T; U>(x: Pair<T; U>) returns (y: Pair<U; T>);
+let
+  y = '(x[1], x[0]);
+tel
+```
+
+## Lazy Operators
+
+Most operators are **eager**: they evaluate every operand, whichever one the
+result turns out to depend on. Both branches of `if <cond> then <e1> else <e2>`
+are evaluated at each step, and so are both operands of `and`, `or`, and `=>`.
+
+Each has a **lazy** counterpart that evaluates an operand only when the result
+depends on it:
+
+| Eager                    | Lazy                       | Right operand evaluated |
+| ------------------------ | -------------------------- | ----------------------- |
+| `if c then e1 else e2`   | `when c then e1 else e2`   | only the selected branch |
+| `e1 and e2`              | `e1 and then e2`           | only when `e1` is true  |
+| `e1 or e2`               | `e1 or else e2`            | only when `e1` is false |
+| `e1 => e2`               | `e1 ==> e2`                | only when `e1` is true  |
+
+Whenever the right operand *is* evaluated, each lazy operator agrees with its
+eager counterpart; the two differ only in what happens to the operand that is
+skipped.
+
+That difference is not merely a matter of efficiency. 
+Consider reading a field of an algebraic datatype: the selector `x.val` carries a proof obligation that `x`
+was built with the constructor that has a `val` field. 
+
+```text
+datatype Option = None | Some (val: int);
+
+node Unwrap(x: Option) returns (y: int);
+let
+  y = when Some?(x) then x.val else 0;
+tel
+```
+
+Written with `if ... then ... else ...` instead, the same node is falsified:
+both branches are evaluated at every step, so `x.val` is read even when `x` is
+`None`, and the selector's obligation fails. Under `when`, the `then` branch is
+evaluated only where `Some?(x)` holds, and the obligation is discharged. 
+
+The lazy Boolean operators 
+can be used to guard selectors in the same way, as in `Some?(x) ==> x.val > 0`,
+and well as the division in `x <> 0 and then y / x > 1`.
+
+The same laziness is available at statement level, in the `when` and `cond`
+blocks described next.
+
+### Lazy Blocks
+
+The lazy counterpart of the `if` statement is the `when` block, closed with
+`end`:
+
+```text
+when <cond> then
+   <equations>
+else
+   <equations>
+end
+```
+
+Further branches are written by nesting another `when` block inside the `else`
+branch. A `cond` block gives the same thing a flatter, pattern-matching shape,
+with any number of guarded branches and an `otherwise` clause:
+
+```text
+cond
+  | <cond_1>:
+     <equations>
+  | <cond_2>:
+     <equations>
+  otherwise:
+     <equations>
+end
+```
+
+In both, only the selected branch is evaluated, with the consequences
+described above. The same restrictions apply: a branch may not contain temporal
+operators or calls to nodes, and `if` blocks and lazy blocks may not be nested
+inside one another.
+
+Laziness also changes what "the previous value" means. Inside a lazy branch,
+`pre x` refers to the value of `x` the last time *that branch was selected*,
+which may be several steps earlier. When a lazy block sits inside a
+[frame block](#frame-blocks), `last x` is the dependable way to say *the value
+at the immediately preceding timestep*.
+
+## Nondeterministic Choice
+
+The operator
+`any { <var>: <type> | <predicate> }` denotes an arbitrary stream of values of
+the given type satisfying the predicate:
+
+```text
+node N(y: int) returns (z: int);
+var l: int;
+let
+  l = any { x: int | x mod 2 = 1 };
+  z = y + l;
+tel
+```
+
+Here `l` is some odd stream, with no further commitment as to which — it may
+take a different odd value at every step.
+
+The variant `choose { ... }` is similar to `any { ... }`, but functional 
+(that is, given the same type as input, it 
+always produces the same output).
+
+Both operators can be written with an explicit type instantiation instead of a
+predicate, as in `any@<bool>`, which denotes an arbitrary Boolean stream.
+
+## Type Ascription
+
+The ascription operator `(<expr>: <type>)` checks that an expression satisfies
+a type. It generates a proof obligation; it does *not* introduce an assumption.
+So given the type `Nat` above, if `x` is an input of type `int`, then
+`(x: Nat)` obliges Kind 2 to prove `x >= 0`.
+
+Ascription applies to ordinary types as well, where it acts as a static check
+rather than a proof obligation: `(1 + 2: bool)` is rejected during type
+checking.
+
 ## Common Auxiliary Nodes
 
 While the temporal operators `->` and `pre` may not seem very powerful, they can
@@ -620,11 +1088,293 @@ let
 tel
 ```
 
+## Specifying and Checking Properties
+
+Property checking was introduced informally at the start of this page. This
+section covers the constructs the language provides for it.
+
+### Properties
+
+A property to be proven invariant is written with a `check` statement in the
+body of a node. Properties may be named, which makes Kind 2's output easier to
+read when there are several:
+
+```text
+node Count(trigger: bool) returns (n: int);
+let
+  n = (if trigger then 1 else 0) + (0 -> pre n);
+
+  check "nonneg" n >= 0;
+  check "small" n <= 10;
+tel
+```
+
+Kind 2 reports each property as valid or falsified independently. For `Count`
+above, `"nonneg"` is proven invariant, while `"small"` is falsified, and Kind 2
+prints a counterexample: an input sequence, with the resulting values of every
+stream, that drives the model to a state violating the property.
+
+An older annotation syntax, `--%PROPERTY <expr>;`, is equivalent to a `check`
+statement and still accepted.
+
+### Choosing What to Analyze
+
+By default, Kind 2 analyzes the *top nodes* of a model: those no other node
+calls. A node can be designated explicitly by adding the annotation
+`--%MAIN;` to its body, or by passing `--lus_main <node_name>` on the command
+line. If any main node is designated, only main nodes are analyzed.
+
+### Reachability Properties
+
+Invariants say that something never happens. The dual — that something *can*
+happen — is written with `check reachable`, which asks Kind 2 to find a witness
+trace rather than to rule one out:
+
+```text
+check reachable "can reach ten" n = 10;
+```
+
+The search can be bounded: `from <int>` requires the witness to take at least
+that many steps, `within <int>` at most that many, and `at <int>` exactly that
+many.
+
+Reachability checks are worth writing even in a model whose invariants all
+hold, because they catch a model that is accidentally over-constrained — one
+where the interesting states are simply unreachable.
+
+### Conditional Properties
+
+Properties are often of the form "in this situation, this behavior". Written
+naively as `check B => A;`, such a property is trivially true whenever the
+situation `B` never arises, which can hide a modeling error. The language
+provides a dedicated syntax for this case:
+
+```text
+check A provided B;
+```
+
+This checks that `B => A` is invariant *and*, separately, that `B` is
+reachable, so a vacuously true property is reported as such.
+
+### Quantifiers
+
+Properties and contracts may use the quantifiers `forall` and
+`exists`. They may appear only in specifications, not in the equations that
+define a node's outputs, and they are indispensable for models parameterized by
+a size:
+
+```text
+check forall (i: int) 0 <= i and i < n => a[i] >= 0;
+```
+
+A quantified variable may be given a refinement type with the concise syntax
+`x: <type> | <predicate>`, so the property above can also be written
+`forall (i: int | 0 <= i and i < n) a[i] >= 0`.
+
+## Contracts
+
+Properties state facts about one node. A **contract** describes a node's
+obligations to, and expectations of, its callers, which is what lets Kind 2
+analyze a large model *compositionally*: each node is verified once against its
+own contract, and callers reason about it through that contract instead of
+re-examining its body.
+
+A contract is a set of **assumptions**, which the caller must establish, and
+**guarantees**, which the node must then deliver. It is written inline between
+a node's interface and its body, delimited by `con` and `noc`:
+
+```text
+node Divide(x, y: real) returns (z: real);
+con
+  assume "nonzero divisor" y <> 0.0;
+  guarantee "exact" z * y = x;
+noc
+let
+  z = x / y;
+tel
+```
+
+The meaning is: *if the assumptions always hold, the guarantees always hold.*
+The obligation is shared. Kind 2 checks that `Divide` delivers `"exact"` given
+`y <> 0.0`, and separately checks, at every call site, that the caller really
+does supply a nonzero `y`. An assumption may not refer to the node's outputs
+at the current step — the caller has no control over those — though it may
+refer to them under a `pre`.
+
+A contract may also declare **ghost variables** and constants with `var` and
+`const`. These are visible to the contract but not to the node body, which
+makes them useful for expressing specifications that need state the
+implementation does not have:
+
+```text
+con
+  var once: bool = trigger or (false -> pre once);
+  guarantee once => count > 0;
+noc
+```
+
+### Modes
+
+Requirements in a specification document are usually of the form "in this
+situation, behave this way". A **mode** captures that shape directly: it pairs
+a set of `require` clauses (the situation) with a set of `ensure` clauses (the
+required reaction).
+
+```text
+node Times(lhs, rhs: real) returns (res: real);
+con
+  mode absorbing (
+    require lhs = 0.0 or rhs = 0.0;
+    ensure res = 0.0;
+  );
+  mode positive (
+    require lhs > 0.0 and rhs > 0.0;
+    ensure res > 0.0;
+  );
+noc
+let
+  res = lhs * rhs;
+tel
+```
+
+A mode is equivalent to the guarantee `requires => ensures`, but naming it buys
+more than readability: Kind 2 uses modes to report *which* mode was active in a
+counterexample, and it checks the set of modes for **exhaustiveness**, warning
+when the modes leave some situation unspecified. A mode can be referred to
+elsewhere in the contract by name, as in `require not ::absorbing;`.
+
+### Contract Nodes
+
+A contract can also be written separately and reused, as a **contract node** —
+like an ordinary node, but introduced with `contract` and containing only
+contract items. It is brought into a node's contract with `import`, which
+merges the imported assumptions, guarantees, and modes into the importing
+contract:
+
+```text
+contract Spec(x: real) returns (y: real);
+let
+  assume x >= 0.0;
+  guarantee y >= 0.0;
+tel
+
+node Sqrt(x: real) returns (y: real);
+con
+  import Spec(x) returns (y);
+noc
+let
+  y = if x <= 0.0 then 0.0 else x;
+tel
+```
+
+See [Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})
+for the formal reading of assumptions, guarantees, and modes.
+
+## Compositional and Modular Analysis
+
+Contracts pay off in how a model is analyzed. By default Kind 2 analyzes a node
+against the full implementations of everything it calls, however deep the
+hierarchy runs. Two flags change that.
+
+**Compositional** analysis, `--compositional true`, abstracts each call away by
+the callee's contract, so the analysis sees only what the contract promises
+instead of the callee's state. This is where the effort of writing contracts is
+repaid: a contract normally carries far less state than the node it specifies,
+which also drags in the state of everything *it* calls. Only calls to nodes
+whose contract has at least one guarantee or mode are abstracted.
+
+On its own this leaves a gap. Proving `top` correct with its callees abstracted
+says nothing about whether those callees honor their contracts. That is what
+**modular** analysis, `--modular true`, supplies: it analyzes every node in the
+hierarchy, bottom-up, and keeps going even when some node's properties are
+falsified.
+
+The two are meant to be used together:
+
+```text
+kind2 --modular true --compositional true <file>.lus
+```
+
+Analyzed this way, each node is verified once against its own contract, and
+every caller uses that contract in place of the body. If a compositional
+analysis of `top` fails, the counterexample may be spurious — an artifact of
+the abstraction rather than a real defect — and when the callee has already been
+proved correct, Kind 2 *refines* the call, replacing the contract with the real
+implementation and analyzing again. A per-analysis limit is available as
+`--timeout_analysis`, alongside the global `--timeout`.
+
+Two modifiers override these choices for an individual component. Writing
+`transparent` before `node` or `function` keeps it from being abstracted by its
+contract; writing `opaque` keeps it from being refined:
+
+```text
+transparent function F(x: int) returns (y: int);
+let
+  y = x;
+tel
+```
+
+See [Techniques]({{< relref "/docs/techniques" >}}) for how the two modes
+interact with each verification engine.
+
+## Realizability Checking
+
+A contract can be wrong in a way no amount of implementation effort will fix:
+it can demand something impossible. The contract below cannot be satisfied by
+any implementation, because a negative `x` leaves no legal value for `y`:
+
+```text
+node imported M(x: int) returns (y: int);
+con
+  guarantee 0 <= y and y <= x;
+noc
+```
+
+Such a contract is **unrealizable**. Realizability is a stronger question than
+consistency: it asks whether a component can be built that, *for every* input
+sequence permitted by the assumptions, produces *some* output satisfying the
+guarantees — and must do so step by step, without seeing the future.
+
+This matters most for the specifications Kind 2 takes on trust. An imported
+node is replaced by its contract everywhere it is called, so an unrealizable
+contract is a false assumption that can prove anything downstream. The same
+holds for refinement types and for the predicates of `any` and `choose`
+expressions.
+
+Kind 2 performs the check when the `CONTRACTCK` engine is enabled:
+
+```text
+kind2 --enable CONTRACTCK <file>.lus
+```
+
+It covers node and imported-node contracts, refinement types, free constants,
+and the predicates of `any` and `choose` expressions. As with property
+checking, `--lus_main <node_name>` restricts the analysis to one component,
+and `--lus_main_type` and `--lus_main_const` select an individual type or
+constant.
+
+Kind 2 also checks the realizability of a node's *environment* — that the
+assumptions themselves can be met. This is easy to overlook: assumptions that
+no input sequence can satisfy make a node's guarantees vacuous, and the
+resulting compositional argument is just as flawed as one built on an
+unrealizable guarantee. Pass `--check_environment false` to disable it.
+
+When a contract is found unrealizable, `--print_deadlock` shows a trace ending
+in a state from which the contract cannot be satisfied, together with the
+conflicting constraints.
+
+See [Contract Check]({{< relref "/docs/advanced-features/contract-check" >}})
+for the remaining options.
+
 ## More Examples
 
 For more examples, see the Kind 2 web application at
-[https://kind.cs.uiowa.edu/app/](https://kind.cs.uiowa.edu/app/). Note that these examples contain some language
-features that are extensions to Lustre (for example, contracts) that are not
-covered in this page. For more information on Kind 2 and its extensions to
-Lustre, see [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}) and
-the rest of this documentation.
+[https://kind.cs.uiowa.edu/app/](https://kind.cs.uiowa.edu/app/).
+
+This page has left out a good deal: the details of clock calculus, proof
+certificates, test generation, contract generation, and the many options that
+control each verification engine. For the full language reference, see
+[Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}); the pages
+alongside it cover each type in depth, and
+[Advanced Features]({{< relref "/docs/advanced-features" >}}) covers what Kind 2
+can do beyond proving properties invariant.
