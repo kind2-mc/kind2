@@ -3620,6 +3620,22 @@ let check_nonvacuity_default = true
     )
   let lus_strict () = !lus_strict
 
+  (* Disallow include directives in Lustre files. *)
+  let lus_no_include_default = false
+  let lus_no_include = ref lus_no_include_default
+  let _ = add_spec
+    "--no_include"
+    (bool_arg lus_no_include)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Reject include statements in Lustre source files.@ \
+          Default: %a\
+        "
+        fmt_bool lus_no_include_default
+    )
+  let lus_no_include () = !lus_no_include
+
   (* Reject unguarded pre's in Lustre file. *)
   let lus_push_pre_default = false
   let lus_push_pre = ref lus_push_pre_default
@@ -3857,6 +3873,7 @@ let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
+let lus_no_include = Global.lus_no_include
 let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
