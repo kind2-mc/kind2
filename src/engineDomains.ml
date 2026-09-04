@@ -97,10 +97,42 @@ let signals_to_block =
    noticeably slower than the separate processes they replaced, which
    had a collector each.
 
-   Collecting four times less often is enough to close that gap, and
-   costs 8MB per engine. The setting is not inherited from the
-   supervisor, so each domain must apply it to itself. *)
-let engine_minor_heap_size = 1 lsl 20
+   Collecting four times less often was enough to close that gap on
+   Linux and macOS. It is not enough on Windows, where the wait at that
+   safe point costs enormously more: a run of
+   `test-issue-127.lus [slice_on]` there freezes for about 5.7 seconds
+   at a time, every domain at once, and how often it does so tracks how
+   often the engines collect. Measured on a four core Windows runner,
+   two runs at each size, `--timeout 84`:
+
+     minor heap    wall clock          freezes
+     1M words      70s, 73s, and       ~50 per run
+                   killed at 204s
+                   twice on a later
+                   run
+     4M words      14s, 15s            1 per run
+     16M words     20s, 24s            0 to 1
+     64M words     25s, 9s             0 to 1
+
+   Four million is where it flattens: sixteen and sixty-four buy
+   nothing further, and the collection count stops falling with them,
+   so most of what remains is not collections. What the step from one
+   to four buys is the difference between a run that is sometimes
+   killed at the harness budget and one that is consistently fifteen
+   seconds. Linux and macOS do not move across that whole range --
+   5s and 5 to 7s at every size -- so this costs them nothing but
+   memory.
+
+   So the larger heap is given to Windows alone. It is not free:
+   thirty-two megabytes per engine against eight, and on this model
+   peak resident memory went from 162MB to 432MB. That is worth paying
+   where it turns a killed run into a fifteen second one, and worth
+   paying nowhere else. The setting is not inherited from the
+   supervisor, so each domain must apply it to itself.
+
+   This is a mitigation and not a diagnosis: why the wait costs what it
+   does on Windows is not established. See #1477. *)
+let engine_minor_heap_size = if Sys.win32 then 1 lsl 22 else 1 lsl 20
 
 (* Give the minor heap of the supervisor the size the engines use.
 
