@@ -13,7 +13,10 @@ concurrency:
 
 jobs:
   build-and-publish:
-    if: github.repository == 'kind2-mc/kind2'
+    # TEMPORARILY DISABLED until the Docker image is updated to the latest
+    # patch version (5.5.1). Restore the original condition below to re-enable.
+    # if: github.repository == 'kind2-mc/kind2'
+    if: false
     runs-on: ubuntu-latest
 
     steps:
