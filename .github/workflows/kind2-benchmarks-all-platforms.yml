@@ -44,7 +44,7 @@ env:
   BENCHMARKS_SUBDIRS: "FMCAD08/Bool FMCAD08/Int FMCAD08/Real_Int"
   # Per-benchmark wall-clock timeout (seconds).
   BENCH_TIMEOUT: "120"
-  OCAML_VERSION: 5.5.0
+  OCAML_VERSION: 5.5.1
   Z3_VERSION: "4.15.3"
   MATHSAT_VERSION: "5.6.17"
 

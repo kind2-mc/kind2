@@ -21,7 +21,6 @@
 
 (library
  (name kind2dev)
- (foreign_stubs (language c) (names kind2_stubs))
  (libraries dune-build-info num str threads yojson menhirLib)
  (modules
   (:standard \ C2Icnf kind2 moxi))
