@@ -1,0 +1,7 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec F (n: List) returns (out: int)
+con decreases n; noc
+let
+  out = if Cons?(n) then 1 + F(n.tail) else 0;
+tel

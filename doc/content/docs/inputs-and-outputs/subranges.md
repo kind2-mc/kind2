@@ -1,6 +1,6 @@
 ---
 title: "Subrange types"
-weight: 12
+weight: 13
 ---
 
 Subrange types are types of the form `subrange [LB, UB] of int` denoting user-specified integer ranges,

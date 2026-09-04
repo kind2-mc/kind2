@@ -1,6 +1,6 @@
 ---
 title: "Tuples"
-weight: 9
+weight: 10
 ---
 
 Tuples are constructed with the syntax `'(x1, ..., xn)` and destructed with the syntax `t[idx]`,

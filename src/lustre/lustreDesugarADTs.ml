@@ -162,10 +162,7 @@ let build_adt_info type_name type_params ctors ~is_recursive =
     all_payload_fields; field_names; is_recursive }
 
 (* True if any constructor field type directly references type_name itself. *)
-let is_directly_recursive type_name ctors =
-  List.exists (fun (_ctor, fields) ->
-    List.exists (fun (_, ty) -> LH.is_direct_self_reference type_name ty) fields
-  ) ctors
+let is_directly_recursive = LH.is_directly_recursive_adt
 
 (* Collect all ADT type declarations from a program into an adt_map. *)
 let build_adt_map decls =
@@ -273,9 +270,7 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
    scrutinee, which must not be desugared a second time. *)
 let desugar_arm pos ctx adt_map info scrut pat body =
   let (conds, subs) = collect_pattern_constraints pos ctx adt_map info scrut pat in
-  let body =
-    List.fold_left (fun b (var, expr) -> LH.substitute_naive var expr b) body subs
-  in
+  let body = LH.apply_subst_in_expr subs body in
   match conds with
   | [] -> (None, body)
   | first :: rest ->
@@ -313,12 +308,15 @@ let update_context adt_map ctx =
     List.fold_left Ctx.remove_adt_ctor acc_ctx info.ctor_variants
   ) adt_map ctx
 
-(* A bound variable is Kind 2-generated iff its name starts with a digit: source
-   Lustre identifiers cannot, so this reliably distinguishes generated names
-   (e.g. "69_index") from user-written ones without risk of misclassification. *)
+(* A name a source Lustre identifier cannot have, as the generated bound
+   variables of a quantifier do *)
+let starts_with_digit s = String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
+
+(* A bound variable is Kind 2-generated iff its name starts with a digit or with
+   the alpha-renaming prefix ".bound_"; a source identifier can start with neither. *)
 let is_generated_bound_var id =
   let s = HString.string_of_hstring id in
-  String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
+  starts_with_digit s || String.starts_with ~prefix:".bound_" s
 
 let canonical_var_count = ref 0
 
@@ -330,12 +328,15 @@ let fresh_canonical_var () =
   incr canonical_var_count;
   HString.mk_hstring (string_of_int !canonical_var_count ^ canonical_var_suffix)
 
-(* Whether a bound variable was introduced by [fresh_canonical_var]: a source
-   identifier may end in "_canon" but cannot start with a digit *)
+(* Whether a bound variable was introduced by [fresh_canonical_var]. The shape
+   of the names it generates is spelled out rather than deferred to
+   [is_generated_bound_var]: a source identifier may well end in "_canon", and
+   a later widening of what counts as generated must not turn one of those
+   into a variable the canonical-form restriction skips. *)
 let is_canonical_bound_var id =
   let s = HString.string_of_hstring id in
   let n = String.length canonical_var_suffix in
-  is_generated_bound_var id
+  starts_with_digit s
   && String.length s > n && String.sub s (String.length s - n) n = canonical_var_suffix
 
 (* Generate the default value of a type, held by the payload fields of the

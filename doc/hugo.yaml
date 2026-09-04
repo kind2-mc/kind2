@@ -1,4 +1,7 @@
-baseURL: "https://kind.cs.uiowa.edu/kind2_user_doc/"
+# No baseURL: the site is built for whatever location it is published at,
+# and Hugo bakes that into every asset and cross-page link. Set HUGO_BASEURL
+# when building for publication (the website workflow does); without it Hugo
+# defaults to "/", which is what `hugo server` and the PDF build want.
 title: Kind 2 User Documentation
 
 theme: hextra

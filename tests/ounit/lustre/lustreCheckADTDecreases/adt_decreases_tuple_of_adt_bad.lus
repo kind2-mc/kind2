@@ -1,0 +1,7 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec Bad (n: Nat; m: Nat) returns (out: int)
+con decreases n, m; noc
+let
+  out = 1 + Bad(n, m);
+tel

@@ -1,0 +1,7 @@
+datatype Color = Red | Green | Blue;
+
+function rec Loop (c: Color; n: int) returns (out: int)
+con decreases c; noc
+let
+  out = if n <= 0 then 0 else 1 + Loop(c, n - 1);
+tel

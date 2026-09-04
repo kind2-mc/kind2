@@ -1,0 +1,8 @@
+function rec F (n: int) returns (out: int)
+con
+  decreases n;
+  guarantee out = F(n);
+noc
+let
+  out = 0;
+tel

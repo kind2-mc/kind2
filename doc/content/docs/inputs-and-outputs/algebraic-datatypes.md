@@ -1,6 +1,6 @@
 ---
 title: "Algebraic Datatypes"
-weight: 14
+weight: 15
 ---
 
 Kind 2 supports **algebraic datatypes** (ADTs).

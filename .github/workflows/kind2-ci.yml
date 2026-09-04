@@ -1,7 +1,18 @@
 
 name: Kind2 CI
 
-on: [push, pull_request]
+on:
+  push:
+    # gh-pages carries the website's static pages and the documentation of the
+    # released versions, and no sources: there is nothing on it to build or
+    # test, and every job here would fail on the missing dune-project.
+    branches-ignore:
+      - gh-pages
+    # Naming a branch filter would otherwise drop tag pushes, and the nightly
+    # and release tags are built too.
+    tags:
+      - '**'
+  pull_request:
 
 # A new push to a branch cancels this workflow's in-progress runs for it, except
 # on main, where every commit is built so its CI status is recorded.

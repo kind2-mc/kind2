@@ -1,6 +1,6 @@
 ---
 title: "Records"
-weight: 13
+weight: 14
 ---
 
 A record type groups a fixed set of named *fields*, each with its own type.

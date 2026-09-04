@@ -1,6 +1,6 @@
 ---
 title: "Enumeration types"
-weight: 5
+weight: 6
 ---
 
 ```text

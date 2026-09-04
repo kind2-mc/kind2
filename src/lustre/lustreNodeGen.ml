@@ -2428,7 +2428,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
                 let nexpr = compile_ast_expr cstate ctx [] map expr in
                 match X.bindings nexpr with
                 | [] -> assert false
-                | bindings -> List.map (fun (_, e) -> E.init_expr e) bindings
+                | bindings ->
+                  (* ADT measures are checked statically; suppress SMT checks
+                     by using an empty ranking function for the rec_info. *)
+                  if List.for_all (fun (_, e) ->
+                    Type.is_datatype (E.type_of_lustre_expr e)) bindings
+                  then []
+                  else List.map (fun (_, e) -> E.init_expr e) bindings
               )
               | None -> assert false
             in
