@@ -2642,33 +2642,58 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     nexpr, gids, warnings1 @ warnings2 
 
   | FieldProject (pos, expr, fld, pk) ->
-    let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
-    (* A user-written selector accounts for its obligation here, once. The
-       normalized projection is marked as generated so that re-normalizing this
-       output cannot produce the obligation a second time; when a guard
-       establishes its constructor it is a plain projection of the record. *)
-    let npk, gids2 = match pk with
+    let selector_info = match pk with
       | A.Selector (A.UserWritten, adt_ty, ctor) ->
         let adt_info =
           match LDAT.adt_info_of_type info.context info.adt_map adt_ty with
           | Some adt_info -> adt_info
           | None -> assert false
         in
+        Some (adt_info, adt_ty, ctor, selector_statically_guarded info adt_info ctor expr)
+      | _ -> None
+    in
+    (* The scrutinee of a selector no guard establishes the constructor of is
+       compiled into a tag-guarded projection whose other branch is an
+       uninterpreted function of every component of the scrutinee. Left
+       inline, a chain of such selectors on a nested ADT value replicates the
+       scrutinee once per component at every level, and every occurrence of
+       the chain replicates it all again. Abstracting the scrutinee into a
+       fresh local (shared by every occurrence of the same expression) keeps
+       each level linear in the size of the value. A scrutinee that mentions
+       a quantified variable or an array index variable is left in place. *)
+    let abstract_scrutinee =
+      match selector_info with
+      | Some (_, _, _, false) ->
+        info.quantified_variables = []
+        && not (expr_has_inductive_var info.inductive_variables expr)
+      | _ -> false
+    in
+    let nexpr, gids1, warnings =
+      if abstract_scrutinee then abstract_expr ?guard false info node_id map expr
+      else normalize_expr ?guard info node_id map expr
+    in
+    (* A user-written selector accounts for its obligation here, once. The
+       normalized projection is marked as generated so that re-normalizing this
+       output cannot produce the obligation a second time; when a guard
+       establishes its constructor it is a plain projection of the record. *)
+    let npk, gids2 = match pk, selector_info with
+      | A.Selector (A.UserWritten, _, _), Some (adt_info, adt_ty, ctor, guarded) ->
         let gids =
           if info.emit_selector_obligations then
             mk_selector_obligation info node_id pos adt_info ctor nexpr expr
           else empty ()
         in
         let npk =
-          if selector_statically_guarded info adt_info ctor expr then A.RecordField
+          if guarded then A.RecordField
           else A.Selector (A.Kind2Generated, adt_ty, ctor)
         in
         npk, gids
-      | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> pk, empty ()
+      | A.Selector (A.UserWritten, _, _), None -> assert false
+      | (A.Selector (A.Kind2Generated, _, _) | A.RecordField), _ -> pk, empty ()
       (* Only reachable through the refinement type of a node input or output,
          whose predicate the type checker never rewrites; an ADT selector there
          is already unsupported, so treat this as a record projection *)
-      | A.Unresolved -> pk, empty ()
+      | A.Unresolved, _ -> pk, empty ()
     in
     FieldProject (pos, nexpr, fld, npk), union gids1 gids2, warnings
   | Const _ as expr -> expr, empty (), []
