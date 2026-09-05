@@ -97,10 +97,30 @@ let signals_to_block =
    noticeably slower than the separate processes they replaced, which
    had a collector each.
 
-   Collecting four times less often is enough to close that gap, and
-   costs 8MB per engine. The setting is not inherited from the
-   supervisor, so each domain must apply it to itself. *)
-let engine_minor_heap_size = 1 lsl 20
+   Four times less often closes that gap on Linux and macOS. On
+   Windows the wait at that safe point costs seconds, so it does not.
+   Measured there on four cores, `test-issue-127.lus [slice_on]` at
+   `--timeout 84`, two runs per size:
+
+     1M words   70s, 73s, killed at 204s twice    ~50 freezes
+     4M words   14s, 15s                          1
+     16M words  20s, 24s                          0 to 1
+     64M words  25s, 9s                           0 to 1
+
+   Four million is where it flattens, and the collection count stops
+   falling past it. The step from one to four is what turns a run
+   sometimes killed at the harness budget into one that is reliably
+   fifteen seconds.
+
+   Windows alone, because Linux and macOS do not move across that whole
+   range and the memory is not free: 32MB per engine against 8, and
+   162MB to 432MB of peak resident memory on that model. The setting is
+   not inherited from the supervisor, so each domain applies it to
+   itself.
+
+   A mitigation, not a diagnosis: why the wait costs seconds on Windows
+   is not established. See #1477. *)
+let engine_minor_heap_size = if Sys.win32 then 1 lsl 22 else 1 lsl 20
 
 (* Give the minor heap of the supervisor the size the engines use.
 
