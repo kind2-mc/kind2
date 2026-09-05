@@ -1133,7 +1133,7 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
           Option.map
             (fun fields -> (ctor_name, fields))
             (G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields)
-        | exception Not_found -> None
+        | exception (Not_found | Invalid_argument _) -> None
       in
       (match ctor_and_fields with
       | None -> "_"
@@ -1151,8 +1151,10 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
             let nested_disc_index =
               field_index @ [D.AdtTagIndex (HString.string_of_hstring nested_type)]
             in
+            (* The nested value's variables may have been sliced away when
+               nothing reads them: its value is then unknown *)
             (match List.assoc_opt nested_disc_index bindings with
-            | None -> assert false
+            | None -> "_"
             | Some nested_disc_sv ->
               reconstruct_adt_at_step model bindings adt_map step
                 field_index nested_type nested_disc_sv)

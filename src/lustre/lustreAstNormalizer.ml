@@ -193,6 +193,13 @@ type info = {
      obligations line up a guard with a selector that sits under a different
      number of 'pre's (see mk_selector_obligation). *)
   call_context : (LustreAst.expr * LustreAst.expr * int) list;
+  (* Conditions of the enclosing eager constructs ('if', 'and', 'or', '=>')
+     under which the value of the expression being normalized matters, with
+     the 'pre' nesting depth at which each was pushed. They establish nothing
+     about the definedness of a selector, so they play no part in its proof
+     obligation, but they do establish its constructor as far as its value is
+     concerned (see selector_statically_guarded). *)
+  value_context : (LustreAst.expr * int) list;
   (* Number of enclosing 'pre' operators *)
   pre_depth : int;
   (* False while normalizing arguments a second time for the node instance an
@@ -517,11 +524,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
             let constraints = mk ctx n ftype (A.FieldProject (dpos, expr, fname, A.RecordField)) in
             if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
             else
-              let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
-                match acc with Some _ -> acc | None ->
-                if List.exists (fun (fn, _) -> HString.equal fn fname) fields then Some ctor else None
-              ) adt_info.LDAT.ctor_fields None in
-              match ctor_opt with
+              match LDAT.ctor_of_payload_field adt_info fname with
               | None -> constraints
               | Some ctor ->
                 let guard = A.CompOp (dpos, A.Eq, tag_expr, A.Ident (dpos, ctor)) in
@@ -623,11 +626,7 @@ and mk_ref_type_expr
         let constraints = mk_ref_type_expr adt_map ctx node_id fexpr ftype in
         if HString.equal fname adt_info.LDAT.disc_field || constraints = [] then constraints
         else
-          let ctor_opt = LDAT.HStringMap.fold (fun ctor fields acc ->
-            match acc with Some _ -> acc | None ->
-            if List.exists (fun (fn, _) -> HString.equal fn fname) fields then Some ctor else None
-          ) adt_info.LDAT.ctor_fields None in
-          match ctor_opt with
+          match LDAT.ctor_of_payload_field adt_info fname with
           | None -> constraints
           | Some ctor ->
             let guard = A.CompOp (p, A.Eq, tag_expr, A.Ident (p, ctor)) in
@@ -1125,6 +1124,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     call_context = [];
+    value_context = [];
     pre_depth = 0;
     emit_selector_obligations = true;
     inlined_expr_ctx = false;
@@ -1974,14 +1974,52 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
    its own 'pre' depth, so a guard is only ever compared against the read it
    actually protects. 'base' is the normalized scrutinee, which the obligation
    is built from; 'src_base' is the scrutinee as written, used for display. *)
-and mk_selector_obligation info node_id pos adt_ty ctor base src_base =
-  let adt_info = match adt_ty with
-    | A.UserType (_, _, name) -> LDAT.HStringMap.find_opt name info.adt_map
-    | _ -> None
-  in
+(* [info] with the eager condition [cond] recorded as a value fact at the
+   current 'pre' depth *)
+and under_value_fact info cond =
+  { info with value_context = (cond, info.pre_depth) :: info.value_context }
+
+(* Whether an enclosing construct establishes, at the selector's own 'pre'
+   depth, that [scrut] is built with [ctor] wherever the selector's value
+   matters: a conjunct of a lazy guard, or of an eager condition the value is
+   evaluated under, is the tester of [ctor], or, for a two-constructor ADT,
+   the negated tester of the other constructor. Such a selector is a plain
+   projection of the record; see [LustreDesugarADTs]. Recursive ADTs are
+   compiled to SMT-LIB datatypes and keep their selectors. *)
+and selector_statically_guarded info (adt_info : LDAT.adt_info) ctor scrut =
   match adt_info with
-  | None -> assert false
-  | Some adt_info ->
+  (* A value of a single-constructor ADT is always built with that constructor *)
+  | { LDAT.is_recursive = false; ctor_variants = [_]; _ } -> true
+  | adt_info when not adt_info.LDAT.is_recursive ->
+    let tester c =
+      A.CompOp (dpos, A.Eq,
+        A.FieldProject (dpos, scrut, adt_info.LDAT.disc_field, A.RecordField),
+        A.Ident (dpos, c))
+    in
+    let rec conjuncts e =
+      match process_for_display e with
+      | A.BinaryOp (_, (A.And | A.AndThen), a, b) -> conjuncts a @ conjuncts b
+      | e -> [e]
+    in
+    let establishes g =
+      expr_equal g (tester ctor)
+      || (match adt_info.LDAT.ctor_variants, g with
+          | [c1; c2], A.UnaryOp (_, A.Not, g') ->
+            let other = if HString.equal ctor c1 then c2 else c1 in
+            expr_equal (process_for_display g') (tester other)
+          | _ -> false)
+    in
+    List.exists (fun (_, g, d) ->
+      d = info.pre_depth && List.exists establishes (conjuncts g)
+    ) info.call_context
+    || List.exists (fun (g, d) ->
+      d = info.pre_depth && List.exists establishes (conjuncts g)
+    ) info.value_context
+  | _ -> false
+
+and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base src_base =
+  match adt_info with
+  | adt_info ->
     (* A value of a single-constructor ADT is always built with that constructor *)
     (match adt_info.LDAT.ctor_variants with
       | [] | [_] -> empty ()
@@ -2265,6 +2303,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
+      (* The callee's state advances on every step whatever the enclosing
+         eager conditions, so its arguments are evaluated under none of them;
+         the lazy guards gate the call itself *)
+      let info = { info with value_context = [] } in
       (* An inlined call keeps a node instance whose arguments have the enclosing
          quantifiers replaced by free constants. The inlined expansion already
          emitted the obligations, and the constants carry no information. *)
@@ -2309,7 +2351,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     then (
       assert (is_inlinable);
       let nargs, gids1, warnings1 = normalize_list
-        (fun arg -> normalize_expr ?guard info node_id map arg)
+        (fun arg -> normalize_expr ?guard { info with value_context = [] } node_id map arg)
         args
       in
       let expr = get_inline_func_expr info.inlinable_funcs id nargs in
@@ -2600,23 +2642,58 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     nexpr, gids, warnings1 @ warnings2 
 
   | FieldProject (pos, expr, fld, pk) ->
-    let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
+    let selector_info = match pk with
+      | A.Selector (A.UserWritten, adt_ty, ctor) ->
+        let adt_info =
+          match LDAT.adt_info_of_type info.context info.adt_map adt_ty with
+          | Some adt_info -> adt_info
+          | None -> assert false
+        in
+        Some (adt_info, adt_ty, ctor, selector_statically_guarded info adt_info ctor expr)
+      | _ -> None
+    in
+    (* The scrutinee of a selector no guard establishes the constructor of is
+       compiled into a tag-guarded projection whose other branch is an
+       uninterpreted function of every component of the scrutinee. Left
+       inline, a chain of such selectors on a nested ADT value replicates the
+       scrutinee once per component at every level, and every occurrence of
+       the chain replicates it all again. Abstracting the scrutinee into a
+       fresh local (shared by every occurrence of the same expression) keeps
+       each level linear in the size of the value. A scrutinee that mentions
+       a quantified variable or an array index variable is left in place. *)
+    let abstract_scrutinee =
+      match selector_info with
+      | Some (_, _, _, false) ->
+        info.quantified_variables = []
+        && not (expr_has_inductive_var info.inductive_variables expr)
+      | _ -> false
+    in
+    let nexpr, gids1, warnings =
+      if abstract_scrutinee then abstract_expr ?guard false info node_id map expr
+      else normalize_expr ?guard info node_id map expr
+    in
     (* A user-written selector accounts for its obligation here, once. The
        normalized projection is marked as generated so that re-normalizing this
-       output cannot produce the obligation a second time. *)
-    let npk, gids2 = match pk with
-      | A.Selector (A.UserWritten, adt_ty, ctor) ->
+       output cannot produce the obligation a second time; when a guard
+       establishes its constructor it is a plain projection of the record. *)
+    let npk, gids2 = match pk, selector_info with
+      | A.Selector (A.UserWritten, _, _), Some (adt_info, adt_ty, ctor, guarded) ->
         let gids =
           if info.emit_selector_obligations then
-            mk_selector_obligation info node_id pos adt_ty ctor nexpr expr
+            mk_selector_obligation info node_id pos adt_info ctor nexpr expr
           else empty ()
         in
-        A.Selector (A.Kind2Generated, adt_ty, ctor), gids
-      | A.Selector (A.Kind2Generated, _, _) | A.RecordField -> pk, empty ()
+        let npk =
+          if guarded then A.RecordField
+          else A.Selector (A.Kind2Generated, adt_ty, ctor)
+        in
+        npk, gids
+      | A.Selector (A.UserWritten, _, _), None -> assert false
+      | (A.Selector (A.Kind2Generated, _, _) | A.RecordField), _ -> pk, empty ()
       (* Only reachable through the refinement type of a node input or output,
          whose predicate the type checker never rewrites; an ADT selector there
          is already unsupported, so treat this as a record projection *)
-      | A.Unresolved -> pk, empty ()
+      | A.Unresolved, _ -> pk, empty ()
     in
     FieldProject (pos, nexpr, fld, npk), union gids1 gids2, warnings
   | Const _ as expr -> expr, empty (), []
@@ -2709,14 +2786,32 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let nexpr = A.Ident (pos, name1) in
       let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
       nexpr, gids, warnings1 @ warnings2)
+  (* The value of an operand of an eager Boolean connective only matters when
+     the other operand does not decide the result, and the value of a branch
+     of an eager conditional only when the branch is selected *)
+  | BinaryOp (pos, (And | Or | Impl as op), expr1, expr2) ->
+    let neg e = A.UnaryOp (AH.pos_of_expr e, Not, e) in
+    let fact1, fact2 = match op with
+      | And -> expr2, expr1
+      | Or -> neg expr2, neg expr1
+      | _ -> neg expr2, expr1
+    in
+    let nexpr1, gids1, warnings1 =
+      normalize_expr ?guard (under_value_fact info fact1) node_id map expr1 in
+    let nexpr2, gids2, warnings2 =
+      normalize_expr ?guard (under_value_fact info fact2) node_id map expr2 in
+    BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | BinaryOp (pos, op, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
     BinaryOp (pos, op, nexpr1, nexpr2), union gids1 gids2, warnings1 @ warnings2
   | TernaryOp (pos, Ite, expr1, expr2, expr3) ->
     let nexpr1, gids1, warnings1= normalize_expr ?guard info node_id map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    let nexpr3, gids3, warnings3 = normalize_expr ?guard info node_id map expr3 in
+    let neg_expr1 = A.UnaryOp (AH.pos_of_expr expr1, Not, expr1) in
+    let nexpr2, gids2, warnings2 =
+      normalize_expr ?guard (under_value_fact info expr1) node_id map expr2 in
+    let nexpr3, gids3, warnings3 =
+      normalize_expr ?guard (under_value_fact info neg_expr1) node_id map expr3 in
     let gids = union (union gids1 gids2) gids3 in
     let warnings = warnings1 @ warnings2 @ warnings3 in
     TernaryOp (pos, Ite, nexpr1, nexpr2, nexpr3), gids, warnings

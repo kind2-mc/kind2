@@ -1,0 +1,19 @@
+-- The same selector read once where its constructor is established and once
+-- where it is not: the two reads are abstracted into distinct locals, so the
+-- unguarded one keeps its arbitrary value and is not the default. The
+-- falsifiable properties are the obligation of the unguarded read and the
+-- property stating that it is the default.
+
+datatype D = A (a: int) | B (b: bool);
+
+node id(i: int) returns (o: int); let o = i; tel
+
+node main(x: D) returns (ok: bool);
+var g, u: int;
+let
+  g = when A?(x) then id(x.a) else 0;
+  u = id(x.a);
+  check "guarded read"            A?(x) ==> g = x.a;
+  check "unguarded read default"  B?(x) => u = 0;
+  ok = true;
+tel

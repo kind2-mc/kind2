@@ -129,6 +129,9 @@ each selector use, requiring that the correct constructor is active at the point
 of use. For example, `s.radius` generates an obligation that `Circle?(s)`
 holds. The obligation is reported as a property named
 `Selector[L<line>C<column>]`, positioned at the `.` of the selector.
+When the obligation does not hold, the value of the selector is arbitrary but
+fixed for a given ADT value: two reads of the same value agree, and equal
+values give equal results.
 
 ### Discharging the obligation
 
