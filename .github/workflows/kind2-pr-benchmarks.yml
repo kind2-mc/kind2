@@ -11,6 +11,13 @@ name: Kind 2 PR Benchmarks
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/kind2-pr-benchmarks.yml'
+      - '.github/actions/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'dune-project'
+      - 'Makefile'
 
 permissions:
   contents: read
