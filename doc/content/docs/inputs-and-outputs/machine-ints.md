@@ -11,7 +11,7 @@ Machine integer variables can be declared as global, local, or as input/ouput of
 
 The following
 
-``` 
+```lustre
 x : uint<8>;
 y : sint<17>;
 ```
@@ -24,7 +24,7 @@ Machine integers values can be constructed using implicit conversion functions a
 
 The following
 
-``` 
+```lustre
 x = uint@<8> 27;
 y = sint@<17> -5012;
 ```
@@ -51,7 +51,7 @@ sint<64>  : -9223372036854775808 to 9223372036854775807
 
 When the conversion functions are used for literals that are out of this range, they are converted to a machine integer that is in range using the modulo operation, as in C. For instance, in the following
 
-``` 
+```lustre
 x = uint<8> 256;
 y = sint<16> 32768;
 ```
@@ -60,7 +60,7 @@ y = sint<16> 32768;
 
 Conversions are allowed between machine integers of different widths, as long as both types are either signed or unsigned. Values remain unchanged when converted from a smaller to a larger width; values are adjusted modulo the range of the destination type when converted from larger to smaller width. The following code illustrates this.
 
-``` 
+```lustre
 a : sint<8>;
 b : sint<16>;
 c : uint<16>;
@@ -81,7 +81,7 @@ Addition (`+`), subtraction (`-`), multiplication (`*`), division (`div`), modul
 unary negation (`-`) are allowed on either signed or unsigned machine integers, and
 return a machine integer with the same sign and same width as the input(s).
 
-``` 
+```lustre
 a, a1, a2 : uint<8>;
 b : uint<16>;
 c : uint<32>;
@@ -101,7 +101,7 @@ f = (sint@<8> 10) - (sint@<8> -5);
 
 Conjunction (`&&`), disjunction (`||`), and negation (`!`) are performed in a bitwise fashion over the binary equivalent of their machine integer inputs. Conjunction and disjunction are binary, while negation is unary. All 3 operations return a machine integer that has the same sign and same width as its input(s).
 
-``` 
+```lustre
 a, b, b1, b2, c : uint<8>;
 a = (uint@<8> 0) && (uint@<8> 45); --a = (uint@<8> 0)
 b1 = (uint@<8> 255);
@@ -118,7 +118,7 @@ Right shifting when the first operand is signed, results in an arithmetic right 
 
 A left shift is equivalent to multiplication by 2, and a right shift is equivalent to division by 2, as long as the result can fit into the machine integer of the same width. In other words, the left shift operator shifts towards the most-significant bit and the right shift operator shifts towards the least-significant bit.
 
-``` 
+```lustre
 a, b, c : bool;
 a = (uint@<8> 0) lsh (uint@<8> 10) = (uint@<8> 0); --true
 b = (uint@<8> 255) rsh (uint@<8> 12) = (uint@<8> 255); --true
@@ -129,7 +129,7 @@ c = (sint@<8> -1) lsh (uint@<8> 1) = (sint@<8> -2); --true
 
 The following comparison operations are all binary: `>`, `<`, `>=`, `<=`, `=`. They input machine integers of the same size and sign, and output a boolean value.
 
-``` 
+```lustre
 a : bool;
 a = (sint@<8> -12) < (sint@<8> 12); --true
 ```
@@ -139,7 +139,7 @@ a = (sint@<8> -12) < (sint@<8> 12); --true
 In addition to casts to signed and unsigned integers, signed and unsigned integers can also be casted to mathematical integers
 with the `int` cast operator.
 
-``` 
+```lustre
 a : sint<8>;
 b : uint<8>;
 c : int;
@@ -154,7 +154,7 @@ For signed and unsigned machine integers of widths 8, 16, 32, and 64, we support
 for signed integers and `uintN` for unsigned integers (where `N` is 8, 16, 32, or 64).
 This syntax works for both types and cast operators.
 
-``` 
+```lustre
 a : int8;
 b : uint8;
 a = int8 0;

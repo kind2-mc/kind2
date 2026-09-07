@@ -1,0 +1,12 @@
+{{- /* Chroma has no Lustre lexer, so emit the markup it would have produced and
+       let assets/js/lustre-highlight.js insert the token spans in the browser. */ -}}
+{{- $filename := .Attributes.filename | default "" -}}
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+  {{- with $filename -}}
+    <div class="hextra-code-filename not-prose" dir="auto">{{ . }}</div>
+  {{- end -}}
+  <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lustre" data-lang="lustre">{{ .Inner }}</code></pre></div></div>
+  {{- if or (eq site.Params.highlight.copy.enable nil) (site.Params.highlight.copy.enable) -}}
+    {{- partialCached "components/codeblock-copy-button" (dict "filename" $filename) $filename -}}
+  {{- end -}}
+</div>

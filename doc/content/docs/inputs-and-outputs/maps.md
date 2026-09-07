@@ -38,7 +38,7 @@ is valid).
 
 See below for an example.
 
-```text
+```lustre
 node N (inp: map<int, int>) returns (out, out2, out3: map<int, int>)
 let
   out = inp[0 := 0; 1 := 1; 2 := 2];

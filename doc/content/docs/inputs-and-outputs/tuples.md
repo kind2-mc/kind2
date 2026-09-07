@@ -6,7 +6,7 @@ weight: 9
 Tuples are constructed with the syntax `'(x1, ..., xn)` and destructed with the syntax `t[idx]`,
 where `idx` is some concrete natural number that is in range (with `0`-based indexing).
 
-```text
+```lustre
 type my_tuple = [int, bool, real];
 node n (x : my_tuple) returns (y : my_tuple)
 let
@@ -34,7 +34,7 @@ a copy of the tuple `t` in which the component at position `idx` is replaced
 by `v`; the original tuple `t` is not modified. As with destruction, `idx`
 must be a concrete natural number that is in range (with `0`-based indexing).
 
-```text
+```lustre
 type MyPair = [int, bool];
 node n (p1 : MyPair) returns (p2 : MyPair)
 let

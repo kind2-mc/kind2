@@ -15,7 +15,7 @@ on the environment that the properties need in order to hold ---which were perha
 
 For instance, consider the following Lustre program:
 
-```text
+```lustre
 node Arbiter (s1,s2: bool; e1,e2:int) returns(o: int);
 con
   guarantee "G1" s1 => o=e1;

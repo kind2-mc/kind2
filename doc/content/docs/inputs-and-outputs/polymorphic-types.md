@@ -12,7 +12,7 @@ A polymorphic user-defined type `T` is instantiated with `T<...>`
 syntax (analogous to polymorphic nodes and node calls)
 as in the following examples.
 
-```text
+```lustre
 type Pair<T; U> = [T, U];
 
 node SwapIntBool(x: Pair<int; bool>) returns (y: Pair <bool; int>)

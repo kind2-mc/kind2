@@ -11,7 +11,7 @@ carry zero or more named *fields*.
 
 An ADT is introduced with the `datatype` keyword:
 
-```text
+```lustre
 datatype Shape =
   | Circle (radius: real)
   | Rectangle (width: real, height: real)
@@ -24,7 +24,7 @@ separated by commas.
 
 Multiple ADTs can be declared in a single file, and they may be **recursive**:
 
-```text
+```lustre
 datatype List = Cons (head: int, tail: List) | Nil;
 
 datatype Nat = Succ (pred: Nat) | Zero;
@@ -34,7 +34,7 @@ datatype Nat = Succ (pred: Nat) | Zero;
 
 A value of an ADT is built by applying a constructor to its field values:
 
-```text
+```lustre
 datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
 
 node main(r: real) returns (s: Shape);
@@ -45,7 +45,7 @@ tel
 
 A nullary constructor is written without parentheses:
 
-```text
+```lustre
 datatype Color = Red | Green | Blue;
 const c: Color = Red;
 ```
@@ -58,7 +58,7 @@ the same constructor and all their fields are pairwise equal (within this given 
 
 The primary way to inspect an ADT value is with match expressions of the form `match ... with ... end`:
 
-```text
+```lustre
 datatype Color = Red | Green | Blue;
 
 node main(c: Color) returns (ok: bool);
@@ -80,7 +80,7 @@ is covered (exhaustiveness is checked statically).
 Nested patterns are supported---a field position can itself be a constructor
 pattern:
 
-```text
+```lustre
 datatype List = Cons (head: int, tail: List) | Nil;
 
 -- Match the first two elements
@@ -98,7 +98,7 @@ A wildcard `_` matches any value and binds no name.
 A **tester** `C?(e)` is a Boolean expression that is `true` if and only if `e` was
 built with constructor `C`:
 
-```text
+```lustre
 datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
 
 node main(s: Shape) returns (is_circle: bool);
@@ -110,7 +110,7 @@ tel
 Testers are convenient in conditions where matching on field values is not
 required:
 
-```text
+```lustre
 datatype Option<T> = None | Some (val: T);
 
 node main(x: Option<int>) returns (ok: bool);
@@ -143,7 +143,7 @@ Only the *lazy* forms guard a selector. The branches of `if ... then ... else
 arms of a `merge` are all evaluated unconditionally, so a tester there does not
 discharge an obligation.
 
-```text
+```lustre
 datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
 
 node is_large_circle(s: Shape) returns (ok: bool);
@@ -156,14 +156,14 @@ tel
 
 ADT declarations may have **type parameters**, making them polymorphic:
 
-```text
+```lustre
 datatype Option<T> = None | Some (val: T);
 datatype Either<A; B> = Left (left: A) | Right (right: B);
 ```
 
 A polymorphic ADT is instantiated by supplying type arguments:
 
-```text
+```lustre
 datatype Option<T> = None | Some (val: T);
 
 node main(i: int; r: real) returns (ok: bool);
