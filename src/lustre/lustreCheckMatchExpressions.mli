@@ -22,12 +22,13 @@
     Both anomalies are instances of the useful clause problem, decided by the
     recursive function [Urec] of Luc Maranget, "Warnings for pattern matching",
     {i Journal of Functional Programming} 17(3):387-421, 2007, Section 3.1.
-    Lustre patterns have no or-patterns, so the corresponding cases of the
+    Lustre patterns (currently) have no or-patterns, so the corresponding cases of the
     algorithm are omitted. Match scrutinees are always fully evaluated values,
     so the strict semantics of Section 3 applies; the algorithm is in any case
     the same one Maranget proves correct for lazy semantics in Section 4.
 
-    @author Kind 2 development team *)
+    @author Rob Lorch 
+*)
 
 type error_kind =
   | RedundantPattern of LustreAst.pattern
@@ -39,14 +40,7 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * error_kind
 ]
 
-(** Reports the first match arm that no value of the scrutinee's type can
-    reach, and the first match that leaves some value of the scrutinee's type
-    unmatched. Returns the declarations unchanged.
-
-    A match is checked only where the type checker recorded its scrutinee's
-    type. Node input and output types and type ascriptions keep the type as
-    written rather than the one the type checker returns, so a match inside
-    their refinement predicates is skipped here; ADT desugaring cannot compile
-    those matches either. *)
+(** Reports redundant match arms and cases where match arms are not exhaustive. 
+    Returns the declarations unchanged. *)
 val check_match_expressions :
   TypeCheckerContext.tc_context -> LustreAst.t -> (LustreAst.t, [> error]) result

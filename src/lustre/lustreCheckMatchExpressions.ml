@@ -21,6 +21,7 @@
 
 module A = LustreAst
 module Ctx = TypeCheckerContext
+module TC = LustreTypeChecker
 module LH = LustreAstHelpers
 module R = Res
 
@@ -41,9 +42,6 @@ let error_message = function
 
 let mk_error pos kind = Error (`LustreCheckMatchExpressionsError (pos, kind))
 
-(* Patterns as used by the algorithm: a pattern variable filters every value of
-   its type, so it is indistinguishable from a wildcard here. Or-patterns are
-   not part of the Lustre surface syntax. *)
 type pat =
   | Wild
   | Ctor of A.ident * pat list
@@ -55,17 +53,7 @@ let rec pat_of_ast = function
 let pos_of_pattern = function
   | A.VarPat (pos, _) | A.Pat (pos, _, _) -> pos
 
-(* Resolve type synonyms, refinement types and history types to the underlying
-   type, so that a scrutinee or field type is recognizable as an ADT. *)
-let rec base_type ctx ty =
-  match Ctx.expand_type_syn ctx ty with
-  | A.RefinementType (_, (_, _, ty), _) -> base_type ctx ty
-  | A.History (_, id) as hty -> (
-    match Ctx.lookup_ty ctx id with
-    | Some ty -> base_type ctx ty
-    | None -> hty
-  )
-  | ty -> ty
+let base_type ctx ty = R.safe_unwrap ty (TC.expand_type_syn_reftype_history ctx ty)
 
 (* The constructors of [ty]'s datatype, in declaration order, each paired with
    its (already instantiated) field types. [None] if [ty] is not a datatype. *)
