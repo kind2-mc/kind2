@@ -74,7 +74,7 @@ To prevent Kind 2 from *abstracting* a specific node or function that has both a
 and a contract during compositional analysis,
 use the `transparent` modifier before the `node` or `function` keywords:
 
-``` 
+```lustre
 transparent function F(...) returns (...)
 ```
 
@@ -82,6 +82,6 @@ To prevent Kind 2 from *refining* a specific node or function that has both a bo
 and a contract during compositional and modular analyses,
 use the `opaque` modifier before the `node` or `function` keywords:
 
-``` 
+```lustre
 opaque node N(...) returns (...)
 ```

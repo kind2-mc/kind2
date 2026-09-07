@@ -30,7 +30,7 @@ kind2 <lustre_file> --enable MCS
 
 Let's consider the following Lustre code:
 
-```text
+```lustre
 contract spec(x,y: real) returns(z: real);
 let
     weakly assume x = -y;

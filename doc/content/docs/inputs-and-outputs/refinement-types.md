@@ -19,7 +19,7 @@ supports an alternative, more concise syntax of the form `var: base_type | P(var
 
 For example,
 
-``` 
+```lustre
 node N(x: int | x >= 0) returns (y: int | y >= 0);
 ```
 
@@ -27,14 +27,14 @@ denotes the interface of a node `N` which takes a stream of natural numbers `x` 
 and returns a stream of natural numbers `y` as output.
 The above example can be equivalently expressed using the full syntax:
 
-``` 
+```lustre
 node N(x: subtype { n: int | n >= 0 }) returns (y: subtype { n: int | y >= 0});
 ```
 
 The base type being refined can be *any* type, not just a primitive type.
 For example,
 
-``` 
+```lustre
 type Nat = subtype { x: int | x >= 0 };
 type LessThan100 = subtype { x: Nat | x < 100 };
 ```
@@ -45,7 +45,7 @@ In this case, `LessThan100`'s recursively chased primitive base type is `int`.
 
 Additionally, refinement types can be components of more complicated types:
 
-``` 
+```lustre
 const n: int;
 type Nat = subtype { x: int | x >= 0 };
 type NatArray = Nat^n;
@@ -58,7 +58,7 @@ Since Lustre is a declarative language, there is no conceptual ordering between 
 contain variables that are defined before *or after* the current variable in the input file.
 For example, the following is legal.
 
-``` 
+```lustre
 node N() returns (x: | x <= y; y | y = x + 10);
 ```
 
@@ -72,7 +72,7 @@ locals and node outputs represent proof obligations.
 
 Consider the following example:
 
-``` 
+```lustre
 type Even = subtype { n: int | n mod 2 = 0 };
 type Odd = subtype { n: int | n mod 2 = 1 };
 
@@ -90,7 +90,7 @@ that adding an even and an odd integer results in an odd integer.
 Conceptually, the refinement types can be viewed as an augmentation of
 `M`'s contract as follows:
 
-``` 
+```lustre
 node M(x1: int; x2: int) returns (y: int);
 con
    assume x1 mod 2 = 0; 
@@ -150,7 +150,7 @@ to specify refinement type contraints that are unimplementable (impossible to sa
 
 As an example, the following node interface is unrealizable:
 
-``` 
+```lustre
 node M(x: int) returns (y: int | 0 <= y and y <= x);
 ```
 
@@ -159,7 +159,7 @@ However, if input `x` is negative, then no value for `y` will satisfy its type.
 
 One way to make the above interface realizable is to add a refinement type for `x`:
 
-``` 
+```lustre
 node M(x: int | x >= 0) returns (y: int | 0 <= y and y <= x);
 ```
 
@@ -180,14 +180,14 @@ You can specify a particular node or function to analyze using
 Refinement types can also be assigned to constants, and Kind 2 treats defined and
 free constants differently. Both cases are illustrated with the refinement type:
 
-``` 
+```lustre
 type Pos = subtype { x: int | x > 0 };
 ```
 
 A *defined* constant — one given a value — produces a **proof obligation** that
 the value satisfies the refinement predicate:
 
-``` 
+```lustre
 const c: Pos = 5;   -- Kind 2 checks that 5 > 0
 ```
 
@@ -197,13 +197,13 @@ such a constant, Kind 2 performs a **realizability check**, verifying that the
 refinement type is realizable, that is, that at least one value satisfies the
 predicate, so that the parameter can be instantiated:
 
-``` 
+```lustre
 const p: Pos;   -- realizable: some integer is positive
 ```
 
 By contrast, a free constant whose refinement type is empty is unrealizable:
 
-``` 
+```lustre
 const q: subtype { x: int | x > 0 and x < 0 };   -- unrealizable
 ```
 
@@ -217,7 +217,7 @@ Refinement types can be arbitrarily nested within structured types
 (e.g., tuple component types, array and set element types, and
 map key and value types). For example, consider node <span class="title-ref">N</span> below.
 
-``` 
+```lustre
 type Nat = subtype { x: int | x >= 0 };
 const N: Nat;
 

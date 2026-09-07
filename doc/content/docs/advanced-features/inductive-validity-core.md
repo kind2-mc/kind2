@@ -32,7 +32,7 @@ kind2 <lustre_file> --ivc true
 
 Let's consider the following Lustre code:
 
-```text
+```lustre
 contract fSpec(u,v: real) returns(r: real);
 let
     guarantee r >= 0.0;
@@ -90,7 +90,7 @@ All the other assumptions and guarantees will be considered as always present wh
 
 For instance, we can modify the previous example as follows:
 
-```text
+```lustre
 contract fSpec(u,v: real) returns(r: real);
 let
     weakly guarantee r >= 0.0;

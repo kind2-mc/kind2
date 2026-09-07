@@ -1,0 +1,4 @@
+{{- with resources.Get "js/lustre-highlight.js" -}}
+  {{- $js := . | minify | fingerprint -}}
+  <script defer src="{{ $js.RelPermalink }}" integrity="{{ $js.Data.Integrity }}"></script>
+{{- end -}}
