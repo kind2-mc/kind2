@@ -2246,7 +2246,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in
     nexpr, gids
   in
+  (* Every node-call argument goes through here, whatever the call form
+     (call, condact, restart every, merge/activate). The callee's state
+     advances on every step whatever the enclosing eager conditions, so an
+     argument is evaluated under none of them; the lazy guards gate the call
+     itself, and stay in [call_context]. *)
   let abstract_node_arg ?guard force is_const info map expr =
+    let info = { info with value_context = [] } in
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     if should_not_abstract info force nexpr then
       nexpr, gids1, warnings
@@ -2303,10 +2309,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
-      (* The callee's state advances on every step whatever the enclosing
-         eager conditions, so its arguments are evaluated under none of them;
-         the lazy guards gate the call itself *)
-      let info = { info with value_context = [] } in
       (* An inlined call keeps a node instance whose arguments have the enclosing
          quantifiers replaced by free constants. The inlined expansion already
          emitted the obligations, and the constants carry no information. *)
