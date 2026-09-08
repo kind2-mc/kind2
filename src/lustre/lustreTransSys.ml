@@ -2293,7 +2293,14 @@ let constraints_of_arrays init terms eq_bounds =
 
     ) eq_bounds terms 
 
-let constraints_of_equations node init stateful_vars terms equations definition_set =
+(* The one-state part of a list of constraints, let-bound like them *)
+let one_state_term_of_conjuncts f terms bind_lets =
+  f terms |> Term.mk_and |> bind_lets
+
+(* [one_state] selects, among the constraints, those that only concern
+   the current state; if given, the conjunction of its result is returned
+   as well, wrapped in the same let bindings as the constraints. *)
+let constraints_of_equations ?one_state node init stateful_vars terms equations definition_set =
 
   (* make constraints for equations which do not redefine arrays first *)
   let terms, lets, eq_bounds, definition_set =
@@ -2308,12 +2315,21 @@ let constraints_of_equations node init stateful_vars terms equations definition_
      much as possible *)
   let terms, definition_set = constraints_of_arrays init (terms, definition_set) eq_bounds in
 
-  if lets = [] then terms, definition_set
+  let bind_lets t =
+    List.fold_left (fun t let_bind -> let_bind t) t (List.rev lets)
+    |> Term.convert_select
+  in
+
+  let one_state_term =
+    match one_state with
+    | None -> None
+    | Some f -> Some (one_state_term_of_conjuncts f terms bind_lets)
+  in
+
+  if lets = [] then terms, definition_set, one_state_term
   else
     (* Apply let bindings *)
-    [List.fold_left (fun t let_bind -> let_bind t)
-       (Term.mk_and terms) (List.rev lets)
-     |> Term.convert_select], definition_set
+    [bind_lets (Term.mk_and terms)], definition_set, one_state_term
 
 
 (* Functional congruence template for the UF symbols of a function with
@@ -3232,7 +3248,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order initial state equations by dependency and
              generate terms *)
-          let (init_terms, definition_set), svar_dep_init, node_output_input_dep_init =
+          let (init_terms, definition_set, _), svar_dep_init, node_output_input_dep_init =
             S.order_equations true output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations
@@ -3247,10 +3263,12 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order transition relation equations by dependency and
              generate terms *)
-          let (trans_terms, definition_set ), svar_dep_trans, node_output_input_dep_trans =
+          let (trans_terms, definition_set, one_state_trans), svar_dep_trans, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
               |> (fun (e, sv_d, io_d) ->
-               constraints_of_equations node
+               constraints_of_equations
+                    ~one_state:(TransSys.one_state_conjuncts subsystems)
+                    node
                     false stateful_vars trans_terms (List.rev e) definition_set, sv_d, io_d)
           in
 
@@ -3590,6 +3608,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* Create transition system *)
           let trans_sys, _ =
             TransSys.mk_trans_sys
+              ?one_state_trans
               ~datatype_types:globals.G.recursive_datatypes
               ~fn_congruence_groups
               scope

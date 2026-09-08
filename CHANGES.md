@@ -1,5 +1,8 @@
 # Unreleased
 
+Improvements:
+- The inductive step now assumes, at every state of its path, the part of the transition relation that only constrains one state. It previously had nothing to say about the first state of the path, where the transition relation is not asserted, so a variable defined from others was assumed there without its definition. Properties that are 1-inductive are now proved at k=1 rather than at a larger k, if they were provable at all.
+
 Breaking changes:
 - A user-written [ADT selector](https://kind.cs.uiowa.edu/kind2_user_doc/2_input/14_algebraic_datatypes.html#selectors) `e.f` now generates a proof obligation that the constructor owning `f` is active, reported as a property named `Selector[L<line>C<column>]`. Models that read a field without establishing its constructor will report a new failing property. The obligation is discharged by the short-circuiting operators (`and then`, `or else`, `==>`), `when ... then ... else` expressions, `when` blocks, and `match` arms; their eager counterparts (`and`, `or`, `=>`, `if` expressions and `if` blocks) do not discharge it.
 
