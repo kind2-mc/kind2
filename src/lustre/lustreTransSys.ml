@@ -2115,10 +2115,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
       List.iter transfer_defs_to_eq_if_needed node.N.equations
     ) ;
 
-    (* Let binding for stateless variable, in closure form *)
-    let let_closure =
-      Term.mk_let
-        (if init then
+    (* Let binding for stateless variable *)
+    let let_binds =
+      (if init then
             (* Binding for the variable at the base instant only *)
             [(E.base_var_of_state_var TransSys.init_base state_var,
               E.base_term_of_expr TransSys.init_base expr_init)]
@@ -2152,7 +2151,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Start with singleton lists of let-bound terms *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars terms (let_binds :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
@@ -2316,14 +2315,46 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
   let terms, definition_set = constraints_of_arrays init (terms, definition_set) eq_bounds in
 
   let bind_lets t =
-    List.fold_left (fun t let_bind -> let_bind t) t (List.rev lets)
+    List.fold_left (fun t binds -> Term.mk_let binds t) t (List.rev lets)
     |> Term.convert_select
+  in
+
+  (* As [bind_lets], but leaving out the bindings the term does not use.
+
+     The constraints are wrapped in the bindings of every stateless
+     variable of the node, and a binding the term does not mention is
+     harmless there: it binds a variable that does not occur. It is not
+     harmless in a one-state term. The transition relation binds such a
+     variable at the previous instant as well as the current one, and that
+     binding carries the previous state into a term that is otherwise
+     about one state; nothing reads it, so it does not change what the
+     term says, but it is still part of the term, and asserting the term
+     at a bound then mentions variables one instant before it. *)
+  let bind_lets_used t0 =
+    let _, t =
+      List.fold_left
+        (fun (needed, t) binds ->
+          match
+            List.filter (fun (v, _) -> Var.VarSet.mem v needed) binds
+          with
+          | [] -> needed, t
+          | binds ->
+            let needed =
+              List.fold_left
+                (fun acc (_, d) -> Var.VarSet.union acc (Term.vars_of_term d))
+                needed binds
+            in
+            needed, Term.mk_let binds t)
+        (Term.vars_of_term t0, t0)
+        (List.rev lets)
+    in
+    Term.convert_select t
   in
 
   let one_state_term =
     match one_state with
     | None -> None
-    | Some f -> Some (one_state_term_of_conjuncts f terms bind_lets)
+    | Some f -> Some (one_state_term_of_conjuncts f terms bind_lets_used)
   in
 
   if lets = [] then terms, definition_set, one_state_term
