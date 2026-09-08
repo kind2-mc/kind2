@@ -42,6 +42,7 @@ type adt_info = {
   ctor_variants : HString.t list;
   ctor_fields : (HString.t * LustreAst.lustre_type) list HStringMap.t;
   all_payload_fields : (HString.t * LustreAst.lustre_type) list;
+  field_names : (HString.t * HString.t * HString.t) list;
   is_recursive : bool;
 }
 
@@ -59,6 +60,36 @@ val record_type_of_adt :
   ?ty_args:LustreAst.lustre_type list ->
   adt_info ->
   LustreAst.lustre_type
+
+(** Whether a bound variable was introduced by [mk_canonical_exprs]. Its
+    quantifier characterizes the non-canonical positions of a container and
+    must not itself be restricted to canonical values. *)
+val is_canonical_bound_var : HString.t -> bool
+
+(** [mk_canonical_exprs ctx adt_map pos expr ty] is the list of constraints
+    stating that every ADT value reachable from [expr], of type [ty], is in
+    canonical form: the payload fields of the constructors other than the
+    active one hold the default value of their type, and sets and maps only
+    hold canonical keys.  Every ADT value in a program is kept in this form,
+    so ADT equality and set/map membership are plain operations on the
+    desugared record; the constraints are what free values (inputs, oracles,
+    undefined outputs, free constants and quantified variables) are subject
+    to. *)
+val mk_canonical_exprs :
+  TypeCheckerContext.tc_context ->
+  adt_map ->
+  Lib.position ->
+  LustreAst.expr ->
+  LustreAst.lustre_type ->
+  LustreAst.expr list
+
+(** The constructor whose payload field has the given internal record field
+    name, if any *)
+val ctor_of_payload_field : adt_info -> HString.t -> HString.t option
+
+(** The ADT underlying a type, through type synonyms and refinement types *)
+val adt_info_of_type :
+  TypeCheckerContext.tc_context -> adt_map -> LustreAst.lustre_type -> adt_info option
 
 val build_adt_map : LustreAst.declaration list -> adt_map
 (** Collect all ADT type declarations from a program into an [adt_map],
