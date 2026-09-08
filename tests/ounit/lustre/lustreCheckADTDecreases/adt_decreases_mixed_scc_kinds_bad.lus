@@ -1,0 +1,16 @@
+datatype Tree = Node (left: Tree, val: int, right: Tree) | Leaf;
+
+function rec F (n: int) returns (out: int)
+con decreases n; noc
+let
+  out = when n <= 0 then 0 else 1 + G(Node(Leaf, n, Leaf), n);
+tel
+
+function rec G (t: Tree; k: int) returns (out: int)
+con decreases t; noc
+let
+  out = match t with
+  | Leaf : 0
+  | Node (l, v, r) : F(v)
+  end;
+tel

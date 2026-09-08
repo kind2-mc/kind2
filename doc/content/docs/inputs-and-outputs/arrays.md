@@ -1,6 +1,6 @@
 ---
 title: "Arrays"
-weight: 2
+weight: 3
 ---
 
 > **Experimental feature**
@@ -18,14 +18,14 @@ and the type of an array variable is written with the syntax `t ^ <size>` where
 
 The following
 
-```text
+```lustre
 A : int ^ 3;
 ```
 
 declares an array variable `A` of type array of size 3 whose elements
 are integers. The size of the array can also be given by a defined constant.
 
-```text
+```lustre
 const n = 3;
 ...
 A : int ^ n;
@@ -37,7 +37,7 @@ An interesting feature of these arrays is the possibility for users to write
 generic nodes and functions that are parametric in the size of the array. For
 instance one can write the following node returns the last element of an array.
 
-```text
+```lustre
 node last (const n: int; A: int ^ n) returns (x: int);
 let
   x = A[n-1];
@@ -53,7 +53,7 @@ for `n`, this is however not the case in Kind 2 (see
 Arrays can be multidimensional, so a user can declare *e.g.* matrices with the
 following
 
-```text
+```lustre
 const n = 4;
 const m = 5;
 ...
@@ -72,7 +72,7 @@ square matrix of size 3x3 whose elements are integers.
 Kind 2 also allows one to nest datatypes, so it is possible to write arrays of
 records, records of arrays, arrays of tuples, and so on.
 
-```text
+```lustre
 type rational = struct { n: int; d: int };
 
 rats: rational^array_size;
@@ -87,7 +87,7 @@ an array of pairs.
 In the body of nodes or at the top-level, arrays can be defined with literals
 of the form
 
-```text
+```lustre
 A = [2, 5, 7];
 ```
 
@@ -96,7 +96,7 @@ to construct Lustre arrays is to have each elements be the same value. This can
 be done with expressions of the form `<value> ^ <size>`. For example the two
 following definitions are equivalent.
 
-```text
+```lustre
 A = 2 ^ 3;
 A = [2, 2, 2];
 ```
@@ -108,7 +108,7 @@ expression `A[0]` for the previously defined array `A` is 2.
 The selection operators can also be applied to multidimensional arrays.
 Given a matrix `M` defined by
 
-```text
+```lustre
 M = [[1, 2, 3],
      [4, 5, 6],
      [7, 8, 9]];
@@ -125,7 +125,7 @@ be constructed with the *element update* syntax `A[i := v]`. It denotes a copy
 of the array `A` in which the element at index `i` is replaced by `v`; the
 original array `A` is not modified. For example,
 
-```text
+```lustre
 B = A[0 := 1];
 ```
 
@@ -133,7 +133,7 @@ defines `B` to be equal to `A` everywhere except at index `0`, where its
 value is `1`. Several elements can be updated at once by separating the
 individual updates with semicolons:
 
-```text
+```lustre
 B = A[0 := 1; 2 := 3];
 ```
 
@@ -201,7 +201,7 @@ Semantically, a whole array equation is equivalent to a quantified
 equation. Let `A` be an array of size an integer constant `n`, then following
 equation is legal.
 
-```text
+```lustre
 A[i] = if i = 0 then 2 else B[i - 1] ;
 ```
 
@@ -211,13 +211,13 @@ It is equivalent to the formula
 Multidimensional arrays can also be redefined the same way. For instance the
 equation
 
-```text
+```lustre
 M[i][j] = if i = j then 1 else 0 ;
 ```
 
 defines `M` as the identity matrix
 
-```text
+```lustre
 [[ 1 , 0 , 0 ,..., 0 ],
  [ 0 , 1 , 0 ,..., 0 ],
  [ 0 , 0 , 1 ,..., 0 ],
@@ -227,7 +227,7 @@ defines `M` as the identity matrix
 
 It is possible to write an equation of the form
 
-```text
+```lustre
 M[i][i] = i;
 ```
 
@@ -235,7 +235,7 @@ but in this case the second index `i` shadows the first one, hence the
 definition is equivalent to the following one where the indexes have been
 renamed.
 
-```text
+```lustre
 M[j][i] = i;
 ```
 
@@ -244,7 +244,7 @@ M[j][i] = i;
 One interesting feature of these equations is that we allow definitions of
 arrays *inductively*. For instance it is possible to write an equation
 
-```text
+```lustre
 A[i] = if i = 0 then 0 else A[i-1] ;
 ```
 
@@ -257,7 +257,7 @@ side.
 Inductive definitions are allowed under the restriction that they should be
 *well founded*. For instance, the equation
 
-```text
+```lustre
 A[i] = A[i];
 ```
 
@@ -273,7 +273,7 @@ values of `A` at indexes strictly smaller than `i`.
 For instance the following set of definitions is rejected because *e.g.* `A[k]`
 depends on `A[k]`.
 
-```text
+```lustre
 A[k] = B[k+1] + y;
 B[k] = C[k-1] - 2;
 C[k] = A[k] + k;
@@ -281,7 +281,7 @@ C[k] = A[k] + k;
 
 On the other hand this one will be accepted.
 
-```text
+```lustre
 A[k] = B[k+1] + y;
 B[k] = C[k-1] - 2;
 C[k] = ( A[k-1] + B[k] ) * k ;
@@ -294,15 +294,15 @@ ill-defined.
 
 For instance each of the following equations will be rejected.
 
-```text
+```lustre
 A[i] = if i = 0 then 0 else if i = 1 then A[0] else A[i-1];
 ```
 
-```text
+```lustre
 A[i] = if i = n then 0 else A[i+1];
 ```
 
-```text
+```lustre
 A[i] = if i = 0 then 0 else A[0];
 ```
 
@@ -316,7 +316,7 @@ complicated functions succinctly.
 
 The following node returns the sum of all elements in an array.
 
-```text
+```lustre
 node sum (const n: int; A: int ^ n) returns (s: int);
 var cumul: int ^ n;
 let
@@ -335,7 +335,7 @@ Note that this node is parametric in the size of the array.
 
 Array slices can be trivially implemented with the features presented above.
 
-```text
+```lustre
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
@@ -347,7 +347,7 @@ tel
 
 Encoding an homomorphic `or` on Boolean arrays is even simpler.
 
-```text
+```lustre
 node or_array (const n: int; A, B : bool^n) returns (C: bool^n);
 let
   C[i] = A[i] or B[i];
@@ -364,7 +364,7 @@ systems. Contrary to the Lustre compilers, Kind 2 does not require the
 constants used as array sizes to be instantiated with actual values. In this
 case the properties are checked *for any* array sizes.
 
-```text
+```lustre
 node slide (const n:int; s: int) returns(A: int^n);
 let
   A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
@@ -388,7 +388,7 @@ thus appear in **properties**, **contracts** and **assertions**.
 
 Universal quantification is written with:
 
-```text
+```lustre
 forall ( <x : type>;+ ) P(<x>+)
 ```
 
@@ -397,7 +397,7 @@ formula or a predicate in which the variable `x` can appear.
 
 For example, the following
 
-```text
+```lustre
 forall (i, j: int) 0 <= i and i < n and 0 <= j and j < n => M[i][j] = M[j][i]
 ```
 
@@ -416,13 +416,13 @@ A quantified variable can also be given a [refinement type]({{< relref "/docs/in
 restricts the quantification to the values of `x` of the given `type` that
 satisfy the predicate `Q(x)`. For example,
 
-```text
+```lustre
 forall (i: int | 0 <= i and i < n) ok[i]
 ```
 
 is equivalent to
 
-```text
+```lustre
 forall (i: int) 0 <= i and i < n ==> ok[i]
 ```
 
@@ -436,7 +436,7 @@ The same parameterized system of a sliding window, slightly modified to express
 the property that `A` contains in each of its cells, an uninitialized value
 (*i.e.* value `-1`), or one of the previous values of the stream `s`.
 
-```text
+```lustre
 node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
 let
@@ -457,7 +457,7 @@ For instance, it is currently not possible to write the following in Kind 2
 where `A` and `B` are arrays, `n` is a symbolic constant,
 and `some_node` takes values as inputs.
 
-```text
+```lustre
 node some_node (x: int) returns (y: int);
 ...
 
@@ -500,7 +500,7 @@ whole array updates.
 
 For example if we have
 
-```text
+```lustre
 A : int^6;
 ...
 A[k] = x;
@@ -531,7 +531,7 @@ with the other solvers.
 
 The previous example
 
-```text
+```lustre
 A : int^6;
 ...
 A[k] = x;

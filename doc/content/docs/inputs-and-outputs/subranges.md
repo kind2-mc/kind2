@@ -1,6 +1,6 @@
 ---
 title: "Subrange types"
-weight: 12
+weight: 13
 ---
 
 Subrange types are types of the form `subrange [LB, UB] of int` denoting user-specified integer ranges,
@@ -18,7 +18,7 @@ a subrange type on an input variable or free constant can be viewed as an assump
 while a subrange type on an output variable, local variable, or defined constant can be viewed as a proof obligation.
 For example, consider the following Kind 2 input.
 
-``` 
+```lustre
 type Pos = subrange [1, *] of int;
 type Neg = subrange [*, -1] of int;
 const C: Pos;
@@ -42,7 +42,7 @@ from integer constants. For example, given a constant `N`, both
 types. This is convenient, for instance, to describe the valid indices of an
 array whose length is a symbolic constant.
 
-``` 
+```lustre
 const N: int;
 type Index = subrange [0, N-1] of int;
 

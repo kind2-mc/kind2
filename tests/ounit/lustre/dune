@@ -9,5 +9,6 @@
    (glob_files lustreTypeChecker/*.lus)
    (glob_files lustreCheckMatchExpressions/*.lus)
    (glob_files lustreArrayDependencies/*.lus)
+   (glob_files lustreCheckADTDecreases/*.lus)
   )
   (libraries ounit2 kind2dev))

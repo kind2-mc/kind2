@@ -36,7 +36,7 @@ One can explore, starting from the initial states, the mode that can be
 activated up to some depth. For example, consider the following `stopwatch`
 system:
 
-```text
+```lustre
 contract stopwatchSpec ( tgl, rst : bool ) returns ( c : int ) ;
 let
   var on: bool = tgl -> (pre on and not tgl) or (not pre on and tgl) ;
@@ -86,7 +86,7 @@ discuss below but omit for now):
 The graph confirms our understanding of the specification, each mode can be
 activated at any time. Say now we made a mistake on the assumption:
 
-```text
+```lustre
 assume not (rst or tgl) ;
 ```
 

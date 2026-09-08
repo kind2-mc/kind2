@@ -1,6 +1,6 @@
 ---
 title: "Maps"
-weight: 11
+weight: 12
 ---
 
 Map types have the syntax `map<K, V>` (or `map<K; V>`), where `V` is any type, and
@@ -38,7 +38,7 @@ is valid).
 
 See below for an example.
 
-```text
+```lustre
 node N (inp: map<int, int>) returns (out, out2, out3: map<int, int>)
 let
   out = inp[0 := 0; 1 := 1; 2 := 2];

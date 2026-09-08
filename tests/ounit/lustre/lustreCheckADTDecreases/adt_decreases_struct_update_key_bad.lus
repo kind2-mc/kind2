@@ -1,0 +1,10 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec F (n: Nat) returns (out: int)
+con decreases n; noc
+let
+  out = match n with
+  | Zero : 0
+  | Succ (p) : (map[]@<int, int>[F(n) := 1])[0]
+  end;
+tel

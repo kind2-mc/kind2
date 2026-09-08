@@ -1,6 +1,6 @@
 ---
 title: "Sets"
-weight: 10
+weight: 11
 ---
 
 Set types have the syntax `set<T>`, where `T` is any type that does not contain
@@ -23,7 +23,7 @@ Sets also support **structural equality** (denoted by `=`) and
 equal when they contain exactly the same elements, regardless of how they
 were constructed (e.g., `{ 1, 2 } = { 2, 1, 1 }` is valid).
 
-```text
+```lustre
 node N (s1, s2: set<int>) returns (out: set<int>) 
 let
   out = s1 * { 1, 2, 3 } + {}@<int>;

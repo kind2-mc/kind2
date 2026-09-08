@@ -1,0 +1,15 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function f (n: List) returns (m: int);
+let
+  m = 0;
+tel
+
+lemma triv (n: List)
+con
+  guarantee "g" f(n) >= 0;
+  decreases n;
+noc
+let
+  auto;
+tel

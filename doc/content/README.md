@@ -18,6 +18,18 @@ hugo.yaml                  # Site configuration
 Page ordering within each section is controlled by the `weight` field in each
 page's front matter, mirroring the original Sphinx `toctree` order.
 
+## Code blocks
+
+Lustre examples go in ` ```lustre ` fences. Hugo's highlighter (Chroma) has no
+Lustre lexer and cannot load a custom one, so these are highlighted in the
+browser by `assets/js/lustre-highlight.js`; `layouts/_markup/render-codeblock-lustre.html`
+emits the markup Chroma would have produced, which keeps the theme's light and
+dark styles applying unchanged. The keyword lists in the script come from
+`src/lustre/lustreLexer.mll` and should be updated alongside it.
+
+Shell commands, tool output, and JSON/XML samples keep their own fence
+languages (` ```bash `, ` ```text `, ` ```json `).
+
 ## Running locally
 
 Requires **Hugo Extended v0.146.0+**.

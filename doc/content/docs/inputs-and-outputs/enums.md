@@ -1,9 +1,9 @@
 ---
 title: "Enumeration types"
-weight: 5
+weight: 6
 ---
 
-```text
+```lustre
 type my_enum = enum { A, B, C };
 node n (x : my_enum, ...) ...
 ```
@@ -17,7 +17,7 @@ instantiation techniques in Kind 2.
 As in Lustre V6, merges can also be performed on a clock of a user defined
 enumerated datatype.
 
-```text
+```lustre
 merge c
  (A -> x when A(c))
  (B -> w + 1 when B(c));
@@ -29,7 +29,7 @@ stream that is true whenever `c = A`.
 
 Merging on a Boolean clock can be done with two equivalent syntaxes:
 
-```text
+```lustre
 merge(c; a when c; b when not c);
 
 merge c

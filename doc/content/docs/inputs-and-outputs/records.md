@@ -1,13 +1,13 @@
 ---
 title: "Records"
-weight: 13
+weight: 14
 ---
 
 A record type groups a fixed set of named *fields*, each with its own type.
 Record types are introduced as type aliases, with the `struct` keyword
 followed by the fields between curly braces, separated by semicolons:
 
-```text
+```lustre
 type rat = struct { n: real; d: real };
 ```
 
@@ -15,7 +15,7 @@ A record value is constructed by giving a value to each field, using the type
 name followed by the field assignments (note that fields are assigned with
 `=`):
 
-```text
+```lustre
 r = rat { n = 1.0; d = 2.0 };
 ```
 
@@ -29,7 +29,7 @@ be constructed with the *element update* syntax `r[f := v]`. It denotes a copy
 of the record `r` in which field `f` is replaced by `v`; the original
 record `r` is not modified. For example,
 
-```text
+```lustre
 type rat = struct { n: real; d: real };
 node x (r: rat) returns (y: rat)
 let

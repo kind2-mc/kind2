@@ -1,0 +1,10 @@
+datatype Tree = Node (left: Tree, val: int, right: Tree) | Leaf;
+
+function rec Sum (t: Tree) returns (s: int)
+con decreases t; noc
+let
+  s = match t with
+  | Leaf : 0
+  | Node (l, v, r) : Sum(l) + v + Sum(t)
+  end;
+tel

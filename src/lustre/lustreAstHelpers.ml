@@ -152,6 +152,11 @@ let is_direct_self_reference type_name = function
   | UserType (_, _, id) -> HString.equal id type_name
   | _ -> false
 
+let is_directly_recursive_adt type_name ctors =
+  List.exists (fun (_, fields) ->
+    List.exists (fun (_, ty) -> is_direct_self_reference type_name ty) fields
+  ) ctors
+
 let type_arity ty =
   let inner_types = function
     | GroupType (_, es) -> List.length es
@@ -1884,8 +1889,18 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
         else false
       in
       Ok t
-    | FieldProject (_, xe, xi, _), FieldProject (_, ye, yi, _) ->
-      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi)
+    | FieldProject (_, xe, xi, xpk), FieldProject (_, ye, yi, ypk) ->
+      (* A selector and a plain projection of the same field differ: the
+         selector reads an arbitrary value when its constructor is not the
+         active one (see LustreDesugarADTs). An unresolved projection is
+         compatible with either. *)
+      let pk_equal = match xpk, ypk with
+        | Unresolved, _ | _, Unresolved -> true
+        | RecordField, RecordField -> true
+        | Selector (_, _, xc), Selector (_, _, yc) -> HString.equal xc yc
+        | RecordField, Selector _ | Selector _, RecordField -> false
+      in
+      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi && pk_equal)
     | Const (_, True), Const(_, True) -> Ok (true)
     | Const (_, False), Const (_, False) -> Ok (true)
     | Const (_, Num x), Const (_, Num y) -> Ok (HString.equal x y)

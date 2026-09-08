@@ -19,7 +19,7 @@ By default, the number of steps is determined by the input file.
 
 For example, consider the following `stopwatch` system:
 
-```text
+```lustre
 contract stopwatchSpec ( tgl, rst : bool ) returns ( c : int ) ;
 let
   var on: bool = tgl -> (pre on and not tgl) or (not pre on and tgl) ;

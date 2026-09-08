@@ -484,9 +484,15 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
 
 (* The termination checks of a contract as properties. *)
 
+(* An empty ranking function marks an ADT measure, whose decrease is
+   established statically instead (LustreCheckADTDecreases). Caller and callee
+   are always empty together, since MixedDecreasesKindsInScc rejects an SCC
+   that mixes the two kinds of measure. *)
 let termination_checks call_pos svar_map src_expr caller_rf callee_rf =
-  [bounded_check call_pos caller_rf;
-   decrease_check call_pos svar_map src_expr caller_rf callee_rf]
+  if caller_rf = [] || callee_rf = [] then []
+  else
+    [bounded_check call_pos caller_rf;
+     decrease_check call_pos svar_map src_expr caller_rf callee_rf]
 
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
@@ -2109,10 +2115,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
       List.iter transfer_defs_to_eq_if_needed node.N.equations
     ) ;
 
-    (* Let binding for stateless variable, in closure form *)
-    let let_closure =
-      Term.mk_let
-        (if init then
+    (* Let binding for stateless variable *)
+    let let_binds =
+      (if init then
             (* Binding for the variable at the base instant only *)
             [(E.base_var_of_state_var TransSys.init_base state_var,
               E.base_term_of_expr TransSys.init_base expr_init)]
@@ -2146,7 +2151,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Start with singleton lists of let-bound terms *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars terms (let_binds :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
@@ -2287,7 +2292,14 @@ let constraints_of_arrays init terms eq_bounds =
 
     ) eq_bounds terms 
 
-let constraints_of_equations node init stateful_vars terms equations definition_set =
+(* The one-state part of a list of constraints, let-bound like them *)
+let one_state_term_of_conjuncts f terms bind_lets =
+  f terms |> Term.mk_and |> bind_lets
+
+(* [one_state] selects, among the constraints, those that only concern
+   the current state; if given, the conjunction of its result is returned
+   as well, wrapped in the same let bindings as the constraints. *)
+let constraints_of_equations ?one_state node init stateful_vars terms equations definition_set =
 
   (* make constraints for equations which do not redefine arrays first *)
   let terms, lets, eq_bounds, definition_set =
@@ -2302,12 +2314,53 @@ let constraints_of_equations node init stateful_vars terms equations definition_
      much as possible *)
   let terms, definition_set = constraints_of_arrays init (terms, definition_set) eq_bounds in
 
-  if lets = [] then terms, definition_set
+  let bind_lets t =
+    List.fold_left (fun t binds -> Term.mk_let binds t) t (List.rev lets)
+    |> Term.convert_select
+  in
+
+  (* As [bind_lets], but leaving out the bindings the term does not use.
+
+     The constraints are wrapped in the bindings of every stateless
+     variable of the node, and a binding the term does not mention is
+     harmless there: it binds a variable that does not occur. It is not
+     harmless in a one-state term. The transition relation binds such a
+     variable at the previous instant as well as the current one, and that
+     binding carries the previous state into a term that is otherwise
+     about one state; nothing reads it, so it does not change what the
+     term says, but it is still part of the term, and asserting the term
+     at a bound then mentions variables one instant before it. *)
+  let bind_lets_used t0 =
+    let _, t =
+      List.fold_left
+        (fun (needed, t) binds ->
+          match
+            List.filter (fun (v, _) -> Var.VarSet.mem v needed) binds
+          with
+          | [] -> needed, t
+          | binds ->
+            let needed =
+              List.fold_left
+                (fun acc (_, d) -> Var.VarSet.union acc (Term.vars_of_term d))
+                needed binds
+            in
+            needed, Term.mk_let binds t)
+        (Term.vars_of_term t0, t0)
+        (List.rev lets)
+    in
+    Term.convert_select t
+  in
+
+  let one_state_term =
+    match one_state with
+    | None -> None
+    | Some f -> Some (one_state_term_of_conjuncts f terms bind_lets_used)
+  in
+
+  if lets = [] then terms, definition_set, one_state_term
   else
     (* Apply let bindings *)
-    [List.fold_left (fun t let_bind -> let_bind t)
-       (Term.mk_and terms) (List.rev lets)
-     |> Term.convert_select], definition_set
+    [bind_lets (Term.mk_and terms)], definition_set, one_state_term
 
 
 (* Functional congruence template for the UF symbols of a function with
@@ -2560,6 +2613,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             N.equations;
             N.calls;
             N.asserts;
+            N.adt_constraints;
             N.props;
             N.history_svars;
             N.contract;
@@ -2890,6 +2944,34 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             (List.concat (List.map D.values locals))
           in
 
+          (* Canonical-form constraints of the ADT values held by the node's
+             variables, for the variables the current system has (slicing
+             and abstraction by contract remove locals). Constants (global
+             free constants and the defaults of abstract types) are not
+             state variables of the node. *)
+          let adt_constraints =
+            let svars = SVS.of_list all_state_vars in
+            adt_constraints |> List.filter (fun e ->
+              E.state_vars_of_expr e |> SVS.for_all (fun sv ->
+                StateVar.is_const sv || SVS.mem sv svars))
+          in
+
+          let init_terms =
+            List.rev_append
+              (List.map (fun e ->
+                 E.base_term_of_t TransSys.init_base e |> Term.convert_select)
+                 adt_constraints)
+              init_terms
+          in
+
+          let trans_terms =
+            List.rev_append
+              (List.map (fun e ->
+                 E.cur_term_of_t TransSys.trans_base e |> Term.convert_select)
+                 adt_constraints)
+              trans_terms
+          in
+
           (* Only keep assumptions that are defined given the current sys. *)
           let node_assumptions =
             node_assumptions |> Invs.filter (
@@ -3155,10 +3237,27 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             )
           ;
 
+          (* The canonical-form constraints of the free constants some node
+             mentions; the others cannot matter and would only burden the
+             solver (a quantified one turns IC3IA off) *)
+          let adt_global_constraints =
+            let mentioned =
+              List.fold_left (fun acc n ->
+                List.fold_left (fun acc (_, e) ->
+                  SVS.union acc (E.state_vars_of_expr e)
+                ) acc n.N.equations
+              ) SVS.empty nodes
+            in
+            let consts = SVS.of_list global_const_svars in
+            globals.G.adt_global_constraints |> List.filter (fun e ->
+              E.state_vars_of_expr e |> SVS.for_all (fun sv ->
+                not (SVS.mem sv consts) || SVS.mem sv mentioned))
+          in
+
           let global_constraints =
             List.map
               (E.base_term_of_t TransSys.init_base)
-              globals.G.global_constraints
+              (globals.G.global_constraints @ adt_global_constraints)
           in
 
           let global_constraints =
@@ -3180,7 +3279,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order initial state equations by dependency and
              generate terms *)
-          let (init_terms, definition_set), svar_dep_init, node_output_input_dep_init =
+          let (init_terms, definition_set, _), svar_dep_init, node_output_input_dep_init =
             S.order_equations true output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations
@@ -3195,10 +3294,12 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order transition relation equations by dependency and
              generate terms *)
-          let (trans_terms, definition_set ), svar_dep_trans, node_output_input_dep_trans =
+          let (trans_terms, definition_set, one_state_trans), svar_dep_trans, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
               |> (fun (e, sv_d, io_d) ->
-               constraints_of_equations node
+               constraints_of_equations
+                    ~one_state:(TransSys.one_state_conjuncts subsystems)
+                    node
                     false stateful_vars trans_terms (List.rev e) definition_set, sv_d, io_d)
           in
 
@@ -3435,8 +3536,27 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               Type.t_bool
           in
 
-          (* UFs of the system. *)
-          let ufs = function_ufs in
+          (* UFs of the system: those of its functions, and the ones giving
+             selectors their value outside of their constructor that its own
+             terms apply *)
+          let ufs =
+            let applied =
+              List.fold_left (fun acc t ->
+                let acc = ref acc in
+                Term.map (fun _ t ->
+                  (match Term.node_of_term t with
+                   | Term.T.Node (s, _) when Symbol.is_uf s ->
+                     acc := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !acc
+                   | _ -> ());
+                  t
+                ) t |> ignore;
+                !acc
+              ) UfSymbol.UfSymbolSet.empty (init_terms @ trans_terms)
+            in
+            function_ufs
+            @ List.filter (fun uf -> UfSymbol.UfSymbolSet.mem uf applied)
+                globals.G.adt_junk_ufs
+          in
           
           (* let ty_args_opt = match node_id with 
           | (_, tags) -> Lib.find_map (fun tag -> match tag with 
@@ -3519,6 +3639,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* Create transition system *)
           let trans_sys, _ =
             TransSys.mk_trans_sys
+              ?one_state_trans
               ~datatype_types:globals.G.recursive_datatypes
               ~fn_congruence_groups
               scope

@@ -1,6 +1,6 @@
 ---
 title: "Exit codes"
-weight: 16
+weight: 17
 ---
 
 Since version 1.9.0, Kind 2 returns the standard exit code `0` for success,

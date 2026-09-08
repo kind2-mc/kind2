@@ -53,7 +53,7 @@ input variables `a` and `b`. The value of `c` is initially `1.0`. The model
 is annotated with an invariance property stating that, at each step, the output
 `c` is positive whenever both inputs are.
 
-```text
+```lustre
 node add_two (a, b : real) returns (c : real) ;
   var v : real;
       P : bool;

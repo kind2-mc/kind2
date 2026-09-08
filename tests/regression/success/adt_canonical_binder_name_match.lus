@@ -1,0 +1,17 @@
+-- A match binder may be named like the bound variables of the canonical-form
+-- constraints ("<n>_canon"): the alpha-renaming of match binders must not
+-- make one of those a variable the canonical-form restriction skips.
+
+datatype D = A (a: int) | B (b: bool);
+
+node main(d: D) returns (ok: bool);
+var m: int;
+let
+  m = match d with
+    | A(x_canon) : x_canon
+    | B(_) : 0
+  end;
+  ok = A?(d) ==> m = d.a;
+  check "match binder named _canon" ok;
+  check "quantified _canon" forall (y_canon: D) (A?(y_canon) ==> y_canon = A(y_canon.a));
+tel

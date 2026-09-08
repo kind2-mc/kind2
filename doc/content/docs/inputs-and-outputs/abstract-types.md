@@ -1,6 +1,6 @@
 ---
 title: "Abstract Types"
-weight: 7
+weight: 8
 ---
 
 Kind 2 supports Lustre's **abstract types**,
@@ -10,7 +10,7 @@ Below is a simple Lustre file that declares an identity
 node that takes an input of (abstract) type `T`
 and returns an output of type `T` equal to the input.
 
-``` 
+```lustre
 type T;
 function id_T (x: T) returns (y: T);
 let
@@ -25,7 +25,7 @@ Because an abstract type has no definition, Kind 2 treats it as an
 `=` and disequality `<>`. Quantifiers may range over an abstract type, so
 both `forall (x: T) ...` and `exists (x: T) ...` are allowed. For example:
 
-``` 
+```lustre
 type T;
 node N() returns ()
 let
@@ -39,7 +39,7 @@ assumption that constrains an abstract type to finitely many values is now
 consistent. For instance, the assumption below restricts `T` to a single
 value:
 
-``` 
+```lustre
 type T;
 function id_T (x: T) returns (y: T);
 con

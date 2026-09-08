@@ -1,0 +1,15 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Length (inp: List) returns (len: int)
+con decreases inp; noc
+let
+  len = match inp with
+  | Cons (_, tl) : 1 + Length(tl)
+  | Nil : 0
+  end;
+tel
+
+node main (l: List) returns ()
+let
+  check Length(l) = Length(l);
+tel
