@@ -494,7 +494,7 @@ fun ctx decls ->
   let add_node_sig ctx pos node_decl is_func =
     try
       match Chk.tc_ctx_of_node_decl pos ctx node_decl is_func with
-      | Ok (ctx, _) -> ctx
+      | Ok (_, ctx, _) -> ctx
       | Error _ -> ctx
     with _ -> ctx
   in

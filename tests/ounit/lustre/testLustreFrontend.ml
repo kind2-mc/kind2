@@ -1061,9 +1061,25 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     match load_file "./lustreCheckMatchExpressions/redundant_nested.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
-  mk_test "test match with no recorded scrutinee type is skipped" (fun () ->
-    match load_file "./lustreCheckMatchExpressions/unannotated_match_in_type_is_skipped.lus" with
-    | Ok _ -> true
+  mk_test "test non-exhaustive match in node input type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_input_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in node output type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_output_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in set type annotation" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_set_type_annotation.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match on a history-typed scrutinee" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_history_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
     | _ -> false);
 ])
 

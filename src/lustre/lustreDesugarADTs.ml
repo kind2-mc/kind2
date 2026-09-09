@@ -611,6 +611,7 @@ and desugar_expr ctx adt_map expr =
     LA.RecordExpr (pos, adt_info.type_name, [],
       (adt_info.disc_field, disc_e) :: payload_pairs)
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
+    (* The type checker records the scrutinee's type in every match it checks *)
     let adt_info =
       (match scrut_ty_opt with
       | Some ty -> adt_info_of_type ctx adt_map ty

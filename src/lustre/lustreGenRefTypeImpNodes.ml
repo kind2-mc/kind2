@@ -193,7 +193,7 @@ let contract_node_decl_to_contracts
   if Flags.Contracts.check_environment () 
   then 
     (* Update ctx with info about the generated contract *)
-    let ctx, _ = LustreTypeChecker.tc_ctx_of_contract_node_decl pos ctx environment |> unwrap in
+    let _, ctx, _ = LustreTypeChecker.tc_ctx_of_contract_node_decl pos ctx environment |> unwrap in
     R.ok ([environment], ctx, gids)
   else R.ok ([], ctx, gids)
 
@@ -226,7 +226,7 @@ let node_decl_to_contracts
     let environment = gen_node_id, extern, A.Opaque, params, inputs2, outputs2, [], node_items, contract' in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated node *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
+      let _, ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
       R.ok ([environment], ctx, gids)
     else R.ok([], ctx, gids)
   else
@@ -234,12 +234,12 @@ let node_decl_to_contracts
     let contract = (gen_node_id2, extern', A.Opaque, params, inputs, locals_as_outputs @ outputs, [], node_items, contract) in
     if Flags.Contracts.check_environment () then 
       (* Update ctx with info about the generated nodes *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
+      let _, ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx environment is_func |> unwrap in
+      let _, ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
       R.ok ([environment; contract], ctx, gids)
     else 
       (* Update ctx with info about the generated node *)
-      let ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
+      let _, ctx, _ = LustreTypeChecker.tc_ctx_of_node_decl pos ctx contract is_func |> unwrap in
       R.ok ([contract], ctx, gids)
 
 (* NOTE: If "ty" is a refinement type that includes a constant with

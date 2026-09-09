@@ -205,7 +205,9 @@ val build_node_fun_ty : Lib.position ->
   NI.t ->
   HString.t list ->
   LA.const_clocked_typed_decl list ->
-  LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
+  LA.clocked_typed_decl list ->
+  (tc_type * LA.const_clocked_typed_decl list * LA.clocked_typed_decl list
+   * [> warning ] list, [> error ]) result
 
 val expand_type_syn_reftype : ?expand_history:bool ->
   tc_context ->
@@ -232,9 +234,10 @@ val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
 
 val tc_ctx_of_contract_node_decl: Lib.position -> tc_context
   -> LA.contract_node_decl
-  -> (tc_context * [> warning] list, [> error]) result
+  -> (LA.contract_node_decl * tc_context * [> warning] list, [> error]) result
 
-val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (tc_context * [> warning] list, [> error]) result
+val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool
+  -> (LA.node_decl * tc_context * [> warning] list, [> error]) result
 
 
 val expr_contains_set_binop: tc_context -> NI.t option -> LA.expr -> bool 
