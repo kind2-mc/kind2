@@ -1,47 +1,74 @@
-name: Kind 2 Nightlies / Release
+name: Kind 2 Binaries
 
 on:
   workflow_dispatch:
-  # Run the nightly build at 8 AM UTC / 2 AM Central
+  # A nightly run of the build matrix at 8 AM UTC / 2 AM Central
   schedule:
     - cron: "0 8 * * *"
   push:
+    # Every push to main refreshes the rolling `latest` release
+    branches:
+      - main
     # Sequence of patterns matched against refs/tags
     tags:
       - 'v*'
+
+# One `latest` build at a time: the jobs move a shared tag and clobber shared
+# assets, so overlapping runs would interleave. On main a newer commit makes
+# the run in progress obsolete, so cancel it; a version tag's run is unique to
+# its ref and must always finish.
+#
+# The nightly check gets a group of its own rather than sharing main's. It runs
+# on `refs/heads/main` too, so otherwise a schedule firing minutes after a push
+# would cancel the very run that was publishing that commit's binaries.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-check' || github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 env:
     HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
 
 jobs:
-  get-nightly-ready:
-    if: github.repository == 'kind2-mc/kind2' && !startsWith(github.event.ref, 'refs/tags/v')
+  # The `latest` release is created once and then reused forever: its assets
+  # are overwritten in place (see the upload step) rather than deleted and
+  # re-added, so the page never sits empty between two pushes, and the
+  # download URLs stay valid. The tag it points at is moved once the binaries
+  # are actually built, in publish-latest.
+  prepare-latest:
+    # Only main feeds the rolling release: a workflow_dispatch from a topic
+    # branch would otherwise move `latest` onto a commit that is not on main,
+    # which is the one thing the page promises it is. The schedule reaches
+    # this workflow on main as well, and it publishes nothing.
+    if: |
+      github.repository == 'kind2-mc/kind2'
+      && github.ref == 'refs/heads/main'
+      && github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-
-    - name: Delete old assets
+    - name: Create the latest release if it does not exist yet
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        ids=$(gh release view nightly --json assets --jq '.assets | map(.name) | .[]')
-        for id in $ids;
-        do
-          gh release delete-asset nightly $id -y
-        done
-
-    - name: Update nightly tag
-      run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git tag -f nightly
-        git push --tags -f
+        set -euo pipefail
+        if gh release view latest --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          echo "The latest release already exists."
+          exit 0
+        fi
+        # --target creates the tag as well, which is what makes the very first
+        # run work: there is no `latest` tag to verify against yet.
+        gh release create latest --repo "$GITHUB_REPOSITORY" \
+          --target "$GITHUB_SHA" --prerelease \
+          --title 'Kind 2 (main branch)' \
+          --notes 'Binaries automatically built from the `main` branch on every push.'
 
   create-new-release:
-    if: github.repository == 'kind2-mc/kind2' && startsWith(github.event.ref, 'refs/tags/v')
+    if: github.repository == 'kind2-mc/kind2' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Create new release
@@ -59,13 +86,21 @@ jobs:
           --repo $GITHUB_REPOSITORY
 
   build:
+    # A run that publishes has to wait for its release to have been prepared,
+    # so it needs one of the two jobs above to have succeeded. A run that only
+    # checks the build prepares nothing, both of them skip, and there is no
+    # 'success' for it to point at — hence the other two cases.
     if: |
       always()
       && github.repository == 'kind2-mc/kind2'
-      && contains(needs.*.result, 'success')
       && !contains(needs.*.result, 'failure')
+      && (contains(needs.*.result, 'success')
+          || github.event_name == 'schedule'
+          || github.event_name == 'workflow_dispatch')
 
-    needs: [get-nightly-ready, create-new-release]
+    needs: [prepare-latest, create-new-release]
+    permissions:
+      contents: write
     strategy:
       matrix:
         name: [ linux-x86_64, linux-arm64, macos-x86_64, macos-arm64, windows-x86_64 ]
@@ -90,6 +125,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
 
+    # Built inside the Alpine image so the result is linked against musl
+    # statically and carries no libc dependency of its own.
     - name: Build Kind 2 linux binary
       if: runner.os == 'Linux'
       uses: docker/build-push-action@v7
@@ -130,7 +167,7 @@ jobs:
         cache-prefix: macos${{ matrix.macos-target }}
         flambda: true
         build-target: static
-    
+
     # Not built statically: the linking flags have no Windows case, and it
     # needs none. Every library the binary imports ships with Windows —
     # kernel32, msvcrt, advapi32, ws2_32, shell32, shlwapi, ole32, version
@@ -155,18 +192,31 @@ jobs:
       id: create_asset
       shell: bash
       run: |
+        set -euo pipefail
         cd bin
         if [[ "$GITHUB_REF" =~ ^refs/tags/v.* ]]; then
-          vtag=$GITHUB_REF_NAME
-          echo "release=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+          # A released asset names the version it was cut from
+          prefix=kind2-$GITHUB_REF_NAME
+          release=$GITHUB_REF_NAME
+        elif [[ "$GITHUB_EVENT_NAME" != "schedule" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+          # The main-branch assets carry no version segment, so their download
+          # URLs are permanent. What they were built from is the commit the
+          # `latest` tag points at, recorded in the release notes as well.
+          prefix=kind2
+          release=latest
         else
-          vtag=$(date "+%Y-%m-%d")
-          echo "release=nightly" >> $GITHUB_OUTPUT
+          # A build check with nothing to publish: the nightly run, or a
+          # dispatch from a topic branch. Package the binary anyway, so that
+          # step is covered too, and leave the release empty to say there is
+          # nowhere to upload it to.
+          prefix=kind2
+          release=
         fi
+        echo "release=$release" >> $GITHUB_OUTPUT
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           # A zip is what a Windows user expects, and Compress-Archive is
           # always there, where zip and 7z are not guaranteed.
-          asset=kind2-$vtag-windows-x86_64.zip
+          asset=$prefix-windows-x86_64.zip
           powershell -NoProfile -Command \
             "Compress-Archive -Path kind2.exe -DestinationPath $asset"
         else
@@ -176,16 +226,63 @@ jobs:
           else
             ptag="macos-${{ matrix.macos-target }}-$(uname -m)"
           fi
-          asset=kind2-$vtag-$ptag.tar.gz
+          asset=$prefix-$ptag.tar.gz
           tar -czf $asset kind2
         fi
         echo "filepath=./bin/$asset" >> $GITHUB_OUTPUT
 
+    # An empty release name is the build check saying it is done: it has built
+    # and packaged the binary, which is all it set out to prove, and it has no
+    # release to touch.
+    #
+    # --clobber so that a push to main replaces the asset of the same name
+    # left by the previous one. A draft release for a version tag has no
+    # asset to replace, and the flag is harmless there.
     - name: Upload release asset
+      if: steps.create_asset.outputs.release != ''
       shell: bash
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh release upload ${{ steps.create_asset.outputs.release }} \
           ${{ steps.create_asset.outputs.filepath }} \
-          --repo $GITHUB_REPOSITORY
+          --clobber --repo $GITHUB_REPOSITORY
+
+  # Only now that every binary is uploaded is the tag moved onto the commit
+  # they were built from: had it moved up front, a build that failed halfway
+  # would leave the page advertising a commit whose binaries are not there.
+  publish-latest:
+    if: |
+      github.repository == 'kind2-mc/kind2'
+      && github.ref == 'refs/heads/main'
+      && github.event_name != 'schedule'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Move the latest tag to this commit
+      run: |
+        set -euo pipefail
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git tag -f latest
+        git push -f origin refs/tags/latest
+
+    - name: Record the commit in the release notes
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        commit_url="https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+        cat > notes.md << EOF
+        Binaries automatically built from the \`main\` branch on every push.
+
+        Built from [\`${GITHUB_SHA:0:7}\`]($commit_url) on $(date -u '+%Y-%m-%d %H:%M UTC').
+        EOF
+        gh release edit latest --repo "$GITHUB_REPOSITORY" --prerelease \
+          --title 'Kind 2 (main branch)' --notes-file notes.md
