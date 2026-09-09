@@ -2132,6 +2132,18 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
+    | History (_, x), History (_, y) -> Ok (HString.equal x y)
+    (* Syntactic equality, so the bound variables are compared by name rather
+       than up to renaming, as the array sizes above are compared as written *)
+    | RefinementType (_, (_, xi, xt), xe), RefinementType (_, (_, yi, yt), ye) ->
+      r (depth + 1) xt yt >>= fun t ->
+      syn_expr_equal depth_limit xe ye >>= fun e ->
+      Ok (t && e && HString.equal xi yi)
+    | Map (_, xk, xv), Map (_, yk, yv) ->
+      r (depth + 1) xk yk >>= fun k ->
+      r (depth + 1) xv yv >>= fun v ->
+      Ok (k && v)
+    | Set (_, xt), Set (_, yt) -> r (depth + 1) xt yt
     (* A datatype is determined by its name; its constructors are declared once *)
     | ADT (_, xn, _), ADT (_, yn, _) -> Ok (HString.equal xn yn)
     | _ -> Ok false
