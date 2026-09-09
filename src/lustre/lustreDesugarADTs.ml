@@ -426,7 +426,7 @@ and desugar_type pos ctx adt_map ty =
     | LA.RecordType (p, n, fields) ->
       LA.RecordType (p, n,
         List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
-    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, e))
+    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, desugar_expr ctx adt_map e))
     | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
     | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
     | LA.Set (p, t) -> LA.Set (p, ds t)

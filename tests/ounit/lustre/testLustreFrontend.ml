@@ -1081,6 +1081,10 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_history_type.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
     | _ -> false);
+  mk_test "test non-exhaustive match in array size" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_array_size.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

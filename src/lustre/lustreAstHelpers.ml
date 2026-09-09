@@ -2132,6 +2132,8 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
+    (* A datatype is determined by its name; its constructors are declared once *)
+    | ADT (_, xn, _), ADT (_, yn, _) -> Ok (HString.equal xn yn)
     | _ -> Ok false
   in
   r 0 x y

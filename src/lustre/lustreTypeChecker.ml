@@ -1308,9 +1308,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) -> (
-    let* b_ty, b_expr, warnings = infer_type_expr ctx nname b_expr in
-    check_array_size_expr ctx nname b_ty sup_expr >>
-    R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), LA.ArrayConstr (pos, b_expr, sup_expr), warnings)
+    let* b_ty, b_expr, warnings1 = infer_type_expr ctx nname b_expr in
+    let* sup_expr, warnings2 = check_array_size_expr ctx nname b_ty sup_expr in
+    R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), LA.ArrayConstr (pos, b_expr, sup_expr),
+          warnings1 @ warnings2)
   )
   | LA.StructUpdate (pos, ue, i_or_ls, e) ->
     if List.length i_or_ls != 1
@@ -2250,6 +2251,9 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
             R.ok (LA.NodeConstDecl (p, FreeConst (p2, id, ty)), warnings)
           | LA.NodeConstDecl (_, UntypedConst (_, _, _)) -> assert false  
         ) ldecls) |> R.map List.split in 
+        (* Rebuild the context from the checked declarations: the equations are
+           compared against these types, so they must be the annotated ones *)
+        let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
         let* items, warnings2 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
@@ -2944,9 +2948,12 @@ and check_no_index_access ctx nname ty e =
   | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
+(* Returns the checked size expression: an array size is an expression like any
+   other, and the passes that read it back need it type annotated *)
 and check_array_size_expr ctx nname ty e =
-  check_const_integer_expr ctx nname "array size expression" e >> 
-  check_no_index_access ctx nname ty e
+  let* e, warnings = check_const_integer_expr ctx nname "array size expression" e in
+  check_no_index_access ctx nname ty e >>
+  R.ok (e, warnings)
 
 (* Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
@@ -3107,9 +3114,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
     | LA.ArrayType (p, (b_ty, s)) -> (
-      let* _ = check_array_size_expr ctx nname ty' s in
-      let* b_ty, warnings = check_type_well_formed_rec true b_ty in 
-      R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
+      let* s, warnings1 = check_array_size_expr ctx nname ty' s in
+      let* b_ty, warnings2 = check_type_well_formed_rec true b_ty in 
+      R.ok (LA.ArrayType (p, (b_ty, s)), warnings1 @ warnings2)
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
@@ -3156,7 +3163,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           (* Validate the expanded form,
              but don't substitute in the expanded UserType *)
           let* _, warnings = check_type_well_formed_rec is_nested expanded in
-          R.ok (ty', warnings0 @ warnings)
+          (* The expanded form embeds the type arguments, so it reports their
+             warnings a second time; [warnings0] is dropped rather than doubled *)
+          R.ok (ty', warnings)
       ) else (
         match nname with 
         | None -> type_error pos (UndeclaredType i)
