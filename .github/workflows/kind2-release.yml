@@ -252,10 +252,18 @@ jobs:
   # they were built from: had it moved up front, a build that failed halfway
   # would leave the page advertising a commit whose binaries are not there.
   publish-latest:
+    # A skip propagates along the whole `needs` chain, and create-new-release
+    # skips on a push to main, so without a status function here this job is
+    # never evaluated. !cancelled() rather than always(): a cancelled run has
+    # been superseded by a newer commit, whose own run moves the tag instead.
+    # A status function also stops `needs` from implying success on its own,
+    # hence the explicit check on build's result.
     if: |
-      github.repository == 'kind2-mc/kind2'
+      !cancelled()
+      && github.repository == 'kind2-mc/kind2'
       && github.ref == 'refs/heads/main'
       && github.event_name != 'schedule'
+      && needs.build.result == 'success'
     needs: build
     runs-on: ubuntu-latest
     permissions:
