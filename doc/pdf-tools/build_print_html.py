@@ -255,6 +255,16 @@ def build_merged_html():
     css = """
     %s
     @page { size: A4; @bottom-center { content: counter(page); font-size: .8rem; color: #555; } }
+    /* Front matter is numbered in roman and the body restarts at 1, as the
+       LaTeX build did. The reset has to live in an @page rule -- WeasyPrint
+       ignores counter-reset: page on an element -- and :nth(1 of body) picks
+       the first page of the body page group. That group is the .body-matter
+       wrapper: one element, hence one group. Naming the pages on each section
+       instead would start a fresh group, and a fresh page 1, per chapter. */
+    @page front { @bottom-center { content: counter(page, lower-roman); } }
+    @page :nth(1 of body) { counter-reset: page 1; }
+    .front-matter { page: front; }
+    .body-matter { page: body; }
     body { font-family: -apple-system, Helvetica, Arial, sans-serif; line-height: 1.55; color: #1a1a1a; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
     h1 { font-size: 1.8rem; margin-top: 3rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
     h2 { font-size: 1.4rem; margin-top: 2rem; }
@@ -293,7 +303,7 @@ def build_merged_html():
 <style>%s</style>
 </head><body>
 %s
-%s
+<div class="body-matter">%s</div>
 </body></html>''' % (DOC_TITLE, version, css, front_matter, ''.join(sections_html))
     OUT_HTML.write_text(doc, encoding="utf-8")
     print("Wrote", OUT_HTML, len(sections_html), "sections,", len(toc_entries), "TOC entries")
