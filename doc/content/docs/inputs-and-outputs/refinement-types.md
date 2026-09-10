@@ -227,10 +227,10 @@ node N () returns (my_tuple: [Nat, int]; my_set: set<Nat>;
 ```
 
 Due to the refinement types, node <span class="title-ref">N</span> carries the following proof obligations:
-<span class="title-ref">my_tuple\[0\] \>= 0</span> (for the tuple's first component type),
-<span class="title-ref">forall (e: int) e in my_set =\> e \>= 0</span> (for the set's element type),
-<span class="title-ref">forall (i: int) 0 \<= i and i \< N =\> my_array\[i\] \>= 0</span> (for the array's element type),
-<span class="title-ref">forall (k: int) k in my_map =\> k \>= 0</span> (for the map's key type), and
-<span class="title-ref">forall (k: int) k in my_map =\> my_map\[k\] \>= 0</span> (for the map's value type).
+`my_tuple[0] >= 0` (for the tuple's first component type),
+`forall (e: int) e in my_set => e >= 0` (for the set's element type),
+`forall (i: int) 0 <= i and i < N => my_array[i] >= 0` (for the array's element type),
+`forall (k: int) k in my_map => k >= 0` (for the map's key type), and
+`forall (k: int) k in my_map => my_map[k] >= 0` (for the map's value type).
 If one has refinement types in node inputs, node locals, or global constants,
 assumptions or proof obligations (depending on the case) are generated analogously.
