@@ -269,11 +269,11 @@ represent a proof of safety.
 
 ## Contents of certificates
 
-For a given problem (whose safety property is P), an internal certificate
-consists in only a pair $(k, \phi)$ where $\phi$ is a *k*-inductive invariant of the
+For a given problem (whose safety property is \(P\)), an internal certificate
+consists in only a pair \((k, \phi)\) where \(\phi\) is a *k*-inductive invariant of the
 system which implies the original properties. SMT-LIB 2 certificates are in
-fact scripts whose check make sure that $\phi$ implies P and is *k*-inductive. The
-Safety CPC proof is a formal proof that P is invariant in the system, using
+fact scripts whose check make sure that \(\phi\) implies \(P\) and is *k*-inductive. The
+Safety CPC proof is a formal proof that \(P\) is invariant in the system, using
 sub-proofs of validity (unsatisfiability) returned by cvc5.
 
 ## CPC signature
