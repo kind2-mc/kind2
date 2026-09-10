@@ -242,7 +242,7 @@ and push_pre is_guarded pos =
   | ModeRef _ as e -> LA.Pre (pos, e)
   | EmptySet _ as e -> LA.Pre (pos, e)
   | EmptyMap _ as e -> LA.Pre (pos, e)
-  | FieldProject (p, e, i, ty_opt) -> FieldProject (p, r e, i, ty_opt)
+  | FieldProject (p, e, i, pk) -> FieldProject (p, r e, i, pk)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
@@ -408,8 +408,8 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     ) lois in 
     let e_opt = Option.map (simplify_expr ~ind_vars ~is_guarded ctx) e_opt in
     StructUpdate (p, simplify_expr ~ind_vars ~is_guarded ctx e, lois, e_opt) 
-  | FieldProject (p, e, id, ty_opt) ->
-    FieldProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id, ty_opt)
+  | FieldProject (p, e, id, pk) ->
+    FieldProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id, pk)
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)

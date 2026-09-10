@@ -1,0 +1,5 @@
+-- As for the universal quantifier: the body is the bound variable alone.
+node main () returns ();
+let
+  check "some bool is true" exists (b: bool) b;
+tel

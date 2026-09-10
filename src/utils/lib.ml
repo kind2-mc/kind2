@@ -1018,6 +1018,65 @@ let minisleep sec =
       raise (Signal 0)
 
 
+(* A pipe for a child process to be given one end of.
+
+   Both ends are closed on exec, so that the only process to get one is
+   the child it is meant for, and nothing Kind 2 starts later inherits
+   it. The child still gets its end: [Unix.create_process] duplicates
+   the three it is given onto the standard descriptors of the child,
+   and a duplicate does not carry the flag.
+
+   Unless the end already is the standard descriptor it would be
+   duplicated onto. There is nothing to duplicate then, so the flag
+   stays and the exec closes it, leaving the child without the
+   descriptor it was given: a solver started that way finds its
+   standard input closed, reads an end of file and exits, and the first
+   thing Kind 2 writes to it raises [Sys_error "Broken pipe"]. Reading
+   the input from standard input is enough to get there -- the lexer
+   closes the channel it has read to the end, descriptor 0 is free from
+   then on, and the first pipe made for a solver takes it.
+
+   So keep the ends off the standard descriptors, and leave
+   [Unix.create_process] a duplication to make.
+
+   Nothing to do on Windows, where a descriptor is a handle rather than
+   a number the kernel picks as the lowest free one, and the standard
+   descriptors of Kind 2 are not what a new pipe is made out of. *)
+let pipe_for_child () =
+
+  let is_standard fd =
+    fd = Unix.stdin || fd = Unix.stdout || fd = Unix.stderr
+  in
+
+  (* A duplicate of [fd] that is not a standard descriptor. One that is
+     keeps that descriptor taken while the next duplicate is made, so
+     it is closed only once one has landed elsewhere; with three
+     standard descriptors there are at most three of them. *)
+  let rec dup_off_standard fd =
+    let fd' = Unix.dup ~cloexec:true fd in
+    if is_standard fd' then (
+      let res = dup_off_standard fd in
+      Unix.close fd' ;
+      res
+    )
+    else fd'
+  in
+
+  let off_standard fd =
+    if is_standard fd then (
+      let fd' = dup_off_standard fd in
+      Unix.close fd ;
+      fd'
+    )
+    else fd
+  in
+
+  let read, write = Unix.pipe ~cloexec:true () in
+
+  if Sys.win32 then (read, write)
+  else (off_standard read, off_standard write)
+
+
 (* Return full path to executable, search PATH environment variable
    and current working directory *)
 (* Separator of entries in the PATH environment variable *)

@@ -1,0 +1,41 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Length (l: List) returns (len: int)
+con
+  decreases l;
+  guarantee "nonneg" len >= 0;
+noc
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, tl) : 1 + Length(tl)
+  end;
+tel
+
+function rec Sum (l: List) returns (s: int)
+con
+  decreases l;
+noc
+let
+  s = match l with
+  | Nil : 0
+  | Cons (h, tl) : h + Sum(tl)
+  end;
+tel
+
+function rec MapInc (l: List) returns (out: List)
+con
+  decreases l;
+  guarantee "sum_inc" Sum(out) = Sum(l) + Length(l);
+noc
+let
+  out = match l with
+  | Nil : Nil
+  | Cons (h, tl) : Cons(h + 1, MapInc(tl))
+  end;
+tel
+
+node main (l: List) returns ()
+let
+  check "sum_map_inc" Sum(MapInc(l)) = Sum(l) + Length(l);
+tel

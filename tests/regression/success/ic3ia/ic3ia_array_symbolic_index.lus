@@ -1,0 +1,6 @@
+-- IC3IA over an array read at an index that is not a literal.
+node Top(i: subrange [0,9] of int) returns (c: int^10);
+let
+  c[k] = 0 -> pre c[k] + 1;
+  check c[i] >= 0;
+tel

@@ -1,0 +1,12 @@
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node main(x: int) returns (o: int);
+var l: List;
+let
+  l = Cons(x, Nil);
+  o = match l with
+    | Nil : 0
+    | Cons(h, t) : h
+  end;
+  check o = x;
+tel

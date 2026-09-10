@@ -577,6 +577,7 @@ let slice_all_of_node
       N.oracles; 
       N.outputs; 
       N.asserts;
+      N.adt_constraints;
       N.props; 
       N.contract;
       N.is_main;
@@ -603,6 +604,7 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.asserts = if keep_asserts then asserts else [] ;
+    N.adt_constraints;
     N.props =
       if not keep_props then []
       else if for_contract then
@@ -1262,6 +1264,7 @@ let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
       )
     else
       (roots_of_contract ~with_sofar_var:true contract)
+      |> SVS.union (roots_of_props_contract props)
   in
   Some vars
 

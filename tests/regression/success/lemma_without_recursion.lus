@@ -1,0 +1,13 @@
+function f (n: int) returns (m: int);
+let
+  m = n + 1;
+tel
+
+lemma triv (n: int)
+con
+  guarantee "gt" f(n) > n;
+  decreases n;
+noc
+let
+  auto;
+tel

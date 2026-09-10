@@ -2,7 +2,7 @@ DUNE_DOCDIR=$(CURDIR)/_build/default/_doc/_html
 LOCAL_ALLDOCDIR=$(CURDIR)/doc
 LOCAL_BINDIR=$(CURDIR)/bin
 LOCAL_DOCDIR=$(CURDIR)/ocamldoc
-LOCAL_USRDOCDIR=$(CURDIR)/doc/usr
+LOCAL_USRDOCDIR=$(CURDIR)/doc
 
 .PHONY: all build clean doc install kind2-doc test uninstall
 
@@ -30,7 +30,7 @@ clean:
 
 doc:
 	make -C $(LOCAL_USRDOCDIR) all
-	cp $(LOCAL_USRDOCDIR)/build/pdf/kind2.pdf $(LOCAL_ALLDOCDIR)/user_documentation.pdf
+	cp $(LOCAL_USRDOCDIR)/print/kind2-user-documentation.pdf $(LOCAL_ALLDOCDIR)/user-documentation.pdf
 
 install:
 	@opam pin add -n -y kind2 https://github.com/kind2-mc/kind2.git
@@ -52,7 +52,7 @@ kind2-doc:
 TEST_ARGS ?=
 
 test: build
-	@dune build @runtest
+	@dune build --profile release @runtest
 	@cd $(CURDIR)/tests/ && ./run $(TEST_ARGS)
 
 uninstall:

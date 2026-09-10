@@ -1,0 +1,10 @@
+-- A quantifier over several variables is normalized into nested
+-- single-variable ones. Once the innermost has been expanded away its body
+-- holds no quantifier, so the one around it expands in turn and the copies
+-- multiply: counting them one quantifier at a time sees only three per
+-- level and never bails out, while 3^16 of them are built.
+type Color = enum { Red, Green, Blue };
+node main (x: Color; y: int) returns ();
+let
+  check "nested" forall (c0: Color; c1: Color; c2: Color; c3: Color; c4: Color; c5: Color; c6: Color; c7: Color; c8: Color; c9: Color; c10: Color; c11: Color; c12: Color; c13: Color; c14: Color; c15: Color) (y > 0 => (c0 = x or c0 <> x));
+tel

@@ -175,6 +175,11 @@ type t =
     trans : Term.t;
     (** Transition relation. *)
 
+    one_state_trans : Term.t;
+    (** The conjuncts of the transition relation that only constrain the
+        current state, with the same part of every subsystem it calls
+        unconditionally inlined; see [mk_trans_sys]. *)
+
     properties : Property.t list;
     (** Properties to prove invariant for this transition system 
 
@@ -1814,8 +1819,50 @@ let copy t =
   ) Scope.Map.empty t in
   Scope.Map.find (scope_of_trans_sys t) copies
 
+(* Whether a term constrains a single state *)
+let is_one_state t =
+  match Term.var_offsets_of_term t with
+  | None, None -> true
+  | Some lo, Some up -> Numeral.equal lo up
+  | _ -> false
+
+(* The conjuncts of a conjunction *)
+let conjuncts t =
+  match Term.node_of_term t with
+  | Term.T.Node (s, args) when Symbol.node_of_symbol s == `AND -> args
+  | _ -> [t]
+
+(* Of the conjuncts of a transition relation, those that only constrain the
+   current state, and the same part of every subsystem called
+   unconditionally, with its formal parameters bound to the actual ones of
+   the call; see [mk_trans_sys]. *)
+let one_state_conjuncts subsystems terms =
+  (* An unconditional call of the transition relation of a subsystem *)
+  let sub_one_state t =
+    try
+      let s = Term.node_symbol_of_term t in
+      if not (Symbol.is_uf s) then None
+      else
+        let uf = Symbol.uf_of_symbol s in
+        match
+          List.find_opt
+            (fun (sub, _) -> UfSymbol.equal_uf_symbols uf sub.trans_uf_symbol)
+            subsystems
+        with
+        | Some (sub, _) ->
+          let args = Term.node_args_of_term t in
+          if List.length args <> List.length sub.trans_formals then None
+          else
+            Some (Term.apply_subst (List.combine sub.trans_formals args) sub.one_state_trans)
+        | None -> None
+    with _ -> None
+  in
+  List.filter_map
+    (fun t -> if is_one_state t then Some t else sub_one_state t) terms
+
 let mk_trans_sys
   ?(instance_var_id_start = 0)
+  ?one_state_trans
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
   scope
@@ -1971,6 +2018,13 @@ let mk_trans_sys
                 Var.type_of_var v
                 |> TermLib.logic_of_sort
               ) global_consts)
+
+         (* Add logics from the signatures of the uninterpreted functions *)
+         |> List.rev_append
+           (List.concat_map (fun uf ->
+                UfSymbol.res_type_of_uf_symbol uf :: UfSymbol.arg_type_of_uf_symbol uf
+                |> List.map TermLib.logic_of_sort
+              ) ufs)
            
          (* Join logics to the logic required for this system *)
          |> TermLib.sup_logics
@@ -1978,6 +2032,11 @@ let mk_trans_sys
          |> (fun features ->
              if datatype_types <> [] then
                TermLib.FeatureSet.add TermLib.DT features
+             else features)
+         (* The uninterpreted functions of the system are declared whether
+            or not its terms mention them *)
+         |> (fun features ->
+             if ufs <> [] then TermLib.FeatureSet.add TermLib.UF features
              else features))
 
   in
@@ -2002,6 +2061,54 @@ let mk_trans_sys
       ) t
   ) subsystems ;
 
+  (* The part of the transition relation that only constrains the current
+     state. Any reachable state that is not initial is the target of a
+     transition, so it satisfies these conjuncts; an initial state
+     satisfies the initial state constraint. The disjunction of the two,
+     on the init flag, is therefore a one-state invariant of the system.
+
+     Its use is the inductive step: at the first state of its path the
+     transition relation is not asserted, so a property abstracted into a
+     state variable, or any variable defined from others, is assumed there
+     without its definition, and the step at a small k has a trivial model
+     that violates the definition. With this invariant the definitions,
+     and every other stateless constraint, hold at that state too.
+
+     A subsystem called unconditionally contributes the same part of its
+     own transition relation, with its formal parameters bound to the
+     actual ones of the call; a call under a condition (a clocked call) is
+     left out. *)
+  (* A conjunct that mentions a variable the front end inlined can cease
+     to be one-state once the binding is substituted into it, and a term
+     that constrains two states is no one-state invariant, so what comes
+     back is checked rather than trusted. *)
+  let one_state_trans =
+    let t =
+      match one_state_trans with
+      | Some t -> t
+      | None -> one_state_conjuncts subsystems (conjuncts trans) |> Term.mk_and
+    in
+    if is_one_state t then t else Term.mk_true ()
+  in
+
+  let () =
+    let flag =
+      Var.mk_state_var_instance init_flag_state_var trans_base |> Term.mk_var
+    in
+    let init_at_trans = Term.bump_state Numeral.(trans_base - init_base) init in
+    let inv =
+      if is_one_state init_at_trans then
+        Term.mk_ite flag init_at_trans one_state_trans
+      else Term.mk_implies [Term.mk_not flag; one_state_trans]
+    in
+    (* Invariants are stored at offset 0 *)
+    let inv =
+      close_term instance_var_bindings inv
+      |> Term.bump_state Numeral.(~- trans_base)
+    in
+    Invs.add_os invariants inv (1, inv)
+  in
+
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
@@ -2024,6 +2131,7 @@ let mk_trans_sys
       trans_uf_symbol;
       trans_formals;
       trans;
+      one_state_trans;
       properties;
       mode_requires;
       logic;
@@ -2106,13 +2214,29 @@ let instantiate_term_cert_all_levels
           )
           t
         |> fun t ->
-        (* let is_one_state = *)
-        (*   match Term.var_offsets_of_term t with *)
-        (*   | Some lo, Some up -> Numeral.(equal lo up) *)
-        (*   | _ -> true *)
-        (* in *)
-        (* if is_one_state then t else guard_clock offset t *)
-        if two_state then guard_clock offset t else t
+        (* A two-state invariant of the called system relates two consecutive
+        steps OF THAT SYSTEM. Under an activation condition the system only
+        steps when its clock is true, so at the caller the pair
+        [(offset-1, offset)] is a step of the callee only when the clock is
+        true at both instants: guarding at [offset] alone left [offset-1]
+        unconstrained -- on a caller step whose predecessor had the clock
+        false, the callee's variables at [offset-1] carry arbitrary values,
+        and the lifted "invariant" excludes reachable states of the caller.
+        Invariant generation then strengthened its checkers with these, and
+        certified batches of falsifiable candidates against them (reporting a
+        false property valid when a property term was among the candidates).
+
+        A one-state invariant needs the guard as well: on a caller step where
+        the clock is false -- in particular any step before the first
+        activation -- the callee has not stepped and its variables are
+        unconstrained, so the unguarded term excludes reachable caller states
+        just the same.
+
+        [guard_clock] is the identity for a call without an activation
+        condition, so unconditional calls are unaffected. *)
+        if two_state then
+          guard_clock Numeral.(pred offset) (guard_clock offset t)
+        else guard_clock offset t
       in
 
       let term' = inst_term term in

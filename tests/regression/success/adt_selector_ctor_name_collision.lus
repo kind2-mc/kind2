@@ -1,0 +1,9 @@
+datatype T = A (B_x: int) | B (x: int);
+
+node main(n: int) returns (ok: bool);
+var t: T;
+let
+  t = B(5);
+  ok = B?(t) and then t.x = 5;
+  check ok;
+tel

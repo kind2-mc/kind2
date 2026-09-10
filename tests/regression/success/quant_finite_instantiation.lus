@@ -1,0 +1,58 @@
+-- Quantifiers whose bound variables range over a finite domain -- the
+-- Booleans and enumerated types -- are expanded into a conjunction or
+-- disjunction over every value of that domain.
+
+type Color = enum { Red, Green, Blue };
+type Vote = enum { Yes, No };
+
+datatype Msg = Ping | Tagged (c: Color, v: Vote);
+datatype Flagged = Off | On (c: Color, b: bool);
+
+node main (x: Color; p: bool) returns ();
+let
+  -- A universal quantifier over an enum: one conjunct per constructor
+  check "every color is one of the three"
+    forall (c: Color) (c = Red or c = Green or c = Blue);
+
+  -- An existential quantifier over an enum: one disjunct per constructor
+  check "x is one of the colors"
+    exists (c: Color) c = x;
+
+  -- The quantified variable is only constrained by the enum it ranges over,
+  -- so instantiating it must not lose the constructors it is compared against
+  check "no color is both red and green"
+    forall (c: Color) (not (c = Red and c = Green));
+
+  -- The Booleans are a finite domain too
+  check "every bool is true or false"
+    forall (b: bool) (b or not b);
+
+  check "some bool agrees with p"
+    exists (b: bool) b = p;
+
+  check "no bool is both"
+    forall (b: bool) (not (b and not b));
+
+  -- An algebraic datatype compiles to a tag plus its payload fields; here all
+  -- three are enum-encoded, so the quantifier is eliminated outright
+  check "a tagged message carries a color and a vote"
+    forall (m: Msg) (Tagged?(m) ==> ((m.c = Red or m.c = Green or m.c = Blue)
+                                    and (m.v = Yes or m.v = No)));
+
+  check "some message is a ping"
+    exists (m: Msg) Ping?(m);
+
+  -- A datatype mixing an enum payload with a Boolean one: finite only once
+  -- the Booleans count as a domain
+  check "a flagged value carries a color and a bool"
+    forall (f: Flagged) (On?(f) ==> ((f.c = Red or f.c = Green or f.c = Blue)
+                                    and (f.b or not f.b)));
+
+  -- A mixed domain: `i` ranges over the integers, so this quantifier is left
+  -- for the solver rather than expanded over `c` alone
+  check "mixed enum and integer domain"
+    forall (c: Color; i: int) (i > 0 => (i >= 1 and (c = Red or c <> Red)));
+
+  check "mixed bool and integer domain"
+    forall (b: bool; i: int) (i > 0 => (i >= 1 and (b or not b)));
+tel

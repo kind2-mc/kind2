@@ -1,0 +1,9 @@
+datatype IntOpt = None | Some (val: int);
+
+type SomeOpt = subtype { m: IntOpt | Some?(m) };
+
+node main(x: int) returns (ok: bool);
+let
+  ok = true;
+  check forall (m: SomeOpt) m.val = m.val;
+tel

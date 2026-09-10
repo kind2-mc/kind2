@@ -1,0 +1,9 @@
+datatype T = A_B (x: int) | A (B_x: int);
+
+node main(b: bool) returns (ok: bool);
+var t: T;
+let
+  t = if b then A_B(5) else A(6);
+  ok = (A_B?(t) ==> t.x = 5) and (A?(t) ==> t.B_x = 6);
+  check ok;
+tel

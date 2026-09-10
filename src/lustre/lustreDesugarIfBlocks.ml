@@ -370,8 +370,11 @@ let rec trees_eq node1 node2 = match node1, node2 with
     | Ok n -> n
     | Error _ -> false
   )
-  | Node (l1, _, r1), Node (l2, _, r2) -> 
-    trees_eq l1 l2 && trees_eq r1 r2
+  | Node (l1, c1, r1), Node (l2, c2, r2) ->
+    (match (AH.syn_expr_equal None c1 c2) with
+      | Ok n -> n && trees_eq l1 l2 && trees_eq r1 r2
+      | Error _ -> false
+    )
   | _ -> false
 
   
@@ -382,7 +385,10 @@ let rec trees_eq node1 node2 = match node1, node2 with
       | Node (i, str, j) -> 
         let i = simplify_tree i in
         let j = simplify_tree j in
-        if trees_eq i j then i else
+        (* Collapsing the node deletes the condition from the AST, so it is only
+           sound when the condition carries no proof obligation of its own; see
+           AH.expr_is_droppable. *)
+        if trees_eq i j && AH.expr_is_droppable str then i else
         Node (i, str, j)
 
 

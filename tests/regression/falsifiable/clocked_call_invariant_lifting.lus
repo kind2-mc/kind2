@@ -1,0 +1,243 @@
+-- Invariants of a node called under a clock (a when-block) must be guarded
+-- with the clock of the call when they are lifted to the caller. While the
+-- clock is inactive the instance does not step, so its state variables are
+-- unconstrained; a lifted invariant that constrains them on such a step
+-- excludes reachable states of the caller. Invariant generation used to lift
+-- one-state invariants with no guard at all, and two-state invariants with
+-- the clock at the current instant only (a two-state invariant relates two
+-- consecutive steps of the CALLEE, so the clock must hold at both instants).
+-- The engines, strengthened with these unsound invariants, then proved
+-- falsifiable properties "valid": on the three-host version of this model
+-- (HostId = enum {H1, H2, H3}) the property below -- falsifiable at depth 11
+-- there -- was reported valid by 2-induction under the default engines, and
+-- `--enable INVGEN --enable INVGENOS` certified it directly.
+--
+-- This two-host shrink keeps the trigger -- subsystems with internal state
+-- called under when-blocks, mined by invariant generation, and a falsifiable
+-- property over their lifted state -- at a depth (8) that bounded model
+-- checking falsifies in seconds. The three-host original is not in the suite
+-- because falsifying it takes longer than the suite's timeout allows.
+--
+-- To reproduce the wrong result on the unfixed code, run invariant
+-- generation on its own -- under the default engines BMC finds the depth-8
+-- counterexample first, which is what the suite checks here:
+--
+--     kind2 --enable INVGEN --enable INVGENOS <this file>
+--
+-- Unfixed, that reports the property "valid (k=1)" every run; fixed, it
+-- reports "unknown" every run. Both generators are needed: INVGENOS is the
+-- only one with this (one-state) property term among its candidates, and
+-- INVGEN supplies the two-state invariants lifted past the clock that make
+-- the candidate come out k-inductive. k-induction is not involved. Smaller hand-written models (a single condact
+-- around a counter, or around a one-step delay) do not trigger it: invariant
+-- generation needs enough structure in the callee to mine and lift an
+-- invariant in the first place.
+--
+-- The model is a two-phase commit protocol: the coordinator can decide
+-- Commit, so the property is falsifiable.
+
+datatype Option<T> = Some (value: T) | None;
+
+node imported nondet() returns (r: bool);
+
+type Vote = enum {Yes, No};
+
+type Decision = enum {Commit, Abort};
+
+type HostId = enum {H1, H2};
+
+datatype Token_Holder = CoordinatorHost | ParticipantHost (id: HostId) | NoHost;
+
+const Preference : subtype { m : map<HostId,Vote> | forall (h:HostId) h in m };
+
+datatype Message =
+  | VoteReqMsg
+  | VoteMsg (id: HostId, vote: Vote)
+  | DecisionMsg (decision: Decision);
+
+type MsgSet = set<Message>;
+type IdSet = set<HostId>;
+
+node Network(send: Option<Message>) returns
+  (recv: Option<Message>; sentMsgs: MsgSet);
+var prevSentMsgs: MsgSet;
+let
+  prevSentMsgs = {}@<Message> -> pre sentMsgs;
+  frame (sentMsgs)
+    sentMsgs = {}@<Message>;
+  let
+    when Some?(send) then
+      sentMsgs = prevSentMsgs + {send.value};
+    end
+  tel
+  recv = any { m: Option<Message> | Some?(m) ==> m.value in prevSentMsgs };
+tel
+
+function imported AllHostsIn(s: IdSet) returns (r: bool);
+(*@contract
+  guarantee r = (forall (i: HostId) i in s);
+*)
+
+function imported SomeHostIn(s: IdSet) returns (r: bool);
+(*@contract
+  guarantee r = (exists (i: HostId) i in s);
+*)
+
+node Coordinator(nw_recv: Option<Message>)
+  returns (nw_send: Option<Message>; decision: Option<Decision>;
+           yesVotes, noVotes: IdSet);
+var sender: HostId;
+let
+  sender =
+    when Some?(nw_recv) and then VoteMsg?(nw_recv.value)
+    then nw_recv.value.id else any@<HostId>;
+
+  frame (yesVotes, noVotes, nw_send, decision)
+    decision = None@<Decision>;
+    yesVotes = {}@<HostId>;
+    noVotes = {}@<HostId>;
+    nw_send = None@<Message>;
+  let
+    when Some?(nw_recv) then
+      -- receive step: update the tally, send nothing
+      when VoteMsg?(nw_recv.value) then
+        when nw_recv.value.vote = Yes then
+          yesVotes = (last yesVotes) + {sender};
+        else
+          noVotes = (last noVotes) + {sender};
+        end
+      end
+      nw_send = None@<Message>;
+    else
+      when (nondet() and None?(last decision) and
+            (SomeHostIn(last noVotes) or AllHostsIn(last yesVotes))) then
+        -- decision step: decide and broadcast, receive nothing
+        when SomeHostIn(last noVotes) then
+          decision = Some(Abort);
+          nw_send = Some(DecisionMsg(Abort));
+        else
+          decision = Some(Commit);
+          nw_send = Some(DecisionMsg(Commit));
+        end
+      else
+        when nondet() then
+          -- vote request step
+          nw_send = Some(VoteReqMsg);
+        else
+          -- stutter step
+          nw_send = None@<Message>;
+        end
+      end
+    end
+  tel
+tel
+
+node Participant(id: HostId; nw_recv: Option<Message>;
+                 last_pending: bool; last_decision: Option<Decision>)
+  returns (nw_send: Option<Message>; decision: Option<Decision>;
+           pending: bool);
+var recv_votereq, recv_decision, send_vote: bool;
+let
+  recv_votereq = Some?(nw_recv) and then VoteReqMsg?(nw_recv.value);
+  recv_decision = Some?(nw_recv) and then DecisionMsg?(nw_recv.value)
+                  and None?(last_decision);
+  send_vote = None?(nw_recv) and last_pending and nondet();
+  nw_send = when send_vote then Some(VoteMsg(id, Preference[id]))
+            else None@<Message>;
+  decision = when recv_decision then Some(nw_recv.value.decision)
+             else last_decision;
+  pending = when recv_votereq then true
+            else when send_vote then false
+            else last_pending;
+tel
+
+node ParticipantHosts(active_id: HostId; nw_recv: Option<Message>;
+                      last_pending: map<HostId,bool>;
+                      last_decisions: map<HostId,Decision>)
+  returns (nw_send: Option<Message>;
+           pending: map<HostId,bool>;
+           decisions: map<HostId,Decision>);
+var host_pending: bool;
+var decision, last_decision: Option<Decision>;
+let
+  last_decision = when active_id in last_decisions
+                  then Some(last_decisions[active_id])
+                  else None@<Decision>;
+  nw_send, decision, host_pending =
+    Participant(active_id, nw_recv,
+                (active_id in last_pending) and then last_pending[active_id],
+                last_decision);
+  pending = last_pending[active_id := host_pending];
+  when Some?(decision) then
+    decisions = last_decisions[active_id := decision.value];
+  else
+    decisions = last_decisions;
+  end
+tel
+
+function imported AllWithDecisionAgreeWithThisOne(
+  coord_decision: Option<Decision>;
+  partic_decisions: map<HostId,Decision>;
+  decision: Decision
+) returns (
+  r: bool
+);
+(*@contract
+  guarantee r = (
+    (Some?(coord_decision) ==> coord_decision.value = decision) and
+    (forall (i: HostId) i in partic_decisions ==> partic_decisions[i] = decision)
+  );
+*)
+
+node DistributedSystem(tk_holder: Token_Holder) returns (
+  coord_decision: Option<Decision>; partic_decisions: map<HostId,Decision>
+);
+(*@contract
+  assume "No one's turn initially, then always somebody's turn"
+    tk_holder = NoHost -> tk_holder <> NoHost;
+*)
+var coord_send, partic_send: Option<Message>;
+var network_send, network_recv: Option<Message>;
+var vote_pending: map<HostId,bool>; -- probe
+var yesVotes, noVotes: IdSet; -- probe
+var sentMsgs: MsgSet; -- probe
+
+let
+  frame (coord_send, coord_decision, yesVotes, noVotes)
+    coord_send = None@<Message>;
+    coord_decision = None@<Decision>;
+    yesVotes = {}@<HostId>;
+    noVotes = {}@<HostId>;
+  let
+    when (CoordinatorHost?(tk_holder)) then
+      coord_send, coord_decision, yesVotes, noVotes = Coordinator(network_recv);
+    end
+  tel
+
+  frame (partic_send, vote_pending, partic_decisions)
+    partic_send = None@<Message>;
+    vote_pending = map[]@<HostId,bool>;
+    partic_decisions = map[]@<HostId,Decision>;
+  let
+    when (ParticipantHost?(tk_holder)) then
+      partic_send, vote_pending, partic_decisions =
+        ParticipantHosts(tk_holder.id, network_recv,
+                         last vote_pending, last partic_decisions);
+    end
+  tel
+
+  if CoordinatorHost?(tk_holder) then
+    network_send = coord_send;
+  elsif ParticipantHost?(tk_holder) then
+    network_send = partic_send;
+  else -- NoHost?(tk_holder)
+    network_send = None@<Message>;
+  fi
+
+  network_recv, sentMsgs = Network(network_send);
+
+  -- Reachability queries: all seven are expected to be REACHABLE.
+
+  check "the coordinator never decides Commit"
+    not (Some?(coord_decision) and then coord_decision.value = Commit);
+tel

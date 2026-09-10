@@ -1,0 +1,9 @@
+-- Universal quantifiers over a finite domain that fail for exactly one value
+-- of that domain: expanding them must keep every instance.
+
+type Color = enum { Red, Green, Blue };
+
+node main () returns ();
+let
+  check "no color is blue" forall (c: Color) c <> Blue;
+tel

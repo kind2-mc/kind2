@@ -28,7 +28,7 @@ var x: Nat;
 var y: Option<Nat>;
 let
   x, y = counter(m);
-  ok = x >= 0 and (Some?(y) => y.value >= 0);
+  ok = x >= 0 and (Some?(y) ==> y.value >= 0);
   check "ok" ok;
 tel
 

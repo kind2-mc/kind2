@@ -1,0 +1,11 @@
+function rec F (n: int) returns (out: int)
+con decreases n; noc
+let
+  out = G(n);
+tel
+
+function rec G (m: int) returns (out: int)
+con decreases m, m; noc
+let
+  out = F(m);
+tel

@@ -1,0 +1,13 @@
+-- A global constant of map type contributes a global constraint that holds a
+-- select over a free variable. IC3IA asserts the global constraints directly,
+-- so it has to convert those selects the way TransSys.assert_global_constraints
+-- does; without the conversion, printing the term hits an assertion in the
+-- SMT-LIB driver.
+type H = enum { H0, H1 };
+const P : subtype { m : map<H,bool> | forall (h:H) h in m };
+
+node Top (h: H) returns (seen: bool);
+let
+  seen = (h in P) -> (pre seen and h in P);
+  check seen;
+tel

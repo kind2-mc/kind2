@@ -1,0 +1,11 @@
+-- A source identifier may end in "_canon": it is still a user-written bound
+-- variable, ranging over the canonical values of its type like any other.
+
+datatype D = A (a: int) | B (b: bool);
+
+node main(i: int) returns (ok: bool);
+let
+  ok = true;
+  check "forall" forall (d_canon: D) (A?(d_canon) ==> d_canon = A(d_canon.a));
+  check "exists" not (exists (x_canon: D) (B?(x_canon) and then x_canon <> B(x_canon.b)));
+tel

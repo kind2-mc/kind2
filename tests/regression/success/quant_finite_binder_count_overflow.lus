@@ -1,0 +1,9 @@
+-- A quantifier over an algebraic datatype binds one variable for its tag
+-- and one for each payload field, all in the one list, so a datatype with
+-- enough fields overflows the product of their domain sizes and defeats a
+-- bail-out that tests it.
+datatype D = Nil | C (b0: bool, b1: bool, b2: bool, b3: bool, b4: bool, b5: bool, b6: bool, b7: bool, b8: bool, b9: bool, b10: bool, b11: bool, b12: bool, b13: bool, b14: bool, b15: bool, b16: bool, b17: bool, b18: bool, b19: bool, b20: bool, b21: bool, b22: bool, b23: bool, b24: bool, b25: bool, b26: bool, b27: bool, b28: bool, b29: bool, b30: bool, b31: bool, b32: bool, b33: bool, b34: bool, b35: bool, b36: bool, b37: bool, b38: bool, b39: bool, b40: bool, b41: bool, b42: bool, b43: bool, b44: bool, b45: bool, b46: bool, b47: bool, b48: bool, b49: bool, b50: bool, b51: bool, b52: bool, b53: bool, b54: bool, b55: bool, b56: bool, b57: bool, b58: bool, b59: bool, b60: bool);
+node main (y: int) returns ();
+let
+  check "big" forall (d: D) (y > 0 => (C?(d) ==> (d.b0 or not d.b0)));
+tel

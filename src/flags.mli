@@ -686,6 +686,21 @@ module Arrays : sig
   val var_size : unit -> bool
 end
 
+(** {2 Quantifier instantiation flags} *)
+
+module Quant : sig
+
+  (** Expand quantifiers over finite domains (Booleans, enumerated types)
+      into conjunctions/disjunctions *)
+  val inst_finite : unit -> bool
+
+  val set_inst_finite : bool -> unit
+
+  (** Maximal size, in term nodes, of the term the expansion of a single
+      quantifier may produce *)
+  val inst_finite_budget : unit -> int
+end
+
 (** {2 Testgen flags} *)
 
 module Testgen : sig

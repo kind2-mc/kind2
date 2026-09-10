@@ -98,6 +98,11 @@ sig
 
   val mk_fresh_var : sort -> var
 
+  (** [mk_binder_var s d] is the variable of sort [s] used to open a binder at
+      binding depth [d]. Must be deterministic: the same [s] and [d] always
+      give the same variable, and it must be one no term uses free. *)
+  val mk_binder_var : sort -> int -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var

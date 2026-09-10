@@ -1,0 +1,8 @@
+-- IC3IA has to report a counterexample whose state includes an array-typed
+-- variable. Solvers do not print models for those in a form Kind 2 can read
+-- back, so the values have to be recovered one index at a time.
+node Top() returns (c: int^3);
+let
+  c[k] = 0 -> pre c[k] + 1;
+  check c[1] < 3;
+tel

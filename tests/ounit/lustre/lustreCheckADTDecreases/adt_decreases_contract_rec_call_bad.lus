@@ -1,0 +1,13 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec F (n: List) returns (out: int)
+con
+  decreases n;
+  guarantee out = F(n);
+noc
+let
+  out = match n with
+  | Nil : 0
+  | Cons (h, tl) : 1 + F(tl)
+  end;
+tel

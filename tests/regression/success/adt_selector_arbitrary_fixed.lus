@@ -1,0 +1,30 @@
+-- Under a lazy construct that establishes the constructor (when, and then,
+-- or else, ==>, a match arm) a selector is the payload itself and its
+-- obligation holds; the value read on another constructor is arbitrary but
+-- fixed for a given ADT value (see falsifiable/adt_selector_arbitrary_fixed_junk).
+
+datatype D = A (a: int) | B (b: bool) | C;
+
+node main(x, y: D; i: int) returns (ok: bool);
+var m: int;
+let
+  check "when expression"   (when A?(x) then x.a else 0) = (when A?(x) then x.a else 0);
+  check "and then"          (A?(x) and then x.a = i) = (A?(x) and then x.a = i);
+  check "or else"           (not A?(x) or else x.a = i) = (A?(x) ==> x.a = i);
+  check "lazy implication"  (A?(x) and A?(y)) ==> (x.a = y.a => x = y);
+  check "negated tester"    (not B?(x) and not C?(x)) ==> (x.a = x.a);
+  m = match x with
+    | A(v) : v
+    | B(_) : 0
+    | C : 0
+  end;
+  check "match arm"         A?(x) ==> m = x.a;
+
+  frame (ok)
+    ok = true;
+  let
+    when A?(x) then
+      ok = x.a = x.a;
+    end
+  tel
+tel

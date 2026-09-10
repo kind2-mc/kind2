@@ -1,0 +1,22 @@
+-- A valid property that rests on determinism of a function over a container
+-- across two steps, with a different argument in between. The congruence
+-- instance that rules the spurious counterexample out relates two distant
+-- bounds, and no single-state predicate can stand in for it, so IC3IA's
+-- implicit abstraction cannot be refined for it: the engine turns the
+-- property down (and k-induction proves it at k=3). IC3IA must not claim it
+-- is falsifiable: reporting `unknown` is the expected outcome here.
+--
+-- The container is an array of integers on purpose: the harness pins
+-- MathSAT as the interpolating solver here, and MathSAT rejects the
+-- Bool-element arrays that sets and maps compile to before the refinement
+-- this test is about is ever reached.
+function imported F(a: int^2) returns (out: int);
+
+node Top(b: bool) returns (r: int);
+var arr: int^2; cnt: int;
+let
+  cnt = 0 -> pre cnt + 1;
+  arr[i] = if (cnt mod 2 = 0) then i else 5;
+  r = F(arr);
+  check "fn of a recurring array" (cnt >= 2) => (r = pre (pre r));
+tel

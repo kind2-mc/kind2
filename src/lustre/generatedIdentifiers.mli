@@ -66,6 +66,12 @@ type t = {
     * LustreAst.expr
     * NodeId.t option) (* Node ID for type ascription substitution *)
     list;
+  (* Proof obligations that the constructor owning a user-written ADT selector
+     is active where the selector is read *)
+  selector_obligations: (Lib.position
+    * HString.t (* Generated name for the obligation *)
+    * LustreAst.expr) (* Obligation expression, for display *)
+    list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
   map_element_updates: (HString.t * 
@@ -112,6 +118,7 @@ type t = {
       held variable to the (frozen) call output. *)
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
   expr_source_map: LustreAst.expr StringMap.t;
+  prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
 }

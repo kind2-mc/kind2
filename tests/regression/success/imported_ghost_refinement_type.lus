@@ -1,0 +1,20 @@
+-- The refinement type of a ghost variable of an imported node becomes a proof
+-- obligation that the abstraction of the node keeps.  It is a property only as
+-- long as the equation defining it is kept as well, which node slicing has to
+-- arrange whether or not it reduces to the cone of influence.  Without that,
+-- "--slice_nodes off" leaves the obligation undefined and reports it invalid,
+-- where the other slicing modes report it valid.
+
+type Nat = subtype { x: int | x >= 0 };
+
+node imported g(u: int) returns (r: int);
+(*@contract
+  var gh: Nat = 5;
+  guarantee r = gh;
+*)
+
+node main(u: int) returns (o: int);
+let
+  o = g(u);
+  check o >= 0;
+tel

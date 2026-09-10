@@ -1,0 +1,3 @@
+(tests
+  (names testTermQuant)
+  (libraries ounit2 kind2dev))

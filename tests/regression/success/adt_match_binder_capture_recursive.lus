@@ -1,0 +1,29 @@
+datatype Msg = Atom (s: int) | Enc (l: Msg, r: Msg);
+
+node ShadowedByInnerArm (m: Msg; k: Msg) returns (y: int)
+let
+  y = match m with
+      | Atom (s) : (match k with
+                    | Atom (m) : s
+                    | _ : s
+                    end)
+      | Enc (a, b) : 0
+      end;
+tel
+
+node ShadowedInNestedPattern (m: Msg; k: Msg) returns (y: int)
+let
+  y = match m with
+      | Atom (s) : (match k with
+                    | Enc (Atom (m), q) : s
+                    | _ : s
+                    end)
+      | Enc (a, b) : 0
+      end;
+tel
+
+node main (k: Msg) returns ()
+let
+  check ShadowedByInnerArm(Atom(3), k) = 3;
+  check ShadowedInNestedPattern(Atom(7), k) = 7;
+tel

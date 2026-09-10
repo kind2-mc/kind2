@@ -1,0 +1,14 @@
+node main(c, p, q: bool) returns (g: bool);
+let
+  if p then
+    if c then g = true ; else g = false ; fi
+  elsif q then
+    g = true ;
+  else
+    g = false ;
+  fi
+
+  check (not p and not q) => not g ;
+  check (p and c) => g ;
+  check (not p and q) => g ;
+tel

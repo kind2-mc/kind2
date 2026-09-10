@@ -2231,6 +2231,65 @@ module Arrays = struct
 end
 
 
+(* Quantifier handling flags. *)
+module Quant = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "quant"
+  (* Short description of the module. *)
+  let desc = "quantifier instantiation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Quantifiers coming from a Lustre model may range over types with a@ \
+      finite domain: the Booleans, enumerated types, and the tags and@ \
+      payloads of the algebraic datatypes built from them. Such quantifiers@ \
+      can be eliminated up front by expanding them into a finite conjunction@ \
+      (forall) or disjunction (exists) over every value of the domain.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let inst_finite_default = true
+  let inst_finite = ref inst_finite_default
+  let _ = add_spec
+    "--instantiate_finite_quant"
+    (bool_arg inst_finite)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Eliminate quantifiers over finite domains (the Booleans and@ \
+         enumerated types) by expanding them into a conjunction/disjunction@ \
+         over all the values of the domain.@ Default: %a@]"
+        fmt_bool inst_finite_default
+    )
+  let set_inst_finite b = inst_finite := b
+  let inst_finite () = !inst_finite
+
+  let inst_finite_budget_default = 100000
+  let inst_finite_budget = ref inst_finite_budget_default
+  let _ = add_spec
+    "--instantiate_finite_quant_budget"
+    (Arg.Set_int inst_finite_budget)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Maximal size, in term nodes, of the term@ \
+         --instantiate_finite_quant may produce for a single quantifier.@ \
+         A quantifier whose expansion would be larger than this is left@ \
+         untouched.@ Default: %d@]"
+        inst_finite_budget_default
+    )
+  let inst_finite_budget () = !inst_finite_budget
+
+end
+
+
 (* Testgen flags. *)
 module Testgen = struct
 
@@ -2755,6 +2814,9 @@ let module_map = [
   ) ;
   (Arrays.id,
     (module Arrays: FlagModule)
+  ) ;
+  (Quant.id,
+    (module Quant: FlagModule)
   ) ;
   (Certif.id,
     (module Certif: FlagModule)

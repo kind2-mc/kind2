@@ -1,0 +1,11 @@
+datatype Inner = A (x: int) | B (y: int);
+datatype Outer = P (inner: Inner) | Q (z: int);
+
+node main(o: Outer) returns (r: int);
+let
+  r = match o.inner with
+      | A(v) : v
+      | B(w) : w
+      end;
+  check r = r;
+tel

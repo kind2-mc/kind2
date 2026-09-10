@@ -40,8 +40,7 @@ aclocal.m4
 autom4te.cache
 
 # Generated documentation
-doc/usr/build/**
-doc/user_documentation.pdf
+doc/user-documentation.pdf
 
 # VSCode config files
 .vscode/

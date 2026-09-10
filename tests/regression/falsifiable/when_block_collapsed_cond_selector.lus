@@ -1,0 +1,13 @@
+-- Same as if_block_collapsed_cond_selector.lus, for when blocks: they share
+-- 'simplify_tree' with if blocks, and so the same collapse.
+
+datatype IntOpt = None | Some (val: int);
+
+node main(p: IntOpt) returns (g: bool);
+let
+  when p.val > 0 then
+    g = true ;
+  else
+    g = true ;
+  end
+tel
