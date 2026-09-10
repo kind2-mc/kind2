@@ -1216,6 +1216,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, name, ty_args, flds) -> (
+    let* ty_args, warnings0 =
+      match ty_args with
+      | [] -> R.ok ([], [])
+      | _ :: _ -> check_instantiated_ty_args ctx nname pos name ty_args
+    in
     match lookup_ty_syn ctx name [] with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
@@ -1282,7 +1287,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           if are_equal then 
             R.ok (ty,
                   LA.RecordExpr (pos, name, type_args, flds),  
-                  List.flatten warnings)
+                  warnings0 @ List.flatten warnings)
           else 
             (type_error pos (IlltypedRecord (ty, inf_record_type)))
         )
@@ -1689,16 +1694,14 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
-    (* Explicit type arguments are user-written, so they must be validated
-       before they are used to instantiate the constructor's field types *)
-    let* ty_args, warnings0 =
-      R.seq (List.map (check_type_well_formed ctx Local nname false) ty_args)
-      |> R.map List.split
-    in
-    let warnings0 = List.flatten warnings0 in
     (match lookup_constructor ctx ctor with
     | None -> type_error pos (UnboundConstructor ctor)
     | Some (ty_name, field_tys) ->
+      let* ty_args, warnings0 =
+        match ty_args with
+        | [] -> R.ok ([], [])
+        | _ :: _ -> check_instantiated_ty_args ctx nname pos ty_name ty_args
+      in
       if List.length args <> List.length field_tys then
         type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length args))
       else
@@ -3078,6 +3081,25 @@ and expr_contains_set_binop ctx ni expr =
   | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
+and check_instantiated_ty_args: tc_context -> NI.t option -> Lib.position -> HString.t
+  -> tc_type list -> (tc_type list * [> warning] list, [> error]) result
+  = fun ctx nname pos name ty_args ->
+  (* An argument is held to the rules of the position it lands in, so it is checked
+     as the instantiated type; warnings come from the arguments alone, since the
+     instantiated form also revisits the named type's own declaration *)
+  let* ty =
+    check_type_well_formed ctx Local nname false (LA.UserType (pos, ty_args, name))
+    |> R.map fst
+  in
+  match ty with
+  | LA.UserType (_, ty_args, _) ->
+    let* warnings =
+      R.seq (List.map (check_type_well_formed ctx Local nname false) ty_args)
+      |> R.map (List.concat_map snd)
+    in
+    R.ok (ty_args, warnings)
+  | _ -> assert false
+
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
   let rec check_type_well_formed_rec is_nested ty' = 
@@ -3144,12 +3166,34 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       in 
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
-      (* Type arguments are types in their own right, and the expressions they
-         embed (refinement predicates, array sizes) are checked nowhere else *)
-      let* ty_args, warnings0 =
-        R.seq (List.map (check_type_well_formed_rec true) ty_args) |> R.map List.split
+      let check_ty_args nested args =
+        let* args, warnings =
+          R.seq (List.map (check_type_well_formed_rec nested) args) |> R.map List.split
+        in
+        R.ok (args, List.flatten warnings)
       in
-      let warnings0 = List.flatten warnings0 in
+      (* Type arguments are types in their own right: the expressions they embed are
+         checked nowhere else *)
+      let* lenient_ty_args, lenient_warnings = check_ty_args false ty_args in
+      let arg_nested =
+        if member_ty_syn ctx i || member_u_types ctx i then (
+          let ty_vars =
+            match lookup_ty_ty_vars ctx i with Some ps -> ps | None -> []
+          in
+          if List.length ty_vars <> List.length lenient_ty_args then false
+          else
+            match expand_type_syn ctx (LA.UserType (pos, lenient_ty_args, i)) with
+            | LA.ADT _ | LA.UserType _ -> true
+            | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+            | LA.EnumType _ | LA.AbstractType _ | LA.RecordType _ | LA.TupleType _
+            | LA.GroupType _ | LA.ArrayType _ | LA.TArr _ | LA.Map _ | LA.Set _
+            | LA.History _ | LA.RefinementType _ -> false
+        ) else false
+      in
+      let* ty_args, warnings0 =
+        if arg_nested then check_ty_args true ty_args
+        else R.ok (lenient_ty_args, lenient_warnings)
+      in
       let ty' = LA.UserType (pos, ty_args, i) in
       if (member_ty_syn ctx i || member_u_types ctx i)
       then (
@@ -3163,8 +3207,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           (* Validate the expanded form,
              but don't substitute in the expanded UserType *)
           let* _, warnings = check_type_well_formed_rec is_nested expanded in
-          (* The expanded form embeds the type arguments, so it reports their
-             warnings a second time; [warnings0] is dropped rather than doubled *)
+          (* The expanded form re-reports an argument's warnings once per mention
+             of the parameter, so a parameter mentioned twice reports them twice
+             and a phantom one loses them; warnings0 is dropped, not reconciled *)
           R.ok (ty', warnings)
       ) else (
         match nname with 

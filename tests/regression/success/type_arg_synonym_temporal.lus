@@ -1,0 +1,9 @@
+type Id<T> = T;
+
+node N(x: int) returns (y: bool);
+var b: Id<subtype { w: int | w = w or (0 -> pre x) = 0 }>;
+let
+  b = x;
+  y = true;
+  check y;
+tel

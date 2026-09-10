@@ -2144,8 +2144,23 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xv yv >>= fun v ->
       Ok (k && v)
     | Set (_, xt), Set (_, yt) -> r (depth + 1) xt yt
-    (* A datatype is determined by its name; its constructors are declared once *)
-    | ADT (_, xn, _), ADT (_, yn, _) -> Ok (HString.equal xn yn)
+    (* The constructors carry the instantiated field types, so two
+       instantiations of the same polymorphic datatype differ only there *)
+    | ADT (_, xn, xctors), ADT (_, yn, yctors) ->
+      let t = if List.length xctors = List.length yctors then
+          List.map2 (fun (xc, xflds) (yc, yflds) ->
+            let flds = if List.length xflds = List.length yflds then
+                List.map2 (fun (xf, xt) (yf, yt) ->
+                  let* t = r (depth + 1) xt yt in
+                  Ok (t && HString.equal xf yf))
+                xflds yflds
+              else [Ok (false)]
+            in
+            join (Ok (HString.equal xc yc) :: flds))
+          xctors yctors
+        else [Ok (false)]
+      in
+      join (Ok (HString.equal xn yn) :: t)
     | _ -> Ok false
   in
   r 0 x y

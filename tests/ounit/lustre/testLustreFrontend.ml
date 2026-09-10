@@ -865,6 +865,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_bound_var_pre.lus" with
     | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
     | _ -> false);
+  mk_test "test type argument landing under a nested type" (fun () ->
+    match load_file "./lustreTypeChecker/nested_type_arg_temporal.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
+    | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
@@ -1083,6 +1087,18 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     | _ -> false);
   mk_test "test non-exhaustive match in array size" (fun () ->
     match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_array_size.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant match in record expression type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_record_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test redundant match in global constant declaration" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_global_const.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in global constant declaration" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_global_const.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
     | _ -> false);
 ])
