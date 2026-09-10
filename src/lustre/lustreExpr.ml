@@ -3430,7 +3430,10 @@ let type_of_store = function
 
        let compatible t1 t2 = Type.check_type t1 t2 || Type.check_type t2 t1 in
 
-       if compatible (Type.index_type_of_array s) i &&
+       (* An array index may legally fall outside the array's bounds, so any
+          integer type is accepted; map and set keys use the index type *)
+       if (Type.is_int i || Type.is_int_range i ||
+           compatible (Type.index_type_of_array s) i) &&
           compatible (Type.elem_type_of_array s) v
        then 
 

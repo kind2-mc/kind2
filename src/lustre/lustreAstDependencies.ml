@@ -770,9 +770,10 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     (* If the provided file is not arity-correct then just return nothing *)
     | None -> SI.empty)
 
-  (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> SI.union (r e1) (r e2)
-  | StructUpdate (_, e1, _, None) -> r e1
+  | StructUpdate (_, e1, idx, e2) ->
+    let idx_vars = LH.fold_label_or_index SI.empty SI.union r idx in
+    let e2_vars = match e2 with Some e2 -> r e2 | None -> SI.empty in
+    SI.union (SI.union (r e1) idx_vars) e2_vars
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (r e1) (r e2)
 
@@ -908,14 +909,18 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok [List.fold_left union_dependency_analysis_data
              (singleton_dependency_analysis_data empty_hs i pos)
              (List.concat gs)]
-  | LA.StructUpdate (_, e1, _, e2) ->
-     let* g1 = mk_graph_expr2 m e1 in 
-     let* g2 = match e2 with 
-     | Some e2 -> mk_graph_expr2 m e2 
+  | LA.StructUpdate (_, e1, idx, e2) ->
+     let* g1 = mk_graph_expr2 m e1 in
+     let* g2 = match e2 with
+     | Some e2 -> mk_graph_expr2 m e2
      | None -> R.ok [empty_dependency_analysis_data]
      in
+     (* An index expression is read to decide which position is updated, so its
+        variables are dependencies too *)
+     let idx_exprs = LH.fold_label_or_index [] (@) (fun e -> [e]) idx in
+     let* g3 = R.seq (List.map (mk_graph_expr2 m) idx_exprs) in
      R.ok [List.fold_left union_dependency_analysis_data
-             empty_dependency_analysis_data (g1 @ g2)] 
+             empty_dependency_analysis_data (g1 @ g2 @ List.concat g3)]
   | LA.UnaryOp (_, _, e)
     | LA.Extract (_, e, _, _)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e

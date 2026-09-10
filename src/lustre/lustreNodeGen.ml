@@ -1571,9 +1571,9 @@ and compile_ast_expr
       X.fold (fun k v acc -> X.add (prefix @ k) v acc) new_sub kept
     in
 
-    (* Store [new_elem] into [old_sub] at position [sel_term], along the
-       array's own dimension. *)
-    let rec update_array_element old_sub new_elem sel_term =
+    (* Store new_elem into old_sub along the array's own dimension, at the
+       position given by index_e, whose init and step values may differ. *)
+    let rec update_array_element old_sub new_elem index_e =
       match X.choose old_sub with
       | (X.RecordIndex _ :: _), _
       | (X.TupleIndex _ :: _), _
@@ -1585,7 +1585,7 @@ and compile_ast_expr
           | top :: tl ->
             let old_sub' = X.singleton tl v in
             let new_elem' = X.find_prefix [top] new_elem in
-            let updated = update_array_element old_sub' new_elem' sel_term in
+            let updated = update_array_element old_sub' new_elem' index_e in
             X.fold (fun k v acc -> X.add (top :: k) v acc) updated acc
           | [] -> assert false (* keys are nonempty here, guaranteed by the outer match *)
         in
@@ -1594,15 +1594,17 @@ and compile_ast_expr
       | (X.ArrayIntIndex _ :: _), _
       | (X.SetMapIndex _ :: _), _ ->
         let over_key = fun key old_v acc ->
+          (* The trailing key component is the array's own dimension, consumed by
+             the store; the rest addresses the element within new_elem *)
           let inner_dims = match List.rev key with
             | _ :: rev_inner -> List.rev rev_inner
             | [] -> assert false
           in
           let new_v = X.find inner_dims new_elem in
-          (* The update stays array-typed. Consumers reduce it with the array
-             axiom in Term.push_select, so it composes with nesting and with a
-             select at an arbitrary index *)
-          X.add key (E.mk_store old_v sel_term new_v) acc
+          (* Stays array-typed so it composes with nesting and with a select at any
+             index; under the default encoding only a select consumes a store
+             (Term.push_select) *)
+          X.add key (E.mk_store old_v index_e new_v) acc
         in
         X.fold over_key old_sub X.empty
       | [], _ -> assert false
