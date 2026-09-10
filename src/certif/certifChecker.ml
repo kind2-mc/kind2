@@ -314,6 +314,33 @@ let define_fun fmt fun_symbol arg_vars res_sort defn =
     SMT.pp_print_expr (preproc defn)
 
 
+(* Define a block of (mutually) recursive function symbols *)
+let define_funs_rec fmt defs =
+
+  let pp_print_decl ppf (fun_symbol, arg_vars, _) =
+    fprintf ppf
+      "@[<hv 1>(%s@ @[<hv 1>(%a)@]@ %s)@]"
+      (UfSymbol.string_of_uf_symbol fun_symbol)
+      (pp_print_list
+         (fun ppf var ->
+            Format.fprintf ppf "(%s %s)"
+              (Var.string_of_var var)
+              (SMT.string_of_sort (Var.type_of_var var)))
+         "@ ")
+      arg_vars
+      (SMT.string_of_sort (UfSymbol.res_type_of_uf_symbol fun_symbol))
+  in
+
+  let pp_print_body ppf (_, _, defn) =
+    SMT.pp_print_expr ppf (preproc defn)
+  in
+
+  fprintf fmt
+    "@[<hov 1>(define-funs-rec@ @[<hv 1>(%a)@]@ @[<hv 1>(%a)@])@]\n@."
+    (pp_print_list pp_print_decl "@ ") defs
+    (pp_print_list pp_print_body "@ ") defs
+
+
 (* Solver stack for certificate checker *)
 let push fmt = fprintf fmt "\n(push 1)@." 
 
@@ -447,6 +474,7 @@ let under_approx sys k invs prop =
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) (Numeral.of_int (k+1));
@@ -1151,6 +1179,7 @@ let minimize_invariants sys props invs_predicate =
     TransSys.define_and_declare_of_bounds
       sys
       (SMTSolver.define_fun solver)
+      ~define_rec:(SMTSolver.define_funs_rec solver)
       (SMTSolver.declare_fun solver)
       (SMTSolver.declare_sort solver)
       Numeral.zero (Numeral.of_int (k+1));
@@ -1358,6 +1387,20 @@ let export_system_defs
   if ufs <> [] then (
     add_section fmt "Uninterpreted function symbols";
     List.iter (declare_const fmt) ufs
+  ) ;
+
+  (* Defining the recursive functions, as done for solvers by
+     TransSys.define_and_declare_of_bounds *)
+  let has_fun_defs =
+    TS.fold_subsystems ~include_top:true
+      (fun acc t -> acc || TS.get_fun_defs t <> []) false sys
+  in
+  if has_fun_defs then (
+    add_section fmt "Recursive function definitions";
+    TS.fold_subsystems ~include_top:true
+      (fun defined t -> TS.define_fun_defs t defined (define_funs_rec fmt))
+      UfSymbol.UfSymbolSet.empty sys
+    |> ignore
   ) ;
 
   (* Declaring function symbols *)

@@ -1,6 +1,7 @@
 # Unreleased
 
 Improvements:
+- A recursive function that has no contract (no guarantee or mode, explicit or through a refinement type of an output) or is declared `transparent` is now also defined at the SMT level with an SMT-LIB `define-funs-rec` command, when the solver is Z3 or cvc5, so that the solver can unfold its definition instead of only seeing its recursive calls abstracted by its contract. Properties about concrete arguments of such functions (e.g. `Fact(4) = 24`) become provable. The new option `--define_fun_rec false` restores the previous encoding. IC3IA turns itself off on systems with such definitions.
 - The inductive step now assumes, at every state of its path, the part of the transition relation that only constrains one state. It previously had nothing to say about the first state of the path, where the transition relation is not asserted, so a variable defined from others was assumed there without its definition. Properties that are 1-inductive are now proved at k=1 rather than at a larger k, if they were provable at all.
 
 Breaking changes:

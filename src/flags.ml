@@ -317,6 +317,27 @@ module Smt = struct
     )
   let check_sat_assume () = !(Domain.DLS.get check_sat_assume)
 
+  (* Define recursive functions with define-funs-rec. *)
+  let define_fun_rec_default = true
+  let define_fun_rec = ref define_fun_rec_default
+  let _ = add_spec
+    "--define_fun_rec"
+    (bool_arg define_fun_rec)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>\
+          Define a recursive function that has no contract (no guarantee@ \
+          or mode, explicit or through refinement types), or that is@ \
+          transparent, with an SMT-LIB recursive function definition@ \
+          (define-funs-rec) instead of abstracting its recursive calls@ \
+          by its contract. Only with the Z3 and cvc5 solvers; ignored@ \
+          with the others@ \
+          Default: %a\
+        @]"
+      fmt_bool define_fun_rec_default
+    )
+  let define_fun_rec () = !define_fun_rec
+
   (* Use short name for variables at SMT level. *)
   let short_names_default = true
   let short_names = ref short_names_default

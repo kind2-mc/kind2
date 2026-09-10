@@ -902,6 +902,44 @@ predicate on an input, output or local, or an array bound. Such a call can
 never be decreasing, since only a match in the function's body can witness a
 decrease, so it is always rejected.
 
+### How recursive functions are analyzed
+
+Kind 2 unrolls the definition of a recursive function once: a call to the
+function is expanded to its body, and the recursive calls inside that body are
+abstracted by the function's contract, i.e. Kind 2 assumes their guarantees
+(the inductive hypothesis of the recursion), which is only justified when the
+termination checks above hold. This is what makes a property such as
+`Fact(n) > 0` provable from a `guarantee f > 0`, but it also means that a
+recursive function without a contract is essentially unknown to the solver
+past its first unrolling: `Fact(4) = 24` cannot be established that way.
+
+When a recursive function has no contract to abstract it with (no guarantee
+and no mode, whether explicit or coming from a refinement type on an output;
+assumptions and input types do not count, they are obligations of the callers)
+or is declared `transparent`, Kind 2 additionally defines the function at the
+SMT level with an SMT-LIB `define-funs-rec` command built from the body of the
+function, and lets the solver unfold that definition. For the contract-less
+`Fact` above, `Fact(4) = 24` is then proved directly, and a `transparent`
+function keeps both its definition and its contract. In the definition, each
+recursive call is guarded by its termination checks, so the definition is
+well-founded whether or not the measure actually decreases and cannot make the
+analysis inconsistent; the termination checks are still verified as properties.
+Every function of a mutually recursive group is defined this way, or none is.
+
+This encoding is only used with the Z3 and cvc5 solvers, which support
+recursive function definitions, and can be turned off with
+`--define_fun_rec false`. The IC3IA engine turns itself off on a system that
+contains such a definition, as the interpolating solvers do not support them
+(this is in addition to the IC3QE engine, which turns itself off on any
+system with a function, see below). It is not used for a function whose body is not a
+total function of its inputs that the solver can be given: functions with
+assertions, array-typed variables, or calls to functions whose outputs are not
+all defined by equations (other than recursive and imported functions) keep
+the contract-based encoding. Note that the solver reasons about a defined
+function by unfolding it, which settles any query about concrete arguments but
+is no substitute for induction: a property of the function for all its inputs
+still calls for a contract, or a lemma.
+
 ### Benefits and limitations
 
 Functions are interesting in the model-checking context of Kind 2 mainly as

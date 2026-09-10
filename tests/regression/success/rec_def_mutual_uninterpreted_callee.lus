@@ -1,0 +1,34 @@
+(* SumPlusLength has no contract and is defined at the SMT level; Length has
+   a guarantee, so it keeps its contract abstraction and the definition of
+   SumPlusLength applies the uninterpreted functional symbol of Length,
+   which every instance of Length is tied to. *)
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Length (l: List) returns (len: int)
+con
+  decreases l;
+  guarantee "nonneg" len >= 0;
+noc
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, tl) : 1 + Length(tl)
+  end;
+tel
+
+function rec SumPlusLength (l: List) returns (s: int)
+con
+  decreases l;
+noc
+let
+  s = match l with
+  | Nil : 0
+  | Cons (h, tl) : h + Length(tl) + SumPlusLength(tl)
+  end;
+tel
+
+node main (x: int) returns (y: int)
+let
+  y = SumPlusLength(Cons(1, Cons(2, Nil)));
+  check "value" y = 3 + Length(Cons(2, Nil)) + Length(Nil);
+tel

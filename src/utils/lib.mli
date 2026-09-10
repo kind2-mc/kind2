@@ -600,6 +600,9 @@ module ReservedIds : sig
 
   (** Suffix used for the name of the function encoding functional systems. *)
   val function_of_inputs: string
+  (** Value of a recursive call whose termination checks fail, in the
+      SMT-level definition of a recursive function *)
+  val undefined_call: string
 
   (** All reserved identifiers. *)
   val reserved_strings: string list

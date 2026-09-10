@@ -414,10 +414,8 @@ let bounded_check call_pos caller_rf =
   (* Lexicographic termination requires the measure to be bounded below, i.e.
      each component is non-negative. *)
   let prop_term =
-    List.map (fun e ->
-      Term.mk_leq [Term.mk_num Numeral.zero; E.base_term_of_expr TransSys.prop_base e])
-      caller_rf
-    |> Term.mk_and
+    List.map (E.base_term_of_expr TransSys.prop_base) caller_rf
+    |> LustreFunDefs.bounded_below
   in
   let prop_expr =
     List.map (fun e -> Format.asprintf "(0 <= %a)" (E.pp_print_expr false) e) caller_rf
@@ -444,26 +442,9 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
   let caller_rf_terms =
     List.map (E.base_term_of_expr TransSys.prop_base) caller_rf
   in
-  (* The measure strictly decreases in the lexicographic order: some component
-     decreases while all earlier components stay equal. For a single component
-     this reduces to the ordinary "callee < caller". When the two measures have
-     different arities (possible for mutually recursive functions), their common
-     prefix is compared. *)
-  let prop_term =
-    let rec lex cs ds =
-      match cs, ds with
-      | [c], [d] -> Term.mk_lt [c; d]
-      | c :: cs', d :: ds' ->
-        Term.mk_or [
-          Term.mk_lt [c; d];
-          Term.mk_and [Term.mk_eq [c; d]; lex cs' ds']
-        ]
-      | _ -> assert false
-    in
-    let n = min (List.length callee_rf_terms) (List.length caller_rf_terms) in
-    let take l = List.filteri (fun i _ -> i < n) l in
-    lex (take callee_rf_terms) (take caller_rf_terms)
-  in
+  (* The measure strictly decreases in the lexicographic order (see
+     [LustreFunDefs.lex_lt]) *)
+  let prop_term = LustreFunDefs.lex_lt callee_rf_terms caller_rf_terms in
   (* Prefer the source-level rendering reconstructed during node generation
      (e.g. "n - 1 < n"); fall back to the normalized term otherwise. *)
   let prop_expr =
@@ -2559,7 +2540,7 @@ let function_congruence_group state_var_bounds inputs uf_symbols
     )
   )
 
-let rec trans_sys_of_node' options globals top_name analysis_param
+let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
   trans_sys_defs output_input_dep nodes definition_set = function
 
   (* Transition system for all nodes created *)
@@ -2574,8 +2555,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
-        options globals top_name analysis_param trans_sys_defs output_input_dep
-        nodes definition_set tl
+        options globals fun_defs top_name analysis_param trans_sys_defs
+        output_input_dep nodes definition_set tl
 
     (* Transition system has not been created *)
     else
@@ -2760,6 +2741,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           trans_sys_of_node'
             options
             globals
+            fun_defs
             top_name
             analysis_param
             trans_sys_defs
@@ -2779,6 +2761,15 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             in
             let is_undefined svar = SVS.mem svar defined_svars |> not in
             List.filter is_undefined (D.values outputs)
+          in
+
+          (* Is the node a recursive function defined at the SMT level? Its
+             definitions are only of use with the functional constraints
+             that tie its instances to its functional symbols, and the
+             uninterpreted symbols they apply are declared with those. *)
+          let is_defined =
+            options.add_functional_constraints
+            && LustreFunDefs.is_defined fun_defs node_id
           in
 
           (* If node is a function, for each undefined output,
@@ -2801,12 +2792,20 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 if rec_info <> None then D.values outputs
                 else undefined_outputs
               in
+              (* The functional symbols of a recursive function defined at
+                 the SMT level are not declared but defined, by the blocks
+                 of definitions the system carries (see below); what is
+                 declared instead are the uninterpreted symbols those
+                 definitions apply *)
               let function_ufs =
-                constrained_outputs |> List.map (fun sv ->
-                  match SVM.find_opt sv uf_symbols with
-                  | Some uf -> uf
-                  | None -> assert false
-                )
+                if is_defined then
+                  LustreFunDefs.ufs_of_node fun_defs node_id
+                else
+                  constrained_outputs |> List.map (fun sv ->
+                    match SVM.find_opt sv uf_symbols with
+                    | Some uf -> uf
+                    | None -> assert false
+                  )
               in
               let constraints =
                 let term_0_of svar =
@@ -2827,6 +2826,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 )
               in
               let congruence_group, witness_ufs =
+                (* A defined function is congruent by definition *)
+                if is_defined then None, [] else
                 match
                   function_congruence_group
                     globals.G.state_var_bounds inputs uf_symbols
@@ -3642,6 +3643,9 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               ?one_state_trans
               ~datatype_types:globals.G.recursive_datatypes
               ~fn_congruence_groups
+              ~fun_defs:(
+                if is_defined then LustreFunDefs.blocks_of_node fun_defs node_id
+                else [])
               scope
               None (* instance_state_var *)
               init_flag
@@ -3669,6 +3673,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           trans_sys_of_node'
             options
             globals
+            fun_defs
             top_name
             analysis_param
             (NodeInstanceMap.add 
@@ -3752,6 +3757,12 @@ let trans_sys_of_nodes
 
   let nodes = N.nodes_of_subsystem subsystem' in
 
+  (* The SMT-level definitions of the recursive functions that have no
+     contract or are transparent (see [LustreFunDefs]) *)
+  let fun_defs =
+    LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
+  in
+
   let { trans_sys; definition_set} =
 
     try
@@ -3760,6 +3771,7 @@ let trans_sys_of_nodes
       trans_sys_of_node'
         options
         globals
+        fun_defs
         top_name
         analysis_param
         NodeInstanceMap.empty
