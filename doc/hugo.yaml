@@ -32,8 +32,12 @@ menu:
     - name: Documentation
       pageRef: /docs
       weight: 1
-    - name: GitHub
+    - name: Search
       weight: 2
+      params:
+        type: search
+    - name: GitHub
+      weight: 3
       url: "https://github.com/kind2-mc/kind2"
       params:
         icon: github
