@@ -4,7 +4,7 @@ weight: 2
 ---
 
 Kind 2 reads input models written in an extension of the dataflow Lustre language
-(see this [primer]({{< relref "/docs/inputs-and-outputs/lustre-primer" >}}) for
+(see this [primer]({{< relref "/docs/lustre-primer" >}}) for
 a quick introduction to the Lustre language).
 Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6.
 See the file [examples/syntax-test.lus](https://github.com/kind2-mc/kind2/blob/main/examples/syntax-test.lus) for
