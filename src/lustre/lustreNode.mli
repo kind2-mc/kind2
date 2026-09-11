@@ -114,11 +114,22 @@ type node_call = {
   call_uf_applied : bool;
   (** Whether this call is the instance retained for a call that was compiled
       to an application of the functional symbol of the callee (a call applied
-      to quantified variables, see
-      {!GeneratedIdentifiers.t.qcalls}). The terms of the caller apply that
-      symbol, so the instance must survive slicing whatever the property being
-      checked: it is what makes the callee a subsystem of the caller, and thus
-      what gets the symbol declared (or defined). *)
+      to quantified variables, see {!GeneratedIdentifiers.t.qcalls}).
+
+      The terms of the caller apply that symbol, and the instance is what makes
+      the callee a subsystem of the caller, which is what gets the symbol
+      declared and its definition emitted. It must therefore survive slicing
+      whatever the property being checked ({!LustreSlicing.roots_of_inlined_calls}).
+      Nothing else can stand in for it: slicing prunes the model by call
+      reachability ([LustreNode.subsystem_of_nodes] follows calls), so dropping
+      the last call to the callee drops the callee itself, and by the time the
+      transition system is built there is no node left to read a declaration or
+      a definition from.
+
+      The instance says nothing of its own -- its arguments are free constants
+      standing for the quantified variables and nothing reads its outputs -- so
+      it is left out of counterexamples, except for a property that comes from
+      it (see {!LustreSlicing.keep_inline_call} and {!LustrePath}). *)
 
   call_rec_decrease_expr : string option;
   (** Source-level rendering of the decrease constraint generated for a

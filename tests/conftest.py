@@ -110,6 +110,14 @@ ic3ia_solver = "mathsat"
 contractck_dir_name = "contractck"
 contractck_args = {"--enable": "CONTRACTCK"}
 
+# Tests under this directory inside `contractck_dir_name` pin what the contract
+# checker must *not* do with a model it cannot handle: decline it, rather than
+# fail in the solver. Declining leaves a node undetermined, so the run exits 30
+# (`incomplete_analysis`); 0 covers the check one day being able to answer.
+# Anything else -- a crash, a solver error -- is a failure, which is what makes
+# these tests notice the check losing the ability to turn a model down.
+contractck_declined_dir_name = "declined"
+
 # Where to write log files
 log_dir = Path("logs")
 
@@ -137,6 +145,11 @@ code_to_expected = {code: expected for expected, code in return_codes}
 # usage error, a solver it could not start -- is a failure rather than a
 # decline, and naming them keeps the test honest about what it pins down.
 ic3ia_declined_codes = (expected_to_code["success"], expected_to_code["timeout"])
+
+# What a declined contract check is allowed to exit with, for the same reasons:
+# 30 is `incomplete_analysis`, which is what a node left undetermined looks
+# like, and 0 covers the check one day being able to answer.
+contractck_declined_codes = ic3ia_declined_codes
 
 def pytest_collect_file(parent, file_path: Path):
     try:
@@ -322,6 +335,12 @@ class LustreItem(pytest.Item):
     def _ic3ia_declines(self):
         return self._is_ic3ia() and ic3ia_declined_dir_name in self._regression_parts()
 
+    def _contractck_declines(self):
+        return (
+            self._is_contractck()
+            and contractck_declined_dir_name in self._regression_parts()
+        )
+
     def runtest(self):
         if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
             pytest.skip(f"{ic3ia_solver} is not installed")
@@ -335,6 +354,12 @@ class LustreItem(pytest.Item):
         if self._ic3ia_declines():
             # Answering is allowed, answering `falsifiable` is not
             if self.res.returncode not in ic3ia_declined_codes:
+                raise LustreException
+            return
+
+        if self._contractck_declines():
+            # Turning the model down is allowed, failing on it is not
+            if self.res.returncode not in contractck_declined_codes:
                 raise LustreException
             return
 
