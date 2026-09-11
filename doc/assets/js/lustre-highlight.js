@@ -52,8 +52,9 @@
   ].join("|"), "gy");
 
   // A name is a call or declaration if the next non-space token opens an
-  // argument list, optionally preceded by type arguments (`f<<int>>(x)`).
-  var CALL_AHEAD = /^\s*(?:<<[^>\n]*>>)?\s*\(/;
+  // argument list, optionally preceded by static params or type arguments
+  // (`N<T>(x)`, `N@<int>(x)`).
+  var CALL_AHEAD = /^\s*(?:@?<[^<>\n]*>)?\s*\(/;
 
   function escapeHtml(text) {
     return text
