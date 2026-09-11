@@ -209,26 +209,28 @@ imply.
 
 ## Conditionals
 
-Equations can be grouped under a condition with an `if` *statement*, closed
+Equations can be specified conditionally with `if` *statements*, which are closed
 with `fi`:
 
 ```text
 node Sign(x: int) returns (neg, pos: bool);
 let
   if x < 0 then
-    neg = true; pos = false;
+    neg = true; 
+    pos = false;
   elsif x > 0 then
-    neg = false; pos = true;
+    neg = false; 
+    pos = true;
   else
-    neg = false; pos = false;
+    neg = false; 
+    pos = false;
   fi
 tel
 ```
 
-Each condition is evaluated once per timestep, and every variable assigned by
-the block takes the same branch. 
+Each condition is evaluated once per timestep, and every variable is takes its value according to its definition in the equation in the active branch.
 
-Conditions can also be encoded as 
+Conditions can also be encoded as
 `if` *expressions*:
 
 ```text
@@ -236,7 +238,7 @@ if <expr_0> then <expr_1> else <expr_2>
 ```
 
 where `<expr_0>` has type `bool`, and `<expr_1>` and `<expr_2>` must have the
-same type. 
+same type.
 
 ```text
 node Max(x, y: int) returns (m: int);
@@ -945,20 +947,20 @@ are evaluated at each step, and so are both operands of `and`, `or`, and `=>`.
 Each has a **lazy** counterpart that evaluates an operand only when the result
 depends on it:
 
-| Eager                    | Lazy                       | Right operand evaluated |
-| ------------------------ | -------------------------- | ----------------------- |
-| `if c then e1 else e2`   | `when c then e1 else e2`   | only the selected branch |
-| `e1 and e2`              | `e1 and then e2`           | only when `e1` is true  |
-| `e1 or e2`               | `e1 or else e2`            | only when `e1` is false |
-| `e1 => e2`               | `e1 ==> e2`                | only when `e1` is true  |
+| Eager                    | Lazy                       | Right operand evaluated  |
+| ------------------------ | -------------------------- | ------------------------ |
+| `if c then e1 else e2` | `when c then e1 else e2` | only the selected branch |
+| `e1 and e2`            | `e1 and then e2`         | only when`e1` is true  |
+| `e1 or e2`             | `e1 or else e2`          | only when`e1` is false |
+| `e1 => e2`             | `e1 ==> e2`              | only when`e1` is true  |
 
 Whenever the right operand *is* evaluated, each lazy operator agrees with its
 eager counterpart; the two differ only in what happens to the operand that is
 skipped.
 
-That difference is not merely a matter of efficiency. 
+That difference is not merely a matter of efficiency.
 Consider reading a field of an algebraic datatype: the selector `x.val` carries a proof obligation that `x`
-was built with the constructor that has a `val` field. 
+was built with the constructor that has a `val` field.
 
 ```text
 datatype Option = None | Some (val: int);
