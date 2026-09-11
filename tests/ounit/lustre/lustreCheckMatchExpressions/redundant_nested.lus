@@ -1,0 +1,11 @@
+datatype B = T | F;
+datatype P = MkP (l: B, r: B);
+node N(x: P) returns (y: int);
+let
+  y = match x with
+      | MkP(T, T) : 0
+      | MkP(T, F) : 1
+      | MkP(F, b) : 2
+      | MkP(a, T) : 3
+      end;
+tel

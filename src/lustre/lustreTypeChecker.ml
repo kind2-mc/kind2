@@ -1123,14 +1123,14 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | LA.Map (_, kt, vt) -> kt, vt 
     | _ -> assert false 
     in
-    R.ok (LA.Map (pos, kt, vt), e, warnings)
+    R.ok (LA.Map (pos, kt, vt), LA.EmptyMap (pos, Some (kt, vt)), warnings)
   | LA.EmptySet (pos, Some ty) -> 
     let* set_ty, warnings = check_type_well_formed ctx Local nname false (LA.Set (pos, ty)) in 
     let ty = match set_ty with 
     | LA.Set (_, ty) -> ty 
     | _ -> assert false 
     in
-    R.ok (LA.Set (pos, ty), e, warnings)
+    R.ok (LA.Set (pos, ty), LA.EmptySet (pos, Some ty), warnings)
   | LA.FieldProject (pos, e, fld, _) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1216,6 +1216,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
 
   (* Structured expressions *)
   | LA.RecordExpr (pos, name, ty_args, flds) -> (
+    let* ty_args, warnings0 =
+      match ty_args with
+      | [] -> R.ok ([], [])
+      | _ :: _ -> check_instantiated_ty_args ctx nname pos name ty_args
+    in
     match lookup_ty_syn ctx name [] with
     | None -> type_error pos (UndeclaredType name)
     | Some ty ->
@@ -1282,7 +1287,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           if are_equal then 
             R.ok (ty,
                   LA.RecordExpr (pos, name, type_args, flds),  
-                  List.flatten warnings)
+                  warnings0 @ List.flatten warnings)
           else 
             (type_error pos (IlltypedRecord (ty, inf_record_type)))
         )
@@ -1308,9 +1313,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     
   (* Update structured expressions *)
   | LA.ArrayConstr (pos, b_expr, sup_expr) -> (
-    let* b_ty, b_expr, warnings = infer_type_expr ctx nname b_expr in
-    check_array_size_expr ctx nname b_ty sup_expr >>
-    R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), LA.ArrayConstr (pos, b_expr, sup_expr), warnings)
+    let* b_ty, b_expr, warnings1 = infer_type_expr ctx nname b_expr in
+    let* sup_expr, warnings2 = check_array_size_expr ctx nname b_ty sup_expr in
+    R.ok (LA.ArrayType (pos, (b_ty, sup_expr)), LA.ArrayConstr (pos, b_expr, sup_expr),
+          warnings1 @ warnings2)
   )
   | LA.StructUpdate (pos, ue, i_or_ls, e) ->
     if List.length i_or_ls != 1
@@ -1665,7 +1671,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         R.ok (Some ty)
     in
     (match scrut_adt_opt with
-    | Some (LA.ADT _) ->
+    | Some (LA.ADT _ as scrut_adt) ->
       let* arm_tys, arms', warnings = R.seq (List.map (fun (pat, arm_body) ->
         let* arm_ctx, pat' = bind_pattern_ty ctx scrut_ty pat in
         let* arm_ty, arm_body, warnings = infer_type_expr arm_ctx nname arm_body in
@@ -1674,7 +1680,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let main_ty = List.hd arm_tys in
       let* all_equal = R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) arm_tys) in
       if all_equal then
-        R.ok (main_ty, LA.Match (pos, scrutinee, arms', Some scrut_ty), warnings1 @ List.flatten warnings)
+        (* The scrutinee's datatype is recorded already expanded. The passes
+           that read it back resolve types in a global context, where a
+           node-local binding -- the variable a history type refers to, say --
+           is not in scope, and a scrutinee type they cannot resolve is one they
+           cannot check. *)
+        R.ok (main_ty, LA.Match (pos, scrutinee, arms', Some scrut_adt), warnings1 @ List.flatten warnings)
       else
         let second_ty, second_arm_body = List.find (fun (ty, _) ->
           match eq_lustre_type ctx main_ty ty with Ok false -> true | _ -> false
@@ -1683,16 +1694,14 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty)
     )
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
-    (* Explicit type arguments are user-written, so they must be validated
-       before they are used to instantiate the constructor's field types *)
-    let* ty_args, warnings0 =
-      R.seq (List.map (check_type_well_formed ctx Local nname false) ty_args)
-      |> R.map List.split
-    in
-    let warnings0 = List.flatten warnings0 in
     (match lookup_constructor ctx ctor with
     | None -> type_error pos (UnboundConstructor ctor)
     | Some (ty_name, field_tys) ->
+      let* ty_args, warnings0 =
+        match ty_args with
+        | [] -> R.ok ([], [])
+        | _ :: _ -> check_instantiated_ty_args ctx nname pos ty_name ty_args
+      in
       if List.length args <> List.length field_tys then
         type_error pos (ConstructorArityMismatch (ctor, List.length field_tys, List.length args))
       else
@@ -2245,6 +2254,9 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
             R.ok (LA.NodeConstDecl (p, FreeConst (p2, id, ty)), warnings)
           | LA.NodeConstDecl (_, UntypedConst (_, _, _)) -> assert false  
         ) ldecls) |> R.map List.split in 
+        (* Rebuild the context from the checked declarations: the equations are
+           compared against these types, so they must be the annotated ones *)
+        let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         Debug.parse "Local Typing Context with local state: {%a}" pp_print_tc_context local_ctx;
         (* Type check the node items now that we have all the local typing context *)
         let* items, warnings2 = R.seq (List.map (do_item local_ctx node_name) items) |> R.map List.split in
@@ -2708,8 +2720,9 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
     let ctx' = add_ty_syn ctx i (LA.AbstractType (pos, i)) in
     R.ok (LA.FreeType (pos, i), add_ty_decl ctx' i)
 
-and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (tc_context * [> warning] list, [> error]) result
-  = fun pos ctx (node_id, _, _, ps, ip, op, _, _, _) is_func ->
+and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool
+                         -> (LA.node_decl * tc_context * [> warning] list, [> error]) result
+  = fun pos ctx (node_id, is_extern, opacity, ps, ip, op, ldecls, items, contract) is_func ->
   Debug.parse
     "Extracting type of node declaration: %a"
     NI.pp_print_node_id_user_name node_id
@@ -2719,9 +2732,9 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (
   else 
     let ctx = add_node_param_attr ctx node_id ip in
     let ctx = add_ty_vars_node ctx node_id ps in
-    let* fun_ty, warnings = build_node_fun_ty pos ctx node_id ps ip op in
+    let* fun_ty, ip, op, warnings = build_node_fun_ty pos ctx node_id ps ip op in
     let ctx = add_ty_node ctx node_id fun_ty is_func in 
-    R.ok (ctx, warnings)
+    R.ok ((node_id, is_extern, opacity, ps, ip, op, ldecls, items, contract), ctx, warnings)
 (** computes the type signature of node or a function and its node summary*)
 
 and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (eqns, ctx, warnings) =
@@ -2791,7 +2804,7 @@ and extract_exports: NI.t -> tc_context -> LA.contract -> (tc_context * [> warni
                  
 and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
                                   -> LA.contract_node_decl
-                                  -> (tc_context * [> warning] list, [> error]) result
+                                  -> (LA.contract_node_decl * tc_context * [> warning] list, [> error]) result
   = fun pos ctx (cname, params, inputs, outputs, contract) ->
   Debug.parse
     "Extracting type of contract declaration: %a"
@@ -2800,10 +2813,10 @@ and tc_ctx_of_contract_node_decl: Lib.position -> tc_context
     then type_error pos (Redeclaration (NI.get_user_name cname))
     else  
       let ctx = add_ty_vars_contract ctx cname params in
-      let* fun_ty, warnings1 = build_node_fun_ty pos ctx cname params inputs outputs in
+      let* fun_ty, inputs, outputs, warnings1 = build_node_fun_ty pos ctx cname params inputs outputs in
       let* export_ctx, warnings2 = extract_exports cname ctx contract in  
       let ctx = add_ty_contract (union ctx export_ctx) cname fun_ty in
-      R.ok (ctx, warnings1 @ warnings2)
+      R.ok ((cname, params, inputs, outputs, contract), ctx, warnings1 @ warnings2)
 
 and tc_ctx_of_declaration: (LA.t * tc_context * [> warning] list) -> LA.declaration -> (LA.t * tc_context * [> warning] list, [> error]) result
     = fun (decls, ctx', warnings) ->
@@ -2811,14 +2824,14 @@ and tc_ctx_of_declaration: (LA.t * tc_context * [> warning] list) -> LA.declarat
     | LA.ConstDecl (s, const_decl) -> 
       let* const_decl, ctx, warnings = tc_ctx_const_decl ctx' Global None const_decl in 
       R.ok (decls @ [LA.ConstDecl (s, const_decl)], ctx, warnings)
-    | LA.NodeDecl ({LA.start_pos=pos}, node_decl) as decl -> 
-      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl false in 
-      R.ok (decls @ [decl], ctx, warnings)
-    | LA.FuncDecl ({LA.start_pos=pos}, node_decl, _) as decl ->
-      let* ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl true in 
-      R.ok (decls @ [decl], ctx, warnings)
+    | LA.NodeDecl (({LA.start_pos=pos} as s), node_decl) -> 
+      let* node_decl, ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl false in 
+      R.ok (decls @ [LA.NodeDecl (s, node_decl)], ctx, warnings)
+    | LA.FuncDecl (({LA.start_pos=pos} as s), node_decl, attrs) ->
+      let* node_decl, ctx, warnings = tc_ctx_of_node_decl pos ctx' node_decl true in 
+      R.ok (decls @ [LA.FuncDecl (s, node_decl, attrs)], ctx, warnings)
     | LA.ContractNodeDecl ({LA.start_pos=pos} as s, contract_decl) ->
-      let* ctx, warnings = tc_ctx_of_contract_node_decl pos ctx' contract_decl in 
+      let* contract_decl, ctx, warnings = tc_ctx_of_contract_node_decl pos ctx' contract_decl in 
       R.ok (decls @ [LA.ContractNodeDecl (s, contract_decl)], ctx, warnings)
     | decl -> R.ok (decls @ [decl], ctx', warnings)
 
@@ -2938,9 +2951,12 @@ and check_no_index_access ctx nname ty e =
   | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
+(* Returns the checked size expression: an array size is an expression like any
+   other, and the passes that read it back need it type annotated *)
 and check_array_size_expr ctx nname ty e =
-  check_const_integer_expr ctx nname "array size expression" e >> 
-  check_no_index_access ctx nname ty e
+  let* e, warnings = check_const_integer_expr ctx nname "array size expression" e in
+  check_no_index_access ctx nname ty e >>
+  R.ok (e, warnings)
 
 (* Disallow assumptions on current values of output variables.
    'nname' is optional because the refinement type may not be in the 
@@ -3065,6 +3081,25 @@ and expr_contains_set_binop ctx ni expr =
   | LA.AbstractSymConst _ -> assert false 
   | LA.ADTTester (_, e, _) -> r e
 
+and check_instantiated_ty_args: tc_context -> NI.t option -> Lib.position -> HString.t
+  -> tc_type list -> (tc_type list * [> warning] list, [> error]) result
+  = fun ctx nname pos name ty_args ->
+  (* An argument is held to the rules of the position it lands in, so it is checked
+     as the instantiated type; warnings come from the arguments alone, since the
+     instantiated form also revisits the named type's own declaration *)
+  let* ty =
+    check_type_well_formed ctx Local nname false (LA.UserType (pos, ty_args, name))
+    |> R.map fst
+  in
+  match ty with
+  | LA.UserType (_, ty_args, _) ->
+    let* warnings =
+      R.seq (List.map (check_type_well_formed ctx Local nname false) ty_args)
+      |> R.map (List.concat_map snd)
+    in
+    R.ok (ty_args, warnings)
+  | _ -> assert false
+
 and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_type -> (tc_type * [> warning] list, [> error]) result
   = fun ctx src nname is_const ty ->
   let rec check_type_well_formed_rec is_nested ty' = 
@@ -3101,9 +3136,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       ) idTys) |> R.map List.split) in 
       R.ok (LA.RecordType (p, id, idTys), List.flatten warnings)
     | LA.ArrayType (p, (b_ty, s)) -> (
-      let* _ = check_array_size_expr ctx nname ty' s in
-      let* b_ty, warnings = check_type_well_formed_rec true b_ty in 
-      R.ok (LA.ArrayType (p, (b_ty, s)), warnings)
+      let* s, warnings1 = check_array_size_expr ctx nname ty' s in
+      let* b_ty, warnings2 = check_type_well_formed_rec true b_ty in 
+      R.ok (LA.ArrayType (p, (b_ty, s)), warnings1 @ warnings2)
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
@@ -3131,6 +3166,35 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       in 
       R.ok (LA.GroupType (p, tys), List.flatten warnings)
     | LA.UserType (pos, ty_args, i) ->
+      let check_ty_args nested args =
+        let* args, warnings =
+          R.seq (List.map (check_type_well_formed_rec nested) args) |> R.map List.split
+        in
+        R.ok (args, List.flatten warnings)
+      in
+      (* Type arguments are types in their own right: the expressions they embed are
+         checked nowhere else *)
+      let* lenient_ty_args, lenient_warnings = check_ty_args false ty_args in
+      let arg_nested =
+        if member_ty_syn ctx i || member_u_types ctx i then (
+          let ty_vars =
+            match lookup_ty_ty_vars ctx i with Some ps -> ps | None -> []
+          in
+          if List.length ty_vars <> List.length lenient_ty_args then false
+          else
+            match expand_type_syn ctx (LA.UserType (pos, lenient_ty_args, i)) with
+            | LA.ADT _ | LA.UserType _ -> true
+            | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+            | LA.EnumType _ | LA.AbstractType _ | LA.RecordType _ | LA.TupleType _
+            | LA.GroupType _ | LA.ArrayType _ | LA.TArr _ | LA.Map _ | LA.Set _
+            | LA.History _ | LA.RefinementType _ -> false
+        ) else false
+      in
+      let* ty_args, warnings0 =
+        if arg_nested then check_ty_args true ty_args
+        else R.ok (lenient_ty_args, lenient_warnings)
+      in
+      let ty' = LA.UserType (pos, ty_args, i) in
       if (member_ty_syn ctx i || member_u_types ctx i)
       then (
         (* Check that we are passing the correct number of type arguments *)
@@ -3138,11 +3202,14 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         let expanded = expand_type_syn ctx ty' in
         match expanded with
         | LA.ADT _ (* Already validated at declaration *)
-        | LA.UserType _ -> R.ok (ty', [])  
+        | LA.UserType _ -> R.ok (ty', warnings0)  
         | _ ->
           (* Validate the expanded form,
              but don't substitute in the expanded UserType *)
           let* _, warnings = check_type_well_formed_rec is_nested expanded in
+          (* The expanded form re-reports an argument's warnings once per mention
+             of the parameter, so a parameter mentioned twice reports them twice
+             and a phantom one loses them; warnings0 is dropped, not reconciled *)
           R.ok (ty', warnings)
       ) else (
         match nname with 
@@ -3152,7 +3219,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           | Some ty_vars, _ 
           | _, Some ty_vars -> 
             if (List.mem i ty_vars) 
-            then R.ok (ty', [])
+            then R.ok (ty', warnings0)
             else type_error pos (UndeclaredType i)
           | None, None -> 
             type_error pos (UndeclaredType i)
@@ -3286,7 +3353,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
        
 and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
                        -> LA.const_clocked_typed_decl list
-                       -> LA.clocked_typed_decl list -> (tc_type * [> warning] list, [> error]) result
+                       -> LA.clocked_typed_decl list
+                       -> (tc_type * LA.const_clocked_typed_decl list
+                           * LA.clocked_typed_decl list * [> warning] list, [> error]) result
   = fun pos ctx nname params args rets ->
   let fun_ty_vars_ctx =
     List.fold_left (fun acc p ->
@@ -3297,13 +3366,23 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
                         fun_ty_vars_ctx (List.filter LH.is_const_arg args |> List.map LH.extract_ip_ty) in
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_const_ctx (List.map LH.extract_ip_ty args) in   
   let fun_ctx = List.fold_left (fun ctx (i, ty)-> add_ty ctx i ty) fun_ctx (List.map LH.extract_op_ty rets) in 
+  (* Interface types are checked one at a time rather than as the group types
+     built from them, so that the checked types (the ones whose expressions the
+     type checker has annotated) can be returned to the declaration *)
+  let* rets, warnings1 = R.seq (List.map (fun (p, i, ty, cl) ->
+    let* ty, warnings = check_type_well_formed fun_ctx Output (Some nname) false ty in
+    R.ok ((p, i, ty, cl), warnings)) rets) |> R.map List.split
+  in
+  let* args, warnings2 = R.seq (List.map (fun (p, i, ty, cl, is_const) ->
+    let* ty, warnings = check_type_well_formed fun_ctx Input (Some nname) false ty in
+    R.ok ((p, i, ty, cl, is_const), warnings)) args) |> R.map List.split
+  in
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
   let ips = List.map snd (List.map LH.extract_ip_ty args) in
   let ret_ty = if List.length ops = 1 then List.hd ops else LA.GroupType (pos, ops) in
   let arg_ty = if List.length ips = 1 then List.hd ips else LA.GroupType (pos, ips) in
-  let* ret_ty, warnings1 = check_type_well_formed fun_ctx Output (Some nname) false ret_ty in
-  let* arg_ty, warnings2 = check_type_well_formed fun_ctx Input (Some nname) false arg_ty in
-  R.ok (LA.TArr (pos, arg_ty, ret_ty), warnings1 @ warnings2)
+  R.ok (LA.TArr (pos, arg_ty, ret_ty), args, rets,
+        List.flatten warnings1 @ List.flatten warnings2)
 (** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
 
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result

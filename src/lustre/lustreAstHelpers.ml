@@ -2132,6 +2132,35 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt1 yt1 >>= fun t1 ->
       r (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
+    | History (_, x), History (_, y) -> Ok (HString.equal x y)
+    (* Syntactic equality, so the bound variables are compared by name rather
+       than up to renaming, as the array sizes above are compared as written *)
+    | RefinementType (_, (_, xi, xt), xe), RefinementType (_, (_, yi, yt), ye) ->
+      r (depth + 1) xt yt >>= fun t ->
+      syn_expr_equal depth_limit xe ye >>= fun e ->
+      Ok (t && e && HString.equal xi yi)
+    | Map (_, xk, xv), Map (_, yk, yv) ->
+      r (depth + 1) xk yk >>= fun k ->
+      r (depth + 1) xv yv >>= fun v ->
+      Ok (k && v)
+    | Set (_, xt), Set (_, yt) -> r (depth + 1) xt yt
+    (* The constructors carry the instantiated field types, so two
+       instantiations of the same polymorphic datatype differ only there *)
+    | ADT (_, xn, xctors), ADT (_, yn, yctors) ->
+      let t = if List.length xctors = List.length yctors then
+          List.map2 (fun (xc, xflds) (yc, yflds) ->
+            let flds = if List.length xflds = List.length yflds then
+                List.map2 (fun (xf, xt) (yf, yt) ->
+                  let* t = r (depth + 1) xt yt in
+                  Ok (t && HString.equal xf yf))
+                xflds yflds
+              else [Ok (false)]
+            in
+            join (Ok (HString.equal xc yc) :: flds))
+          xctors yctors
+        else [Ok (false)]
+      in
+      join (Ok (HString.equal xn yn) :: t)
     | _ -> Ok false
   in
   r 0 x y

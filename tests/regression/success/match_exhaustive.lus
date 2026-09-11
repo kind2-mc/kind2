@@ -1,0 +1,27 @@
+datatype L = Nil | One (v: int) | Cons (hd: int, tl: L);
+
+node size(x: L) returns (y: int);
+let
+  y = match x with
+      | Nil : 0
+      | One(v) : 1
+      | Cons(h, Nil) : 1
+      | Cons(h, One(v)) : 2
+      | Cons(h, Cons(a, b)) : 3
+      end;
+tel
+
+node covered(x: L) returns (y: int);
+let
+  y = match x with
+      | Cons(h, Nil) : 1
+      | Cons(h, t) : 2
+      | z : 0
+      end;
+tel
+
+node main(x: L) returns (ok: bool);
+let
+  ok = size(x) >= 0 and covered(x) >= 0;
+  check ok;
+tel

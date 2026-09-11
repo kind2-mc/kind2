@@ -1,0 +1,5 @@
+datatype L = Nil | One (v: int);
+const k: L = One(3);
+node N(x: int) returns (y: int);
+var a: int^(match k with | Nil : 1 end);
+let a = 0^(match k with | Nil : 1 end); y = 1; tel

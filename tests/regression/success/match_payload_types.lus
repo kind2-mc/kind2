@@ -1,0 +1,19 @@
+type Ab;
+datatype B = T | F;
+type R = struct { g: B };
+datatype W = MkW (s: set<B>, a: B^2, r: R, p: [B, B], q: Ab, b: B) | Z;
+
+node N(x: W) returns (y: int);
+let
+  y = match x with
+      | MkW(s, a, r, p, q, T) : 1
+      | MkW(s, a, r, p, q, F) : 2
+      | Z : 0
+      end;
+tel
+
+node main(x: W) returns (ok: bool);
+let
+  ok = N(x) >= 0 and N(x) <= 2;
+  check ok;
+tel
