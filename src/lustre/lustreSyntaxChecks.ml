@@ -24,6 +24,7 @@ module LAH = LustreAstHelpers
 module H = HString
 module NI = NodeId
 module Ctx = TypeCheckerContext
+module LUF = LustreUserFunctions
 
 exception Cycle (* Exception raised locally when a cycle in contract imports is detected *)
 
@@ -221,6 +222,12 @@ type context = {
   nodes : node_data StringMap.t;
   functions : node_data StringMap.t;
   lemmas : StringSet.t;
+  (* Internal names of the functions a call to which may be applied to
+     quantified variables even though it cannot be inlined, because it is
+     compiled to an application of the functional symbol of the callee (see
+     [LustreUserFunctions.uf_callable_functions]). Only filled in by
+     [no_quant_vars_in_calls_to_non_inlinable_funcs], the check that reads it *)
+  uf_callable_funcs : StringSet.t;
   contracts : contract_data StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
@@ -236,6 +243,7 @@ let empty_ctx () = {
     nodes = StringMap.empty;
     functions = StringMap.empty;
     lemmas = StringSet.empty;
+    uf_callable_funcs = StringSet.empty;
     contracts = StringMap.empty;
     free_consts = StringMap.empty;
     consts = StringMap.empty;
@@ -1548,9 +1556,19 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 
   in
+  (* Such a function cannot be inlined, but a call to it applied to quantified
+     variables is compiled to an application of its functional symbol (see
+     [LustreAstNormalizer.mk_fresh_qcall]) rather than to a node instance, so
+     quantified variables are allowed in its arguments. A symbolic array index
+     is not: only the arguments of an inlined call are given the index
+     variable itself. *)
+  let is_uf_callable =
+    StringSet.mem (NI.get_internal_name node_id) ctx.uf_callable_funcs
+  in
   let is_non_inlinable =
     not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
   in
+  let quant_vars_allowed = not is_non_inlinable || is_uf_callable in
   let vars =
     List.fold_left
       (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
@@ -1559,7 +1577,7 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   in
   let over_vars j =
     let found_quant_in_non_inlinable =
-      StringMap.mem j ctx.quant_vars && is_non_inlinable
+      StringMap.mem j ctx.quant_vars && not quant_vars_allowed
     in
     let found_symbolic_index_in_non_inlinable =
       StringMap.mem j ctx.symbolic_array_indices &&
@@ -1575,7 +1593,10 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
       Ok []
     else
       let vars = LA.SI.elements ctx.lazy_cond_vars in
-      match List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars with
+      match
+        if quant_vars_allowed then None
+        else List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars
+      with
       | Some v ->
         syntax_error pos (QuantifiedVariableInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
       | None -> (
@@ -1754,5 +1775,13 @@ let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> (
 
 let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =
   let ctx = build_global_ctx ast in
+  let ctx =
+    { ctx with
+      uf_callable_funcs =
+        LUF.uf_callable_functions tc_ctx ast
+        |> NI.Set.elements
+        |> List.map NI.get_internal_name
+        |> StringSet.of_list }
+  in
   let* warnings = Res.seq (List.map (oqv_check_decl inlinable_funcs ctx tc_ctx) ast) in
   Ok (List.flatten warnings)

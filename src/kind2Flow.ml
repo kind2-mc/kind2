@@ -1090,6 +1090,12 @@ let run in_sys =
           "Calls to nodes with partially defined outputs are not supported." ;
         false
       )
+      else if ISys.contain_call_applied_to_quant_vars in_sys top then (
+        KEvent.log L_warn
+          "Calls to functions applied to quantified variables are not \
+           supported." ;
+        false
+      )
       else if Analysis.no_system_is_abstract ~include_top:false param then (
         true
       )

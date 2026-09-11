@@ -187,6 +187,11 @@ type info = {
   interpretation : HString.t StringMap.t;
   local_group_projection : int;
   inlinable_funcs : LustreAst.node_decl NI.Map.t;
+  (* Functions that may be applied to enclosing quantified variables even
+     though they cannot be inlined, because the transition system gives their
+     outputs a functional symbol the call can be compiled to (see
+     [LustreUserFunctions.uf_callable_functions]) *)
+  uf_callable_funcs : NI.Set.t;
   (* Branch conditions of the enclosing lazy contexts: the normalized condition,
      the same condition as the user wrote it (kept for display only), and the
      'pre' nesting depth at which it was pushed. The depth lets selector proof
@@ -253,6 +258,15 @@ let pp_print_generated_identifiers ppf gids =
       (pp_print_option (pp_print_list A.pp_print_expr ",@")) defaults
       (if inlined then " %inlined" else ""))
   in
+  let pp_print_qcall = (fun ppf (qvars, output, inst, node_id, args) ->
+    Format.fprintf ppf
+      "%a = uf_call(%a,(%a))[forall %a][instance %a]"
+      HString.pp_print_hstring output
+      NI.pp_print_node_id_internal_name node_id
+      (pp_print_list A.pp_print_expr ",@ ") args
+      (pp_print_list A.pp_print_typed_ident ",@ ") qvars
+      HString.pp_print_hstring inst)
+  in
   let pp_print_source ppf source = Format.fprintf ppf (match source with
     | Local -> "local"
     | Input -> "input"
@@ -309,12 +323,13 @@ let pp_print_generated_identifiers ppf gids =
     A.pp_print_expr expr1 
     A.pp_print_expr expr2
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
     (pp_print_list pp_print_local "\n") locals_list
     (pp_print_list pp_print_call "\n") gids.calls
+    (pp_print_list pp_print_qcall "\n") gids.qcalls
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
     (pp_print_list pp_print_selector_obligation "\n") gids.selector_obligations
     (pp_print_list pp_print_empty_map "\n") gids.empty_maps
@@ -1112,7 +1127,7 @@ let get_inlinable_func_decls inlinable_funcs decls =
     NI.Map.empty
     decls
 
-let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
+let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst.t) gids =
   let info = { context = ctx;
     inductive_variables = StringMap.empty;
     quantified_variables = [];
@@ -1123,6 +1138,7 @@ let rec normalize adt_map ctx inlinable_funcs (decls:LustreAst.t) gids =
     interpretation = StringMap.empty;
     local_group_projection = -1;
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
+    uf_callable_funcs;
     call_context = [];
     value_context = [];
     pre_depth = 0;
@@ -2187,7 +2203,23 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let call = (pos, name, cond, restart, call_ctx, id, args, defaults, inlined) in
   let gids2 = { (empty ()) with calls = [call] } in
-  nexpr, union gids1 gids2
+  nexpr, name, union gids1 gids2
+
+(* Abstract a call that is applied to enclosing quantified variables to a fresh
+   name, and record it as a [qcall] so that [LustreNodeGen] binds the name to
+   an application of the functional symbol of the callee *)
+and mk_fresh_qcall info (id : NI.t) inst_name pos args =
+  i := !i + 1;
+  let prefix = HString.mk_hstring (string_of_int !i) in
+  let name = HString.concat2 prefix (HString.mk_hstring "_call") in
+  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
+    else HString.concat2
+      (HString.mk_hstring (string_of_int info.local_group_projection))
+      (HString.mk_hstring "proj_")
+  in
+  let nexpr = A.Ident (pos, HString.concat2 proj name) in
+  let qcall = (info.quantified_variables, name, inst_name, id, args) in
+  nexpr, { (empty ()) with qcalls = [qcall] }
 
 and expand_node_call info node_id expr var count =
   let ty = infer_type info node_id expr in
@@ -2274,8 +2306,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   | Call (pos, _, id, args) ->
     let is_inlinable = NI.Map.mem id info.inlinable_funcs in
+    (* A call that cannot be inlined but can be applied to quantified
+       variables through the functional symbol of the callee *)
+    let is_uf_callable =
+      not is_inlinable && NI.Set.mem id info.uf_callable_funcs
+    in
     let info, vmap, gids0 =
-      if is_inlinable then (* Only generate variables if inlinable *)
+      if is_inlinable || is_uf_callable then
+        (* Only generate variables if the call can be inlined or compiled to
+           an application of the functional symbol of the callee *)
         let args_vars =
           List.fold_left
             (fun acc e -> A.SI.union acc (AH.vars_without_node_call_ids e))
@@ -2285,6 +2324,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         let ind_vars = List.map 
           (fun (v, (_, _, ind_ty, _)) -> (Lib.dummy_pos, v, ind_ty))
           (StringMap.bindings info.inductive_variables)
+        in
+        (* The index variable of an array equation is not a quantified
+           variable of the transition system: a call applied to one is
+           compiled as it always was, one instance per equation *)
+        let vars =
+          if is_uf_callable then info.quantified_variables
+          else info.quantified_variables @ ind_vars
         in
         List.fold_left
           (fun (info, vmap, gids) (pos_v, v, ty) ->
@@ -2301,7 +2347,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
               (info, vmap, gids)
           )
           (info, [], (empty ()))
-          (info.quantified_variables @ ind_vars)
+          vars
       else
         (info, [], empty())
     in
@@ -2320,7 +2366,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
         (combine_args_with_const info args flags)
       in
-      let nexpr, gids2 =
+      let nexpr, call_name, gids2 =
         mk_fresh_call ~vmap info id map pos cond restart nargs None
       in
       let gids2 = 
@@ -2330,7 +2376,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         else
           gids2
       in
-      nexpr, union gids1 gids2, warnings
+      nexpr, call_name, union gids1 gids2, warnings
     in
     (* Once a call is inlined, we inline the remaining calls in the body of
      * the inlined function as well. Otherwise, calls inside the inlined
@@ -2346,8 +2392,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       List.exists (fun (e, _, _) -> has_quant_vars e) info.call_context
     in
     let should_inline =
-      vmap <> [] || info.inlined_expr_ctx ||
-      (is_inlinable && call_context_has_quantified_vars)
+      is_inlinable &&
+      (vmap <> [] || info.inlined_expr_ctx || call_context_has_quantified_vars)
     in
     if should_inline
     then (
@@ -2367,12 +2413,24 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         let args =
           List.map (fun a -> AH.apply_subst_in_expr vmap a) args
         in
-        let _, gids3, warnings3 = handle_call vmap args in
+        let _, _, gids3, warnings3 = handle_call vmap args in
         nexpr, union_list [gids0; gids1; gids2; gids3],
         warnings1 @ warnings2 @ warnings3
     )
+    else if vmap <> [] then (
+      assert (is_uf_callable);
+      (* The call is compiled to an application of the functional symbol of
+         the callee. The node instance is kept, with free constants in place
+         of the quantified variables, so that the callee remains a subsystem
+         of the caller and its functional symbol is declared (or defined) *)
+      let subst_args = List.map (fun a -> AH.apply_subst_in_expr vmap a) args in
+      let _, inst_name, gids1, warnings1 = handle_call vmap subst_args in
+      let nexpr, gids2 = mk_fresh_qcall info id inst_name pos args in
+      nexpr, union_list [gids0; gids1; gids2], warnings1
+    )
     else (
-      handle_call vmap args
+      let nexpr, _, gids, warnings = handle_call vmap args in
+      nexpr, gids, warnings
     )
   | Condact (pos, cond, restart, id, args, defaults) ->
     let flags = NI.Map.find id info.node_is_input_const in
@@ -2385,7 +2443,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
+    let nexpr, _, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
@@ -2398,7 +2456,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
+    let nexpr, _, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
@@ -2413,7 +2471,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
+        let nexpr, _, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
@@ -2429,7 +2487,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
+        let nexpr, _, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         let warnings = warnings1 @ warnings2 in
         (clock_value, nexpr), gids, warnings

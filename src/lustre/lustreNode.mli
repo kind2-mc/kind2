@@ -111,6 +111,26 @@ type node_call = {
   call_inlined : bool;
   (** Whether this call was inlined or not *)
 
+  call_uf_applied : bool;
+  (** Whether this call is the instance retained for a call that was compiled
+      to an application of the functional symbol of the callee (a call applied
+      to quantified variables, see {!GeneratedIdentifiers.t.qcalls}).
+
+      The terms of the caller apply that symbol, and the instance is what makes
+      the callee a subsystem of the caller, which is what gets the symbol
+      declared and its definition emitted. It must therefore survive slicing
+      whatever the property being checked ({!LustreSlicing.roots_of_inlined_calls}).
+      Nothing else can stand in for it: slicing prunes the model by call
+      reachability ([LustreNode.subsystem_of_nodes] follows calls), so dropping
+      the last call to the callee drops the callee itself, and by the time the
+      transition system is built there is no node left to read a declaration or
+      a definition from.
+
+      The instance says nothing of its own -- its arguments are free constants
+      standing for the quantified variables and nothing reads its outputs -- so
+      it is left out of counterexamples, except for a property that comes from
+      it (see {!LustreSlicing.keep_inline_call} and {!LustrePath}). *)
+
   call_rec_decrease_expr : string option;
   (** Source-level rendering of the decrease constraint generated for a
       recursive call (e.g. ["(n - 1 < n)"]), used as the displayed expression
@@ -424,8 +444,12 @@ val scope_of_node : t -> Scope.t
 
     The systems are presented in topological order such that each system is
     presented to [f] after all its subsystem instances have been presented.
+
+    [keep_call] selects the node calls to descend into; a call it rejects is
+    left out along with everything below it. It defaults to keeping every call.
 *)
 val fold_node_calls_with_trans_sys :
+  ?keep_call:(node_call -> bool) ->
   t list -> (
     t -> TransSys.t ->
     (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a

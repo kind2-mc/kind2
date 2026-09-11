@@ -20,8 +20,13 @@
 
     @author Kevin Clancy, Christoph Sticksel *)
 
-(** Output a counterexample as a Lustre execution in XML format *)
+(** Output a counterexample as a Lustre execution in XML format.
+
+    [prop_name] names the property the counterexample belongs to, if any. A
+    node instance whose outputs are dead is only shown for a property that
+    comes from it (see {!LustreSlicing.keep_inline_call}). *)
 val pp_print_path_xml :
+  ?prop_name:string ->
   TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
@@ -30,12 +35,15 @@ val pp_print_path_xml :
     pre-processing reverted *)
 val pp_print_path_pt :
   ?full_contract:bool -> 
+  ?prop_name:string ->
   TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit
 
-(** Output a counterexample as a Lustre execution in JSON format *)
+(** Output a counterexample as a Lustre execution in JSON format. See
+    {!pp_print_path_xml} for [prop_name]. *)
 val pp_print_path_json :
+  ?prop_name:string ->
   TransSys.t ->
   LustreGlobals.t -> LustreNode.t SubSystem.t -> bool ->
   Format.formatter -> Model.path -> unit

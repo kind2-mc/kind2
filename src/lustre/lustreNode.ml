@@ -136,6 +136,10 @@ type node_call = {
   (* Whether this call was inlined or not *)
   call_inlined : bool;
 
+  (* Whether this call is the instance retained for a call compiled to an
+     application of the functional symbol of the callee (see LustreNode.mli) *)
+  call_uf_applied : bool;
+
   (* Source-level rendering of the decrease constraint generated for a
      recursive call (e.g. "(n - 1 < n)"), used as the displayed expression of
      the corresponding decrease_check property. [None] for non-recursive calls
@@ -1162,6 +1166,7 @@ type fold_stack =
 
 let rec fold_node_calls_with_trans_sys' 
     nodes
+    keep_call
     (f : t -> TransSys.t ->
      (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a)
     accum = 
@@ -1185,7 +1190,11 @@ let rec fold_node_calls_with_trans_sys'
 
       let tl' =
         List.fold_left
-          (fun a { call_pos; call_node_id; call_cond; call_defaults } ->
+          (fun a ({ call_pos; call_node_id; call_cond; call_defaults } as call) ->
+
+             (* Calls the caller is not interested in are left out, along with
+                everything below them *)
+             if not (keep_call call) then a else
 
              (* Find subsystem of this node by name, and the instance of this
                 node call by position.
@@ -1237,6 +1246,7 @@ let rec fold_node_calls_with_trans_sys'
 
       fold_node_calls_with_trans_sys'
         nodes
+        keep_call
         f 
         ([] :: accum)
         tl'
@@ -1249,6 +1259,7 @@ let rec fold_node_calls_with_trans_sys'
           
           fold_node_calls_with_trans_sys' 
             nodes
+            keep_call
             f
             (((f n t i a) :: b) :: c) 
             tl
@@ -1259,9 +1270,10 @@ let rec fold_node_calls_with_trans_sys'
 
 
 
-let fold_node_calls_with_trans_sys nodes f node trans_sys =
+let fold_node_calls_with_trans_sys ?(keep_call = fun _ -> true) nodes f node trans_sys =
 
-  fold_node_calls_with_trans_sys' nodes f [[]] [FDown (node, trans_sys, [])]
+  fold_node_calls_with_trans_sys'
+    nodes keep_call f [[]] [FDown (node, trans_sys, [])]
 
 
 (* ********************************************************************** *)

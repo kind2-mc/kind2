@@ -1969,7 +1969,7 @@ and compile_ast_expr
     let ctor_str = HString.string_of_hstring ctor in
     X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
-and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
+and compile_node_call ?(uf_applied=false) node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
   let called_node_oracles =
     try
@@ -2088,6 +2088,7 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
     N.call_outputs = outputs;
     N.call_defaults = defaults;
     N.call_inlined = inlined;
+    N.call_uf_applied = uf_applied;
     N.call_rec_decrease_expr = None;
     N.call_ties = ties;
   }
@@ -2742,6 +2743,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
+    (* The instances retained for the calls compiled to an application of the
+       functional symbol of the callee (see below) *)
+    let uf_applied_instances =
+      List.fold_left
+        (fun acc (_, _, inst_name, _, _) -> GI.StringSet.add inst_name acc)
+        GI.StringSet.empty gids.GI.qcalls
+    in
     let over_calls =
       fun (calls, glocals) (pos, var, cond, restart, call_ctx, node_id, args, defaults, inlined)
     ->
@@ -2790,7 +2798,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let ties =
         try List.assoc var call_ties_by_var with Not_found -> []
       in
-      let node_call = compile_node_call
+      let uf_applied = GI.StringSet.mem var uf_applied_instances in
+      let node_call = compile_node_call ~uf_applied
         node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties
       in
       (* For a (possibly mutually) recursive call, i.e. a call to a function in
@@ -2824,6 +2833,52 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       node_call :: calls, glocals' @ glocals
     in
     List.fold_left over_calls ([], glocals) gids.calls
+  (* ****************************************************************** *)
+  (* Calls Applied to Quantified Variables                              *)
+  (* ****************************************************************** *)
+  (* A call applied to variables bound by an enclosing quantifier is not
+     compiled to a node instance but to an application of the functional
+     symbol of the callee (the instance the call also generates, with free
+     constants in place of the quantified variables, is in [gids.calls]).
+     Bind the name the call was abstracted to (see [mk_fresh_qcall]) to that
+     application, so that the expressions referring to the name, compiled
+     below, pick it up. *)
+  in let () =
+    gids.GI.qcalls |> List.iter (fun (qvars, var, _, callee_id, args) ->
+      let callee_inputs, callee_outputs, _ =
+        NI.Map.find callee_id cstate.node_io
+      in
+      let uf_symbols =
+        create_uf_symbols callee_id callee_inputs callee_outputs
+      in
+      (* The quantified variables are free variables of the arguments, and are
+         the very ones the enclosing quantifier binds: [vars_of_quant] names
+         them after the variable they stand for, and free variables are
+         hashconsed by name *)
+      let vars, quant_var_map = vars_of_quant cstate ctx map qvars in
+      let bounds =
+        List.map
+          (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
+          vars
+      in
+      let quant_vars = H.to_seq quant_var_map in
+      H.add_seq !map.quant_vars quant_vars;
+      let uf_args =
+        A.GroupExpr (dummy_pos, A.ExprList, args)
+        |> compile_ast_expr cstate ctx bounds map
+        |> flatten_list_indexes
+        |> X.values
+      in
+      Seq.iter (fun (id, _) -> H.remove !map.quant_vars id) quant_vars;
+      let app =
+        callee_outputs |> X.map (fun output ->
+          match SVM.find_opt output uf_symbols with
+          | Some uf -> E.mk_app uf uf_args
+          | None -> assert false
+        )
+      in
+      H.replace !map.expr (mk_ident var) app
+    )
   (* ****************************************************************** *)
   (* Add Propagated Oracles                                             *)
   (* ****************************************************************** *)
