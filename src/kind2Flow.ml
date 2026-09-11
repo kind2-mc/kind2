@@ -1090,21 +1090,7 @@ let run in_sys =
           "Calls to nodes with partially defined outputs are not supported." ;
         false
       )
-      else if
-        (* A call applied to quantified variables is compiled to an application
-           of the functional symbol of the callee (see
-           [GeneratedIdentifiers.t.qcalls]), and the instance the call retains
-           is what carries that symbol. The check rests on quantifier
-           elimination, which does not take an uninterpreted function, and this
-           analysis does not give the symbol a definition either
-           ([add_functional_constraints] is off below), so there is nothing to
-           interpret it with. *)
-        ISys.retrieve_lustre_nodes_of_scope in_sys top
-        |> List.exists
-          (fun { LustreNode.calls } ->
-            calls |> List.exists
-              (fun { LustreNode.call_uf_applied } -> call_uf_applied))
-      then (
+      else if ISys.contain_call_applied_to_quant_vars in_sys top then (
         KEvent.log L_warn
           "Calls to functions applied to quantified variables are not \
            supported." ;

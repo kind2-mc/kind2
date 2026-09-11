@@ -204,6 +204,20 @@ module RunAssumptionGen: PostAnalysis = struct
   let run in_sys param analyze results =
     let top = (Analysis.info_of_param param).Analysis.top in
     last_result in_sys results top
+    |> Res.chain (fun res ->
+      (* The system is built without functional constraints below, so a call
+         applied to quantified variables has no symbol to be interpreted with;
+         the generalization rests on quantifier elimination besides, which does
+         not take an uninterpreted function *)
+      if ISys.contain_call_applied_to_quant_vars in_sys top then
+        error (
+          fun fmt ->
+            Format.fprintf fmt
+              "Call applied to quantified variables detected, \
+               assumption generation disabled."
+        )
+      else Ok res
+    )
     |> Res.chain (fun { Analysis.sys } ->
       (* Check all properties are valid. *)
       let valid, invalid, unknown = TSys.get_split_properties sys in

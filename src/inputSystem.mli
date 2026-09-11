@@ -125,6 +125,13 @@ val retrieve_lustre_nodes_of_scope : _ t -> Scope.t -> LustreNode.t list
 
 val contain_partially_defined_system : _ t -> Scope.t -> bool
 
+(** [true] if the model has a call applied to quantified variables, which is
+    compiled to an application of the functional symbol of the callee rather
+    than to an instance of it (see {!GeneratedIdentifiers.t.qcalls}). The
+    analyses that build their system without functional constraints have
+    nothing to interpret such a call with, and decline a model that has one. *)
+val contain_call_applied_to_quant_vars : _ t -> Scope.t -> bool
+
 (** Return the lustre node associated to the given scope, or
    [None] if there is no lustre node associated to that scope *)
 val get_lustre_node : _ t -> Scope.t -> LustreNode.t option

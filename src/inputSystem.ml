@@ -429,6 +429,23 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
 
+(* A call applied to quantified variables is compiled to an application of the
+   functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]) rather
+   than to an instance of it. The analyses that build their system without
+   functional constraints neither declare that symbol nor give it a definition,
+   and they rest on quantifier elimination, which does not take an
+   uninterpreted function: they have nothing to interpret such a call with. *)
+let contain_call_applied_to_quant_vars (type s) (in_sys : s t) (top : Scope.t) =
+  match in_sys with
+  | Lustre _ -> (
+    retrieve_lustre_nodes_of_scope in_sys top
+    |> List.exists (fun { N.calls } ->
+         List.exists (fun { N.call_uf_applied } -> call_uf_applied) calls)
+  )
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Native"
+
 let get_lustre_node (type s) (input_system : s t) scope =
   match input_system with
   | Lustre (main_subs, _, _) -> (
