@@ -2893,7 +2893,27 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
               (*Want to be in else branch with new interpreter param mode*)
-              match analysis_param, (reached_limit || A.param_scope_is_abstract analysis_param scope) with
+
+              (* The contract of a function defined at the SMT level is never
+                 assumed in place of its body, at the recursion cutoff or
+                 anywhere else: its functional symbols already have a
+                 definition, which says exactly what the function is, so
+                 assuming its guarantees on top of it adds nothing when they
+                 hold of that definition and contradicts it when they do not.
+                 An inconsistent transition system makes every property
+                 vacuously valid, the guarantees themselves included.
+
+                 A transparent function is therefore verified from its body
+                 alone: its guarantees stay proof obligations at every
+                 instance, without the inductive hypothesis the contract
+                 abstraction provides, and one that needs induction over the
+                 recursion is better left to a lemma. *)
+              let use_contract_as_abstraction =
+                (reached_limit || A.param_scope_is_abstract analysis_param scope)
+                && not is_defined
+              in
+
+              match analysis_param, use_contract_as_abstraction with
               | A.ContractMonitor _, _ 
               | _, false ->  
                 (*First is assertions, second are proof obligations, want contract to go in proof obligation*)

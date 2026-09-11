@@ -46,8 +46,11 @@
     body is a total function of its inputs, without assertions, oracles,
     array-typed variables or calls to nodes, and the same holds for the
     functions it inlines. Definitions are only produced for the solvers that
-    support them (Z3 and cvc5), and can be turned off with
-    [--define_fun_rec false]. *)
+    support them (Z3 and cvc5) and when no logic is set with [--smt_logic],
+    and can be turned off with [--define_fun_rec false].
+
+    A defined function's contract, if it has one, is never assumed in place
+    of its body: see [LustreTransSys]. *)
 
 (** A function definition: the symbol, its formal parameters and its body *)
 type def = UfSymbol.t * Var.t list * Term.t
@@ -62,8 +65,8 @@ type t
 val empty : t
 
 (** [true] iff recursive functions are to be defined at the SMT level: the
-    option is on and the SMT solver supports recursive function
-    definitions. *)
+    option is on, the SMT solver supports recursive function definitions,
+    and the logic is inferred from the system rather than set explicitly. *)
 val enabled : unit -> bool
 
 (** Compute the definitions of the recursive functions of the given nodes.

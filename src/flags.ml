@@ -330,8 +330,8 @@ module Smt = struct
           or mode, explicit or through refinement types), or that is@ \
           transparent, with an SMT-LIB recursive function definition@ \
           (define-funs-rec) instead of abstracting its recursive calls@ \
-          by its contract. Only with the Z3 and cvc5 solvers; ignored@ \
-          with the others@ \
+          by its contract. Only with the Z3 and cvc5 solvers, and only@ \
+          when the logic is inferred; ignored otherwise@ \
           Default: %a\
         @]"
       fmt_bool define_fun_rec_default

@@ -919,16 +919,29 @@ assumptions and input types do not count, they are obligations of the callers)
 or is declared `transparent`, Kind 2 additionally defines the function at the
 SMT level with an SMT-LIB `define-funs-rec` command built from the body of the
 function, and lets the solver unfold that definition. For the contract-less
-`Fact` above, `Fact(4) = 24` is then proved directly, and a `transparent`
-function keeps both its definition and its contract. In the definition, each
+`Fact` above, `Fact(4) = 24` is then proved directly. In the definition, each
 recursive call is guarded by its termination checks, so the definition is
 well-founded whether or not the measure actually decreases and cannot make the
 analysis inconsistent; the termination checks are still verified as properties.
 Every function of a mutually recursive group is defined this way, or none is.
 
+A defined function's contract, if it has one, is never assumed in place of its
+body. A definition says exactly what the function is, so assuming its
+guarantees on top of it would add nothing when they hold of the definition and
+contradict it when they do not, and an inconsistent analysis reports every
+property as valid, the guarantees included. A `transparent` recursive function
+is therefore verified from its body alone: its guarantees remain proof
+obligations at every instance, and they do not serve as the induction
+hypothesis of the recursion. A guarantee that needs induction over the
+recursion to hold for every input will no longer be proved; drop the
+`transparent` modifier to get the contract-based encoding back.
+
 This encoding is only used with the Z3 and cvc5 solvers, which support
 recursive function definitions, and can be turned off with
-`--define_fun_rec false`. The IC3IA engine turns itself off on a system that
+`--define_fun_rec false`. It is also left out when a logic is given with
+`--smt_logic`, since the solvers accept recursive definitions under very few
+of the named SMT-LIB logics, and since the options they need in order to
+handle the definitions are selected from the inferred logic. The IC3IA engine turns itself off on a system that
 contains such a definition, as the interpolating solvers do not support them
 (this is in addition to the IC3QE engine, which turns itself off on any
 system with a function, see below). It is not used for a function whose body is not a

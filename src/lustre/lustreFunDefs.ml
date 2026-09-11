@@ -42,10 +42,22 @@ type t = node_defs NI.Map.t
 let empty = NI.Map.empty
 
 let enabled () =
-  Flags.Smt.define_fun_rec () &&
+  Flags.Smt.define_fun_rec ()
+  &&
+  (* Only the solvers that accept recursive function definitions *)
   (match Flags.Smt.solver () with
    | `cvc5_SMTLIB | `Z3_SMTLIB -> true
    | _ -> false)
+  &&
+  (* Only a logic inferred from the system, the default. A logic set with
+     --smt_logic is sent to the solver as it was written, and both solvers
+     refuse a recursive definition under most of the named logics (Z3 takes
+     one in UFLIA but not in UFNIA); the definitions are left out rather
+     than overriding what was asked for. It is also only an inferred logic
+     that carries the [TermLib.RF] feature, which is how the solver drivers
+     learn that the system defines recursive functions and pass the options
+     they need to handle them. *)
+  Flags.Smt.logic () = `detect
 
 let is_defined t node_id = NI.Map.mem node_id t
 
