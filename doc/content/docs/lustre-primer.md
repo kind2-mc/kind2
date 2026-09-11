@@ -13,7 +13,7 @@ Lustre is a language for modeling and implementing
 reactive systems in the synchronous model.
 It can be seen indifferently as either a declarative parallel programming language
 or as an executable specification language.
-The most basic unit of computation in a Lustre program, or model, is a **node**,
+The most basic unit of computation in a Lustre program, or mfodel, is a **node**,
 which can be viewed as a stream transformer:
 it takes streams of input and produces streams of output.
 Operationally, a node reads its input and generates its output incrementally
@@ -673,7 +673,7 @@ type Percent = subrange [0, 100] of int;
 type Pos = subrange [1, *] of int;
 ```
 
-Subranges are not merely documentation. A subrange on an input or a free
+A subrange on an input or a free
 constant is an *assumption* Kind 2 may rely on; a subrange on an output, a
 local variable, or a defined constant is a *proof obligation* Kind 2 must
 discharge. The node below type-checks, but Kind 2 falsifies the obligation on
@@ -692,8 +692,7 @@ Kind 2 reports this as a failed property named for the position of the
 offending declaration, alongside a counterexample — here, any two inputs
 summing above `100`.
 
-This assumption/obligation split is the same one that governs refinement
-types, described next; a subrange is really a special case of one.
+Subranges can be viewed as special cases of refinement types, which are discussed next.
 
 ## Refinement Types
 
@@ -844,7 +843,7 @@ the same way but with stricter semantics: a function's outputs must be a
 (i.e., *combinational*). 
 A function may not use `->`, `pre`,
 `merge`, `when`, `condact`, or `activate`, and it may only call other
-functions, never nodes. Functions are, in other words, stateless.
+functions (not nodes). Functions are, in other words, stateless.
 
 ```lustre
 function Abs(x: real) returns (y: real);
@@ -854,10 +853,7 @@ tel
 ```
 
 A function behaves as a mathematical function: the same inputs always yield the
-same outputs, whatever the timestep. This also narrows the scope of its
-contract assumptions: a function's guarantees rest on its assumptions holding
-at the current step alone, whereas a node's rest on them having held at every
-step so far.
+same outputs, whatever the timestep. 
 
 ### Imported Nodes
 
@@ -924,10 +920,9 @@ The fix is to supply the type argument explicitly (here, writing `Default@<bool>
 add one at the call site if Kind 2 
 asks for it.
 
-Type declarations take parameters in the same way, so a user-defined type can
+Type declarations can take parameters in the same way, so a user-defined type can
 be polymorphic as well. Such a type acts as a *type constructor*: applying it
-to types yields a type, which is then written `<name><...>` wherever a type is
-expected.
+to types yields a type.
 
 ```lustre
 type Pair<T; U> = [T, U];
@@ -945,20 +940,16 @@ result turns out to depend on. Both branches of `if <cond> then <e1> else <e2>`
 are evaluated at each step, and so are both operands of `and`, `or`, and `=>`.
 
 Each has a **lazy** counterpart that evaluates an operand only when the result
-depends on it:
+depends on it. For example:
 
-| Eager                    | Lazy                       | Right operand evaluated  |
+| Eager                    | Lazy                       | `e2` evaluated  |
 | ------------------------ | -------------------------- | ------------------------ |
-| `if c then e1 else e2` | `when c then e1 else e2` | only the selected branch |
+| `if c then e1 else e2` | `when c then e1 else e2` | only when `c` is false |
 | `e1 and e2`            | `e1 and then e2`         | only when`e1` is true  |
 | `e1 or e2`             | `e1 or else e2`          | only when`e1` is false |
 | `e1 => e2`             | `e1 ==> e2`              | only when`e1` is true  |
 
-Whenever the right operand *is* evaluated, each lazy operator agrees with its
-eager counterpart; the two differ only in what happens to the operand that is
-skipped.
-
-That difference is not merely a matter of efficiency.
+The main motivation for lazy operators is not efficiency.
 Consider reading a field of an algebraic datatype: the selector `x.val` carries a proof obligation that `x`
 was built with the constructor that has a `val` field.
 
@@ -997,7 +988,7 @@ end
 ```
 
 Further branches are written by nesting another `when` block inside the `else`
-branch. A `cond` block gives the same thing a flatter, pattern-matching shape,
+branch. A `cond` block is similar, 
 with any number of guarded branches and an `otherwise` clause:
 
 ```lustre
@@ -1116,9 +1107,6 @@ above, `"nonneg"` is proven invariant, while `"small"` is falsified, and Kind 2
 prints a counterexample: an input sequence, with the resulting values of every
 stream, that drives the model to a state violating the property.
 
-An older annotation syntax, `--%PROPERTY <expr>;`, is equivalent to a `check`
-statement and still accepted.
-
 ### Choosing What to Analyze
 
 By default, Kind 2 analyzes the *top nodes* of a model: those no other node
@@ -1141,7 +1129,7 @@ that many steps, `within <int>` at most that many, and `at <int>` exactly that
 many.
 
 Reachability checks are worth writing even in a model whose invariants all
-hold, because they catch a model that is accidentally over-constrained — one
+hold, because they catch a model that is accidentally over-constrained---one
 where the interesting states are simply unreachable.
 
 ### Conditional Properties
@@ -1204,9 +1192,7 @@ at the current step — the caller has no control over those — though it may
 refer to them under a `pre`.
 
 A contract may also declare **ghost variables** and constants with `var` and
-`const`. These are visible to the contract but not to the node body, which
-makes them useful for expressing specifications that need state the
-implementation does not have:
+`const`. These are visible to the contract but not to the node body:
 
 ```lustre
 con
@@ -1218,7 +1204,7 @@ noc
 ### Modes
 
 Requirements in a specification document are usually of the form "in this
-situation, behave this way". A **mode** captures that shape directly: it pairs
+situation, behave this way." A **mode** captures that shape directly: it pairs
 a set of `require` clauses (the situation) with a set of `ensure` clauses (the
 required reaction).
 
@@ -1239,8 +1225,8 @@ let
 tel
 ```
 
-A mode is equivalent to the guarantee `requires => ensures`, but naming it buys
-more than readability: Kind 2 uses modes to report *which* mode was active in a
+A mode is equivalent to the guarantee `requires => ensures`, 
+but they are useful because Kind 2 uses modes to report *which* mode was active in a
 counterexample, and it checks the set of modes for **exhaustiveness**, warning
 when the modes leave some situation unspecified. A mode can be referred to
 elsewhere in the contract by name, as in `require not ::absorbing;`.
@@ -1280,18 +1266,17 @@ hierarchy runs. Two flags change that.
 
 **Compositional** analysis, `--compositional true`, abstracts each call away by
 the callee's contract, so the analysis sees only what the contract promises
-instead of the callee's state. This is where the effort of writing contracts is
-repaid: a contract normally carries far less state than the node it specifies,
-which also drags in the state of everything *it* calls. Only calls to nodes
-whose contract has at least one guarantee or mode are abstracted.
+instead of the callee's state. 
+This can help Kind 2 reason about the system
+because the specification is likely simpler than the implementation.
 
-On its own this leaves a gap. Proving `top` correct with its callees abstracted
+However, using compositional mode, proving `top` correct with its callees abstracted
 says nothing about whether those callees honor their contracts. That is what
 **modular** analysis, `--modular true`, supplies: it analyzes every node in the
 hierarchy, bottom-up, and keeps going even when some node's properties are
 falsified.
 
-The two are meant to be used together:
+The two are often used together:
 
 ```bash
 kind2 --modular true --compositional true <file>.lus
@@ -1332,16 +1317,13 @@ con
 noc
 ```
 
-Such a contract is **unrealizable**. Realizability is a stronger question than
-consistency: it asks whether a component can be built that, *for every* input
+Such a contract is **unrealizable**. **Realizability**
+asks whether a component can be built that, *for every* input
 sequence permitted by the assumptions, produces *some* output satisfying the
-guarantees — and must do so step by step, without seeing the future.
+guarantees.
 
-This matters most for the specifications Kind 2 takes on trust. An imported
-node is replaced by its contract everywhere it is called, so an unrealizable
-contract is a false assumption that can prove anything downstream. The same
-holds for refinement types and for the predicates of `any` and `choose`
-expressions.
+Realizability checks are especially important for imported nodes and functions, 
+as there is no implementation to witness realizability. 
 
 Kind 2 performs the check when the `CONTRACTCK` engine is enabled:
 
@@ -1349,17 +1331,9 @@ Kind 2 performs the check when the `CONTRACTCK` engine is enabled:
 kind2 --enable CONTRACTCK <file>.lus
 ```
 
-It covers node and imported-node contracts, refinement types, free constants,
-and the predicates of `any` and `choose` expressions. As with property
-checking, `--lus_main <node_name>` restricts the analysis to one component,
-and `--lus_main_type` and `--lus_main_const` select an individual type or
-constant.
-
-Kind 2 also checks the realizability of a node's *environment* — that the
-assumptions themselves can be met. This is easy to overlook: assumptions that
-no input sequence can satisfy make a node's guarantees vacuous, and the
-resulting compositional argument is just as flawed as one built on an
-unrealizable guarantee. Pass `--check_environment false` to disable it.
+Kind 2 also checks the realizability of a node's *environment*---that the
+assumptions themselves can be met. Assumptions that
+no input sequence can satisfy make a node's guarantees vacuous. 
 
 When a contract is found unrealizable, `--print_deadlock` shows a trace ending
 in a state from which the contract cannot be satisfied, together with the
@@ -1373,9 +1347,7 @@ for the remaining options.
 For more examples, see the Kind 2 web application at
 [https://kind.cs.uiowa.edu/app/](https://kind.cs.uiowa.edu/app/).
 
-This page has left out a good deal: the details of clock calculus, proof
-certificates, test generation, contract generation, and the many options that
-control each verification engine. For the full language reference, see
+For the full language reference, see
 [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}); the pages
 alongside it cover each type in depth, and
 [Advanced Features]({{< relref "/docs/advanced-features" >}}) covers what Kind 2
