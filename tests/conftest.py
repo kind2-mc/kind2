@@ -102,6 +102,14 @@ ic3ia_declined_dir_name = "declined"
 ic3ia_args = {"--enable": "IC3IA", "--smt_itp_solver": "MathSAT"}
 ic3ia_solver = "mathsat"
 
+# Tests under a directory with this name run the contract checker rather than
+# the verification engines, which is the only way to reach the realizability
+# path from the regression tree. A `success` case there means every contract
+# was found realizable; `error` means Kind 2 rejected the model before getting
+# that far.
+contractck_dir_name = "contractck"
+contractck_args = {"--enable": "CONTRACTCK"}
+
 # Where to write log files
 log_dir = Path("logs")
 
@@ -290,6 +298,9 @@ class LustreItem(pytest.Item):
         if self._is_ic3ia():
             args |= ic3ia_args
 
+        if self._is_contractck():
+            args |= contractck_args
+
         arg_list = list(itertools.chain.from_iterable(args.items()))
         return [kind2_bin, *arg_list, self.path]
 
@@ -304,6 +315,9 @@ class LustreItem(pytest.Item):
 
     def _is_ic3ia(self):
         return ic3ia_dir_name in self._regression_parts()
+
+    def _is_contractck(self):
+        return contractck_dir_name in self._regression_parts()
 
     def _ic3ia_declines(self):
         return self._is_ic3ia() and ic3ia_declined_dir_name in self._regression_parts()
