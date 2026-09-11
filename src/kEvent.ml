@@ -270,8 +270,9 @@ let proved_pt mdl level trans_sys k prop =
     not (Property.prop_status_known (Property.get_prop_status property))
   then (
     let prop_type = match Property.get_prop_original_source property with 
-      | Candidate None -> "Candidate property"
-      | Candidate Some (Generated _) -> "Generated candidate property"
+      | Candidate { source = None ; _ } -> "Candidate property"
+      | Candidate { source = Some (Generated _) ; _ } ->
+        "Generated candidate property"
       | Generated _ -> "Generated property"
       | _ -> "Property"
     in
@@ -772,8 +773,8 @@ let prop_attributes_xml trans_sys prop_name =
           Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
             lnum cnum pp_print_fname fname
     )
-    | Property.Candidate None -> ""
-    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Candidate { source = None ; _ } -> ""
+    | Property.Candidate { source = Some source ; _ } -> get_attributes source
     | Property.Instantiated (_, prop) -> get_attributes prop.Property.prop_source
     | Property.Assumption (pos, (scope, _)) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
@@ -1140,8 +1141,8 @@ let prop_attributes_json ppf trans_sys prop_name =
             "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum
     )
-    | Property.Candidate None -> ()
-    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Candidate { source = None ; _ } -> ()
+    | Property.Candidate { source = Some source ; _ } -> get_attributes source
     | Property.TerminationCheck pos ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.fprintf ppf
@@ -1509,22 +1510,37 @@ include ELog
 (* Specialized logging functions                                          *)
 (* ********************************************************************** *)
 
+(* Whether the outcome of a property is kept out of the output. That of a
+   candidate Kind 2 generated for itself is, in every format: it is only
+   there to help prove the other properties, and its failure is reported
+   through them (a violated assumption is a property of its own). Nothing is
+   looked up in relay mode, where nothing is written either: the property may
+   be unknown to the system there (a step counterexample is relayed without
+   a handler for that case). *)
+let silenced trans_sys prop =
+  get_log_format () <> F_relay
+  && not (TransSys.property_of_name trans_sys prop |> Property.is_reported)
+
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
-  match get_log_format () with 
+  if not (silenced trans_sys prop) then (
+    match get_log_format () with 
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_ijson
     | F_json -> proved_json mdl level trans_sys k prop
     | F_relay -> ()
+  )
 
 let log_unknown mdl level trans_sys prop =
-  match get_log_format () with 
+  if not (silenced trans_sys prop) then (
+    match get_log_format () with 
     | F_pt -> unknown_pt mdl level trans_sys prop
     | F_xml -> unknown_xml mdl level trans_sys prop
     | F_ijson
     | F_json -> unknown_json mdl level trans_sys prop
     | F_relay -> ()
+  )
 
 (* Log a message with a tag, only in the plain text output *)
 let log_with_tag level tag str =
@@ -1537,15 +1553,17 @@ let log_with_tag level tag str =
 
 (* Log a message with source and log level *)
 let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =
-  match get_log_format () with 
-  | F_pt ->
-    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_xml ->
-    cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_json
-  | F_ijson ->
-    cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_relay -> ()
+  if not (silenced trans_sys prop) then (
+    match get_log_format () with 
+    | F_pt ->
+      cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | F_xml ->
+      cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | F_json
+    | F_ijson ->
+      cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | F_relay -> ()
+  )
 
 (* Log a message with source and log level *)
 let log_disproved mdl level input_sys analysis trans_sys prop cex =

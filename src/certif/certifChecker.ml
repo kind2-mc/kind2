@@ -2238,7 +2238,7 @@ let mk_multiprop_obs_jkind ~only_out lustre_vars kind2_sys =
         incr cpt;
         { Property.prop_name =
             "OTHER_Observational_Equivalence_" ^(string_of_int !cpt);
-          prop_source = Property.Candidate None ;
+          prop_source = Property.Candidate { source = None ; report = false } ;
           prop_term = eq;
           prop_status = Property.PropUnknown; 
           prop_kind = Invariant; 

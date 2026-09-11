@@ -551,10 +551,10 @@ let roots_of_props props =
 
 let rec contract_proof_obligation = function
   | Property.Generated (_, _, Property.Contract) -> true
-  | Property.Candidate (Some s) -> contract_proof_obligation s
+  | Property.Candidate { source = Some s ; _ } -> contract_proof_obligation s
   | Property.Generated (_, _, Property.Body) 
   | Property.PropAnnot _ 
-  | Property.Candidate None 
+  | Property.Candidate { source = None ; _ }
   | Property.NonVacuityCheck _
   | Property.TerminationCheck _
   | Property.Assumption _

@@ -105,8 +105,10 @@ and prop_source =
   | TerminationCheck of Lib.position
 
   (* Property is only a candidate invariant here to help prove other
-     properties *)
-  | Candidate of prop_source option
+     properties. [report] says whether its outcome is written to the output:
+     it is not for a candidate Kind 2 generates for itself, it is for one
+     the user supplies *)
+  | Candidate of { source : prop_source option ; report : bool }
 
 let rec is_candidate p =
   match p.prop_source with
@@ -115,6 +117,12 @@ let rec is_candidate p =
   | _ -> false
 
 let is_real p = not (is_candidate p)
+
+let rec is_reported p =
+  match p.prop_source with
+  | Candidate { report ; _ } -> report
+  | Instantiated (_, p) -> is_reported p
+  | _ -> true
 
 let copy t = { t with prop_status = t.prop_status }
 
@@ -337,10 +345,10 @@ let rec get_pos_from_prop_source src = match src with
   | NonVacuityCheck (pos , _) 
   | TerminationCheck pos ->
     Some pos
-  | Candidate (None)
+  | Candidate { source = None ; _ }
   | Generated (None, _, _) ->  
     None
-  | Candidate (Some psource) -> get_pos_from_prop_source psource
+  | Candidate { source = Some psource ; _ } -> get_pos_from_prop_source psource
   | Instantiated (_, psource) -> get_pos_from_prop_source psource.prop_source
 
 (* Get property term *)
