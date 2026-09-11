@@ -633,7 +633,7 @@ let add_as_candidate os_invs sys =
   let create_candidate t =
     Property.{
       prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
-      prop_source = Property.Candidate None ;
+      prop_source = Property.Candidate { source = None ; report = false } ;
       prop_term = t ;
       prop_status = PropUnknown ;
       prop_kind = Invariant ;

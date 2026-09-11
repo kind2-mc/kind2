@@ -259,7 +259,8 @@ let property_of_expr
   let prop_term = E.cur_term_of_expr TransSys.prop_base expr_step in
 
   let prop_source =
-    if candidate then P.Candidate (Some prop_source) else prop_source
+    if candidate then P.Candidate { source = Some prop_source ; report = false }
+    else prop_source
   in
 
   (* Return property *)
@@ -1060,11 +1061,13 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
               Format.asprintf
                 "Assumptions of call at l%dc%d have held so far" row col;
             P.prop_source =
-              P.Candidate
-                (Some (P.Generated
-                         (Some call_pos,
-                          [lift_state_var state_var_map_up sofar_assump],
-                          P.Body)));
+              P.Candidate {
+                source =
+                  Some (P.Generated
+                          (Some call_pos,
+                           [lift_state_var state_var_map_up sofar_assump],
+                           P.Body)) ;
+                report = false } ;
             P.prop_term = sofar_term;
             P.prop_status = P.PropUnknown;
             P.prop_kind = P.Invariant;
@@ -1765,7 +1768,9 @@ let rec constraints_of_node_calls
           let tie_prop = E.cur_term_of_state_var TransSys.prop_base tie_sv in
           { P.prop_name = name;
             P.prop_source =
-              P.Candidate (Some (P.Generated (Some call_pos, [tie_sv], P.Body)));
+              P.Candidate {
+                source = Some (P.Generated (Some call_pos, [tie_sv], P.Body)) ;
+                report = false } ;
             P.prop_term = Term.mk_implies [guard; tie_prop];
             P.prop_status = P.PropUnknown;
             P.prop_kind = P.Invariant;
