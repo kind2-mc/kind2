@@ -105,6 +105,7 @@ let compute_unsat_core sys context requirements ex_var_lst =
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.one;
@@ -163,6 +164,7 @@ let realizability_check ?(include_invariants=false) vars_of_term
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.one;
@@ -724,6 +726,7 @@ let compute_deadlocking_trace_and_conflict
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero offset;

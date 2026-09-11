@@ -71,6 +71,11 @@ module Hashtbl : Hashtbl.S with type key = t
     list. *)
 type pred_def = UfSymbol.t * (Var.t list * Term.t)
 
+(** Definition of a function symbol: the symbol, its formal parameters and
+    its body, which may apply the symbol itself (or another one of the same
+    block of definitions) recursively *)
+type fun_def = UfSymbol.t * Var.t list * Term.t
+
 (** Functional congruence group of an (abstracted) function with
     container-typed arguments: a quantifier-free template over one pair of
     free variables per function argument, together with the argument state
@@ -292,6 +297,10 @@ val mk_trans_sys :
   (* Functional congruence groups of the system's subtree *)
   ?fn_congruence_groups:fn_congruence_group list ->
 
+  (* Definitions of the recursive functions of the system, as blocks of
+     mutually recursive definitions in dependency order *)
+  ?fun_defs:fun_def list list ->
+
   (* Name of the transition system *)
   Scope.t ->
     
@@ -508,9 +517,13 @@ val declare_const_vars : t -> (UfSymbol.t -> unit) -> unit
 val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
 (** Declare the sorts, uninterpreted functions and const variables
-   of this system and its subsystems. *)
+    of this system and its subsystems, and define their recursive
+    functions with [define_rec], whose signature is that of
+    {!SMTSolver.define_funs_rec} partially evaluated with its first
+    argument. *)
 val declare_sorts_ufs_const :
   t ->
+  define_rec:(fun_def list -> unit) ->
   (UfSymbol.t -> unit) ->
   (Type.t -> unit) -> unit
 
@@ -542,12 +555,19 @@ val define_subsystems :
     their state variables between and including [l] and [u]. Thus the
     subsystems can be run in parallel to the top system.
 
-    The signatures of [f] and [g] are those of {!SMTSolver.define_fun}
-    and {!SMTSolver.declare_fun}, repsectively, partially evaluated
+    The recursive functions of every system are defined with
+    [define_rec], each block of mutually recursive definitions once,
+    after the uninterpreted functions of the system and before its
+    predicates.
+
+    The signatures of [f], [define_rec] and [g] are those of
+    {!SMTSolver.define_fun}, {!SMTSolver.define_funs_rec} and
+    {!SMTSolver.declare_fun}, respectively, partially evaluated
     with their first argument. *)
 val define_and_declare_of_bounds :
   ?declare_sub_vars:bool -> t ->
   (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  define_rec:(fun_def list -> unit) ->
   (UfSymbol.t -> unit) ->
   (Type.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
@@ -576,6 +596,23 @@ val uf_defs : t -> pred_def list
     uninterpreted symbols of state variables and the init and trans
     predicates. *)
 val get_ufs : t -> UfSymbol.t list
+
+(** Return the definitions of the recursive functions of this system, as
+    blocks of mutually recursive definitions in dependency order *)
+val get_fun_defs : t -> fun_def list list
+
+(** Return [true] if the system or one of its subsystems has a recursive
+    function defined at the SMT level (see [LustreFunDefs]) *)
+val subsystem_includes_fun_def : t -> bool
+
+(** [define_fun_defs t defined define_rec] evaluates [define_rec] with each
+    block of recursive function definitions of [t] whose symbols are not in
+    [defined], and returns [defined] extended with the symbols defined.
+    The signature of [define_rec] is that of {!SMTSolver.define_funs_rec}
+    partially evaluated with its first argument. *)
+val define_fun_defs :
+  t -> UfSymbol.UfSymbolSet.t -> (fun_def list -> unit) ->
+  UfSymbol.UfSymbolSet.t
 
 (** {1 Properties} *)
 

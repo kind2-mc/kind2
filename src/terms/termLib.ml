@@ -99,6 +99,7 @@ let rec default_of_type t =
 (* A feature of a logic fragment for terms *)
 type feature =
   | Q  (* Quantifiers *)
+  | RF (* Recursive function definitions *)
   | UF (* Equality over uninterpreted functions *)
   | A  (* Arrays *)
   | DT (* Algebraic datatypes *)
@@ -285,8 +286,11 @@ type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 let pp_print_logic ?(enforce_logic=false) fmt = function
   | `None -> pp_print_string fmt "ALL"
   | `Inferred l ->
+      (* Recursive function definitions are accepted by the solvers under
+         an erratic subset of the named logics only (Z3 takes them in
+         UFLIA and AUFNIA but not in UFNIA or AUFLIA, for instance) *)
       if (L.mem BV l && (L.mem IA l || L.mem RA l))
-         || L.mem DT l then
+         || L.mem DT l || L.mem RF l then
         pp_print_string fmt "ALL"
       else pp_print_features ~enforce_logic fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)

@@ -58,6 +58,7 @@ val abstract_type_default : string -> Type.t -> Var.t
 (** A feature of a logic fragment for terms *)
 type feature =
   | Q  (** Quantifiers *)
+  | RF (** Recursive function definitions *)
   | UF (** Equality over uninterpreted functions *)
   | A  (** Arrays *)
   | DT (** Algebraic datatypes *)

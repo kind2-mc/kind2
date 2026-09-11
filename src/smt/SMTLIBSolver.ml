@@ -595,6 +595,37 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     execute_command solver cmd 0
 
 
+  (* Define a group of (mutually) recursive function symbols *)
+  let define_funs_rec solver defs =
+
+    let pp_print_decl ppf (fun_symbol, arg_vars, res_sort, _) =
+      Format.fprintf ppf
+        "@[<hv 1>(%s@ @[<hv 1>(%a)@]@ %s)@]"
+        fun_symbol
+        (pp_print_list
+           (fun ppf var ->
+              Format.fprintf ppf "(%s %s)"
+                (UfSymbol.string_of_uf_symbol
+                  (Var.unrolled_uf_of_state_var_instance var))
+                (string_of_sort (Var.type_of_var var)))
+           "@ ")
+        arg_vars
+        (string_of_sort res_sort)
+    in
+
+    let pp_print_body ppf (_, _, _, defn) = pp_print_expr ppf defn in
+
+    let cmd =
+      Format.asprintf
+        "@[<hv 1>(define-funs-rec@ @[<hv 1>(%a)@]@ @[<hv 1>(%a)@])@]"
+        (pp_print_list pp_print_decl "@ ") defs
+        (pp_print_list pp_print_body "@ ") defs
+    in
+
+    (* Send command to the solver without timeout *)
+    execute_command solver cmd 0
+
+
   (* Assert the expression *)
   let assert_expr solver expr = 
 
@@ -1203,6 +1234,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let declare_sort = declare_sort solver
     let declare_fun = declare_fun solver
     let define_fun = define_fun solver
+    let define_funs_rec = define_funs_rec solver
     let assert_expr = assert_expr solver
     let assert_soft_expr = assert_soft_expr solver
 

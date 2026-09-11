@@ -175,6 +175,7 @@ let mk_solvers sys =
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver1)
+    ~define_rec:(SMTSolver.define_funs_rec solver1)
     (SMTSolver.declare_fun solver1)
     (SMTSolver.declare_sort solver1)
     Numeral.zero Numeral.zero ;
@@ -183,6 +184,7 @@ let mk_solvers sys =
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver2)
+    ~define_rec:(SMTSolver.define_funs_rec solver2)
     (SMTSolver.declare_fun solver2)
     (SMTSolver.declare_sort solver2)
     Numeral.zero Numeral.one ;
@@ -191,6 +193,7 @@ let mk_solvers sys =
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver3)
+    ~define_rec:(SMTSolver.define_funs_rec solver3)
     (SMTSolver.declare_fun solver3)
     (SMTSolver.declare_sort solver3)
     Numeral.zero Numeral.one ;

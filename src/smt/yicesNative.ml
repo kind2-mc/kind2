@@ -651,6 +651,12 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
   execute_command solver cmd 0
 
 
+(* Yices has no recursive function definitions *)
+let define_funs_rec _ _ =
+  failwith
+    "Yices (native protocol) does not support recursive function definitions"
+
+
 (*
 (* Assert the expression *)
 let assert_expr solver expr = 
@@ -1416,6 +1422,7 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let declare_sort = declare_sort solver
   let declare_fun = declare_fun solver
   let define_fun = define_fun solver
+  let define_funs_rec = define_funs_rec solver
   let assert_expr = assert_removable_expr solver
   let assert_soft_expr _ _ = failwith "Yices: assert-soft not available"
 
