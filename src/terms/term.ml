@@ -1934,6 +1934,14 @@ let push_select term =
           (push_select' i l)
           (push_select' i r)
       )
+      (* Array axiom: select (store a k v) i = ite (i = k) v (select a i).
+         Left alone under the theory of arrays, which handles store natively *)
+      | `STORE, [a; k; v] when not (Flags.Arrays.smt ()) -> (
+        mk_ite
+          (mk_eq [i; k])
+          v
+          (push_select' i a)
+      )
       | _ -> (mk_select t i)
     )
     | _ -> (mk_select t i)

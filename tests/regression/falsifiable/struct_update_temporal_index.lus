@@ -1,0 +1,6 @@
+node Top(a: int^3; v: int) returns ();
+var b: int^3;
+let
+  b = a[(0 -> 2) := v];
+  check b[0] = v;
+tel

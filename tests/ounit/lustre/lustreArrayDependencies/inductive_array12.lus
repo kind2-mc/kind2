@@ -1,0 +1,4 @@
+node top() returns (y: int^3);
+let
+  y[i] = (0^3)[y[i] := 1][i];
+tel
