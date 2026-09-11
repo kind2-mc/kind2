@@ -47,7 +47,7 @@ which are streams with the same value at each time step.
 Lustre respects typical rules of operator precedence, so `x + 2*y` will be
 parsed as `x + (2*y)` rather than `(x + 2)*y`.
 
-```text
+```lustre
 node Combine(x: int; y: int) returns (z: int);
 let
   z = x + 2*y;
@@ -68,7 +68,7 @@ in scope.
 Nodes can have more than one output stream as exemplified by the node `TwoOuts`
 below.
 
-```text
+```lustre
 node TwoOuts(x: int) returns (double: int; square: int);
 let
   double = x + x;
@@ -88,7 +88,7 @@ Below is another version of `Combine`, where the value `2` is stored in a global
 constant `C` and the local variable `l` is used to store an intermediate
 computation.
 
-```text
+```lustre
 const C: int = 2;
 node Combine(x: int; y: int) returns (z: int);
 var l: int;
@@ -136,7 +136,7 @@ proven invariant.
 In contrast, the property `z > 0` would be disproven in the `Combine` node,
 as `z` is negative in timesteps where both `x` and `y` are negative.
 
-```text
+```lustre
 const C: int = 2;
 (* Example with 
    two properties
@@ -212,7 +212,7 @@ imply.
 Equations can be specified conditionally with `if` *statements*, which are closed
 with `fi`:
 
-```text
+```lustre
 node Sign(x: int) returns (neg, pos: bool);
 let
   if x < 0 then
@@ -233,14 +233,14 @@ Each condition is evaluated once per timestep, and every variable is takes its v
 Conditions can also be encoded as
 `if` *expressions*:
 
-```text
+```lustre
 if <expr_0> then <expr_1> else <expr_2>
 ```
 
 where `<expr_0>` has type `bool`, and `<expr_1>` and `<expr_2>` must have the
 same type.
 
-```text
+```lustre
 node Max(x, y: int) returns (m: int);
 let
   m = if x > y then x else y;
@@ -309,7 +309,7 @@ illustrated in the table below.
 
 Using temporal operators, we can define a `Counter` node as follows.
 
-```text
+```lustre
 node Counter(init: int) returns (out: int);
 let
   out = init -> pre out + 1;
@@ -360,7 +360,7 @@ above.
 A node that generates the stream \((1, 2, 3, 3, 3, \dots)\) from no inputs
 can then be defined as follows.
 
-```text
+```lustre
 node N() returns(y: int);
 let
    -- defining output stream (1, 2, 3, 3, 3, ...)
@@ -374,7 +374,7 @@ Because `Fib` is defined in terms of the two previous Fibonacci values, the firs
 *two* steps need to be initialized. The example is tricky and may require some
 thought for those new to Lustre.
 
-```text
+```lustre
 node Fibonacci() returns(Fib: int);
 let
   Fib = 1 -> pre (1 -> Fib + pre Fib);
@@ -384,7 +384,7 @@ tel
 The example can perhaps be easier to see by introducing local names
 for the subexpressions on the equation's right-hand side.
 
-```text
+```lustre
 node Fibonacci() returns(Fib: int);
   var preFib: int;
   var prepreFib: int;
@@ -402,7 +402,7 @@ and defines them in a body between `let` and `tel`. Any variable the body
 leaves undefined at a step *stutters*: it keeps the value it had at the previous step, starting
 from its initialization.
 
-```text
+```lustre
 node Hold(latch: bool; v: int) returns (out: int);
 let
   frame ( out )
@@ -430,7 +430,7 @@ a stream of factorial numbers (the \(n\)th value of the stream is \(n!\)). When
 defining output stream `F`, we can reference the helper stream `N` before it is
 defined.
 
-```text
+```lustre
 node Factorial() returns (F: int);
 var N: int;
 let
@@ -447,7 +447,7 @@ Lustre because the \(n\)th value of `out1` is defined in terms of the \(n\)th
 value of `out2`, and the \(n\)th value of `out2` is defined in terms of the
 \(n\)th value of `out1`.
 
-```text
+```lustre
 node Circular() returns (out1, out2: int);
 let
   out1 = out2 + 1;
@@ -460,7 +460,7 @@ equations. However, even if it is possible to satisfy all equations,
 as in the following example,
 any node with a circular dependence is conservatively rejected.
 
-```text
+```lustre
 node Circular() returns (out1, out2: int);
 let
   out1 = out2;
@@ -481,31 +481,31 @@ sets, maps, and algebraic datatypes.
 
 Record types have the syntax
 
-```text
+```lustre
 struct { <field_1>: <type_1>; ...; <field_n>: <type_n> }
 ```
 
 They must be named and declared with a global **type declaration** of the form
 
-```text
+```lustre
 type <ty_name> = <type>;
 ```
 
 Record values can be constructed with the syntax
 
-```text
+```lustre
 <ty_name> { <field_1> = <expr_1>; ...; <field_n> = <expr_n> }
 ```
 
 and destructed with the syntax
 
-```text
+```lustre
 <record_term>.<field>
 ```
 
 as seen in the next example.
 
-```text
+```lustre
 type sensorData = struct { speed: real; height: real; direction: int };
 
 node AdjustSensorData(in: sensorData) returns (out: sensorData);
@@ -525,27 +525,27 @@ remaining record operations, such as element updates.
 
 Array types have the syntax
 
-```text
+```lustre
 <element_type>^<numeral>
 ```
 
 Values of an array type can be constructed in two different ways.
 Lustre supports the **array literal** syntax of the form
 
-```text
+```lustre
 [<element_1>, ..., <element_n>]
 ```
 
 as well as the (constant) **array constructor** syntax of the form
 
-```text
+```lustre
 <element>^<length>
 ```
 
 Array elements can be accessed with the standard **array access** syntax
 `<array_var>[<index>]`, with zero-based indexing.
 
-```text
+```lustre
 node TwoArrays() returns (out1: bool^5; out2: int^4);
 let
   out1 = [true, true, false, true, false];
@@ -553,7 +553,7 @@ let
 tel
 ```
 
-```text
+```lustre
 node Nth(in: int^10; k: int) returns (out: int);
 let
   out = if 0 <= k and k < 10 then in[k] else in[0];
@@ -571,7 +571,7 @@ back by position with `<tuple>[<index>]`, using zero-based indexing. The index
 must be a concrete numeral, since it selects a component rather than computing
 one.
 
-```text
+```lustre
 type Pair = [int, bool];
 
 node Swap(p: Pair) returns (q: [bool, int]);
@@ -587,7 +587,7 @@ the type `map<K, V>` denotes streams of finite maps from keys of type `K` to
 values of type `V`. Set literals are written with braces, and map literals with
 the `map[...]` constructor:
 
-```text
+```lustre
 node N(s: set<int>; m: map<int, int>) returns (u: set<int>; v: int);
 let
   u = s + { 1, 2, 3 };
@@ -618,7 +618,7 @@ An algebraic datatype packages a fixed set of *constructors*, each carrying
 zero or more named fields. They are introduced with the `datatype` keyword,
 with constructors separated by `|`:
 
-```text
+```lustre
 datatype Shape =
   | Circle (radius: real)
   | Rectangle (width: real, height: real)
@@ -631,7 +631,7 @@ apart with a `match` expression, whose arms must cover every constructor. Each
 arm names fresh variables for the fields of its constructor, in scope only
 within that arm:
 
-```text
+```lustre
 datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
 
 node Area(s: Shape) returns (a: real);
@@ -646,7 +646,7 @@ tel
 Datatypes may be recursive, which makes it possible to describe unbounded
 structures such as lists:
 
-```text
+```lustre
 datatype IntList = Cons (head: int, tail: IntList) | Nil;
 ```
 
@@ -659,7 +659,7 @@ Two named types describe restricted sets of scalar values.
 
 An **enumeration** is a finite set of named constants:
 
-```text
+```lustre
 type Color = enum { Red, Green, Blue };
 ```
 
@@ -668,7 +668,7 @@ syntax `subrange [LB, UB] of int`. Either bound may be `*`, leaving that side
 unbounded, and either may be a symbolic constant expression rather than a
 literal:
 
-```text
+```lustre
 type Percent = subrange [0, 100] of int;
 type Pos = subrange [1, *] of int;
 ```
@@ -679,7 +679,7 @@ local variable, or a defined constant is a *proof obligation* Kind 2 must
 discharge. The node below type-checks, but Kind 2 falsifies the obligation on
 its output, since nothing prevents `x + y` from exceeding `100`:
 
-```text
+```lustre
 type Percent = subrange [0, 100] of int;
 
 node Add(x, y: Percent) returns (z: Percent);
@@ -700,7 +700,7 @@ types, described next; a subrange is really a special case of one.
 A **refinement type** restricts a base type with a predicate. It is written
 `subtype { <var>: <base_type> | <predicate> }`:
 
-```text
+```lustre
 type Nat = subtype { x: int | x >= 0 };
 ```
 
@@ -712,7 +712,7 @@ Where a variable is declared, a more concise form is available: writing
 `<var>: <base_type> | <predicate>` in a node's interface or local declarations
 means the same thing.
 
-```text
+```lustre
 node Sqrt(x: real | x >= 0.0) returns (y: real | y >= 0.0);
 ```
 
@@ -730,7 +730,7 @@ nested inside structured types.
 
 An **abstract type** is a type declared without a definition:
 
-```text
+```lustre
 type T;
 ```
 
@@ -739,7 +739,7 @@ are equality `=` and disequality `<>`, and nothing is assumed about how many
 values it holds. This is useful to model data whose representation is
 irrelevant to the properties being checked.
 
-```text
+```lustre
 type T;
 
 function IdT(x: T) returns (y: T);
@@ -765,7 +765,7 @@ than `ctr1`.
 Note that nodes can have no inputs (as node `Top` below)
 or no outputs.
 
-```text
+```lustre
 node Top() returns (ctr1, ctr2: int; P1: bool);
 let
   ctr1 = Counter(0) + 3;
@@ -805,13 +805,13 @@ side of an equation in a node's body.
 In contrast, an application of a node with multiple outputs can occur only in
 an equation of the form
 
-```text
+```lustre
 (<var_1>, ..., <var_n>) = <node_name>(<arg_1>, ..., <arg_m>);
 ```
 
 or
 
-```text
+```lustre
 <var_1>, ..., <var_n> = <node_name>(<arg_1>, ..., <arg_m>);
 ```
 
@@ -820,7 +820,7 @@ are local or output variables of the node containing the application,
 with types matching the types of the outputs of the applied node `<node_name>`,
 in the same order as in that node's interface.
 
-```text
+```lustre
 node Top(x: int) returns (P1: bool);
   var positive: bool;
   var nonnegative: bool;
@@ -846,7 +846,7 @@ A function may not use `->`, `pre`,
 `merge`, `when`, `condact`, or `activate`, and it may only call other
 functions, never nodes. Functions are, in other words, stateless.
 
-```text
+```lustre
 function Abs(x: real) returns (y: real);
 let
   y = if x < 0.0 then -x else x;
@@ -863,7 +863,7 @@ step so far.
 
 A node or function declared `imported` has an interface but no body:
 
-```text
+```lustre
 node imported Sensor(t: int) returns (reading: real);
 ```
 
@@ -881,7 +881,7 @@ without a contract may produce any
 Nodes and functions may take type parameters, declared in angle brackets after
 the name:
 
-```text
+```lustre
 node SafePre<T>(x: T) returns (y: T);
 let
   y = x -> pre x;
@@ -902,7 +902,7 @@ would also work here.
 However, in some cases, Kind 2 cannot 
 infer the type bottom-up.
 
-```text
+```lustre
 node Default<T>() returns (y: T);
 let
   y = any@<T>;
@@ -929,7 +929,7 @@ be polymorphic as well. Such a type acts as a *type constructor*: applying it
 to types yields a type, which is then written `<name><...>` wherever a type is
 expected.
 
-```text
+```lustre
 type Pair<T; U> = [T, U];
 
 node Swap<T; U>(x: Pair<T; U>) returns (y: Pair<U; T>);
@@ -962,7 +962,7 @@ That difference is not merely a matter of efficiency.
 Consider reading a field of an algebraic datatype: the selector `x.val` carries a proof obligation that `x`
 was built with the constructor that has a `val` field.
 
-```text
+```lustre
 datatype Option = None | Some (val: int);
 
 node Unwrap(x: Option) returns (y: int);
@@ -988,7 +988,7 @@ blocks described next.
 The lazy counterpart of the `if` statement is the `when` block, closed with
 `end`:
 
-```text
+```lustre
 when <cond> then
    <equations>
 else
@@ -1000,7 +1000,7 @@ Further branches are written by nesting another `when` block inside the `else`
 branch. A `cond` block gives the same thing a flatter, pattern-matching shape,
 with any number of guarded branches and an `otherwise` clause:
 
-```text
+```lustre
 cond
   | <cond_1>:
      <equations>
@@ -1028,7 +1028,7 @@ The operator
 `any { <var>: <type> | <predicate> }` denotes an arbitrary stream of values of
 the given type satisfying the predicate:
 
-```text
+```lustre
 node N(y: int) returns (z: int);
 var l: int;
 let
@@ -1063,7 +1063,7 @@ checking.
 While the temporal operators `->` and `pre` may not seem very powerful, they can
 be used to define auxiliary temporal operators, presented below.
 
-```text
+```lustre
 -- Y is true iff X has been true so far
 node Sofar ( X : bool ) returns ( Y : bool ) ;
 let
@@ -1101,7 +1101,7 @@ A property to be proven invariant is written with a `check` statement in the
 body of a node. Properties may be named, which makes Kind 2's output easier to
 read when there are several:
 
-```text
+```lustre
 node Count(trigger: bool) returns (n: int);
 let
   n = (if trigger then 1 else 0) + (0 -> pre n);
@@ -1132,7 +1132,7 @@ Invariants say that something never happens. The dual — that something *can*
 happen — is written with `check reachable`, which asks Kind 2 to find a witness
 trace rather than to rule one out:
 
-```text
+```lustre
 check reachable "can reach ten" n = 10;
 ```
 
@@ -1151,7 +1151,7 @@ naively as `check B => A;`, such a property is trivially true whenever the
 situation `B` never arises, which can hide a modeling error. The language
 provides a dedicated syntax for this case:
 
-```text
+```lustre
 check A provided B;
 ```
 
@@ -1165,7 +1165,7 @@ Properties and contracts may use the quantifiers `forall` and
 define a node's outputs, and they are indispensable for models parameterized by
 a size:
 
-```text
+```lustre
 check forall (i: int) 0 <= i and i < n => a[i] >= 0;
 ```
 
@@ -1185,7 +1185,7 @@ A contract is a set of **assumptions**, which the caller must establish, and
 **guarantees**, which the node must then deliver. It is written inline between
 a node's interface and its body, delimited by `con` and `noc`:
 
-```text
+```lustre
 node Divide(x, y: real) returns (z: real);
 con
   assume "nonzero divisor" y <> 0.0;
@@ -1208,7 +1208,7 @@ A contract may also declare **ghost variables** and constants with `var` and
 makes them useful for expressing specifications that need state the
 implementation does not have:
 
-```text
+```lustre
 con
   var once: bool = trigger or (false -> pre once);
   guarantee once => count > 0;
@@ -1222,7 +1222,7 @@ situation, behave this way". A **mode** captures that shape directly: it pairs
 a set of `require` clauses (the situation) with a set of `ensure` clauses (the
 required reaction).
 
-```text
+```lustre
 node Times(lhs, rhs: real) returns (res: real);
 con
   mode absorbing (
@@ -1253,7 +1253,7 @@ contract items. It is brought into a node's contract with `import`, which
 merges the imported assumptions, guarantees, and modes into the importing
 contract:
 
-```text
+```lustre
 contract Spec(x: real) returns (y: real);
 let
   assume x >= 0.0;
@@ -1293,7 +1293,7 @@ falsified.
 
 The two are meant to be used together:
 
-```text
+```bash
 kind2 --modular true --compositional true <file>.lus
 ```
 
@@ -1309,7 +1309,7 @@ Two modifiers override these choices for an individual component. Writing
 `transparent` before `node` or `function` keeps it from being abstracted by its
 contract; writing `opaque` keeps it from being refined:
 
-```text
+```lustre
 transparent function F(x: int) returns (y: int);
 let
   y = x;
@@ -1325,7 +1325,7 @@ A contract can be wrong in a way no amount of implementation effort will fix:
 it can demand something impossible. The contract below cannot be satisfied by
 any implementation, because a negative `x` leaves no legal value for `y`:
 
-```text
+```lustre
 node imported M(x: int) returns (y: int);
 con
   guarantee 0 <= y and y <= x;
@@ -1345,7 +1345,7 @@ expressions.
 
 Kind 2 performs the check when the `CONTRACTCK` engine is enabled:
 
-```text
+```bash
 kind2 --enable CONTRACTCK <file>.lus
 ```
 
