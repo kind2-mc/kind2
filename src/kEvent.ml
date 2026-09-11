@@ -1510,16 +1510,20 @@ include ELog
 (* Specialized logging functions                                          *)
 (* ********************************************************************** *)
 
-(* Whether the outcome of a property is written to the output. That of a
-   candidate Kind 2 generated for itself is not, in any format: it is only
+(* Whether the outcome of a property is kept out of the output. That of a
+   candidate Kind 2 generated for itself is, in every format: it is only
    there to help prove the other properties, and its failure is reported
-   through them (a violated assumption is a property of its own). *)
-let reports trans_sys prop =
-  TransSys.property_of_name trans_sys prop |> Property.is_reported
+   through them (a violated assumption is a property of its own). Nothing is
+   looked up in relay mode, where nothing is written either: the property may
+   be unknown to the system there (a step counterexample is relayed without
+   a handler for that case). *)
+let silenced trans_sys prop =
+  get_log_format () <> F_relay
+  && not (TransSys.property_of_name trans_sys prop |> Property.is_reported)
 
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
-  if reports trans_sys prop then (
+  if not (silenced trans_sys prop) then (
     match get_log_format () with 
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
@@ -1529,7 +1533,7 @@ let log_proved mdl level trans_sys k prop =
   )
 
 let log_unknown mdl level trans_sys prop =
-  if reports trans_sys prop then (
+  if not (silenced trans_sys prop) then (
     match get_log_format () with 
     | F_pt -> unknown_pt mdl level trans_sys prop
     | F_xml -> unknown_xml mdl level trans_sys prop
@@ -1549,7 +1553,7 @@ let log_with_tag level tag str =
 
 (* Log a message with source and log level *)
 let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =
-  if reports trans_sys prop then (
+  if not (silenced trans_sys prop) then (
     match get_log_format () with 
     | F_pt ->
       cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved

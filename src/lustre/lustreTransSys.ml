@@ -1042,7 +1042,11 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
 
      The candidate is a property of the callee lifted into this node, so it
      joins the other lifted properties here and goes through the same
-     instantiation and guarding as they do. *)
+     instantiation and guarding as they do. A call may expand into several
+     instances (an array-indexed call, for instance), each with its own
+     'sofar' flag, and property statuses are matched by name: the name
+     carries the lifted flag so that the candidates of the instances stay
+     distinct. *)
   let node_props =
     if node_assume_props = [] then node_props
     else
@@ -1050,23 +1054,21 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       | None -> node_props
       | Some { C.sofar_assump = None } -> node_props
       | Some { C.sofar_assump = Some sofar_assump } ->
+        let lifted_sofar = lift_state_var state_var_map_up sofar_assump in
         let sofar_term =
-          Var.mk_state_var_instance sofar_assump TransSys.prop_base
+          Var.mk_state_var_instance lifted_sofar TransSys.prop_base
           |> Term.mk_var
-          |> lift_term state_var_map_up
         in
         let row, col = row_col_of_pos call_pos in
         let prop =
           { P.prop_name =
               Format.asprintf
-                "Assumptions of call at l%dc%d have held so far" row col;
+                "Assumptions of call at l%dc%d have held so far (%a)"
+                row col StateVar.pp_print_state_var lifted_sofar;
             P.prop_source =
               P.Candidate {
                 source =
-                  Some (P.Generated
-                          (Some call_pos,
-                           [lift_state_var state_var_map_up sofar_assump],
-                           P.Body)) ;
+                  Some (P.Generated (Some call_pos, [lifted_sofar], P.Body)) ;
                 report = false } ;
             P.prop_term = sofar_term;
             P.prop_status = P.PropUnknown;
