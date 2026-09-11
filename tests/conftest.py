@@ -18,7 +18,6 @@ common_args = {
     "--timeout": "84",
     "--color": "false",
     "--check_subproperties": "true",
-    "--check_sat_assume": "false",
 }
 
 # How long we let a single Kind 2 run take before killing it, in seconds.
