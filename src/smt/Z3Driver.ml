@@ -20,7 +20,7 @@ include GenericSMTLIBDriver
 
 (* Configuration for Z3 *)
 let cmd_line
-    logic
+    _ (* logic *)
     timeout
     _ (* produce_models *) 
     _ (* produce_proofs *)
@@ -47,18 +47,6 @@ let cmd_line
   let timeout = Lib.min_option timeout_global timeout_local in
 
   let base_cmd = [| z3_bin; "-smt2"; "-in" |] in
-
-  (* Relevancy propagation makes Z3 diverge on the unfolding of recursive
-     function definitions (a satisfiability check that takes it a fraction
-     of a second without it can then run for minutes), so it is turned off
-     when the system defines recursive functions *)
-  let base_cmd =
-    match logic with
-    | `Inferred l when TermLib.FeatureSet.mem TermLib.RF l ->
-      Array.append base_cmd [| "smt.relevancy=0" |]
-    | _ -> base_cmd
-  in
-
   match timeout with
   | None -> base_cmd
   | Some timeout ->
