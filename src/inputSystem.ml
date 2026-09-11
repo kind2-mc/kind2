@@ -530,7 +530,7 @@ let trans_sys_of_analysis (type s)
 
 
 let pp_print_path_pt
-(type s) ?(full_contract = false) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?(full_contract = false) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
   match input_system with 
 
   | Lustre (main_subs, globals, _) ->
@@ -538,7 +538,7 @@ let pp_print_path_pt
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
-    LustrePath.pp_print_path_pt ~full_contract:full_contract trans_sys globals sub first_is_init ppf model
+    LustrePath.pp_print_path_pt ~full_contract:full_contract ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_pt not implemented for MoXI input@.";
@@ -553,7 +553,7 @@ let pp_print_path_pt
 
 
 let pp_print_path_xml
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
 
   match input_system with 
 
@@ -563,7 +563,7 @@ let pp_print_path_xml
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_xml
-      trans_sys globals sub first_is_init ppf model
+      ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_xml not implemented for MoXI input@.";
@@ -602,7 +602,7 @@ let pp_print_path_json_testgen
 
 
 let pp_print_path_json
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
 
   match input_system with
 
@@ -612,7 +612,7 @@ let pp_print_path_json
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_json
-      trans_sys globals sub first_is_init ppf model
+      ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_json not implemented for MoXI input@.";

@@ -433,8 +433,12 @@ val scope_of_node : t -> Scope.t
 
     The systems are presented in topological order such that each system is
     presented to [f] after all its subsystem instances have been presented.
+
+    [keep_call] selects the node calls to descend into; a call it rejects is
+    left out along with everything below it. It defaults to keeping every call.
 *)
 val fold_node_calls_with_trans_sys :
+  ?keep_call:(node_call -> bool) ->
   t list -> (
     t -> TransSys.t ->
     (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a

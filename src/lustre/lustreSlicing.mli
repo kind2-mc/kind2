@@ -161,6 +161,15 @@ val slice_to_abstraction :
 
 val slice_node_to_abstraction : LustreNode.t -> LustreNode.t
 
+(** [keep_inline_call c p] is [true] if the node call [c], whose outputs are
+    dead (an inlined call, or the instance retained for a call compiled to an
+    application of the functional symbol of the callee), is worth keeping while
+    property [p] is under consideration: either no property is given, or [p]
+    was instantiated from [c] or is an assumption of it. Everywhere else such a
+    call says nothing, since its arguments are free constants standing for the
+    enclosing quantified variables. *)
+val keep_inline_call : LustreNode.node_call -> Property.t option -> bool
+
 val slice_to_abstraction_and_property :
     ?preserve_sig:bool ->
     Analysis.param -> Property.t ->

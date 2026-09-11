@@ -418,7 +418,7 @@ let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
       "@{<%s>%s@}:@,  @[<v>%a@]"
       color
       title
-      (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+      (InputSystem.pp_print_path_pt ?prop_name input_sys trans_sys disproved)
       (Model.path_of_list trace);
   in
 
@@ -891,7 +891,7 @@ let pp_print_trace_xml
           Format.fprintf ppf
             "@[<hv 2>\ <%s>%a@]@,</%s>"
             tag
-            (InputSystem.pp_print_path_xml input_sys' trans_sys' disproved)
+            (InputSystem.pp_print_path_xml ?prop_name input_sys' trans_sys' disproved)
             (Model.path_of_list trace')
             tag
         with TimeoutWall -> (
@@ -1257,7 +1257,7 @@ let pp_print_trace_json
           Format.fprintf ppf
             "\"%s\" :%a"
             object_name
-            (InputSystem.pp_print_path_json input_sys' trans_sys' disproved)
+            (InputSystem.pp_print_path_json ?prop_name input_sys' trans_sys' disproved)
             (Model.path_of_list trace')
         with TimeoutWall -> (
           Format.fprintf ppf " []@.}@.";

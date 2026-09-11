@@ -86,13 +86,14 @@ val trans_sys_of_analysis:
   'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
-val pp_print_path_pt : ?full_contract:bool -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_pt : ?full_contract:bool -> ?prop_name:string -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+
+(** Output a path in the input system. [prop_name] names the property a
+    counterexample belongs to, if any; see {!LustrePath.pp_print_path_xml}. *)
+val pp_print_path_xml : ?prop_name:string -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
-val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
-
-(** Output a path in the input system *)
-val pp_print_path_json : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_json : ?prop_name:string -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system. The format for this path is the same format that 
 the Interpreter module expects as input. *)
