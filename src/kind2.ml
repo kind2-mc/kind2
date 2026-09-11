@@ -138,14 +138,25 @@ let setup : unit -> any_input = fun () ->
 
   (* On Windows there is no SIGALRM, and the wall clock is looked at
      only in the polling loop of the supervisor. That is enough while
-     the supervisor runs, and on a machine with fewer cores than there
-     are busy engines it stops running: every domain parks in a
-     stop-the-world rendezvous none of them can complete, no OCaml code
-     executes anywhere, and the run goes minutes past the time it was
-     given. Measured on a four core runner, a run given 20s took 227s.
+     the supervisor runs. It has stopped running: runs given 84s have
+     been killed by the test harness still going at 204s, having
+     written nothing since the analysis header -- no engine output and
+     no timeout banner, which is what a process makes when nothing in
+     it is executing rather than when it is slow.
 
-     So the last word on the wall clock there belongs to a thread the
-     operating system schedules, which the runtime cannot stop.
+     One cause of that is known and fixed: ocaml/ocaml#15028, where a
+     thread that never yields kept its domain's runtime lock and the
+     other threads of that domain never ran, released in OCaml 5.5.1.
+     A reproducer of one domain and two threads is clean from 5.5.1 on.
+     Kind 2 is not. It overran the same way on 5.5.1, on a build that
+     had this backstop removed, which says either that something else
+     starves the supervisor or that the fix does not cover what Kind 2
+     does -- about ten domains with threads of their own each, which
+     is not what the reproducer tested. See #1477 and #1485.
+
+     So the last word on the wall clock here belongs to a thread the
+     operating system schedules, which the runtime cannot stop, until
+     that is understood.
 
      It is a backstop and not the timeout. Windows has the ordinary path
      too -- the polling loop notices the clock and raises [TimeoutWall],

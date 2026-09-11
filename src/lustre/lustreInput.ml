@@ -51,6 +51,7 @@ module LIP = LustreInstantiatePolyNodes
 module LUF = LustreUserFunctions
 module LCF = LustreConstantsToFunctions
 module LCME = LustreCheckMatchExpressions
+module LCAD = LustreCheckADTDecreases
 module GI = GeneratedIdentifiers
 
 type error = [
@@ -67,6 +68,7 @@ type error = [
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
+  | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
 ]
 
@@ -192,12 +194,21 @@ let type_check declarations =
     (* Step 9. Check match expressions for exhaustiveness and redundancy *)
     let* sorted_node_contract_decls = LCME.check_match_expressions global_ctx sorted_node_contract_decls in
 
-    (* Step 10. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
+    (* Step 10. Statically check ADT decreases clauses for structural subterm
+       ordering. *)
+    let* sorted_node_contract_decls =
+      let early_adt_map =
+        LDAT.build_adt_map (const_inlined_type_and_consts @ sorted_node_contract_decls)
+      in
+      LCAD.check global_ctx early_adt_map scc_map sorted_node_contract_decls
+    in
+
+    (* Step 11. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
     let (const_inlined_type_and_consts, sorted_node_contract_decls, global_ctx, adt_map) =
       LDAT.desugar_adts global_ctx const_inlined_type_and_consts sorted_node_contract_decls
     in
 
-    (* Step 11. Generate imported nodes associated with refinement types if realizability checking is enabled *)
+    (* Step 12. Generate imported nodes associated with refinement types if realizability checking is enabled *)
     let* sorted_node_contract_decls, global_ctx, gids =
       if List.mem `CONTRACTCK (Flags.enabled ())
       then
@@ -211,35 +222,35 @@ let type_check declarations =
       else Res.ok (sorted_node_contract_decls, global_ctx, NI.Map.empty)
     in
 
-    (* Step 12. Introduce a fresh local variable for the result of each call
+    (* Step 13. Introduce a fresh local variable for the result of each call
        statement (an equation with an empty left-hand side) *)
     let* sorted_node_contract_decls = LNC.name_calls global_ctx sorted_node_contract_decls in
 
-    (* Step 13. Remove multiple assignment from if blocks and frame blocks *)
+    (* Step 14. Remove multiple assignment from if blocks and frame blocks *)
     let sorted_node_contract_decls, gids = RMA.remove_mult_assign global_ctx gids sorted_node_contract_decls in
 
-    (* Step 14. Desugar imperative if block to ITEs *)
+    (* Step 15. Desugar imperative if block to ITEs *)
     let* (sorted_node_contract_decls, gids) = (LDI.desugar_if_blocks global_ctx sorted_node_contract_decls gids) in
 
-    (* Step 15. Desugar frame blocks by adding node equations and guarding oracles. *)
+    (* Step 16. Desugar frame blocks by adding node equations and guarding oracles. *)
     let* (sorted_node_contract_decls, warnings4) = LDF.desugar_frame_blocks sorted_node_contract_decls in
 
-    (* Step 16. Inline constants in node equations *)
+    (* Step 17. Inline constants in node equations *)
     let* (inlined_global_ctx, const_inlined_nodes_and_contracts) =
       IC.inline_constants global_ctx sorted_node_contract_decls
     in
 
-    (* Step 17. Check that inductive array equations are well-founded *)
+    (* Step 18. Check that inductive array equations are well-founded *)
     let* _ = LAD.check_inductive_array_dependencies inlined_global_ctx node_summary const_inlined_nodes_and_contracts in
 
-    (* Step 18. Instantiate polymorphic nodes with concrete types *)
+    (* Step 19. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, gids, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 19. Flatten refinement types *)
+    (* Step 20. Flatten refinement types *)
     let const_inlined_type_and_consts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_type_and_consts in
     let const_inlined_nodes_and_contracts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 20. Check no quantified variable in argument of non-inlinable function *)
+    (* Step 21. Check no quantified variable in argument of non-inlinable function *)
     let inlinable_funcs =
       LUF.inlinable_functions inlined_global_ctx const_inlined_nodes_and_contracts
     in
@@ -247,7 +258,7 @@ let type_check declarations =
       LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
 
-    (* Step 21. Convert free constants to functions without args *)
+    (* Step 22. Convert free constants to functions without args *)
     let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
       LCF.gen_const_functions inlined_global_ctx const_inlined_type_and_consts in
     let* const_inlined_type_and_consts = 
@@ -256,7 +267,7 @@ let type_check declarations =
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    (* Step 22. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 23. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
       LAN.normalize adt_map inlined_global_ctx inlinable_funcs
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids

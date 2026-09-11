@@ -2,16 +2,10 @@
 name: Kind2 CI
 
 on:
+  # Unfiltered: every branch and every tag is built. (A `latest` tag move is
+  # pushed with GITHUB_TOKEN, which by design starts no workflow run, so the
+  # rolling main-branch build does not double up with the run for its commit.)
   push:
-    # gh-pages carries the website's static pages and the documentation of the
-    # released versions, and no sources: there is nothing on it to build or
-    # test, and every job here would fail on the missing dune-project.
-    branches-ignore:
-      - gh-pages
-    # Naming a branch filter would otherwise drop tag pushes, and the nightly
-    # and release tags are built too.
-    tags:
-      - '**'
   pull_request:
 
 # A new push to a branch cancels this workflow's in-progress runs for it, except
@@ -32,19 +26,19 @@ jobs:
         include:
           - name: linux-x86_64
             os: ubuntu-latest
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: linux-arm64
             os: ubuntu-24.04-arm
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: macos-x86_64
             os: macos-15-intel
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: macos-arm64
             os: macos-latest
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: windows-x86_64
             os: windows-latest
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
 
     runs-on: ${{ matrix.os }}
 

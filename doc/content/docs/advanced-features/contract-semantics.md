@@ -26,7 +26,7 @@ From the point of view of `sub`, a contract
 `({a_1, ..., a_n}, {g_1, ..., g_m})` represents the same verification
 challenge as if `sub` had been written
 
-```text
+```lustre
 node sub (...) returns (...) ;
 let
   ...
@@ -45,7 +45,7 @@ For the caller however, the call `sub(<params>)` is legal **if and only if**
 the assumptions of `sub` are invariants of `top` at call-site. The verification
 challenge for `top` is therefore the same as
 
-```text
+```lustre
 node top (...) returns (...) ;
 let
   ... sub(<params>) ...
@@ -72,7 +72,7 @@ $$G' = G\ \cup\ \{\ \bigwedge_i r_i \Rightarrow \bigwedge_i e_i \mid (\{r_i\}, \
 
 For instance, a (linear) contract for non-linear multiplication could be
 
-```text
+```lustre
 node abs (in: real) returns (res: real) ;
 let res = if in < 0.0 then - in else in ; tel
 
@@ -165,7 +165,7 @@ This defensive approach is not as constraining as it first appears.
 If one wants to leave some situation unspecified on purpose,
 it is enough to add to the current set of (non-exhaustive) modes a mode like
 
-```text
+```lustre
 mode base_case (
   require true ;
 ) ;

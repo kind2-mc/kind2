@@ -53,7 +53,7 @@ input variables `a` and `b`. The value of `c` is initially `1.0`. The model
 is annotated with an invariance property stating that, at each step, the output
 `c` is positive whenever both inputs are.
 
-```text
+```lustre
 node add_two (a, b : real) returns (c : real) ;
   var v : real;
       P : bool;
@@ -269,11 +269,11 @@ represent a proof of safety.
 
 ## Contents of certificates
 
-For a given problem (whose safety property is P), an internal certificate
-consists in only a pair $(k, \phi)$ where $\phi$ is a *k*-inductive invariant of the
+For a given problem (whose safety property is \(P\)), an internal certificate
+consists in only a pair \((k, \phi)\) where \(\phi\) is a *k*-inductive invariant of the
 system which implies the original properties. SMT-LIB 2 certificates are in
-fact scripts whose check make sure that $\phi$ implies P and is *k*-inductive. The
-Safety CPC proof is a formal proof that P is invariant in the system, using
+fact scripts whose check make sure that \(\phi\) implies \(P\) and is *k*-inductive. The
+Safety CPC proof is a formal proof that \(P\) is invariant in the system, using
 sub-proofs of validity (unsatisfiability) returned by cvc5.
 
 ## CPC signature
@@ -289,15 +289,15 @@ which defines the Safety CPC proof system. This is for *k*-inductive reasoning, 
 This signature also specifies the encoding for state variables, initial states,
 transition relations, and property predicates. State variables are encoded as
 functions from natural numbers to values. This way, the unrolling of the transition
-relation does not need the creation of several copies of the state variable tuple **x**.
-For example, for the state vector **x** = (*y* , *z*) with *y* of type real and *z*
-of type integer, the Safety CPC encoding will make *y* and *z* respectively functions
-from naturals to reals and integers. So we will use the tuples (*y*(0) ,
-*z*(0)), (*y*(1) , *z*(1)), ... instead of (*y0* , *z0*), (*y1* , *z1*), ... where
-*y0* , *y* 1 , ..., *z0* , *z1*, ... are (distinct) variables. Correspondingly,
-our Safety CPC encoding of a transition relation formula T\[**x**, **x'**\] is
+relation does not need the creation of several copies of the state variable tuple \(\mathbf{x}\).
+For example, for the state vector \( \mathbf{x} = (y, z) \) with \(y\) of type real and \(z\)
+of type integer, the Safety CPC encoding will make \(y\) and \(z\) respectively functions
+from naturals to reals and integers. So we will use the tuples \((y(0),
+z(0)), (y(1), z(1)), \ldots\) instead of \((y_0, z_0), (y_1, z_1),\ldots\) where
+\(y_0, y_1,\ldots, z_0, z_1,\ldots\) are (distinct) variables. Correspondingly,
+our Safety CPC encoding of a transition relation formula \( T[\mathbf{x}, \mathbf{x}'] \) is
 parametrized by two natural variables, the index of the pre-state and of the
-post-state, instead of two tuples of state variables. Similarly, I, P and $\phi$
+post-state, instead of two tuples of state variables. Similarly, \(I\), \(P\) and \(\phi\)
 are parametrized by a single natural variable.
 
 The signature defines several derivability judgments,
@@ -313,10 +313,10 @@ $$\begin{aligned}
 
 It also contains various rules to build proofs of invariance by *k*-induction.
 This signature also specifies how to encapsulate proofs for the front-end
-certificates by providing a additional judgment, safe(I,T,P,I',T',P'), which
-can be derived only when invariant(I,T,P) is derivable and the observational
-equivalence between (I,T,P) and (I',T',P') is provable (judgment woe). Self
-contained proofs of safety follow the sketch depicted below, where Smt stands
+certificates by providing a additional judgment, \(\text{safe}(I,T,P,I',T',P')\), which
+can be derived only when \(\text{invariant}(I,T,P)\) is derivable and the observational
+equivalence between \((I,T,P)\) and \((I',T',P')\) is provable (judgment \(\text{woe}\)). Self
+contained proofs of safety follow the sketch depicted below, where \(\text{S\small MT}\) stands
 for an unsatisfiability rule whose proof tree is obtained, with minor changes,
 from a proof produced by cvc5.
 

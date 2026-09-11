@@ -2,7 +2,6 @@
 title: "Kind 2 Input"
 weight: 2
 ---
-
 Kind 2 reads input models written in an extension of the dataflow Lustre language
 (see this [primer]({{< relref "/docs/lustre-primer" >}}) for
 a quick introduction to the Lustre language).
@@ -14,13 +13,13 @@ examples of all supported language constructs.
 
 To specify an invariant property to verify in a Lustre node, add the following annotation in the body (*i.e.* between keywords `let` and `tel`) of the node:
 
-```text
+```lustre
 --%PROPERTY ["<name>"] <bool_expr> ;
 ```
 
 or, use a `check` statement:
 
-```text
+```lustre
 check ["<name>"] <bool_expr> ;
 ```
 
@@ -30,13 +29,13 @@ In addition to invariant properties, Kind 2 also accepts dedicated syntax for
 checking the existence of a witness.
 You can specify reachability properties of the form:
 
-```text
+```lustre
 --%PROPERTY reachable ["<name>"] <bool_expr> [from <int>] [within <int>];
 ```
 
 or, using a `check` statement:
 
-```text
+```lustre
 check reachable ["<name>"] <bool_expr> [from <int>] [within <int>];
 ```
 
@@ -48,7 +47,7 @@ Concretely, `check reachable P from m` asks whether a state satisfying `P` is re
 Moreover, Kind 2 also supports the following syntax for the specification of properties where
 the lower and upper bounds are the same:
 
-```text
+```lustre
 check reachable ["<name>"] <bool_expr> at <int>;
 ```
 
@@ -56,7 +55,7 @@ Without modular reasoning active, Kind 2 only analyzes the properties of what it
 By default, any node that is not depended on by another node (i.e. called by that node) is a top node.
 Alternatively, nodes can be marked as *main nodes* by doing the following:
 
-```text
+```lustre
 --%MAIN ;
 ```
 
@@ -74,7 +73,7 @@ Main nodes specified by the command line option override main nodes annotated in
 
 The following example declares two nodes `greycounter` and `intcounter`, as well as an *observer* node `top` that calls these nodes and verifies that their outputs are the same. The node `top` is annotated with `--%MAIN ;` which makes it a *main node*. The line `--%PROPERTY OK;` means we want to verify that the Boolean stream `OK` is always true.
 
-```text
+```lustre
 node greycounter (reset: bool) returns (out: bool);
 var a, b: bool; 
 let
@@ -130,7 +129,7 @@ We can see here that the property `OK` has been proven valid for the system (by 
 
 The second example demonstrates reachability properties using a single `counter` node:
 
-```text
+```lustre
 node counter () returns (out: int);
 let
    out = 0 -> pre out + 1;
@@ -161,7 +160,7 @@ they are not defined in terms of the interface of a node.
 For those cases, Kind 2 allows the user to specify a conditional invariant property
 of the form `B => A` as follows:
 
-```text
+```lustre
 check A provided B;
 ```
 
@@ -205,7 +204,7 @@ syntaxes.
 
 A local contract is a block between the signature of the node
 
-```text
+```lustre
 node <id> (...) returns (...) ;
 ```
 
@@ -214,7 +213,7 @@ opening its body.
 
 A local contract block is denoted by the keywords <span class="title-ref">con</span> and \`noc\`:
 
-```text
+```lustre
 con
   [item]+
 noc
@@ -223,7 +222,7 @@ noc
 The original contract syntax (which is deprecated but still available)
 is a special block comment of the form
 
-```text
+```lustre
 (*@contract
   [item]+
 *)
@@ -231,7 +230,7 @@ is a special block comment of the form
 
 or
 
-```text
+```lustre
 /*@contract
   [item]+
 */
@@ -247,7 +246,7 @@ differences are that
 
 A contract node thus has form
 
-```text
+```lustre
 contract <id> (<in_params>) returns (<out_params>) ;
 let
   [item]+
@@ -268,14 +267,14 @@ it is not accessible from the body of the node specified. Ghost variables
 
 The general syntax is
 
-```text
+```lustre
 const <id> [: <type>] = <expr> ;
 var   <id>  : <type>  = <expr> ;
 ```
 
 For instance:
 
-```text
+```lustre
 const max = 42 ;
 var ghost_stream: real = if input > max then max else input ;
 ```
@@ -295,7 +294,7 @@ by `n`.
 Assumptions are given with the `assume` keyword, followed by any legal Boolean
 expression:
 
-```text
+```lustre
 assume <expr> ;
 ```
 
@@ -309,7 +308,7 @@ this node.
 Guarantees are given with the `guarantee` keyword, followed by any legal
 Boolean expression:
 
-```text
+```lustre
 guarantee <expr> ;
 ```
 
@@ -319,7 +318,7 @@ A mode `(R,E)` is a set of *requires* `R` and a set of *ensures* `E`.
 Modes are named to ease traceability and improve feedback. The general syntax
 is
 
-```text
+```lustre
 mode <id> (
   [require <expr> ;]*
   [ensure  <expr> ;]*
@@ -328,7 +327,7 @@ mode <id> (
 
 For instance:
 
-```text
+```lustre
 mode engaging (
   require true -> not pre engage_input ;
   require engage_input ;
@@ -363,13 +362,13 @@ outputs of `n` in the current state.
 
 The general syntax is
 
-```text
+```lustre
 import <id> ( <expr>,* <expr> ) returns ( <id>,* <id> ) ;
 ```
 
 For instance:
 
-```text
+```lustre
 contract spec (engage, disengage: bool) returns (engaged: bool) ;
 let ... tel
 
@@ -407,7 +406,7 @@ let ... tel
 
 Once a mode has been defined it is possible to *refer* to it with
 
-```text
+```lustre
 ::<scope>::<mode_id>
 ```
 
@@ -417,20 +416,20 @@ mode in terms of contract imports.
 In the example from the previous section for instance, say contract `spec` has
 a mode `m`. The inline contract of `my_node` can refer to it by
 
-```text
+```lustre
 ::spec::m
 ```
 
 To refer to the `init` mode:
 
-```text
+```lustre
 ::init
 ```
 
 A mode reference is syntactic sugar for the `requires` of the mode in question.
 So if mode `m` is
 
-```text
+```lustre
 mode m (
   require <r_1> ;
   require <r_2> ;
@@ -442,7 +441,7 @@ mode m (
 
 then `::<path>::m` is exactly the same as
 
-```text
+```lustre
 (<r_1> and <r_1> and ... and <r_n>)
 ```
 
@@ -457,7 +456,7 @@ An interesting use-case for mode references is that of checking properties over
 the specification itself. One may want to do so to make sure the specification
 behaves as intended. For instance
 
-```text
+```lustre
 mode m1 (...) ;
 mode m2 (...) ;
 mode m3 (...) ;
@@ -484,7 +483,7 @@ A `merge` is an operator combining several streams defined on **complementary**
 clocks. There is two ways to define a stream on a clock. First, by wrapping its
 definition inside a `when`.
 
-```text
+```lustre
 node example (i: int) returns (out: int) ;
 var i_pos: bool ; x: int ;
 let
@@ -498,26 +497,26 @@ tel
 Here, `x` is only defined when `in_pos`, its clock, is `true`.
 That is, a trace of execution of `example` sliced to `x` could be
 
-| step | i   | i_pos | x   |
-|------|-----|-------|-----|
-| 0    | 3   | true  | 3   |
-| 1    | -2  | false | //  |
-| 2    | -1  | false | //  |
-| 3    | 7   | true  | 7   |
-| 4    | -42 | true  | //  |
+| step | i   | i_pos | x  |
+| ---- | --- | ----- | -- |
+| 0    | 3   | true  | 3  |
+| 1    | -2  | false | // |
+| 2    | -1  | false | // |
+| 3    | 7   | true  | 7  |
+| 4    | -42 | true  | // |
 
 where // indicates that `x` undefined.
 
 The second way to define a stream on a clock is to wrap a node call with the
 `activate` keyword. The syntax for this is
 
-```text
+```lustre
 (activate <node_name> every <clock>)(<input_1>, <input_2>, ...)
 ```
 
 For example, consider the following node:
 
-```text
+```lustre
 node sum_ge_10 (i: int) returns (out: bool) ;
 var sum: int ;
 let
@@ -528,7 +527,7 @@ tel
 
 Say now we call this node as follows:
 
-```text
+```lustre
 node example (i: int) returns (...) ;
 var tmp, i_pos: bool ;
 let
@@ -544,20 +543,20 @@ example trace of `example` sliced to `tmp`; notice how the internal state of
 `sum_ge_10` (*i.e.* `pre sum_ge_10.sum`) is maintained so that it does refer to the value
 of `sum_ge_10.sum` *at the last clock tick of the* `activate`:
 
-| step | i   | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
-|------|-----|-------|-------|-------------|-------------------|---------------|
-| 0    | 3   | true  | false | 3           | nil               | 3             |
-| 1    | 2   | true  | false | 2           | 3                 | 5             |
-| 2    | -1  | false | nil   | nil         | 5                 | nil           |
-| 3    | 2   | true  | false | 2           | 5                 | 7             |
-| 4    | -7  | false | nil   | nil         | 7                 | nil           |
-| 5    | 35  | true  | true  | 35          | 7                 | 42            |
-| 6    | -2  | false | nil   | nil         | 42                | nil           |
+| step | i  | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
+| ---- | -- | ----- | ----- | ----------- | ----------------- | ------------- |
+| 0    | 3  | true  | false | 3           | nil               | 3             |
+| 1    | 2  | true  | false | 2           | 3                 | 5             |
+| 2    | -1 | false | nil   | nil         | 5                 | nil           |
+| 3    | 2  | true  | false | 2           | 5                 | 7             |
+| 4    | -7 | false | nil   | nil         | 7                 | nil           |
+| 5    | 35 | true  | true  | 35          | 7                 | 42            |
+| 6    | -2 | false | nil   | nil         | 42                | nil           |
 
 Now, as mentioned above the `merge` operator combines two streams defined on
 **complimentary** clocks. The syntax of `merge` is:
 
-```text
+```lustre
 merge( <clock> ; <e_1> ; <e_2> )
 ```
 
@@ -567,7 +566,7 @@ respectively, or on `not <clock>` and `<clock>` respectively.
 Building on the previous example, say add two new streams `pre_tmp` and
 `safe_tmp`:
 
-```text
+```lustre
 node example (i: int) returns (...) ;
 var tmp, i_pos, pre_tmp, safe_tmp: bool ;
 let
@@ -584,15 +583,15 @@ That is, `safe_tmp` is the value of `tmp` whenever it is defined, otherwise it
 is the previous value of `safe_tmp` if any, and `false` otherwise.
 The execution trace given above becomes
 
-| step | i   | i_pos | tmp   | pre_tmp | safe_tmp |
-|------|-----|-------|-------|---------|----------|
-| 0    | 3   | true  | false | false   | false    |
-| 1    | 2   | true  | false | false   | false    |
-| 2    | -1  | false | nil   | false   | false    |
-| 3    | 2   | true  | false | false   | false    |
-| 4    | -7  | false | nil   | false   | false    |
-| 5    | 35  | true  | true  | false   | true     |
-| 6    | -2  | false | nil   | true    | true     |
+| step | i  | i_pos | tmp   | pre_tmp | safe_tmp |
+| ---- | -- | ----- | ----- | ------- | -------- |
+| 0    | 3  | true  | false | false   | false    |
+| 1    | 2  | true  | false | false   | false    |
+| 2    | -1 | false | nil   | false   | false    |
+| 3    | 2  | true  | false | false   | false    |
+| 4    | -7 | false | nil   | false   | false    |
+| 5    | 35 | true  | true  | false   | true     |
+| 6    | -2 | false | nil   | true    | true     |
 
 Just like with uninitialized `pre`s, if not careful one can easily end up
 manipulating undefined streams. Kind 2 forces good practice by allowing
@@ -603,7 +602,7 @@ of view.
 Rewriting them as valid Kind 2 input is not difficult however. Here is a legal
 version of the last example:
 
-```text
+```lustre
 node example (i: int) returns (...) ;
 var i_pos, pre_tmp, safe_tmp: bool ;
 let
@@ -622,7 +621,7 @@ tel
 Kind 2 supports resetting the internal state of a node to its initial state by
 using the construct restart/every. Writing
 
-```text
+```lustre
 (restart n every c)(x1, ..., xn)
 ```
 
@@ -634,7 +633,7 @@ In the example below, the node `top` makes a call to `counter` (which is an
 integer counter *modulo* a constant `max`) which is reset every time the input
 stream `reset` is true.
 
-```text
+```lustre
 node counter (const max: int) returns (t: int);
 let
   t = 0 -> if pre t = max then 0 else pre t + 1;
@@ -648,18 +647,18 @@ tel
 
 A trace of execution for the node top could be:
 
-| step | reset | c   |
-|------|-------|-----|
-| 0    | false | 0   |
-| 1    | false | 1   |
-| 2    | false | 2   |
-| 3    | false | 3   |
-| 4    | true  | 0   |
-| 5    | false | 1   |
-| 6    | false | 2   |
-| 7    | true  | 0   |
-| 8    | true  | 0   |
-| 9    | false | 1   |
+| step | reset | c |
+| ---- | ----- | - |
+| 0    | false | 0 |
+| 1    | false | 1 |
+| 2    | false | 2 |
+| 3    | false | 3 |
+| 4    | true  | 0 |
+| 5    | false | 1 |
+| 6    | false | 2 |
+| 7    | true  | 0 |
+| 8    | true  | 0 |
+| 9    | false | 1 |
 
 > **Note:** This construction can be encoded in traditional Lustre by having a
 > Boolean input for the reset stream for each node. However providing a
@@ -667,7 +666,7 @@ A trace of execution for the node top could be:
 
 Restart and activate can also be combined in the following way:
 
-```text
+```lustre
 (activate (restart n every r) every c)(a1, ..., an)
 (activate n every c restart every r)(a1, ..., an)
 ```
@@ -691,7 +690,7 @@ This is the intended way to express that an output is not fully constrained. For
 instance, the node below defines `count` precisely but leaves `error`
 underspecified, while still being analyzed against its contract:
 
-```text
+```lustre
 node count (trigger: bool) returns (count: int ; error: bool) ;
 con
   var once: bool = trigger or (false -> pre once) ;
@@ -721,7 +720,7 @@ the node does not have a body (`let ... tel`). In a Lustre compiler, this is
 usually used to encode a C function or more generally a call to an external
 library.
 
-```text
+```lustre
 node imported no_body (inputs: ...) returns (outputs: ...) ;
 ```
 
@@ -729,7 +728,7 @@ In Kind 2, this means that the node is always abstract in the contract sense.
 It can never be refined, and is always abstracted by its contract. If none is
 given, then the implicit (rather weak) contract
 
-```text
+```lustre
 con
   assume true ;
   guarantee true ;
@@ -776,6 +775,133 @@ assumptions having held at every step up to and including the current one (the
 that a function's outputs depend only on the current values of its inputs,
 whereas a node may also depend on their previous values.
 
+### Recursive functions
+
+A function may call itself, directly or through a cycle of other functions,
+if it is declared with the `rec` modifier:
+
+```text
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec to_int (n: Nat) returns (out: int)
+con
+  decreases n;
+noc
+let
+  out = match n with
+    | Zero      : 0
+    | Succ (m)  : 1 + to_int (m)
+  end;
+tel
+```
+
+Every function marked `rec`, and every function reachable from it through a
+call cycle, must carry a `decreases` contract item. This measure is what lets
+Kind 2 establish that the recursion terminates (without it, a call could be
+given a definition that has no solution). Kind 2 rejects a `rec` function that
+lacks a `decreases` clause, and rejects a plain (non-`rec`) function that is
+found to actually be part of a (recursive) call cycle.
+
+A `decreases` clause is only meaningful in the inline contract of a `rec`
+function, and exactly one clause is allowed there. Declaring one anywhere else
+is an error.
+
+A `decreases` clause takes one of two forms.
+
+**Integer measure.** A single integer expression, or a comma-separated tuple of
+integer expressions read lexicographically:
+
+```text
+type Count = subrange [0,*] of int;
+
+function rec sum_to (n: Count) returns (out: int)
+con
+  decreases n;
+noc
+let
+  out = when n = 0 then 0 else n + sum_to (n - 1);
+tel
+```
+
+For an integer measure, Kind 2 generates two proof obligations per recursive
+call and verifies them like any other property: the measure must be bounded
+below by `0`, and it must strictly decrease (lexicographically, for tuples)
+from caller to callee.
+
+Note the use of `when ... then ... else` rather than plain `if ... then ... else`:
+in Lustre, both branches of an `if` are part of the expression's definition
+regardless of which one is selected, so the `else` branch's `sum_to (n - 1)`
+would still need to be well-defined (and its argument still in range) even when
+`n = 0`. `when ... then ... else` guards the untaken branch instead, so the
+recursive call is only ever made with `n - 1`, which stays within `Count`
+precisely because it is guarded by `n = 0` being false. This is also why the
+input is restricted to `Count`: the measure must be bounded below by `0` for
+the recursion to be well-founded, and this only holds for non-negative `n`.
+
+**Algebraic-datatype measure.** A single expression whose type is a recursive
+ADT (see [Algebraic Datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}})).
+This form cannot be used as a component of a tuple measure. Instead of
+generating a property, Kind 2 checks ADT measures **statically**, at compile
+time: for every recursive call, the callee's measure (after substituting the
+actual call arguments for the callee's parameters) must be a variable that the
+caller obtained by pattern-matching — possibly through several nested matches —
+on its own measure. Concretely: matching on the measure itself (or on a
+variable already known, from an earlier match, to be such a variable) and
+binding one of the resulting constructor's fields makes that field's variable
+an accepted witness that the recursion is decreasing. For example:
+
+```text
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec is_even (n: Nat) returns (b: bool)
+con
+  decreases n;
+noc
+let
+  b = match n with
+    | Zero      : true
+    | Succ (m)  : is_odd (m)
+  end;
+tel
+
+function rec is_odd (n: Nat) returns (b: bool)
+con
+  decreases n;
+noc
+let
+  b = match n with
+    | Zero      : false
+    | Succ (m)  : is_even (m)
+  end;
+tel
+```
+
+Here `is_even`'s call to `is_odd (m)` passes `m` in the position of `is_odd`'s
+own measure `n`. The match arm `Succ (m)` is matching directly on `is_even`'s
+measure `n`, so `m` — the field it binds — is accepted as a witness that the
+call decreases. The same reasoning applies to `is_odd`'s call back into
+`is_even`, so the mutual recursion is accepted as terminating.
+
+Because a match's tester (e.g. `Succ?(n)`) is what actually guarantees a
+pattern-bound variable is a genuine substructure of the matched value, only
+such variables are accepted. A **raw field selector is never accepted**, even
+when applied to the exact same field a match would have bound, and even when it
+appears directly guarded by an `if`/`when` on the right tester (e.g.
+`if Succ?(n) then is_even (n.pred) else ...`): applied to the wrong constructor
+a selector is unconstrained, and the checker has no way to confirm, from an
+`if`/`when` alone, that the guard actually holds at the call. Likewise, an
+argument computed through an intermediate local variable, an auxiliary call, or
+any other indirection is rejected even if it is semantically equal to a
+directly pattern-matched variable.
+
+The check applies to every form that names a callee (not just ordinary calls):
+`restart f every c`, `condact (c, f (...), d)` and `activate f every c` are all
+recursive calls when `f` is in the recursive group, and must decrease just the
+same. It also applies to calls written inside a type annotation — a refinement
+predicate on an input, output or local, or an array bound. Such a call can
+never be decreasing, since only a match in the function's body can witness a
+decrease, so it is always rejected.
+
 ### Benefits and limitations
 
 Functions are interesting in the model-checking context of Kind 2 mainly as
@@ -818,13 +944,13 @@ evaluated.
 
 The `if ... then ... else ...` expression has *eager* semantics:
 
-```text
+```lustre
 x = if condition then expr1 else expr2;
 ```
 
 The `when ... then ... else ...` expression has *lazy* semantics:
 
-```text
+```lustre
 x = when condition then expr1 else expr2;
 ```
 
@@ -884,7 +1010,7 @@ In addition to the conditional *expressions* described above, in some circumstan
 it may be more natural to use `if` *statements* that serve as control flow (rather than
 evaluate to a value). For example, Kind 2 supports statements of the form:
 
-```text
+```lustre
 if condition1 then
    y1 = expr1;
    y2 = expr2;
@@ -905,7 +1031,7 @@ as well as writing `if` statements that do not have any `else` or `elsif` blocks
 
 **Note:** If statements are syntactic sugar for conditional expressions. The `if` statement above is equivalent to:
 
-```text
+```lustre
 y1 = if condition1 then expr1 else (if condition2 then expr3 else expr5);
 y2 = if condition1 then expr2 else (if condition2 then expr4 else expr6);
 ```
@@ -922,7 +1048,7 @@ is shared by all the equations generated from the block. In the following
 example, the property `"agree"` is invariant because `y1` and `y2`
 always take the same branch:
 
-```text
+```lustre
 node imported nondet() returns (b: bool);
 
 node example() returns (y1, y2: int);
@@ -945,7 +1071,7 @@ left undefined in a branch holds its previous value).
 Kind 2 also supports `when` blocks, which are similar in structure to `if`
 statements but use *lazy* branch semantics:
 
-```text
+```lustre
 when condition1 then
    y1 = expr1;
    y2 = expr2;
@@ -957,7 +1083,7 @@ end
 
 Additional branches can be expressed by nesting `when` blocks inside the `else` branch:
 
-```text
+```lustre
 when condition1 then
    y1 = expr1;
    y2 = expr2;
@@ -1004,7 +1130,7 @@ Current restrictions for `when` blocks are:
 Kind 2 also supports `cond` blocks, which use a pattern-matching style with
 multiple guarded branches and an `otherwise` clause:
 
-```text
+```lustre
 cond
   | condition1:
      y1 = expr1;
@@ -1024,12 +1150,9 @@ not selected are not evaluated.
 
 Current restrictions for `cond` blocks are the same as for `when` blocks:
 
-- Branch expressions cannot contain temporal operators (for example `pre` or  
-  `->`).
-
+- Branch expressions cannot contain temporal operators (for example `pre` or`->`).
 - Branch expressions cannot call Lustre nodes (calls to functions are allowed).
-
-- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks  
+- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
   cannot be nested inside `if` blocks.
 
 ### Frame conditions
@@ -1062,7 +1185,7 @@ Finally,
 `y3` will have value `//, 0, 1, 2, 3, ...` since it is also not fully or partially undefined,
 regardless of the presence of an unguarded `pre`.
 
-```text
+```lustre
 node example() returns (y1, y2, y3: int);
 let
    frame ( y1, y2, y3 )
@@ -1086,7 +1209,7 @@ tel
 Frame conditions are especially useful when combined with the `if` statements described in the previous
 subsection, as variables can be left undefined in some branches of the `if` statement.
 
-```text
+```lustre
 node example() returns (y1, y2: int);
 let
    frame ( y1, y2 )
@@ -1134,7 +1257,7 @@ The initial value of `y1` is 0 (the initial value assigned by `counter()`); the 
 of `y2` is undefined (due to the unguarded `pre`);
 and the initial value of `y3` is also undefined (due to the lack of an equation defining `y3` initially).
 
-```text
+```lustre
 frame ( y1, y2, y3 )
 let
    y1 = counter();
@@ -1155,7 +1278,7 @@ following code block is equivalent to `y = pre y`. So, Kind 2 will produce two w
 will state that `y` is uninitialized in the frame block, and the second will state that there is
 an unguarded `pre` (due to this lack of initialization).
 
-```text
+```lustre
 frame ( y )
 let
 tel
@@ -1166,7 +1289,7 @@ Similarly, in the following code block, the definitions of `y1` and `y2` are equ
 any other situation where the frame block semantics result in the generation of an unguarded `pre`)
 will also generate the two warnings as discussed in the previous paragraph.
 
-```text
+```lustre
 frame (y1, y2)
 let
    if cond
@@ -1206,7 +1329,7 @@ For example, in the following frame block `last o` refers to the value of
 `o` at the previous timestep, initialized to `i` (the initialization of
 `o`):
 
-```text
+```lustre
 frame (o)
 o = i;
 let
@@ -1226,7 +1349,7 @@ arbitrary non-negative integer *chosen once*: at the first timestep, if
 same value plus one — there are never two independent choices, one for
 `x` and another for `last x`. The property `"nonneg"` is invariant:
 
-```text
+```lustre
 node count (m: bool) returns (x: int);
 let
    frame (x)
@@ -1253,7 +1376,7 @@ behaves as if it contained the equation `x = last x` (i.e., `x` keeps its
 previous value, initialized by the frame). For example, the following two frame
 blocks are equivalent:
 
-```text
+```lustre
 frame (o, c1, c2)
 o = i; c1 = 0; c2 = 0;
 let
@@ -1267,7 +1390,7 @@ let
 tel
 ```
 
-```text
+```lustre
 frame (o, c1, c2)
 o = i; c1 = 0; c2 = 0;
 let
@@ -1289,7 +1412,7 @@ omitted `else`/`otherwise` branch behaves as if it defined every frame block
 variable with `x = last x`. For example, the following two frame blocks are
 equivalent:
 
-```text
+```lustre
 frame (o, c1, c2)
 o = i; c1 = 0; c2 = 0;
 let
@@ -1300,7 +1423,7 @@ let
 tel
 ```
 
-```text
+```lustre
 frame (o, c1, c2)
 o = i; c1 = 0; c2 = 0;
 let
@@ -1324,7 +1447,7 @@ cannot be omitted.
 A frame block cannot be nested within an if statement or another frame block, as
 demonstrated in the following examples:
 
-```text
+```lustre
 if condition
 then
    frame ( y1, y2 )
@@ -1335,7 +1458,7 @@ then
 fi
 ```
 
-```text
+```lustre
 frame ( y1, y2 )
 y1 = init1; y2 = init2;
 let
@@ -1363,7 +1486,7 @@ For example, consider different interface type variations of the `SafePre`
 node, which returns the previous value of its single input, but initialized with
 the first value of the input stream.
 
-```text
+```lustre
 node SafePreInt(x: int) returns (y: int);
 let
   y = x -> pre x;
@@ -1387,7 +1510,7 @@ and the specific type arguments at the call site. Polymorphic type parameters
 are specified using angle brackets as `<ty1; ...; tyn>` whereas
 call-site polymorphic arguments are specified using the `@` instantiation operator.
 
-```text
+```lustre
 node SafePre<T>(x: T) returns (y: T);
 let
   y = x -> pre x;
@@ -1410,7 +1533,7 @@ determines them *bottom-up* by unifying the node's input parameter types against
 types of the actual arguments at the call site. For instance, the two calls in `Top`
 above can be written without any annotation:
 
-```text
+```lustre
 node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
 let
   y1 = SafePre(y1);
@@ -1435,7 +1558,7 @@ consistent with the types of the arguments, or a type error is raised.
 Another example is a polymorphic node `PairSwap`, which takes a polymorphic pair tuple as input and
 returns the corresponding swapped pair tuple as output.
 
-```text
+```lustre
 node PairSwap<T; U>(x: [T, U]) returns (y: [U, T]);
 let
 y = {x[1], x[0]};
@@ -1451,7 +1574,7 @@ To illustrate these semantics, even though the `+` operator is overloaded betwee
 `int -> int -> int` and `real -> real -> real`,
 the following polymorphic node will give a type error, as it cannot be instantiated with any type.
 
-```text
+```lustre
 -- Generates a type error
 node BadPolymorphicAdd<T>(x1, x2: T) returns (y: T);
 let
@@ -1470,7 +1593,7 @@ The first way of defining a polymorphic contract is by adding a type parameter t
 For example, the `Stutter` contract states that the output `y` must either be equal to the input
 `x` or the previous value of `x`.
 
-```text
+```lustre
 contract Stutter<T> (x: T) returns (y: T) ;
 let
    guarantee 
@@ -1483,7 +1606,7 @@ Then, the polymorphic contract can be included in a node using an import stateme
 the type arguments are provided at the import statement (analogously to a polymorphic node declaration and
 node call).
 
-```text
+```lustre
 contract Stutter<T> (x: T) returns (y: T) ;
 let
    guarantee 
@@ -1516,7 +1639,7 @@ node.
 Another way of specifying a polymorphic contract is by including it directly in the
 node declaration of a polymorphic node as a local contract.
 
-```text
+```lustre
 node M<T>(x: int) returns (y: int);
 con
    guarantee 
@@ -1546,7 +1669,7 @@ are in the scope of the `any` (or `choose`) expression.
 The following example shows a component using the `any` (or `choose`)
 operator to define a local stream `l` of arbitrary odd values.
 
-```text
+```lustre
 node N(y: int) returns (z:int);
 con
   assume "y is odd" y mod 2 = 1;
@@ -1580,7 +1703,7 @@ For instance, the condition of the `any` (or analogously, `choose`) operator in 
 the following example is inconsistent, and thus, there is no realization of
 the system model. As a result, Kind 2 proves the property P1 valid.
 
-```text
+```lustre
 node N(y: int) returns (z: int);
   var l: int;
 let
@@ -1619,7 +1742,7 @@ in the following example would fail if `b` were declared simply
 as an integer stream, rather than using the refinement type
 `subtype { x: int | a <= x }`.
 
-```text
+```lustre
 node N(a: int) returns (z: int);
 var b: subtype { x: int | a <= x };
 let

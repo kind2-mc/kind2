@@ -1,0 +1,12 @@
+-- Under an eager operator the selector keeps its guard (only the lazy
+-- constructs establish the constructor for their operands), and its value
+-- when the constructor is not the active one stays arbitrary, so the
+-- property is falsifiable when B?(x).
+
+datatype D = A (a: int) | B (b: bool);
+
+node main(x: D) returns (ok: bool);
+let
+  ok = B?(x) => x.a = 0;
+  check ok;
+tel

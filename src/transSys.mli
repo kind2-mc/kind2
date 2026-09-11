@@ -193,6 +193,12 @@ val init_formals : t -> Var.t list
 (** Variables in the transition relation *)
 val trans_formals : t -> Var.t list
 
+(** Of the given conjuncts of a transition relation, those that only
+    constrain the current state; an unconditional call of the transition
+    relation of one of the given subsystems contributes the same part of
+    the subsystem, with its formal parameters bound to the actual ones. *)
+val one_state_conjuncts : (t * instance list) list -> Term.t list -> Term.t list
+
 
 (** Builds a call to the initial function on state [k]. *)
 val init_fun_of : t -> Numeral.t -> Term.t
@@ -274,6 +280,11 @@ val mk_trans_sys :
 
   (* Start value for fresh instance identifiers *)
   ?instance_var_id_start:int ->
+
+  (* The part of the transition relation that only constrains the current
+     state, see [one_state_conjuncts]; computed from the transition
+     relation if not given *)
+  ?one_state_trans:Term.t ->
 
   (* Recursive ADTs used anywhere in this system, in dependency order *)
   ?datatype_types:Type.t list ->

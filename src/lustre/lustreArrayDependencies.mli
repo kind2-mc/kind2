@@ -17,7 +17,7 @@
  *)
 
 (**
-    @author Andrew Marmaduke *)
+    @author Andrew Marmy *)
 
 type error_kind = Unknown of string
   | ComplicatedExpr of LustreAst.expr

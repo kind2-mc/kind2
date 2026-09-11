@@ -1,0 +1,15 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec F (n: Nat; m: Nat; k: Nat) returns (out: int)
+con decreases n; noc
+let
+  out = match n with
+  | Zero : 0
+  | Succ (p) : 1 + F(p, (p, p))
+  end;
+tel
+
+node main (n: Nat) returns ()
+let
+  check F(n, n, n) = F(n, n, n);
+tel

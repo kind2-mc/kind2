@@ -1,4 +1,4 @@
-FROM ocaml/opam:alpine-3.23-ocaml-5.5-flambda AS builder
+FROM ocaml/opam:alpine-3.24-ocaml-5.5-flambda AS builder
 
 USER root
 
@@ -11,10 +11,16 @@ COPY --chown=opam:opam . /home/opam/kind2-build/
 # Build Kind 2
 WORKDIR /home/opam/kind2-build
 
-# Note: we use remote OPAM repo until local one is updated
+# Note: we use remote OPAM repo until local one is updated.
+# The base image is still on OCaml 5.5.0 (with ocaml-variants pinned), so we
+# unpin and move the switch to 5.5.1, keeping flambda. This can be dropped once
+# ocaml/opam publishes a 5.5.1 image.
 RUN eval $(opam env) && \
     opam repo set-url default https://opam.ocaml.org && \
-    opam update && opam install -y . --deps-only && \
+    opam update && \
+    opam pin remove -y ocaml-variants && \
+    opam switch set-invariant ocaml-variants.5.5.1+options ocaml-options-only-flambda && \
+    opam install -y . --deps-only && \
     make static && strip bin/kind2
 
 FROM alpine:latest

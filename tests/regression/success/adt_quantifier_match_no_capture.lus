@@ -1,0 +1,11 @@
+datatype Box = B (v: int);
+
+node N (b: Box) returns (y: int)
+con
+  guarantee "g" match b with
+                | B (v) : forall (w: int) (y = v)
+                end;
+noc
+let
+  y = b.v;
+tel
