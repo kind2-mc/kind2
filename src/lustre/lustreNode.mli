@@ -111,6 +111,15 @@ type node_call = {
   call_inlined : bool;
   (** Whether this call was inlined or not *)
 
+  call_uf_applied : bool;
+  (** Whether this call is the instance retained for a call that was compiled
+      to an application of the functional symbol of the callee (a call applied
+      to quantified variables, see
+      {!GeneratedIdentifiers.t.qcalls}). The terms of the caller apply that
+      symbol, so the instance must survive slicing whatever the property being
+      checked: it is what makes the callee a subsystem of the caller, and thus
+      what gets the symbol declared (or defined). *)
+
   call_rec_decrease_expr : string option;
   (** Source-level rendering of the decrease constraint generated for a
       recursive call (e.g. ["(n - 1 < n)"]), used as the displayed expression

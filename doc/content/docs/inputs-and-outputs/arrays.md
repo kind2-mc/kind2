@@ -477,6 +477,15 @@ is currently defined as a function that meets all the following criteria:
   or the function is annotated as transparent.
 - It does not include `assert` statements or array definitions.
 
+A quantified variable may also appear in the arguments of a call to a
+[recursive function]({{< relref "/docs/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
+that Kind 2 defines at the SMT level, that is, one that has no contract to
+abstract its calls with or that is declared `transparent`. Such a call is
+compiled to an application of the symbol the function is defined as rather than
+to an instance of the function, so the quantifier is free to range over its
+arguments. This does not extend to a symbolic array index, which still cannot
+appear in the arguments of a call that is not inlined.
+
 ### Command line options
 
 We provide different encodings of inductive array definitions in our internal

@@ -722,7 +722,8 @@ let keep_inline_call c prop =
 let roots_of_inlined_calls prop calls =
   List.fold_left
     (fun acc c ->
-      if c.N.call_inlined && keep_inline_call c prop then
+      if c.N.call_inlined && (c.N.call_uf_applied || keep_inline_call c prop)
+      then
         SVS.union acc (D.values c.call_outputs |> SVS.of_list)
       else
         acc

@@ -953,6 +953,43 @@ function by unfolding it, which settles any query about concrete arguments but
 is no substitute for induction: a property of the function for all its inputs
 still calls for a contract, or a lemma.
 
+Because such a function is a symbol the solver knows at every argument, a call
+to it may be applied to a quantified variable, which a call to a node or to a
+function that is neither inlinable nor defined this way may not (see the
+[limitations]({{< relref "/docs/inputs-and-outputs/arrays#limitations" >}}) on
+quantifiers):
+
+```lustre
+datatype Nat = Zero | Succ (p: Nat);
+
+function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main () returns ();
+let
+  check forall (n: Nat) Even(Succ(n)) = not Even(n);
+tel
+```
+
+Each call is compiled to an application of the function's symbol, so the
+quantifier ranges over its argument, and the property is proved by unfolding
+the definition once. A recursive function that a contract
+abstracts is left out: its symbol is then uninterpreted, tied to the outputs of
+the instances of the function and constrained by the contract at their
+arguments only, so under a quantifier it would stand for an arbitrary function
+and a property that does hold of the function could be reported falsifiable.
+Such a call is rejected. It is also rejected when the enclosing quantified
+variable is a symbolic array index rather than a variable of an explicit
+quantifier. When the definition is left out for one of the reasons above (the
+body is not a total function of its inputs, or `--define_fun_rec false`), the
+call is still accepted and Kind 2 warns that the function is an arbitrary
+function of its inputs under the quantifier.
+
 ### Benefits and limitations
 
 Functions are interesting in the model-checking context of Kind 2 mainly as

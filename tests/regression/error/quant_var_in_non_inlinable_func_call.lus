@@ -1,0 +1,17 @@
+-- The restriction stands for a function that is neither inlinable nor
+-- recursive: it has no functional symbol a quantified call could be compiled
+-- to an application of.
+
+function F (x: int) returns (y: int)
+con
+  guarantee y > 0;
+noc
+let
+  y = 1;
+tel
+
+node main (x: bool) returns (y: bool);
+let
+  y = x;
+  check forall (i: int) F(i) > 0;
+tel

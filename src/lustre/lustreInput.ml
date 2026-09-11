@@ -254,6 +254,12 @@ let type_check declarations =
     let inlinable_funcs =
       LUF.inlinable_functions inlined_global_ctx const_inlined_nodes_and_contracts
     in
+    (* A call to one of these applied to quantified variables is compiled to an
+       application of the functional symbol of the callee rather than to a node
+       instance, so the restriction below does not apply to it *)
+    let uf_callable_funcs =
+      LUF.uf_callable_functions inlined_global_ctx const_inlined_nodes_and_contracts
+    in
     let* warnings5 =
       LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
@@ -269,7 +275,7 @@ let type_check declarations =
 
     (* Step 23. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
-      LAN.normalize adt_map inlined_global_ctx inlinable_funcs
+      LAN.normalize adt_map inlined_global_ctx inlinable_funcs uf_callable_funcs
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 

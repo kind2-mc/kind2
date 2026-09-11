@@ -136,6 +136,10 @@ type node_call = {
   (* Whether this call was inlined or not *)
   call_inlined : bool;
 
+  (* Whether this call is the instance retained for a call compiled to an
+     application of the functional symbol of the callee (see LustreNode.mli) *)
+  call_uf_applied : bool;
+
   (* Source-level rendering of the decrease constraint generated for a
      recursive call (e.g. "(n - 1 < n)"), used as the displayed expression of
      the corresponding decrease_check property. [None] for non-recursive calls

@@ -60,6 +60,21 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
+  (* Calls to a function that are applied to enclosing quantified variables,
+     and are therefore compiled to an application of the functional symbol of
+     the callee rather than to a node instance (see [LustreNodeGen]). The
+     abstracted output is the name the application is bound to. The call still
+     generates a node instance, listed in [calls], whose arguments have the
+     quantified variables replaced by free constants (see [mk_fresh_qcall]);
+     the instance is named so that [LustreNodeGen] can flag it as one slicing
+     must not drop *)
+  qcalls : (
+    LustreAst.typed_ident list (* quantified variables *)
+    * HString.t (* abstracted output *)
+    * HString.t (* abstracted output of the node instance the call retains *)
+    * NodeId.t (* function name *)
+    * (LustreAst.expr list) (* function arguments *)
+  ) list;
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)

@@ -3717,6 +3717,43 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
             definition_set
             tl
 
+(* Functions already warned about by [warn_undefined_uf_applications]. The same
+   model is compiled once per analysis, but the warning is about the model *)
+let uf_applied_warned = ref NI.Set.empty
+
+(* A call applied to quantified variables is compiled to an application of the
+   functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]). Such
+   a call is only accepted for a function [LustreUserFunctions] finds a
+   definition is to be built for, but the definition can still be left out here,
+   for a reason that is only known once the nodes are compiled: the body is not
+   a total function of its inputs, or definitions are off. The symbol is then
+   uninterpreted and tied to the outputs of the instances of the function only,
+   so under the quantifier it is an arbitrary function and a property that does
+   hold of the function can be reported falsifiable. Say so. *)
+let warn_undefined_uf_applications fun_defs nodes =
+  nodes |> List.iter (fun { N.calls } ->
+    calls |> List.iter (fun { N.call_uf_applied; N.call_node_id } ->
+      if call_uf_applied
+         && not (LustreFunDefs.is_defined fun_defs call_node_id)
+         && not (NI.Set.mem call_node_id !uf_applied_warned)
+      then (
+        uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
+        Log.log L_warn
+          "@[<hov>Function %a is applied to quantified variables but has \
+           no definition at the SMT level, %s.@ Under the quantifier it is \
+           an arbitrary function of its inputs,@ so a property that does \
+           hold of it may be reported falsifiable.@]"
+          NI.pp_print_node_id_user_name call_node_id
+          (if LustreFunDefs.enabled () then
+             "because its body is not a total function of its inputs that \
+              the solver can be given"
+           else
+             "because recursive functions are not being defined at the \
+              SMT level")
+      )
+    )
+  )
+
 let trans_sys_of_nodes
     ?(options=default_settings)
     globals
@@ -3782,6 +3819,8 @@ let trans_sys_of_nodes
   let fun_defs =
     LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
   in
+
+  warn_undefined_uf_applications fun_defs nodes;
 
   let { trans_sys; definition_set} =
 

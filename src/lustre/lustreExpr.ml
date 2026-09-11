@@ -1228,6 +1228,17 @@ let mk_constr c t =
     expr_step = expr; 
     expr_type = t } 
 
+(* Application of an uninterpreted function symbol to expressions *)
+let mk_app uf args =
+
+  let mk_app' sel =
+    Term.mk_uf uf (List.map sel args)
+  in
+
+  { expr_init = mk_app' (fun { expr_init } -> expr_init);
+    expr_step = mk_app' (fun { expr_step } -> expr_step);
+    expr_type = UfSymbol.res_type_of_uf_symbol uf }
+
 (* Integer constant *)
 let mk_int d =  
 
