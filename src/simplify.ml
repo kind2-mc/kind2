@@ -1581,14 +1581,16 @@ let datatype_value_of_term t =
     | exception Invalid_argument _ -> None
 
 (* A tester applied to a datatype value evaluates to a Boolean, a selector to
-   the argument it selects; either applied to any other term stays an atom *)
+   the normal form of the argument it selects ([nf_of_term] simplifies a
+   term to its normal form); either applied to any other term stays an
+   atom *)
 let is_constructor_of_nf ctor a =
   let t = term_of_nf a in
   match datatype_value_of_term t with
   | Some (c, _) -> Bool (if String.equal c ctor then Term.t_true else Term.t_false)
   | None -> atom_of_term (Term.mk_is_constructor ctor t)
 
-let selector_of_nf selector ty a =
+let selector_of_nf nf_of_term selector ty a =
   let t = term_of_nf a in
   let selected =
     match datatype_value_of_term t with
@@ -1604,7 +1606,7 @@ let selector_of_nf selector ty a =
     | None -> None
   in
   match selected with
-  | Some t -> atom_of_term t
+  | Some t -> nf_of_term t
   | None -> atom_of_term (Term.mk_selector selector ty t)
 
 let if_then_else = function
@@ -2366,7 +2368,10 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `Selector (s, ty) ->
             (match args with
-             | [a] -> selector_of_nf s ty a
+             | [a] ->
+               selector_of_nf
+                 (Term.eval_t (simplify_term_node default_of_var uf_defs model))
+                 s ty a
              | _ -> assert false)
 
           (* Constant symbols *)
@@ -3055,7 +3060,7 @@ let rec remove_ite' fterm args =
 
         | `Selector (s, ty) ->
           (match args with
-           | [a] -> selector_of_nf s ty a
+           | [a] -> selector_of_nf (Term.eval_t remove_ite') s ty a
            | _ -> assert false)
 
         (* Constant symbols *)

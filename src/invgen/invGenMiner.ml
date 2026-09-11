@@ -188,7 +188,11 @@ end
 (* TODO: Make the graph-based approach for invariant generation work when
    terms include divisions. Currently, a Division_by_zero exception may
    raise during graph stabilization if a model assigns zero to a divisor.
-*)
+
+   A datatype selector is left out as well: applied to a value built with
+   another constructor, its value is not determined by the model (the
+   solver picks one), so a candidate containing it cannot be evaluated
+   during graph stabilization. *)
 let filter_terms_with_unsupported_symbols candidates =
   let rec includes_unsupported_symbol term =
     match Term.destruct term with
@@ -197,7 +201,8 @@ let filter_terms_with_unsupported_symbols candidates =
       match Symbol.node_of_symbol s with
       | `UF _
       | `DIV
-      | `INTDIV -> true
+      | `INTDIV
+      | `Selector _ -> true
       | _ -> List.exists includes_unsupported_symbol l
     )
     | _ -> false
