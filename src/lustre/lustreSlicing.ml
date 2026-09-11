@@ -235,10 +235,19 @@ let rec node_state_var_dependencies' init output_input_deps
             with Not_found -> D.empty
           in
 
-          (* Get indexes of inputs the output depends on. All outputs must
-              have dependencies computed *)
+          (* Get indexes of inputs the output depends on.
+
+             The dependencies of the callee have been computed before those of
+             this node, except when the callee is the node itself, or another
+             function of the same recursive group: a dependency is then still
+             being computed, and there is nothing to read. Fall back on the
+             assumption that the output depends on every input, which is the
+             worst a fixed point could converge to, and is safe for the two
+             things these dependencies are used for: keeping a variable in the
+             cone of influence of another, and ordering equations by what they
+             read. *)
           (try D.find output_index output_input_dep
-            with Not_found -> assert false)
+            with Not_found -> D.keys call_inputs)
 
           |> List.fold_left (fun accum i -> 
               (* Get actual input by index, and add as dependency *)
