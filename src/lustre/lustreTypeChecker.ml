@@ -2206,6 +2206,29 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
       check_ty_for_temp_operators_or_node_calls ty
     ) output_vars) else R.ok ()
     in
+    (* Check the types of the inputs and the outputs and keep the result, the
+       way the locals are checked below. `tc_ctx_of_node_decl` has checked
+       these types already, but only to build the node's signature: the
+       declaration itself still holds the types as written. That matters for
+       the expressions inside a type, such as the predicate of a refinement
+       type, because it is the type checker that rewrites a constructor
+       written as an identifier or as a call into an ADT term, and the passes
+       that follow only see what the declaration holds. The warnings are
+       dropped: `tc_ctx_of_node_decl` reported them for these same types. *)
+    let* input_vars = R.seq (List.map (fun (p, id, ty, cl, is_const) ->
+      let* ty, _ =
+        check_type_well_formed ctx_plus_ops_and_ips Input (Some node_name) false ty
+      in
+      R.ok (p, id, ty, cl, is_const)
+    ) input_vars)
+    in
+    let* output_vars = R.seq (List.map (fun (p, id, ty, cl) ->
+      let* ty, _ =
+        check_type_well_formed ctx_plus_ops_and_ips Output (Some node_name) false ty
+      in
+      R.ok (p, id, ty, cl)
+    ) output_vars)
+    in
     Debug.parse "Local Typing Context after extracting ips/ops/consts {%a}"
       pp_print_tc_context ctx_plus_ops_and_ips;
     (* Type check the contract *)
@@ -2476,6 +2499,18 @@ and check_type_contract_decl: tc_context -> LA.contract_node_decl -> (LA.contrac
   let local_ctx = List.fold_left union local_const_ctx ctxs in
   Debug.parse "Local Typing Context {%a}" pp_print_tc_context local_ctx;
   let* contract, warnings2 = check_type_contract (arg_ids, ret_ids) local_ctx cname (p, contract) in
+  (* Keep the checked types of the inputs and the outputs, for the reason
+     given in `check_type_node_decl` *)
+  let* args = R.seq (List.map (fun (p, id, ty, cl, is_const) ->
+    let* ty, _ = check_type_well_formed local_const_ctx Input (Some cname) false ty in
+    R.ok (p, id, ty, cl, is_const)
+  ) args)
+  in
+  let* rets = R.seq (List.map (fun (p, id, ty, cl) ->
+    let* ty, _ = check_type_well_formed local_const_ctx Output (Some cname) false ty in
+    R.ok (p, id, ty, cl)
+  ) rets)
+  in
   let decl = cname, params, args, rets, contract in
   R.ok (Debug.parse "TC Contract Decl %a done }" NI.pp_print_node_id_user_name cname; decl, List.flatten warnings1 @ warnings2)
 
