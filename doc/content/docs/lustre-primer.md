@@ -17,7 +17,7 @@ Lucent is a language for modeling and implementing
 reactive systems in the synchronous model.
 It can be seen indifferently as either a declarative parallel programming language
 or as an executable specification language.
-The most basic unit of computation in a Lucent program, or mfodel, is a **node**,
+The most basic unit of computation in a Lucent program, or model, is a **node**,
 which can be viewed as a stream transformer:
 it takes streams of input and produces streams of output.
 Operationally, a node reads its input and generates its output incrementally
@@ -232,7 +232,7 @@ let
 tel
 ```
 
-Each condition is evaluated once per timestep, and every variable is takes its value according to its definition in the equation in the active branch.
+Each condition is evaluated once per timestep, and every variable takes its value according to its definition in the equation in the active branch.
 
 Conditions can also be encoded as
 `if` *expressions*:
@@ -512,13 +512,13 @@ as seen in the next example.
 ```lustre
 type sensorData = struct { speed: real; height: real; direction: int };
 
-node AdjustSensorData(in: sensorData) returns (out: sensorData);
+node AdjustSensorData(data: sensorData) returns (out: sensorData);
   var h: real;
 let
-  h = if in.height < 0.0 then 0.0 else in.height;
-  out = sensorData { speed = in.speed; 
+  h = if data.height < 0.0 then 0.0 else data.height;
+  out = sensorData { speed = data.speed; 
                      height = h; 
-                     direction = in.direction };
+                     direction = data.direction };
 tel
 ```
 
@@ -558,9 +558,9 @@ tel
 ```
 
 ```lustre
-node Nth(in: int^10; k: int) returns (out: int);
+node Nth(a: int^10; k: int) returns (out: int);
 let
-  out = if 0 <= k and k < 10 then in[k] else in[0];
+  out = if 0 <= k and k < 10 then a[k] else a[0];
 tel
 ```
 
@@ -868,7 +868,7 @@ node imported Sensor(t: int) returns (reading: real);
 ```
 
 For example, this is useful to model an
-external routines where the specification is known, but not the implementation. 
+external routine whose specification is known but whose implementation is not. 
 For Kind 2 it means the component is *always* abstract: it is
 represented solely by its contract (see [Contracts](#contracts) below), and
 Kind 2 never looks inside it, because there is nothing to look at. With no contract, the implicit one is
@@ -949,9 +949,9 @@ depends on it. For example:
 | Eager                    | Lazy                       | `e2` evaluated  |
 | ------------------------ | -------------------------- | ------------------------ |
 | `if c then e1 else e2` | `when c then e1 else e2` | only when `c` is false |
-| `e1 and e2`            | `e1 and then e2`         | only when`e1` is true  |
-| `e1 or e2`             | `e1 or else e2`          | only when`e1` is false |
-| `e1 => e2`             | `e1 ==> e2`              | only when`e1` is true  |
+| `e1 and e2`            | `e1 and then e2`         | only when `e1` is true  |
+| `e1 or e2`             | `e1 or else e2`          | only when `e1` is false |
+| `e1 => e2`             | `e1 ==> e2`              | only when `e1` is true  |
 
 The main motivation for lazy operators is not efficiency.
 Consider reading a field of an algebraic datatype: the selector `x.val` carries a proof obligation that `x`
@@ -973,7 +973,7 @@ evaluated only where `Some?(x)` holds, and the obligation is discharged.
 
 The lazy Boolean operators 
 can be used to guard selectors in the same way, as in `Some?(x) ==> x.val > 0`,
-and well as the division in `x <> 0 and then y / x > 1`.
+as well as the division in `x <> 0 and then y / x > 1`.
 
 The same laziness is available at statement level, in the `when` and `cond`
 blocks described next.
@@ -1229,8 +1229,8 @@ let
 tel
 ```
 
-A mode is equivalent to the guarantee `requires => ensures`, 
-but they are useful because Kind 2 uses modes to report *which* mode was active in a
+A mode is equivalent to the guarantee `requires => ensures`,
+but modes are useful because Kind 2 uses them to report *which* mode was active in a
 counterexample, and it checks the set of modes for **exhaustiveness**, warning
 when the modes leave some situation unspecified. A mode can be referred to
 elsewhere in the contract by name, as in `require not ::absorbing;`.
