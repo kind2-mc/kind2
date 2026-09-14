@@ -1,0 +1,20 @@
+datatype L = Nil | One (v: int);
+const k: L = One(3);
+
+node local(x: int) returns (y: int);
+var a: int^(match k with | Nil : 1 | One(v) : 1 end);
+let
+  a = x^(match k with | Nil : 1 | One(v) : 1 end);
+  y = a[0];
+tel
+
+node input(a: int^(match k with | Nil : 1 | One(v) : 1 end)) returns (y: int);
+let
+  y = a[0];
+tel
+
+node main(x: int) returns (ok: bool);
+let
+  ok = local(x) = x and input(x^(match k with | Nil : 1 | One(v) : 1 end)) = x;
+  check ok;
+tel

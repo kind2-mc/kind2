@@ -74,8 +74,9 @@ tel
 Each arm `| C (x1, ..., xn) : e` introduces fresh pattern variables
 `x1, ..., xn` that are bound to the fields of constructor `C` and are in
 scope only within `e`. Nullary constructors are matched without parentheses.
-The `match` expression is well-typed only when every constructor of the ADT
-is covered (exhaustiveness is checked statically).
+Kind 2 checks pattern matching statically: it rejects a `match` that leaves
+some value of the scrutinee's type unmatched, and one with an arm that no
+value can reach because the preceding arms already cover it.
 
 Nested patterns are supported---a field position can itself be a constructor
 pattern:

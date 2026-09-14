@@ -192,6 +192,9 @@ let type_check declarations =
       LspInfo.print_ast_info global_ctx declarations;
 
     (* Step 9. Check match expressions for exhaustiveness and redundancy *)
+    let* const_inlined_type_and_consts =
+      LCME.check_match_expressions global_ctx const_inlined_type_and_consts
+    in
     let* sorted_node_contract_decls = LCME.check_match_expressions global_ctx sorted_node_contract_decls in
 
     (* Step 10. Statically check ADT decreases clauses for structural subterm

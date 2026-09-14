@@ -1,0 +1,5 @@
+datatype L = Nil | One (v: int);
+type Box<T> = T;
+node N(x: L) returns (y: int);
+var b: Box<subtype { w: int | w >= (match x with | Nil : 0 end) }>;
+let b = 0; y = 1; tel

@@ -281,9 +281,10 @@ let desugar_arm pos ctx adt_map info scrut pat body =
 let rec build_ite pos arms =
   match arms with
   | [] -> assert false
-  (* More cases after a catch-all; will be caught in later PR by redundancy checks *)
+  (* A catch-all arm is always last: any arm following it is useless, which
+     LustreCheckMatchExpressions rejects *)
   | (None, _) :: _ :: _ -> assert false 
-  (* Last case must always cover all cases so far uncovered (problems here will be caught by later PR's exhaustiveness checks) *)
+  (* The match is exhaustive, so the last arm covers everything left uncovered *)
   | [(_, body)] -> body 
   | (Some cond, body) :: rest ->
     LA.TernaryOp (pos, LA.LazyIte, cond, body, build_ite pos rest)
@@ -425,7 +426,7 @@ and desugar_type pos ctx adt_map ty =
     | LA.RecordType (p, n, fields) ->
       LA.RecordType (p, n,
         List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
-    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, e))
+    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, desugar_expr ctx adt_map e))
     | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
     | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
     | LA.Set (p, t) -> LA.Set (p, ds t)
@@ -610,6 +611,7 @@ and desugar_expr ctx adt_map expr =
     LA.RecordExpr (pos, adt_info.type_name, [],
       (adt_info.disc_field, disc_e) :: payload_pairs)
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
+    (* The type checker records the scrutinee's type in every match it checks *)
     let adt_info =
       (match scrut_ty_opt with
       | Some ty -> adt_info_of_type ctx adt_map ty

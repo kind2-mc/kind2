@@ -865,6 +865,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_bound_var_pre.lus" with
     | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
     | _ -> false);
+  mk_test "test type argument landing under a nested type" (fun () ->
+    match load_file "./lustreTypeChecker/nested_type_arg_temporal.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
+    | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
@@ -1030,6 +1034,72 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
   mk_test "When block with omitted else branch outside frame block" (fun () ->
     match load_file "./lustreSyntaxChecks/when_no_else_outside_frame.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                   Lustre Check Match Expressions Checks                     *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::: [
+  mk_test "test non-exhaustive match" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match with nested patterns in contract" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_nested.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match on polymorphic datatype" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_polymorphic.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in refinement type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_refinement_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant pattern after wildcard" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_after_wildcard.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test redundant pattern subsumed by earlier arms" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_nested.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in node input type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_input_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in node output type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_output_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in set type annotation" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_set_type_annotation.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match on a history-typed scrutinee" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_history_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in array size" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_array_size.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant match in record expression type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_record_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test redundant match in global constant declaration" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_global_const.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in global constant declaration" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_global_const.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
     | _ -> false);
 ])
 
