@@ -74,12 +74,15 @@ let pos_of_expr = function
 (* `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
    combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types 
    with `f` *)
-let rec fold_lustre_ty f init op ty = 
-  let r = fold_lustre_ty f init op in 
+let rec fold_lustre_ty ?(into_ty_args = false) f init op ty = 
+  let r = fold_lustre_ty ~into_ty_args f init op in 
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | EnumType _ | AbstractType _ -> init
-  | UserType _ | History _ -> init 
+  | UserType (_, ty_args, _) ->
+    if into_ty_args then List.fold_left (fun acc ty -> op acc (r ty)) init ty_args
+    else init
+  | History _ -> init 
   | GroupType (_, tys) 
   | TupleType (_, tys) -> 
     List.fold_left (fun acc ty -> 
@@ -2082,10 +2085,13 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
 and syn_type_equal depth_limit x y : (bool, unit) result =
   let (>>=) = Res.(>>=) in
   let rec r depth x y =
-    let rlist xl yl = if List.length xl = List.length yl then
-        List.map2 (fun x y -> r (depth + 1) x y) xl yl
+    (* Pairwise comparison of two lists; unequal lengths make them unequal rather
+       than an error, so a mismatch does not abort the whole comparison *)
+    let zip_with cmp xl yl = if List.length xl = List.length yl then
+        List.map2 cmp xl yl
       else [Ok (false)]
     in
+    let rlist xl yl = zip_with (fun x y -> r (depth + 1) x y) xl yl in
     let join l = List.fold_left
       (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
       (Ok (true))
@@ -2109,14 +2115,11 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     | GroupType (_, xl), GroupType (_, yl) ->
       rlist xl yl |> join
     | RecordType (_, xn, xl), RecordType (_, yn, yl) ->
-      let t = if List.length xl = List.length yl then
-          List.map2 (fun (_, xi, xt) (_, yi, yt) ->
-            let* t = r (depth + 1) xt yt in
-            Ok (t && HString.equal xi yi))
-          xl yl
-        else [Ok (false)]
+      let field (_, xi, xt) (_, yi, yt) =
+        let* t = r (depth + 1) xt yt in
+        Ok (t && HString.equal xi yi)
       in
-      join (Ok (xn = yn) :: t)
+      join (Ok (xn = yn) :: zip_with field xl yl)
     | ArrayType (_, (xt, xe)), ArrayType (_, (yt, ye)) ->
       r (depth + 1) xt yt >>= fun t ->
       syn_expr_equal depth_limit xe ye >>= fun e ->
@@ -2147,20 +2150,14 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
     (* The constructors carry the instantiated field types, so two
        instantiations of the same polymorphic datatype differ only there *)
     | ADT (_, xn, xctors), ADT (_, yn, yctors) ->
-      let t = if List.length xctors = List.length yctors then
-          List.map2 (fun (xc, xflds) (yc, yflds) ->
-            let flds = if List.length xflds = List.length yflds then
-                List.map2 (fun (xf, xt) (yf, yt) ->
-                  let* t = r (depth + 1) xt yt in
-                  Ok (t && HString.equal xf yf))
-                xflds yflds
-              else [Ok (false)]
-            in
-            join (Ok (HString.equal xc yc) :: flds))
-          xctors yctors
-        else [Ok (false)]
+      let field (xf, xt) (yf, yt) =
+        let* t = r (depth + 1) xt yt in
+        Ok (t && HString.equal xf yf)
       in
-      join (Ok (HString.equal xn yn) :: t)
+      let ctor (xc, xflds) (yc, yflds) =
+        join (Ok (HString.equal xc yc) :: zip_with field xflds yflds)
+      in
+      join (Ok (HString.equal xn yn) :: zip_with ctor xctors yctors)
     | _ -> Ok false
   in
   r 0 x y

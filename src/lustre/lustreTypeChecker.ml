@@ -3085,8 +3085,9 @@ and check_instantiated_ty_args: tc_context -> NI.t option -> Lib.position -> HSt
   -> tc_type list -> (tc_type list * [> warning] list, [> error]) result
   = fun ctx nname pos name ty_args ->
   (* An argument is held to the rules of the position it lands in, so it is checked
-     as the instantiated type; warnings come from the arguments alone, since the
-     instantiated form also revisits the named type's own declaration *)
+     as the instantiated type: only that validates the named type's body under this
+     instantiation. Its warnings are the expansion's, so the arguments are walked
+     separately, which reports each written argument exactly once. *)
   let* ty =
     check_type_well_formed ctx Local nname false (LA.UserType (pos, ty_args, name))
     |> R.map fst
@@ -3207,9 +3208,9 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           (* Validate the expanded form,
              but don't substitute in the expanded UserType *)
           let* _, warnings = check_type_well_formed_rec is_nested expanded in
-          (* The expanded form re-reports an argument's warnings once per mention
-             of the parameter, so a parameter mentioned twice reports them twice
-             and a phantom one loses them; warnings0 is dropped, not reconciled *)
+          (* The expansion is the only place the named type's own declaration is
+             checked, so its warnings are kept in place of warnings0; an argument's
+             warnings are therefore reported once per mention of the parameter *)
           R.ok (ty', warnings)
       ) else (
         match nname with 

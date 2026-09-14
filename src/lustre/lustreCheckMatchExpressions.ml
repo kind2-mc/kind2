@@ -20,6 +20,7 @@
     pattern coverage. *)
 
 module A = LustreAst
+module LH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module TC = LustreTypeChecker
 module R = Res
@@ -172,11 +173,6 @@ let rec matches_of_expr expr =
   let r = matches_of_expr in
   let rlist es = List.concat_map r es in
   let rtys tys = List.concat_map matches_of_type tys in
-  let rloi = function
-    | A.Label _ -> []
-    | A.Index (_, e, _) | A.MapIndex (_, e) | A.SetIndex (_, e)
-    | A.GenericIndex (_, e) -> r e
-  in
   match expr with
   | A.Match (pos, e, arms, ty_opt) ->
     (pos, arms, ty_opt) :: (r e @ rlist (List.map snd arms))
@@ -195,7 +191,7 @@ let rec matches_of_expr expr =
     rtys ty_args @ rlist (List.map snd flds)
   | A.GroupExpr (_, _, es) -> rlist es
   | A.StructUpdate (_, e, idx, e_opt) ->
-    r e @ List.concat_map rloi idx
+    r e @ LH.fold_label_or_index [] (@) r idx
     @ (match e_opt with Some e -> r e | None -> [])
   | A.Quantifier (_, _, tis, e) ->
     rtys (List.map (fun (_, _, ty) -> ty) tis) @ r e
@@ -212,21 +208,7 @@ let rec matches_of_expr expr =
 (* Matches occurring in the expressions [ty] embeds: array sizes and refinement
    predicates, in [ty]'s type arguments as well as in [ty] itself *)
 and matches_of_type ty =
-  let r = matches_of_type in
-  match ty with
-  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
-  | A.EnumType _ | A.AbstractType _ | A.History _ -> []
-  | A.UserType (_, ty_args, _) -> List.concat_map r ty_args
-  | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.concat_map r tys
-  | A.RecordType (_, _, tis) -> List.concat_map (fun (_, _, ty) -> r ty) tis
-  | A.Map (_, kt, vt) -> r kt @ r vt
-  | A.TArr (_, ty1, ty2) -> r ty1 @ r ty2
-  | A.Set (_, ty) -> r ty
-  | A.ArrayType (_, (ty, e)) -> r ty @ matches_of_expr e
-  | A.RefinementType (_, (_, _, ty), e) -> r ty @ matches_of_expr e
-  | A.ADT (_, _, ctors) ->
-    List.concat_map
-      (fun (_, fields) -> List.concat_map (fun (_, ty) -> r ty) fields) ctors
+  LH.fold_lustre_ty ~into_ty_args:true matches_of_expr [] (@) ty
 
 let matches_of_const_decl = function
   | A.FreeConst (_, _, ty) -> matches_of_type ty
