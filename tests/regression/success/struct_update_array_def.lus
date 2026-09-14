@@ -17,3 +17,9 @@ let
   y[i] = ((x[i := v])[i := w])[i];
   check forall (k: int) ((k >= 0 and k < 3) => (y[k] = w));
 tel
+
+node ReadInIndexArrayDef(a: int^3) returns (y: int^3);
+let
+  y[i] = (a[y[i-1] := 1])[i];
+  check forall (k: int) ((k >= 0 and k < 3) => (y[k] = 1 or y[k] = a[k]));
+tel

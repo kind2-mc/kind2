@@ -2960,8 +2960,17 @@ and expand_node_calls_in_place info node_id var count expr =
   | Pre (p, e) -> A.Pre (p, r e)
   | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
-  | StructUpdate (p, e1, u, Some e2) -> A.StructUpdate (p, r e1, u, Some (r e2))
-  | StructUpdate (p, e1, u, None) -> A.StructUpdate (p, r e1, u, None)
+  | StructUpdate (p, e1, u, e2) ->
+    (* An index expression may hold a node call of its own *)
+    let u = List.map (function
+      | A.Label _ as loi -> loi
+      | A.Index (q, e, k) -> A.Index (q, r e, k)
+      | A.MapIndex (q, e) -> A.MapIndex (q, r e)
+      | A.SetIndex (q, e) -> A.SetIndex (q, r e)
+      | A.GenericIndex (q, e) -> A.GenericIndex (q, r e))
+      u
+    in
+    A.StructUpdate (p, r e1, u, Option.map r e2)
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> A.IndexAccess (p, r e1, r e2, k)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)

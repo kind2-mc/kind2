@@ -16,3 +16,9 @@ let
   check (i>=0 and i<3) => (arr[2] = v);
   check (i>=0 and i<3) => (arr[0] = base[0] and arr[1] = base[1]);
 tel
+
+node CallInIndexArrayDef(x: int^3; v: int) returns (y: int^3);
+let
+  y[i] = (x[Id(i) := v])[i];
+  check forall (k: int) ((k >= 0 and k < 3) => (y[k] = v));
+tel
