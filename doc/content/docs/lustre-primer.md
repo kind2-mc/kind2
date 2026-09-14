@@ -47,7 +47,7 @@ which are streams with the same value at each time step.
 Lustre respects typical rules of operator precedence, so `x + 2*y` will be
 parsed as `x + (2*y)` rather than `(x + 2)*y`.
 
-```text
+```lustre
 node Combine(x: int; y: int) returns (z: int);
 let
   z = x + 2*y;
@@ -68,7 +68,7 @@ in scope.
 Nodes can have more than one output stream as exemplified by the node `TwoOuts`
 below.
 
-```text
+```lustre
 node TwoOuts(x: int) returns (double: int; square: int);
 let
   double = x + x;
@@ -88,7 +88,7 @@ Below is another version of `Combine`, where the value `2` is stored in a global
 constant `C` and the local variable `l` is used to store an intermediate
 computation.
 
-```text
+```lustre
 const C: int = 2;
 node Combine(x: int; y: int) returns (z: int);
 var l: int;
@@ -136,7 +136,7 @@ proven invariant.
 In contrast, the property `z > 0` would be disproven in the `Combine` node,
 as `z` is negative in timesteps where both `x` and `y` are negative.
 
-```text
+```lustre
 const C: int = 2;
 (* Example with 
    two properties
@@ -196,7 +196,7 @@ while decimals (e.g., `0.0`, `31.97`) have type `real`.
 
 Additionally, Lustre supports if-then-else expressions with the syntax
 
-```text
+```lustre
 if <expr_0> then <expr_1> else <expr_2>
 ```
 
@@ -265,7 +265,7 @@ illustrated in the table below.
 
 Using temporal operators, we can define a `Counter` node as follows.
 
-```text
+```lustre
 node Counter(init: int) returns (out: int);
 let
   out = init -> pre out + 1;
@@ -316,7 +316,7 @@ above.
 A node that generates the stream \((1, 2, 3, 3, 3, \dots)\) from no inputs
 can then be defined as follows.
 
-```text
+```lustre
 node N() returns(y: int);
 let
    -- defining output stream (1, 2, 3, 3, 3, ...)
@@ -330,7 +330,7 @@ Because `Fib` is defined in terms of the two previous Fibonacci values, the firs
 *two* steps need to be initialized. The example is tricky and may require some
 thought for those new to Lustre.
 
-```text
+```lustre
 node Fibonacci() returns(Fib: int);
 let
   Fib = 1 -> pre (1 -> Fib + pre Fib);
@@ -340,7 +340,7 @@ tel
 The example can perhaps be easier to see by introducing local names
 for the subexpressions on the equation's right-hand side.
 
-```text
+```lustre
 node Fibonacci() returns(Fib: int);
   var preFib: int;
   var prepreFib: int;
@@ -363,7 +363,7 @@ a stream of factorial numbers (the \(n\)th value of the stream is \(n!\)). When
 defining output stream `F`, we can reference the helper stream `N` before it is
 defined.
 
-```text
+```lustre
 node Factorial() returns (F: int);
 var N: int;
 let
@@ -380,7 +380,7 @@ Lustre because the \(n\)th value of `out1` is defined in terms of the \(n\)th
 value of `out2`, and the \(n\)th value of `out2` is defined in terms of the
 \(n\)th value of `out1`.
 
-```text
+```lustre
 node Circular() returns (out1, out2: int);
 let
   out1 = out2 + 1;
@@ -393,7 +393,7 @@ equations. However, even if it is possible to satisfy all equations,
 as in the following example,
 any node with a circular dependence is conservatively rejected.
 
-```text
+```lustre
 node Circular() returns (out1, out2: int);
 let
   out1 = out2;
@@ -418,31 +418,31 @@ Lustre, such as [tuples]({{< relref "/docs/inputs-and-outputs/tuples" >}}),
 
 Record types have the syntax
 
-```text
+```lustre
 struct { <field_1>: <type_1>; ...; <field_n>: <type_n> }
 ```
 
 They must be named and declared with a global **type declaration** of the form
 
-```text
+```lustre
 type <ty_name> = <type>;
 ```
 
 Record values can be constructed with the syntax
 
-```text
+```lustre
 <ty_name> { <field_1> = <expr_1>; ...; <field_n> = <expr_n> }
 ```
 
 and destructed with the syntax
 
-```text
+```lustre
 <record_term>.<field>
 ```
 
 as seen in the next example.
 
-```text
+```lustre
 type sensorData = struct { speed: real; height: real; direction: int };
 
 node AdjustSensorData(in: sensorData) returns (out: sensorData);
@@ -462,27 +462,27 @@ additional record features supported by Kind 2.
 
 Array types have the syntax
 
-```text
+```lustre
 <element_type>^<numeral>
 ```
 
 Values of an array type can be constructed in two different ways.
 Lustre supports the **array literal** syntax of the form
 
-```text
+```lustre
 [<element_1>, ..., <element_n>]
 ```
 
 as well as the (constant) **array constructor** syntax of the form
 
-```text
+```lustre
 <element>^<length>
 ```
 
 Array elements can be accessed with the standard **array access** syntax
 `<array_var>[<index>]`, with zero-based indexing.
 
-```text
+```lustre
 node TwoArrays() returns (out1: bool^5; out2: int^4);
 let
   out1 = [true, true, false, true, false];
@@ -490,7 +490,7 @@ let
 tel
 ```
 
-```text
+```lustre
 node Nth(in: int^10; k: int) returns (out: int);
 let
   out = if 0 <= k and k < 10 then in[k] else in[0];
@@ -517,7 +517,7 @@ than `ctr1`.
 Note that nodes can have no inputs (as node `Top` below)
 or no outputs.
 
-```text
+```lustre
 node Top() returns (ctr1, ctr2: int; P1: bool);
 let
   ctr1 = Counter(0) + 3;
@@ -557,13 +557,13 @@ side of an equation in a node's body.
 In contrast, an application of a node with multiple outputs can occur only in
 an equation of the form
 
-```text
+```lustre
 (<var_1>, ..., <var_n>) = <node_name>(<arg_1>, ..., <arg_m>);
 ```
 
 or
 
-```text
+```lustre
 <var_1>, ..., <var_n> = <node_name>(<arg_1>, ..., <arg_m>);
 ```
 
@@ -572,7 +572,7 @@ are local or output variables of the node containing the application,
 with types matching the types of the outputs of the applied node `<node_name>`,
 in the same order as in that node's interface.
 
-```text
+```lustre
 node Top(x: int) returns (P1: bool);
   var positive: bool;
   var nonnegative: bool;
@@ -593,7 +593,7 @@ tel
 While the temporal operators `->` and `pre` may not seem very powerful, they can
 be used to define auxiliary temporal operators, presented below.
 
-```text
+```lustre
 -- Y is true iff X has been true so far
 node Sofar ( X : bool ) returns ( Y : bool ) ;
 let
