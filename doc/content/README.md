@@ -5,7 +5,7 @@
 ```
 content/
   _index.md              # Homepage
-  docs/
+  manual/                  # Docs section (cascades `type: docs` for the Hextra docs layout)
     _index.md             # Docs landing page (from home.rst)
     techniques/            # "Techniques" toctree section
     inputs-and-outputs/     # "Inputs and Outputs" toctree section

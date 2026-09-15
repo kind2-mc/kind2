@@ -409,10 +409,10 @@ not in terms of `N` itself.
 
 In addition to the primitive types, Lustre supports records and arrays.
 Kind 2 also supports a number of composite types that are not part of standard
-Lustre, such as [tuples]({{< relref "/docs/inputs-and-outputs/tuples" >}}),
-[sets]({{< relref "/docs/inputs-and-outputs/sets" >}}),
-[maps]({{< relref "/docs/inputs-and-outputs/maps" >}}), and
-[algebraic datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}}).
+Lustre, such as [tuples]({{< relref "/manual/inputs-and-outputs/tuples" >}}),
+[sets]({{< relref "/manual/inputs-and-outputs/sets" >}}),
+[maps]({{< relref "/manual/inputs-and-outputs/maps" >}}), and
+[algebraic datatypes]({{< relref "/manual/inputs-and-outputs/algebraic-datatypes" >}}).
 
 ### Records
 
@@ -455,7 +455,7 @@ let
 tel
 ```
 
-See [Records]({{< relref "/docs/inputs-and-outputs/records" >}}) for the
+See [Records]({{< relref "/manual/inputs-and-outputs/records" >}}) for the
 additional record features supported by Kind 2.
 
 ### Arrays
@@ -497,7 +497,7 @@ let
 tel
 ```
 
-See [Arrays]({{< relref "/docs/inputs-and-outputs/arrays" >}}) for the
+See [Arrays]({{< relref "/manual/inputs-and-outputs/arrays" >}}) for the
 additional array features supported by Kind 2.
 
 ## Composition
@@ -626,5 +626,5 @@ For more examples, see the Kind 2 web application at
 [https://kind.cs.uiowa.edu/app/](https://kind.cs.uiowa.edu/app/). Note that these examples contain some language
 features that are extensions to Lustre (for example, contracts) that are not
 covered in this page. For more information on Kind 2 and its extensions to
-Lustre, see [Kind 2 Input]({{< relref "/docs/inputs-and-outputs/lustre" >}}) and
+Lustre, see [Kind 2 Input]({{< relref "/manual/inputs-and-outputs/lustre" >}}) and
 the rest of this documentation.

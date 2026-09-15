@@ -8,9 +8,9 @@ and a non-zero exit code to indicate an error, or an unsuccessful
 analysis result. To force Kind 2 to use only non-zero exit codes for errors,
 pass the option `--exit_code_mode only_errors`.
 The precise meaning of the exit codes are described
-in section [Code Convention]({{< relref "/docs/inputs-and-outputs/exit-codes#code-convention" >}}).
+in section [Code Convention]({{< relref "/manual/inputs-and-outputs/exit-codes#code-convention" >}}).
 For information on the old convention, see section
-[Former Convention]({{< relref "/docs/inputs-and-outputs/exit-codes#former-convention" >}}).
+[Former Convention]({{< relref "/manual/inputs-and-outputs/exit-codes#former-convention" >}}).
 
 ## Code Convention
 
@@ -24,14 +24,14 @@ When Kind 2 disproves one or more properties, it returns `40`.
 In modular mode, the properties of all nodes are checked bottom-up.
 Moreover, when compositional analysis is enabled too, the same node may be analyzed several
 times with different levels of abstraction (see section
-[Refinement in compositional and modular analyses]({{< relref "/docs/techniques#refinement-in-compositional-and-modular-analyses" >}})
+[Refinement in compositional and modular analyses]({{< relref "/manual/techniques#refinement-in-compositional-and-modular-analyses" >}})
 for details).
 In this case, Kind 2 returns `40` if one or more properties were disproven in *any* analysis.
 It returns `30` if no properties were disproven, but some nodes were not analyzed (e.g. due to a timeout)
 or some properties could not be proven.
 It returns `0` if all properties were proven for all nodes in every analysis.
 
-When contracts of imported nodes are checked for [realizability]({{< relref "/docs/advanced-features/contract-check#contract-check" >}}),
+When contracts of imported nodes are checked for [realizability]({{< relref "/manual/advanced-features/contract-check#contract-check" >}}),
 Kind 2 also reports an exit status following a similar convention.
 If all the contracts are proven realizable, it returns `0`.
 If some contract is proven unrealizable, it returns `40`.
