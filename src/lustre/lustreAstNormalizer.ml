@@ -2925,6 +2925,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (* The MapIndex and SetIndex cases are handled specially *)
       then normalize_expr ?guard info node_id map (StructUpdate (pos, expr1, i, expr2)) 
     else 
+      (* An index expression is a subexpression like any other: it may hold a
+         node call or a read that later passes require to have been abstracted *)
+      let normalize_idx ?guard idx = match idx with
+        | A.Index (p, e, k) ->
+          let ne, gids, warnings = normalize_expr ?guard info node_id map e in
+          A.Index (p, ne, k), gids, warnings
+        | A.Label _ as idx -> idx, empty (), []
+        (* Map and set updates take their own branches above, and generic
+           indices are resolved by desugar_generic_index *)
+        | (A.MapIndex _ | A.SetIndex _ | A.GenericIndex _) as idx ->
+          idx, empty (), []
+      in
       let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
       let nexpr2, gids2, warnings2 = match expr2 with 
       | Some expr2 -> 
@@ -2932,7 +2944,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         Some nexpr2, gids2, warnings2
       | None -> None, empty (), [] 
       in
-      StructUpdate (pos, nexpr1, i, nexpr2), union gids1 gids2, warnings1 @ warnings2
+      let ni, gids3, warnings3 = normalize_list (normalize_idx ?guard) i in
+      A.StructUpdate (pos, nexpr1, ni, nexpr2),
+      List.fold_left union (empty ()) [gids1; gids2; gids3],
+      warnings1 @ warnings2 @ warnings3
   | IndexAccess (pos, expr1, expr2, _) ->
     let expr1_ty = get_expr_ty info map node_id expr1 in 
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
@@ -3003,8 +3018,17 @@ and expand_node_calls_in_place info node_id var count expr =
   | Pre (p, e) -> A.Pre (p, r e)
   | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
-  | StructUpdate (p, e1, u, Some e2) -> A.StructUpdate (p, r e1, u, Some (r e2))
-  | StructUpdate (p, e1, u, None) -> A.StructUpdate (p, r e1, u, None)
+  | StructUpdate (p, e1, u, e2) ->
+    (* An index expression may hold a node call of its own *)
+    let u = List.map (function
+      | A.Label _ as loi -> loi
+      | A.Index (q, e, k) -> A.Index (q, r e, k)
+      | A.MapIndex (q, e) -> A.MapIndex (q, r e)
+      | A.SetIndex (q, e) -> A.SetIndex (q, r e)
+      | A.GenericIndex (q, e) -> A.GenericIndex (q, r e))
+      u
+    in
+    A.StructUpdate (p, r e1, u, Option.map r e2)
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> A.IndexAccess (p, r e1, r e2, k)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)

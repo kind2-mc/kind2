@@ -1571,9 +1571,9 @@ and compile_ast_expr
       X.fold (fun k v acc -> X.add (prefix @ k) v acc) new_sub kept
     in
 
-    (* Store [new_elem] into [old_sub] at position [sel_term], along the
-       array's own dimension. *)
-    let rec update_array_element old_sub new_elem sel_term =
+    (* Store new_elem into old_sub along the array's own dimension, at the
+       position given by index_e, whose init and step values may differ. *)
+    let rec update_array_element old_sub new_elem index_e =
       match X.choose old_sub with
       | (X.RecordIndex _ :: _), _
       | (X.TupleIndex _ :: _), _
@@ -1585,7 +1585,7 @@ and compile_ast_expr
           | top :: tl ->
             let old_sub' = X.singleton tl v in
             let new_elem' = X.find_prefix [top] new_elem in
-            let updated = update_array_element old_sub' new_elem' sel_term in
+            let updated = update_array_element old_sub' new_elem' index_e in
             X.fold (fun k v acc -> X.add (top :: k) v acc) updated acc
           | [] -> assert false (* keys are nonempty here, guaranteed by the outer match *)
         in
@@ -1594,36 +1594,17 @@ and compile_ast_expr
       | (X.ArrayIntIndex _ :: _), _
       | (X.SetMapIndex _ :: _), _ ->
         let over_key = fun key old_v acc ->
-          let cur_dim, inner_dims = match List.rev key with
-            | last :: rev_inner -> last, List.rev rev_inner
+          (* The trailing key component is the array's own dimension, consumed by
+             the store; the rest addresses the element within new_elem *)
+          let inner_dims = match List.rev key with
+            | _ :: rev_inner -> List.rev rev_inner
             | [] -> assert false
           in
           let new_v = X.find inner_dims new_elem in
-          if Flags.Arrays.smt () then
-            (* TODO: the genuine SMT array-theory encoding does not compose
-               with the scalar, bound-variable-parameterized representation
-               the rest of this function builds; needs its own fix. *)
-            X.add key (E.mk_store old_v sel_term new_v) acc
-          else
-            (* Reduce the old and new values to base-typed terms over fresh
-               index variables. *)
-            let dim_type = function
-              | X.ArrayIntIndex _ -> Type.t_int
-              | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
-              | _ -> assert false
-            in
-            let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
-            let old_v = E.mk_select_and_push old_v pos_var in
-            let old_v, new_v, _ =
-              List.fold_left
-                (fun (old_v, new_v, cpt) idx ->
-                  let ivar = E.mk_array_index_var cpt (dim_type idx) in
-                  E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
-                (old_v, new_v, 1)
-                inner_dims
-            in
-            let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
-            X.add key updated_v acc
+          (* Stays array-typed so it composes with nesting and with a select at any
+             index; under the default encoding only a select consumes a store
+             (Term.push_select) *)
+          X.add key (E.mk_store old_v index_e new_v) acc
         in
         X.fold over_key old_sub X.empty
       | [], _ -> assert false
@@ -1646,12 +1627,7 @@ and compile_ast_expr
     | [A.Index (_, index_expr, A.ArrayElem)] ->
       let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
       let index_e = index_cexpr |> X.values |> List.hd in
-      (* TODO: uses only [index_e.expr_init]; if the index's init and step
-         values differ (e.g. [(0 -> 2)]), the update targets the wrong slot
-         from the second cycle onward, which can prove a false property
-         valid. Same issue on the read side at [compile_array_index]. *)
-      let sel_term = E.mk_of_expr ~as_type:index_e.expr_type index_e.E.expr_init in
-      update_array_element cexpr1 cexpr2 sel_term
+      update_array_element cexpr1 cexpr2 index_e
     | [A.MapIndex _] | [A.SetIndex _] ->
       assert false (* handled by the caller before reaching [compile_struct_update] *)
     | [A.GenericIndex _] ->
@@ -1692,9 +1668,7 @@ and compile_ast_expr
 
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
-    let index_e = compiled_i |> X.values |> List.hd in
-    let as_type = index_e.expr_type in 
-    let index = E.mk_of_expr ~as_type index_e.E.expr_init in
+    let index = compiled_i |> X.values |> List.hd in
     let bounds =
       try
         let index_nb = E.int_of_index_var index in

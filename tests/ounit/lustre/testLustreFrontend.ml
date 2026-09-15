@@ -336,6 +336,10 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array11.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
+  mk_test "test invalid inductive array def 12" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array12.lus" with
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -352,6 +356,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | _ -> false);
   mk_test "test cyclic definition of a contract of a node called in a contract" (fun () ->
     match load_file "./lustreAstDependencies/circular_contracts_3.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test cyclic definition through a struct update index" (fun () ->
+    match load_file "./lustreAstDependencies/struct_update_index_cycle.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
   mk_test "test cyclic definition of nodes" (fun () ->
