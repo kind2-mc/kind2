@@ -1099,6 +1099,13 @@ let rec node_item_has_pre_or_arrow = function
     | None -> node_item_list_has_pre_or_arrow l2
     )
   )
+| MatchBlock (_, e, arms, _) -> (match has_pre_or_arrow e with
+  | Some pos -> Some pos
+  | None ->
+    List.fold_left (fun acc (_, items) -> match acc with
+      | Some _ -> acc
+      | None -> node_item_list_has_pre_or_arrow items) None arms
+  )
 | FrameBlock (_, _, nes, nis) -> 
   let nes = List.map (fun x -> Body x) nes in 
   (match node_item_list_has_pre_or_arrow nes with
@@ -1453,6 +1460,8 @@ let rec defined_vars_with_pos = function
   | WhenBlock (_, _, l1, l2) -> 
     List.flatten (List.map defined_vars_with_pos l1) @
     List.flatten (List.map defined_vars_with_pos l2)
+  | MatchBlock (_, _, arms, _) ->
+    List.concat_map (fun (_, items) -> List.concat_map defined_vars_with_pos items) arms
   | FrameBlock (_, vars, _, _) ->
     vars
   | _ -> [] 
@@ -1816,6 +1825,8 @@ let rec extract_node_equation: node_item -> (eq_lhs * expr) list =
   | IfBlock (_, _, nis1, nis2)
   | WhenBlock (_, _, nis1, nis2) -> 
     List.flatten (List.map extract_node_equation nis1) @ List.flatten (List.map extract_node_equation nis2)
+  | MatchBlock (_, _, arms, _) ->
+    List.concat_map (fun (_, items) -> List.concat_map extract_node_equation items) arms
   | FrameBlock (_, _, nes, nis) -> 
     let nes = List.map (fun ne -> Body ne) nes in
     List.flatten (List.map extract_node_equation nes) @ List.flatten (List.map extract_node_equation nis)

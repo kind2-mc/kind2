@@ -460,7 +460,7 @@ let get_inline_func_expr inlinable_funcs name args =
         | TupleStructItem _ | TupleSelection _ | FieldSelection _
         | ArraySliceStructItem _ -> assert false (* unreachable *)
       )
-      | IfBlock _ | WhenBlock _ | FrameBlock _ ->
+      | IfBlock _ | WhenBlock _ | FrameBlock _ | MatchBlock _ ->
         assert false (* desugared earlier in pipeline *)
       | Body (Assert _) | AnnotMain _ | AnnotProperty _ | Auto _ ->
         assert false (* rejected earlier in pipeline *)
@@ -1543,6 +1543,7 @@ and normalize_item info node_id map = function
   | IfBlock _
   | WhenBlock _
   | FrameBlock _
+  | MatchBlock _
   | Auto _ ->
     assert false
   | AnnotMain (pos, b) -> [AnnotMain (pos, b)], empty (), []

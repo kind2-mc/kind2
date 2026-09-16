@@ -616,6 +616,9 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
     get_node_call_from_expr e @
     extract_node_calls l1 @
     extract_node_calls l2
+  | MatchBlock (_, e, arms, _) ->
+    get_node_call_from_expr e @
+    List.concat_map (fun (_, items) -> extract_node_calls items) arms
   | FrameBlock (_, _, nes, nis) ->
     extract_node_calls (List.map (fun x -> LA.Body x) nes) @
     extract_node_calls nis
@@ -1631,6 +1634,16 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
     let* gs2 = mk_graph_node_items m nis2 in
     let* gs3 = mk_graph_node_items m items in
     R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
+  | MatchBlock (_, _, arms, _) :: items ->
+    let* gs1 =
+      R.seq_chain
+        (fun acc (_, arm_items) ->
+          let* g = mk_graph_node_items m arm_items in
+          R.ok (union_dependency_analysis_data acc g))
+        empty_dependency_analysis_data arms
+    in
+    let* gs2 = mk_graph_node_items m items in
+    R.ok (union_dependency_analysis_data gs1 gs2)
   | FrameBlock (_, _, nes, nis) :: items -> 
     let nes = List.map (fun ne -> LA.Body ne) nes in
     let* gs1 = mk_graph_node_items m nes in

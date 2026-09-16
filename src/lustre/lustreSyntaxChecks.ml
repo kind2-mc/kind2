@@ -581,6 +581,20 @@ let rec find_var_def_count id = function
     else if (len2 = 1) then x2
     (* Local isn't defined in this if block *)
     else []
+  | LA.MatchBlock (_, _, arms, _) ->
+    (* Definitions in different arms are alternatives, like the branches of an
+       if block; only a repeat within one arm is a duplicate *)
+    let per_arm =
+      List.map
+        (fun (_, items) -> List.map (find_var_def_count id) items |> List.flatten)
+        arms
+    in
+    (match List.find_opt (fun x -> List.length x > 1) per_arm with
+      | Some dup -> dup
+      | None ->
+        (match List.find_opt (fun x -> List.length x = 1) per_arm with
+          | Some x -> x
+          | None -> []))
   | LA.FrameBlock (pos, vars, nes, nis) -> (
     let nes = List.map (fun x -> (LA.Body x)) nes in
     let x1 = List.filter (fun (_, var) -> var = id) vars in
@@ -1197,6 +1211,29 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
       let* warnings2, props = (check_items ctx_lazy ~tc_ctx ~in_lemma lazy_when l1 props) in
       let* warnings3, _ = (check_items ctx_lazy ~tc_ctx ~in_lemma lazy_when l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
+    | LA.MatchBlock (_, e, arms, _) ->
+      (* Arms are evaluated lazily, like when-block branches, so the scrutinee
+         plays the role of the guard *)
+      let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
+      let* warnings1 = check_expr ctx f e in
+      let pat_vars pat =
+        let rec collect = function
+          | LA.VarPat (_, id) ->
+            if StringSet.mem id ctx.constructors then [] else [id]
+          | LA.Pat (_, _, pats) -> List.concat_map collect pats
+        in collect pat
+      in
+      let* warnings2 =
+        Res.seq (List.map (fun (pat, items) ->
+          let ctx' = List.fold_left
+            (fun c v -> ctx_add_pattern_var c v None)
+            ctx_lazy (pat_vars pat)
+          in
+          let* (ws, _) = check_items ctx' ~tc_ctx ~in_lemma f items props in
+          Ok ws) arms)
+      in
+      Ok (warnings1 @ List.flatten warnings2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
       let nes = List.map (fun x -> LA.Body x) nes in

@@ -108,6 +108,7 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
   let nis1 = List.map (ni_constants_to_calls new_func_ids) nis1 in
   let nis2 = List.map (ni_constants_to_calls new_func_ids) nis2 in
   A.WhenBlock (p, e, nis1, nis2)
+| A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
 | A.FrameBlock (p, vars, eqs, nis) -> 
   let eqs = List.map (fun eq -> match eq with 
   | A.Assert _ -> assert false 

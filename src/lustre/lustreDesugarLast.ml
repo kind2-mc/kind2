@@ -159,6 +159,11 @@ let rec replace_last_ni acc ni = match ni with
     A.WhenBlock (pos, replace_last acc e,
                  List.map (replace_last_ni acc) nis1,
                  List.map (replace_last_ni acc) nis2)
+  | A.MatchBlock (pos, e, arms, ty) ->
+    A.MatchBlock (pos, replace_last acc e,
+                  List.map (fun (p, items) ->
+                    (p, List.map (replace_last_ni acc) items)) arms,
+                  ty)
   | A.FrameBlock (pos, vars, nes, nis) ->
     A.FrameBlock (pos, vars, List.map (replace_last_eq acc) nes,
                   List.map (replace_last_ni acc) nis)
@@ -209,6 +214,10 @@ let rec find_last_ni ni = match ni with
     (match find_last_expr e with
      | Some r -> Some r
      | None -> find_last_nis (nis1 @ nis2))
+  | A.MatchBlock (_, e, arms, _) ->
+    (match find_last_expr e with
+     | Some r -> Some r
+     | None -> find_last_nis (List.concat_map snd arms))
   | A.FrameBlock _ -> None
   | A.AnnotProperty (_, _, e, A.Provided e2) ->
     (match find_last_expr e with Some r -> Some r | None -> find_last_expr e2)

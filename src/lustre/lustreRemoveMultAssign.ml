@@ -217,6 +217,8 @@ let remove_mult_assign_from_ni ctx ni =
         let nis2, gids2 = List.map (helper ctx (conj_guard wguard not_e)) l2 |> List.split in
         [A.WhenBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
 
+      | MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+
       | FrameBlock (pos, vars, nes, nis) ->
         let nes = List.map (fun x -> A.Body x) nes in
         let nis1, gids1 = List.map (helper ctx wguard) nes |> List.split in

@@ -384,6 +384,7 @@ match ni with
         R.ok (A.Body (Equation (pos, lhs, rhs))))
     (* The following node items should not be in frame blocks. In particular,
       if blocks should have been desugared earlier in the pipeline. *)
+  | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | A.IfBlock (pos, _, _, _)
   | A.WhenBlock (pos, _, _, _)
   | A.FrameBlock (pos, _, _, _) 

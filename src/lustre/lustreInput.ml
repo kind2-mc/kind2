@@ -52,6 +52,7 @@ module LUF = LustreUserFunctions
 module LCF = LustreConstantsToFunctions
 module LCME = LustreCheckMatchExpressions
 module LCAD = LustreCheckADTDecreases
+module LDMB = LustreDesugarMatchBlocks
 module GI = GeneratedIdentifiers
 
 type error = [
@@ -64,6 +65,7 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarMatchBlocksError of Lib.position * LustreDesugarMatchBlocks.error_kind
   | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
@@ -204,6 +206,12 @@ let type_check declarations =
         LDAT.build_adt_map (const_inlined_type_and_consts @ sorted_node_contract_decls)
       in
       LCAD.check global_ctx early_adt_map scc_map sorted_node_contract_decls
+    in
+
+    (* Step 10.5. Desugar match blocks into chains of when blocks, while
+       datatypes are still datatypes. *)
+    let* sorted_node_contract_decls =
+      LDMB.desugar_match_blocks global_ctx sorted_node_contract_decls
     in
 
     (* Step 11. Desugar non-recursive ADTs to record types (ADTTerm and Match expressions desugared here) *)
