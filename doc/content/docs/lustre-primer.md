@@ -896,7 +896,7 @@ tel
 
 The `@<...>` instantiation at the call site is usually optional: Kind 2 infers
 the type arguments *bottom-up*, by matching the declared parameter types
-against the types of the actual arguments, so `SafePre(x1)` (without the annotation) 
+against the types of the actual arguments, so `SafePre(0)` (without the annotation) 
 would also work here.
 
 However, in some cases, Kind 2 cannot 
@@ -1036,8 +1036,8 @@ Here `l` is some odd stream, with no further commitment as to which — it may
 take a different odd value at every step.
 
 The variant `choose { ... }` is similar to `any { ... }`, but functional 
-(that is, given the same type as input, it 
-always produces the same output).
+(that is, it always produces the same value for the same values of the
+variables occurring in its predicate).
 
 Both operators can be written with an explicit type instantiation instead of a
 predicate, as in `any@<bool>`, which denotes an arbitrary Boolean stream.
@@ -1339,9 +1339,9 @@ Kind 2 also checks the realizability of a node's *environment*---that the
 assumptions themselves can be met. Assumptions that
 no input sequence can satisfy make a node's guarantees vacuous. 
 
-When a contract is found unrealizable, `--print_deadlock` shows a trace ending
+When a contract is found unrealizable, Kind 2 shows a trace ending
 in a state from which the contract cannot be satisfied, together with the
-conflicting constraints.
+conflicting constraints (disable with `--print_deadlock false`).
 
 See [Contract Check]({{< relref "/docs/advanced-features/contract-check" >}})
 for the remaining options.
