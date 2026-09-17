@@ -1,0 +1,9 @@
+node N(c: bool) returns (y: int);
+let
+  if false -> (pre y >= 5) then
+    y = 0;
+  else
+    y = 1 -> pre y + 1;
+  fi
+  check "P" y >= 0;
+tel

@@ -1565,35 +1565,34 @@ let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_s
   NodeId.Map.add i export_ids m 
 (** Make contract summary that is a list of all symbols that a contract exports *)
                                             
+(* Connect the graph node of a left hand side item to the dependency graph of
+   the expression that defines it *)
+let handle_one_lhs: dependency_analysis_data
+                    -> LA.struct_item
+                    -> dependency_analysis_data
+  = fun rhs_g lhs ->
+  match lhs with
+  | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
+  | LA.ArrayDef (p, arr, is) ->
+    let hs_dollar = HString.mk_hstring "$" in
+    let arr' = HString.concat hs_dollar
+      [arr;(List.fold_left
+        (fun acc i -> HString.concat hs_dollar [acc;i])
+        empty_hs
+        is)]
+    in 
+    connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
+  (* None of these items below are supported at parsing yet. *)
+  | LA.TupleStructItem (p, _)
+    | LA.TupleSelection (p, _, _)
+    | LA.FieldSelection (p, _, _)
+    | LA.ArraySliceStructItem (p, _, _)
+    ->  Lib.todo ("Parsing not supported" ^ __LOC__
+                  ^ " " ^ Lib.string_of_t Lib.pp_print_position p)
+
 let mk_graph_eqn: node_summary
                   -> LA.node_equation
                   -> (dependency_analysis_data, [> error]) result =
-  
-
-  let handle_one_lhs: dependency_analysis_data
-                      -> LA.struct_item
-                      -> dependency_analysis_data
-    = fun rhs_g lhs ->
-    match lhs with
-    | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
-    | LA.ArrayDef (p, arr, is) ->
-      let hs_dollar = HString.mk_hstring "$" in
-      let arr' = HString.concat hs_dollar
-        [arr;(List.fold_left
-          (fun acc i -> HString.concat hs_dollar [acc;i])
-          empty_hs
-          is)]
-      in 
-      connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
-    (* None of these items below are supported at parsing yet. *)
-    | LA.TupleStructItem (p, _)
-      | LA.TupleSelection (p, _, _)
-      | LA.FieldSelection (p, _, _)
-      | LA.ArraySliceStructItem (p, _, _)
-      ->  Lib.todo ("Parsing not supported" ^ __LOC__
-                    ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
-
-      
   fun m -> function
         (* An empty left-hand side denotes a call statement whose results are
            discarded; it defines no variables and adds no dependencies. *)
@@ -1618,6 +1617,26 @@ let mk_graph_eqn: node_summary
         | _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
              
+(* Every variable defined inside a branching block depends on the identifiers of
+   the block's condition, since the condition selects which definition applies.
+   Delayed occurrences are abstracted away, as elsewhere in this analysis. *)
+let mk_graph_branch_cond: node_summary -> LA.expr -> LA.node_item list
+                          -> (dependency_analysis_data, [> error]) result =
+  fun m cond nis ->
+  let* cond_gs = mk_graph_expr2 m (LH.abstract_pre_subexpressions cond) in
+  let cond_g =
+    List.fold_left union_dependency_analysis_data empty_dependency_analysis_data cond_gs
+  in
+  let lhss =
+    List.concat_map
+      (fun (LA.StructDef (_, lhss), _) -> lhss)
+      (List.concat_map LH.extract_node_equation nis)
+  in
+  R.ok (List.fold_left
+          (fun g lhs -> union_dependency_analysis_data g (handle_one_lhs cond_g lhs))
+          empty_dependency_analysis_data
+          lhss)
+
 let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_analysis_data, [> error]) result =
   fun m -> function
   | [] -> R.ok empty_dependency_analysis_data
@@ -1625,12 +1644,13 @@ let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_an
     let* g = mk_graph_eqn m eqn in
     let* gs = mk_graph_node_items m items in
     R.ok (union_dependency_analysis_data g gs)
-  | IfBlock (_, _, nis1, nis2) :: items
-  | WhenBlock (_, _, nis1, nis2) :: items -> 
+  | IfBlock (_, cond, nis1, nis2) :: items
+  | WhenBlock (_, cond, nis1, nis2) :: items -> 
     let* gs1 = mk_graph_node_items m nis1 in
     let* gs2 = mk_graph_node_items m nis2 in
     let* gs3 = mk_graph_node_items m items in
-    R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
+    let* gs4 = mk_graph_branch_cond m cond (nis1 @ nis2) in
+    R.ok (List.fold_left union_dependency_analysis_data gs1 [gs2; gs3; gs4])
   | FrameBlock (_, _, nes, nis) :: items -> 
     let nes = List.map (fun ne -> LA.Body ne) nes in
     let* gs1 = mk_graph_node_items m nes in

@@ -1,0 +1,23 @@
+type status = enum { off, on };
+
+node Switch1(press: bool) returns (mode: status);
+var x: int;
+let
+  if true -> false then
+    mode = off;
+    x = 0;
+  elsif false -> (pre mode = off) then
+    if press then
+      mode = on;
+    else
+      mode = off;
+    fi
+    x = 0 -> pre x;
+  elsif press or x >= 5 then
+    mode = off;
+    x = 0;
+  else
+    mode = on;
+    x = 0 -> pre x + 1;
+  fi
+tel

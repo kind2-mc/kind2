@@ -1,0 +1,8 @@
+node N(c: bool) returns (y: int);
+let
+  when y >= 5 then
+    y = 0;
+  else
+    y = 10;
+  end
+tel
