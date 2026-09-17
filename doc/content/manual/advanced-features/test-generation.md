@@ -22,7 +22,7 @@ of the binaries. There is no reason to believe any connection between the two.
 Now, the only thing we know of the binaries is that they are supposed to
 verify the specification. For this reason, Kind 2's test generation ignores
 the syntax of the input model and instead builds on contracts
-(see [Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})), and more precisely on the
+(see [Contract Semantics]({{< relref "/manual/advanced-features/contract-semantics" >}})), and more precisely on the
 notion on *mode*.
 
 ## Combinations of modes as abstractions
@@ -110,7 +110,7 @@ case is simply a trace of inputs, or *witness*, triggering a different path of
 mode combinations in the DAG discussed above.
 
 Each witness is logged in JSON file. It is in the same format as the interpreter
-input format. (See the [Interpreter]({{< relref "/docs/advanced-features/interpreter" >}}))
+input format. (See the [Interpreter]({{< relref "/manual/advanced-features/interpreter" >}}))
 
 A glue XML file lists all the test cases
 and provides additional information such as the trace of mode combinations they
@@ -132,7 +132,7 @@ executable version of the model to check whether it crashes and whether it
 respects the specification.
 
 For convenience, Kind 2 offers a feature,
-a [contract monitor]({{< relref "/docs/advanced-features/contract-monitor#contract-monitor" >}}), which
+a [contract monitor]({{< relref "/manual/advanced-features/contract-monitor#contract-monitor" >}}), which
 checks whether the output produced by the executable for
 a given test case respects the contract.
 
@@ -140,6 +140,6 @@ The contract monitor reads the input values of the test case that are fed
 to the System Under Test (SUT), along with the output values returned by the
 SUT, and reports the truth values of the guarantees and modes of the original
 contract. The input format for the contract monitor is the same as the
-[interpreter]({{< relref "/docs/advanced-features/interpreter" >}}) input format, except that
+[interpreter]({{< relref "/manual/advanced-features/interpreter" >}}) input format, except that
 the input includes not only the values of the input variables but also
 the values of the output variables.

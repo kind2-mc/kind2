@@ -29,8 +29,8 @@ enableGitInfo: false
 
 menu:
   main:
-    - name: Documentation
-      pageRef: /docs
+    - name: Manual
+      pageRef: /manual
       weight: 1
     - name: Search
       weight: 2

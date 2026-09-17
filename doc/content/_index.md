@@ -12,12 +12,12 @@ layout: hextra-home
   A multi-engine, parallel, SMT-based automatic model checker&nbsp;<br class="sm:hx-block hx-hidden" />for safety properties of Lustre programs.
 {{< /hextra/hero-subtitle >}}
 
-{{< hextra/hero-button text="Get Started" link="docs" >}}
+{{< hextra/hero-button text="Get Started" link="manual" >}}
 
 <div style="margin-top: 3rem;"></div>
 
 {{< cards >}}
-  {{< card link="docs" title="Documentation" icon="book-open" subtitle="Full user documentation for Kind 2." >}}
+  {{< card link="manual" title="Manual" icon="book-open" subtitle="User manual for Kind 2." >}}
   {{< card link="https://github.com/kind2-mc/kind2" title="GitHub" icon="github" subtitle="Source code and releases." >}}
   {{< card link="https://kind.cs.uiowa.edu/app/" title="Try Online" icon="play" subtitle="Run Kind 2 from your browser." >}}
 {{< /cards >}}

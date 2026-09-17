@@ -4,7 +4,7 @@ weight: 16
 ---
 
 Kind 2 can output its results in two structured formats:
-[JSON]({{< relref "/docs/inputs-and-outputs/machine-readable-output#json-format" >}}) and [XML]({{< relref "/docs/inputs-and-outputs/machine-readable-output#xml-format" >}}).
+[JSON]({{< relref "/manual/inputs-and-outputs/machine-readable-output#json-format" >}}) and [XML]({{< relref "/manual/inputs-and-outputs/machine-readable-output#xml-format" >}}).
 They facilite the processing of Kind 2's results by external tools.
 The next sections describe each of these output formats in detail.
 
@@ -14,35 +14,35 @@ The JSON output is activated by running Kind 2 with the `-json` option.
 Its syntax is fully specified by the JSON schema available in the
 [schemas/kind2-output.json](https://github.com/kind2-mc/kind2/blob/main/schemas/kind2-output.json) file.
 
-The root element of a JSON output document is either a [Log Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#log-object" >}}) if Kind 2
-terminates early with an error, or an array of [Results Objects]({{< relref "/docs/inputs-and-outputs/machine-readable-output#results-objects" >}})
+The root element of a JSON output document is either a [Log Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#log-object" >}}) if Kind 2
+terminates early with an error, or an array of [Results Objects]({{< relref "/manual/inputs-and-outputs/machine-readable-output#results-objects" >}})
 if Kind 2 succeeds generating some result.
-Every [Results Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#results-objects" >}}) (including [Log Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#log-object" >}}))
-is identified and distinguished from other [Results]({{< relref "/docs/inputs-and-outputs/machine-readable-output#results-objects" >}})
+Every [Results Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#results-objects" >}}) (including [Log Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#log-object" >}}))
+is identified and distinguished from other [Results]({{< relref "/manual/inputs-and-outputs/machine-readable-output#results-objects" >}})
 objects by a property of type string called `objectType`.
 
-In a successful execution, a [Kind2 Options Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#kind2-options-object" >}}) specifies the options
-used by the tool, and any [Log]({{< relref "/docs/inputs-and-outputs/machine-readable-output#log-object" >}}) message is added to the array
+In a successful execution, a [Kind2 Options Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#kind2-options-object" >}}) specifies the options
+used by the tool, and any [Log]({{< relref "/manual/inputs-and-outputs/machine-readable-output#log-object" >}}) message is added to the array
 as it is written. When Kind 2 is run as an
-[interpreter]({{< relref "/docs/advanced-features/interpreter" >}}), the array includes one
-[Execution Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#execution-object" >}}) that contains a description of the computed values
+[interpreter]({{< relref "/manual/advanced-features/interpreter" >}}), the array includes one
+[Execution Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#execution-object" >}}) that contains a description of the computed values
 for the output and state variables.
 Otherwise, Kind 2 works as a model checker and performs
 a series of analyses. The beginning of a main analysis is indicated by an
-[AnalysisStart Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#analysisstart-object" >}}), and its end by an [AnalysisStop Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#analysisstop-object" >}}).
-Within these delimiters, a [Property Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#property-object" >}}) describes the result
+[AnalysisStart Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#analysisstart-object" >}}), and its end by an [AnalysisStop Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#analysisstop-object" >}}).
+Within these delimiters, a [Property Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#property-object" >}}) describes the result
 for a particular property of the input model under the parameters of the analysis.
 When the verbose mode is enabled,
 statistics and progress info of the analysis is also recorded along
-through [Stat]({{< relref "/docs/inputs-and-outputs/machine-readable-output#stat-object" >}}) and [Progress]({{< relref "/docs/inputs-and-outputs/machine-readable-output#progress-object" >}}) objects.
+through [Stat]({{< relref "/manual/inputs-and-outputs/machine-readable-output#stat-object" >}}) and [Progress]({{< relref "/manual/inputs-and-outputs/machine-readable-output#progress-object" >}}) objects.
 
 Similarly to main analyses, when a post-analysis is enabled, the beginning of the post-analysis
-is indicated by an [PostAnalysisStart Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#postanalysisstart-object" >}}), and its end by an [PostAnalysisEnd Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#postanalysisend-object" >}}).
+is indicated by an [PostAnalysisStart Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#postanalysisstart-object" >}}), and its end by an [PostAnalysisEnd Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#postanalysisend-object" >}}).
 
 ### Incremental JSON format
 
 The incremental JSON output is activated by running Kind 2 with the `-ijson`
-option. It contains the same [Results Objects]({{< relref "/docs/inputs-and-outputs/machine-readable-output#results-objects" >}}) as the regular JSON
+option. It contains the same [Results Objects]({{< relref "/manual/inputs-and-outputs/machine-readable-output#results-objects" >}}) as the regular JSON
 output, but prints them as a sequence of independent JSON objects rather than as
 elements of a single enclosing array.
 
@@ -69,10 +69,10 @@ The list of properties of a `Log` object are:
 
 ### Results Objects
 
-A `Result object` can be one of the following objects: a [Log Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#log-object" >}}),
-a [Kind2 Options Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#kind2-options-object" >}}), an [AnalysisStart Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#analysisstart-object" >}}), an [AnalysisStop Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#analysisstop-object" >}}),
-a [Property Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#property-object" >}}), a [Stat Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#stat-object" >}}), a [Progress Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#progress-object" >}}),
-a [PostAnalysisStart Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#postanalysisstart-object" >}}), or a [PostAnalysisEnd Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#postanalysisend-object" >}}).
+A `Result object` can be one of the following objects: a [Log Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#log-object" >}}),
+a [Kind2 Options Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#kind2-options-object" >}}), an [AnalysisStart Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#analysisstart-object" >}}), an [AnalysisStop Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#analysisstop-object" >}}),
+a [Property Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#property-object" >}}), a [Stat Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#stat-object" >}}), a [Progress Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#progress-object" >}}),
+a [PostAnalysisStart Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#postanalysisstart-object" >}}), or a [PostAnalysisEnd Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#postanalysisend-object" >}}).
 
 ### Kind2 Options Object
 
@@ -158,11 +158,11 @@ The list of properties of an `PostAnalysisStart` object are:
 |--------|----------|---------------------------|
 | `name` | `string` | Name of the post-analysis |
 
-The post-analyses currently available are [Test Generation]({{< relref "/docs/advanced-features/test-generation" >}}) (`testgen`),
-[Proof Certificates]({{< relref "/docs/advanced-features/proofs" >}}) (`certification`),
-[Contract Generation]({{< relref "/docs/advanced-features/contract-generation" >}}) (`contractgen`),
-[Invariant Printing]({{< relref "/docs/advanced-features/invariant-printing" >}}) (`invprint`), and
-[Inductive Validity Core]({{< relref "/docs/advanced-features/inductive-validity-core" >}}) (`ivc`).
+The post-analyses currently available are [Test Generation]({{< relref "/manual/advanced-features/test-generation" >}}) (`testgen`),
+[Proof Certificates]({{< relref "/manual/advanced-features/proofs" >}}) (`certification`),
+[Contract Generation]({{< relref "/manual/advanced-features/contract-generation" >}}) (`contractgen`),
+[Invariant Printing]({{< relref "/manual/advanced-features/invariant-printing" >}}) (`invprint`), and
+[Inductive Validity Core]({{< relref "/manual/advanced-features/inductive-validity-core" >}}) (`ivc`).
 
 ### PostAnalysisEnd Object
 
@@ -172,15 +172,15 @@ The value of its `objectType` property is `postAnalysisEnd`. No properties are a
 ### Execution Object
 
 An `Execution` object describes the sequences of values for the output and state variables
-of an input model computed from its simulation (see the [interpreter]({{< relref "/docs/advanced-features/interpreter" >}}) mode).
+of an input model computed from its simulation (see the [interpreter]({{< relref "/manual/advanced-features/interpreter" >}}) mode).
 The value of its `objectType` property is `execution`. It only has one object property called
-`trace` which follows the same format than property `counterExample` in [Property Object]({{< relref "/docs/inputs-and-outputs/machine-readable-output#property-object" >}}).
+`trace` which follows the same format than property `counterExample` in [Property Object]({{< relref "/manual/inputs-and-outputs/machine-readable-output#property-object" >}}).
 
 ### ModelElementSet Object
 
 A `ModelElementSet` object describes a set of model elements (a model element can be an equation, a node call, an assumption, a guarantee, etc).
-It is used to describe a core that we can get from an [Inductive Validity Core]({{< relref "/docs/advanced-features/inductive-validity-core" >}}) (`ivc`)
-or [Minimal Cut Set]({{< relref "/docs/advanced-features/minimal-cut-set#minimal-cut-set" >}}) (`mcs`) analysis.
+It is used to describe a core that we can get from an [Inductive Validity Core]({{< relref "/manual/advanced-features/inductive-validity-core" >}}) (`ivc`)
+or [Minimal Cut Set]({{< relref "/manual/advanced-features/minimal-cut-set#minimal-cut-set" >}}) (`mcs`) analysis.
 The result should be considered in the context of the analysis or post-analysis in which the ModelElementSet object
 is contained. The value of its `objectType` property is `modelElementSet`.
 
@@ -199,8 +199,8 @@ The XML output is activated by running Kind 2 with the `-xml` option.
 Its syntax is fully specified by the XML schema available in the
 [schemas/kind2-output.xsd](https://github.com/kind2-mc/kind2/blob/main/schemas/kind2-output.xsd) file.
 
-The root element of a XML output document is either a [Log Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#log-element" >}}) if Kind 2
-terminates early with an error, or a [Results Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#results-element" >}})
+The root element of a XML output document is either a [Log Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#log-element" >}}) if Kind 2
+terminates early with an error, or a [Results Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#results-element" >}})
 if Kind 2 succeeds generating some result.
 
 ### Log Element
@@ -217,11 +217,11 @@ The list of attributes of a `Log` element are:
 
 ### Results Element
 
-A `Results` element is a sequence of zero or more of the following elements: a [Log Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#log-element" >}}),
-an [AnalysisStart Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#analysisstart-element" >}}), an [AnalysisStop Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#analysisstop-element" >}}),
-a [Property Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#property-element" >}}), a [Stat Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#stat-element" >}}), a [Progress Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#progress-element" >}}),
-a [PostAnalysisStart Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#postanalysisstart-element" >}}), a [PostAnalysisEnd Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#postanalysisend-element" >}}), or
-an [Execution Element]({{< relref "/docs/inputs-and-outputs/machine-readable-output#execution-element" >}}).
+A `Results` element is a sequence of zero or more of the following elements: a [Log Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#log-element" >}}),
+an [AnalysisStart Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#analysisstart-element" >}}), an [AnalysisStop Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#analysisstop-element" >}}),
+a [Property Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#property-element" >}}), a [Stat Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#stat-element" >}}), a [Progress Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#progress-element" >}}),
+a [PostAnalysisStart Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#postanalysisstart-element" >}}), a [PostAnalysisEnd Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#postanalysisend-element" >}}), or
+an [Execution Element]({{< relref "/manual/inputs-and-outputs/machine-readable-output#execution-element" >}}).
 
 The list of attributes of a `Results` element are:
 
@@ -299,11 +299,11 @@ which is the name of the k-inductive-based analysis.
 An `PostAnalysisStart` element is an empty element that indicates
 the beginning of a post-analysis. It has only one attribute of type `xs:string`,
 the `name` of the post-analysis.
-The post-analyses currently available are [Test Generation]({{< relref "/docs/advanced-features/test-generation" >}}) (`testgen`),
-[Proof Certificates]({{< relref "/docs/advanced-features/proofs" >}}) (`certification`),
-[Contract Generation]({{< relref "/docs/advanced-features/contract-generation" >}}) (`contractgen`),
-[Invariant Printing]({{< relref "/docs/advanced-features/invariant-printing" >}}) (`invprint`), and
-[Inductive Validity Core]({{< relref "/docs/advanced-features/inductive-validity-core" >}}) (`ivc`).
+The post-analyses currently available are [Test Generation]({{< relref "/manual/advanced-features/test-generation" >}}) (`testgen`),
+[Proof Certificates]({{< relref "/manual/advanced-features/proofs" >}}) (`certification`),
+[Contract Generation]({{< relref "/manual/advanced-features/contract-generation" >}}) (`contractgen`),
+[Invariant Printing]({{< relref "/manual/advanced-features/invariant-printing" >}}) (`invprint`), and
+[Inductive Validity Core]({{< relref "/manual/advanced-features/inductive-validity-core" >}}) (`ivc`).
 
 ### PostAnalysisEnd Element
 
@@ -314,13 +314,13 @@ the end of a post-analysis. No attributes.
 
 An `Execution` element describes the sequences of values for the output and
 state variables of an input model computed from the simulation of its execustion
-(see the [interpreter]({{< relref "/docs/advanced-features/interpreter" >}}) mode).
+(see the [interpreter]({{< relref "/manual/advanced-features/interpreter" >}}) mode).
 
 ### ModelElementSet Element
 
 A `ModelElementSet` element describes a set of model elements (a model element can be an equation, a node call, an assumption, a guarantee, etc).
-It is used to describe a core that we can get from an [Inductive Validity Core]({{< relref "/docs/advanced-features/inductive-validity-core" >}}) (`ivc`)
-or [Minimal Cut Set]({{< relref "/docs/advanced-features/minimal-cut-set#minimal-cut-set" >}}) (`mcs`) analysis.
+It is used to describe a core that we can get from an [Inductive Validity Core]({{< relref "/manual/advanced-features/inductive-validity-core" >}}) (`ivc`)
+or [Minimal Cut Set]({{< relref "/manual/advanced-features/minimal-cut-set#minimal-cut-set" >}}) (`mcs`) analysis.
 The result should be considered in the context of the analysis or post-analysis in which the ModelElementSet element
 is contained. The list of attributes of a `ModelElementSet` element are:
 
