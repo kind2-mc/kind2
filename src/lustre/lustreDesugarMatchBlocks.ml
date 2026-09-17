@@ -117,7 +117,18 @@ let rec apply_subst_in_item subs item =
   let e = AH.apply_subst_in_expr subs in
   let ri = List.map (apply_subst_in_item subs) in
   match item with
-  | A.Body (A.Equation (pos, lhs, rhs)) -> A.Body (A.Equation (pos, lhs, e rhs))
+  | A.Body (A.Equation (pos, (A.StructDef (_, ss) as lhs), rhs)) ->
+    (* The indices of an array definition bind over the right-hand side, so
+       they shadow a pattern variable of the same name *)
+    let indices = List.concat_map (function
+      | A.ArrayDef (_, _, is) -> is
+      | A.SingleIdent _ | A.TupleStructItem _ | A.TupleSelection _
+      | A.FieldSelection _ | A.ArraySliceStructItem _ -> []) ss
+    in
+    let subs =
+      List.filter (fun (id, _) -> not (List.exists (HString.equal id) indices)) subs
+    in
+    A.Body (A.Equation (pos, lhs, AH.apply_subst_in_expr subs rhs))
   | A.Body (A.Assert (pos, expr)) -> A.Body (A.Assert (pos, e expr))
   | A.AnnotProperty (pos, n, expr, A.Provided expr2) ->
     A.AnnotProperty (pos, n, e expr, A.Provided (e expr2))

@@ -250,6 +250,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/decreases_clause_without_rec.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedDecreasesClause _)) -> true
     | _ -> false);
+  mk_test "Assignment to a match block pattern variable" (fun () ->
+    match load_file "./lustreSyntaxChecks/match_block_assign_pattern_var.lus" with
+    | Error (`LustreSyntaxChecksError (_, AssignmentToPatternVariable _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -514,6 +518,26 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
   mk_test "test mutually recursive functions with mismatched decreases arity" (fun () ->
     match load_file "./lustreAstDependencies/mismatched_decreases_arity.lus" with
     | Error (`LustreAstDependenciesError (_, MismatchedDecreasesArity _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a match block scrutinee" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_scrutinee_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a single-arm match block binder" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_single_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through nested single-arm match blocks" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_nested_single_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through an unshadowed outer match block binder" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_unshadowed_inner_read_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
 ])
 

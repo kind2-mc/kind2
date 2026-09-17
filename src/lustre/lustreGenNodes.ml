@@ -472,7 +472,9 @@ fun ctx node_name fun_ids ni ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name rhs in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
-      | _ -> rec_call ni
+      | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
+      | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ ->
+        rec_call ni
     in
     let arms, gen_nodes1 =
       List.map (fun (p, items) ->

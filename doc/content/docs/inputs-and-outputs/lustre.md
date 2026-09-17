@@ -1273,8 +1273,8 @@ selected arm is evaluated, and the arms that are not selected are not.
 
 Restrictions:
 
-- The arms must be exhaustive, unless the block sits directly inside a frame
-  block, where a value matched by no arm leaves the variables to stutter.
+- The arms must be exhaustive, unless the block sits inside a frame block,
+  where a value matched by no arm leaves the variables to stutter.
 - Every variable defined in one arm must be defined in all of them, again
   unless the block sits inside a frame block.
 - A pattern variable may not have the same name as an input, output or local

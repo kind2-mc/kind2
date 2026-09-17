@@ -80,6 +80,7 @@ type error_kind = Unknown of string
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
+  | AssignmentToPatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
   | MultipleDecreasesClauses of HString.t
@@ -160,6 +161,9 @@ let error_message kind = match kind with
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
   | DuplicatePatternVariable id -> "Variable '"
     ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
+  | AssignmentToPatternVariable id -> "Cannot reassign value to a match block "
+    ^ "pattern variable but found reassignment to identifier: "
+    ^ HString.string_of_hstring id
   | MissingDecreasesClause id -> "Recursive function '"
     ^ HString.string_of_hstring id
     ^ "' must include a decreases clause in its contract"
@@ -673,6 +677,14 @@ let no_a_dangling_identifier ctx pos i =
   let check_ids = List.filter (fun x -> x) check_ids in
   if List.length check_ids > 0 then Ok ()
   else syntax_error pos (DanglingIdentifier i)
+
+(* A match block pattern variable names a projection of the scrutinee, not a
+   stream the arm may define. A name that is also a node variable is left to the
+   more precise shadowing check in LustreDesugarMatchBlocks. *)
+let no_assignment_to_pattern_var ctx pos i =
+  if StringMap.mem i ctx.pattern_vars && not (StringMap.mem i ctx.locals)
+  then syntax_error pos (AssignmentToPatternVariable i)
+  else Ok ()
 
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
@@ -1269,9 +1281,9 @@ and check_struct_items ctx items =
   | LA.ArrayDef (pos, _, _) :: _ :: _ 
   | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
   | (SingleIdent (pos, id)) :: tail ->
-    no_a_dangling_identifier ctx pos id >> r tail
+    no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
   | (ArrayDef (pos, id, _)) :: tail ->
-    no_a_dangling_identifier ctx pos id >> r tail
+    no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
   | (TupleStructItem (pos, _)) :: _
   | (TupleSelection (pos, _, _)) :: _
   | (FieldSelection (pos, _, _)) :: _
