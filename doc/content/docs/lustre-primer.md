@@ -1011,6 +1011,34 @@ described above. The same restrictions apply: a branch may not contain temporal
 operators or calls to nodes, and `if` blocks and lazy blocks may not be nested
 inside one another.
 
+A `match` block is the statement-level counterpart of the `match` expression of
+the [Algebraic Datatypes](#algebraic-datatypes) section, standing to it as the
+`if` statement stands to the `if` expression. Its arms hold equations rather
+than a value, which is what makes it worth having: an arm can define several
+variables at once.
+
+```lustre
+datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
+
+node Area(s: Shape) returns (a: real; round: bool);
+let
+  match s with
+  | Circle (r):
+    a = 3.14 * r * r;
+    round = true;
+  | Rectangle (w, h):
+    a = w * h;
+    round = false;
+  end
+tel
+```
+
+Only the selected arm is evaluated, so the fields an arm names are guarded just
+as `Some?(x)` guards `x.val` above. Every variable defined in one arm must be
+defined in all of them, and the arms must cover every constructor, unless the
+block sits inside a [frame block](#frame-blocks), where a value matched by no
+arm leaves the variables to stutter.
+
 Laziness also changes what "the previous value" means. Inside a lazy branch,
 `pre x` refers to the value of `x` the last time *that branch was selected*,
 which may be several steps earlier. When a lazy block sits inside a
