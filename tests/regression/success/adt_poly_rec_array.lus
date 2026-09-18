@@ -1,0 +1,9 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var a: List<int>^3;
+let
+  a = Cons(i, Nil@<int>)^3;
+  ok = Cons?(a[0]);
+  check ok;
+tel

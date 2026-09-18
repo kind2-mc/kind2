@@ -1,0 +1,9 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var x: List<int>;
+let
+  x = choose@<List<int>>;
+  ok = Nil?(x) or Cons?(x);
+  check ok;
+tel

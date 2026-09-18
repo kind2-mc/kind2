@@ -1,0 +1,17 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node depth<T>(x: T) returns (n: int);
+var l: List<T>;
+let
+  l = Cons(x, Nil@<T>);
+  n = match l with
+    | Nil : 0
+    | Cons(a, r) : 1
+  end;
+tel
+
+node main(i: int) returns (ok: bool);
+let
+  ok = depth@<int>(i) = 1;
+  check ok;
+tel

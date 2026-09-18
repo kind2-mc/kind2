@@ -1,0 +1,18 @@
+datatype List<T> = Cons (head: T, tail: List<T>) | Nil;
+
+function rec Length (l: List<int>) returns (len: int)
+con
+  decreases l;
+  guarantee "nonneg" len >= 0;
+noc
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, tl) : 1 + Length(tl)
+  end;
+tel
+
+node main (l: List<int>) returns ()
+let
+  check "nonneg" Length(l) >= 0;
+tel

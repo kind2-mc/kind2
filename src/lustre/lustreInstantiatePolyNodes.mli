@@ -25,5 +25,11 @@ module GI = GeneratedIdentifiers
 (** Canonical key for a monomorphized ADT instantiation, e.g. ["Opt<int>"]. *)
 val adt_mono_key : HString.t -> A.lustre_type list -> string
 
+(** [instantiate_polymorphic_adts ctx type_decls decls] returns [type_decls]
+    with a monomorphic declaration inserted for every ground instantiation of a
+    polymorphic ADT that [type_decls] or [decls] uses. *)
+val instantiate_polymorphic_adts :
+  Ctx.tc_context -> A.declaration list -> A.declaration list -> Ctx.tc_context * A.declaration list
+
 val instantiate_polymorphic_nodes :
   Ctx.tc_context -> GI.t NI.Map.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t * A.declaration list

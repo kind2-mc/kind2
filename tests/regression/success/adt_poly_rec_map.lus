@@ -1,0 +1,9 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var m: map<int, List<int>>;
+let
+  m = map[]@<int, List<int>>[0 := Cons(i, Nil@<int>)];
+  ok = Cons?(m[0]);
+  check ok;
+tel

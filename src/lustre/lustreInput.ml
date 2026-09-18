@@ -249,11 +249,19 @@ let type_check declarations =
     (* Step 19. Instantiate polymorphic nodes with concrete types *)
     let inlined_global_ctx, gids, const_inlined_nodes_and_contracts = LIP.instantiate_polymorphic_nodes inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 20. Flatten refinement types *)
+    (* Step 20. Instantiate polymorphic ADTs with concrete types. Runs after node
+       instantiation, which is what makes an instantiation used only inside a
+       polymorphic node ground. *)
+    let inlined_global_ctx, const_inlined_type_and_consts =
+      LIP.instantiate_polymorphic_adts inlined_global_ctx
+        const_inlined_type_and_consts const_inlined_nodes_and_contracts
+    in
+
+    (* Step 21. Flatten refinement types *)
     let const_inlined_type_and_consts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_type_and_consts in
     let const_inlined_nodes_and_contracts, gids = LFR.flatten_ref_types inlined_global_ctx gids const_inlined_nodes_and_contracts in
 
-    (* Step 21. Check no quantified variable in argument of non-inlinable function *)
+    (* Step 22. Check no quantified variable in argument of non-inlinable function *)
     let inlinable_funcs =
       LUF.inlinable_functions inlined_global_ctx const_inlined_nodes_and_contracts
     in
@@ -267,7 +275,7 @@ let type_check declarations =
       LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
     in
 
-    (* Step 22. Convert free constants to functions without args *)
+    (* Step 23. Convert free constants to functions without args *)
     let const_inlined_type_and_consts, new_func_ids, inlined_global_ctx = 
       LCF.gen_const_functions inlined_global_ctx const_inlined_type_and_consts in
     let* const_inlined_type_and_consts = 
@@ -276,7 +284,7 @@ let type_check declarations =
       LCF.constants_to_calls new_func_ids const_inlined_nodes_and_contracts
     in
 
-    (* Step 23. Normalize AST: guard pres, abstract to locals where appropriate *)
+    (* Step 24. Normalize AST: guard pres, abstract to locals where appropriate *)
     let* (normalized_decls, gids, warnings6) =
       LAN.normalize adt_map inlined_global_ctx inlinable_funcs uf_callable_funcs
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids

@@ -1,0 +1,13 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+type LS = L;
+
+node f(l: LS) returns (y: int);
+let
+  y = if Cons?(l) then 1 else 0;
+tel
+
+node main() returns (ok: bool);
+let
+  ok = f(Cons(3, Nil)) = 1;
+  check ok;
+tel

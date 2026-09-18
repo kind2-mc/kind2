@@ -105,6 +105,15 @@ val mk_enum : string -> string list -> t
     be represented with [mk_datatype_ref name]. *)
 val mk_datatype : string -> (string * t list) list -> t
 
+(** [qualified_ctor_name datatype ctor] is the symbol of constructor [ctor] of
+    the datatype named [datatype]: constructor symbols are global in SMT, so the
+    constructors of an instantiation of a polymorphic datatype are qualified by
+    the instantiation's name. *)
+val qualified_ctor_name : string -> string -> string
+
+(** The source name of a constructor symbol built by {!qualified_ctor_name}. *)
+val source_ctor_name : string -> string
+
 (** Return a placeholder for a direct self-reference to the named datatype,
     for use as a field type within that datatype's own constructor list. *)
 val mk_datatype_ref : string -> t
