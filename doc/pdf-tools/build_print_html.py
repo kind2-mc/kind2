@@ -7,7 +7,9 @@ import os
 from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parent.parent
-CONTENT_DOCS = ROOT / "content" / "docs"
+# Hugo section holding the manual; its pages are published under the same name.
+SECTION = "manual"
+CONTENT_DOCS = ROOT / "content" / SECTION
 PUBLIC = ROOT / "public"
 OUT_HTML = ROOT / "print" / "all-docs.html"
 KATEX_CSS = ROOT / "assets" / "vendor" / "katex" / "dist" / "katex.min.css"
@@ -75,9 +77,9 @@ def frontmatter_weight(path):
 def public_path_for(source):
     rel = source.relative_to(CONTENT_DOCS)
     if rel.parent == Path("."):
-        return PUBLIC / "docs" / ("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
+        return PUBLIC / SECTION / ("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
     section = rel.parent
-    return PUBLIC / "docs" / section / ("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
+    return PUBLIC / SECTION / section /("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
 
 
 def ordered_page_paths():

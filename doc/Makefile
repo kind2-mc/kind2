@@ -24,13 +24,13 @@ themes/hextra/layouts:
 update:
 	@printf "Updating root README.md and LICENSE.md...\n"
 	{ \
-		printf '<!-- DO NOT EDIT, edit content/docs/_index.md instead -->\n'; \
+		printf '<!-- DO NOT EDIT, edit content/manual/_index.md instead -->\n'; \
 		cat content/header.md; \
 		printf '\n'; \
-		awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1;next} front && /^title:/{title=$$0;sub(/^title:[[:space:]]*/,"",title);gsub(/^"|"$$/,"",title);next} front && /^---$$/{front=0;if(title!=""){print "# " title;print ""}next} !front{print}' content/docs/_index.md | \
-		sed -E 's#\{\{< relref "/docs/([^"]+)" >\}\}#https://kind.cs.uiowa.edu/kind2_user_doc/docs/\1#g'; \
+		awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1;next} front && /^title:/{title=$$0;sub(/^title:[[:space:]]*/,"",title);gsub(/^"|"$$/,"",title);next} front && /^---$$/{front=0;if(title!=""){print "# " title;print ""}next} !front{print}' content/manual/_index.md | \
+		sed -E 's|\{\{< relref "/manual/([^"#]+)(#[^"]*)?" >\}\}|https://kind.cs.uiowa.edu/docs/main/user/manual/\1/\2|g'; \
 	} > ../README.md
-	awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1;next} front && /^title:[[:space:]]*/{title=$$0;sub(/^title:[[:space:]]*/,"",title);gsub(/^"|"$$/,"",title);next} front && /^---$$/{front=0;if(title!=""){print "# " title}next} !front{print}' content/docs/license.md > ../LICENSE.md
+	awk 'BEGIN{front=0} NR==1 && /^---$$/{front=1;next} front && /^title:[[:space:]]*/{title=$$0;sub(/^title:[[:space:]]*/,"",title);gsub(/^"|"$$/,"",title);next} front && /^---$$/{front=0;if(title!=""){print "# " title}next} !front{print}' content/manual/license.md > ../LICENSE.md
 	@printf '<!-- DO NOT EDIT, edit content/README.md instead -->\n' > README.md
 	cat content/README.md >> README.md
 
