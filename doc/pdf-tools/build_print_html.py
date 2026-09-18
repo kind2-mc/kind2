@@ -7,9 +7,9 @@ import os
 from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parent.parent
-# Hugo section holding the manual; its pages are published under the same name.
-SECTION = "manual"
-CONTENT_DOCS = ROOT / "content" / SECTION
+CONTENT_DOCS = ROOT / "content"
+# Files under content/ that are not part of the site (see ignoreFiles in hugo.yaml).
+NON_PAGES = {"README.md", "header.md"}
 PUBLIC = ROOT / "public"
 OUT_HTML = ROOT / "print" / "all-docs.html"
 KATEX_CSS = ROOT / "assets" / "vendor" / "katex" / "dist" / "katex.min.css"
@@ -77,9 +77,9 @@ def frontmatter_weight(path):
 def public_path_for(source):
     rel = source.relative_to(CONTENT_DOCS)
     if rel.parent == Path("."):
-        return PUBLIC / SECTION / ("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
+        return PUBLIC / ("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
     section = rel.parent
-    return PUBLIC / SECTION / section /("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
+    return PUBLIC / section / ("index.html" if rel.name == "_index.md" else Path(rel.stem) / "index.html")
 
 
 def ordered_page_paths():
@@ -101,7 +101,7 @@ def ordered_page_paths():
         order.extend(sorted(pages, key=lambda p: (frontmatter_weight(p), p.name)))
 
     # Direct child pages such as the license are printed after the main sections.
-    direct_pages = [p for p in CONTENT_DOCS.glob("*.md") if p.name != "_index.md"]
+    direct_pages = [p for p in CONTENT_DOCS.glob("*.md") if p.name != "_index.md" and p.name not in NON_PAGES]
     order.extend(sorted(direct_pages, key=lambda p: (frontmatter_weight(p), p.name)))
     return order
 
