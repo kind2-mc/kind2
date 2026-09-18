@@ -32,7 +32,7 @@ pip does not install:
 ## How it works
 
 `pdf-tools/build_print_html.py` discovers every docs page directly from the
-Hugo `content/manual/` tree and its `weight` front matter, then merges them into
+Hugo `content/` tree and its `weight` front matter, then merges them into
 `print/all-docs.html`. This keeps PDF page order in sync with Hugo without a
 second Sphinx-era page map.
 `pdf-tools/build_pdf.sh` renders that to

@@ -4,13 +4,14 @@
 
 ```
 content/
-  _index.md              # Homepage
-  manual/                  # Docs section (cascades `type: docs` for the Hextra docs layout)
-    _index.md             # Docs landing page (from home.rst)
-    techniques/            # "Techniques" toctree section
-    inputs-and-outputs/     # "Inputs and Outputs" toctree section
-    advanced-features/       # "Advanced Features" toctree section
-    license.md              # "License" toctree section
+  _index.md              # Homepage and docs root (from home.rst; cascades `type: docs`)
+  techniques/            # "Techniques" toctree section
+  inputs-and-outputs/    # "Inputs and Outputs" toctree section
+  advanced-features/     # "Advanced Features" toctree section
+  lustre-primer.md       # "Lustre Primer" page
+  license.md             # "License" toctree section
+  header.md              # Badges prepended to the root README.md (not part of the site)
+  README.md              # This file (not part of the site)
 themes/hextra/            # Hextra theme, Git submodule
 hugo.yaml                  # Site configuration
 ```

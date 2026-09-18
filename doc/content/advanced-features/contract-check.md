@@ -4,8 +4,8 @@ weight: 11
 ---
 
 Kind 2 provides an option to check the realizability of contracts and refinement types.
-When an input model includes [imported nodes]({{< relref "/manual/inputs-and-outputs/lustre#the-imported-keyword" >}}) or
-[refinement types]({{< relref "/manual/inputs-and-outputs/refinement-types" >}}),
+When an input model includes [imported nodes]({{< relref "/inputs-and-outputs/lustre#the-imported-keyword" >}}) or
+[refinement types]({{< relref "/inputs-and-outputs/refinement-types" >}}),
 it is particularly important to verify that
 their associated contracts are realizable, i.e.,
 a component can be constructed such that, for any input satisfying
