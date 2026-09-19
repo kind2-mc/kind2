@@ -1157,10 +1157,16 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.StructUpdate (pos, (EmptyMap (_, None) as e1), [MapIndex (p2, e2)], Some e3) ->
     let* ty1, e2, warnings1 = infer_type_expr ctx nname e2 in 
     let* ty2, e3, warnings2 = infer_type_expr ctx nname e3 in 
+    (* The key type of a map literal is inferred rather than written down, so
+       it has not been through the check a declared one gets *)
+    let* _ = check_map_set_key_expr_type ctx (LH.pos_of_expr e2) ty1 in
     let e = LA.StructUpdate (pos, e1, [MapIndex (p2, e2)], Some e3) in 
     R.ok (LA.Map (pos, ty1, ty2), e, warnings1 @ warnings2)
   | LA.StructUpdate (pos, (EmptySet (_, None) as e1), [SetIndex (p2, e2)], None) ->
     let* ty, e2, warnings = infer_type_expr ctx nname e2 in 
+    (* The element type of a set literal is inferred rather than written down,
+       so it has not been through the check a declared one gets *)
+    let* _ = check_map_set_key_expr_type ctx (LH.pos_of_expr e2) ty in
     let e = LA.StructUpdate (pos, e1, [SetIndex (p2, e2)], None) in
     R.ok (LA.Set (pos, ty), e, warnings)
   (* only reachable through previous 2 cases *)
@@ -1409,7 +1415,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
             R.ifM (eq_lustre_type ctx b_ty e_ty)
               (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (e_ty, b_ty)))
+              (type_error pos (ExpectedType (b_ty, e_ty)))
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
@@ -1426,8 +1432,8 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
               (let* e_ty, e, warnings3 = infer_type_expr ctx nname (Option.get e) in
                 R.ifM (eq_lustre_type ctx e_ty vt)
                   (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.MapIndex (p, idx_e)], Some e), warnings1 @ warnings2 @ warnings3))
-                  (type_error pos (ExpectedType (e_ty, vt))))
-              (type_error pos (ExpectedType (index_type, kt)))
+                  (type_error pos (ExpectedType (vt, e_ty))))
+              (type_error pos (ExpectedType (kt, index_type)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
       | LA.SetIndex (p, idx_e) ->
@@ -1439,7 +1445,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
               (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.SetIndex (p, idx_e)], None), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (index_type, kt)))
+              (type_error pos (ExpectedType (kt, index_type)))
           )
          | _ -> type_error pos (IlltypedUpdateWithIndex ue_ty))
 
@@ -2121,7 +2127,7 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
     | None -> failwith "Free constant should have an associated type"
     | Some inf_ty -> R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (const_decl, []))
-      (type_error pos (IlltypedIdentifier (i, inf_ty, exp_ty))))
+      (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty))))
   | UntypedConst (pos, i, e) ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -2385,7 +2391,9 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
           ^ " cannot be re-defined"))
         else R.ok (st, [])
     else
-      type_error pos (ExpectedType (exp_ty, inf_ty))
+      (* `exp_ty` is the type of the right-hand side, so the declared type of
+         the variable being defined is the one the error reports as expected *)
+      type_error pos (ExpectedType (inf_ty, exp_ty))
 
     (* R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                             ; eq_lustre_type ctx exp_ty (GroupType (pos,[inf_ty])) ])
@@ -2402,7 +2410,13 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         (LA.Ident (pos, base_e))
         (List.map (fun i -> LA.Ident (pos, i)) idxs)
     in
-    let* array_idx_expr, warnings = check_type_expr ctx (Some nname) array_idx_expr exp_ty in 
+    (* Not `check_type_expr`, which would report the type of the right-hand
+       side as the expected one *)
+    let* elem_ty, array_idx_expr, warnings = infer_type_expr ctx (Some nname) array_idx_expr in
+    let* _ = R.ifM (eq_lustre_type ctx elem_ty exp_ty)
+      (R.ok ())
+      (type_error pos (ExpectedType (elem_ty, exp_ty)))
+    in
     let rec extract_base_e e = match e with 
     | LA.IndexAccess (_, e, _, _) -> extract_base_e e
     | e -> e 
@@ -2603,7 +2617,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
           let eqn = LA.ContractCall (pos, c_id, ty_args, args, rets) in
           R.ifM (eq_lustre_type ctx inf_ty exp_ty)
             (R.ok (eqn, List.flatten warnings1 @ List.flatten warnings2))
-            (type_error pos (MismatchedNodeType (NI.get_user_name c_id, exp_ty, inf_ty)))
+            (type_error pos (MismatchedNodeType (NI.get_user_name c_id, inf_ty, exp_ty)))
       | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
         ^ (HString.string_of_hstring (NI.get_user_name c_id)))))
 
@@ -2998,6 +3012,19 @@ and check_ref_type_assumptions ctx src nname bound_var e =
     | h :: _ -> (type_error (LH.pos_of_expr e) (AssumptionOnCurrentOutput h)) 
   )
   | Output | Local | Ghost | Global -> R.ok ()
+
+(* Check that the inferred type of an expression used as a set element or a map
+   key is a legal one. An expression list is singled out because a user reaching
+   for a tuple is the way one shows up here, and the type of a list prints just
+   like the tuple that was meant. *)
+and check_map_set_key_expr_type ctx pos ty =
+  match ty with
+  | LA.GroupType _ ->
+    type_error pos
+      (Unsupported "A set element or a map key must be a single expression, \
+                    not a list of them; a tuple is written '(e1, e2) rather \
+                    than (e1, e2)")
+  | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty =
   (* Guard against infinite recursion on recursive ADTs: expand each type

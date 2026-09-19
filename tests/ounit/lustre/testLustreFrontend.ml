@@ -1013,6 +1013,43 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedFieldProjection _)) -> true
     | _ -> false);
+  mk_test "expected type reported first: equation" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_equation.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: equation with a tuple" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_equation_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: equation with a node call" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_equation_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: array definition" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_array_def.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: array update" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_array_update.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: map literal key" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_map_key.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: map literal value" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_map_value.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: set literal element" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_set_element.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "contract import mismatch reports the contract's own type first" (fun () ->
+    match load_file "./lustreTypeChecker/mismatched_contract_import_order.lus" with
+    | Error (`LustreTypeCheckerError (_,
+        MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

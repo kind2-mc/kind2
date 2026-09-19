@@ -1,0 +1,4 @@
+node N(c: bool) returns (x: int; y: bool);
+let
+  x, y = (c, c);
+tel

@@ -1,0 +1,10 @@
+contract C(w: bool) returns (r: int);
+let
+  guarantee r >= 0;
+tel
+
+node N(x: int) returns (y: int);
+(*@contract import C(x) returns (y); *)
+let
+  y = 0;
+tel
