@@ -4,19 +4,32 @@
 
 ```
 content/
-  _index.md              # Homepage
-  docs/
-    _index.md             # Docs landing page (from home.rst)
-    techniques/            # "Techniques" toctree section
-    inputs-and-outputs/     # "Inputs and Outputs" toctree section
-    advanced-features/       # "Advanced Features" toctree section
-    license.md              # "License" toctree section
+  _index.md              # Homepage and docs root (from home.rst; cascades `type: docs`)
+  techniques/            # "Techniques" toctree section
+  inputs-and-outputs/    # "Inputs and Outputs" toctree section
+  advanced-features/     # "Advanced Features" toctree section
+  lucent-primer.md       # "Lucent Primer" page
+  license.md             # "License" toctree section
+  header.md              # Badges prepended to the root README.md (not part of the site)
+  README.md              # This file (not part of the site)
 themes/hextra/            # Hextra theme, Git submodule
 hugo.yaml                  # Site configuration
 ```
 
 Page ordering within each section is controlled by the `weight` field in each
 page's front matter, mirroring the original Sphinx `toctree` order.
+
+## Code blocks
+
+Lustre examples go in ` ```lustre ` fences. Hugo's highlighter (Chroma) has no
+Lustre lexer and cannot load a custom one, so these are highlighted in the
+browser by `assets/js/lustre-highlight.js`; `layouts/_markup/render-codeblock-lustre.html`
+emits the markup Chroma would have produced, which keeps the theme's light and
+dark styles applying unchanged. The keyword lists in the script come from
+`src/lustre/lustreLexer.mll` and should be updated alongside it.
+
+Shell commands, tool output, and JSON/XML samples keep their own fence
+languages (` ```bash `, ` ```text `, ` ```json `).
 
 ## Running locally
 
@@ -44,5 +57,16 @@ Output goes to `public/`.
 ## Deploying
 
 Any static host works (GitHub Pages, Netlify, Vercel, Cloudflare Pages).
-Update `baseURL` in `hugo.yaml` to match your production domain before
-building for deployment.
+`hugo.yaml` sets no `baseURL`, so Hugo defaults to `/`, which is what
+`hugo server` and the PDF build want. Hugo bakes the baseURL into every asset
+and cross-page link, so set `HUGO_BASEURL` to the URL the site will actually be
+served from when building for deployment:
+
+```bash
+HUGO_BASEURL=https://example.org/kind2/docs/main/user/ make html
+```
+
+The website is published from the `kind2-mc/kind2-mc.github.io` repository,
+which does this for you: it publishes this documentation to
+<https://kind2-mc.github.io/docs/main/user> on every push to `main`, and a copy
+of each release's to `docs/<version>/user` alongside it.

@@ -428,6 +428,7 @@ let init input_sys aparam trans skip =
   TransSys.define_and_declare_of_bounds
     trans
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.zero ;

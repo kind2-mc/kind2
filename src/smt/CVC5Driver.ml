@@ -42,6 +42,19 @@ let cmd_line
     |]
   in
 
+  (* Without bounded finite model finding for recursive functions, cvc5
+     does not terminate on a satisfiable query whose context holds a
+     recursive function definition, whether or not the query even applies
+     the function. Every counterexample search would hang, so the option is
+     added when the system defines recursive functions. It leaves the unsat
+     direction as it was. *)
+  let common_flags =
+    match logic with
+    | `Inferred l when TermLib.FeatureSet.mem TermLib.RF l ->
+      Array.append common_flags [| "--fmf-fun" |]
+    | _ -> common_flags
+  in
+
   let base_cmd = [| cvc5_bin; "--lang=smt2" |] in
 
   (* Timeout based on Flags.timeout_wall has been disabled because

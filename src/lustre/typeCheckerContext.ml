@@ -567,7 +567,8 @@ let pp_print_tc_context: Format.formatter -> tc_context -> unit
 let rec arity_of_expr ty_ctx = function
   | LA.GroupExpr (_, ExprList, es) ->
     List.fold_left (+) 0 (List.map (arity_of_expr ty_ctx) es)
-  | TernaryOp (_, Ite, _, e, _) -> arity_of_expr ty_ctx e
+  | GroupExpr (_, (TupleExpr | ArrayExpr), _) -> 1
+  | TernaryOp (_, (LazyIte | Ite), _, e, _) -> arity_of_expr ty_ctx e
   | Condact (_, _, _, id, _, _)
   | Activate (_, id, _, _, _)
   | RestartEvery (_, id, _, _) 
@@ -581,7 +582,12 @@ let rec arity_of_expr ty_ctx = function
   | TypeAscription (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
   | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
-  | _ -> 1
+  | Match (_, _, arms, _) -> arity_of_expr ty_ctx (List.hd arms |> snd)
+  | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
+  | EmptyMap _ | EmptySet _ | UnaryOp _ | BinaryOp _ | ConvOp _
+  | CompOp _ | AnyOp _ | ChooseOp _ | Extract _ | RecordExpr _
+  | StructUpdate _ | ArrayConstr _ | IndexAccess _ | Quantifier _
+  | ADTTerm _ | ADTTester _ -> 1
 
 let rec traverse_group_expr_list f ctx proj es =
   match proj, es with

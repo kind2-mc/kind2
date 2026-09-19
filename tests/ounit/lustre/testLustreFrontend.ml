@@ -234,6 +234,22 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/lazy_quant_inlinable_call.lus" with
     | Ok _ -> true
     | _ -> false);
+  mk_test "more than one decreases clause in a contract rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/multiple_decreases_clauses.lus" with
+    | Error (`LustreSyntaxChecksError (_, MultipleDecreasesClauses _)) -> true
+    | _ -> false);
+  mk_test "decreases clause in a standalone contract node decl rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/decreases_clause_in_contract_node_decl.lus" with
+    | Error (`LustreSyntaxChecksError (_, DecreasesClauseInContractNodeDecl _)) -> true
+    | _ -> false);
+  mk_test "decreases clause in a node contract rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/decreases_clause_in_node_decl.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedDecreasesClause _)) -> true
+    | _ -> false);
+  mk_test "decreases clause on a non-recursive function rejected" (fun () ->
+    match load_file "./lustreSyntaxChecks/decreases_clause_without_rec.lus" with
+    | Error (`LustreSyntaxChecksError (_, MisplacedDecreasesClause _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -320,6 +336,10 @@ let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
     match load_file "./lustreArrayDependencies/inductive_array11.lus" with
     | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
+  mk_test "test invalid inductive array def 12" (fun () ->
+    match load_file "./lustreArrayDependencies/inductive_array12.lus" with
+    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -336,6 +356,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | _ -> false);
   mk_test "test cyclic definition of a contract of a node called in a contract" (fun () ->
     match load_file "./lustreAstDependencies/circular_contracts_3.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test cyclic definition through a struct update index" (fun () ->
+    match load_file "./lustreAstDependencies/struct_update_index_cycle.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
   mk_test "test cyclic definition of nodes" (fun () ->
@@ -481,6 +505,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_activate.lus" with
     | Error _ -> false
     | _ -> true);
+
+  mk_test "test 'rec' annotation on a function that does not call itself" (fun () ->
+    match load_file "./lustreAstDependencies/rec_annotation_without_recursion.lus" with
+    | Error (`LustreAstDependenciesError (_, RecursiveAnnotationWithoutRecursion _)) -> true
+    | _ -> false);
+
+  mk_test "test mutually recursive functions with mismatched decreases arity" (fun () ->
+    match load_file "./lustreAstDependencies/mismatched_decreases_arity.lus" with
+    | Error (`LustreAstDependenciesError (_, MismatchedDecreasesArity _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -839,6 +873,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_bound_var_pre.lus" with
     | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
     | _ -> false);
+  mk_test "test type argument landing under a nested type" (fun () ->
+    match load_file "./lustreTypeChecker/nested_type_arg_temporal.lus" with
+    | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
+    | _ -> false);
   mk_test "test merge clock mismatch" (fun () ->
     match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
     | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
@@ -905,6 +943,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test undeclared type argument of ADT constructor" (fun () ->
+    match load_file "./lustreTypeChecker/adt_undeclared_type_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
     | _ -> false);
   mk_test "test non-well-founded ADT (every constructor has a recursive field)" (fun () ->
@@ -1000,5 +1042,173 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
   mk_test "When block with omitted else branch outside frame block" (fun () ->
     match load_file "./lustreSyntaxChecks/when_no_else_outside_frame.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                   Lustre Check Match Expressions Checks                     *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::: [
+  mk_test "test non-exhaustive match" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match with nested patterns in contract" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_nested.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match on polymorphic datatype" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_polymorphic.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in refinement type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_refinement_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant pattern after wildcard" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_after_wildcard.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test redundant pattern subsumed by earlier arms" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_nested.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in node input type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_input_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in node output type" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_output_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in set type annotation" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_set_type_annotation.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match on a history-typed scrutinee" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_history_type.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in array size" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_array_size.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant match in record expression type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_record_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test redundant match in global constant declaration" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_global_const.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in global constant declaration" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_global_const.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                     Lustre Check ADT Decreases Checks                       *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
+  mk_test "direct recursion passing non-subterm rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_direct_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "mutual recursion with one non-subterm call rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mutual_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "compound (constructed) decreases measure passed unchanged rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_compound_measure_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "recursive call shrinking a non-measure parameter rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_wrong_variable_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "one of two recursive calls on the same arm not shrinking rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_binary_tree_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "alias indirection through a local variable rejected (known limitation)" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_alias_indirection_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "all-ADT tuple decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_tuple_of_adt_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
+  mk_test "mixed int/ADT tuple decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_tuple_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, ADTInLexicographicDecreases _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call inside a check statement rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_check_stmt_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call inside a provided clause rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_provided_clause_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "mutually recursive group mixing integer and ADT decreases measures rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_mixed_scc_kinds_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, MixedDecreasesKindsInScc _)) -> true
+    | _ -> false);
+  mk_test "non-recursive ADT decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_nonrecursive_measure.lus" with
+    | Error (`LustreTypeCheckerError (_, NonRecursiveADTDecreases _)) -> true
+    | _ -> false);
+  mk_test "non-recursive ADT wrapping a recursive ADT decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_nonrecursive_wrapping_recursive_measure.lus" with
+    | Error (`LustreTypeCheckerError (_, NonRecursiveADTDecreases _)) -> true
+    | _ -> false);
+  mk_test "raw field selector not guarded by a match rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_raw_selector_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "call argument expanding to multiple output values rejected, not a crash" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_multi_output_arg_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "decreases-relevant formal entangled in a later, non-sole multi-output arg rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_multi_output_arg_not_first_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "non-decreasing recursive call in a struct-update key position rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_struct_update_key_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "pattern variable shadowing a same-named safe variable rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_shadowed_pattern_var_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "VarPat rebinding a name already safe from an unrelated match rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_varpat_rebind_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "pattern var sharing the measure's own name doesn't impersonate it" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_measure_name_shadowed_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "constant in an ADT decreases measure rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_unsubstituted_constant_bad.lus" with
+    | Error (`LustreTypeCheckerError (_, NonInputInADTDecreasesMeasure _)) -> true
+    | _ -> false);
+  mk_test "quantifier rebinding a safe pattern variable doesn't inherit its safety" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_quantifier_shadow_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, NotAStructuralSubterm _)) -> true
+    | _ -> false);
+  mk_test "recursive call in an ADT-measured function's own contract rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/adt_decreases_contract_rec_call_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, RecursiveCallInContract _)) -> true
+    | _ -> false);
+  mk_test "recursive call in an integer-measured function's own contract rejected" (fun () ->
+    match load_file "./lustreCheckADTDecreases/int_decreases_contract_rec_call_bad.lus" with
+    | Error (`LustreCheckADTDecreasesError (_, RecursiveCallInContract _)) -> true
     | _ -> false);
 ])

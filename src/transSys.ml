@@ -36,6 +36,11 @@ let prop_base = Numeral.zero
 (* Predicate definition *)
 type pred_def = UfSymbol.t * (Var.t list * Term.t)
 
+(* Definition of a function symbol: the symbol, its formal parameters and
+   its body, which may apply the symbol itself (or another one of the same
+   block) recursively *)
+type fun_def = UfSymbol.t * Var.t list * Term.t
+
 
 (* Instance of a subsystem *)
 (* Functional congruence group of an (abstracted) function with
@@ -151,6 +156,12 @@ type t =
 
     ufs : UfSymbol.t list;
     (** Other function declarations *)
+
+    fun_defs : fun_def list list;
+    (** Definitions of the recursive functions of this system, as blocks of
+        mutually recursive definitions in dependency order: a block only
+        applies the symbols of the blocks before it, of its own, and of
+        [ufs]. See [LustreFunDefs]. *)
     
     logic : TermLib.logic;
     (** Logic fragment needed to express the transition system 
@@ -174,6 +185,11 @@ type t =
 
     trans : Term.t;
     (** Transition relation. *)
+
+    one_state_trans : Term.t;
+    (** The conjuncts of the transition relation that only constrain the
+        current state, with the same part of every subsystem it calls
+        unconditionally inlined; see [mk_trans_sys]. *)
 
     properties : Property.t list;
     (** Properties to prove invariant for this transition system 
@@ -706,6 +722,9 @@ let get_split_properties { properties } =
 
 let get_function_symbols { ufs } = ufs
 
+(* Return the recursive function definitions *)
+let get_fun_defs { fun_defs } = fun_defs
+
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)
 (* **************************************************************** *)
@@ -928,12 +947,21 @@ let get_sofar_term trans_sys pos =
     )
   )
 
+(* Subsystem includes a recursive function defined at the SMT level *)
+let subsystem_includes_fun_def =
+  fold_subsystems ~include_top:true
+    (fun acc ts -> acc || get_fun_defs ts <> [])
+    false
+
 let subsystem_includes_function_symbol =
   (* Subsystem includes an abstract function: a partially defined function,
-     an imported function, a function abstracted by its contract,...
+     an imported function, a function abstracted by its contract,... or a
+     recursive function defined at the SMT level, which the engines that
+     cannot reason about uninterpreted functions cannot handle either
   *)
   fold_subsystems ~include_top:true
-    (fun acc ts -> acc || get_function_symbols ts <> [])
+    (fun acc ts ->
+       acc || get_function_symbols ts <> [] || get_fun_defs ts <> [])
     false
 
 (* **************************************************************** *)
@@ -1100,6 +1128,27 @@ let declare_ufs { ufs } declared declare =
     ufs
 
 
+(* Define the recursive functions of a system, skipping the blocks already
+   defined (a block is shared by the systems of its functions, and a system
+   carries the blocks its own depends on) *)
+let define_fun_defs { fun_defs } defined define_rec =
+  List.fold_left
+    (fun acc block ->
+      match block with
+      | [] -> acc
+      | (uf, _, _) :: _ ->
+        if UfSymbol.UfSymbolSet.mem uf acc then acc
+        else (
+          define_rec block;
+          List.fold_left
+            (fun acc (uf, _, _) -> UfSymbol.UfSymbolSet.add uf acc)
+            acc block
+        )
+    )
+    defined
+    fun_defs
+
+
 (* Declare other functions symbols *)
 let declare_selects declare sys =
   if TermLib.logic_allow_arrays (get_logic sys) then
@@ -1115,7 +1164,7 @@ let define_trans define { trans_uf_symbol; trans_formals; trans } =
 
 (* Declare the sorts, uninterpreted functions and const variables
    of this system and its subsystems. *)
-let declare_sorts_ufs_const trans_sys declare declare_sort =
+let declare_sorts_ufs_const trans_sys ~define_rec declare declare_sort =
   (* declare recursive algebraic datatypes first, in dependency order *)
   trans_sys.datatype_types |>
   List.iter (fun ty -> match Type.node_of_type ty with
@@ -1140,16 +1189,23 @@ let declare_sorts_ufs_const trans_sys declare declare_sort =
   declare_const_vars trans_sys declare ;
 
   (* Iterate over all subsystems *)
-  let _ =
-    fold_subsystems ~include_top:false (fun acc t ->
+  let _, defined =
+    fold_subsystems ~include_top:false (fun (declared, defined) t ->
 
       (* Declare other functions of sub system *)
-      declare_ufs t acc declare
+      let declared = declare_ufs t declared declare in
+
+      (* Define recursive functions of sub system *)
+      let defined = define_fun_defs t defined define_rec in
+
+      declared, defined
     )
-    declared
+    (declared, UfSymbol.UfSymbolSet.empty)
     trans_sys
   in
-  ()
+
+  (* Define recursive functions of top system *)
+  define_fun_defs trans_sys defined define_rec |> ignore
 
 (* Declare the init and trans functions of the subsystems *)
 let define_subsystems trans_sys define =
@@ -1170,6 +1226,7 @@ let define_and_declare_of_bounds
     ?(declare_sub_vars=false) 
     trans_sys
     define 
+    ~define_rec
     declare
     declare_sort
     lbound
@@ -1199,14 +1256,18 @@ let define_and_declare_of_bounds
   declare_const_vars trans_sys declare;
 
   (* Iterate over all subsystems *)
-  let _ = fold_subsystems ~include_top:false (fun acc t ->
+  let _, defined = fold_subsystems ~include_top:false (fun (declared, defined) t ->
 
       (* Declare constant state variables of subsystem *)
       if declare_sub_vars then
         declare_vars_of_bounds t declare lbound ubound ;
     
       (* Declare other functions of sub system *)
-      let acc = declare_ufs t acc declare in
+      let declared = declare_ufs t declared declare in
+
+      (* Define recursive functions of sub system, which its predicates
+         may apply *)
+      let defined = define_fun_defs t defined define_rec in
 
       (* Define initial state predicate *)
       define_init define t ;
@@ -1214,11 +1275,14 @@ let define_and_declare_of_bounds
       (* Define transition relation predicate *)
       define_trans define t;
 
-      acc
+      declared, defined
     ) 
-    declared
+    (declared, UfSymbol.UfSymbolSet.empty)
     trans_sys
   in
+
+  (* Define recursive functions of top system *)
+  define_fun_defs trans_sys defined define_rec |> ignore ;
        
   (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound
@@ -1814,10 +1878,53 @@ let copy t =
   ) Scope.Map.empty t in
   Scope.Map.find (scope_of_trans_sys t) copies
 
+(* Whether a term constrains a single state *)
+let is_one_state t =
+  match Term.var_offsets_of_term t with
+  | None, None -> true
+  | Some lo, Some up -> Numeral.equal lo up
+  | _ -> false
+
+(* The conjuncts of a conjunction *)
+let conjuncts t =
+  match Term.node_of_term t with
+  | Term.T.Node (s, args) when Symbol.node_of_symbol s == `AND -> args
+  | _ -> [t]
+
+(* Of the conjuncts of a transition relation, those that only constrain the
+   current state, and the same part of every subsystem called
+   unconditionally, with its formal parameters bound to the actual ones of
+   the call; see [mk_trans_sys]. *)
+let one_state_conjuncts subsystems terms =
+  (* An unconditional call of the transition relation of a subsystem *)
+  let sub_one_state t =
+    try
+      let s = Term.node_symbol_of_term t in
+      if not (Symbol.is_uf s) then None
+      else
+        let uf = Symbol.uf_of_symbol s in
+        match
+          List.find_opt
+            (fun (sub, _) -> UfSymbol.equal_uf_symbols uf sub.trans_uf_symbol)
+            subsystems
+        with
+        | Some (sub, _) ->
+          let args = Term.node_args_of_term t in
+          if List.length args <> List.length sub.trans_formals then None
+          else
+            Some (Term.apply_subst (List.combine sub.trans_formals args) sub.one_state_trans)
+        | None -> None
+    with _ -> None
+  in
+  List.filter_map
+    (fun t -> if is_one_state t then Some t else sub_one_state t) terms
+
 let mk_trans_sys
   ?(instance_var_id_start = 0)
+  ?one_state_trans
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
+  ?(fun_defs = [])
   scope
   instance_state_var
   init_flag_state_var
@@ -1942,6 +2049,13 @@ let mk_trans_sys
 
              @
 
+             (* Logics of the bodies of the recursive function definitions *)
+             List.concat_map
+               (List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t))
+               fun_defs
+
+             @
+
              (* Logics of subsystems *)
              List.map
                (fun (t, _) -> match t.logic with
@@ -1971,6 +2085,13 @@ let mk_trans_sys
                 Var.type_of_var v
                 |> TermLib.logic_of_sort
               ) global_consts)
+
+         (* Add logics from the signatures of the uninterpreted functions *)
+         |> List.rev_append
+           (List.concat_map (fun uf ->
+                UfSymbol.res_type_of_uf_symbol uf :: UfSymbol.arg_type_of_uf_symbol uf
+                |> List.map TermLib.logic_of_sort
+              ) ufs)
            
          (* Join logics to the logic required for this system *)
          |> TermLib.sup_logics
@@ -1978,6 +2099,19 @@ let mk_trans_sys
          |> (fun features ->
              if datatype_types <> [] then
                TermLib.FeatureSet.add TermLib.DT features
+             else features)
+         (* The uninterpreted functions of the system are declared whether
+            or not its terms mention them *)
+         |> (fun features ->
+             if ufs <> [] then TermLib.FeatureSet.add TermLib.UF features
+             else features)
+         (* A recursive function definition is a quantified axiom to the
+            solvers, which refuse it in a quantifier-free logic *)
+         |> (fun features ->
+             if fun_defs <> [] then
+               TermLib.FeatureSet.add TermLib.UF features
+               |> TermLib.FeatureSet.add TermLib.Q
+               |> TermLib.FeatureSet.add TermLib.RF
              else features))
 
   in
@@ -2002,6 +2136,54 @@ let mk_trans_sys
       ) t
   ) subsystems ;
 
+  (* The part of the transition relation that only constrains the current
+     state. Any reachable state that is not initial is the target of a
+     transition, so it satisfies these conjuncts; an initial state
+     satisfies the initial state constraint. The disjunction of the two,
+     on the init flag, is therefore a one-state invariant of the system.
+
+     Its use is the inductive step: at the first state of its path the
+     transition relation is not asserted, so a property abstracted into a
+     state variable, or any variable defined from others, is assumed there
+     without its definition, and the step at a small k has a trivial model
+     that violates the definition. With this invariant the definitions,
+     and every other stateless constraint, hold at that state too.
+
+     A subsystem called unconditionally contributes the same part of its
+     own transition relation, with its formal parameters bound to the
+     actual ones of the call; a call under a condition (a clocked call) is
+     left out. *)
+  (* A conjunct that mentions a variable the front end inlined can cease
+     to be one-state once the binding is substituted into it, and a term
+     that constrains two states is no one-state invariant, so what comes
+     back is checked rather than trusted. *)
+  let one_state_trans =
+    let t =
+      match one_state_trans with
+      | Some t -> t
+      | None -> one_state_conjuncts subsystems (conjuncts trans) |> Term.mk_and
+    in
+    if is_one_state t then t else Term.mk_true ()
+  in
+
+  let () =
+    let flag =
+      Var.mk_state_var_instance init_flag_state_var trans_base |> Term.mk_var
+    in
+    let init_at_trans = Term.bump_state Numeral.(trans_base - init_base) init in
+    let inv =
+      if is_one_state init_at_trans then
+        Term.mk_ite flag init_at_trans one_state_trans
+      else Term.mk_implies [Term.mk_not flag; one_state_trans]
+    in
+    (* Invariants are stored at offset 0 *)
+    let inv =
+      close_term instance_var_bindings inv
+      |> Term.bump_state Numeral.(~- trans_base)
+    in
+    Invs.add_os invariants inv (1, inv)
+  in
+
   (* Transition system containing only the subsystems *)
   let trans_sys = 
     { scope;
@@ -2018,12 +2200,14 @@ let mk_trans_sys
       global_constraints;
       fn_congruence_groups;
       ufs;
+      fun_defs;
       init_uf_symbol;
       init_formals;
       init;
       trans_uf_symbol;
       trans_formals;
       trans;
+      one_state_trans;
       properties;
       mode_requires;
       logic;

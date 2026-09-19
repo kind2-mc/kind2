@@ -344,6 +344,20 @@ let define_fun s uf_symbol vars term =
        (S.Conv.smtexpr_of_term term))
 
 
+(* Define a group of (mutually) recursive function symbols *)
+let define_funs_rec s defs =
+  let module S = (val s.solver_inst) in
+
+  fail_on_smt_error s
+    (S.define_funs_rec
+       (List.map (fun (uf_symbol, vars, term) ->
+          UfSymbol.string_of_uf_symbol uf_symbol,
+          vars,
+          UfSymbol.res_type_of_uf_symbol uf_symbol,
+          S.Conv.smtexpr_of_term term
+        ) defs))
+
+
 
 (* ******************************************************************** *)
 (* Primitives                                                           *)

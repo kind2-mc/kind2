@@ -1,4 +1,4 @@
-FROM ocaml/opam:alpine-3.23-ocaml-5.5-flambda AS builder
+FROM ocaml/opam:alpine-3.24-ocaml-5.5-flambda AS builder
 
 USER root
 
@@ -11,7 +11,8 @@ COPY --chown=opam:opam . /home/opam/kind2-build/
 # Build Kind 2
 WORKDIR /home/opam/kind2-build
 
-# Note: we use remote OPAM repo until local one is updated
+# Use the live opam repository instead of the image's built-in snapshot,
+# so we are not limited to the packages available when the image was built.
 RUN eval $(opam env) && \
     opam repo set-url default https://opam.ocaml.org && \
     opam update && opam install -y . --deps-only && \

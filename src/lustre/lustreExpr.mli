@@ -327,6 +327,10 @@ val t_false : t
 (** Return a constructor *)
 val mk_constr : string -> Type.t -> t
 
+(** [mk_app uf args] is the application of the uninterpreted function symbol
+    [uf] to [args], in both the initial state and the step. *)
+val mk_app : UfSymbol.t -> t list -> t
+
 (** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 

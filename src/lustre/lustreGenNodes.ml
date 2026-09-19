@@ -245,9 +245,9 @@ fun ctx node_name fun_ids expr ->
     let vt', gen_nodes2 = desugar_type ctx node_name fun_ids vt in
     A.EmptyMap (pos, Some (kt', vt')), gen_nodes1 @ gen_nodes2
   | Const (_, _) as e -> e, []
-  | FieldProject (pos, e, idx, ty_opt) ->
+  | FieldProject (pos, e, idx, pk) ->
     let e, gen_nodes = rec_call e in
-    FieldProject (pos, e, idx, ty_opt), gen_nodes
+    FieldProject (pos, e, idx, pk), gen_nodes
   | UnaryOp (pos, op, e) -> 
     let e, gen_nodes = rec_call e in
     UnaryOp (pos, op, e), gen_nodes
@@ -494,7 +494,7 @@ fun ctx decls ->
   let add_node_sig ctx pos node_decl is_func =
     try
       match Chk.tc_ctx_of_node_decl pos ctx node_decl is_func with
-      | Ok (ctx, _) -> ctx
+      | Ok (_, ctx, _) -> ctx
       | Error _ -> ctx
     with _ -> ctx
   in

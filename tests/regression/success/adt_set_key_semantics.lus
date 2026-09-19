@@ -1,0 +1,27 @@
+-- Set membership over an ADT element type is a plain lookup on the
+-- canonical record: payload slots of a non-selected constructor, including
+-- the tag of a nested ADT in such a slot, hold default values and so never
+-- distinguish two values with the same active constructor and payload.
+
+datatype Inner = X (s1: int) | Y (s2: bool);
+datatype Outer = A (s3: Inner) | B (s4: real) | C;
+
+node main(i: int; b: bool; r: real) returns (ok: bool);
+var s, t: set<Outer>;
+let
+  s = { A(X(i)) };
+  t = s + { C } + { B(r) };
+
+  check "member after insertion"        A(X(i)) in s;
+  check "other inner ctor not member"   not (A(Y(b)) in s);
+  check "other inner payload not member" (A(X(i + 1)) in s) = false;
+  check "other outer ctor not member"   not (B(r) in s) and not (C in s);
+  check "nullary ctor member"           C in t;
+  check "payload ctor member"           B(r) in t and A(X(i)) in t;
+  check "quantified membership"
+    forall (o: Outer) (o in s) => (o = A(X(i)));
+  check "junk in nested tag irrelevant"
+    forall (o1: Outer) forall (o2: Outer)
+      ((o1 in t) and (o2 in t) and (o1 = o2)) => (o1 in t);
+  ok = true;
+tel

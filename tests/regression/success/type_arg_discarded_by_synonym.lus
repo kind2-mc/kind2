@@ -1,0 +1,9 @@
+type Ignore<T> = int;
+
+node N(x: int) returns (y: bool);
+var b: Ignore<subtype { w: int | w = (0 -> pre x) }>^2;
+let
+  b = 0^2;
+  y = b[0] = 0;
+  check y;
+tel

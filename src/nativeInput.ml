@@ -293,7 +293,8 @@ let prop_source_of_sexpr prop_term = function
       Property.GuaranteeModeImplication (ppos, scope)
     else assert false
 
-  | [HS.Atom c] when c == s_cand -> Property.Candidate None
+  | [HS.Atom c] when c == s_cand ->
+    Property.Candidate { source = None ; report = true }
 
   | _ -> failwith "Invalid property source"
 

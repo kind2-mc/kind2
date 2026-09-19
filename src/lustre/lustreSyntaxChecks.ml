@@ -24,6 +24,7 @@ module LAH = LustreAstHelpers
 module H = HString
 module NI = NodeId
 module Ctx = TypeCheckerContext
+module LUF = LustreUserFunctions
 
 exception Cycle (* Exception raised locally when a cycle in contract imports is detected *)
 
@@ -81,6 +82,9 @@ type error_kind = Unknown of string
   | DuplicatePatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | MultipleDecreasesClauses of HString.t
+  | DecreasesClauseInContractNodeDecl of HString.t
+  | MisplacedDecreasesClause of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
@@ -163,6 +167,24 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
     ^ "mention the input parameters of the function and constants"
+  | MultipleDecreasesClauses id -> "Recursive function '"
+    ^ HString.string_of_hstring id
+    ^ "' has more than one decreases clause in its contract; combine them "
+    ^ "into a single clause (a comma-separated tuple for a lexicographic "
+    ^ "integer measure)"
+  | DecreasesClauseInContractNodeDecl id -> "Contract '"
+    ^ HString.string_of_hstring id
+    ^ "' declares a decreases clause; this is not currently supported -- a "
+    ^ "decreases clause declared in a standalone contract that is imported "
+    ^ "into a function has no effect on that function's termination check. "
+    ^ "Write the decreases clause directly in the recursive function's own "
+    ^ "contract instead"
+  | MisplacedDecreasesClause id -> "'"
+    ^ HString.string_of_hstring id
+    ^ "' declares a decreases clause, but only a recursive ('rec') function "
+    ^ "has a termination check for one to control, so it would have no "
+    ^ "effect here. Remove the clause, or -- if a recursive function was "
+    ^ "intended -- declare it with the 'rec' modifier"
   | MisplacedAuto -> "The 'auto' keyword is only allowed in the body of a lemma"
   | LemmaCallOutsideCallStatement id -> "Lemma '"
     ^ HString.string_of_hstring id ^ "' can only be invoked in a call statement"
@@ -200,6 +222,12 @@ type context = {
   nodes : node_data StringMap.t;
   functions : node_data StringMap.t;
   lemmas : StringSet.t;
+  (* Internal names of the functions a call to which may be applied to
+     quantified variables even though it cannot be inlined, because it is
+     compiled to an application of the functional symbol of the callee (see
+     [LustreUserFunctions.uf_callable_functions]). Only filled in by
+     [no_quant_vars_in_calls_to_non_inlinable_funcs], the check that reads it *)
+  uf_callable_funcs : StringSet.t;
   contracts : contract_data StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
@@ -215,6 +243,7 @@ let empty_ctx () = {
     nodes = StringMap.empty;
     functions = StringMap.empty;
     lemmas = StringSet.empty;
+    uf_callable_funcs = StringSet.empty;
     contracts = StringMap.empty;
     free_consts = StringMap.empty;
     consts = StringMap.empty;
@@ -997,6 +1026,20 @@ and check_decreases_measures inputs outputs contract =
   |> List.map check_measure
   |> Res.seq_
 
+(* The positions of a contract's decreases clauses, in declaration order. *)
+and decreases_clause_positions contract =
+  match contract with
+  | Some (_, items) ->
+    List.filter_map (function LA.Decreases (pos, _) -> Some pos | _ -> None) items
+  | None -> []
+
+(* Only a recursive function's contract is ever scanned for a decreases
+   clause, so one declared anywhere else is silently ignored. *)
+and no_decreases_clause id contract =
+  match decreases_clause_positions contract with
+  | [] -> Ok ()
+  | pos :: _ -> syntax_error pos (MisplacedDecreasesClause id)
+
 and check_input_items (pos, _id, _ty, clock, _const) =
   no_clock_inputs_or_outputs pos clock
 
@@ -1017,7 +1060,8 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
   in
-  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
+  no_decreases_clause (NI.get_user_name node_id) contract
+  >> check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (locals_exactly_one_definition locals items)
   >> (if ext then (Res.ok []) else (outputs_exactly_one_definition outputs items))
   >> (Res.seq_ (List.map check_input_items inputs))
@@ -1062,19 +1106,18 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   in
   let* () =
     if is_rec.LA.is_rec then
-      let has_decreases_clause =
-        match contract with
-        | Some (_, items) ->
-          List.exists (function LA.Decreases _ -> true | _ -> false) items
-        | None -> false
-      in
-      if not has_decreases_clause then
+      match decreases_clause_positions contract with
+      | [] ->
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
-      else
-        check_decreases_measures inputs outputs contract
+      | [_] -> check_decreases_measures inputs outputs contract
+      | _ :: _ :: _ ->
+        (* Downstream passes each pick "the" clause independently and can
+           disagree, each then trusting some other pass to check the rest. *)
+        syntax_error span.start_pos
+          (MultipleDecreasesClauses (NI.get_user_name node_id))
     else
-      Ok ()
+      no_decreases_clause (NI.get_user_name node_id) contract
   in
   check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
@@ -1099,8 +1142,19 @@ and check_contract_node_decl ctx span (id, params, inputs, outputs, contract) =
   let decl = LA.ContractNodeDecl
     (span, (id, params, inputs, outputs, contract))
   in
-  (Res.seq_ (List.map check_input_items inputs))
-    >> (Res.seq_ (List.map check_output_items outputs)) >> 
+  let (_, contract_items) = contract in
+  (* A decreases clause declared here would be silently ignored by every
+     downstream pass once imported into a recursive function's contract
+     (LustreCheckADTDecreases, LustreNodeGen.get_decreases_expr, and the
+     dual-decreases-clause syntax check above all only ever scan a
+     function's own inline contract items) -- rejected outright rather than
+     accepted and quietly not enforced. *)
+  (match List.find_opt (function LA.Decreases _ -> true | _ -> false) contract_items with
+   | Some (LA.Decreases (pos, _)) ->
+     syntax_error pos (DecreasesClauseInContractNodeDecl (NI.get_user_name id))
+   | Some _ | None -> Ok ())
+  >> (Res.seq_ (List.map check_input_items inputs))
+  >> (Res.seq_ (List.map check_output_items outputs)) >>
     let* (warnings, _) = (check_contract true ctx common_contract_checks empty_ty_check contract StringSet.empty) in
     (Ok (warnings, decl))
 
@@ -1502,9 +1556,19 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
     List.map NI.get_internal_name (NI.Set.elements inlinable_funcs) 
     |> LA.SI.of_list 
   in
+  (* Such a function cannot be inlined, but a call to it applied to quantified
+     variables is compiled to an application of its functional symbol (see
+     [LustreAstNormalizer.mk_fresh_qcall]) rather than to a node instance, so
+     quantified variables are allowed in its arguments. A symbolic array index
+     is not: only the arguments of an inlined call are given the index
+     variable itself. *)
+  let is_uf_callable =
+    StringSet.mem (NI.get_internal_name node_id) ctx.uf_callable_funcs
+  in
   let is_non_inlinable =
     not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
   in
+  let quant_vars_allowed = not is_non_inlinable || is_uf_callable in
   let vars =
     List.fold_left
       (fun acc e -> LA.SI.union acc (LAH.vars_without_node_call_ids e))
@@ -1513,7 +1577,7 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   in
   let over_vars j =
     let found_quant_in_non_inlinable =
-      StringMap.mem j ctx.quant_vars && is_non_inlinable
+      StringMap.mem j ctx.quant_vars && not quant_vars_allowed
     in
     let found_symbolic_index_in_non_inlinable =
       StringMap.mem j ctx.symbolic_array_indices &&
@@ -1529,7 +1593,10 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
       Ok []
     else
       let vars = LA.SI.elements ctx.lazy_cond_vars in
-      match List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars with
+      match
+        if quant_vars_allowed then None
+        else List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars
+      with
       | Some v ->
         syntax_error pos (QuantifiedVariableInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
       | None -> (
@@ -1708,5 +1775,13 @@ let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> (
 
 let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =
   let ctx = build_global_ctx ast in
+  let ctx =
+    { ctx with
+      uf_callable_funcs =
+        LUF.uf_callable_functions tc_ctx ast
+        |> NI.Set.elements
+        |> List.map NI.get_internal_name
+        |> StringSet.of_list }
+  in
   let* warnings = Res.seq (List.map (oqv_check_decl inlinable_funcs ctx tc_ctx) ast) in
   Ok (List.flatten warnings)

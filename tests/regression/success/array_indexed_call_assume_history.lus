@@ -1,0 +1,23 @@
+-- An array-indexed call to a node with assumptions, each instance fed its
+-- own previous output. The call expands into three instances, each with its
+-- own assumption history ('sofar' flag) stated as a candidate property: the
+-- candidates must carry distinct names, as property statuses are matched by
+-- name, so that the history of every instance becomes an invariant once
+-- proved and not only the first one's.
+
+node Sub (x: int) returns (y: int)
+(*@contract
+  assume x >= 0;
+  guarantee y >= 0;
+*)
+let
+  y = x + 1;
+tel
+
+node Main (a: int^3) returns (ok: bool)
+var s: int^3;
+let
+  s[i] = Sub(0 -> pre s[i]);
+  ok = s[0] >= 0 and s[1] >= 0 and s[2] >= 0;
+  check "P" ok;
+tel

@@ -69,6 +69,7 @@ let mk sys =
   TransSys.define_and_declare_of_bounds
     sys
     (S.define_fun solver)
+    ~define_rec:(S.define_funs_rec solver)
     (S.declare_fun solver)
     (S.declare_sort solver)
     zero zero ;

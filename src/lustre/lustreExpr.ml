@@ -1228,6 +1228,17 @@ let mk_constr c t =
     expr_step = expr; 
     expr_type = t } 
 
+(* Application of an uninterpreted function symbol to expressions *)
+let mk_app uf args =
+
+  let mk_app' sel =
+    Term.mk_uf uf (List.map sel args)
+  in
+
+  { expr_init = mk_app' (fun { expr_init } -> expr_init);
+    expr_step = mk_app' (fun { expr_step } -> expr_step);
+    expr_type = UfSymbol.res_type_of_uf_symbol uf }
+
 (* Integer constant *)
 let mk_int d =  
 
@@ -3428,8 +3439,13 @@ let type_of_store = function
 
     (fun i v -> 
 
-       if (Type.is_int i || Type.is_int_range i) &&
-          Type.check_type (Type.elem_type_of_array s) v
+       let compatible t1 t2 = Type.check_type t1 t2 || Type.check_type t2 t1 in
+
+       (* An array index may legally fall outside the array's bounds, so any
+          integer type is accepted; map and set keys use the index type *)
+       if (Type.is_int i || Type.is_int_range i ||
+           compatible (Type.index_type_of_array s) i) &&
+          compatible (Type.elem_type_of_array s) v
        then 
 
         (* Return type of array *)

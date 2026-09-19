@@ -1,0 +1,4 @@
+type Arr<T> = T^3;
+node N(x: int) returns (y: int);
+var b: Arr<subtype { w: int | w >= pre x }>;
+let b = [0, 0, 0]; y = 1; tel

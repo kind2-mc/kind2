@@ -174,6 +174,7 @@ let main ?(contract_monitor=false) input_file input_sys _ trans_sys =
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.(~- one) Numeral.(of_int steps) ;

@@ -798,6 +798,7 @@ let abstr_simulate trace trans_sys raise_cex =
         TransSys.define_and_declare_of_bounds
           trans_sys
           (SMTSolver.define_fun solver)
+          ~define_rec:(SMTSolver.define_funs_rec solver)
           (SMTSolver.declare_fun solver)
           (SMTSolver.declare_sort solver)
           (Numeral.zero)
@@ -3107,6 +3108,7 @@ let main_ic3 input_sys aparam trans_sys =
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero (Numeral.of_int bound);

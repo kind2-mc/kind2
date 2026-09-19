@@ -1,0 +1,20 @@
+-- Same defect as clocked_call_props_exclusive_clocks.lus, with clocks that
+-- are independent inputs: the clock of a sibling clocked call need not
+-- contradict the call's own clock to hide a violation, it only needs to be
+-- false in the violating states. The property of the second instance of
+-- 'Sub' is 'c2 => c1', violated whenever 'c2 and not c1'. Over-guarded by
+-- the clock 'c1' of the first call it became 'c1 => c2 => c1', which holds
+-- trivially, and a genuine counterexample was lost.
+
+node Sub(b: bool) returns (p: bool);
+let
+  p = true;
+  check "b holds" b;
+tel
+
+node main(c1, c2: bool) returns (x, y: bool);
+let
+  when c1 then x = Sub(true); else x = true; end
+  when c2 then y = Sub(c1);   else y = true; end
+  check x and y;
+tel

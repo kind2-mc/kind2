@@ -138,6 +138,7 @@ let mk_base_checker_solver in_sys sys k =
   Sys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.zero ;
@@ -541,6 +542,7 @@ let mk_pruning_checker_solver in_sys sys =
   Sys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.one;

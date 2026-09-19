@@ -443,6 +443,14 @@ val kind_module_of_string : string -> kind_module
 (** Sleep for seconds, resolution is in ms *)
 val minisleep : float -> unit
 
+(** [pipe_for_child ()] is a pipe for a child process to be given one
+    end of, as [Unix.create_process] gives it: both ends are closed on
+    exec, and neither is left on one of the three standard descriptors,
+    which is what a duplicate onto a standard descriptor of the child
+    needs in order to happen at all. Without it the child starts with
+    that descriptor closed. *)
+val pipe_for_child : unit -> Unix.file_descr * Unix.file_descr
+
 (** Return full path to executable, search PATH environment variable
     and current working directory *)
 val find_on_path : string -> string 
@@ -592,6 +600,10 @@ module ReservedIds : sig
 
   (** Suffix used for the name of the function encoding functional systems. *)
   val function_of_inputs: string
+
+  (** Value of a recursive call whose termination checks fail, in the
+      SMT-level definition of a recursive function *)
+  val undefined_call: string
 
   (** All reserved identifiers. *)
   val reserved_strings: string list

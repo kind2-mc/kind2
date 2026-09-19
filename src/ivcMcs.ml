@@ -633,7 +633,7 @@ let add_as_candidate os_invs sys =
   let create_candidate t =
     Property.{
       prop_name = Format.sprintf "%%inv_%i" (cnt ()) ;
-      prop_source = Property.Candidate None ;
+      prop_source = Property.Candidate { source = None ; report = false } ;
       prop_term = t ;
       prop_status = PropUnknown ;
       prop_kind = Invariant ;
@@ -901,6 +901,7 @@ let compute_local_cs sys prop_names enter_nodes cex keep test =
   TS.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero num_k;
@@ -1093,7 +1094,7 @@ let create_solver ?(pathcomp=false) ?(approximate=false) sys actlits bmin bmax =
     ~produce_models:pathcomp ~produce_unsat_assumptions:true
     ~minimize_cores:(not approximate) (get_logic ~pathcomp sys) (Flags.Smt.solver ()) in
   List.iter (SMTSolver.declare_fun solver) actlits ;
-  TS.declare_sorts_ufs_const sys (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;
+  TS.declare_sorts_ufs_const sys ~define_rec:(SMTSolver.define_funs_rec solver) (SMTSolver.declare_fun solver) (SMTSolver.declare_sort solver) ;
   TS.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)

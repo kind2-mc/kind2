@@ -1,0 +1,30 @@
+-- A property lifted from a clocked node call must be guarded by the
+-- activation condition of that call only. It used to be guarded by the
+-- clocks of every other clocked call in the same node as well: the
+-- properties lifted so far were accumulated in one list, and each clocked
+-- call added its clock as a guard to the whole list rather than to the
+-- properties it lifted itself. With two calls whose clocks cannot both hold,
+-- the antecedent of the over-guarded property is unsatisfiable and the
+-- property is vacuously valid. Here the property 'reached' of 'Sub' is
+-- plainly false, but it was reported valid because the call to 'Other' on
+-- the opposite clock added 'c' to its guard, which already had 'not c'.
+-- The value constraints of the calls were guarded correctly, so the outputs
+-- of 'main' were right and only the lifted property was affected.
+
+node Sub() returns (p: bool);
+let
+  p = true;
+  check "reached" false;
+tel
+
+node Other() returns (q: bool);
+let
+  q = true;
+tel
+
+node main(c: bool) returns (x, y: bool);
+let
+  when not c then y = Sub(); else y = true; end
+  when c then x = Other(); else x = true; end
+  check x and y;
+tel

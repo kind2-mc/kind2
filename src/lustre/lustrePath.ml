@@ -32,6 +32,7 @@ module SVT = StateVar.StateVarHashtbl
 module SVM = StateVar.StateVarMap
 module SVS = StateVar.StateVarSet
 module G = LustreGlobals
+module Slicing = LustreSlicing
 
 (* Model for a node and its subnodes *)
 type t =
@@ -636,7 +637,27 @@ let node_path_of_instance
 (* Return a hierarchical model for the nodes from a flat model by
    mapping the model of the top node to model of the subnode instances,
    reconstructing the streams in the original input. *)
+(* The instance a call applied to quantified variables retains, and the node
+   instance an inlined call retains, have dead outputs and arguments that are
+   free constants standing for the quantified variables. Rendering one at the
+   source position of the call reads as an explanation of the property being
+   reported, which it is not -- unless the property comes from that very call
+   (a subtype obligation on its arguments, a termination check, an assumption),
+   in which case its values are exactly what the property is about. Show it
+   then, and leave it out otherwise. *)
+let keep_call_for_prop trans_sys prop_name call =
+  not call.N.call_uf_applied ||
+  let prop =
+    match prop_name with
+    | None -> None
+    | Some name -> (
+      try Some (T.property_of_name trans_sys name) with Not_found -> None
+    )
+  in
+  Slicing.keep_inline_call call prop
+
 let node_path_of_subsystems
+    ?prop_name
     globals
     first_is_init
     trans_sys
@@ -697,6 +718,7 @@ let node_path_of_subsystems
     let r =
       (* Create models for all subnodes *)
       N.fold_node_calls_with_trans_sys
+        ~keep_call:(keep_call_for_prop trans_sys prop_name)
         nodes
         (node_path_of_instance const_map first_is_init model)
         (N.node_of_scope (I.of_scope scope) nodes)
@@ -1133,7 +1155,7 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
           Option.map
             (fun fields -> (ctor_name, fields))
             (G.HStringMap.find_opt ctor_hs adt_info.G.ctor_fields)
-        | exception Not_found -> None
+        | exception (Not_found | Invalid_argument _) -> None
       in
       (match ctor_and_fields with
       | None -> "_"
@@ -1151,8 +1173,10 @@ let rec reconstruct_adt_at_step model bindings adt_map step root_index type_name
             let nested_disc_index =
               field_index @ [D.AdtTagIndex (HString.string_of_hstring nested_type)]
             in
+            (* The nested value's variables may have been sliced away when
+               nothing reads them: its value is then unknown *)
             (match List.assoc_opt nested_disc_index bindings with
-            | None -> assert false
+            | None -> "_"
             | Some nested_disc_sv ->
               reconstruct_adt_at_step model bindings adt_map step
                 field_index nested_type nested_disc_sv)
@@ -1477,11 +1501,12 @@ let pp_print_lustre_path_pt ?(full_contract = false) globals ppf (lustre_path, c
 
 (* Output a hierarchical model as plain text *)
 let pp_print_path_pt
-  ?(full_contract = false) trans_sys globals subsystems first_is_init ppf model
+  ?(full_contract = false) ?prop_name
+  trans_sys globals subsystems first_is_init ppf model
   =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    globals first_is_init trans_sys model subsystems
+    ?prop_name globals first_is_init trans_sys model subsystems
   (* Output as plain text *)
   |> pp_print_lustre_path_pt ~full_contract:full_contract globals ppf
 
@@ -1803,11 +1828,11 @@ let pp_print_lustre_path_xml ppf (path, const_map) =
 
 (* Ouptut a hierarchical model as XML *)
 let pp_print_path_xml
-  trans_sys globals subsystems first_is_init ppf model
+  ?prop_name trans_sys globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    globals first_is_init trans_sys model subsystems
+    ?prop_name globals first_is_init trans_sys model subsystems
   (* Output as XML *)
   |> pp_print_lustre_path_xml ppf
 
@@ -2314,11 +2339,11 @@ let pp_print_lustre_path_json globals ppf (path, const_map) =
 
 (* Output a hierarchical model as JSON *)
 let pp_print_path_json
-  trans_sys globals subsystems first_is_init ppf model
+  ?prop_name trans_sys globals subsystems first_is_init ppf model
 =
   (* Create the hierarchical model *)
   node_path_of_subsystems
-    globals first_is_init trans_sys model subsystems
+    ?prop_name globals first_is_init trans_sys model subsystems
   (* Output as JSON *)
   |> pp_print_lustre_path_json globals ppf
 

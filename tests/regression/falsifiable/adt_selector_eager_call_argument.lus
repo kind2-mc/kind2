@@ -1,0 +1,17 @@
+-- A selector inside the argument of a node call is evaluated on every step,
+-- whatever the eager conditions around the call, since the callee's state
+-- advances on every step: the two reads of x.a below feed the same value to
+-- both Sum instances, so their sums agree. The falsifiable properties are the
+-- obligations of the unguarded reads.
+
+datatype D = A (a: int) | B (b: bool);
+
+node Sum(v: int) returns (s: int); let s = v -> pre s + v; tel
+
+node main(x: D) returns (ok: bool);
+var s1: int;
+let
+  s1 = Sum(x.a);
+  check "same argument, same sum" (not A?(x)) or (Sum(x.a) = s1);
+  ok = true;
+tel

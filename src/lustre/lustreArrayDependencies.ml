@@ -126,7 +126,8 @@ and process_equation ctx ns = function
 and process_lhs ctx ns proj expr = function
   | (A.ArrayDef (pos, id, indices) :: tail) ->
     let zero_list = List.map (fun _ -> Val 0) indices in
-    let* expr_graph = process_expr (Some (List.rev indices)) ctx ns proj [] expr in
+    let ind_vars = Some (List.rev indices) in
+    let* expr_graph = process_expr ind_vars ind_vars ctx ns proj [] expr in
     let expr_graph = G.connect expr_graph (id, zero_list) in
     let* (tail_graph, tail_pos_map, count, len) = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
@@ -134,7 +135,7 @@ and process_lhs ctx ns proj expr = function
     let map = StringMap.union (fun _ x _ -> Some x) map tail_pos_map in
     R.ok (graph, map, count + 1, max len (List.length indices))
   | (A.SingleIdent (pos, id) :: tail) ->
-    let* expr_graph = process_expr None ctx ns proj [] expr in
+    let* expr_graph = process_expr None None ctx ns proj [] expr in
     let expr_graph = G.connect expr_graph (id, [Val 0]) in
     let* (tail_graph, tail_pos_map, count, len)  = process_lhs ctx ns (proj + 1) expr tail in
     let graph = union expr_graph tail_graph in
@@ -144,8 +145,8 @@ and process_lhs ctx ns proj expr = function
   | _ :: tail -> process_lhs ctx ns (proj + 1) expr tail
   | [] -> R.ok (G.empty, StringMap.empty, 0, 0)
 
-and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
-  let r expr = process_expr ind_vars ctx ns proj indices expr in
+and process_expr def_ind_vars ind_vars ctx (ns:AD.node_summary) proj indices expr =
+  let r expr = process_expr def_ind_vars ind_vars ctx ns proj indices expr in
   match expr with
   (* Identifiers *)
   | A.Ident (_, id) ->
@@ -161,7 +162,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   | UnaryOp (_, _, e) -> r e
   | BinaryOp (_, _, e1, e2) -> union_ (r e1) (r e2)
   | TernaryOp (_, _, e1, e2, e3) ->
-    let r_e1 = process_expr ind_vars ctx ns 0 indices e1 in
+    let r_e1 = process_expr def_ind_vars ind_vars ctx ns 0 indices e1 in
     union_ (union_ (r_e1) (r e2)) (r e3)
   | ConvOp (_, _, e) -> r e
   | CompOp (_, _, e1, e2) -> union_ (r e1) (r e2)
@@ -169,14 +170,19 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   | RecordExpr (_, _, _, es) ->
     es |> (List.map (fun (_, e) -> r e)) |> (List.fold_left union_ empty_)
   | GroupExpr (_, A.ExprList, es) -> (
-    let g idx exp = process_expr ind_vars ctx ns idx indices exp in
+    let g idx exp = process_expr def_ind_vars ind_vars ctx ns idx indices exp in
     Ctx.traverse_group_expr_list g ctx proj es
   )
   | GroupExpr (_, _, es) ->
     es |> (List.map r) |> (List.fold_left union_ empty_)
-  (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> union_ (r e1) (r e2)
-  | StructUpdate (_, e1, _, _) -> r e1
+  | StructUpdate (_, e1, idx, e2) ->
+    let idx_graph =
+      AH.fold_label_or_index empty_ union_
+        (process_expr def_ind_vars def_ind_vars ctx ns 0 [])
+        idx
+    in
+    let e2_graph = match e2 with Some e2 -> r e2 | None -> empty_ in
+    union_ (union_ (r e1) idx_graph) e2_graph
   | ArrayConstr (_, e1, e2) -> union_ (r e1) (r e2)
   | IndexAccess (p, e, idx, _) ->
     let n = match ind_vars with
@@ -197,11 +203,11 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
              A.SI.mem ind_var idx_vars &&
              not (AH.expr_contains_call idx)
           then
-            process_expr ind_vars ctx ns proj (Val idx' :: indices) e
+            process_expr def_ind_vars ind_vars ctx ns proj (Val idx' :: indices) e
           else
-            process_expr ind_vars ctx ns proj (Unk (p, idx) :: indices) e
+            process_expr def_ind_vars ind_vars ctx ns proj (Unk (p, idx) :: indices) e
         | Error _ -> (
-          process_expr ind_vars ctx ns proj (Unk (p, idx) :: indices) e
+          process_expr def_ind_vars ind_vars ctx ns proj (Unk (p, idx) :: indices) e
         )
         )
       | None -> r e)
@@ -241,7 +247,7 @@ and process_expr ind_vars ctx (ns:AD.node_summary) proj indices expr =
   | TypeAscription (_, e, _) -> r e
   (* Node calls *)
   | Call (_, _, i, es) ->
-    let arg_vars = List.map (process_expr ind_vars ctx ns 0 indices) es in
+    let arg_vars = List.map (process_expr def_ind_vars ind_vars ctx ns 0 indices) es in
     let node_map = (NodeId.Map.find i ns).dependencies in
     let dep_args = AD.IntMap.find proj node_map in
     List.fold_left (fun acc idx ->

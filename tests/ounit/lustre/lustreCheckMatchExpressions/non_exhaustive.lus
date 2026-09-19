@@ -1,0 +1,8 @@
+datatype L = Nil | One (v: int) | Cons (hd: int, tl: L);
+node N(x: L) returns (y: int);
+let
+  y = match x with
+      | Nil : 0
+      | One(v) : v
+      end;
+tel

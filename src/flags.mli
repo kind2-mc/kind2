@@ -325,6 +325,10 @@ module Smt : sig
 
   val set_check_sat_assume : bool -> unit
 
+  (** Define a recursive function that has no contract, or that is
+      transparent, with an SMT-LIB recursive function definition *)
+  val define_fun_rec : unit -> bool
+
   (** Send short names to SMT solver *)
   val short_names : unit -> bool
 

@@ -86,13 +86,14 @@ val trans_sys_of_analysis:
   'a t -> Analysis.param -> TransSys.t * 'a t
 
 (** Output a path in the input system *)
-val pp_print_path_pt : ?full_contract:bool -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_pt : ?full_contract:bool -> ?prop_name:string -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+
+(** Output a path in the input system. [prop_name] names the property a
+    counterexample belongs to, if any; see {!LustrePath.pp_print_path_xml}. *)
+val pp_print_path_xml : ?prop_name:string -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system *)
-val pp_print_path_xml : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
-
-(** Output a path in the input system *)
-val pp_print_path_json : _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
+val pp_print_path_json : ?prop_name:string -> _ t -> TransSys.t -> bool -> Format.formatter -> Model.path -> unit
 
 (** Output a path in the input system. The format for this path is the same format that 
 the Interpreter module expects as input. *)
@@ -123,6 +124,13 @@ val retrieve_lustre_nodes : _ t -> LustreNode.t list
 val retrieve_lustre_nodes_of_scope : _ t -> Scope.t -> LustreNode.t list
 
 val contain_partially_defined_system : _ t -> Scope.t -> bool
+
+(** [true] if the model has a call applied to quantified variables, which is
+    compiled to an application of the functional symbol of the callee rather
+    than to an instance of it (see {!GeneratedIdentifiers.t.qcalls}). The
+    analyses that build their system without functional constraints have
+    nothing to interpret such a call with, and decline a model that has one. *)
+val contain_call_applied_to_quant_vars : _ t -> Scope.t -> bool
 
 (** Return the lustre node associated to the given scope, or
    [None] if there is no lustre node associated to that scope *)

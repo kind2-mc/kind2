@@ -38,6 +38,19 @@ module UBV (L : sig val length : int end): CandGen
 (** Real candidate term miner. *)
 module Real : CandGen
 
+(** Is there anything for the integer candidate term miner to work on?
+
+    [true] when the system or one of its subsystems has a state variable, or
+    a subterm of its init or transition predicate, of type int or integer
+    range that is not a numeral. Enumerations do not count: they carry [IA]
+    in the logic of the system, but the integer rules skip them. *)
+val has_mineable_int_terms : TransSys.t -> bool
+
+(** Is there anything for the real candidate term miner to work on?
+
+    As {!has_mineable_int_terms}, for type real and decimals. *)
+val has_mineable_real_terms : TransSys.t -> bool
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

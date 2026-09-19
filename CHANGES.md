@@ -1,3 +1,14 @@
+# Unreleased
+
+New features:
+- Support for [algebraic datatypes](https://kind.cs.uiowa.edu/docs/main/user/inputs-and-outputs/algebraic-datatypes/) (ADTs), including recursive and polymorphic ADTs, constructors, testers, and selectors, as well as `match` expressions with nested patterns that are statically checked for exhaustiveness and redundancy. Each selector use generates a proof obligation that the constructor owning the field is active.
+- Support for [recursive functions](https://kind.cs.uiowa.edu/docs/main/user/inputs-and-outputs/lustre/#recursive-functions), declared with the `rec` modifier, including mutual recursion. Termination is established through a mandatory `decreases` clause over integer or ADT measures. Recursive calls are abstracted by the function's contract; a function with no contract, or declared `transparent`, is also defined at the SMT level with `define-funs-rec` (when using Z3 or cvc5), so that the solver can unfold its definition.
+
+Improvements:
+- The guarantees of a node abstracted by its contract are asserted under the history of its assumptions (its "sofar" flag), which k-induction saw as a free variable at the start of its window: proving an assumption obligation of the callee needed the guarantees, which needed the flag, which needed the obligation at every earlier step, and models of this shape (a node called on its own previous output, for instance) waited for the invariant generator. The flag is now stated as a candidate property of the caller, proven before it is used, so that k-induction proves such models directly.
+- Candidate properties that Kind 2 generates for itself (the when-block ties, the assumption histories above, and the internal ones of IVC/MCS computation and certificate checking) no longer appear in the output, in any format, whether proved, disproved or unknown; their failure is reported through the properties they support. A candidate property given in a native input file is still reported.
+- The inductive step now assumes, at every state of its path, the part of the transition relation that only constrains one state. It previously had nothing to say about the first state of the path, where the transition relation is not asserted, so a variable defined from others was assumed there without its definition. Properties that are 1-inductive are now proved at k=1 rather than at a larger k, if they were provable at all.
+
 # Kind 2 v3.0.0
 
 New features:

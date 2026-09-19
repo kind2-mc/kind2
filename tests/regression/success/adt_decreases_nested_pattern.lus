@@ -1,0 +1,16 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec HalveFloor (n: Nat) returns (h: Nat)
+con decreases n; noc
+let
+  h = match n with
+  | Succ (Succ (m)) : Succ (HalveFloor(m))
+  | Succ (Zero) : Zero
+  | Zero : Zero
+  end;
+tel
+
+node main (n: Nat) returns ()
+let
+  check HalveFloor(n) = HalveFloor(n);
+tel

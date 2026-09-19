@@ -1,4 +1,7 @@
-baseURL: "https://kind.cs.uiowa.edu/kind2_user_doc/"
+# No baseURL: the site is built for whatever location it is published at,
+# and Hugo bakes that into every asset and cross-page link. Set HUGO_BASEURL
+# when building for publication (the website workflow does); without it Hugo
+# defaults to "/", which is what `hugo server` and the PDF build want.
 title: Kind 2 User Documentation
 
 theme: hextra
@@ -24,11 +27,18 @@ markup:
 
 enableGitInfo: false
 
+# The docs live at the site root (content/_index.md cascades `type: docs`), so
+# these notes for maintainers must be kept out of the site and its sidebar.
+ignoreFiles:
+  - 'content/README\.md$'
+  - 'content/header\.md$'
+
 menu:
   main:
-    - name: Documentation
-      pageRef: /docs
+    - name: Search
       weight: 1
+      params:
+        type: search
     - name: GitHub
       weight: 2
       url: "https://github.com/kind2-mc/kind2"

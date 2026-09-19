@@ -247,6 +247,7 @@ let create_solver_and_context sys k =
   TransSys.define_and_declare_of_bounds
     sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero (Numeral.of_int k);
@@ -1179,6 +1180,7 @@ let generate_assumption_vg in_sys sys var_filters prop =
     TransSys.define_and_declare_of_bounds
       sys
       (SMTSolver.define_fun solver)
+      ~define_rec:(SMTSolver.define_funs_rec solver)
       (SMTSolver.declare_fun solver)
       (SMTSolver.declare_sort solver)
       Numeral.zero Numeral.one;

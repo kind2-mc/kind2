@@ -1,0 +1,5 @@
+datatype L = Nil | One (v: int);
+const k: L = One(3);
+type R<T> = struct { f: T };
+node N(x: int) returns (y: int);
+let y = (R@<subtype { w: int | w >= (match k with | Nil : 0 | z : 1 | One(v) : 2 end) }> { f = 0 }).f; tel

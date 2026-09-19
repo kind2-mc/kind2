@@ -1,0 +1,8 @@
+function rec F (n: int; i: int) returns (out: int)
+con
+  decreases i;
+  decreases n;
+noc
+let
+  out = if n <= 0 then 0 else 1 + F(n - 1, i);
+tel

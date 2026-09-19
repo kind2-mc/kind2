@@ -1,0 +1,16 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function pair (n: Nat) returns (a: Nat; b: Nat);
+let
+  a = n;
+  b = n;
+tel
+
+function rec F (m: Nat; n: Nat; k: Nat) returns (out: int)
+con decreases n; noc
+let
+  out = match n with
+  | Zero : 0
+  | Succ (p) : 1 + F(p, pair(p))
+  end;
+tel

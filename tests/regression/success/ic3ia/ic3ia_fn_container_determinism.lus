@@ -1,0 +1,23 @@
+-- Determinism of an imported function with a container-typed argument.
+-- Containers compile to uninterpreted arrays constrained only at their
+-- canonical positions, so UF congruence alone cannot equate two containers
+-- holding the same elements; both properties hold only through the ground
+-- congruence instances, which IC3IA conjoins to its transition queries and
+-- to the concrete unrolling that validates counterexamples.
+function imported F(a: int^2) returns (out: int);
+
+node Top(b: bool) returns (r, q: int);
+var arr, brr: int^2;
+let
+  arr[i] = i;
+  brr[i] = if i >= 1 then 1 else 0;
+
+  r = F(arr);
+  q = F(brr);
+
+  check "imported fn is a function of a recurring array"
+    true -> (r = pre r);
+
+  check "imported fn agrees on structurally equal arrays"
+    r = q;
+tel
