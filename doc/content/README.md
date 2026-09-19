@@ -8,7 +8,7 @@ content/
   techniques/            # "Techniques" toctree section
   inputs-and-outputs/    # "Inputs and Outputs" toctree section
   advanced-features/     # "Advanced Features" toctree section
-  lustre-primer.md       # "Lustre Primer" page
+  lucent-primer.md       # "Lucent Primer" page
   license.md             # "License" toctree section
   header.md              # Badges prepended to the root README.md (not part of the site)
   README.md              # This file (not part of the site)
