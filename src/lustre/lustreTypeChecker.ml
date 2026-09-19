@@ -1367,7 +1367,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
             let* e_ty, e, warnings2 = infer_type_expr ctx nname (Option.get e) in
             R.ifM (eq_lustre_type ctx b_ty e_ty)
               (R.ok (ue_ty', LA.StructUpdate (pos, ue, [LA.Index (pos, i, LA.ArrayElem)], Some e), warnings1 @ warnings2))
-              (type_error pos (ExpectedType (e_ty, b_ty)))
+              (type_error pos (ExpectedType (b_ty, e_ty)))
           else
             type_error pos (ExpectedIntegerTypeForArrayIndex index_type)
         )
@@ -2127,7 +2127,7 @@ and check_type_const_decl: tc_context -> NI.t option -> LA.const_decl -> tc_type
     | None -> failwith "Free constant should have an associated type"
     | Some inf_ty -> R.ifM (eq_lustre_type ctx inf_ty exp_ty)
       (R.ok (const_decl, []))
-      (type_error pos (IlltypedIdentifier (i, inf_ty, exp_ty))))
+      (type_error pos (IlltypedIdentifier (i, exp_ty, inf_ty))))
   | UntypedConst (pos, i, e) ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -2368,7 +2368,9 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
           ^ " cannot be re-defined"))
         else R.ok (st, [])
     else
-      type_error pos (ExpectedType (exp_ty, inf_ty))
+      (* `exp_ty` is the type of the right-hand side, so the declared type of
+         the variable being defined is the one the error reports as expected *)
+      type_error pos (ExpectedType (inf_ty, exp_ty))
 
     (* R.ifM (R.seqM (||) false [ eq_lustre_type ctx exp_ty inf_ty
                             ; eq_lustre_type ctx exp_ty (GroupType (pos,[inf_ty])) ])
@@ -2385,7 +2387,13 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         (LA.Ident (pos, base_e))
         (List.map (fun i -> LA.Ident (pos, i)) idxs)
     in
-    let* array_idx_expr, warnings = check_type_expr ctx (Some nname) array_idx_expr exp_ty in 
+    (* Not `check_type_expr`, which would report the type of the right-hand
+       side as the expected one *)
+    let* elem_ty, array_idx_expr, warnings = infer_type_expr ctx (Some nname) array_idx_expr in
+    let* _ = R.ifM (eq_lustre_type ctx elem_ty exp_ty)
+      (R.ok ())
+      (type_error pos (ExpectedType (elem_ty, exp_ty)))
+    in
     let rec extract_base_e e = match e with 
     | LA.IndexAccess (_, e, _, _) -> extract_base_e e
     | e -> e 
@@ -2586,7 +2594,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
           let eqn = LA.ContractCall (pos, c_id, ty_args, args, rets) in
           R.ifM (eq_lustre_type ctx inf_ty exp_ty)
             (R.ok (eqn, List.flatten warnings1 @ List.flatten warnings2))
-            (type_error pos (MismatchedNodeType (NI.get_user_name c_id, exp_ty, inf_ty)))
+            (type_error pos (MismatchedNodeType (NI.get_user_name c_id, inf_ty, exp_ty)))
       | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
         ^ (HString.string_of_hstring (NI.get_user_name c_id)))))
 
