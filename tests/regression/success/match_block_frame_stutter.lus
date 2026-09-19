@@ -1,0 +1,14 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T) returns (y: int);
+let
+  frame (y)
+    y = 0;
+  let
+    match t with
+    | A (v):
+      y = v;
+    end
+  tel
+  --%PROPERTY (B?(t) => y = (0 -> pre y));
+tel

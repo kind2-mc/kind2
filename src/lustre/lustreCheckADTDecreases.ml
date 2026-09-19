@@ -254,6 +254,28 @@ let rec collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_
       go_expr e @ go_items items1 @ go_items items2
     | LA.WhenBlock (_, e, items1, items2) ->
       go_expr e @ go_items items1 @ go_items items2
+    | LA.MatchBlock (_, scrut, arms, _) ->
+      (* Same binder and safe-subterm bookkeeping as a match expression; only
+         the arm bodies differ *)
+      let scrut_calls = go_expr scrut in
+      let scrut_safe = scrutinee_is_safe caller_measure shadowed safe_env scrut in
+      let scrut_is_safe_alias = is_established_subterm safe_env scrut in
+      let arm_calls = List.concat_map (fun (pat, arm_items) ->
+        let bound = LH.pat_bound_vars pat in
+        let arm_shadowed = LA.SI.fold HStringSet.add bound shadowed in
+        let arm_env =
+          match pat with
+          | LA.VarPat (_, x) ->
+            if scrut_is_safe_alias then HStringSet.add x safe_env
+            else HStringSet.remove x safe_env
+          | LA.Pat (_, _, _) ->
+            if scrut_safe then LA.SI.fold HStringSet.add bound safe_env
+            else LA.SI.fold HStringSet.remove bound safe_env
+        in
+        collect_rec_calls_items scc_map caller_scc caller_measure arm_shadowed
+          arm_env arm_items
+      ) arms in
+      scrut_calls @ arm_calls
     | LA.FrameBlock (_, _, eqs, sub_items) ->
       let eq_calls = List.concat_map (fun eq -> match eq with
         | LA.Equation (_, _, e) -> go_expr e

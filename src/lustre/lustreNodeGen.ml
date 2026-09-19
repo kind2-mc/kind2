@@ -2873,6 +2873,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main)
       | A.Auto _ -> (props, eqs, asserts, is_main) (* no-op, removed earlier in pipeline *)
+      | A.MatchBlock _
       | A.IfBlock _
       | A.WhenBlock _
       | A.FrameBlock _ -> 

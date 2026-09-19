@@ -47,7 +47,8 @@ let valid_items set items =
     | Auto _ -> true (* no-op, removed earlier in pipeline *)
     | FrameBlock _
     | IfBlock _
-    | WhenBlock _ -> assert false (* desugared earlier in pipeline *)
+    | WhenBlock _
+    | MatchBlock _ -> assert false (* desugared earlier in pipeline *)
   )
 
 let is_output_defined outputs items =

@@ -145,24 +145,30 @@ let rec useful ctx tys matrix q =
     )
   )
 
-(* Report the first arm that no value can reach, then a match that leaves some
-   value of the scrutinee's type unmatched. *)
-let check_arms ctx pos scrut_ty arms =
+(* Whether [pats] leave no value of [scrut_ty] unmatched. *)
+let is_exhaustive ctx scrut_ty pats =
+  let matrix = List.map (fun p -> [pat_of_ast p]) pats in
+  not (useful ctx [scrut_ty] matrix [Wild])
+
+(* Report the first arm that no value can reach, then, unless the uncovered
+   cases are allowed to fall through, a match that leaves some value of the
+   scrutinee's type unmatched. *)
+let check_arms ctx pos scrut_ty require_exhaustive arms =
   let* matrix =
     R.seq_chain (fun matrix (ast_pat, pat) ->
       if useful ctx [scrut_ty] matrix [pat] then R.ok (matrix @ [[pat]])
       else mk_error (pos_of_pattern ast_pat) (RedundantPattern ast_pat))
       [] arms
   in
-  if useful ctx [scrut_ty] matrix [Wild] then
+  if require_exhaustive && useful ctx [scrut_ty] matrix [Wild] then
     mk_error pos IncompletePatternMatch
   else R.ok ()
 
-let check_match ctx (pos, arms, scrut_ty_opt) =
+let check_match ctx (pos, pats, scrut_ty_opt, require_exhaustive) =
   match scrut_ty_opt with
   | Some scrut_ty ->
-    let arms = List.map (fun (ast_pat, _) -> (ast_pat, pat_of_ast ast_pat)) arms in
-    check_arms ctx pos scrut_ty arms
+    let arms = List.map (fun ast_pat -> (ast_pat, pat_of_ast ast_pat)) pats in
+    check_arms ctx pos scrut_ty require_exhaustive arms
   (* The type checker records the scrutinee's datatype in every match it checks.
      A match it never reached is one this pass has no type to check against. *)
   | None -> R.ok ()
@@ -175,7 +181,7 @@ let rec matches_of_expr expr =
   let rtys tys = List.concat_map matches_of_type tys in
   match expr with
   | A.Match (pos, e, arms, ty_opt) ->
-    (pos, arms, ty_opt) :: (r e @ rlist (List.map snd arms))
+    (pos, List.map fst arms, ty_opt, true) :: (r e @ rlist (List.map snd arms))
   | A.Ident _ | A.ModeRef _ | A.Const _ | A.Last _ | A.AbstractSymConst _ -> []
   | A.EmptyMap (_, None) | A.EmptySet (_, None) -> []
   | A.EmptyMap (_, Some (kt, vt)) -> matches_of_type kt @ matches_of_type vt
@@ -228,8 +234,10 @@ let matches_of_equation = function
   | A.Equation (_, A.StructDef (_, sis), e) ->
     List.concat_map matches_of_struct_item sis @ matches_of_expr e
 
-let rec matches_of_node_item item =
-  let ri = List.concat_map matches_of_node_item in
+(* [in_frame_block] says whether an uncovered case may fall through to the
+   frame block's stutter, in which case a match block need not be exhaustive. *)
+let rec matches_of_node_item in_frame_block item =
+  let ri = List.concat_map (matches_of_node_item in_frame_block) in
   match item with
   | A.Auto _ | A.AnnotMain _ -> []
   | A.Body eq -> matches_of_equation eq
@@ -238,8 +246,12 @@ let rec matches_of_node_item item =
   | A.AnnotProperty (_, _, e, (A.Invariant | A.Reachable _)) -> matches_of_expr e
   | A.IfBlock (_, e, items1, items2) | A.WhenBlock (_, e, items1, items2) ->
     matches_of_expr e @ ri items1 @ ri items2
+  | A.MatchBlock (pos, e, arms, ty_opt) ->
+    (pos, List.map fst arms, ty_opt, not in_frame_block)
+    :: (matches_of_expr e @ ri (List.concat_map snd arms))
   | A.FrameBlock (_, _, eqs, items) ->
-    List.concat_map matches_of_equation eqs @ ri items
+    List.concat_map matches_of_equation eqs
+    @ List.concat_map (matches_of_node_item true) items
 
 let matches_of_contract_item = function
   | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e) | A.Decreases (_, e) ->
@@ -264,7 +276,7 @@ let matches_of_node (_, _, _, _, inputs, outputs, locals, items, contract) =
       | A.NodeConstDecl (_, cd) -> matches_of_const_decl cd
       | A.NodeVarDecl (_, (_, _, ty, _)) -> matches_of_type ty)
       locals
-  @ List.concat_map matches_of_node_item items
+  @ List.concat_map (matches_of_node_item false) items
   @ (match contract with Some c -> matches_of_contract c | None -> [])
 
 let matches_of_declaration = function
