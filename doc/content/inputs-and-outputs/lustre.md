@@ -1243,6 +1243,47 @@ Current restrictions for `cond` blocks are the same as for `when` blocks:
 - `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
   cannot be nested inside `if` blocks.
 
+### Match blocks
+
+A `match` block is to a [match expression](./algebraic-datatypes.md) what an
+`if` block is to an if-then-else: the arms hold equations rather than a value.
+
+```lustre
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node head_or (l: List; d: int) returns (y: int; found: bool);
+let
+  match l with
+  | Cons (h, t):
+    y = h;
+    found = true;
+  | Nil:
+    y = d;
+    found = false;
+  end
+tel
+```
+
+Each arm introduces the variables its pattern binds, in scope only within that
+arm. Patterns may be nested, and a bare identifier that is not a constructor
+matches anything.
+
+The semantics is the same as for a match expression: at each step only the
+selected arm is evaluated, and the arms that are not selected are not.
+
+Restrictions:
+
+- The arms must be exhaustive, unless the block sits inside a frame block,
+  where a value matched by no arm leaves the variables to stutter.
+- Every variable defined in one arm must be defined in all of them, again
+  unless the block sits inside a frame block.
+- A pattern variable may not have the same name as an input, output or local
+  of the enclosing node.
+- Only equations, `when` blocks and nested `match` blocks may appear in an arm.
+- As with `cond` blocks, `match` blocks cannot be nested inside `if` blocks,
+  and `if` blocks cannot be nested inside `match` blocks. `match` and `when`
+  blocks may be nested inside each other in either direction.
+
 ### Frame conditions
 
 Kind 2 also has support for code blocks with frame conditions. At the beginning of the block

@@ -1,0 +1,20 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T) returns (y: int);
+(*@contract
+  guarantee A?(t) => y = 1;
+*)
+let
+  match t with
+  | A (v):
+    y = 1;
+  | B (w):
+    y = 2;
+  end
+tel
+
+node main (t: T) returns (ok: bool);
+let
+  ok = f(t) = 1 or f(t) = 2;
+  check ok;
+tel

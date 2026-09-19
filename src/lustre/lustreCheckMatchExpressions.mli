@@ -40,6 +40,12 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * error_kind
 ]
 
+(** Whether [pats] leave no value of the scrutinee type unmatched. Used by
+    {!LustreDesugarMatchBlocks} to decide whether a match block's uncovered
+    cases need a fall-through branch. *)
+val is_exhaustive :
+  TypeCheckerContext.tc_context -> LustreAst.lustre_type -> LustreAst.pattern list -> bool
+
 (** Reports redundant match arms and cases where match arms are not exhaustive. 
     Returns the declarations unchanged. *)
 val check_match_expressions :

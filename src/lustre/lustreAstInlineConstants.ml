@@ -525,6 +525,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     assert false
   | (WhenBlock _) :: _ ->
     assert false
+  | (MatchBlock _) :: _ ->
+    assert false (* desugared in lustreDesugarMatchBlocks *)
   | (AnnotProperty (pos, n, e, k)) :: items ->
     (AnnotProperty (pos, n, simplify_expr ctx e, k))
     :: inline_constants_of_node_items ctx items

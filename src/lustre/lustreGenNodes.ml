@@ -463,6 +463,27 @@ fun ctx node_name fun_ids ni ->
     let nis2, gen_nodes2 = List.map process_branch_item nis2 |> List.split in
     let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
     A.WhenBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
+  | MatchBlock (pos, scrut, arms, ty) ->
+    (* A match block becomes a chain of when blocks later in the pipeline, so
+       its arms need the same temporal abstraction as a when-block branch *)
+    let process_branch_item ni =
+      match ni with
+      | A.Body (A.Equation (epos, lhs, rhs)) ->
+        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name rhs in
+        A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
+      | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
+      | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ ->
+        rec_call ni
+    in
+    let arms, gen_nodes1 =
+      List.map (fun (p, items) ->
+        let items, gn = List.map process_branch_item items |> List.split in
+        (p, items), List.flatten gn) arms
+      |> List.split
+    in
+    let scrut, gen_nodes2 = desugar_expr ctx node_name fun_ids scrut in
+    A.MatchBlock (pos, scrut, arms, ty), List.flatten gen_nodes1 @ gen_nodes2
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
     let nes, gen_nodes1 = List.map rec_call nes |> List.split in

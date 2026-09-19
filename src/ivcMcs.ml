@@ -370,6 +370,12 @@ let rec minimize_item id_typ_map ue lst = function
   | A.WhenBlock (pos, e, l1, l2) ->
     [A.WhenBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten,
                          List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+  | A.MatchBlock (pos, e, arms, ty) ->
+    [A.MatchBlock (pos, e,
+                   List.map (fun (p, items) ->
+                     (p, List.map (minimize_item id_typ_map ue lst) items |> List.flatten))
+                     arms,
+                   ty)]
   | A.FrameBlock (pos, vars, nes, nis) -> 
     [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue lst eq) 
                                          with | None -> [] | Some eq -> [eq]) 

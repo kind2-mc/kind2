@@ -28,6 +28,7 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarMatchBlocksError of Lib.position * LustreDesugarMatchBlocks.error_kind
   | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
@@ -46,6 +47,7 @@ let error_position error = match error with
   | `LustreUnguardedPreError (pos, _) -> pos
   | `LustreParserError (pos, _) -> pos
   | `LustreDesugarIfBlocksError (pos, _) -> pos
+  | `LustreDesugarMatchBlocksError (pos, _) -> pos
   | `LustreConstantsToFunctionsError (pos, _) -> pos
   | `LustreGenRefTypeImpNodesError (pos, _) -> pos
   | `LustreDesugarFrameBlocksError (pos, _) -> pos
@@ -63,6 +65,7 @@ let error_message error = match error with
   | `LustreUnguardedPreError (_, e) -> (Format.asprintf "@[<hov 2>Unguarded pre in expression@ %a@]" LA.pp_print_expr e)
   | `LustreParserError (_, e) -> e
   | `LustreDesugarIfBlocksError (_, kind) -> LustreDesugarIfBlocks.error_message kind
+  | `LustreDesugarMatchBlocksError (_, kind) -> LustreDesugarMatchBlocks.error_message kind
   | `LustreConstantsToFunctionsError (_, kind) -> LustreConstantsToFunctions.error_message kind 
   | `LustreGenRefTypeImpNodesError (_, kind) -> LustreGenRefTypeImpNodes.error_message kind
   | `LustreDesugarFrameBlocksError (_, kind) -> LustreDesugarFrameBlocks.error_message kind

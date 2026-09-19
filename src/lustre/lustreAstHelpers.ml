@@ -361,10 +361,49 @@ let fresh_bound_ident id =
 let subst_captures sigma i e =
   List.exists (fun (v, t) -> expr_contains_id i t && expr_contains_id v e) sigma
 
+(* Rebuilds an expression's outermost node at a new position *)
+let set_pos_of_expr p = function
+  | Ident (_, a) -> Ident (p, a)
+  | ModeRef (_, a) -> ModeRef (p, a)
+  | FieldProject (_, a, b, c) -> FieldProject (p, a, b, c)
+  | StructUpdate (_, a, b, c) -> StructUpdate (p, a, b, c)
+  | Const (_, a) -> Const (p, a)
+  | ConvOp (_, a, b) -> ConvOp (p, a, b)
+  | GroupExpr (_, a, b) -> GroupExpr (p, a, b)
+  | ArrayConstr (_, a, b) -> ArrayConstr (p, a, b)
+  | IndexAccess (_, a, b, c) -> IndexAccess (p, a, b, c)
+  | RecordExpr (_, a, b, c) -> RecordExpr (p, a, b, c)
+  | UnaryOp (_, a, b) -> UnaryOp (p, a, b)
+  | BinaryOp (_, a, b, c) -> BinaryOp (p, a, b, c)
+  | TernaryOp (_, a, b, c, d) -> TernaryOp (p, a, b, c, d)
+  | CompOp (_, a, b, c) -> CompOp (p, a, b, c)
+  | Quantifier (_, a, b, c) -> Quantifier (p, a, b, c)
+  | When (_, a, b) -> When (p, a, b)
+  | Condact (_, a, b, c, d, e) -> Condact (p, a, b, c, d, e)
+  | Activate (_, a, b, c, d) -> Activate (p, a, b, c, d)
+  | Merge (_, a, b) -> Merge (p, a, b)
+  | Pre (_, a) -> Pre (p, a)
+  | Last (_, a) -> Last (p, a)
+  | RestartEvery (_, a, b, c) -> RestartEvery (p, a, b, c)
+  | Arrow (_, a, b) -> Arrow (p, a, b)
+  | Call (_, a, b, c) -> Call (p, a, b, c)
+  | AnyOp (_, a, b) -> AnyOp (p, a, b)
+  | ChooseOp (_, a, b) -> ChooseOp (p, a, b)
+  | Extract (_, a, b, c) -> Extract (p, a, b, c)
+  | EmptyMap (_, a) -> EmptyMap (p, a)
+  | EmptySet (_, a) -> EmptySet (p, a)
+  | TypeAscription (_, a, b) -> TypeAscription (p, a, b)
+  | Match (_, a, b, c) -> Match (p, a, b, c)
+  | ADTTerm (_, a, b, c) -> ADTTerm (p, a, b, c)
+  | AbstractSymConst (_, a) -> AbstractSymConst (p, a)
+  | ADTTester (_, a, b) -> ADTTester (p, a, b)
+
 let rec apply_subst_in_expr sigma = function
   | Ident (pos, i) -> (
     match List.assoc_opt i sigma with
-      | Some expr -> expr
+      (* The replacement stands in for the identifier, so it is reported at the
+         identifier's position rather than wherever it was built *)
+      | Some expr -> set_pos_of_expr pos expr
       | None -> Ident (pos, i)
   )
   | Last (_, _) as e -> e
@@ -1099,6 +1138,13 @@ let rec node_item_has_pre_or_arrow = function
     | None -> node_item_list_has_pre_or_arrow l2
     )
   )
+| MatchBlock (_, e, arms, _) -> (match has_pre_or_arrow e with
+  | Some pos -> Some pos
+  | None ->
+    List.fold_left (fun acc (_, items) -> match acc with
+      | Some _ -> acc
+      | None -> node_item_list_has_pre_or_arrow items) None arms
+  )
 | FrameBlock (_, _, nes, nis) -> 
   let nes = List.map (fun x -> Body x) nes in 
   (match node_item_list_has_pre_or_arrow nes with
@@ -1453,6 +1499,8 @@ let rec defined_vars_with_pos = function
   | WhenBlock (_, _, l1, l2) -> 
     List.flatten (List.map defined_vars_with_pos l1) @
     List.flatten (List.map defined_vars_with_pos l2)
+  | MatchBlock (_, _, arms, _) ->
+    List.concat_map (fun (_, items) -> List.concat_map defined_vars_with_pos items) arms
   | FrameBlock (_, vars, _, _) ->
     vars
   | _ -> [] 
@@ -1816,6 +1864,8 @@ let rec extract_node_equation: node_item -> (eq_lhs * expr) list =
   | IfBlock (_, _, nis1, nis2)
   | WhenBlock (_, _, nis1, nis2) -> 
     List.flatten (List.map extract_node_equation nis1) @ List.flatten (List.map extract_node_equation nis2)
+  | MatchBlock (_, _, arms, _) ->
+    List.concat_map (fun (_, items) -> List.concat_map extract_node_equation items) arms
   | FrameBlock (_, _, nes, nis) -> 
     let nes = List.map (fun ne -> Body ne) nes in
     List.flatten (List.map extract_node_equation nes) @ List.flatten (List.map extract_node_equation nis)
