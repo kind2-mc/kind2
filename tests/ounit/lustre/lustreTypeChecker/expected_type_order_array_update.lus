@@ -1,0 +1,4 @@
+node N(a: int^2; c: bool) returns (b: int^2);
+let
+  b = a[0 := c];
+tel
