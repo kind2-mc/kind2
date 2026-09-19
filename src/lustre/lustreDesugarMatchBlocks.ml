@@ -146,10 +146,10 @@ let rec apply_subst_in_item subs item =
     A.FrameBlock (pos, vars, List.map ne nes, ri nis)
   | A.AnnotMain _ | A.Auto _ -> item
 
-(* Only equations and nested match blocks may appear in an arm. If and when
-   blocks are rejected here rather than being left to the when-block
-   desugaring, which would report them against a when block the user never
-   wrote. *)
+(* Only equations, when blocks, nested match blocks and the no-op 'auto' may
+   appear in an arm. If and frame blocks are rejected here rather than being
+   left to the when-block desugaring, which would report them against a when
+   block the user never wrote. *)
 let check_arm_item item =
   match item with
   | A.Body (A.Equation _) | A.MatchBlock _ | A.WhenBlock _ | A.Auto _ -> R.ok ()
@@ -206,8 +206,10 @@ let rec desugar_item ctx node_vars enclosing item =
     in
     let adt_ty = match scrut_ty_opt with
       | Some ty -> ty
-      (* The type checker records the scrutinee's datatype in every match block
-         it checks, and a node it never reached is never desugared *)
+      (* A match block only ever occurs among a node's items, all of which the
+         type checker visits, so the datatype is always recorded. Unlike
+         LustreCheckMatchExpressions, which can skip a match it has no type for,
+         this pass has no way to proceed without one. *)
       | None -> assert false
     in
     let exhaustive = LCME.is_exhaustive ctx adt_ty (List.map fst arms) in

@@ -254,6 +254,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/match_block_assign_pattern_var.lus" with
     | Error (`LustreSyntaxChecksError (_, AssignmentToPatternVariable _)) -> true
     | _ -> false);
+  mk_test "Node call in a match block scrutinee" (fun () ->
+    match load_file "./lustreSyntaxChecks/match_block_node_call_scrutinee.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
+    | _ -> false);
+  mk_test "'any' operator in a match block scrutinee" (fun () ->
+    match load_file "./lustreSyntaxChecks/match_block_any_scrutinee.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -537,6 +545,16 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 
   mk_test "test cyclic definition through an unshadowed outer match block binder" (fun () ->
     match load_file "./lustreAstDependencies/match_block_unshadowed_inner_read_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a single non-exhaustive match block arm" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_frame_single_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a nullary constructor match block arm" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_nullary_arm_cycle.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
 ])

@@ -1228,7 +1228,13 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
          plays the role of the guard *)
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
       let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
-      let* warnings1 = check_expr ctx f e in
+      (* Desugaring copies the scrutinee into every constructor tester and field
+         projection, and copies of a node call are separate instances of it *)
+      let* warnings1 =
+        check_expr ctx
+          (fun c e -> no_calls_to_node "the scrutinee of a match block" c e >> f c e)
+          e
+      in
       let pat_vars pat =
         let rec collect = function
           | LA.VarPat (_, id) ->

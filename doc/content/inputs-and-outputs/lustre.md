@@ -1279,7 +1279,11 @@ Restrictions:
   unless the block sits inside a frame block.
 - A pattern variable may not have the same name as an input, output or local
   of the enclosing node.
-- Only equations, `when` blocks and nested `match` blocks may appear in an arm.
+- Only equations, `when` blocks, nested `match` blocks and `auto` may appear in
+  an arm.
+- The scrutinee may not call a node or contain an `any` operator. Assign it to a
+  local variable and match on that instead. Calls to functions, and the `choose`
+  operator, are allowed.
 - As with `cond` blocks, `match` blocks cannot be nested inside `if` blocks,
   and `if` blocks cannot be nested inside `match` blocks. `match` and `when`
   blocks may be nested inside each other in either direction.

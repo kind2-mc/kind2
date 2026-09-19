@@ -1,0 +1,34 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+function rec len (l: L) returns (n: int);
+con
+  decreases l;
+noc
+let
+  match l with
+  | Nil:
+    n = 0;
+  | Cons (h, t):
+    n = 1 + len(t);
+  end
+tel
+
+lemma LenNonNeg (l: L)
+con
+  guarantee len(l) >= 0;
+  decreases l;
+noc
+let
+  match l with
+  | Nil:
+    auto;
+  | Cons (h, t):
+    LenNonNeg(t);
+  end
+tel
+
+node main () returns (ok: bool);
+let
+  ok = len(Cons(1, Nil)) >= 0;
+  check ok;
+tel
