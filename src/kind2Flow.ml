@@ -307,6 +307,27 @@ let status_of_exn process status = function
     ExitCodes.error
   )
 
+(* The exceptions for which [status_of_exn] returns the status it was
+   given rather than one of its own.
+
+   Kept beside it deliberately: the two have to agree. An exception not
+   named here ends the run with a verdict of its own -- a signal, a
+   parse error, a runtime failure -- and the status the results reached
+   is not what such a run should report.
+
+   [Failure] is left out although two of its messages do pass through:
+   which they are depends on the text of the message, and reporting an
+   error for the rest is the safe way to be wrong. *)
+let keeps_the_given_status = function
+  | Exit
+  | SMTSolver.Unknown
+  | KEvent.Terminate
+  | TimeoutWall
+  | TimeoutVirtual
+  | IC3.UnsupportedFeature _
+  | IC3IA.UnsupportedFeature _ -> true
+  | _ -> false
+
 (** Terminate all engine domains of the current analysis.
 
     Termination is cooperative: {!InvarManager.on_exit} broadcasts a
@@ -420,15 +441,18 @@ let slaughter_kids ?(exiting = false) process sys =
    only the tail of what can wedge.
 
    The status the watchdog exits with is kept in a cell rather than
-   captured, and it is not lowered before [status_of_exn] has run: until
-   the exception has been accounted for, the only honest thing to report
-   is that Kind 2 had to be terminated. [post_clean_exit] sets the
-   verdict of the run once it knows it.
+   captured, and it carries the best verdict known so far.
+   [post_clean_exit] sets the final one once [status_of_exn] has run;
+   before that, [on_exit] sets what the results already say, which for
+   a run out of time is [incomplete_analysis] and for a falsified one
+   is [unsafe_result]. Those are the answers the run had reached, and
+   reporting them beats reporting an error the run did not have.
 
-   It never reports success. A run the watchdog had to kill did not
-   finish, whatever it had proved by then, and the output saying so is
+   It never reports success, though, whatever the results say: a run
+   the watchdog had to kill did not finish, and the output saying so is
    the output that was cut short. A hang fails loudly wherever Kind 2
-   runs; a zero passes silently. *)
+   runs; a zero passes silently. So success becomes [error], and
+   nothing else is touched. *)
 let watchdog_status = Atomic.make ExitCodes.error
 let watchdog_armed = Atomic.make false
 
@@ -469,11 +493,20 @@ let arm_exit_watchdog () =
                as long as an insertion or a swap takes, so waiting for
                it cannot become the reason we never get to [_exit]. *)
             ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
-            (* Saying so, and the tail of the output, are worth a
-               moment and no more. Both write to descriptors that may
-               be pipes nobody is draining, and neither may become the
-               reason we do not exit. *)
-            within 1.0 (fun () ->
+            (* Saying so, and the tail of the output, are worth
+               waiting a little for and no more. Both write to
+               descriptors that may be pipes nobody is draining, and
+               neither may become the reason we do not exit.
+
+               Five seconds rather than one. The bound has to survive a
+               reader that never drains, which one second does; but it
+               also has to let the write happen on a machine in the
+               state that made this thread necessary, and one second is
+               not enough for that. A run that reaches here has already
+               waited ten, and this line is the only account anyone
+               gets of why it ended: losing it turns a kill that
+               explains itself into one that looks like a crash. *)
+            within 5.0 (fun () ->
               prerr_endline "Kind 2 did not exit in time, terminating." ;
               Stdlib.flush_all ()) ;
             Unix._exit (Atomic.get watchdog_status))
@@ -482,9 +515,11 @@ let arm_exit_watchdog () =
       with _ -> () )
 
 (* The verdict of the run, for the watchdog to exit with if it has to.
-   Never success: see [watchdog_status]. *)
+   Success becomes an error, since a killed run did not finish; every
+   other verdict is what the run had reached. See [watchdog_status]. *)
 let watchdog_reports status =
-  if status <> ExitCodes.success then Atomic.set watchdog_status status
+  Atomic.set watchdog_status
+    (if status = ExitCodes.success then ExitCodes.error else status)
 
 (** Called after everything has been cleaned up. *)
 let post_clean_exit process base_status exn =
@@ -511,11 +546,25 @@ let post_clean_exit process base_status exn =
 (** Clean up before exit *)
 let on_exit sys process status exn =
   (* From here to [exit] nothing bounds the teardown but the watchdog,
-     so it starts now. Without a status: [status] here has not been
-     through [status_of_exn], and on the paths that pass a results
-     verdict it can be success, which is not something a killed run may
-     report. *)
+     so it starts now, carrying what the results already say.
+
+     [status] has not been through [status_of_exn] yet, but for the
+     exceptions that end a run without a verdict of their own it is
+     already the answer: it is what the analysis reached, and
+     [status_of_exn] will return it unchanged. Arming with
+     [ExitCodes.error] instead cost a run its answer: on Windows the
+     teardown can outlast the watchdog's ten seconds, and a run that had
+     printed `Incomplete analysis result` exited 1 rather than 30, which
+     reads as a crash rather than as running out of time.
+
+     Only for those exceptions, though. A signal, a parse error or a
+     runtime failure ends the run with a verdict of its own, and
+     reporting what the results happened to say would be worse than
+     reporting an error: a crash that exits 40, or a Ctrl-C that exits
+     30, reads as an ordinary answer, and 30 passes a regression run as
+     silently as a zero would. *)
   arm_exit_watchdog () ;
+  if keeps_the_given_status exn then watchdog_reports status ;
   try
     slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn
@@ -810,6 +859,39 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
     | _ -> other_modules
   )
 
+(* Drop the integer (resp. real) invariant generators when the system holds no
+   integer (resp. real) term their candidate miner can relate to another one.
+   Machine integers are handled separately by [process_invgen_mach_modules].
+
+   The logic answers the cheap half of the question -- no [IA] anywhere means
+   nothing to mine -- and the miner the exact half, which the logic cannot:
+   [IA] also stands for enumerations, which the integer rules skip, and for
+   bare numerals, which give the miner constants and nothing to relate them
+   to. *)
+let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
+= fun sys modules ->
+  let logic_has feature =
+    match TSys.get_logic sys with
+    | `Inferred fs -> TermLib.FeatureSet.mem feature fs
+    (* Logic given rather than inferred: nothing to consult. *)
+    | _ -> true
+  in
+  (* One question per domain, not one per module: the one state and two state
+     generators of a domain stand or fall together, and the miner walks the
+     init and trans of every subsystem to answer. *)
+  let mineable_int =
+    lazy (logic_has TermLib.IA && InvGenMiner.has_mineable_int_terms sys)
+  in
+  let mineable_real =
+    lazy (logic_has TermLib.RA && InvGenMiner.has_mineable_real_terms sys)
+  in
+  modules |> List.filter (
+    function
+    | `INVGENINT | `INVGENINTOS -> Lazy.force mineable_int
+    | `INVGENREAL | `INVGENREALOS -> Lazy.force mineable_real
+    | _ -> true
+  )
+
  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
     query with a lower bound *)
 let process_bmc_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
@@ -855,6 +937,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
       KEvent.purge_im msg_setup ;
 
       let modules = process_invgen_mach_modules sys in_sys modules in
+      let modules = process_invgen_arith_modules sys modules in
       (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
         query with a lower bound *)
       let modules = process_bmc_modules sys modules in
@@ -1005,6 +1088,12 @@ let run in_sys =
       else if ISys.contain_partially_defined_system in_sys top then (
         KEvent.log L_warn
           "Calls to nodes with partially defined outputs are not supported." ;
+        false
+      )
+      else if ISys.contain_call_applied_to_quant_vars in_sys top then (
+        KEvent.log L_warn
+          "Calls to functions applied to quantified variables are not \
+           supported." ;
         false
       )
       else if Analysis.no_system_is_abstract ~include_top:false param then (

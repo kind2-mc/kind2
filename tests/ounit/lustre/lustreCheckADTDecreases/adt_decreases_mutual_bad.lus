@@ -1,0 +1,19 @@
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec IsEven (n: Nat) returns (b: bool)
+con decreases n; noc
+let
+  b = match n with
+  | Zero : true
+  | Succ (m) : IsOdd(n)
+  end;
+tel
+
+function rec IsOdd (n: Nat) returns (b: bool)
+con decreases n; noc
+let
+  b = match n with
+  | Zero : false
+  | Succ (m) : IsEven(m)
+  end;
+tel

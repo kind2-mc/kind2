@@ -543,8 +543,8 @@ pat:
     { A.Pat (mk_pos $startpos, c, ps) }
 
 (* A single arm of a match expression *)
-match_arm:
-  | BAR; p = pat; COLON; e = expr %prec MATCH_ARM_BODY { (p, e) }
+match_arm(Q):
+  | BAR; p = pat; COLON; e = pexpr(Q) %prec MATCH_ARM_BODY { (p, e) }
 
 
 (* ********************************************************************** *)
@@ -1160,9 +1160,9 @@ pexpr(Q):
   | c = ident; QUESTION; LPAREN; e = pexpr(Q); RPAREN
     { A.ADTTester (mk_pos $startpos, e, c) }
 
-  (* A record field projection (not quantified) *)
+  (* A record field projection or an ADT selector (not quantified) *)
   | s = pexpr(Q); DOT; t = ident
-    { A.FieldProject (mk_pos $startpos($2), s, t, None) }
+    { A.FieldProject (mk_pos $startpos($2), s, t, A.Unresolved) }
 
   (* A record (not quantified) *)
   | t = ident; ps = call_static_params;
@@ -1386,7 +1386,7 @@ pexpr(Q):
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
 
   (* Pattern matching on ADT values *)
-  | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm); END;
+  | MATCH; e = pexpr(Q); WITH; arms = nonempty_list(match_arm(Q)); END;
     { A.Match (mk_pos $startpos, e, arms, None) }
     
   (* A temporal operation *)

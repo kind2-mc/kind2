@@ -1,0 +1,18 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Sum (l: List) returns (s: int)
+con
+  decreases l;
+noc
+let
+  s = match l with
+  | Nil : 0
+  | Cons (h, tl) : h + Sum(tl)
+  end;
+tel
+
+node main (x: int) returns (y: int)
+let
+  y = Sum(Cons(1, Cons(2, Cons(3, Nil))));
+  check "sum6" y = 6;
+tel

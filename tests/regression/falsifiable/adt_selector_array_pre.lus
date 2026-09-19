@@ -1,0 +1,7 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(a: IntOpt^3) returns (o: int^3);
+let
+  o[i] = 0 -> pre (a[i].val);
+  check true;
+tel

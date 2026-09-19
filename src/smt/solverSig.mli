@@ -68,6 +68,13 @@ module type Inst = sig
   val define_fun : string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t ->
     decl_response
 
+  (** Define a group of (mutually) recursive function symbols, each given
+      with its formal parameters, its result sort and its body, which may
+      apply any symbol of the group *)
+  val define_funs_rec :
+    (string * SMTExpr.var list * SMTExpr.sort * SMTExpr.t) list ->
+    decl_response
+
   (** {1 Commands} *)
 
   (** Assert the expression *)

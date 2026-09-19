@@ -1,0 +1,12 @@
+datatype IntOpt = None | Some (val: int);
+
+node imported f () returns (m: IntOpt);
+(*@contract
+  guarantee m.val > 0;
+*)
+
+node main(x: int) returns (o: IntOpt);
+let
+  o = f();
+  check Some?(o);
+tel

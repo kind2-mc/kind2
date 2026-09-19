@@ -1,0 +1,5 @@
+function rec F (n: int) returns (out: int)
+con decreases n; noc
+let
+  out = n;
+tel

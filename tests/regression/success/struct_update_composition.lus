@@ -1,0 +1,50 @@
+node Reindex(i: int; v: int) returns (x: int);
+var arr: int^3;
+let
+  arr = 1^3;
+  x = (arr[i := v])[i];
+  check (i >= 0 and i < 3) => (x = v);
+tel
+
+node FrameCondition(base: int^3; i: int; j: int; v: int) returns ();
+var arr: int^3;
+let
+  arr = base[i := v];
+  check (i >= 0 and i < 3 and j >= 0 and j < 3 and i <> j) => (arr[j] = base[j]);
+  check (i >= 0 and i < 3) => (arr[i] = v);
+tel
+
+node NestedCell(base: int^2^2; i: int; j: int; v: int) returns (x: int);
+var arr: int^2^2;
+let
+  arr = base[i := base[i][j := v]];
+  x = arr[i][j];
+  check (i >= 0 and i < 2 and j >= 0 and j < 2) => (x = v);
+tel
+
+node Equality(i: int; v: int) returns (ok: bool);
+var arr1: int^3;
+    arr2: int^3;
+let
+  arr1 = 1^3;
+  arr2 = arr1[i := v];
+  ok = (arr1[i := v] = arr2);
+  check ok;
+tel
+
+node InIte(c: bool; a: int^3; b: int^3; i: int; v: int) returns ();
+let
+  check (i>=0 and i<3 and c) => ((if c then a[i := v] else b)[i] = v);
+tel
+
+node UnderPre(i: int; v: int) returns ();
+var arr: int^3;
+let
+  arr = (0^3) -> (pre arr)[i := v];
+  check (i>=0 and i<3) => (true -> arr[i] = v);
+tel
+
+node InQuantifier(a: int^3; v: int) returns ();
+let
+  check forall (j: int) ((j >= 0 and j < 3) => ((a[j := v])[j] = v));
+tel

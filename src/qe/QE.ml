@@ -80,6 +80,7 @@ let get_solver_instance trans_sys =
       TransSys.define_and_declare_of_bounds
         trans_sys
         (SMTSolver.define_fun solver)
+        ~define_rec:(SMTSolver.define_funs_rec solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
         Numeral.zero !(ubound ());
@@ -151,6 +152,7 @@ let get_checking_solver_instance trans_sys =
       TransSys.define_and_declare_of_bounds
         trans_sys
         (SMTSolver.define_fun solver)
+        ~define_rec:(SMTSolver.define_funs_rec solver)
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
         Numeral.zero !(ubound ());
@@ -732,6 +734,7 @@ let ae_val_gen trans_sys premise elim conclusion =
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.one;
@@ -821,6 +824,7 @@ let ae_val_prec trans_sys premise elim conclusion =
   TransSys.define_and_declare_of_bounds
     trans_sys
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.one;

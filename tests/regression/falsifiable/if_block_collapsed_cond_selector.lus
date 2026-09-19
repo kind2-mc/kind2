@@ -1,0 +1,14 @@
+-- The two branches assign the same value, so desugaring collapses the if block
+-- and drops its condition. The proof obligation carried by the 'p.val'
+-- selector in that condition must survive the collapse.
+
+datatype IntOpt = None | Some (val: int);
+
+node main(p: IntOpt) returns (g: bool);
+let
+  if p.val > 0 then
+    g = true ;
+  else
+    g = true ;
+  fi
+tel

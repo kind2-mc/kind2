@@ -1,0 +1,39 @@
+-- A constructor mentioned in the refinement type of an input or an output of
+-- a node or a contract. The type checker is what rewrites a constructor into
+-- an ADT term, so the declaration has to keep the checked types for the ADT
+-- desugaring that follows to reach these.
+
+datatype T = A (v: int) | C (w: int) | B;
+
+node ctor_with_args_in_input(x: subtype { t: T | t <> C(1) }) returns (y: T);
+let y = x; tel
+
+node nullary_ctor_in_input(x: subtype { t: T | t <> B }) returns (y: T);
+let y = x; tel
+
+node ctor_in_output(i: int) returns (y: subtype { t: T | t <> C(1) and t <> B });
+let y = A(i); tel
+
+contract Spec(x: subtype { t: T | t <> C(1) })
+  returns (y: subtype { t: T | t <> B });
+let
+  guarantee y = x;
+tel
+
+node with_contract(x: T) returns (y: T);
+(*@contract import Spec(x) returns (y); *)
+let y = x; tel
+
+node main(i: int) returns ();
+var z1, z2, z3, z4: T;
+let
+  z1 = ctor_with_args_in_input(A(i));
+  z2 = nullary_ctor_in_input(A(i));
+  z3 = ctor_in_output(i);
+  z4 = with_contract(A(i));
+
+  check "call with a constructor argument" A?(z1);
+  check "call with a nullary constructor in the input type" A?(z2);
+  check "call with a constructor in the output type" A?(z3);
+  check "call through a contract with refinement-typed inputs" A?(z4);
+tel

@@ -1,7 +1,12 @@
 
 name: Kind2 CI
 
-on: [push, pull_request]
+on:
+  # Unfiltered: every branch and every tag is built. (A `latest` tag move is
+  # pushed with GITHUB_TOKEN, which by design starts no workflow run, so the
+  # rolling main-branch build does not double up with the run for its commit.)
+  push:
+  pull_request:
 
 # A new push to a branch cancels this workflow's in-progress runs for it, except
 # on main, where every commit is built so its CI status is recorded.
@@ -21,19 +26,19 @@ jobs:
         include:
           - name: linux-x86_64
             os: ubuntu-latest
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: linux-arm64
             os: ubuntu-24.04-arm
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: macos-x86_64
             os: macos-15-intel
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: macos-arm64
             os: macos-latest
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
           - name: windows-x86_64
             os: windows-latest
-            ocaml-version: 5.5.0
+            ocaml-version: 5.5.1
 
     runs-on: ${{ matrix.os }}
 

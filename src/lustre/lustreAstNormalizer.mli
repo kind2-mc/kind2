@@ -104,7 +104,8 @@ val mk_ref_type_expr :
 val normalize :
   LustreDesugarADTs.adt_map ->
   TypeCheckerContext.tc_context ->
-  NodeId.Set.t ->
+  NodeId.Set.t (** inlinable functions *) ->
+  NodeId.Set.t (** functions a quantified call compiles to an application of *) ->
   LustreAst.t ->
   GeneratedIdentifiers.t NodeId.Map.t ->
   (LustreAst.declaration list * GeneratedIdentifiers.t NodeId.Map.t *

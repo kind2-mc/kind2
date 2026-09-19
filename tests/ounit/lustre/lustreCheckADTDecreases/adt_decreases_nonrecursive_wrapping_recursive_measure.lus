@@ -1,0 +1,8 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+datatype Box = B (l: List);
+
+function rec Loop (b: Box; n: int) returns (out: int)
+con decreases b; noc
+let
+  out = if n <= 0 then 0 else 1 + Loop(b, n - 1);
+tel

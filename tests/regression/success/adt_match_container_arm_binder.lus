@@ -1,0 +1,21 @@
+datatype Box = B (v: int);
+
+node SetArm (b: Box) returns (s: set<int>)
+let
+  s = match b with
+      | B (a) : {a}
+      end;
+tel
+
+node MapArm (b: Box) returns (r: int)
+let
+  r = match b with
+      | B (a) : (map[]@<int, int>[a := 7])[a]
+      end;
+tel
+
+node main (b: Box) returns ()
+let
+  check SetArm(b) = {b.v};
+  check MapArm(b) = 7;
+tel

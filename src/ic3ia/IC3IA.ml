@@ -199,6 +199,7 @@ let mk_solver sys =
    TransSys.define_and_declare_of_bounds
      sys
      (SMTSolver.define_fun solver)
+     ~define_rec:(SMTSolver.define_funs_rec solver)
      (SMTSolver.declare_fun solver)
      (SMTSolver.declare_sort solver)
      (Numeral.zero)
@@ -392,6 +393,7 @@ let refine fwd solver sys predicates cubes =
           TransSys.define_and_declare_of_bounds
             sys
             (SMTSolver.define_fun solver)
+            ~define_rec:(SMTSolver.define_funs_rec solver)
             (SMTSolver.declare_fun solver)
             (SMTSolver.declare_sort solver)
             (Numeral.(pred zero))
@@ -1182,6 +1184,17 @@ let main fwd slice_to_prop prop in_sys param sys =
   else if mem DT l then
     let msg =
       Format.sprintf "IC3IA disabled for property %s: algebraic datatypes are not supported."
+        prop.Property.prop_name
+    in
+    raise (UnsupportedFeature msg)
+  else if TransSys.subsystem_includes_fun_def sys then
+    (* The definitions are part of the concrete unrolling the interpolating
+       solver refines the abstraction on, and the interpolating solvers do
+       not take them *)
+    let msg =
+      Format.sprintf "IC3IA disabled for property %s: system includes a recursive function \
+        defined at the SMT level. Use --define_fun_rec false to abstract recursive \
+        functions by their contract instead."
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg) ) ;

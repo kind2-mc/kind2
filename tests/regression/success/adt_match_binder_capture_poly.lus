@@ -1,0 +1,31 @@
+datatype Opt<T> = Absent | Present (val: T);
+
+node ShadowedByInnerArm (o: Opt<int>; q: Opt<int>) returns (y: int)
+let
+  y = match o with
+      | Present (v) : (match q with
+                       | Present (o) : v
+                       | Absent : v
+                       end)
+      | Absent : 0
+      end;
+tel
+
+node ShadowedUnderCatchAll (o: Opt<int>; q: Opt<int>) returns (y: int)
+let
+  y = match o with
+      | w : (match q with
+             | Present (o) : (match w with
+                              | Present (z) : z
+                              | Absent : 0
+                              end)
+             | Absent : 0
+             end)
+      end;
+tel
+
+node main (q: Opt<int>) returns ()
+let
+  check ShadowedByInnerArm(Present(5), q) = 5;
+  check Present?(q) => ShadowedUnderCatchAll(Present(6), q) = 6;
+tel

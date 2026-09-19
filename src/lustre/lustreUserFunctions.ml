@@ -87,12 +87,55 @@ let can_be_abstracted ctx contracts outputs contract =
   | None -> false
   | Some contract -> can_be_abstracted' ctx contracts contract
 
+(* [true] if the contract of the function, if any, is never used in place of
+   its body: there is nothing to abstract its calls with, or it is transparent.
+   This is [LustreNode.has_effective_contract] at the level of the AST. *)
+let has_no_effective_contract ctx contracts opac contract outputs =
+  opac = A.Transparent || not (can_be_abstracted ctx contracts outputs contract)
+
 let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals items =
-  (opac = A.Transparent || not (can_be_abstracted ctx contracts outputs contract)) &&
+  has_no_effective_contract ctx contracts opac contract outputs &&
   valid_outputs ctx outputs &&
   valid_locals ctx locals &&
   valid_items set items &&
   is_output_defined outputs items
+
+(* The recursive functions whose functional symbols are given a definition at
+   the SMT level (see [LustreFunDefs]), and which a call applied to quantified
+   variables can therefore be compiled to an application of (see
+   [LustreAstNormalizer.mk_fresh_qcall]).
+
+   A function a contract abstracts is left out: its symbol is uninterpreted,
+   constrained by the contract at the arguments of its instances only, so under
+   a quantifier it would be an arbitrary function and a property that does hold
+   of it could be reported falsifiable.
+
+   The remaining conditions [LustreFunDefs] puts on a definition -- the body is
+   a total function of the inputs, the solver defines recursive functions --
+   are not known at this point. A call to a function that fails them is
+   accepted here, and [LustreTransSys] warns about it. *)
+let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
+= fun ctx decls ->
+  List.fold_left (fun (set, contracts) dcl ->
+    match dcl with
+    | A.ContractNodeDecl (_, contract_node_decl) -> (
+      let (id, _, _, _, _) = contract_node_decl in
+      set, NI.Map.add id contract_node_decl contracts
+    )
+    (* A non-imported recursive function *)
+    | A.FuncDecl
+        (_, (id, false, opac, _, _, outputs, _, _, contract), { A.is_rec = true; _ })
+      -> (
+      if has_no_effective_contract ctx contracts opac contract outputs then
+        NI.Set.add id set, contracts
+      else
+        set, contracts
+    )
+    | _ -> set, contracts
+  )
+  (NI.Set.empty, NI.Map.empty)
+  decls
+  |> fst
 
 let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t 
 = fun ctx decls ->

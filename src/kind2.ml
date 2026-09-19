@@ -136,6 +136,71 @@ let setup : unit -> any_input = fun () ->
   (* Set sigalrm handler. *)
   Signals.set_sigalrm_timeout_from_flag () ;
 
+  (* On Windows there is no SIGALRM, and the wall clock is looked at
+     only in the polling loop of the supervisor. That is enough while
+     the supervisor runs. It has stopped running: runs given 84s have
+     been killed by the test harness still going at 204s, having
+     written nothing since the analysis header -- no engine output and
+     no timeout banner, which is what a process makes when nothing in
+     it is executing rather than when it is slow.
+
+     One cause of that is known and fixed: ocaml/ocaml#15028, where a
+     thread that never yields kept its domain's runtime lock and the
+     other threads of that domain never ran, released in OCaml 5.5.1.
+     A reproducer of one domain and two threads is clean from 5.5.1 on.
+     Kind 2 is not. It overran the same way on 5.5.1, on a build that
+     had this backstop removed, which says either that something else
+     starves the supervisor or that the fix does not cover what Kind 2
+     does -- about ten domains with threads of their own each, which
+     is not what the reproducer tested. See #1477 and #1485.
+
+     So the last word on the wall clock here belongs to a thread the
+     operating system schedules, which the runtime cannot stop, until
+     that is understood.
+
+     It is a backstop and not the timeout. Windows has the ordinary path
+     too -- the polling loop notices the clock and raises [TimeoutWall],
+     which unwinds through the exit path and reports what was proved,
+     the same as SIGALRM does elsewhere -- and that path works on every
+     run whose supervisor is running, which is every healthy one. The
+     grace is how long to wait for it before concluding it will not
+     come.
+
+     Sixty, from what CI measures rather than from a multiple. The
+     ordinary path is not quick and steady: it waits out the same
+     stalls the backstop exists because of, so how late it is has no
+     bound to take a multiple of. One test on the Windows runner came
+     in 4.2s past its timeout on one commit, 11.5s on another and 29.0s
+     on a third, all healthy runs reporting what they had proved. A
+     grace of thirty would have killed the third one had it been a
+     second slower, taking its verdict with it -- and the run that most
+     needs the grace is exactly the stalled one, which is the run most
+     likely to exhaust it.
+
+     Not less, and never zero. This ends the process rather than
+     unwinding it, so it forfeits the results and forces its own status
+     -- fire it while an orderly teardown is still running and a run
+     that had disproved a property would report an incomplete analysis
+     instead. The grace is the width of that window, and it is worth
+     being generous with. *)
+  ( if Sys.win32 then
+      match Flags.timeout_wall () with
+      | timeout when timeout > 0. ->
+        (* A count of seconds the other side can hold. It reaches a
+           thirty-two bit count of milliseconds, and it comes from a
+           float the user chose: [--timeout inf] converts to zero, which
+           would arm the backstop at the grace alone and kill a run that
+           asked for no limit, and a large enough value wraps the
+           multiplication instead. Anything past the ceiling is a run
+           that means to go on indefinitely, and the backstop simply
+           does not arm for it. *)
+        let ceiling = 1_000_000. in
+        if Float.is_nan timeout || timeout > ceiling then ()
+        else
+          NativeTimeout.arm
+            (int_of_float timeout + 60) ExitCodes.incomplete_analysis
+      | _ -> () ) ;
+
   (* Install generic signal handlers for other signals. *)
   Signals.set_sigint () ;
   (* SIGPIPE is ignored, not turned into an exception: signal handlers

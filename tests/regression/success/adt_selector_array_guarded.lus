@@ -1,0 +1,7 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(a: IntOpt^3) returns (o: int^3);
+let
+  o[i] = when Some?(a[i]) then a[i].val else 0;
+  check true;
+tel

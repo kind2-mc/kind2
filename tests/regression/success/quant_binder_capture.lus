@@ -1,0 +1,14 @@
+type Nat = subtype { x: int | forall (y: int) (y >= 0 => x >= 0) };
+type Pos = subtype { x: int | not (forall (x: int) (x >= 0)) and x > 0 };
+
+node CapturedByBinder (y: Nat) returns (r: bool)
+let r = y >= 0; tel
+
+node ShadowedByBinder (a: int) returns (r: Pos)
+let r = if a > 0 then a else 1; tel
+
+node main (y: Nat; a: int) returns ()
+let
+  check CapturedByBinder(y);
+  check ShadowedByBinder(a) > 0;
+tel

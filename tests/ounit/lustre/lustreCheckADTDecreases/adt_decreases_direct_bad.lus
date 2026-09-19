@@ -1,0 +1,10 @@
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Loop (inp: List) returns (out: int)
+con decreases inp; noc
+let
+  out = match inp with
+  | Cons (_, tl) : 1 + Loop(inp)
+  | Nil : 0
+  end;
+tel

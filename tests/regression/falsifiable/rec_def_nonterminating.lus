@@ -1,0 +1,18 @@
+(* A recursive function whose measure does not decrease. Its SMT-level
+   definition leaves the value of the offending call undefined, so the
+   transition system stays consistent: the termination check is falsified,
+   and so are the other properties, instead of all being vacuously valid. *)
+function rec Loop(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = 1 + Loop(n);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Loop(x);
+  check "positive" y > 0;
+  check "unrelated" x > 0 or y = 0;
+tel

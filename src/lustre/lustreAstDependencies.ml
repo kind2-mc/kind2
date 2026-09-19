@@ -44,6 +44,7 @@ type error_kind = Unknown of string
   | CyclicDependency of HString.t list
   | ImportedCyclicDependency of (HString.t list * NI.t)
   | MismatchedDecreasesArity of HString.t list
+  | RecursiveAnnotationWithoutRecursion of HString.t
 
 let error_message error = match error with
   | Unknown s -> s
@@ -75,6 +76,11 @@ let error_message error = match error with
     ^ "arity for the lexicographic termination check to be well defined, but "
     ^ "mismatching arities were found among: "
     ^ (Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") ids)
+  | RecursiveAnnotationWithoutRecursion id ->
+    "Function '" ^ HString.string_of_hstring id
+    ^ "' is declared with 'rec' but does not call itself, directly or through "
+    ^ "a cycle of other functions; remove the 'rec' modifier, or add the "
+    ^ "recursive call that was intended"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -764,9 +770,10 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
     (* If the provided file is not arity-correct then just return nothing *)
     | None -> SI.empty)
 
-  (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> SI.union (r e1) (r e2)
-  | StructUpdate (_, e1, _, None) -> r e1
+  | StructUpdate (_, e1, idx, e2) ->
+    let idx_vars = LH.fold_label_or_index SI.empty SI.union r idx in
+    let e2_vars = match e2 with Some e2 -> r e2 | None -> SI.empty in
+    SI.union (SI.union (r e1) idx_vars) e2_vars
   | ArrayConstr (_, e1, e2) -> SI.union (r e1) (r e2)
   | IndexAccess (_, e1, e2, _) -> SI.union (r e1) (r e2)
 
@@ -902,14 +909,18 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      R.ok [List.fold_left union_dependency_analysis_data
              (singleton_dependency_analysis_data empty_hs i pos)
              (List.concat gs)]
-  | LA.StructUpdate (_, e1, _, e2) ->
-     let* g1 = mk_graph_expr2 m e1 in 
-     let* g2 = match e2 with 
-     | Some e2 -> mk_graph_expr2 m e2 
+  | LA.StructUpdate (_, e1, idx, e2) ->
+     let* g1 = mk_graph_expr2 m e1 in
+     let* g2 = match e2 with
+     | Some e2 -> mk_graph_expr2 m e2
      | None -> R.ok [empty_dependency_analysis_data]
      in
+     (* An index expression is read to decide which position is updated, so its
+        variables are dependencies too *)
+     let idx_exprs = LH.fold_label_or_index [] (@) (fun e -> [e]) idx in
+     let* g3 = R.seq (List.map (mk_graph_expr2 m) idx_exprs) in
      R.ok [List.fold_left union_dependency_analysis_data
-             empty_dependency_analysis_data (g1 @ g2)] 
+             empty_dependency_analysis_data (g1 @ g2 @ List.concat g3)]
   | LA.UnaryOp (_, _, e)
     | LA.Extract (_, e, _, _)
     | LA.ConvOp (_, _, e) -> mk_graph_expr2 m e
@@ -1371,7 +1382,22 @@ let topological_sort_with_rec_funs decl_map ad =
         | [id] -> (
           if G.has_edge ad.graph_data id id
           then check_all_rec_funcs acc scc
-          else acc
+          else
+            (* [id] does not call itself, so it is not actually part of a
+               recursive cycle: a 'rec' annotation on it is a lie that would
+               otherwise surface much later as a missing scc_map entry.
+               Lemmas are excluded: the parser always sets is_rec for them
+               regardless of whether the user wrote 'rec', so it isn't a
+               genuine annotation to hold them to. *)
+            match IMap.find_opt id decl_map with
+            | Some (Some (LA.FuncDecl (_, _, { LA.is_rec = true; is_lemma = false }))) ->
+              let pos =
+                match find_id_pos ad.id_pos_data id with
+                | Some p -> p
+                | None -> assert false
+              in
+              graph_error pos (RecursiveAnnotationWithoutRecursion id)
+            | _ -> acc
         )
         | _ -> check_all_rec_funcs acc scc
       )

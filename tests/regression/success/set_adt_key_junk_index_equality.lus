@@ -1,0 +1,26 @@
+datatype T = A (x: int) | B (y: bool);
+datatype Nested = C (t: T) | D (r: real);
+
+node Sets(s1, s2: set<T>) returns (ok: bool);
+let
+  ok = true;
+  check "set eq iff same elements"
+    (s1 = s2) = (forall (v: T) (v in s1) = (v in s2));
+  check "set neq iff some element differs"
+    (s1 <> s2) = (exists (v: T) (v in s1) <> (v in s2));
+tel
+
+node Maps(m1, m2: map<T, int>) returns (ok: bool);
+let
+  ok = true;
+  check "map eq iff same keys and values"
+    (m1 = m2) = (forall (v: T) ((v in m1) = (v in m2))
+                            and ((v in m1) => m1[v] = m2[v]));
+tel
+
+node NestedSets(s1, s2: set<Nested>) returns (ok: bool);
+let
+  ok = true;
+  check "nested set eq iff same elements"
+    (s1 = s2) = (forall (v: Nested) (v in s1) = (v in s2));
+tel

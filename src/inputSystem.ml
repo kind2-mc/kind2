@@ -429,6 +429,23 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
 
+(* A call applied to quantified variables is compiled to an application of the
+   functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]) rather
+   than to an instance of it. The analyses that build their system without
+   functional constraints neither declare that symbol nor give it a definition,
+   and they rest on quantifier elimination, which does not take an
+   uninterpreted function: they have nothing to interpret such a call with. *)
+let contain_call_applied_to_quant_vars (type s) (in_sys : s t) (top : Scope.t) =
+  match in_sys with
+  | Lustre _ -> (
+    retrieve_lustre_nodes_of_scope in_sys top
+    |> List.exists (fun { N.calls } ->
+         List.exists (fun { N.call_uf_applied } -> call_uf_applied) calls)
+  )
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Native"
+
 let get_lustre_node (type s) (input_system : s t) scope =
   match input_system with
   | Lustre (main_subs, _, _) -> (
@@ -530,7 +547,7 @@ let trans_sys_of_analysis (type s)
 
 
 let pp_print_path_pt
-(type s) ?(full_contract = false) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?(full_contract = false) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
   match input_system with 
 
   | Lustre (main_subs, globals, _) ->
@@ -538,7 +555,7 @@ let pp_print_path_pt
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
-    LustrePath.pp_print_path_pt ~full_contract:full_contract trans_sys globals sub first_is_init ppf model
+    LustrePath.pp_print_path_pt ~full_contract:full_contract ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_pt not implemented for MoXI input@.";
@@ -553,7 +570,7 @@ let pp_print_path_pt
 
 
 let pp_print_path_xml
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
 
   match input_system with 
 
@@ -563,7 +580,7 @@ let pp_print_path_xml
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_xml
-      trans_sys globals sub first_is_init ppf model
+      ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_xml not implemented for MoXI input@.";
@@ -602,7 +619,7 @@ let pp_print_path_json_testgen
 
 
 let pp_print_path_json
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
 
   match input_system with
 
@@ -612,7 +629,7 @@ let pp_print_path_json
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_json
-      trans_sys globals sub first_is_init ppf model
+      ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_json not implemented for MoXI input@.";

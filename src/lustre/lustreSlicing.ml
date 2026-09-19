@@ -235,10 +235,19 @@ let rec node_state_var_dependencies' init output_input_deps
             with Not_found -> D.empty
           in
 
-          (* Get indexes of inputs the output depends on. All outputs must
-              have dependencies computed *)
+          (* Get indexes of inputs the output depends on.
+
+             The dependencies of the callee have been computed before those of
+             this node, except when the callee is the node itself, or another
+             function of the same recursive group: a dependency is then still
+             being computed, and there is nothing to read. Fall back on the
+             assumption that the output depends on every input, which is the
+             worst a fixed point could converge to, and is safe for the two
+             things these dependencies are used for: keeping a variable in the
+             cone of influence of another, and ordering equations by what they
+             read. *)
           (try D.find output_index output_input_dep
-            with Not_found -> assert false)
+            with Not_found -> D.keys call_inputs)
 
           |> List.fold_left (fun accum i -> 
               (* Get actual input by index, and add as dependency *)
@@ -542,10 +551,10 @@ let roots_of_props props =
 
 let rec contract_proof_obligation = function
   | Property.Generated (_, _, Property.Contract) -> true
-  | Property.Candidate (Some s) -> contract_proof_obligation s
+  | Property.Candidate { source = Some s ; _ } -> contract_proof_obligation s
   | Property.Generated (_, _, Property.Body) 
   | Property.PropAnnot _ 
-  | Property.Candidate None 
+  | Property.Candidate { source = None ; _ }
   | Property.NonVacuityCheck _
   | Property.TerminationCheck _
   | Property.Assumption _
@@ -577,6 +586,7 @@ let slice_all_of_node
       N.oracles; 
       N.outputs; 
       N.asserts;
+      N.adt_constraints;
       N.props; 
       N.contract;
       N.is_main;
@@ -603,6 +613,7 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.asserts = if keep_asserts then asserts else [] ;
+    N.adt_constraints;
     N.props =
       if not keep_props then []
       else if for_contract then
@@ -694,6 +705,13 @@ let roots_of_contract_ass = function
   let with_sofar_var = assumes <> [] in
   Contract.svars_of ~with_sofar_var contract
 
+(* A call whose outputs are dead -- an inlined call, or the instance retained
+   for a call compiled to an application of the functional symbol of the callee
+   -- carries no information of its own: its arguments are free constants
+   standing for the enclosing quantified variables, and nothing reads its
+   outputs. It is worth keeping only for a property that comes from it, that
+   is, one instantiated from the call or an assumption of it: the values of the
+   instance are then what the property is about. *)
 let keep_inline_call c prop =
   match prop with
   | None -> true
@@ -711,7 +729,8 @@ let keep_inline_call c prop =
 let roots_of_inlined_calls prop calls =
   List.fold_left
     (fun acc c ->
-      if c.N.call_inlined && keep_inline_call c prop then
+      if c.N.call_inlined && (c.N.call_uf_applied || keep_inline_call c prop)
+      then
         SVS.union acc (D.values c.call_outputs |> SVS.of_list)
       else
         acc
@@ -1262,6 +1281,7 @@ let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
       )
     else
       (roots_of_contract ~with_sofar_var:true contract)
+      |> SVS.union (roots_of_props_contract props)
   in
   Some vars
 
