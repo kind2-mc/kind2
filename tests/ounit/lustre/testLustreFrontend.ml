@@ -1168,6 +1168,10 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     match load_file "./lustreCheckMatchExpressions/redundant_block.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
+  mk_test "test non-exhaustive match block on a polymorphic recursive datatype" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_block_poly_rec.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
   mk_test "test non-exhaustive match in node input type" (fun () ->
     match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_node_input_type.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
