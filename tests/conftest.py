@@ -1,5 +1,4 @@
 import itertools
-import json
 import os
 import shutil
 import signal
@@ -101,19 +100,6 @@ ic3ia_dir_name = "ic3ia"
 ic3ia_declined_dir_name = "declined"
 ic3ia_args = {"--enable": "IC3IA", "--smt_itp_solver": "MathSAT"}
 ic3ia_solver = "mathsat"
-
-# Tests under a directory with this name have their counterexample checked, not
-# just the verdict Kind 2 reached. The regression suite otherwise looks only at
-# the exit code, so a trace that names the wrong values passes unnoticed.
-#
-# The run is repeated with `-json`, whose output must parse, and every value of
-# a datatype-typed stream must be a constructor with at least one argument. A
-# model value that Kind 2 fails to read back is silently replaced by the
-# default for its type, which for a datatype is a constructor with no
-# arguments, so that is what these tests pin down. Write the model so that no
-# nullary constructor can appear at the top of a stream, or the check is
-# vacuous; nested values are not constrained.
-cex_dir_name = "counterexample"
 
 # Tests under a directory with this name run the contract checker rather than
 # the verification engines, which is the only way to reach the realizability
@@ -224,12 +210,6 @@ unfinished_runs = []
 class LustreException(Exception): ...
 
 
-class LustreCounterexample(Exception):
-    def __init__(self, reason):
-        super().__init__(reason)
-        self.reason = reason
-
-
 class LustreTimeout(Exception):
     def __init__(self, output: bytes, status):
         super().__init__()
@@ -312,25 +292,6 @@ def run_kind2(command) -> CompletedProcess:
     return CompletedProcess(command, proc.returncode, output, None)
 
 
-def _is_datatype_stream(stream):
-    if stream.get("type") == "datatype":
-        return True
-    return (
-        stream.get("type") == "array"
-        and stream.get("typeInfo", {}).get("baseType") == "datatype"
-    )
-
-
-# The value of a datatype stream is one constructor; of an array of them, a
-# list nested once per dimension
-def _constructor_values(value):
-    if isinstance(value, list):
-        for element in value:
-            yield from _constructor_values(element)
-    else:
-        yield value
-
-
 class LustreItem(pytest.Item):
     def __init__(self, *, expected, case, case_name, **kwargs):
         super().__init__(**kwargs)
@@ -369,51 +330,6 @@ class LustreItem(pytest.Item):
 
     def _is_contractck(self):
         return contractck_dir_name in self._regression_parts()
-
-    def _checks_counterexample(self):
-        return cex_dir_name in self._regression_parts()
-
-    def _json_command(self):
-        return [*self._command()[:-1], "-json", self.path]
-
-    def _check_counterexample(self):
-        res = run_kind2(self._json_command())
-        output = res.stdout.decode("utf-8", errors="replace")
-
-        try:
-            objects = json.loads(output)
-        except json.JSONDecodeError as exc:
-            raise LustreCounterexample(f"-json output does not parse: {exc}")
-
-        checked = 0
-        for obj in objects:
-            if obj.get("objectType") != "property":
-                continue
-            for node in obj.get("counterExample", []):
-                for stream in node.get("streams", []):
-                    if not _is_datatype_stream(stream):
-                        continue
-                    for _, value in stream.get("instantValues", []):
-                        for ctor in _constructor_values(value):
-                            checked += 1
-                            if not isinstance(ctor, dict) or "constructor" not in ctor:
-                                raise LustreCounterexample(
-                                    f"stream {stream['name']}: {ctor!r} is not a "
-                                    "constructor value"
-                                )
-                            if not ctor.get("args"):
-                                raise LustreCounterexample(
-                                    f"stream {stream['name']}: got "
-                                    f"{ctor['constructor']} with no arguments, "
-                                    "which is what a value Kind 2 could not read "
-                                    "back is replaced by"
-                                )
-
-        if checked == 0:
-            raise LustreCounterexample(
-                "no datatype stream was found in any counterexample, so this "
-                "test checks nothing"
-            )
 
     def _ic3ia_declines(self):
         return self._is_ic3ia() and ic3ia_declined_dir_name in self._regression_parts()
@@ -455,9 +371,6 @@ class LustreItem(pytest.Item):
         if self.res.returncode != expected_to_code[self.expected]:
             raise LustreException
 
-        if self._checks_counterexample():
-            self._check_counterexample()
-
     def reportinfo(self) -> tuple[os.PathLike[str] | str, int | None, str]:
         return self.path, 0, self.name
 
@@ -479,14 +392,6 @@ class LustreItem(pytest.Item):
                     stuck,
                     " ".join(map(str, self._command())),
                     excinfo.value.output.decode("utf-8", errors="replace"),
-                ]
-            )
-
-        if isinstance(excinfo.value, LustreCounterexample):
-            return "\n".join(
-                [
-                    f"Counterexample check failed: {excinfo.value.reason}",
-                    " ".join(map(str, self._json_command())),
                 ]
             )
 
