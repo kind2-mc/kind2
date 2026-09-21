@@ -1,0 +1,10 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node main (l: L) returns (ok: bool);
+let
+  ok = match l with
+    | Nil : true
+    | Cons (a, r) : (match r with | Nil : true | Cons (b, s) : false end)
+  end;
+  check ok;
+tel

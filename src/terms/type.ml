@@ -587,6 +587,11 @@ let name_of_datatype_ref = function
   | { Hashcons.node = DatatypeRef name } -> name
   | _ -> raise (Invalid_argument "name_of_datatype_ref")
 
+(* A field of a datatype that is a self-reference stands for the datatype *)
+let resolve_datatype_ref dt ty =
+  if is_datatype_ref ty && name_of_datatype_ref ty = name_of_datatype dt
+  then dt else ty
+
 
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
