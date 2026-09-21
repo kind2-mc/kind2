@@ -1,0 +1,20 @@
+-- A type ascription to a refinement type over an ADT. The ascription becomes
+-- a generated node whose input carries the refinement type, so it reaches the
+-- same path as a refinement type written on an input by hand.
+
+datatype T = A (v: int) | C (w: int) | B;
+
+node main(i: int) returns ();
+var x, y, z: T;
+var s: set<T>;
+let
+  x = (A(i) : subtype { t: T | t <> C(1) });
+  y = (A(i) : subtype { t: T | t <> B });
+  z = (A(i) : subtype { t: T | t <> C(1) and t <> B });
+  s = ({A(i)} : subtype { r: set<T> | not (B in r) });
+
+  check "ascription mentioning a constructor with arguments" A?(x);
+  check "ascription mentioning a nullary constructor" A?(y);
+  check "ascription mentioning both" A?(z);
+  check "ascription over a set of an ADT" not (B in s);
+tel

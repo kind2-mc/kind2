@@ -1,0 +1,11 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T) returns (y: int);
+let
+  match t with
+  | A (y):
+    y = 1;
+  | B (w):
+    y = w;
+  end
+tel

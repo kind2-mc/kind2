@@ -243,3 +243,6 @@ val node_id_of_decl: declaration -> NodeId.t option
 val is_recursive_function : declaration -> bool
 
 val pat_bound_vars : pattern -> LustreAst.SI.t
+
+val pat_bound_vars_with_pos : pattern -> (LustreAst.ident * Lib.position) list
+(** The variables a pattern binds, each with the position it is bound at. *)

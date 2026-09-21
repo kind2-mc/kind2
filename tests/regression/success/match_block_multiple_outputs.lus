@@ -1,0 +1,19 @@
+datatype T = A (v: int) | B (w: int, z: bool);
+
+node f (t: T) returns (y: int; b: bool);
+let
+  match t with
+  | A (v):
+    y = v;
+    b = true;
+  | B (w, z):
+    y = w;
+    b = z;
+  end
+tel
+
+node main () returns (ok: bool);
+let
+  ok = f(A(3)) = (3, true) and f(B(5, false)) = (5, false);
+  check ok;
+tel

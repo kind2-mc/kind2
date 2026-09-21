@@ -616,6 +616,9 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
     get_node_call_from_expr e @
     extract_node_calls l1 @
     extract_node_calls l2
+  | MatchBlock (_, e, arms, _) ->
+    get_node_call_from_expr e @
+    List.concat_map (fun (_, items) -> extract_node_calls items) arms
   | FrameBlock (_, _, nes, nis) ->
     extract_node_calls (List.map (fun x -> LA.Body x) nes) @
     extract_node_calls nis
@@ -1566,9 +1569,10 @@ let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_s
 (** Make contract summary that is a list of all symbols that a contract exports *)
                                             
 let mk_graph_eqn: node_summary
+                  -> dependency_analysis_data
                   -> LA.node_equation
                   -> (dependency_analysis_data, [> error]) result =
-  
+
 
   let handle_one_lhs: dependency_analysis_data
                       -> LA.struct_item
@@ -1594,7 +1598,7 @@ let mk_graph_eqn: node_summary
                     ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
 
       
-  fun m -> function
+  fun m inherited -> function
         (* An empty left-hand side denotes a call statement whose results are
            discarded; it defines no variables and adds no dependencies. *)
         | Equation (_, (LA.StructDef (_, [])), _) -> R.ok (empty_dependency_analysis_data)
@@ -1605,6 +1609,9 @@ let mk_graph_eqn: node_summary
               especially if it is just an identifier.
             *)
            mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g ->
+           let rhs_g =
+             List.map (fun g -> union_dependency_analysis_data g inherited) rhs_g
+           in
            (Debug.parse "For lhss=%a: width RHS=%a, width LHS=%a"
               (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
               Format.pp_print_int (List.length rhs_g)
@@ -1618,26 +1625,44 @@ let mk_graph_eqn: node_summary
         | _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
              
-let rec mk_graph_node_items: node_summary -> LA.node_item list -> (dependency_analysis_data, [> error]) result =
-  fun m -> function
+let rec mk_graph_node_items: node_summary -> dependency_analysis_data -> LA.node_item list -> (dependency_analysis_data, [> error]) result =
+  fun m inherited -> function
   | [] -> R.ok empty_dependency_analysis_data
-  | (Body eqn) :: items -> 
-    let* g = mk_graph_eqn m eqn in
-    let* gs = mk_graph_node_items m items in
+  | (Body eqn) :: items ->
+    let* g = mk_graph_eqn m inherited eqn in
+    let* gs = mk_graph_node_items m inherited items in
     R.ok (union_dependency_analysis_data g gs)
   | IfBlock (_, _, nis1, nis2) :: items
-  | WhenBlock (_, _, nis1, nis2) :: items -> 
-    let* gs1 = mk_graph_node_items m nis1 in
-    let* gs2 = mk_graph_node_items m nis2 in
-    let* gs3 = mk_graph_node_items m items in
+  | WhenBlock (_, _, nis1, nis2) :: items ->
+    let* gs1 = mk_graph_node_items m inherited nis1 in
+    let* gs2 = mk_graph_node_items m inherited nis2 in
+    let* gs3 = mk_graph_node_items m inherited items in
     R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
-  | FrameBlock (_, _, nes, nis) :: items -> 
+  | MatchBlock (_, scrut, arms, _) :: items ->
+    (* Desugaring guards an arm's equations with a tester on the scrutinee and
+       rewrites the arm's binders into projections of it, so whatever an arm
+       defines depends on the scrutinee. A single arm that cannot fail is
+       guarded by nothing, but which arms those are is not known until type
+       checking, so every arm inherits the dependency. *)
+    let* scrut_gs = mk_graph_expr2 m (LH.abstract_pre_subexpressions scrut) in
+    let scrut_g = List.fold_left union_dependency_analysis_data inherited scrut_gs in
+    let* gs1 =
+      R.seq_chain
+        (fun acc (_, arm_items) ->
+          let* g = mk_graph_node_items m scrut_g arm_items in
+          R.ok (union_dependency_analysis_data acc g))
+        empty_dependency_analysis_data arms
+    in
+    let* gs2 = mk_graph_node_items m inherited items in
+    R.ok (union_dependency_analysis_data gs1 gs2)
+  | FrameBlock (_, _, nes, nis) :: items ->
     let nes = List.map (fun ne -> LA.Body ne) nes in
-    let* gs1 = mk_graph_node_items m nes in
-    let* gs2 = mk_graph_node_items m nis in
-    let* gs3 = mk_graph_node_items m items in
+    let* gs1 = mk_graph_node_items m inherited nes in
+    let* gs2 = mk_graph_node_items m inherited nis in
+    let* gs3 = mk_graph_node_items m inherited items in
     R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
-  | _ :: items -> mk_graph_node_items m items
+  | (AnnotMain _ | AnnotProperty _ | Auto _) :: items ->
+    mk_graph_node_items m inherited items
 (** Traverse all the node items to make a dependency graph  *)
 
 let check_for_imported_in_cycle:  NodeId.t EdgeMap.t-> HString.t list -> NI.t option = fun map -> 
@@ -1653,7 +1678,7 @@ let check_for_imported_in_cycle:  NodeId.t EdgeMap.t-> HString.t list -> NI.t op
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations";
-  let* ad = mk_graph_node_items m eqns in
+  let* ad = mk_graph_node_items m empty_dependency_analysis_data eqns in
   (try (R.ok (G.topological_sort ad.graph_data)) with
     | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with

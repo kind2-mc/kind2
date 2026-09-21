@@ -207,7 +207,7 @@ values are built by applying a conversion operator to a literal, as in
 `uint8 27`, and their arithmetic wraps around modulo the width of the type, as
 in C, with signed values represented in two's complement. They also support the
 bitwise operators `&&`, `||`, and `!`, and the shifts `lsh` and `rsh`. See
-[Machine Integers]({{< relref "/manual/inputs-and-outputs/machine-ints" >}}) for
+[Machine Integers]({{< relref "/inputs-and-outputs/machine-ints" >}}) for
 the conversion rules between widths and the solver restrictions these types
 imply.
 
@@ -522,7 +522,7 @@ let
 tel
 ```
 
-See [Records]({{< relref "/manual/inputs-and-outputs/records" >}}) for the
+See [Records]({{< relref "/inputs-and-outputs/records" >}}) for the
 remaining record operations, such as element updates.
 
 ### Arrays
@@ -564,7 +564,7 @@ let
 tel
 ```
 
-See [Arrays]({{< relref "/manual/inputs-and-outputs/arrays" >}}) for element
+See [Arrays]({{< relref "/inputs-and-outputs/arrays" >}}) for element
 update, structural equality, and inductively defined arrays.
 
 ### Tuples
@@ -612,8 +612,8 @@ yields an unconstrained value rather than an error. The read is still
 *functional*, though: the same key always yields the same value at the same
 timestep.
 
-See [Sets]({{< relref "/manual/inputs-and-outputs/sets" >}}) and
-[Maps]({{< relref "/manual/inputs-and-outputs/maps" >}}) for the full operator
+See [Sets]({{< relref "/inputs-and-outputs/sets" >}}) and
+[Maps]({{< relref "/inputs-and-outputs/maps" >}}) for the full operator
 set and the restrictions on element and key types.
 
 ### Algebraic Datatypes
@@ -654,7 +654,7 @@ structures such as lists:
 datatype IntList = Cons (head: int, tail: IntList) | Nil;
 ```
 
-See [Algebraic Datatypes]({{< relref "/manual/inputs-and-outputs/algebraic-datatypes" >}})
+See [Algebraic Datatypes]({{< relref "/inputs-and-outputs/algebraic-datatypes" >}})
 for testers, selectors, and polymorphic datatypes.
 
 ## Enumerations and Subranges
@@ -725,7 +725,7 @@ one on an output, a local variable, or a defined constant is a **proof
 obligation**. So in `Sqrt`, Kind 2 may assume `x >= 0.0` and must prove
 `y >= 0.0`.
 
-See [Refinement Types]({{< relref "/manual/inputs-and-outputs/refinement-types" >}})
+See [Refinement Types]({{< relref "/inputs-and-outputs/refinement-types" >}})
 for the treatment of defined versus free constants, and for refinement types
 nested inside structured types.
 
@@ -1011,6 +1011,34 @@ described above. The same restrictions apply: a branch may not contain temporal
 operators or calls to nodes, and `if` blocks and lazy blocks may not be nested
 inside one another.
 
+A `match` block is the statement-level counterpart of the `match` expression of
+the [Algebraic Datatypes](#algebraic-datatypes) section, standing to it as the
+`if` statement stands to the `if` expression. Its arms hold equations rather
+than a value, which is what makes it worth having: an arm can define several
+variables at once.
+
+```lustre
+datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);
+
+node Area(s: Shape) returns (a: real; round: bool);
+let
+  match s with
+  | Circle (r):
+    a = 3.14 * r * r;
+    round = true;
+  | Rectangle (w, h):
+    a = w * h;
+    round = false;
+  end
+tel
+```
+
+Only the selected arm is evaluated, so the fields an arm names are guarded just
+as `Some?(x)` guards `x.val` above. Every variable defined in one arm must be
+defined in all of them, and the arms must cover every constructor, unless the
+block sits inside a [frame block](#frame-blocks), where a value matched by no
+arm leaves the variables to stutter.
+
 Laziness also changes what "the previous value" means. Inside a lazy branch,
 `pre x` refers to the value of `x` the last time *that branch was selected*,
 which may be several steps earlier. When a lazy block sits inside a
@@ -1259,7 +1287,7 @@ let
 tel
 ```
 
-See [Contract Semantics]({{< relref "/manual/advanced-features/contract-semantics" >}})
+See [Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})
 for the formal reading of assumptions, guarantees, and modes.
 
 ## Compositional and Modular Analysis
@@ -1305,7 +1333,7 @@ let
 tel
 ```
 
-See [Techniques]({{< relref "/manual/techniques" >}}) for how the two modes
+See [Techniques]({{< relref "/techniques" >}}) for how the two modes
 interact with each verification engine.
 
 ## Realizability Checking
@@ -1343,7 +1371,7 @@ When a contract is found unrealizable, Kind 2 shows a trace ending
 in a state from which the contract cannot be satisfied, together with the
 conflicting constraints (disable with `--print_deadlock false`).
 
-See [Contract Check]({{< relref "/manual/advanced-features/contract-check" >}})
+See [Contract Check]({{< relref "/advanced-features/contract-check" >}})
 for the remaining options.
 
 ## More Examples
@@ -1352,7 +1380,7 @@ For more examples, see the Kind 2 web application at
 [https://kind.cs.uiowa.edu/app/](https://kind.cs.uiowa.edu/app/).
 
 For the full language reference, see
-[Kind 2 Input]({{< relref "/manual/inputs-and-outputs/lustre" >}}); the pages
+[Kind 2 Input]({{< relref "/inputs-and-outputs/lustre" >}}); the pages
 alongside it cover each type in depth, and
-[Advanced Features]({{< relref "/manual/advanced-features" >}}) covers what Kind 2
+[Advanced Features]({{< relref "/advanced-features" >}}) covers what Kind 2
 can do beyond proving properties invariant.

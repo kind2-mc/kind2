@@ -1,0 +1,31 @@
+datatype Opt<T> = N | S (val: T);
+datatype W = MkW (o: Opt<int>) | Z;
+
+node unwrap<T>(x: Opt<T>; d: T) returns (y: T);
+let
+  match x with
+  | N:
+    y = d;
+  | S (v):
+    y = v;
+  end
+tel
+
+node inner (x: W) returns (y: int);
+let
+  match x with
+  | MkW (N):
+    y = 0;
+  | MkW (S (v)):
+    y = v;
+  | Z:
+    y = -1;
+  end
+tel
+
+node main (a: Opt<int>; w: W) returns (ok: bool);
+let
+  ok = (S?(a) or unwrap@<int>(a, 7) = 7)
+       and (not Z?(w) or inner(w) = -1);
+  check ok;
+tel

@@ -48,6 +48,7 @@ let instantiate_type_variables_ni
 | Auto _ -> ni
 | IfBlock _
 | WhenBlock _
+| MatchBlock _
 | FrameBlock _ -> assert false
 
 let instantiate_type_variables_loc 
@@ -575,6 +576,7 @@ and gen_poly_decls_ni
       ctx, gids, acc_nis @ [ni], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], decls, node_decls_map) nis2 in
     ctx, gids, WhenBlock (p, expr, nis1, nis2), decls, node_decls_map
+  | MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | FrameBlock (p, vars, nes, nis) -> 
     let ctx, gids, nis, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_nis, acc_decls, acc_node_decls_map) ni -> 
       let ctx, gids, ni, decls, node_decls_map = gen_poly_decls_ni ctx gids node_id acc_node_decls_map ni in 
@@ -847,6 +849,7 @@ let collect_poly_adt_uses_node_item ctx acc ni =
   match ni with
   | A.Body (Equation (_, _, e)) | A.Body (Assert (_, e))
   | A.AnnotProperty (_, _, e, _) -> collect_poly_adt_uses_expr ctx acc e
+  | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | A.AnnotMain _ | A.Auto _ | A.IfBlock _ | A.WhenBlock _ | A.FrameBlock _ -> acc
 
 let collect_poly_adt_uses_ci ctx acc ci =
