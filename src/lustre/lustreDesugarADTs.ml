@@ -731,6 +731,7 @@ let rec desugar_node_item ctx adt_map item =
   | LA.WhenBlock (p, e, then_items, else_items) ->
     let di = desugar_node_item ctx adt_map in
     LA.WhenBlock (p, r e, List.map di then_items, List.map di else_items)
+  | LA.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | LA.FrameBlock (p, vars, eqs, items) ->
     let di = desugar_node_item ctx adt_map in
     let de = function

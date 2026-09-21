@@ -3,7 +3,7 @@ title: "Kind 2 Input"
 weight: 2
 ---
 Kind 2 reads input models written in an extension of the dataflow Lustre language
-(see this [primer]({{< relref "/docs/lustre-primer" >}}) for
+(see this [primer]({{< relref "/lucent-primer" >}}) for
 a quick introduction to the Lustre language).
 Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6.
 See the file [examples/syntax-test.lus](https://github.com/kind2-mc/kind2/blob/main/examples/syntax-test.lus) for
@@ -154,7 +154,7 @@ Invariant properties of a node are often case-based, with each case describing w
 the component should do depending on a specific situation.
 These properties are usually encoded in conditional properties of the form
 `situation => behavior`, and are often better represented in terms of the mode logic of
-a node (see subsection Modes in [Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})).
+a node (see subsection Modes in [Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})).
 However, these properties do not always imply modal behavior, or
 they are not defined in terms of the interface of a node.
 For those cases, Kind 2 allows the user to specify a conditional invariant property
@@ -185,7 +185,7 @@ or by suppressing all reachability checks (`--check_reach false`).
 A contract `(A,G,M)`for a node is a set of assumptions `A`, a set of
 guarantees `G`, and a set of modes `M`. The semantics of contracts is given
 in the
-[Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})
+[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})
 section, here we focus on the input format for contracts. Contracts are
 specified either locally, using the *inline syntax*, or externally in a
 *contract node*. Both the local and external syntax have a body
@@ -681,7 +681,7 @@ call* is activated when the clock `c` is true. Notice that the restart clock
 Every output (and local variable) of a node or function must be defined in its
 body, either by an equation or by a frame block; leaving an output without a
 definition is rejected. (The only exception is `imported` nodes and functions,
-which have no body at all; see [The imported keyword]({{< relref "/docs/inputs-and-outputs/lustre#the-imported-keyword" >}}).)
+which have no body at all; see [The imported keyword]({{< relref "/inputs-and-outputs/lustre#the-imported-keyword" >}}).)
 
 An output need not be given a precise value, however. It can be left
 *underspecified* by assigning it an arbitrary value of the appropriate type with
@@ -771,7 +771,7 @@ assumptions holding at the current step alone. For a node, by contrast, the
 scope extends to all previous timesteps: the node's guarantees may rely on its
 assumptions having held at every step up to and including the current one (the
 "assumptions always hold implies guarantees always hold" semantics described in
-[Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})). This mirrors the fact
+[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})). This mirrors the fact
 that a function's outputs depend only on the current values of its inputs,
 whereas a node may also depend on their previous values.
 
@@ -839,7 +839,7 @@ input is restricted to `Count`: the measure must be bounded below by `0` for
 the recursion to be well-founded, and this only holds for non-negative `n`.
 
 **Algebraic-datatype measure.** A single expression whose type is a recursive
-ADT (see [Algebraic Datatypes]({{< relref "/docs/inputs-and-outputs/algebraic-datatypes" >}})).
+ADT (see [Algebraic Datatypes]({{< relref "/inputs-and-outputs/algebraic-datatypes" >}})).
 This form cannot be used as a component of a tuple measure. Instead of
 generating a property, Kind 2 checks ADT measures **statically**, at compile
 time: for every recursive call, the callee's measure (after substituting the
@@ -956,7 +956,7 @@ still calls for a contract, or a lemma.
 Because such a function is a symbol the solver knows at every argument, a call
 to it may be applied to a quantified variable, which a call to a node or to a
 function that is neither inlinable nor defined this way may not (see the
-[limitations]({{< relref "/docs/inputs-and-outputs/arrays#limitations" >}}) on
+[limitations]({{< relref "/inputs-and-outputs/arrays#limitations" >}}) on
 quantifiers):
 
 ```lustre
@@ -1242,6 +1242,51 @@ Current restrictions for `cond` blocks are the same as for `when` blocks:
 - Branch expressions cannot call Lustre nodes (calls to functions are allowed).
 - `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
   cannot be nested inside `if` blocks.
+
+### Match blocks
+
+A `match` block is to a [match expression](./algebraic-datatypes.md) what an
+`if` block is to an if-then-else: the arms hold equations rather than a value.
+
+```lustre
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node head_or (l: List; d: int) returns (y: int; found: bool);
+let
+  match l with
+  | Cons (h, t):
+    y = h;
+    found = true;
+  | Nil:
+    y = d;
+    found = false;
+  end
+tel
+```
+
+Each arm introduces the variables its pattern binds, in scope only within that
+arm. Patterns may be nested, and a bare identifier that is not a constructor
+matches anything.
+
+The semantics is the same as for a match expression: at each step only the
+selected arm is evaluated, and the arms that are not selected are not.
+
+Restrictions:
+
+- The arms must be exhaustive, unless the block sits inside a frame block,
+  where a value matched by no arm leaves the variables to stutter.
+- Every variable defined in one arm must be defined in all of them, again
+  unless the block sits inside a frame block.
+- A pattern variable may not have the same name as an input, output or local
+  of the enclosing node.
+- Only equations, `when` blocks, nested `match` blocks and `auto` may appear in
+  an arm.
+- The scrutinee may not call a node or contain an `any` operator. Assign it to a
+  local variable and match on that instead. Calls to functions, and the `choose`
+  operator, are allowed.
+- As with `cond` blocks, `match` blocks cannot be nested inside `if` blocks,
+  and `if` blocks cannot be nested inside `match` blocks. `match` and `when`
+  blocks may be nested inside each other in either direction.
 
 ### Frame conditions
 
@@ -1772,14 +1817,14 @@ let
 tel
 ```
 
-In reality, the [polymorphic]({{< relref "/docs/inputs-and-outputs/lustre#polymorphic-nodes" >}}) operator
+In reality, the [polymorphic]({{< relref "/inputs-and-outputs/lustre#polymorphic-nodes" >}}) operator
 `any` (or `choose`) can be instantiated with any Lustre type `T` using
 the instantiation operator `@` as follows: `any@<T>`.
 For instance, the expression `any@<int>` is also accepted
 and denotes an arbitrary stream of values of type `int`.
 In fact, the form `any { x: T | P(x) }` is syntactic sugar for
 the more verbose form `any @ < subtype { x: T | P(x) } >`, where
-`T` has been instantitated with the [refinement type]({{< relref "/docs/inputs-and-outputs/refinement-types" >}})
+`T` has been instantitated with the [refinement type]({{< relref "/inputs-and-outputs/refinement-types" >}})
 `subtype { x: T | P(x) }`.
 
 A challenge for the user with the use of the `any` (or `choose`) operator arises if
@@ -1813,7 +1858,7 @@ the given predicate as a guarantee.
 The user can take advantage of this fact to detect issues with
 the conditions of `any` (or `choose`) expressions by enabling
 Kind 2's functionality that checks
-the [realizability of contracts]({{< relref "/docs/advanced-features/contract-check#contract-check" >}}) of
+the [realizability of contracts]({{< relref "/advanced-features/contract-check#contract-check" >}}) of
 imported nodes and functions. When this functionality is enabled, Kind 2 is able to
 detect the problem illustrated in the example above.
 

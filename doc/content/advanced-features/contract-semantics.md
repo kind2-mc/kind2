@@ -7,7 +7,7 @@ weight: 1
 
 This section discusses the semantics of contracts, and in particular modes, in
 Kind 2. For details regarding the syntax, please see the
-[Contracts]({{< relref "/docs/inputs-and-outputs/lustre#contracts" >}}) section.
+[Contracts]({{< relref "/inputs-and-outputs/lustre#contracts" >}}) section.
 
 An *assume-guarantee contract* `(A,G)` for a node `n` is a set of *assumptions*
 `A` and a set of *guarantees* `G`. Assumptions describe how `n` **must** be

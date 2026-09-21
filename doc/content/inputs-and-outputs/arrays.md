@@ -48,7 +48,7 @@ It takes as input the size of the array and the array itself. Note that the
 type of the input `A` depends on the value of the first constant input `n`. In
 Lustre, calls to such nodes should of course end up by having concrete values
 for `n`, this is however not the case in Kind 2 (see
-[Extension to unbounded arrays]({{< relref "/docs/inputs-and-outputs/arrays#extension-to-unbounded-arrays" >}})).
+[Extension to unbounded arrays]({{< relref "/inputs-and-outputs/arrays#extension-to-unbounded-arrays" >}})).
 
 Arrays can be multidimensional, so a user can declare *e.g.* matrices with the
 following
@@ -412,7 +412,7 @@ Quantifiers can be arbitrarily nested and alternated at the propositional level.
 
 #### Concise refinement type syntax
 
-A quantified variable can also be given a [refinement type]({{< relref "/docs/inputs-and-outputs/refinement-types" >}}) using the concise syntax `x: type | Q(x)`, which
+A quantified variable can also be given a [refinement type]({{< relref "/inputs-and-outputs/refinement-types" >}}) using the concise syntax `x: type | Q(x)`, which
 restricts the quantification to the values of `x` of the given `type` that
 satisfy the predicate `Q(x)`. For example,
 
@@ -478,7 +478,7 @@ is currently defined as a function that meets all the following criteria:
 - It does not include `assert` statements or array definitions.
 
 A quantified variable may also appear in the arguments of a call to a
-[recursive function]({{< relref "/docs/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
+[recursive function]({{< relref "/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
 that Kind 2 defines at the SMT level, that is, one that has no contract to
 abstract its calls with or that is declared `transparent`. Such a call is
 compiled to an application of the symbol the function is defined as rather than

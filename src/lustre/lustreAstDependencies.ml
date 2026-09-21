@@ -616,6 +616,9 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
     get_node_call_from_expr e @
     extract_node_calls l1 @
     extract_node_calls l2
+  | MatchBlock (_, e, arms, _) ->
+    get_node_call_from_expr e @
+    List.concat_map (fun (_, items) -> extract_node_calls items) arms
   | FrameBlock (_, _, nes, nis) ->
     extract_node_calls (List.map (fun x -> LA.Body x) nes) @
     extract_node_calls nis
@@ -1481,24 +1484,31 @@ let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips -
 (** Helper function to generate a node summary *)
 
 (* Variables each left hand side of the node items depends on, with node calls
-   flattened through the summaries of the called nodes. The accumulated
-   condition variables come from the enclosing branching blocks: a condition
-   selects which definition applies, so what is defined inside depends on it. *)
+   flattened through the summaries of the called nodes. The accumulated guard
+   variables are those of the conditions and scrutinees of the enclosing blocks:
+   they select which definition applies, so what a block defines depends on
+   them. A pattern variable may not shadow a node variable, so an arm's binders
+   need not be removed here. *)
 let rec node_item_deps: node_summary -> SI.t -> LA.node_item -> (LA.ident * SI.t) list
-  = fun s cond_vars -> function
+  = fun s guard_vars -> function
   | Body (Equation (_, LA.StructDef (_, lhss), e)) ->
     List.mapi
       (fun idx item ->
         let lhs_var = SI.choose (LH.vars_of_struct_item item) in
-        (lhs_var, SI.union cond_vars (vars_with_flattened_nodes s idx e)))
+        (lhs_var, SI.union guard_vars (vars_with_flattened_nodes s idx e)))
       lhss
   | Body (Assert _) -> []
   | IfBlock (_, cond, nis1, nis2)
   | WhenBlock (_, cond, nis1, nis2) ->
-    let cond_vars = SI.union cond_vars (vars_with_flattened_nodes s 0 cond) in
-    List.concat_map (node_item_deps s cond_vars) (nis1 @ nis2)
+    let guard_vars = SI.union guard_vars (vars_with_flattened_nodes s 0 cond) in
+    List.concat_map (node_item_deps s guard_vars) (nis1 @ nis2)
+  | MatchBlock (_, scrut, arms, _) ->
+    let guard_vars = SI.union guard_vars (vars_with_flattened_nodes s 0 scrut) in
+    List.concat_map
+      (fun (_, arm_items) -> List.concat_map (node_item_deps s guard_vars) arm_items)
+      arms
   | FrameBlock (_, _, nes, nis) ->
-    List.concat_map (node_item_deps s cond_vars)
+    List.concat_map (node_item_deps s guard_vars)
       (List.map (fun ne -> LA.Body ne) nes @ nis)
   | AnnotMain _ | AnnotProperty _ | Auto _ -> []
 
@@ -1587,51 +1597,37 @@ let mk_contract_summary: contract_summary -> LA.contract_node_decl -> contract_s
   NodeId.Map.add i export_ids m 
 (** Make contract summary that is a list of all symbols that a contract exports *)
                                             
-(* Name of the graph vertex defined by an array definition *)
-let array_def_ident: LA.ident -> LA.ident list -> LA.ident
-  = fun arr is ->
-  let hs_dollar = HString.mk_hstring "$" in
-  HString.concat hs_dollar
-    [arr;(List.fold_left
-      (fun acc i -> HString.concat hs_dollar [acc;i])
-      empty_hs
-      is)]
-
-(* Connect the graph node of a left hand side item to the dependency graph of
-   the expression that defines it *)
-let handle_one_lhs: dependency_analysis_data
-                    -> LA.struct_item
-                    -> dependency_analysis_data
-  = fun rhs_g lhs ->
-  match lhs with
-  | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p
-  | LA.ArrayDef (p, arr, is) ->
-    connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)
-      (array_def_ident arr is) p
-  (* None of these items below are supported at parsing yet. *)
-  | LA.TupleStructItem (p, _)
-    | LA.TupleSelection (p, _, _)
-    | LA.FieldSelection (p, _, _)
-    | LA.ArraySliceStructItem (p, _, _)
-    ->  Lib.todo ("Parsing not supported" ^ __LOC__
-                  ^ " " ^ Lib.string_of_t Lib.pp_print_position p)
-
-(* Dependency graphs of an expression, one per stream of its width. *)
-let mk_graph_curr_deps: node_summary -> LA.expr
-                        -> (dependency_analysis_data list, [> error]) result
-  = fun m e -> mk_graph_expr2 m (LH.abstract_pre_subexpressions e)
-
-(* As mk_graph_curr_deps, with the graphs of all streams merged into one *)
-let mk_graph_curr_deps_flat: node_summary -> LA.expr
-                             -> (dependency_analysis_data, [> error]) result
-  = fun m e ->
-  let* gs = mk_graph_curr_deps m e in
-  R.ok (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data gs)
-
 let mk_graph_eqn: node_summary
+                  -> dependency_analysis_data
                   -> LA.node_equation
                   -> (dependency_analysis_data, [> error]) result =
-  fun m -> function
+
+
+  let handle_one_lhs: dependency_analysis_data
+                      -> LA.struct_item
+                      -> dependency_analysis_data
+    = fun rhs_g lhs ->
+    match lhs with
+    | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
+    | LA.ArrayDef (p, arr, is) ->
+      let hs_dollar = HString.mk_hstring "$" in
+      let arr' = HString.concat hs_dollar
+        [arr;(List.fold_left
+          (fun acc i -> HString.concat hs_dollar [acc;i])
+          empty_hs
+          is)]
+      in 
+      connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
+    (* None of these items below are supported at parsing yet. *)
+    | LA.TupleStructItem (p, _)
+      | LA.TupleSelection (p, _, _)
+      | LA.FieldSelection (p, _, _)
+      | LA.ArraySliceStructItem (p, _, _)
+      ->  Lib.todo ("Parsing not supported" ^ __LOC__
+                    ^ " " ^ Lib.string_of_t Lib.pp_print_position p) in
+
+      
+  fun m inherited -> function
         (* An empty left-hand side denotes a call statement whose results are
            discarded; it defines no variables and adds no dependencies. *)
         | Equation (_, (LA.StructDef (_, [])), _) -> R.ok (empty_dependency_analysis_data)
@@ -1641,7 +1637,10 @@ let mk_graph_eqn: node_summary
               such that the width of each of the lhs and rhs
               especially if it is just an identifier.
             *)
-           mk_graph_curr_deps m e >>= fun rhs_g ->
+           mk_graph_expr2 m (LH.abstract_pre_subexpressions e) >>= fun rhs_g ->
+           let rhs_g =
+             List.map (fun g -> union_dependency_analysis_data g inherited) rhs_g
+           in
            (Debug.parse "For lhss=%a: width RHS=%a, width LHS=%a"
               (Lib.pp_print_list LA.pp_print_struct_item ", ") lhss
               Format.pp_print_int (List.length rhs_g)
@@ -1654,69 +1653,49 @@ let mk_graph_eqn: node_summary
              else (graph_error pos EquationWidthsUnequal))
         | Assert _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
-
-let eqn_lhss: LA.node_equation -> LA.struct_item list = function
-  | LA.Equation (_, LA.StructDef (_, lhss), _) -> lhss
-  | LA.Assert _ -> []
-
-(* Vertex defined by a left hand side item, if the item is supported *)
-let lhs_vertex: LA.struct_item -> LA.ident option = function
-  | LA.SingleIdent (_, i) -> Some i
-  | LA.ArrayDef (_, arr, is) -> Some (array_def_ident arr is)
-  | LA.TupleStructItem _ | LA.TupleSelection _
-  | LA.FieldSelection _ | LA.ArraySliceStructItem _ -> None
-
-(* Keep the first occurrence of each distinct left hand side; items defining the
-   same vertex contribute the same edges to an enclosing condition. *)
-let dedup_lhss: LA.struct_item list -> LA.struct_item list = fun lhss ->
-  let rec go seen acc = function
-    | [] -> List.rev acc
-    | lhs :: rest -> (
-      match lhs_vertex lhs with
-      | Some v when SI.mem v seen -> go seen acc rest
-      | Some v -> go (SI.add v seen) (lhs :: acc) rest
-      | None -> go seen (lhs :: acc) rest)
-  in
-  go SI.empty [] lhss
-
-(* Every variable defined inside a branching block depends on the identifiers of
-   the block's condition, since the condition selects which definition applies. *)
-let mk_graph_branch_cond: node_summary -> LA.expr -> LA.struct_item list
-                          -> (dependency_analysis_data, [> error]) result =
-  fun m cond lhss ->
-  let* cond_g = mk_graph_curr_deps_flat m cond in
-  R.ok (List.fold_left
-          (fun g lhs -> union_dependency_analysis_data g (handle_one_lhs cond_g lhs))
-          empty_dependency_analysis_data
-          lhss)
-
-(* Returns the dependency graph of the items along with the left hand sides they
-   define, which an enclosing branching block connects to its condition. *)
-let rec mk_graph_node_items: node_summary -> LA.node_item list
-                             -> (dependency_analysis_data * LA.struct_item list, [> error]) result =
-  fun m -> function
-  | [] -> R.ok (empty_dependency_analysis_data, [])
+             
+let rec mk_graph_node_items: node_summary -> dependency_analysis_data -> LA.node_item list -> (dependency_analysis_data, [> error]) result =
+  fun m inherited -> function
+  | [] -> R.ok empty_dependency_analysis_data
   | (Body eqn) :: items ->
-    let* g = mk_graph_eqn m eqn in
-    let* gs, lhss = mk_graph_node_items m items in
-    R.ok (union_dependency_analysis_data g gs, eqn_lhss eqn @ lhss)
+    let* g = mk_graph_eqn m inherited eqn in
+    let* gs = mk_graph_node_items m inherited items in
+    R.ok (union_dependency_analysis_data g gs)
   | IfBlock (_, cond, nis1, nis2) :: items
   | WhenBlock (_, cond, nis1, nis2) :: items ->
-    let* gs1, lhss1 = mk_graph_node_items m nis1 in
-    let* gs2, lhss2 = mk_graph_node_items m nis2 in
-    let* gs3, lhss3 = mk_graph_node_items m items in
-    let block_lhss = dedup_lhss (lhss1 @ lhss2) in
-    let* gs4 = mk_graph_branch_cond m cond block_lhss in
-    R.ok (List.fold_left union_dependency_analysis_data gs1 [gs2; gs3; gs4],
-          dedup_lhss (block_lhss @ lhss3))
+    (* The condition selects which of the block's definitions applies, so
+       whatever the block defines depends on it. *)
+    let* cond_gs = mk_graph_expr2 m (LH.abstract_pre_subexpressions cond) in
+    let cond_g = List.fold_left union_dependency_analysis_data inherited cond_gs in
+    let* gs1 = mk_graph_node_items m cond_g nis1 in
+    let* gs2 = mk_graph_node_items m cond_g nis2 in
+    let* gs3 = mk_graph_node_items m inherited items in
+    R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
+  | MatchBlock (_, scrut, arms, _) :: items ->
+    (* Desugaring guards an arm's equations with a tester on the scrutinee and
+       rewrites the arm's binders into projections of it, so whatever an arm
+       defines depends on the scrutinee. A single arm that cannot fail is
+       guarded by nothing, but which arms those are is not known until type
+       checking, so every arm inherits the dependency. *)
+    let* scrut_gs = mk_graph_expr2 m (LH.abstract_pre_subexpressions scrut) in
+    let scrut_g = List.fold_left union_dependency_analysis_data inherited scrut_gs in
+    let* gs1 =
+      R.seq_chain
+        (fun acc (_, arm_items) ->
+          let* g = mk_graph_node_items m scrut_g arm_items in
+          R.ok (union_dependency_analysis_data acc g))
+        empty_dependency_analysis_data arms
+    in
+    let* gs2 = mk_graph_node_items m inherited items in
+    R.ok (union_dependency_analysis_data gs1 gs2)
   | FrameBlock (_, _, nes, nis) :: items ->
     let nes = List.map (fun ne -> LA.Body ne) nes in
-    let* gs1, lhss1 = mk_graph_node_items m nes in
-    let* gs2, lhss2 = mk_graph_node_items m nis in
-    let* gs3, lhss3 = mk_graph_node_items m items in
-    R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3),
-          dedup_lhss (lhss1 @ lhss2 @ lhss3))
-  | (AnnotMain _ | AnnotProperty _ | Auto _) :: items -> mk_graph_node_items m items
+    let* gs1 = mk_graph_node_items m inherited nes in
+    let* gs2 = mk_graph_node_items m inherited nis in
+    let* gs3 = mk_graph_node_items m inherited items in
+    R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
+  | (AnnotMain _ | AnnotProperty _ | Auto _) :: items ->
+    mk_graph_node_items m inherited items
 (** Traverse all the node items to make a dependency graph  *)
 
 let check_for_imported_in_cycle:  NodeId.t EdgeMap.t-> HString.t list -> NI.t option = fun map -> 
@@ -1732,7 +1711,7 @@ let check_for_imported_in_cycle:  NodeId.t EdgeMap.t-> HString.t list -> NI.t op
 let analyze_circ_node_equations: node_summary -> LA.node_item list -> (unit, [> error]) result =
   fun m eqns ->
   Debug.parse "Checking circularity in node equations";
-  let* ad, _ = mk_graph_node_items m eqns in
+  let* ad = mk_graph_node_items m empty_dependency_analysis_data eqns in
   (try (R.ok (G.topological_sort ad.graph_data)) with
     | G.CyclicGraphException ids ->
       match (find_id_pos ad.id_pos_data (List.hd ids)) with

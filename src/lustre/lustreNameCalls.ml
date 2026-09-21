@@ -77,7 +77,9 @@ let rec name_calls_item ctx node_id ni =
     (* Frame block equations (nes) always have an explicit left-hand side. *)
     let* nis, d = name_calls_items ctx node_id nis in
     R.ok (A.FrameBlock (pos, vars, nes, nis), d)
-  | _ -> R.ok (ni, [])
+  | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+  | A.Body (A.Equation _) | A.Body (A.Assert _)
+  | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ -> R.ok (ni, [])
 
 and name_calls_items ctx node_id nis =
   let* res = R.seq (List.map (name_calls_item ctx node_id) nis) in

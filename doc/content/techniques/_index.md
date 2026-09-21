@@ -6,14 +6,14 @@ weight: 2
 This section presents the techniques available in Kind 2: how they work,
 and how they can be tweaked through various options:
 
-- [k-Induction]({{< relref "/docs/techniques/kinduction" >}})
-- [Invariant Generation]({{< relref "/docs/techniques/invgen" >}})
-- [IC3]({{< relref "/docs/techniques/ic3" >}})
+- [k-Induction]({{< relref "/techniques/kinduction" >}})
+- [Invariant Generation]({{< relref "/techniques/invgen" >}})
+- [IC3]({{< relref "/techniques/ic3" >}})
 
 ## Compositional reasoning
 
 When verifying a node `n`, *compositional reasoning* consists in abstracting
-the complexity of the subnodes of `n` by their contracts (see [Contract Semantics]({{< relref "/docs/advanced-features/contract-semantics" >}})).
+the complexity of the subnodes of `n` by their contracts (see [Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})).
 The idea is that the contract has typically a lot less state than the node it specifies,
 which in addition to its own state contains that of its subnodes recursively.
 

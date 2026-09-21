@@ -1,0 +1,15 @@
+datatype S = MkS (a: int, b: int);
+
+node f (s: S) returns (y: int);
+let
+  match s with
+  | MkS (p, q):
+    y = p + q;
+  end
+tel
+
+node main () returns (ok: bool);
+let
+  ok = f(MkS(2, 5)) = 7;
+  check ok;
+tel

@@ -838,6 +838,7 @@ check:
 node_item:
   | i = node_if_block { i }
   | i = node_when_block { i }
+  | i = node_match_block { i }
   | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
@@ -920,6 +921,16 @@ bar_node_cond_case_colon:
 node_cond_case_colon:
   | e = expr; COLON; l = nonempty_list(node_item)
     { (e, l) }
+
+
+node_match_block:
+  | MATCH; e = expr; WITH; arms = nonempty_list(match_block_arm); END;
+    { A.MatchBlock (mk_pos $startpos, e, arms, None) }
+
+
+(* A single arm of a match block: a pattern and the items it defines *)
+match_block_arm:
+  | BAR; p = pat; COLON; l = nonempty_list(node_item) { (p, l) }
 
 
 node_frame_block:

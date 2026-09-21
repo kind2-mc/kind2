@@ -1,0 +1,12 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T) returns (a: int^3);
+let
+  match t with
+  | A (v):
+    a[i] = v;
+  | B (w):
+    a[i] = w;
+  end
+  --%PROPERTY a[0] = a[1];
+tel

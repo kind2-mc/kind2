@@ -250,6 +250,18 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/decreases_clause_without_rec.lus" with
     | Error (`LustreSyntaxChecksError (_, MisplacedDecreasesClause _)) -> true
     | _ -> false);
+  mk_test "Assignment to a match block pattern variable" (fun () ->
+    match load_file "./lustreSyntaxChecks/match_block_assign_pattern_var.lus" with
+    | Error (`LustreSyntaxChecksError (_, AssignmentToPatternVariable _)) -> true
+    | _ -> false);
+  mk_test "Node call in a match block scrutinee" (fun () ->
+    match load_file "./lustreSyntaxChecks/match_block_node_call_scrutinee.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
+    | _ -> false);
+  mk_test "'any' operator in a match block scrutinee" (fun () ->
+    match load_file "./lustreSyntaxChecks/match_block_any_scrutinee.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -434,6 +446,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/circular_if_block_branch_through_call.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
+  mk_test "test circular match block scrutinee through node call" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_scrutinee_cycle_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
   mk_test "test output in contract assume 4" (fun () ->
     match load_file "./lustreAstDependencies/test_out_param_in_contract_assume2.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
@@ -534,6 +550,36 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
   mk_test "test mutually recursive functions with mismatched decreases arity" (fun () ->
     match load_file "./lustreAstDependencies/mismatched_decreases_arity.lus" with
     | Error (`LustreAstDependenciesError (_, MismatchedDecreasesArity _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a match block scrutinee" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_scrutinee_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a single-arm match block binder" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_single_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through nested single-arm match blocks" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_nested_single_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through an unshadowed outer match block binder" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_unshadowed_inner_read_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a single non-exhaustive match block arm" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_frame_single_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+
+  mk_test "test cyclic definition through a nullary constructor match block arm" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_nullary_arm_cycle.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
 ])
 
@@ -1009,6 +1055,43 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_selector_not_adt.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedFieldProjection _)) -> true
     | _ -> false);
+  mk_test "expected type reported first: equation" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_equation.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: equation with a tuple" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_equation_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: equation with a node call" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_equation_call.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: array definition" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_array_def.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: array update" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_array_update.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: map literal key" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_map_key.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: map literal value" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_map_value.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "expected type reported first: set literal element" (fun () ->
+    match load_file "./lustreTypeChecker/expected_type_order_set_element.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
+    | _ -> false);
+  mk_test "contract import mismatch reports the contract's own type first" (fun () ->
+    match load_file "./lustreTypeChecker/mismatched_contract_import_order.lus" with
+    | Error (`LustreTypeCheckerError (_,
+        MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1091,6 +1174,14 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     | _ -> false);
   mk_test "test redundant pattern subsumed by earlier arms" (fun () ->
     match load_file "./lustreCheckMatchExpressions/redundant_nested.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match block" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_block.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant arm in match block" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_block.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
   mk_test "test non-exhaustive match in node input type" (fun () ->
@@ -1230,5 +1321,28 @@ let _ = run_test_tt_main ("frontend LustreCheckADTDecreases tests" >::: [
   mk_test "recursive call in an integer-measured function's own contract rejected" (fun () ->
     match load_file "./lustreCheckADTDecreases/int_decreases_contract_rec_call_bad.lus" with
     | Error (`LustreCheckADTDecreasesError (_, RecursiveCallInContract _)) -> true
+    | _ -> false);
+])
+
+let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
+  mk_test "test if block inside a match arm" (fun () ->
+    match load_file "./lustreDesugarMatchBlocks/if_block_in_arm.lus" with
+    | Error (`LustreDesugarMatchBlocksError (_, MisplacedNodeItemInMatchArm _)) -> true
+    | _ -> false);
+  mk_test "test assert inside a match arm" (fun () ->
+    match load_file "./lustreDesugarMatchBlocks/assert_in_arm.lus" with
+    | Error (`LustreDesugarMatchBlocksError (_, MisplacedNodeItemInMatchArm _)) -> true
+    | _ -> false);
+  mk_test "test frame block inside a match arm" (fun () ->
+    match load_file "./lustreDesugarMatchBlocks/frame_block_in_arm.lus" with
+    | Error (`LustreDesugarMatchBlocksError (_, MisplacedNodeItemInMatchArm _)) -> true
+    | _ -> false);
+  mk_test "test match block inside an if block" (fun () ->
+    match load_file "./lustreDesugarMatchBlocks/match_block_in_if_block.lus" with
+    | Error (`LustreDesugarMatchBlocksError (_, MisplacedMatchBlock _)) -> true
+    | _ -> false);
+  mk_test "test pattern variable shadowing a node output" (fun () ->
+    match load_file "./lustreDesugarMatchBlocks/pattern_variable_shadows_output.lus" with
+    | Error (`LustreDesugarMatchBlocksError (_, ShadowingPatternVariable _)) -> true
     | _ -> false);
 ])
