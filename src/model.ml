@@ -286,8 +286,14 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
     Format.fprintf ppf "\"%s\"" num_str
   )
   | Some ty when Type.is_datatype ty -> (
-    match Term.destruct t with
-    | Term.T.App (sym, args) -> (
+    (* A nullary constructor is a constant, one with fields an application *)
+    let ctor = match Term.destruct t with
+      | Term.T.Const sym -> Some (sym, [])
+      | Term.T.App (sym, args) -> Some (sym, args)
+      | Term.T.Var _ -> None
+    in
+    match ctor with
+    | Some (sym, args) -> (
       match Symbol.node_of_symbol sym with
       | `UF uf_sym ->
         let ctor_name = UfSymbol.name_of_uf_symbol uf_sym in
@@ -296,13 +302,9 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
           | Some tys -> tys
           | None -> []
         in
-        let resolve_field_type fty =
-          if Type.is_datatype_ref fty && Type.name_of_datatype_ref fty = Type.name_of_datatype ty
-          then ty else fty
-        in
         let args_as_type =
           if List.length args = List.length field_types then
-            List.map (fun fty -> Some (resolve_field_type fty)) field_types
+            List.map (fun fty -> Some (Type.resolve_datatype_ref ty fty)) field_types
           else List.map (fun _ -> None) args
         in
         Format.fprintf ppf "{\"constructor\" : \"%s\", \"args\" : [%a]}"
@@ -311,7 +313,7 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
           (List.combine args args_as_type)
       | _ -> pp_print_term ppf t
     )
-    | _ -> pp_print_term ppf t
+    | None -> pp_print_term ppf t
   )
   | _ when Term.is_decimal t -> (
     let d = Term.decimal_of_term t in

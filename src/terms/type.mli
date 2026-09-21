@@ -212,6 +212,10 @@ val is_datatype_ref : t -> bool
 (** Return the name of a self-reference placeholder, fail if not one *)
 val name_of_datatype_ref : t -> string
 
+(** [resolve_datatype_ref dt ty] is [dt] when [ty] is a self-reference
+    placeholder for the datatype [dt], and [ty] itself otherwise *)
+val resolve_datatype_ref : t -> t -> t
+
 (** {1 Ranges} *)
 
 (** Return bounds of an integer range type, fail with

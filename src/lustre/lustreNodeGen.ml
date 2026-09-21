@@ -1104,7 +1104,14 @@ and compile_ast_type
     let ctors' = List.map (fun (c, fields) ->
       (HString.string_of_hstring c, List.map (fun (_, ty) -> compile_field_type ty) fields)
     ) ctors in
-    X.singleton X.empty_index (Type.mk_datatype name ctors')
+    let adt_type = Type.mk_datatype name ctors' in
+    (* Declare every constructor, not only the ones the program builds a term
+       with: a model returned by the solver may mention any of them *)
+    List.iter (fun (ctor, field_types) ->
+      let arg_types = List.map (Type.resolve_datatype_ref adt_type) field_types in
+      ignore (UfSymbol.mk_uf_symbol ctor arg_types adt_type)
+    ) ctors';
+    X.singleton X.empty_index adt_type
 
 and vars_of_quant cstate ctx map avars =
   let avars = List.map (fun (p, s, ty) -> p, HString.string_of_hstring s, ty) avars in
