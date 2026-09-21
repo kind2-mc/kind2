@@ -1,0 +1,15 @@
+node M(x: int; w: int) returns (y1: int; y2: int);
+let
+  y1 = w;
+  if x > 0 then
+    y2 = 0;
+  else
+    y2 = 1;
+  fi
+tel
+
+node N(w: int) returns (z1: int; z2: int);
+let
+  (z1, z2) = M(z1, w);
+  check "P" z1 = w;
+tel

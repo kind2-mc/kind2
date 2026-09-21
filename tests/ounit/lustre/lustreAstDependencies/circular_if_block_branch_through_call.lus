@@ -1,0 +1,13 @@
+node M(x: int; w: int) returns (y: int);
+let
+  if x > 0 then
+    y = w;
+  else
+    y = 1;
+  fi
+tel
+
+node N() returns (z: int);
+let
+  z = M(0, z);
+tel

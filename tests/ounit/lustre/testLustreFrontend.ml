@@ -426,6 +426,30 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_fail_to_assign_node_inputs.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
+  mk_test "test circular if block condition" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_cond.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular if block condition in elsif branch" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_cond2.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular when block condition" (fun () ->
+    match load_file "./lustreAstDependencies/circular_when_block_cond.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular if block condition through node call" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_cond_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular if block branch through node call" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_branch_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular match block scrutinee through node call" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_scrutinee_cycle_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
   mk_test "test output in contract assume 4" (fun () ->
     match load_file "./lustreAstDependencies/test_out_param_in_contract_assume2.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true

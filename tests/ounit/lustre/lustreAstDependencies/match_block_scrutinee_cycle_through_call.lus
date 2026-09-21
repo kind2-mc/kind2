@@ -1,0 +1,16 @@
+datatype T = A (v: int) | B (w: int);
+
+node M(t: T) returns (y: int);
+let
+  match t with
+  | A (v):
+    y = 0;
+  | B (w):
+    y = 1;
+  end
+tel
+
+node N() returns (z: int);
+let
+  z = M(A(z));
+tel
