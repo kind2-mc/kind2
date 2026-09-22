@@ -622,12 +622,24 @@
             },
             "required": ["num", "den"]
         },
+        "datatypeValue": {
+            "type": "object",
+            "properties": {
+                "constructor": { "type": "string" },
+                "args": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/kind2Value" }
+                }
+            },
+            "required": ["constructor", "args"]
+        },
         "kind2Value": {
             "anyOf": [
                 { "type": "boolean" },
                 { "type": "number" },
                 { "$ref": "#/definitions/enumValue" },
                 { "$ref": "#/definitions/fractionalLiteral" },
+                { "$ref": "#/definitions/datatypeValue" },
                 {
                   "type": "array",
                   "items": { "$ref": "#/definitions/kind2Value" }
@@ -731,6 +743,9 @@
                 },
                 "isCandidate": {
                     "type": "boolean"
+                },
+                "expr": {
+                    "type": "string"
                 },
                 "runtime": {
                     "$ref": "#/definitions/runtime"

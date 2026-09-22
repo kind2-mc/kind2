@@ -1516,11 +1516,17 @@ let pp_print_path_pt
 (* ********************************************************************** *)
 
 
+(* A name written into an XML attribute value. The name of a monomorphized
+   node carries its type arguments in angle brackets, and a path may hold an
+   ampersand: neither may sit raw in an attribute. *)
+let pp_print_name_xml ppf name =
+  Format.pp_print_string ppf (escape_xml_string name)
+
 (* Output a file *)
 let pp_print_file_xml ppf pos_file = 
 
   if pos_file = "" then () else
-    Format.fprintf ppf "@ file=\"%s\"" pos_file
+    Format.fprintf ppf "@ file=\"%a\"" pp_print_name_xml pos_file
 
 
 (* Output a position as XML attributes *)
@@ -1555,7 +1561,8 @@ let pp_print_call_xml ppf = function
 
 
 (* Output the identifier of an indexed stream *)
-let pp_print_stream_ident_xml = pp_print_stream_ident_pt
+let pp_print_stream_ident_xml ppf stream =
+  pp_print_name_xml ppf (string_of_t pp_print_stream_ident_pt stream)
 
 
 (* Pretty-print a property of a stream as XML attributes *)
@@ -1653,19 +1660,21 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
     | Type.Real ->
       Format.pp_print_string ppf "type=\"real\""
     | Type.Abstr s ->
-      Format.pp_print_string ppf s
+      Format.fprintf ppf "type=\"abstr\"@ abstrName=\"%a\"" pp_print_name_xml s
     | Type.Enum _ ->
       let pp_print_enum_name ppf =
-          Format.fprintf ppf "enumName=\"%s\" " (Type.name_of_enum stream_type)
+          Format.fprintf ppf "enumName=\"%a\" "
+            pp_print_name_xml (Type.name_of_enum stream_type)
       in
       Format.fprintf ppf "type=\"enum\"@ %tvalues=\"%a\""
-        pp_print_enum_name (pp_print_list Format.pp_print_string ", ")
+        pp_print_enum_name (pp_print_list pp_print_name_xml ", ")
         (Type.constructors_of_enum stream_type)
     | Type.Array (_, _) ->
       Format.pp_print_string ppf "type=\"array\""
     | Type.Datatype (name, ctors) ->
-      Format.fprintf ppf "type=\"datatype\" datatypeName=\"%s\"@ constructors=\"%a\""
-        name (pp_print_list Format.pp_print_string ", ") (List.map fst ctors)
+      Format.fprintf ppf "type=\"datatype\" datatypeName=\"%a\"@ constructors=\"%a\""
+        pp_print_name_xml name
+        (pp_print_list pp_print_name_xml ", ") (List.map fst ctors)
     (* A stream's own declared type is never a bare self-reference placeholder --
        those only ever occur nested inside a datatype's own constructor fields. *)
     | Type.DatatypeRef _ -> assert false
@@ -1685,9 +1694,9 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
 let pp_print_contract_var ppf (vname, ty, values) =
   Format.fprintf 
     ppf
-    "@,@[<hv 2>@[<hv 1><Stream@ name=\"%s\" type=\"bool\" class=\"ghost\">@]\
+    "@,@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"bool\" class=\"ghost\">@]\
      %a@]@,</Stream>"
-    vname
+    pp_print_name_xml vname
     (pp_print_stream_values None ty) values  
 
 
@@ -1783,9 +1792,9 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
     in
 
     (* Pretty-print this node *)
-    Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%s\"%a>@]"
+    Format.fprintf ppf "@,@[<hv 2>@[<hv 1><%s@ name=\"%a\"%a>@]"
       title
-      name
+      pp_print_name_xml name
       pp_print_call_xml trace;
     (pp_print_contract_section_xml "Assumptions" ppf contract_assumptions) ;
     (pp_print_contract_section_xml "Guarantees" ppf contract_guarantees) ;
@@ -1841,6 +1850,11 @@ let pp_print_path_xml
 (* JSON output                                                             *)
 (* ********************************************************************** *)
 
+(* A name written into a JSON string: a quote or a backslash in it would
+   otherwise end the string or start an escape of its own. *)
+let pp_print_name_json ppf name =
+  Format.pp_print_string ppf (escape_json_string name)
+
 
 (* Output a call trace *)
 let pp_print_call_json ppf = function
@@ -1853,7 +1867,7 @@ let pp_print_call_json ppf = function
 
     let pp_print_file_json ppf pos_file =
       if pos_file = "" then () else
-        Format.fprintf ppf ",@,\"file\" : \"%s\"" pos_file
+        Format.fprintf ppf ",@,\"file\" : \"%a\"" pp_print_name_json pos_file
     in
 
     (* Do not print anything for a dummy position *)
@@ -1873,7 +1887,8 @@ let pp_print_call_json ppf = function
 
 
 (* Output the identifier of an indexed stream *)
-let pp_print_stream_ident_json = pp_print_stream_ident_pt
+let pp_print_stream_ident_json ppf stream =
+  pp_print_name_json ppf (string_of_t pp_print_stream_ident_pt stream)
 
 
 (* Pretty-print a property of a stream as JSON attributes *)
@@ -1938,10 +1953,10 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
     Format.fprintf ppf
         "\"%s\" : \"abstr\",@,\
          \"%sInfo\" :@,{@[<v 1>@,\
-         \"name\" : %s\
+         \"name\" : \"%a\"\
          @]@,},@,\
         "
-        field field s
+        field field pp_print_name_json s
   )
   | Type.IntRange (i, j) -> (
     Format.fprintf ppf
@@ -1967,10 +1982,11 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
   )
   | Type.Enum (_, _) -> (
     let pp_print_qstring ppf s =
-      Format.fprintf ppf "\"%s\"" s
+      Format.fprintf ppf "\"%a\"" pp_print_name_json s
     in
     let pp_print_enum_name ppf =
-        Format.fprintf ppf "\"name\" : \"%s\",@," (Type.name_of_enum stream_type)
+        Format.fprintf ppf "\"name\" : \"%a\",@,"
+          pp_print_name_json (Type.name_of_enum stream_type)
     in
     Format.fprintf ppf
         "\"%s\" : \"enum\",@,\
@@ -1985,15 +2001,15 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
         (Type.constructors_of_enum stream_type)
   )
   | Type.Datatype (name, ctors) -> (
-    let pp_print_qstring ppf s = Format.fprintf ppf "\"%s\"" s in
+    let pp_print_qstring ppf s = Format.fprintf ppf "\"%a\"" pp_print_name_json s in
     Format.fprintf ppf
         "\"%s\" : \"datatype\",@,\
          \"%sInfo\" :@,{@[<v 1>@,\
-         \"name\" : \"%s\",@,\
+         \"name\" : \"%a\",@,\
          \"constructors\" : [%a]\
          @]@,},@,\
         "
-        field field name
+        field field pp_print_name_json name
         (pp_print_list pp_print_qstring ", ")
         (List.map fst ctors)
   )
@@ -2002,30 +2018,31 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
   | Type.DatatypeRef _ -> assert false
   | Type.Array _ -> (
     let base_type = Type.last_elem_type_of_array stream_type in
+    let index_types = Type.all_index_types_of_array stream_type in
+    (* Falling back on the type gives a size only for the dimensions the type
+       bounds. A set or a map is carried as an array indexed by an unbounded
+       type, which has no size to report: JSON null says so. *)
+    let sizes_of_type () =
+      index_types |>
+      List.map Type.node_of_type |>
+      List.map (function
+        | Type.IntRange (_, Some j) -> Numeral.string_of_numeral j
+        | _ -> "null"
+      )
+    in
     let sizes =
       match state_var, model with
-      | Some sv, Some m when SVT.mem m sv ->
-        let stream_values = SVT.find m sv in
-        (match stream_values with
+      | Some sv, Some m when SVT.mem m sv -> (
+        match SVT.find m sv with
+        (* An empty map holds no index to take a dimension from, and is the
+           shape an empty array or set arrives in *)
+        | Model.Map map :: _ when Model.MIL.is_empty map ->
+          List.map (fun _ -> "0") index_types
         | Model.Map map :: _ ->
           Model.dimension_of_map map |> List.map string_of_int
-        | _ -> 
-          Type.all_index_types_of_array stream_type |>
-          List.map Type.node_of_type |>
-          List.map (function
-            | Type.IntRange (_, Some j) ->
-              Numeral.string_of_numeral j
-            | _ -> assert false
-          )
-        )
-      | _ ->
-        Type.all_index_types_of_array stream_type |>
-        List.map Type.node_of_type |>
-        List.map (function
-          | Type.IntRange (_, Some j) ->
-            Numeral.string_of_numeral j
-          | _ -> assert false
-        )
+        | _ -> sizes_of_type ()
+      )
+      | _ -> sizes_of_type ()
     in
     Format.fprintf ppf
         "\"type\" : \"array\",@,\
@@ -2048,11 +2065,11 @@ let pp_print_section_json sect ppf mode_traces  =
         (fun ppf (name, stream_type, values) ->
             Format.fprintf ppf
               "@,{@[<v 1>@,\
-                \"name\" : \"%s\",@,\
+                \"name\" : \"%a\",@,\
                 %a\
                 \"instantValues\" :%t\
               @]@,}"
-              name
+              pp_print_name_json name
               (pp_print_type_json "type") stream_type
               (fun ppf ->
                 if values = [] then
@@ -2096,15 +2113,15 @@ let pp_print_stream_json node model clock ppf (index, state_var) =
 let pp_adt_stream_json clock class_str ppf (name, step_strings) =
   let values = clock_filter clock step_strings in
   Format.fprintf ppf
-    "@,{@[<v 1>@,\"name\" : \"%s\",@,\"type\" : \"adt\",@,\"class\" : \"%s\",@,\
+    "@,{@[<v 1>@,\"name\" : \"%a\",@,\"type\" : \"adt\",@,\"class\" : \"%s\",@,\
      \"instantValues\" :%t@]@,}"
-    name class_str
+    pp_print_name_json name class_str
     (fun ppf ->
       if values = [] then Format.fprintf ppf " []"
       else
         Format.fprintf ppf "@,[@[<v 1>%a@]@,]"
           (pp_print_list (fun ppf (step, s) ->
-            Format.fprintf ppf "@,[%d, \"%s\"]" step s) ",") values)
+            Format.fprintf ppf "@,[%d, \"%a\"]" step pp_print_name_json s) ",") values)
 
 let pp_print_streams_json node model clock adt_tagged ppf regular =
   let all_printers =
@@ -2259,6 +2276,18 @@ let pp_print_streams_json_testgen ppf
     (pp_print_list (pp_print_instance_testgen stream_names_types) ",@,")
     streams_with_values
 
+(* Whether a node model prints a JSON object of its own. A node that is not
+   visible, and one standing for a constant, a type ascription or a clocked
+   expression, print nothing at all: the node before them has to look past
+   them when it decides whether a comma follows it, or the list of nodes is
+   left with a trailing comma. *)
+let node_prints_json = function
+  | (_, Node (node, _, _, _, _, _, _, _)) ->
+    N.node_is_visible node &&
+    (match NI.get_node_type node.N.node_id with
+     | NI.FreeConstant | NI.TypeAscription | NI.ClockedExpr -> false
+     | _ -> true)
+
 (* Output a list of node models. *)
 let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = function
 
@@ -2290,7 +2319,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = fu
             (pp_print_lustre_path_json' false const_map const_funcs globals) subnodes
     in
 
-    let comma = if tl <> [] then "," else "" in
+    let comma = if List.exists node_prints_json tl then "," else "" in
 
     (* Pretty-print this node *)
     (* Format.fprintf ppf
@@ -2303,12 +2332,12 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = fu
          Format.fprintf ppf
        "@,{@[<v 1>@,\
         \"blockType\" : \"%s\",@,\
-        \"name\" : \"%s\"\
+        \"name\" : \"%a\"\
         %a%a%a%a%a%a\
         @]@,}%s\
        "
        title 
-       name
+       pp_print_name_json name
        pp_print_call_json trace
        (pp_print_section_json "assumptionsTrace") contract_assumptions
        (pp_print_section_json "guaranteesTrace") contract_guarantees
