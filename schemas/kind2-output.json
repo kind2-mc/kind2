@@ -533,17 +533,27 @@
         }
         },
         "kind2Type": {
-            "enum": [
-                "bool",
-                "int", "subrange",
-                "int8", "int16", "int32", "int64",
-                "uint8", "uint16", "uint32", "uint64",
-                "real",
-                "enum",
-                "array",
-                "abstr",
-                "datatype"
-             ]
+            "anyOf": [
+                {
+                    "enum": [
+                        "bool",
+                        "int", "subrange",
+                        "int8", "int16", "int32", "int64",
+                        "uint8", "uint16", "uint32", "uint64",
+                        "real",
+                        "enum",
+                        "array",
+                        "abstr",
+                        "datatype",
+                        "adt"
+                     ]
+                },
+                {
+                    "$comment": "A machine integer of any width, which is how the JSON output names every one of them",
+                    "type": "string",
+                    "pattern": "^(u|s)int<[1-9][0-9]*>$"
+                }
+            ]
         },
         "subrangeTypeInfo": {
             "type": "object",
@@ -659,7 +669,7 @@
                     "$ref": "#/definitions/kind2TypeInfo"
                 },
                 "class": {
-                    "enum": ["input", "output", "local"]
+                    "enum": ["input", "output", "local", "ghost", "constant"]
                 },
                 "instantValues": {
                     "type": "array",
@@ -738,7 +748,8 @@
                         "NonVacuityCheck",
                         "OneModeActive",
                         "Ensure",
-                        "PropAnnot"
+                        "PropAnnot",
+                        "Termination"
                     ]
                 },
                 "isCandidate": {

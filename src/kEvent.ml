@@ -1151,8 +1151,8 @@ let prop_attributes_json ppf trans_sys prop_name =
           pp_print_fname fname lnum cnum
   in
 
-  Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"
-      (string_of_bool (Property.is_candidate prop));
+  Format.fprintf ppf "\"isCandidate\" : %b,@,"
+      (Property.is_candidate prop);
   (match prop.Property.prop_expr with 
   | Some expr -> 
   Format.fprintf ppf "\"expr\" : \"%s\",@,"

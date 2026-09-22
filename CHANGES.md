@@ -16,6 +16,11 @@ Improvements:
   - A constructor that takes no fields is reported like any other, as `{"constructor": ..., "args": []}`. It was written as a bare name, which is not a JSON value; the shape is now described in the output schema, along with the `expr` field of a property.
   - A counterexample holding an empty array, set or map no longer stops the JSON writer part way through the document: it has no index to take a dimension from, and was reaching an assertion instead. A dimension whose size the type does not bound (the index of a set or a map) is now reported as `null`, which the schema already allowed for.
   - The list of subnodes of a counterexample no longer ends in a trailing comma when its last entries are ones that print nothing, such as a node standing for a global constant.
+- The JSON output matches the schema that describes it, `schemas/kind2-output.json`, which the test suite now checks over every model in the regression tree. Five things had drifted apart since the schema was written, and nothing was looking:
+  - `isCandidate` is written as the boolean the schema calls for, rather than as a quoted string.
+  - The schema knows the `Termination` property source, which arrived with recursive functions.
+  - The schema knows the `adt` stream type, and the `ghost` and `constant` stream classes, all of which the output has been producing.
+  - The schema accepts a machine integer of any width. The JSON output names every one of them in the general form, `uint<8>` and `sint<8>`, while the schema listed only `int8` through `uint64`. Note that the XML output names the four widths it knows as `uint8` and `int8` instead, and raises on any other; the two formats disagreeing is left for a separate change.
 
 # Kind 2 v3.0.0
 
