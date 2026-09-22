@@ -1,0 +1,9 @@
+(* Property names holding the characters JSON and XML give a meaning to.
+   They have to be escaped on the way out, in either format. *)
+node Top(x: int) returns (y: int);
+let
+  y = x;
+  check "a \"quoted\" name"      y = x;
+  check "a back\\slash name"     y = x;
+  check "angle <brackets> & amp" y = x;
+tel

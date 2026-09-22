@@ -621,21 +621,42 @@ let width_of_string s =
       max max_width (String.length s)
     ) 0 lines
 
+(* Escape a string so that it is legal as the contents of a JSON string
+   literal (RFC 8259): the two characters JSON gives a meaning to, and the
+   control characters, which a JSON string may not carry raw. Bytes at or
+   above 0x80 are left alone, so UTF-8 input passes through as itself. *)
 let escape_json_string s =
-  let backslash = Str.regexp "\\" in
-  let double_quotes = Str.regexp "\"" in
-  let newline = Str.regexp "\n" in
-  s |> Str.global_replace backslash "\\\\"
-    |> Str.global_replace double_quotes "\'"
-    |> Str.global_replace newline "\\n"
+  let buf = Buffer.create (String.length s + 16) in
+  String.iter
+    (function
+      | '"' -> Buffer.add_string buf "\\\""
+      | '\\' -> Buffer.add_string buf "\\\\"
+      | '\b' -> Buffer.add_string buf "\\b"
+      | '\012' -> Buffer.add_string buf "\\f"
+      | '\n' -> Buffer.add_string buf "\\n"
+      | '\r' -> Buffer.add_string buf "\\r"
+      | '\t' -> Buffer.add_string buf "\\t"
+      | c when Char.code c < 0x20 ->
+        Buffer.add_string buf (Printf.sprintf "\\u%04x" (Char.code c))
+      | c -> Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
 
+(* Escape a string so that it is legal both as XML character data and as the
+   contents of a double-quoted XML attribute value. Substituting one
+   character at a time is what keeps the ampersands this introduces from
+   being escaped again in their turn. *)
 let escape_xml_string s =
-  let ltr = Str.regexp "<" in
-  let gtr = Str.regexp ">" in
-  let ampr = Str.regexp "&" in
-  s |> Str.global_replace ltr "&lt;"
-    |> Str.global_replace gtr "&gt;"
-    |> Str.global_replace ampr "&amp;"
+  let buf = Buffer.create (String.length s + 16) in
+  String.iter
+    (function
+      | '&' -> Buffer.add_string buf "&amp;"
+      | '<' -> Buffer.add_string buf "&lt;"
+      | '>' -> Buffer.add_string buf "&gt;"
+      | '"' -> Buffer.add_string buf "&quot;"
+      | c -> Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
 
 
 (* ********************************************************************** *)

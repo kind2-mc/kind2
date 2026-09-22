@@ -1,0 +1,9 @@
+(* A property whose expression pretty-prints over more than one line. The
+   newlines used to be carried raw into the "expr" field of the JSON
+   output, which left the whole document unparseable. *)
+node Top(a: int^2^5) returns (y: int^2^5);
+let
+  y[i][j] = a[i][j];
+  check forall (k: int; l: int)
+    ((k >= 0 and k < 5 and l >= 0 and l < 2) => (y[k][l] = a[k][l]));
+tel
