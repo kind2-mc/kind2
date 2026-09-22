@@ -249,7 +249,7 @@ val check_subproperties : unit -> bool
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool
 
-(** Disallow include directives in Lustre files. *)
+(** Reject include directives in Lustre files. *)
 val lus_no_include : unit -> bool
 
 (** Activates transformation that pushes pre expressions *)

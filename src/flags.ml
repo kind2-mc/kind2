@@ -3620,7 +3620,7 @@ let check_nonvacuity_default = true
     )
   let lus_strict () = !lus_strict
 
-  (* Disallow include directives in Lustre files. *)
+  (* Reject include directives in Lustre files. *)
   let lus_no_include_default = false
   let lus_no_include = ref lus_no_include_default
   let _ = add_spec
