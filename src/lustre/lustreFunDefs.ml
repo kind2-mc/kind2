@@ -428,7 +428,8 @@ let ufs_of_term term =
   Term.map
     (fun _ t ->
        (match Term.node_of_term t with
-        | Term.T.Node (s, _) when Symbol.is_uf s ->
+        (* A symbol of arity zero is applied as a constant, i.e. a leaf *)
+        | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
           acc := UFS.add (Symbol.uf_of_symbol s) !acc
         | _ -> ());
        t)

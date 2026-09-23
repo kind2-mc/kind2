@@ -3621,7 +3621,9 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                 let acc = ref acc in
                 Term.map (fun _ t ->
                   (match Term.node_of_term t with
-                   | Term.T.Node (s, _) when Symbol.is_uf s ->
+                   (* A symbol of arity zero is applied as a constant,
+                      i.e. a leaf *)
+                   | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
                      acc := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !acc
                    | _ -> ());
                   t
