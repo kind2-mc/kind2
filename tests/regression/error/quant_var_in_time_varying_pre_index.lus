@@ -1,0 +1,7 @@
+-- 'pre' is only pushed under an index access whose index is time-invariant,
+-- so a quantified variable cannot share an index with a time-varying variable
+
+node N(i: int; a: int^3) returns ();
+let
+  check true -> (forall (j: int) (((0 <= j and j < 3) and pre (i = 0)) => (pre (a[j + i]) = (pre a)[j])));
+tel

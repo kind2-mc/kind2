@@ -394,6 +394,17 @@ let expr_has_inductive_var ind_vars expr =
   | [] -> false
   | _ -> true
 
+(* Whether [expr] only refers to inductive variables, quantified variables,
+   constants and enum variants, so its value does not change over time *)
+let index_is_time_invariant info expr =
+  AH.expr_is_time_invariant
+    (fun v ->
+      StringMap.mem v info.inductive_variables
+      || List.exists (fun (_, q, _) -> HString.equal q v) info.quantified_variables
+      || Ctx.lookup_const info.context v <> None
+      || Ctx.is_enum_variant info.context v)
+    expr
+
 let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
   HString.mk_hstring (string_of_int !contract_ref)
@@ -2506,7 +2517,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
-  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind)) ->
+  (* 'pre' can only be pushed under an index access if the index has the same
+     value at the previous instant, otherwise 'pre (a[i])' becomes '(pre a)[i]' *)
+  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind))
+    when index_is_time_invariant info expr2 ->
     let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, kind) in
     normalize_expr ?guard info node_id map expr
   | Pre (pos, expr) ->
