@@ -1255,9 +1255,22 @@ and compile_ast_expr
     result
 
   and compile_equality bounds polarity expr1 expr2 =
-    let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match polarity with
-      | true -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
-      | false -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and) in
+    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    compile_structural_rel (if polarity then `Eq else `Neq) expr1 expr2
+
+  (* Structural comparison of two already compiled expressions.
+     [`Eq] and [`Neq] are structural (dis)equality; [`Subset] relates two sets
+     and holds when every element of the first is an element of the second.
+     They only differ in what is asserted at the leaves and in how the leaf
+     comparisons are combined, so they share the guards computed below. *)
+  and compile_structural_rel rel expr1 expr2 =
+    let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match rel with
+      | `Eq -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
+      | `Neq -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and)
+      (* A set is a Boolean array over its element type, so subset inclusion is
+         membership implication at every index *)
+      | `Subset -> (E.mk_impl, E.mk_and, E.t_true, E.mk_forall, E.mk_impl) in
     (* Map-value leaves must be compared only at keys present in the map.
        TupleIndex (1, Some MapValue) in a compiled trie index identifies the
        value array of a map; TupleIndex (0, Some MapDomain) identifies its
@@ -1275,8 +1288,6 @@ and compile_ast_expr
       in
       scan [] idx
     in
-    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
-    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
     (* Compile the equality for each pair of `eqs` *)
     let over_indices = fun i (e1, e2) acc ->
@@ -1365,7 +1376,23 @@ and compile_ast_expr
     in
     let expr = X.fold over_indices eqs X.empty in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
-  
+
+  (* [op] is the source-level operator relating two sets: [Lte] is subset,
+     [Lt] proper subset, [Gte] superset, and [Gt] proper superset.
+     A superset is a subset with the operands swapped, and the proper variants
+     additionally require the two sets to differ. *)
+  and compile_set_comparison op expr1 expr2 =
+    let sub1, sub2 = match op with
+      | A.Lte | A.Lt -> expr1, expr2
+      | _ -> expr2, expr1
+    in
+    let subset = compile_structural_rel `Subset sub1 sub2 in
+    match op with
+    | A.Lte | A.Gte -> subset
+    | _ ->
+      let distinct = compile_structural_rel `Neq expr1 expr2 in
+      X.map2 (fun _ -> E.mk_and) subset distinct
+
   and compile_ite bounds expr1 expr2 expr3 =
     (* TODO: Old code checks that expr1 is a non-indexed boolean *)
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
@@ -1800,14 +1827,23 @@ and compile_ast_expr
     compile_binary bounds E.mk_bvshr expr1 expr2
   | A.BinaryOp (_, A.BVConcat, expr1, expr2) -> 
     compile_binary bounds E.mk_bvconcat expr1 expr2
-  | A.CompOp (_, A.Lte, expr1, expr2) ->
-    compile_binary bounds E.mk_lte expr1 expr2 
-  | A.CompOp (_, A.Lt, expr1, expr2) ->
-    compile_binary bounds E.mk_lt expr1 expr2 
-  | A.CompOp (_, A.Gte, expr1, expr2) ->
-    compile_binary bounds E.mk_gte expr1 expr2 
-  | A.CompOp (_, A.Gt, expr1, expr2) ->
-    compile_binary bounds E.mk_gt expr1 expr2 
+  | A.CompOp (_, ((A.Lte | A.Lt | A.Gte | A.Gt) as op), expr1, expr2) ->
+    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    (* The type checker only accepts numbers or sets here, and a set is the
+       only one of the two that compiles to an array, so the leaf type tells
+       an ordering comparison apart from a subset/superset one *)
+    let is_set =
+      List.exists
+        (fun e -> Type.is_array (E.type_of_lustre_expr e)) (X.values expr1)
+    in
+    if is_set then compile_set_comparison op expr1 expr2
+    else
+      let mk = match op with
+        | A.Lte -> E.mk_lte | A.Lt -> E.mk_lt
+        | A.Gte -> E.mk_gte | _ -> E.mk_gt
+      in
+      X.map2 (fun _ -> mk) expr1 expr2
   | A.Arrow (_, expr1, expr2) ->
     let mk e1 e2 = let e1', e2' = coalesce_array2 e1 e2 in E.mk_arrow e1' e2' in
     compile_binary bounds mk expr1 expr2

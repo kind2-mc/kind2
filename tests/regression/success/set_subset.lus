@@ -1,0 +1,38 @@
+type Color = enum { Red, Green, Blue };
+
+node N(s1, s2, s3: set<int>; c1, c2: set<Color>; p1, p2: set<[int, bool]>)
+returns (sub, psub, sup, psup: bool);
+let
+  sub = s1 <= s2;
+  psub = s1 < s2;
+  sup = s1 >= s2;
+  psup = s1 > s2;
+
+  (* The four operators in terms of membership *)
+  check "subset" sub = (forall (x: int) (x in s1) => (x in s2));
+  check "proper subset" psub = (sub and s1 <> s2);
+  check "superset" sup = (s2 <= s1);
+  check "proper superset" psup = (s2 < s1);
+
+  (* Subset is a partial order, proper subset a strict one *)
+  check "reflexivity" s1 <= s1;
+  check "antisymmetry" (s1 <= s2 and s2 <= s1) => s1 = s2;
+  check "transitivity" (s1 <= s2 and s2 <= s3) => s1 <= s3;
+  check "irreflexivity" not (s1 < s1);
+  check "asymmetry" (s1 < s2) => not (s2 < s1);
+
+  (* Interaction with the other set operators *)
+  check "empty set" {}@<int> <= s1;
+  check "intersection" (s1 * s2) <= s1 and (s1 * s2) <= s2;
+  check "union" s1 <= (s1 + s2) and s2 <= (s1 + s2);
+  check "difference" (s1 - s2) <= s1;
+  check "insertion" s1 < (s1 + {0}) or 0 in s1;
+
+  (* Set literals *)
+  check "literals" {1, 2} < {1, 2, 3} and {1, 2, 3} > {1, 2};
+  check "same literals" not ({1, 2} < {2, 1, 1}) and {1, 2} <= {2, 1, 1};
+
+  (* Element types other than int *)
+  check "enum elements" (c1 <= c2) = (forall (c: Color) (c in c1) => (c in c2));
+  check "tuple elements" (p1 <= p2) = (forall (p: [int, bool]) (p in p1) => (p in p2));
+tel
