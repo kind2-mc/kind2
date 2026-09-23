@@ -1,0 +1,13 @@
+-- 'pre (a[i])' reads the index at the previous instant, not '(pre a)[i]'
+node Top(a: int^3; i: int; v: int) returns ();
+var x, y, z, w: int;
+let
+  w = a[i];
+  x = 0 -> pre (a[i]);
+  y = 0 -> pre ((a[i := v])[i]);
+  z = 0 -> pre (a[1]);
+  check "sel_pre" true -> ((pre (i = 1)) => (x = pre (a[1])));
+  check "sel_local" true -> (x = pre w);
+  check "upd_pre" true -> ((pre (i >= 0 and i < 3)) => (y = pre v));
+  check "const_pre" true -> (z = (pre a)[1]);
+tel
