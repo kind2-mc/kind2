@@ -738,10 +738,8 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | LA.Pre (pos, e) ->
     (* The normalizer rewrites 'pre (a[i])' to '(pre a)[i]' when the index is
        time-invariant, so a quantified variable may appear in such an index *)
-    let index_is_time_invariant i =
-      LAH.has_pre_or_arrow i = None
-      && not (LAH.expr_contains_call i)
-      && LA.SI.for_all
+    let index_is_time_invariant =
+      LAH.expr_is_time_invariant
         (fun v ->
           StringMap.mem v ctx.quant_vars
           || StringMap.mem v ctx.array_indices
@@ -749,7 +747,6 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
           || StringMap.mem v ctx.consts
           || StringMap.mem v ctx.free_consts
           || StringSet.mem v ctx.constructors)
-        (LAH.vars_without_node_call_ids i)
     in
     let rec check_under_pre = function
       | LA.IndexAccess (_, e1, i, _) when index_is_time_invariant i ->

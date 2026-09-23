@@ -111,6 +111,14 @@ val vars_without_node_call_ids_current: expr -> SI.t
 (** [vars_without_node_call_ids_current e] is like vars_without_node_call_ids, 
     but only those vars that are not under a 'pre' expression *)
 
+val expr_is_time_invariant: (ident -> bool) -> expr -> bool
+(** [expr_is_time_invariant is_invariant_var e] holds when [e] contains no
+    'pre', '->' or node call, and every variable of [e] satisfies
+    [is_invariant_var]. The normalizer rewrites 'pre (a[i])' to '(pre a)[i]'
+    only when this holds for [i], and the syntax checks exempt such an index
+    from the ban on quantified variables under 'pre', so [is_invariant_var]
+    in the syntax checks must not accept a variable the normalizer rejects *)
+
 val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
 (** returns all variables that appear in a [struct_item] (the lhs of an equation) with associated positions *)
 

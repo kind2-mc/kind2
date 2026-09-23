@@ -397,15 +397,13 @@ let expr_has_inductive_var ind_vars expr =
 (* Whether [expr] only refers to inductive variables, quantified variables,
    constants and enum variants, so its value does not change over time *)
 let index_is_time_invariant info expr =
-  AH.has_pre_or_arrow expr = None
-  && not (AH.expr_contains_call expr)
-  && A.SI.for_all
+  AH.expr_is_time_invariant
     (fun v ->
       StringMap.mem v info.inductive_variables
       || List.exists (fun (_, q, _) -> HString.equal q v) info.quantified_variables
       || Ctx.lookup_const info.context v <> None
       || Ctx.is_enum_variant info.context v)
-    (AH.vars_without_node_call_ids expr)
+    expr
 
 let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
