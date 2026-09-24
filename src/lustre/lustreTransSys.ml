@@ -207,9 +207,18 @@ let lift_term state_var_map term =
     term
 
 
+(* Pretty-print the indices of the instance a node call stands for, if it is
+   one of the instances a call in an array equation expands into.
+
+   The instances share the position of the call, and property statuses are
+   matched by name: the indices keep the names of the properties lifted from
+   the instances distinct. *)
+let pp_print_call_instance ppf instance =
+  List.iter (Format.fprintf ppf "[%d]") instance
+
 (* Lift the name of a property in a subnode by adding the position of
-   the node call *)
-let lift_prop_name node_name pos prop_name =
+   the node call, and the indices of the instance if any *)
+let lift_prop_name node_name pos instance prop_name =
 
   (* Pretty-print a position as attributes *)
   let pp_print_pos ppf pos = 
@@ -227,9 +236,10 @@ let lift_prop_name node_name pos prop_name =
     (fun ppf prop_name ->
        Format.fprintf
          ppf
-         "%s%a%t%s"
+         "%s%a%a%t%s"
          node_name
          pp_print_pos pos
+         pp_print_call_instance instance
          Lib.StringValues.pp_print_scope_sep
          prop_name)
     prop_name
@@ -374,7 +384,9 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   guarantees |> List.map guarantee_of_svar |> implications_of_modes modes
 
 (* The assumptions of a contract as properties. *)
-let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
+let subrequirements_of_contract
+  call_pos call_instance scope node_id svar_map { C.assumes }
+=
   assumes |> List.map (
     fun { C.pos ; C.name ; C.svar ; C.src_expr} ->
       let prop_term =
@@ -385,16 +397,18 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
       let prop_name =
         match name with
         | None -> (
-          Format.asprintf "%a%a%tassume%a"
+          Format.asprintf "%a%a%a%tassume%a"
             NI.pp_print_node_id_user_name node_id
             pp_print_line_and_column call_pos
+            pp_print_call_instance call_instance
             Lib.StringValues.pp_print_scope_sep
             pp_print_line_and_column pos
         )
         | Some n -> (
-          Format.asprintf "%a%a%t%s"
+          Format.asprintf "%a%a%a%t%s"
             NI.pp_print_node_id_user_name node_id
-            pp_print_line_and_column call_pos 
+            pp_print_line_and_column call_pos
+            pp_print_call_instance call_instance
             Lib.StringValues.pp_print_scope_sep n
         )
       in
@@ -408,9 +422,11 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
         P.prop_expr = Some src_expr}
   )
 
-let bounded_check call_pos caller_rf =
+let bounded_check call_pos call_instance caller_rf =
   let prop_name =
-    Format.asprintf "bounded_check%a" pp_print_line_and_column call_pos
+    Format.asprintf "bounded_check%a%a"
+      pp_print_line_and_column call_pos
+      pp_print_call_instance call_instance
   in
   (* Lexicographic termination requires the measure to be bounded below, i.e.
      each component is non-negative. *)
@@ -432,9 +448,11 @@ let bounded_check call_pos caller_rf =
     P.prop_expr = Some prop_expr
   }
 
-let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
+let decrease_check call_pos call_instance svar_map src_expr caller_rf callee_rf =
   let prop_name =
-    Format.asprintf "decrease_check%a" pp_print_line_and_column call_pos
+    Format.asprintf "decrease_check%a%a"
+      pp_print_line_and_column call_pos
+      pp_print_call_instance call_instance
   in
   let callee_rf_terms =
     List.map (fun e ->
@@ -470,11 +488,14 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
    established statically instead (LustreCheckADTDecreases). Caller and callee
    are always empty together, since MixedDecreasesKindsInScc rejects an SCC
    that mixes the two kinds of measure. *)
-let termination_checks call_pos svar_map src_expr caller_rf callee_rf =
+let termination_checks
+  call_pos call_instance svar_map src_expr caller_rf callee_rf
+=
   if caller_rf = [] || callee_rf = [] then []
   else
-    [bounded_check call_pos caller_rf;
-     decrease_check call_pos svar_map src_expr caller_rf callee_rf]
+    [bounded_check call_pos call_instance caller_rf;
+     decrease_check
+       call_pos call_instance svar_map src_expr caller_rf callee_rf]
 
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
@@ -762,6 +783,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
+      N.call_instance  ;
       N.call_context   ;
       N.call_inputs    ;
       N.call_oracles   ;
@@ -915,7 +937,8 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
 
         (* Lift name of property *)
         let prop_name =
-          lift_prop_name (NI.get_name call_node_id |> I.of_hstring) call_pos n
+          lift_prop_name
+            (NI.get_name call_node_id |> I.of_hstring) call_pos call_instance n
         in
 
         (* Lift state variable of property
@@ -956,6 +979,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     | Some contract -> (
       subrequirements_of_contract
         call_pos
+        call_instance
         (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring))
         call_node_id
         state_var_map_up
@@ -969,7 +993,8 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     | N.Function { rec_info = Some (caller_id, caller_rf) },
       N.Function { rec_info = Some (callee_id, callee_rf) } when caller_id = callee_id -> (
       termination_checks
-        call_pos state_var_map_up call_rec_decrease_expr caller_rf callee_rf
+        call_pos call_instance state_var_map_up call_rec_decrease_expr
+        caller_rf callee_rf
       |> List.map (add_call_context_to_prop call_context)
     )
     | _ -> []

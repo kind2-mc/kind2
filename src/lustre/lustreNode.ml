@@ -107,6 +107,10 @@ type node_call = {
   (* Position of node call in input file *)
   call_pos : position;
 
+  (* Indices of the instance, if the call is one of the instances a call in
+     an array equation expands into, empty otherwise *)
+  call_instance : int list;
+
   (* Name of called node *)
   call_node_id : NI.t;
     
