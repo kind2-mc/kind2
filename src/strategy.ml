@@ -49,8 +49,16 @@ let get_reachability_abstraction results subs_of_scope result =
      In addition, appends the subsystems of all refined systems and
      not abstracted systems to the input. The function looks at
      the subsystems previously appended to the input recursively. *)
-  let rec loop refined abstraction = function
+  let rec loop seen refined abstraction = function
   | ( (system, { opacity } ) :: tail ) :: lower -> (
+    (* A system reached before, through another caller or through a
+       recursive call of itself, has been looked at already; without this
+       the traversal never ends on a recursive function, whose subsystems
+       include itself *)
+    if Scope.Set.mem system seen then
+      tail :: lower |> loop seen refined abstraction
+    else
+    let seen = Scope.Set.add system seen in
     (* Is system currently abstracted? *)
     if Scope.Map.find system abstraction then
       (* Is system refineable? *)
@@ -68,23 +76,23 @@ let get_reachability_abstraction results subs_of_scope result =
               merge_abstractions abstraction info.A.abstraction_map
             in
             (tail :: lower) @ [ subs_of_scope system ]
-            |> loop true abstraction
+            |> loop seen true abstraction
           )
           (* Otherwise keep going. *)
-          else tail :: lower |> loop refined abstraction
+          else tail :: lower |> loop seen refined abstraction
         | [] -> failwith "unreachable"
         with Not_found -> (* Case of imported nodes (they have no result) *)
-          tail :: lower |> loop refined abstraction
+          tail :: lower |> loop seen refined abstraction
       )
       else (
-        tail :: lower |> loop refined abstraction
+        tail :: lower |> loop seen refined abstraction
       )
     else (* System is not abstracted, remembering its subsystems and
             looping. *)
       (tail :: lower) @ [ subs_of_scope system ]
-      |> loop refined abstraction
+      |> loop seen refined abstraction
   )
-  | [] :: lower -> loop refined abstraction lower
+  | [] :: lower -> loop seen refined abstraction lower
   | [] -> if refined then Some abstraction else None
   in
 
@@ -95,7 +103,7 @@ let get_reachability_abstraction results subs_of_scope result =
     let subs = subs_of_scope sys in
     let abstraction = info.A.abstraction_map in
 
-    loop false abstraction [ subs ]
+    loop (Scope.Set.singleton sys) false abstraction [ subs ]
   )
   else
     None
@@ -122,8 +130,16 @@ let get_refinement_abstraction results subs_of_scope result =
        the input. If no refineable system is found in [subs] function goes
        looks at the subsystems previously appended to the input
        recursively. *)
-    let rec loop = function
+    let rec loop seen = function
       | ( (candidate, { opacity }) :: tail ) :: lower -> (
+        (* A candidate reached before, through another caller or through a
+           recursive call of itself, has been looked at already; without
+           this the traversal never ends on a recursive function, whose
+           subsystems include itself *)
+        if Scope.Set.mem candidate seen then
+          tail :: lower |> loop seen
+        else
+        let seen = Scope.Set.add candidate seen in
         (* Is candidate currently abstracted? *)
         if Scope.Map.find candidate abstraction then
           (* Is candidate refineable? *)
@@ -133,23 +149,23 @@ let get_refinement_abstraction results subs_of_scope result =
               (* It is if everything was proved in the last analysis. *)
               if A.result_is_all_inv_proved result then Some result
               (* Otherwise keep going. *)
-              else tail :: lower |> loop
+              else tail :: lower |> loop seen
             | [] -> failwith "unreachable"
             with Not_found -> (* Case of imported nodes (they have no result) *)
-              tail :: lower |> loop
+              tail :: lower |> loop seen
           )
           else (
-            tail :: lower |> loop
+            tail :: lower |> loop seen
           )
         else (* Candidate is not abstracted, remembering its subsystems and
                 looping. *)
-          (tail :: lower) @ [ subs_of_scope candidate ] |> loop
+          (tail :: lower) @ [ subs_of_scope candidate ] |> loop seen
       )
-      | [] :: lower -> loop lower
+      | [] :: lower -> loop seen lower
       | [] -> None
     in
 
-    match loop [ subs ] with
+    match loop (Scope.Set.singleton sys) [ subs ] with
     (* No refinement possible. *)
     | None -> None
     | Some { A.param } ->
