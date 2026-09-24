@@ -2686,10 +2686,10 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           node
       in
 
+      let base_scope =
+        [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+      in
       let scope, suffix =
-        let base_scope =
-          [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
-        in
         if N.is_recursive node && not (NI.Map.is_empty num_unrollings) then
           let node_num_id = get_node_num_id () in
           let rec_tag = get_rec_tag node_num_id in
@@ -2697,6 +2697,14 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
         else
           base_scope, ""
       in
+
+      (* Whether the node is abstracted by its contract in this analysis. The
+         abstraction map is keyed by the scope of the node, without the tag
+         of an unrolling: an instance of a recursive function that is called
+         from a recursive function carries a tag from its first unrolling on,
+         and looking it up by its tagged scope would take it for concrete
+         although its body was sliced away, leaving its outputs unconstrained *)
+      let is_abstract = A.param_scope_is_abstract analysis_param base_scope in
 
       (* Create a fresh state variable *)
       let mk_fresh_state_var
@@ -2928,7 +2936,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           (* Filter assumptions for this node's assumptions *)
           let node_assumptions =
             (* No assumptions if abstract. *)
-            if A.param_scope_is_abstract analysis_param scope then
+            if is_abstract then
               Invs.empty ()
             else
               A.param_assumptions_of_scope analysis_param scope
@@ -2961,7 +2969,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
                     abstract. *)
-                  if A.param_scope_is_abstract analysis_param scope then
+                  if is_abstract then
                     List.rev_append
                       (mode_non_vacuity_checks scope contract)
                       (one_mode_active scope contract)
@@ -2989,7 +2997,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                  abstraction provides, and one that needs induction over the
                  recursion is better left to a lemma. *)
               let use_contract_as_abstraction =
-                (reached_limit || A.param_scope_is_abstract analysis_param scope)
+                (reached_limit || is_abstract)
                 && not is_defined
               in
 
@@ -3117,7 +3125,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
             *)
             let subrange_state_vars =
               let svars =
-                if A.param_scope_is_abstract analysis_param scope then
+                if is_abstract then
                   oracles
                 else
                   List.rev_append undefined_outputs oracles
@@ -3498,7 +3506,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           let assumption =
             if
               not (NI.equal node_id top_name) &&
-              not (A.param_scope_is_abstract analysis_param scope) &&
+              not is_abstract &&
               valid_prop_terms <> []
             then
               match contract with
