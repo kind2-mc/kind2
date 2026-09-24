@@ -363,30 +363,29 @@ let rec default_value ctx adt_map pos ty =
     LA.GroupExpr (pos, LA.ExprList, List.map (default_value ctx adt_map pos) tys)
   | LA.ArrayType (_, (ety, size)) ->
     LA.ArrayConstr (pos, default_value ctx adt_map pos ety, size)
-  | LA.UserType (_, ty_args, name)
-    when (match HStringMap.find_opt name adt_map with
-          | Some info -> info.is_recursive
-          | None -> false) ->
+  | LA.UserType (_, ty_args, name) -> (
+    match HStringMap.find_opt name adt_map with
     (* A recursive ADT stays an SMT-LIB datatype; its default is built from the
        instantiation's field types, so that the term names the right one *)
-    let info = HStringMap.find name adt_map in
-    let subst =
-      if List.length info.type_params = List.length ty_args
-      then List.combine info.type_params ty_args else []
-    in
-    let ctors =
-      List.map (fun ctor ->
-        (ctor,
-         match HStringMap.find_opt ctor info.ctor_fields with
-         | Some fs -> List.map (fun (_, ty) -> LH.apply_type_subst_in_type subst ty) fs
-         | None -> [])
-      ) info.ctor_variants
-    in
-    default_adt_term ctx adt_map pos name ty_args ctors
-  | LA.UserType _ ->
-    (match Ctx.expand_type_syn ctx ty with
-    | LA.UserType _ -> assert false
-    | expanded -> default_value ctx adt_map pos expanded)
+    | Some info when info.is_recursive ->
+      let subst =
+        if List.length info.type_params = List.length ty_args
+        then List.combine info.type_params ty_args else []
+      in
+      let ctors =
+        List.map (fun ctor ->
+          (ctor,
+           match HStringMap.find_opt ctor info.ctor_fields with
+           | Some fs -> List.map (fun (_, ty) -> LH.apply_type_subst_in_type subst ty) fs
+           | None -> [])
+        ) info.ctor_variants
+      in
+      default_adt_term ctx adt_map pos name ty_args
+        (declared_and_instance adt_map name ctors)
+    | Some _ | None ->
+      match Ctx.expand_type_syn ctx ty with
+      | LA.UserType _ -> assert false
+      | expanded -> default_value ctx adt_map pos expanded)
   | LA.Set (_, ty) -> LA.EmptySet (pos, Some ty)
   | LA.Map (_, kt, vt) -> LA.EmptyMap (pos, Some (kt, vt))
   | LA.RefinementType (_, (_, _, inner_ty), _) -> default_value ctx adt_map pos inner_ty
@@ -397,21 +396,36 @@ let rec default_value ctx adt_map pos ty =
   | LA.AbstractType _ -> LA.AbstractSymConst (pos, ty)
   | LA.TArr _ -> assert false
   | LA.ADT (_, name, ctors) ->
+    let ctors = List.map (fun (ctor, fields) -> (ctor, List.map snd fields)) ctors in
     default_adt_term ctx adt_map pos name []
-      (List.map (fun (ctor, fields) -> (ctor, List.map snd fields)) ctors)
+      (declared_and_instance adt_map name ctors)
+
+(* Each constructor's field types paired with the declared ones: once the type
+   arguments are substituted in, only the declaration says which are self-references *)
+and declared_and_instance adt_map name ctors =
+  let declared ctor =
+    match HStringMap.find_opt name adt_map with
+    | Some info -> HStringMap.find_opt ctor info.ctor_fields
+    | None -> None
+  in
+  List.map (fun (ctor, ftys) ->
+    match declared ctor with
+    | Some dfs when List.length dfs = List.length ftys ->
+      (ctor, List.combine (List.map snd dfs) ftys)
+    | Some _ | None -> (ctor, List.map (fun ty -> (ty, ty)) ftys)
+  ) ctors
 
 (* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
    (one with no self-recursive fields) as the default "junk" value.  This junk
    is only placed in payload slots of non-recursive ADT records where the
    discriminant guarantees it is never accessed, so any value is correct. *)
 and default_adt_term ctx adt_map pos name ty_args ctors =
-  let is_self_recursive = function
-    | LA.ADT (_, n, _) | LA.UserType (_, _, n) -> HString.equal n name
-    | _ -> false
-  in
-  match List.find_opt (fun (_, ftys) -> not (List.exists is_self_recursive ftys)) ctors with
-  | Some (ctor, ftys) ->
-    LA.ADTTerm (pos, ty_args, ctor, List.map (default_value ctx adt_map pos) ftys)
+  let is_self_recursive (declared, _) = LH.is_direct_self_reference name declared in
+  match List.find_opt
+          (fun (_, fields) -> not (List.exists is_self_recursive fields)) ctors with
+  | Some (ctor, fields) ->
+    LA.ADTTerm (pos, ty_args, ctor,
+      List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields)
   | None -> assert false
 
 (* Replace every ADT type with its desugared record equivalent. *)

@@ -1165,16 +1165,16 @@ let define_trans define { trans_uf_symbol; trans_formals; trans } =
 (* Declare the sorts, uninterpreted functions and const variables
    of this system and its subsystems. *)
 let declare_sorts_ufs_const trans_sys ~define_rec declare declare_sort =
-  (* declare recursive algebraic datatypes first, in dependency order *)
-  trans_sys.datatype_types |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Datatype _ -> declare_sort ty
-      | _ -> ());
-
-  (* declare uninterpreted sorts *)
+  (* declare uninterpreted sorts first: a datatype's fields may have one *)
   Type.get_all_abstr_types () |>
   List.iter (fun ty -> match Type.node_of_type ty with
       | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+
+  (* declare recursive algebraic datatypes, in dependency order *)
+  trans_sys.datatype_types |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
       | _ -> ());
 
   (* Declare monomorphized select symbols *)
@@ -1232,16 +1232,16 @@ let define_and_declare_of_bounds
     lbound
     ubound =
 
-  (* declare recursive algebraic datatypes first, in dependency order *)
-  trans_sys.datatype_types |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Datatype _ -> declare_sort ty
-      | _ -> ());
-
-  (* declare uninterpreted sorts *)
+  (* declare uninterpreted sorts first: a datatype's fields may have one *)
   Type.get_all_abstr_types () |>
   List.iter (fun ty -> match Type.node_of_type ty with
       | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+
+  (* declare recursive algebraic datatypes, in dependency order *)
+  trans_sys.datatype_types |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
       | _ -> ());
 
     (* Declare monomorphized select symbols *)

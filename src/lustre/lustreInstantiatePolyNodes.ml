@@ -5,7 +5,9 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module LH = LustreAstHelpers
 module GI = GeneratedIdentifiers
-module LDAT = LustreDesugarADTs
+module R = Res
+
+let (let*) = R.(>>=)
 
 let unwrap res = match res with 
 | Ok res -> res 
@@ -42,8 +44,13 @@ let instantiate_type_variables_ni
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in 
   A.Body (Assert (pos, expr))
 | AnnotProperty (pos, name, expr, k) -> 
-  let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in 
-  AnnotProperty (pos, name, expr, k)
+  let inst e = Chk.instantiate_type_variables_expr ctx node_id ty_args e |> unwrap in
+  (* The guard of a provided property is an expression of the node body too *)
+  let k = match k with
+    | A.Provided guard -> A.Provided (inst guard)
+    | A.Invariant | A.Reachable _ -> k
+  in
+  AnnotProperty (pos, name, inst expr, k)
 | AnnotMain _ -> ni
 | Auto _ -> ni
 | IfBlock _
@@ -79,9 +86,12 @@ let instantiate_type_variables_ci
 | A.GhostConst UntypedConst (p, id, expr) -> 
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in  
   A.GhostConst (UntypedConst (p, id, expr))
-| GhostVars (p, lhs, expr) -> 
-  let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in  
-  GhostVars (p, lhs, expr)
+| GhostVars (p, GhostVarDec (p2, tis), expr) ->
+  let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in
+  let tis = List.map (fun (p, id, ty) ->
+    (p, id, Chk.instantiate_type_variables ctx p node_id ty ty_args |> unwrap)
+  ) tis in
+  GhostVars (p, GhostVarDec (p2, tis), expr)
 | Assume (p, name, b, expr) -> 
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in  
   Assume (p, name, b, expr)
@@ -590,6 +600,15 @@ and gen_poly_decls_ni
     ctx, gids, FrameBlock (p, vars, nes, nis), decls, node_decls_map
   | AnnotProperty (p, n, expr, k) -> 
     let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
+    (* The guard of a provided property may call a polymorphic node too *)
+    let ctx, gids, k, decls, node_decls_map = match k with
+      | A.Provided guard ->
+        let ctx, gids, guard, decls2, node_decls_map =
+          gen_poly_decls_expr ctx gids node_id node_decls_map guard
+        in
+        ctx, gids, A.Provided guard, decls @ decls2, node_decls_map
+      | A.Invariant | A.Reachable _ -> ctx, gids, k, decls, node_decls_map
+    in
     ctx, gids, AnnotProperty (p, n, expr, k), decls, node_decls_map
   | AnnotMain _ -> ctx, gids, ni, [], node_decls_map
   | Auto _ -> ctx, gids, ni, [], node_decls_map
@@ -777,106 +796,12 @@ let adt_mono_key id ty_args =
     HString.pp_print_hstring id
     (Lib.pp_print_list A.pp_print_lustre_type ";") ty_args
 
-(* Collect unique polymorphic ADT uses from a type *)
-let rec collect_poly_adt_uses_ty ctx acc ty =
-  match ty with
-  | A.UserType (_, ty_args, id) ->
-    let acc = List.fold_left (collect_poly_adt_uses_ty ctx) acc ty_args in
-    if ty_args = [] then acc
-    else (match Ctx.lookup_ty_syn ctx id [] with
-      | Some (A.ADT _) ->
-        let key = adt_mono_key id ty_args in
-        if List.mem_assoc key acc then acc
-        else acc @ [(key, (id, ty_args))]
-      | _ -> acc)
-  | A.RecordType (_, _, fields) ->
-    List.fold_left (fun acc (_, _, ty) -> collect_poly_adt_uses_ty ctx acc ty) acc fields
-  | A.ArrayType (_, (ty, _)) -> collect_poly_adt_uses_ty ctx acc ty
-  | A.TupleType (_, tys) | A.GroupType (_, tys) ->
-    List.fold_left (collect_poly_adt_uses_ty ctx) acc tys
-  | A.TArr (_, ty1, ty2) | A.Map (_, ty1, ty2) ->
-    collect_poly_adt_uses_ty ctx (collect_poly_adt_uses_ty ctx acc ty1) ty2
-  | A.Set (_, ty) -> collect_poly_adt_uses_ty ctx acc ty
-  | A.RefinementType (_, (_, _, ty), _) -> collect_poly_adt_uses_ty ctx acc ty
-  | A.ADT (_, _, ctors) ->
-    List.fold_left (fun acc (_, fields) ->
-      List.fold_left (fun acc (_, ty) -> collect_poly_adt_uses_ty ctx acc ty) acc fields) acc ctors
-  | _ -> acc
-
-let rec collect_poly_adt_uses_expr ctx acc expr =
-  let re = collect_poly_adt_uses_expr ctx in
-  let rt = collect_poly_adt_uses_ty ctx in
-  match expr with
-  | A.TypeAscription (_, e, ty) -> rt (re acc e) ty
-  | A.ADTTerm (_, ty_args, _, args) ->
-    List.fold_left re (List.fold_left rt acc ty_args) args
-  | A.Quantifier (_, _, qvars, e) ->
-    let acc = List.fold_left (fun acc (_, _, ty) -> rt acc ty) acc qvars in
-    re acc e
-  | A.AnyOp (_, (_, _, ty), e) | A.ChooseOp (_, (_, _, ty), e) -> re (rt acc ty) e
-  | A.RecordExpr (_, _, ty_args, flds) ->
-    List.fold_left (fun acc (_, e) -> re acc e) (List.fold_left rt acc ty_args) flds
-  | A.Call (_, ty_args, _, args) ->
-    List.fold_left re (List.fold_left rt acc ty_args) args
-  | A.EmptyMap (_, Some (kt, vt)) -> rt (rt acc kt) vt
-  | A.EmptySet (_, Some ty) -> rt acc ty
-  | A.EmptyMap (_, None) | A.EmptySet (_, None)
-  | A.Ident _ | A.ModeRef _ | A.Const _ -> acc
-  | A.FieldProject (_, e, _, _) | A.UnaryOp (_, _, e) | A.ConvOp (_, _, e)
-  | A.Pre (_, e) | A.When (_, e, _) | A.Extract (_, e, _, _) -> re acc e
-  | A.BinaryOp (_, _, e1, e2) | A.CompOp (_, _, e1, e2)
-  | A.Arrow (_, e1, e2) | A.ArrayConstr (_, e1, e2)
-  | A.IndexAccess (_, e1, e2, _) -> re (re acc e1) e2
-  | A.StructUpdate (_, e1, _, Some e2) -> re (re acc e1) e2
-  | A.StructUpdate (_, e1, _, None) -> re acc e1
-  | A.TernaryOp (_, _, e1, e2, e3) -> re (re (re acc e1) e2) e3
-  | A.GroupExpr (_, _, exprs) -> List.fold_left re acc exprs
-  | A.Condact (_, c, e, _, args, defaults) ->
-    List.fold_left re (List.fold_left re (re (re acc c) e) args) defaults
-  | A.Activate (_, _, cond, e, args) ->
-    List.fold_left re (re (re acc cond) e) args
-  | A.Merge (_, _, arms) ->
-    List.fold_left (fun acc (_, e) -> re acc e) acc arms
-  | A.RestartEvery (_, _, args, e) -> List.fold_left re (re acc e) args
-  | A.Match (_, e, arms, ty_opt) ->
-    let acc = List.fold_left (fun acc (_, arm_e) -> re acc arm_e) (re acc e) arms in
-    (match ty_opt with Some ty -> rt acc ty | None -> acc)
-  | A.ADTTester (_, e, _) -> re acc e
-  | A.Last _ -> acc
-  | A.AbstractSymConst (_, ty) -> rt acc ty
-
-let collect_poly_adt_uses_node_item ctx acc ni =
-  match ni with
-  | A.Body (Equation (_, _, e)) | A.Body (Assert (_, e))
-  | A.AnnotProperty (_, _, e, _) -> collect_poly_adt_uses_expr ctx acc e
-  | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
-  | A.AnnotMain _ | A.Auto _ | A.IfBlock _ | A.WhenBlock _ | A.FrameBlock _ -> acc
-
-let collect_poly_adt_uses_ci ctx acc ci =
-  let re = collect_poly_adt_uses_expr ctx in
-  let rt = collect_poly_adt_uses_ty ctx in
-  match ci with
-  | A.GhostConst (TypedConst (_, _, e, ty)) -> rt (re acc e) ty
-  | A.GhostConst (FreeConst (_, _, ty)) -> rt acc ty
-  | A.GhostConst (UntypedConst (_, _, e)) -> re acc e
-  | A.GhostVars (_, _, e) | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e) -> re acc e
-  | A.Mode (_, _, reqs, enss) ->
-    let acc = List.fold_left (fun acc (_, _, e) -> re acc e) acc reqs in
-    List.fold_left (fun acc (_, _, e) -> re acc e) acc enss
-  | A.AssumptionVars _ -> acc
-  | A.Decreases (_, e) -> re acc e
-  | A.ContractCall (_, _, ty_args, exprs, _) ->
-    List.fold_left re (List.fold_left rt acc ty_args) exprs
-
-(* Type parameters a declaration binds; an instantiation mentioning one of them
-   is not ground, and stands instead for the instantiations of the declaration
-   it occurs in *)
-let ty_params_of_decl = function
-  | A.NodeDecl (_, (_, _, _, ps, _, _, _, _, _))
-  | A.FuncDecl (_, (_, _, _, ps, _, _, _, _, _), _)
-  | A.ContractNodeDecl (_, (_, ps, _, _, _))
-  | A.TypeDecl (_, AliasType (_, _, ps, _)) -> ps
-  | A.TypeDecl (_, FreeType _) | A.ConstDecl _ | A.NodeParamInst _ -> []
+(* The name an instantiation's constructor is known by: names are global, so
+   each instantiation qualifies its own, as the SMT-LIB symbols do *)
+let mono_ctor_name mono_name ctor =
+  HString.mk_hstring
+    (Type.qualified_ctor_name
+       (HString.string_of_hstring mono_name) (HString.string_of_hstring ctor))
 
 let rec mentions_ty_var params ty =
   let r = mentions_ty_var params in
@@ -893,156 +818,576 @@ let rec mentions_ty_var params ty =
   | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
   | A.EnumType _ | A.History _ -> false
 
-let collect_poly_adt_uses_decl ctx acc decl =
-  let rt = collect_poly_adt_uses_ty ctx in
-  let re = collect_poly_adt_uses_expr ctx in
-  let collect_ip acc (_, _, ty, _, _) = rt acc ty in
-  let collect_op acc (_, _, ty, _) = rt acc ty in
-  let collect_loc acc = function
-    | A.NodeVarDecl (_, (_, _, ty, _)) -> rt acc ty
-    | A.NodeConstDecl (_, TypedConst (_, _, e, ty)) -> rt (re acc e) ty
-    | A.NodeConstDecl (_, FreeConst (_, _, ty)) -> rt acc ty
-    | A.NodeConstDecl (_, UntypedConst (_, _, e)) -> re acc e
+(* Bind a datatype's type parameters by matching a type as the declaration wrote
+   it against the form it takes once the type arguments are substituted in *)
+let rec bind_ty_params ps acc declared instance =
+  match declared, instance with
+  | A.UserType (_, [], p), _ when List.mem p ps ->
+    if List.mem_assoc p acc then acc else (p, instance) :: acc
+  | A.UserType (_, ds, _), A.UserType (_, is, _)
+    when List.length ds = List.length is ->
+    List.fold_left2 (bind_ty_params ps) acc ds is
+  | A.ArrayType (_, (d, _)), A.ArrayType (_, (i, _))
+  | A.Set (_, d), A.Set (_, i)
+  | A.RefinementType (_, (_, _, d), _), A.RefinementType (_, (_, _, i), _) ->
+    bind_ty_params ps acc d i
+  | A.Map (_, d1, d2), A.Map (_, i1, i2)
+  | A.TArr (_, d1, d2), A.TArr (_, i1, i2) ->
+    bind_ty_params ps (bind_ty_params ps acc d1 i1) d2 i2
+  | A.TupleType (_, ds), A.TupleType (_, is)
+  | A.GroupType (_, ds), A.GroupType (_, is) when List.length ds = List.length is ->
+    List.fold_left2 (bind_ty_params ps) acc ds is
+  | A.RecordType (_, _, dfs), A.RecordType (_, _, ifs)
+    when List.length dfs = List.length ifs ->
+    List.fold_left2 (fun acc (_, _, d) (_, _, i) -> bind_ty_params ps acc d i) acc dfs ifs
+  | _ -> acc
+
+(* The type arguments of the instantiation an expanded datatype stands for. Its
+   own name is no guide: a field of the parameter type may be headed by it too. *)
+let expanded_instance_args ctx id ctors =
+  match Ctx.lookup_ty_ty_vars ctx id, Ctx.lookup_ty_syn ctx id [] with
+  | Some (_ :: _ as ps), Some (A.ADT (_, _, declared)) ->
+    let bindings =
+      List.fold_left (fun acc (ctor, fields) ->
+        match List.assoc_opt ctor declared with
+        | Some dfields when List.length dfields = List.length fields ->
+          List.fold_left2 (fun acc (_, d) (_, i) -> bind_ty_params ps acc d i)
+            acc dfields fields
+        | Some _ | None -> acc
+      ) [] ctors
+    in
+    if List.for_all (fun p -> List.mem_assoc p bindings) ps
+    then Some (List.map (fun p -> List.assoc p bindings) ps)
+    else None
+  | Some (_ :: _), _ | Some [], _ | None, _ -> None
+
+(* The canonical form of a type argument: synonyms are expanded, so that two
+   spellings name one instantiation; a refinement type is preserved *)
+let rec canon_ty_arg ctx ty =
+  let r = canon_ty_arg ctx in
+  match ty with
+  | A.UserType (pos, ty_args, id) ->
+    let ty_args = List.map r ty_args in
+    (match Ctx.lookup_ty_syn_body ctx id ty_args with
+    | None -> A.UserType (pos, ty_args, id)
+    | Some body -> canon_named_ty ctx pos id ty_args body)
+  | A.History (pos, id) ->
+    (match Ctx.lookup_ty ctx id with Some ty -> r ty | None -> A.History (pos, id))
+  | A.RefinementType (pos, (p, i, ty), e) -> A.RefinementType (pos, (p, i, r ty), e)
+  | A.ArrayType (pos, (ty, e)) -> A.ArrayType (pos, (r ty, e))
+  | A.Set (pos, ty) -> A.Set (pos, r ty)
+  | A.Map (pos, ty1, ty2) -> A.Map (pos, r ty1, r ty2)
+  | A.TArr (pos, ty1, ty2) -> A.TArr (pos, r ty1, r ty2)
+  | A.TupleType (pos, tys) -> A.TupleType (pos, List.map r tys)
+  | A.GroupType (pos, tys) -> A.GroupType (pos, List.map r tys)
+  | A.RecordType (pos, id, fields) ->
+    A.RecordType (pos, id, List.map (fun (p, i, ty) -> (p, i, r ty)) fields)
+  (* An enumeration and a datatype are always declared under the name they
+     carry, so the name is the canonical spelling of them *)
+  | A.EnumType (pos, id, _) -> A.UserType (pos, [], id)
+  | A.ADT (pos, id, ctors) ->
+    (match expanded_instance_args ctx id ctors with
+    | None -> A.UserType (pos, [], id)
+    | Some ty_args -> r (A.UserType (pos, ty_args, id)))
+  | A.AbstractType _ | A.Bool _ | A.Int _ | A.Real _
+  | A.SBitVector _ | A.UBitVector _ -> ty
+
+(* The canonical form of a named type with the given definition: an
+   instantiation, the name of a datatype or an enumeration, or the expansion of
+   a synonym that is none of those *)
+and canon_named_ty ctx pos id ty_args body =
+  match resolve_instance ctx id ty_args with
+  | Some (_, _, mono_name) -> A.UserType (pos, [], mono_name)
+  | None ->
+    match body with
+    | A.ADT _ | A.EnumType _ -> A.UserType (pos, [], id)
+    | A.RecordType _ | A.ArrayType _ | A.Set _ | A.Map _ | A.TupleType _
+    | A.GroupType _ | A.TArr _ -> A.UserType (pos, ty_args, id)
+    | A.UserType _ | A.RefinementType _ | A.History _ | A.AbstractType _
+    | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ ->
+      canon_ty_arg ctx body
+
+(* The instantiation a named type resolves to: the type it instantiates, the
+   canonical type arguments, and the name the instantiation is declared under. A
+   datatype is named by its own declaration however many synonyms alias it;
+   every other synonym is an instantiation of itself. *)
+and resolve_instance ctx id ty_args =
+  let instance base =
+    if ty_args = [] then None
+    else
+      let ty_args = List.map (canon_ty_arg ctx) ty_args in
+      Some (base, ty_args, HString.mk_hstring (adt_mono_key base ty_args))
+  in
+  match Ctx.lookup_ty_syn_body ctx id ty_args with
+  | Some (A.ADT (_, base, _)) -> instance base
+  | Some (A.UserType (_, ty_args', id')) -> resolve_instance ctx id' ty_args'
+  | Some (A.RefinementType _ | A.History _ | A.RecordType _ | A.ArrayType _
+         | A.Set _ | A.Map _ | A.TupleType _ | A.GroupType _ | A.TArr _) ->
+    instance id
+  | Some (A.AbstractType _ | A.EnumType _ | A.Bool _ | A.Int _ | A.Real _
+         | A.SBitVector _ | A.UBitVector _)
+  | None -> None
+
+(* ---- Rewriting a use of a polymorphic ADT to name its instantiation ---- *)
+
+(* The functions below rewrite every use of a polymorphic ADT to the declaration
+   it stands for and report it, so a use cannot be rewritten without one *)
+
+let rec rewrite_ty ctx record params ty =
+  let r = rewrite_ty ctx record params in
+  match ty with
+  | A.UserType (pos, ty_args, id) ->
+    let ty_args' = List.map r ty_args in
+    if ty_args = [] || List.exists (mentions_ty_var params) ty_args then
+      A.UserType (pos, ty_args', id)
+    else (
+      match resolve_instance ctx id ty_args with
+      | Some (base, canon_args, mono_name) ->
+        record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
+      | None -> A.UserType (pos, ty_args', id))
+  | A.RefinementType (pos, (p, i, ty), e) ->
+    A.RefinementType (pos, (p, i, r ty), rewrite_expr ctx record params e)
+  | A.ArrayType (pos, (ty, e)) ->
+    A.ArrayType (pos, (r ty, rewrite_expr ctx record params e))
+  | A.Set (pos, ty) -> A.Set (pos, r ty)
+  | A.Map (pos, ty1, ty2) -> A.Map (pos, r ty1, r ty2)
+  | A.TArr (pos, ty1, ty2) -> A.TArr (pos, r ty1, r ty2)
+  | A.TupleType (pos, tys) -> A.TupleType (pos, List.map r tys)
+  | A.GroupType (pos, tys) -> A.GroupType (pos, List.map r tys)
+  | A.RecordType (pos, id, fields) ->
+    A.RecordType (pos, id, List.map (fun (p, i, ty) -> (p, i, r ty)) fields)
+  | A.ADT (pos, id, ctors) ->
+    let over_fields () =
+      A.ADT (pos, id,
+        List.map (fun (c, fields) ->
+          (c, List.map (fun (f, ty) -> (f, r ty)) fields)) ctors)
+    in
+    (* An expanded instantiation names its instantiation like any other use of it *)
+    (match expanded_instance_args ctx id ctors with
+    | Some ty_args when not (List.exists (mentions_ty_var params) ty_args) ->
+      (match resolve_instance ctx id ty_args with
+      | Some (base, canon_args, mono_name) ->
+        record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
+      | None -> over_fields ())
+    | Some _ | None -> over_fields ())
+  | A.AbstractType _ | A.EnumType _ | A.History _ | A.Bool _ | A.Int _
+  | A.Real _ | A.SBitVector _ | A.UBitVector _ -> ty
+
+and rewrite_expr ctx record params expr =
+  let r = rewrite_expr ctx record params in
+  let rt = rewrite_ty ctx record params in
+  match expr with
+  | A.ADTTerm (pos, ty_args, ctor, args) ->
+    let args = List.map r args in
+    let unresolved () = A.ADTTerm (pos, List.map rt ty_args, ctor, args) in
+    if List.exists (mentions_ty_var params) ty_args then unresolved ()
+    else (
+      (* A constructor with no ADT left belongs to a non-recursive one,
+         desugared away before this pass *)
+      match Ctx.lookup_constructor ctx ctor with
+      | None -> unresolved ()
+      | Some (ty_name, _) ->
+        match resolve_instance ctx ty_name ty_args with
+        | Some (base, canon_args, mono_name) ->
+          record pos base canon_args mono_name;
+          A.ADTTerm (pos, [], mono_ctor_name mono_name ctor, args)
+        | None -> unresolved ())
+  | A.TypeAscription (pos, e, ty) -> A.TypeAscription (pos, r e, rt ty)
+  | A.Quantifier (pos, q, tis, e) ->
+    A.Quantifier (pos, q, List.map (fun (p, i, ty) -> (p, i, rt ty)) tis, r e)
+  | A.AnyOp _ | A.ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
+  (* A record expression names its record type, which for a polymorphic one is
+     the instantiation whose value it builds *)
+  | A.RecordExpr (pos, id, ty_args, flds) ->
+    let flds = List.map (fun (f, e) -> (f, r e)) flds in
+    let unresolved () = A.RecordExpr (pos, id, List.map rt ty_args, flds) in
+    if List.exists (mentions_ty_var params) ty_args then unresolved ()
+    else (
+      match resolve_instance ctx id ty_args with
+      | Some (base, canon_args, mono_name) ->
+        record pos base canon_args mono_name;
+        A.RecordExpr (pos, mono_name, [], flds)
+      | None -> unresolved ())
+  | A.Call (pos, ty_args, id, args) ->
+    A.Call (pos, List.map rt ty_args, id, List.map r args)
+  | A.EmptyMap (pos, Some (kt, vt)) -> A.EmptyMap (pos, Some (rt kt, rt vt))
+  | A.EmptySet (pos, Some ty) -> A.EmptySet (pos, Some (rt ty))
+  | A.AbstractSymConst (pos, ty) -> A.AbstractSymConst (pos, rt ty)
+  | A.EmptyMap (_, None) | A.EmptySet (_, None)
+  | A.Ident _ | A.ModeRef _ | A.Const _ | A.Last _ -> expr
+  (* A selector's type annotation names the ADT it was declared in, which is how
+     lustreNodeGen.ml finds the declaring constructor *)
+  | A.FieldProject (pos, e, f, pk) -> A.FieldProject (pos, r e, f, pk)
+  | A.ADTTester (pos, e, ctor) -> A.ADTTester (pos, r e, ctor)
+  | A.UnaryOp (pos, op, e) -> A.UnaryOp (pos, op, r e)
+  | A.ConvOp (pos, op, e) -> A.ConvOp (pos, op, r e)
+  | A.Pre (pos, e) -> A.Pre (pos, r e)
+  | A.When (pos, e, c) -> A.When (pos, r e, c)
+  | A.Extract (pos, e, i1, i2) -> A.Extract (pos, r e, i1, i2)
+  | A.BinaryOp (pos, op, e1, e2) -> A.BinaryOp (pos, op, r e1, r e2)
+  | A.CompOp (pos, op, e1, e2) -> A.CompOp (pos, op, r e1, r e2)
+  | A.Arrow (pos, e1, e2) -> A.Arrow (pos, r e1, r e2)
+  | A.ArrayConstr (pos, e1, e2) -> A.ArrayConstr (pos, r e1, r e2)
+  | A.IndexAccess (pos, e1, e2, k) -> A.IndexAccess (pos, r e1, r e2, k)
+  | A.StructUpdate (pos, e1, idx, e2) ->
+    let over_idx = function
+      | A.Label _ as l -> l
+      | A.Index (p, e, k) -> A.Index (p, r e, k)
+      | A.MapIndex (p, e) -> A.MapIndex (p, r e)
+      | A.SetIndex (p, e) -> A.SetIndex (p, r e)
+      | A.GenericIndex (p, e) -> A.GenericIndex (p, r e)
+    in
+    A.StructUpdate (pos, r e1, List.map over_idx idx, Option.map r e2)
+  | A.TernaryOp (pos, op, e1, e2, e3) -> A.TernaryOp (pos, op, r e1, r e2, r e3)
+  | A.GroupExpr (pos, k, es) -> A.GroupExpr (pos, k, List.map r es)
+  | A.Condact (pos, c, e, id, args, defaults) ->
+    A.Condact (pos, r c, r e, id, List.map r args, List.map r defaults)
+  | A.Activate (pos, id, c, e, args) ->
+    A.Activate (pos, id, r c, r e, List.map r args)
+  | A.Merge (pos, c, arms) -> A.Merge (pos, c, List.map (fun (i, e) -> (i, r e)) arms)
+  | A.RestartEvery (pos, id, args, e) ->
+    A.RestartEvery (pos, id, List.map r args, r e)
+  | A.Match _ -> assert false (* desugared in lustreDesugarADTs *)
+
+let rewrite_const_decl ctx record params = function
+  | A.FreeConst (pos, id, ty) ->
+    A.FreeConst (pos, id, rewrite_ty ctx record params ty)
+  | A.TypedConst (pos, id, e, ty) ->
+    A.TypedConst (pos, id, rewrite_expr ctx record params e,
+                  rewrite_ty ctx record params ty)
+  | A.UntypedConst (pos, id, e) ->
+    A.UntypedConst (pos, id, rewrite_expr ctx record params e)
+
+let rewrite_local_decl ctx record params = function
+  | A.NodeConstDecl (pos, cd) ->
+    A.NodeConstDecl (pos, rewrite_const_decl ctx record params cd)
+  | A.NodeVarDecl (pos, (p, id, ty, cl)) ->
+    A.NodeVarDecl (pos, (p, id, rewrite_ty ctx record params ty, cl))
+
+let rewrite_node_item ctx record params item =
+  let re = rewrite_expr ctx record params in
+  match item with
+  | A.Body (Equation (pos, lhs, e)) -> A.Body (Equation (pos, lhs, re e))
+  | A.Body (Assert (pos, e)) -> A.Body (Assert (pos, re e))
+  (* The guard of a provided property is an expression of the node body too *)
+  | A.AnnotProperty (pos, id, e, k) ->
+    let k = match k with
+      | A.Provided guard -> A.Provided (re guard)
+      | A.Invariant | A.Reachable _ -> k
+    in
+    A.AnnotProperty (pos, id, re e, k)
+  | A.AnnotMain _ | A.Auto _ -> item
+  | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _ | A.FrameBlock _ ->
+    assert false (* desugared before polymorphic instantiation *)
+
+let rewrite_contract_item ctx record params ci =
+  let re = rewrite_expr ctx record params in
+  let rt = rewrite_ty ctx record params in
+  match ci with
+  | A.GhostConst cd -> A.GhostConst (rewrite_const_decl ctx record params cd)
+  | A.GhostVars (pos, A.GhostVarDec (p, tis), e) ->
+    A.GhostVars (pos, A.GhostVarDec (p, List.map (fun (p, i, ty) -> (p, i, rt ty)) tis), re e)
+  | A.Assume (pos, id, s, e) -> A.Assume (pos, id, s, re e)
+  | A.Guarantee (pos, id, s, e) -> A.Guarantee (pos, id, s, re e)
+  | A.Decreases (pos, e) -> A.Decreases (pos, re e)
+  | A.Mode (pos, id, reqs, enss) ->
+    A.Mode (pos, id,
+      List.map (fun (p, i, e) -> (p, i, re e)) reqs,
+      List.map (fun (p, i, e) -> (p, i, re e)) enss)
+  | A.ContractCall (pos, id, ty_args, args, outs) ->
+    A.ContractCall (pos, id, List.map rt ty_args, List.map re args, outs)
+  | A.AssumptionVars _ -> ci
+
+(* Only a datatype's own type parameters stand outside the instantiations of it;
+   a node's are opaque types, and it is analyzed over those instantiations *)
+let rewrite_decl ctx record decl =
+  let params = match decl with
+    | A.TypeDecl (_, AliasType (_, _, ps, _)) -> ps
+    | A.TypeDecl (_, FreeType _) | A.NodeDecl _ | A.FuncDecl _
+    | A.ContractNodeDecl _ | A.ConstDecl _ | A.NodeParamInst _ -> []
+  in
+  let rt = rewrite_ty ctx record params in
+  let over_ips = List.map (fun (p, i, ty, cl, c) -> (p, i, rt ty, cl, c)) in
+  let over_ops = List.map (fun (p, i, ty, cl) -> (p, i, rt ty, cl)) in
+  let over_locals = List.map (rewrite_local_decl ctx record params) in
+  let over_items = List.map (rewrite_node_item ctx record params) in
+  let over_contract (p, cis) =
+    (p, List.map (rewrite_contract_item ctx record params) cis)
   in
   match decl with
-  | A.NodeDecl (_, (_, _, _, _, ips, ops, locs, nis, contract))
-  | A.FuncDecl (_, (_, _, _, _, ips, ops, locs, nis, contract), _) ->
-    let acc = List.fold_left collect_ip acc ips in
-    let acc = List.fold_left collect_op acc ops in
-    let acc = List.fold_left collect_loc acc locs in
-    let acc = List.fold_left (collect_poly_adt_uses_node_item ctx) acc nis in
-    (match contract with
-    | Some (_, cis) -> List.fold_left (collect_poly_adt_uses_ci ctx) acc cis
-    | None -> acc)
-  | A.ContractNodeDecl (_, (_, _, ips, ops, (_, cis))) ->
-    let acc = List.fold_left collect_ip acc ips in
-    let acc = List.fold_left collect_op acc ops in
-    List.fold_left (collect_poly_adt_uses_ci ctx) acc cis
-  | A.ConstDecl (_, TypedConst (_, _, e, ty)) -> rt (re acc e) ty
-  | A.ConstDecl (_, FreeConst (_, _, ty)) -> rt acc ty
-  | A.ConstDecl (_, UntypedConst (_, _, e)) -> re acc e
-  | A.TypeDecl (_, AliasType (_, _, _, ty)) -> rt acc ty
-  | A.TypeDecl _ | A.NodeParamInst _ -> acc
+  | A.NodeDecl (sp, (id, ext, opac, ps, ips, ops, locals, items, contract)) ->
+    A.NodeDecl (sp, (id, ext, opac, ps, over_ips ips, over_ops ops,
+                     over_locals locals, over_items items,
+                     Option.map over_contract contract))
+  | A.FuncDecl (sp, (id, ext, opac, ps, ips, ops, locals, items, contract), attrs) ->
+    A.FuncDecl (sp, (id, ext, opac, ps, over_ips ips, over_ops ops,
+                     over_locals locals, over_items items,
+                     Option.map over_contract contract), attrs)
+  | A.ContractNodeDecl (sp, (id, ps, ips, ops, contract)) ->
+    A.ContractNodeDecl (sp, (id, ps, over_ips ips, over_ops ops,
+                             over_contract contract))
+  | A.ConstDecl (sp, cd) -> A.ConstDecl (sp, rewrite_const_decl ctx record params cd)
+  | A.TypeDecl (sp, AliasType (pos, id, ps, ty)) ->
+    A.TypeDecl (sp, AliasType (pos, id, ps, rt ty))
+  | A.TypeDecl (_, FreeType _) | A.NodeParamInst _ -> decl
 
-(* Insert each new type declaration right after its original ADT declaration.
-   If the ADT declaration is not present in [decls] (because it lives in a
-   separate list, e.g. const_inlined_type_and_consts), prepend the new
-   TypeDecl so it precedes all node declarations and is compiled first. *)
-let insert_mono_type_decls decls insertions =
-  (* insertions: (original_adt_name * new_decl) list *)
-  let decls_with_idx = List.mapi (fun i d -> (i, d)) decls in
-  let find_adt_idx name =
-    match List.find_opt (fun (_, d) ->
-      match d with
-      | A.TypeDecl (_, A.AliasType (_, n, _, A.ADT _)) -> n = name
-      | _ -> false
-    ) decls_with_idx with
-    | Some (i, _) -> Some i
-    | None -> None
+(* The generated identifiers of a node carry types and expressions of their own,
+   and are compiled alongside the node's. The fields below are every one written
+   before this pass; a pass moved ahead of it would have to be added here. *)
+let rewrite_gids ctx record gids =
+  NI.Map.map (fun (gids : GI.t) ->
+    let rt = rewrite_ty ctx record [] in
+    let re = rewrite_expr ctx record [] in
+    { gids with
+      GI.node_args = List.map (fun (id, c, ty, e) -> (id, c, rt ty, re e)) gids.GI.node_args;
+      GI.locals = GI.StringMap.map rt gids.GI.locals;
+      GI.free_constants = List.map (fun (id, ty) -> (id, rt ty)) gids.GI.free_constants;
+      GI.oracles = List.map (fun (id, ty, e) -> (id, rt ty, re e)) gids.GI.oracles;
+      GI.ib_oracles = List.map (fun (id, ty) -> (id, rt ty)) gids.GI.ib_oracles;
+      GI.empty_sets = List.map (fun (id, ty) -> (id, rt ty)) gids.GI.empty_sets;
+      GI.empty_maps = List.map (fun (id, kt, vt) -> (id, rt kt, rt vt)) gids.GI.empty_maps;
+      GI.equations =
+        List.map (fun (tis, scope, lhs, e, src) ->
+          (List.map (fun (p, i, ty) -> (p, i, rt ty)) tis, scope, lhs, re e, src)
+        ) gids.GI.equations }
+  ) gids
+
+(* ---- Declaring the instantiations a program uses ---- *)
+
+(* A monomorphic declaration to generate: a use that needs it, the type it is
+   declared as, and the types it must be declared after *)
+type instance = {
+  use_pos : Lib.position;
+  body : A.lustre_type;
+  refs : HString.t list;
+}
+
+(* Type names a type mentions, not looking inside a datatype's constructors *)
+let rec type_names_in_ty acc ty =
+  match ty with
+  | A.UserType (_, ty_args, id) -> List.fold_left type_names_in_ty (id :: acc) ty_args
+  | A.AbstractType (_, id) | A.EnumType (_, id, _) | A.History (_, id)
+  | A.ADT (_, id, _) -> id :: acc
+  | A.RecordType (_, _, fields) ->
+    List.fold_left (fun acc (_, _, ty) -> type_names_in_ty acc ty) acc fields
+  | A.ArrayType (_, (ty, _)) | A.Set (_, ty)
+  | A.RefinementType (_, (_, _, ty), _) -> type_names_in_ty acc ty
+  | A.Map (_, ty1, ty2) | A.TArr (_, ty1, ty2) ->
+    type_names_in_ty (type_names_in_ty acc ty1) ty2
+  | A.TupleType (_, tys) | A.GroupType (_, tys) ->
+    List.fold_left type_names_in_ty acc tys
+  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ -> acc
+
+(* Type names an instantiation's definition mentions, which its declaration must
+   follow. A datatype's own name says nothing; its constructor fields do. *)
+let instance_refs body =
+  match body with
+  | A.ADT (_, _, ctors) ->
+    List.concat_map (fun (_, fields) ->
+      List.concat_map (fun (_, ty) -> type_names_in_ty [] ty) fields) ctors
+  | A.UserType _ | A.AbstractType _ | A.TupleType _ | A.GroupType _
+  | A.RecordType _ | A.ArrayType _ | A.EnumType _ | A.RefinementType _
+  | A.History _ | A.TArr _ | A.Set _ | A.Map _ | A.Bool _ | A.Int _
+  | A.Real _ | A.SBitVector _ | A.UBitVector _ -> type_names_in_ty [] body
+
+(* True iff a type is compiled to a single value, as a datatype's field must be.
+   A datatype is scalar only when recursive: a non-recursive one becomes a record. *)
+let rec is_scalar_field_type ctx ty =
+  match ty with
+  | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
+  | A.EnumType _ | A.AbstractType _ -> true
+  | A.ADT (_, name, ctors) -> LH.is_directly_recursive_adt name ctors
+  | A.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ctx ty
+  | A.UserType (_, ty_args, id) ->
+    (* Every name a field can mention is a declared type by now, the
+       instantiations this pass adds included, so a miss is a type parameter *)
+    (match Ctx.lookup_ty_syn ctx id ty_args with
+    | Some ty -> is_scalar_field_type ctx ty
+    | None -> true)
+  | A.TupleType _ | A.GroupType _ | A.RecordType _ | A.ArrayType _
+  | A.Set _ | A.Map _ | A.TArr _ | A.History _ -> false
+
+(* True iff a type is or contains a refinement type. A datatype is not looked
+   inside: a refinement on its own fields is rejected where it is declared. *)
+let rec has_refinement ctx ty =
+  let r = has_refinement ctx in
+  match ty with
+  | A.RefinementType _ -> true
+  | A.UserType (_, ty_args, id) ->
+    (match Ctx.lookup_ty_syn_body ctx id ty_args with
+    | Some (A.ADT _) | None -> false
+    | Some body -> r body)
+  | A.ArrayType (_, (ty, _)) | A.Set (_, ty) -> r ty
+  | A.Map (_, ty1, ty2) | A.TArr (_, ty1, ty2) -> r ty1 || r ty2
+  | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.exists r tys
+  | A.RecordType (_, _, fields) -> List.exists (fun (_, _, ty) -> r ty) fields
+  | A.ADT _ | A.AbstractType _ | A.EnumType _ | A.History _ | A.Bool _
+  | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ -> false
+
+(* A recursive datatype's field restrictions are checked where it is declared,
+   but a field declared as a type parameter only becomes concrete here *)
+let check_instantiated_fields ctx mono_name inst =
+  let fields = match inst.body with
+    | A.ADT (_, _, ctors) ->
+      List.concat_map (fun (_, fields) ->
+        List.filter (fun (_, ty) -> not (LH.is_direct_self_reference mono_name ty)) fields
+      ) ctors
+    | A.UserType _ | A.AbstractType _ | A.TupleType _ | A.GroupType _
+    | A.RecordType _ | A.ArrayType _ | A.EnumType _ | A.RefinementType _
+    | A.History _ | A.TArr _ | A.Set _ | A.Map _ | A.Bool _ | A.Int _
+    | A.Real _ | A.SBitVector _ | A.UBitVector _ -> []
   in
-  (* Split insertions into those whose ADT is found in decls and those not *)
-  let (found, prepend) = List.partition_map (fun (name, new_decl) ->
-    match find_adt_idx name with
-    | Some i -> Either.Left (i, new_decl)
-    | None -> Either.Right new_decl
-  ) insertions in
-  let after_idx i = List.filter (fun (j, _) -> j = i) found |> List.map snd in
-  let decls = List.concat (List.mapi (fun i d -> d :: after_idx i) decls) in
-  prepend @ decls
+  match List.find_opt (fun (_, ty) -> not (is_scalar_field_type ctx ty)) fields with
+  | Some (fname, _) ->
+    Chk.type_error inst.use_pos
+      (Chk.UnsupportedRecursiveAdtField (mono_name, fname))
+  | None ->
+    match List.find_opt (fun (_, ty) -> has_refinement ctx ty) fields with
+    | Some (fname, _) ->
+      Chk.type_error inst.use_pos
+        (Chk.UnsupportedRefinementInRecursiveAdtField (mono_name, fname))
+    | None -> R.ok ()
 
-(* The constructors of the ADT [id] instantiated at [ty_args] *)
-let instantiated_ctors ctx id ty_args =
-  let ty_vars = match Ctx.lookup_ty_ty_vars ctx id with Some vs -> vs | None -> [] in
-  let sigma =
-    if List.length ty_vars = List.length ty_args then List.combine ty_vars ty_args
-    else []
+(* The datatypes a declared name reaches, when it names a datatype that is not an
+   instantiation. Those are declared once, so a cycle through one of them still
+   needs the joint declaration a cycle between instantiations would. *)
+let datatype_refs ctx name =
+  match Ctx.lookup_ty_syn ctx name [] with
+  | Some (A.ADT (_, _, ctors)) -> instance_refs (A.ADT (Lib.dummy_pos, name, ctors))
+  | Some _ | None -> []
+
+(* The instantiations to declare, a field's before the type that embeds it. Each
+   is declared on its own, so a cycle through two of them has no such order. *)
+let sort_instances ctx instances =
+  (* A name outside [instances] is not declared here, so it takes no place in
+     the order; it is followed only to see whether a cycle comes back *)
+  let rec visit path acc name =
+    if List.mem_assoc name instances && List.mem name acc then R.ok acc
+    else if List.mem name path then
+      match List.find_opt (fun n -> List.mem_assoc n instances) (name :: path) with
+      | None -> R.ok acc
+      | Some instance_on_cycle ->
+        let inst = List.assoc instance_on_cycle instances in
+        let other = if HString.equal name instance_on_cycle then List.hd path else name in
+        Chk.type_error inst.use_pos
+          (Chk.MutuallyRecursiveDatatypes (instance_on_cycle, other))
+    else
+      let deps, declared_here = match List.assoc_opt name instances with
+        | Some inst -> inst.refs, true
+        | None -> datatype_refs ctx name, false
+      in
+      let deps = List.filter (fun n -> not (HString.equal n name)) deps in
+      let* acc = R.seq_chain (visit (name :: path)) acc deps in
+      R.ok (if declared_here then acc @ [name] else acc)
   in
-  match Ctx.lookup_ty_syn ctx id [] with
-  | Some (A.ADT (_, _, ctors)) ->
-    List.map (fun (ctor, fields) ->
-      ctor, List.map (fun (fname, ty) -> (fname, LH.apply_type_subst_in_type sigma ty)) fields
-    ) ctors
-  | _ -> assert false
+  R.seq_chain (visit []) [] (List.map fst instances)
 
-(* [collect_poly_adt_uses_decl] restricted to the instantiations that do not
-   mention a type parameter of [decl] *)
-let collect_ground_poly_adt_uses ctx acc decl =
-  let params = ty_params_of_decl decl in
-  let uses = collect_poly_adt_uses_decl ctx [] decl in
-  List.fold_left (fun acc ((key, (_, ty_args)) as use) ->
-    if List.exists (mentions_ty_var params) ty_args || List.mem_assoc key acc
-    then acc else acc @ [use]
-  ) acc uses
+(* Insert each monomorphic declaration after the last declaration it depends on,
+   so the instantiations must arrive in dependency order. One that depends on
+   nothing declared here is prepended, ahead of every node declaration. *)
+let insert_mono_type_decls decls instances =
+  let idx_of_name =
+    List.mapi (fun i d -> (i, d)) decls
+    |> List.filter_map (fun (i, d) -> match d with
+       | A.TypeDecl (_, A.AliasType (_, n, _, _))
+       | A.TypeDecl (_, A.FreeType (_, n)) -> Some (n, i)
+       | A.NodeDecl _ | A.FuncDecl _ | A.ContractNodeDecl _ | A.ConstDecl _
+       | A.NodeParamInst _ -> None)
+  in
+  let placed =
+    List.fold_left (fun (anchors, placed) (mono_name, inst, decl) ->
+      let anchor =
+        List.fold_left (fun acc n ->
+          match List.assoc_opt n idx_of_name, List.assoc_opt n anchors with
+          | Some i, _ | None, Some i -> max acc i
+          | None, None -> acc
+        ) (-1) inst.refs
+      in
+      ((mono_name, anchor) :: anchors, placed @ [(anchor, decl)])
+    ) ([], []) instances
+    |> snd
+  in
+  let after i = List.filter (fun (j, _) -> j = i) placed |> List.map snd in
+  after (-1) @ List.concat (List.mapi (fun i d -> d :: after i) decls)
 
-let instantiate_polymorphic_adts ctx type_decls decls =
+let instantiate_polymorphic_adts ctx gids type_decls decls =
   let pos = Lib.dummy_pos in
   let span = { A.start_pos = pos; A.end_pos = pos } in
-  (* Collect all unique (key, (adt_name, ty_args)) pairs across all declarations.
-     Inner types appear before outer ones (collect_poly_adt_uses_ty recurses into
-     ty_args first), which ensures correct ordering of the inserted TypeDecls. *)
-  let uses = List.fold_left (collect_ground_poly_adt_uses ctx) [] (type_decls @ decls) in
-  if uses = [] then ctx, type_decls
+  (* The instantiations the program uses, in the order they were met *)
+  let pending = ref [] in
+  let record use_pos base ty_args mono_name =
+    if not (List.mem_assoc mono_name !pending) then
+      pending := !pending @ [(mono_name, (base, ty_args, use_pos))]
+  in
+  (* The typing context types the program, so it is rewritten along with it; the
+     original keeps resolving names as they were written *)
+  let out_ctx =
+    Ctx.map_types
+      ~in_definition:(fun ps -> rewrite_ty ctx record ps)
+      ~in_use:(rewrite_ty ctx record []) ctx
+  in
+  let type_decls = List.map (rewrite_decl ctx record) type_decls in
+  let decls = List.map (rewrite_decl ctx record) decls in
+  let gids = rewrite_gids ctx record gids in
+  (* An instantiation's definition may name instantiations found nowhere else, so
+     rewriting it adds to the list while the list is walked *)
+  let rec close i acc =
+    if i >= List.length !pending then List.rev acc
+    else
+      let mono_name, (base, ty_args, use_pos) = List.nth !pending i in
+      let body = match Ctx.lookup_ty_syn_body ctx base ty_args with
+        | Some body -> body
+        | None -> assert false
+      in
+      (* A datatype is declared under the instantiation's name, and its
+         constructors after it, so that a use of one names the instantiation *)
+      let body = match body with
+        | A.ADT (p, _, ctors) ->
+          A.ADT (p, mono_name,
+            List.map (fun (ctor, fields) ->
+              (mono_ctor_name mono_name ctor,
+               List.map (fun (f, ty) -> (f, rewrite_ty ctx record [] ty)) fields)) ctors)
+        | body -> rewrite_ty ctx record [] body
+      in
+      let refs = base :: instance_refs body in
+      close (i + 1) ((mono_name, { use_pos; body; refs }) :: acc)
+  in
+  let instances = close 0 [] in
+  if instances = [] then R.ok (out_ctx, gids, type_decls, decls)
   else
-    (* An instantiation's own fields may name instantiations that occur nowhere
-       else in the program, so the collection is closed under the fields of the
-       instantiations it produces. *)
-    let rec close acc pending =
-      match pending with
-      | [] -> List.rev acc
-      | ((key, (id, ty_args)) as use) :: rest ->
-        if List.mem_assoc key acc then close acc rest
-        else
-          let params = match Ctx.lookup_ty_ty_vars ctx id with Some vs -> vs | None -> [] in
-          let ctors = instantiated_ctors ctx id ty_args in
-          let field_uses =
-            List.fold_left (fun a (_, fields) ->
-              List.fold_left (fun a (_, ty) -> collect_poly_adt_uses_ty ctx a ty) a fields
-            ) [] ctors
-            |> List.filter (fun (k, (_, args)) ->
-                 k <> key && not (List.exists (mentions_ty_var params) args))
-          in
-          (* A field's own instantiation is declared first, so that it is
-             compiled before the type that embeds it *)
-          let unseen =
-            List.filter (fun (k, _) ->
-              not (List.mem_assoc k acc) && not (List.mem_assoc k rest)) field_uses
-          in
-          match unseen with
-          | [] -> close (use :: acc) rest
-          | _ :: _ -> close acc (unseen @ (use :: rest))
-    in
-    let uses = close [] uses in
-    let ctx, insertions =
-      List.fold_left (fun (ctx, insertions) (key, (id, ty_args)) ->
-        let mono_name = HString.mk_hstring key in
-        let concrete_ctors = instantiated_ctors ctx id ty_args in
-        (* Field types that are themselves polymorphic ADT uses (e.g.,
-           UserType([Int],"Opt") for Opt<Opt<int>>) are kept in their original
-           UserType form; compile_ast_type resolves them via the mono key. *)
-        let mono_ty =
-          if LH.is_directly_recursive_adt id (instantiated_ctors ctx id []) then
-            (* A recursive ADT is compiled to an SMT-LIB datatype, not flattened
-               into a record: each instantiation is a datatype of its own *)
-            A.ADT (pos, mono_name, concrete_ctors)
-          else
-            let adt_info = LDAT.build_adt_info id [] concrete_ctors ~is_recursive:false in
-            match LDAT.record_type_of_adt pos adt_info with
-            | A.RecordType (p, _, fields) -> A.RecordType (p, mono_name, fields)
-            | _ -> assert false
-        in
-        let type_decl = A.TypeDecl (span, A.AliasType (pos, mono_name, [], mono_ty)) in
-        (* Register the mono name as a declared type so context lookups succeed. *)
+    (* An instantiation is a type of its own from here on: its name is declared,
+       stands for its definition, and owns the constructors of its datatype.
+       Declaring them before the checks below is what lets those resolve a field
+       whose type is another instantiation. *)
+    let out_ctx =
+      List.fold_left (fun ctx (mono_name, inst) ->
         let ctx = Ctx.add_ty_decl ctx mono_name in
-        let insertions = insertions @ [(id, type_decl)] in
-        ctx, insertions
-      ) (ctx, []) uses
+        let ctx = Ctx.add_ty_syn ctx mono_name inst.body in
+        match inst.body with
+        | A.ADT (_, _, ctors) ->
+          List.fold_left (fun ctx (ctor, fields) ->
+            Ctx.add_adt_ctor ctx ctor mono_name (List.map snd fields)
+          ) ctx ctors
+        | A.UserType _ | A.AbstractType _ | A.TupleType _ | A.GroupType _
+        | A.RecordType _ | A.ArrayType _ | A.EnumType _ | A.RefinementType _
+        | A.History _ | A.TArr _ | A.Set _ | A.Map _ | A.Bool _ | A.Int _
+        | A.Real _ | A.SBitVector _ | A.UBitVector _ -> ctx
+      ) out_ctx instances
     in
-    (* Insert concrete TypeDecls right after each original ADT declaration.
-       No AST type rewriting is needed: UserType([Int],"Opt") is left as-is
-       everywhere; compile_ast_type resolves it to the concrete compiled type
-       via the mono key lookup. *)
+    let* () =
+      R.seq_ (List.map (fun (mono_name, inst) ->
+        check_instantiated_fields out_ctx mono_name inst) instances)
+    in
+    let* order = sort_instances out_ctx instances in
+    let insertions =
+      List.map (fun mono_name ->
+        let inst = List.assoc mono_name instances in
+        (mono_name, inst,
+         A.TypeDecl (span, A.AliasType (pos, mono_name, [], inst.body)))
+      ) order
+    in
     let type_decls = insert_mono_type_decls type_decls insertions in
-    ctx, type_decls
+    R.ok (out_ctx, gids, type_decls, decls)
 
 let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t  * A.declaration list
 = fun ctx gids decls ->

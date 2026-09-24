@@ -116,6 +116,7 @@ type error_kind = Unknown of string
   | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | NonUniformRecursiveDatatype of HString.t * HString.t
+  | MutuallyRecursiveDatatypes of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t

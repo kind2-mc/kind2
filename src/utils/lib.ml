@@ -633,9 +633,10 @@ let escape_xml_string s =
   let ltr = Str.regexp "<" in
   let gtr = Str.regexp ">" in
   let ampr = Str.regexp "&" in
-  s |> Str.global_replace ltr "&lt;"
+  (* Ampersands first, or the ampersand of an entity just written is escaped *)
+  s |> Str.global_replace ampr "&amp;"
+    |> Str.global_replace ltr "&lt;"
     |> Str.global_replace gtr "&gt;"
-    |> Str.global_replace ampr "&amp;"
 
 
 (* ********************************************************************** *)

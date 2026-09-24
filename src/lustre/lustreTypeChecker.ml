@@ -131,6 +131,7 @@ type error_kind = Unknown of string
   | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
   | NonUniformRecursiveDatatype of HString.t * HString.t
+  | MutuallyRecursiveDatatypes of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
@@ -316,6 +317,10 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring field
     ^ "' applied to type arguments other than the datatype's own type parameters, in order; \
        polymorphic recursion is not supported"
+  | MutuallyRecursiveDatatypes (ty_name1, ty_name2) ->
+    "Datatypes '" ^ HString.string_of_hstring ty_name1 ^ "' and '"
+    ^ HString.string_of_hstring ty_name2
+    ^ "' are mutually recursive, which is not yet supported"
   | UnsupportedRefinementInRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
@@ -1018,32 +1023,17 @@ let union_keys key id1 id2 = match key, id1, id2 with
     The function is somewhat analogous to `eq_lustre_type`, but returns this mapping rather than 
     a boolean. *)
 let unify_types pos ctx is_type_ascription ty1 ty2 =
-  (* Synonyms, refinements and history types are peeled off one level at a time
-     rather than throughout, so that a type parameter is bound to the argument's
-     type as written rather than to its expansion *)
-  let rec peel ty =
-    match ty with
-    | LA.UserType (_, ty_args, i) ->
-      (match lookup_ty_syn ctx i ty_args with
-       | None -> R.ok ty
-       | Some ty' -> peel ty')
-    | LA.RefinementType (_, (_, _, ty'), _) -> peel ty'
-    | LA.History (pos, i) ->
-      (match lookup_ty ctx i with
-       | None -> type_error pos (UnboundIdentifier i)
-       | Some ty' -> peel ty')
-    | _ -> R.ok ty
-  in
   let rec aux seen ty1 ty2 =
     let r = aux seen in
-    let src_ty2 = ty2 in
-    let* ty1 = peel ty1 in
-    let* ty2 = peel ty2 in
+    let* ty1 = expand_type_syn_reftype_history ctx ty1 in
+    let* ty2 = expand_type_syn_reftype_history ctx ty2 in
     match ty1, ty2 with
-    (* UserTypes denote __the callee's__ type parameters once peeled *)
-    | LA.UserType (_, _, id), _ -> R.ok (StringMap.singleton id src_ty2)
-    (* AbstractTypes denote __the caller's__ type parameters once peeled *)
-    | LA.AbstractType (_, id), _ -> R.ok (StringMap.singleton id src_ty2)
+    (* UserTypes denote __the callee's__
+       type parameters after calling `expand_type_syn_reftype_history` *)
+    | LA.UserType (_, _, id), ty2 -> R.ok (StringMap.singleton id ty2)
+    (* AbstractTypes denote __the caller's__
+       type parameters after calling `expand_type_syn_reftype_history` *)
+    | LA.AbstractType (_, id), ty2 -> R.ok (StringMap.singleton id ty2)
 
     (* Group types are weird... *)
     | GroupType (_, tys1), GroupType (_, tys2) ->
@@ -1249,14 +1239,14 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* scrut_ty, e', warnings = infer_type_expr ctx nname e in
     let* scrut_ty_exp = expand_type_syn_reftype_history ctx scrut_ty in
     (match scrut_ty_exp with
-    | LA.ADT (_, adt_name, _) -> (
-      match lookup_constructor ctx c with
-      | None -> type_error pos (UnboundConstructor c)
-      | Some (ty_name, _) ->
-        if HString.equal adt_name ty_name then
-          R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
-        else
-          type_error pos (UnboundConstructor c))
+    (* Each instantiation names its constructors after itself, so a tester is
+       resolved against the constructors of the datatype it tests *)
+    | LA.ADT (_, _, ctors) ->
+      let source_name c = Type.source_ctor_name (HString.string_of_hstring c) in
+      if List.exists (fun (ctor, _) ->
+           String.equal (source_name ctor) (source_name c)) ctors
+      then R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
+      else type_error pos (UnboundConstructor c)
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty))
 
   (* Values *)

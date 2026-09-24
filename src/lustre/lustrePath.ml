@@ -1665,7 +1665,7 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
       Format.pp_print_string ppf "type=\"array\""
     | Type.Datatype (name, ctors) ->
       Format.fprintf ppf "type=\"datatype\" datatypeName=\"%s\"@ constructors=\"%a\""
-        name
+        (Lib.escape_xml_string name)
         (pp_print_list Format.pp_print_string ", ")
         (List.map (fun (c, _) -> Type.source_ctor_name c) ctors)
     (* A stream's own declared type is never a bare self-reference placeholder --

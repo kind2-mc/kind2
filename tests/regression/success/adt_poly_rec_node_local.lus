@@ -1,9 +1,9 @@
 datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
 
-node depth<T>(x: T) returns (n: int);
-var l: List<T>;
+node depth<A>(x: A) returns (n: int);
+var l: List<A>;
 let
-  l = Cons(x, Nil@<T>);
+  l = Cons(x, Nil@<A>);
   n = match l with
     | Nil : 0
     | Cons(a, r) : 1

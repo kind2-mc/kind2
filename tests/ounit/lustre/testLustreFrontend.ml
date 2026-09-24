@@ -1007,9 +1007,41 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test polymorphic recursive ADT is rejected" (fun () ->
+  mk_test "test non-uniform polymorphic recursion is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_polymorphic_recursion.lus" with
     | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at an array type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_array_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a record type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_record_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a set type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_set_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a non-recursive ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_nonrec_adt_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a refinement type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_refinement_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a subrange type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_subrange_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test mutually recursive ADT instantiations are rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_mutual_recursion.lus" with
+    | Error (`LustreTypeCheckerError (_, MutuallyRecursiveDatatypes _)) -> true
+    | _ -> false);
+  mk_test "test an instantiation cyclic through a datatype is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_cycle_through_datatype.lus" with
+    | Error (`LustreTypeCheckerError (_, MutuallyRecursiveDatatypes _)) -> true
     | _ -> false);
   mk_test "test two instantiations of one polymorphic ADT are distinct types" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_mismatch.lus" with
@@ -1333,4 +1365,25 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
     match load_file "./lustreDesugarMatchBlocks/pattern_variable_shadows_output.lus" with
     | Error (`LustreDesugarMatchBlocksError (_, ShadowingPatternVariable _)) -> true
     | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                           Lustre Ast Printing                               *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreAst printing tests" >::: [
+  (* The constructors of an instantiation of a polymorphic datatype are named
+     after the instantiation; what is displayed is the source name. *)
+  mk_test "test a constructor term prints under its source name" (fun () ->
+    let pos = Lib.dummy_pos in
+    let hs = HString.mk_hstring in
+    let e =
+      LustreAst.ADTTerm (pos, [], hs "List<int>$Cons",
+        [LustreAst.ADTTerm (pos, [], hs "List<int>$Nil", [])])
+    in
+    Format.asprintf "%a" LustreAst.pp_print_expr e = "Cons(Nil)");
+  mk_test "test a constructor tester prints under its source name" (fun () ->
+    let pos = Lib.dummy_pos in
+    let hs = HString.mk_hstring in
+    let e = LustreAst.ADTTester (pos, LustreAst.Ident (pos, hs "x"), hs "List<int>$Cons") in
+    Format.asprintf "%a" LustreAst.pp_print_expr e = "Cons?(x)");
 ])

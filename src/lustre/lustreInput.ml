@@ -260,8 +260,9 @@ let type_check declarations =
     (* Step 21. Instantiate polymorphic ADTs with concrete types. Runs after node
        instantiation, which is what makes an instantiation used only inside a
        polymorphic node ground. *)
-    let inlined_global_ctx, const_inlined_type_and_consts =
-      LIP.instantiate_polymorphic_adts inlined_global_ctx
+    let* inlined_global_ctx, gids,
+         const_inlined_type_and_consts, const_inlined_nodes_and_contracts =
+      LIP.instantiate_polymorphic_adts inlined_global_ctx gids
         const_inlined_type_and_consts const_inlined_nodes_and_contracts
     in
 

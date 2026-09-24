@@ -35,7 +35,6 @@ module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
 module LDAT = LustreDesugarADTs
-module LIPN = LustreInstantiatePolyNodes
 module LDF = LustreDesugarFrameBlocks
 module LDI = LustreDesugarIfBlocks
 module NI = NodeId
@@ -859,9 +858,8 @@ let field_name_to_index adt_map field_hs =
   | Some idx -> idx
   | None -> X.RecordIndex field_str
 
-(* SMT symbol of a datatype instantiation's name. Angle brackets are legal in an
-   SMT-LIB simple symbol, so the instantiation stays readable; a type argument
-   spelled with characters that are not (an array's brackets, say) does not. *)
+(* SMT symbol of a datatype's name: angle brackets are legal in an SMT-LIB
+   simple symbol, so they are kept, and any character that is not is mangled *)
 let smt_name_of_adt_name name =
   String.map (function
     | ('a'..'z' | 'A'..'Z' | '0'..'9'
@@ -869,52 +867,20 @@ let smt_name_of_adt_name name =
       | '<' | '>' | '.' | '?' | '/') as c -> c
     | _ -> '$') name
 
-(* The [i]th constructor symbol and field types of a compiled datatype: an
-   instantiation's symbols are recovered by position, since its constructors
-   are compiled in declaration order. *)
-let datatype_ctor_at dt i =
-  List.nth (Type.constructors_of_datatype dt) i
+(* SMT symbol of a constructor of the datatype of the given name: each
+   instantiation declares constructors of its own, named after itself *)
+let ctor_sym_of name ctor =
+  Type.qualified_ctor_name name
+    (Type.source_ctor_name (HString.string_of_hstring ctor))
 
-(* Name under which the instantiation of the ADT [ty_name] at [ty_args] is
-   compiled; the ADT's own name when it is not polymorphic *)
-let adt_instance_name ty_name ty_args =
-  if ty_args = [] then ty_name
-  else HString.mk_hstring (LIPN.adt_mono_key ty_name ty_args)
+(* SMT symbol of a constructor in the compiled type of its datatype *)
+let compiled_ctor_sym t ctor =
+  if Type.is_datatype t then ctor_sym_of (Type.name_of_datatype t) ctor
+  else HString.string_of_hstring ctor
 
-(* Substitution of the type parameters of the ADT [ty_name] by [ty_args] *)
-let adt_ty_subst ctx ty_name ty_args =
-  match Ctx.lookup_ty_ty_vars ctx ty_name with
-  | Some ty_vars when List.length ty_vars = List.length ty_args ->
-    List.combine ty_vars ty_args
-  | Some _ | None -> []
-
-(* Position of [ctor] among the constructors of the ADT named [ty_name] *)
-let ctor_index adt_map ty_name ctor =
-  match StringMap.find_opt ty_name adt_map with
-  | None -> None
-  | Some (info : LDAT.adt_info) ->
-    let rec find i = function
-      | [] -> None
-      | c :: rest -> if HString.equal c ctor then Some i else find (i + 1) rest
-    in
-    find 0 info.LDAT.ctor_variants
-
-(* SMT symbol of [ctor] in the compiled type [t] of the ADT [ty_name]. A
-   datatype's constructor symbols are recovered by position: a polymorphic
-   datatype's instantiations each declare their own. *)
-let compiled_ctor_sym cstate t ty_name ctor =
-  let plain = HString.string_of_hstring ctor in
-  if not (Type.is_datatype t) then plain
-  else
-    match ctor_index cstate.adt_map ty_name ctor with
-    | None -> plain
-    | Some i -> fst (datatype_ctor_at t i)
-
-(* For a FieldProject on a recursive ADT whose field name is the user-visible name of a
-   selector (e.g. "s3" for Enc(s2: Msg, s3: Msg)), find the position of the
-   declaring constructor and of the field within it, by looking up [ty_name]'s
-   constructors specifically.  The selector's SMT symbol and result type are read
-   off the compiled datatype, which for a polymorphic ADT is the instantiation's. *)
+(* For a FieldProject on a recursive ADT whose field name is a selector's
+   user-visible name (e.g. "s3" for Enc(s2: Msg, s3: Msg)), the declaring
+   constructor and the field's position in it *)
 let find_recursive_selector adt_map ty_name field =
   match StringMap.find_opt ty_name adt_map with
   | None -> None
@@ -931,11 +897,8 @@ let find_recursive_selector adt_map ty_name field =
           let rec find_idx i = function
             | [] -> None
             | (fname, _) :: rest ->
-              if HString.string_of_hstring fname <> target then find_idx (i + 1) rest
-              else
-                match ctor_index adt_map ty_name ctor_hs with
-                | Some ctor_pos -> Some (ctor_pos, i)
-                | None -> None
+              if HString.string_of_hstring fname = target then Some (ctor_hs, i)
+              else find_idx (i + 1) rest
           in
           find_idx 0 fields
       ) info.ctor_fields None
@@ -1006,39 +969,11 @@ and compile_ast_type
       let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
-  | A.UserType (_, ty_args, ident) ->
-    (* For polymorphic ADT instantiations (e.g., UserType([Int],"Opt")), look up
-       the monomorphized concrete type "Opt<int>" that was inserted by
-       instantiate_polymorphic_adts. Fall back to ident for non-ADT UserTypes. *)
-    let key = if ty_args = [] then ident
-      else HString.mk_hstring (LIPN.adt_mono_key ident ty_args)
-    in
-    (match StringMap.find_opt key cstate.type_alias with
-    | Some t -> t
-    | None ->
-      let generic = StringMap.find ident cstate.type_alias in
-      (match ty_args with
-      | [] -> generic
-      | _ ->
-        match StringMap.find_opt ident cstate.adt_map with
-        | None -> generic
-        | Some adt_info ->
-          let type_params = adt_info.LDAT.type_params in
-          if List.length type_params <> List.length ty_args then generic
-          else
-            let subst = List.fold_left2 (fun acc param arg ->
-              match X.bindings (compile_ast_type cstate ctx map arg) with
-              | [(idx, t)] when idx = X.empty_index -> StringMap.add param t acc
-              | _ -> acc
-            ) StringMap.empty type_params ty_args in
-            X.map (fun ty ->
-              match Type.node_of_type ty with
-              | Type.Abstr s ->
-                (match StringMap.find_opt (HString.mk_hstring s) subst with
-                | Some t -> t
-                | None -> ty)
-              | _ -> ty
-            ) generic))
+  | A.UserType (_, _, ident) ->
+    (* Every use of a polymorphic type names its own instantiation, at concrete
+       types or at the type parameters of the declaration it occurs in, so the
+       type arguments here are the ones that declaration binds *)
+    StringMap.find ident cstate.type_alias
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
@@ -1154,27 +1089,9 @@ and compile_ast_type
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
   | A.ADT (_, ident, ctors) ->
-    (* An ADT reached by expanding the name of an instantiation ("List<int>")
-       carries the ADT's own name, but its self-referential fields name the
-       instantiation; those decide which datatype this is *)
-    let name =
-      List.concat_map (fun (_, fields) -> List.map snd fields) ctors
-      |> List.find_map (function
-           | A.UserType (_, (_ :: _ as ty_args), id) when HString.equal id ident ->
-             Some (LIPN.adt_mono_key id ty_args)
-           | _ -> None)
-      |> (function Some n -> n | None -> HString.string_of_hstring ident)
-    in
-    let smt_name = smt_name_of_adt_name name in
-    (* A field is a self-reference either under the ADT's own name or under the
-       name of the instantiation being compiled *)
-    let is_self ty = match ty with
-      | A.UserType (_, ty_args, id) ->
-        HString.equal id ident || String.equal (LIPN.adt_mono_key id ty_args) name
-      | _ -> false
-    in
+    let smt_name = smt_name_of_adt_name (HString.string_of_hstring ident) in
     let compile_field_type ty =
-      if is_self ty then
+      if AH.is_direct_self_reference ident ty then
         Type.mk_datatype_ref smt_name
       else
         match X.bindings (compile_ast_type cstate ctx map ty) with
@@ -1182,7 +1099,7 @@ and compile_ast_type
         | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
     in
     let ctors' = List.map (fun (c, fields) ->
-      (Type.qualified_ctor_name smt_name (HString.string_of_hstring c),
+      (ctor_sym_of smt_name c,
        List.map (fun (_, ty) -> compile_field_type ty) fields)
     ) ctors in
     X.singleton X.empty_index (Type.mk_datatype smt_name ctors')
@@ -1927,10 +1844,11 @@ and compile_ast_expr
       | A.Selector _ | A.RecordField | A.Unresolved -> None
     in
     (match recursive_selector with
-    | Some (ctor_pos, field_pos) ->
+    | Some (ctor, field_pos) ->
       let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
       let dt = E.type_of_lustre_expr e' in
-      let ctor_sym, field_types = datatype_ctor_at dt ctor_pos in
+      let ctor_sym = compiled_ctor_sym dt ctor in
+      let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
       let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
       let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
       X.singleton X.empty_index (E.mk_selector selector_name result_type e')
@@ -2002,43 +1920,33 @@ and compile_ast_expr
     making these expressions impossible at this stage *)
   | A.When _ -> assert false
   | A.Activate _ -> assert false
-  | A.ADTTerm (_, ty_args, ctor, arg_exprs) ->
+  | A.ADTTerm (_, _, ctor, arg_exprs) ->
+    (* A constructor names the ADT it belongs to, which for a polymorphic ADT is
+       the instantiation whose value it builds, so it carries no type arguments *)
     let (ty_name, field_tys) =
       match Ctx.lookup_constructor ctx ctor with
       | Some r -> r
       | None -> assert false
     in
-    (* An instantiation that is not ground has no monomorphic declaration: the
-       polymorphic node it occurs in is compiled, but never analyzed *)
-    let key = adt_instance_name ty_name ty_args in
-    let compiled_adt = match StringMap.find_opt key cstate.type_alias with
-      | Some t -> t
-      | None -> StringMap.find ty_name cstate.type_alias
+    let adt_type =
+      X.find X.empty_index (StringMap.find ty_name cstate.type_alias)
     in
-    let adt_type = X.find X.empty_index compiled_adt in
     let compiled_args = List.map
       (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
       arg_exprs
     in
-    (* The constructor is declared with the field types of the instantiation *)
-    let subst = adt_ty_subst ctx ty_name ty_args in
     let arg_types = List.map
-      (fun ty ->
-        X.find X.empty_index
-          (compile_ast_type cstate ctx map (AH.apply_type_subst_in_type subst ty)))
+      (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
       field_tys
     in
-    let ctor_str = compiled_ctor_sym cstate adt_type ty_name ctor in
-    let ctor_sym = UfSymbol.mk_uf_symbol ctor_str arg_types adt_type in
+    let ctor_sym =
+      UfSymbol.mk_uf_symbol (compiled_ctor_sym adt_type ctor) arg_types adt_type
+    in
     X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
   | A.Match _ -> assert false
   | A.ADTTester (_, expr, ctor) ->
     let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
-    let ty_name = match Ctx.lookup_constructor ctx ctor with
-      | Some (n, _) -> n
-      | None -> assert false
-    in
-    let ctor_str = compiled_ctor_sym cstate (E.type_of_lustre_expr e') ty_name ctor in
+    let ctor_str = compiled_ctor_sym (E.type_of_lustre_expr e') ctor in
     X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
 and compile_node_call ?(uf_applied=false) node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
@@ -3836,8 +3744,9 @@ and compile_type_decl pos ctx cstate = function
       | None -> cstate.ref_type_names
     in
     (* Only the instantiations of a polymorphic datatype are declared to the
-       solver; the declaration they come from has free type parameters. A
-       datatype is declared once however many names alias it. *)
+       solver; the declaration they come from has free type parameters, and every
+       use names an instantiation. A datatype is declared once however many names
+       alias it. *)
     let recursive_datatypes = match ps, X.bindings t with
       | [], [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty
                              && not (List.exists (Type.equal_types ty)
