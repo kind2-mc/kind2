@@ -1979,7 +1979,7 @@ and compile_ast_expr
     let ctor_str = HString.string_of_hstring ctor in
     X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
-and compile_node_call ?(uf_applied=false) node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
+and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
   let called_node_oracles =
     try
@@ -2090,6 +2090,7 @@ and compile_node_call ?(uf_applied=false) node_scope pos ctx cstate map outputs 
   let node_call = {
     N.call_id = call_id;
     N.call_pos = pos;
+    N.call_instance = instance;
     N.call_node_id = node_id;
     N.call_cond = cond_state_var;
     N.call_context = call_ctx;
@@ -2809,7 +2810,11 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         try List.assoc var call_ties_by_var with Not_found -> []
       in
       let uf_applied = GI.StringSet.mem var uf_applied_instances in
-      let node_call = compile_node_call ~uf_applied
+      let instance =
+        StringMap.find_opt var gids.GI.call_instances
+        |> Option.value ~default:[]
+      in
+      let node_call = compile_node_call ~uf_applied ~instance
         node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties
       in
       (* For a (possibly mutually) recursive call, i.e. a call to a function in
