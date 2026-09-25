@@ -1,0 +1,33 @@
+-- Abs is abstracted by its contract, which does not give y >= 0, so the
+-- assumption "a" of Sub is falsified at its call in main. So is "m": the
+-- guarantee of Sub is only asserted while its assumption has held. Abs and
+-- Sub were proved correct in their own analyses, so main can be refined,
+-- and with the implementations of both, "a" and "m" are proved. The
+-- refinement used to be skipped whenever an assumption of a callee had been
+-- falsified.
+--
+-- The run is falsifiable either way, as both properties are falsified in the
+-- first analysis of main, so test_refine_after_failed_assumption.py checks
+-- the answers of the last refinement.
+node Abs (x: int) returns (y: int);
+(*@contract
+  guarantee "g" y >= x;
+*)
+let
+  y = if x < 0 then -x else x;
+tel
+
+node Sub (x: int) returns (y: int);
+(*@contract
+  assume "a" x >= 0;
+  guarantee "gs" y >= 0;
+*)
+let
+  y = x;
+tel
+
+node main (x: int) returns (y: int);
+let
+  y = Sub(Abs(x));
+  check "m" y >= 0;
+tel
