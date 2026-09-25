@@ -3099,25 +3099,37 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
              the assumptions (its "sofar" flag), as its guarantees are when it
              is abstracted, before they become invariants of its system: the
              invariant generator checks its candidates against them and lifts
-             what it proves into the caller. A function has no history flag;
-             being stateless, it is guarded by its assumptions at the current
-             step. The properties of the node found among them are asserted
-             under the same guard below. *)
+             what it proves into the caller. The history flag at the current
+             step also covers the previous step of a two-state invariant. A
+             function has no history flag, and is guarded by its assumptions
+             at the steps an invariant is about: the current step, and for a
+             two-state invariant the previous step as well. The properties of
+             the node found among them are asserted under the same guard
+             below. *)
           let node_invariants =
             match contract with
             | Some { C.assumes = (_ :: _) as assumes ; C.sofar_assump }
               when not (NI.equal node_id top_name) ->
-              let guard =
-                let at_base svar =
-                  Term.mk_var
-                    (Var.mk_state_var_instance svar TransSys.prop_base)
-                in
-                match sofar_assump with
-                | Some sofar -> at_base sofar
-                | None ->
-                  Term.mk_and (List.map (fun { C.svar } -> at_base svar) assumes)
+              let at offset svar =
+                Term.mk_var (Var.mk_state_var_instance svar offset)
               in
-              Invs.map (fun inv -> Term.mk_implies [guard; inv]) node_assumptions
+              let guard two_state =
+                match sofar_assump with
+                | Some sofar -> at TransSys.prop_base sofar
+                | None ->
+                  let offsets =
+                    if two_state then
+                      [ Numeral.pred TransSys.prop_base ; TransSys.prop_base ]
+                    else [ TransSys.prop_base ]
+                  in
+                  offsets
+                  |> List.concat_map (fun offset ->
+                    List.map (fun { C.svar } -> at offset svar) assumes)
+                  |> Term.mk_and
+              in
+              Invs.map
+                (fun two_state inv -> Term.mk_implies [guard two_state; inv])
+                node_assumptions
             | _ -> node_assumptions
           in
 

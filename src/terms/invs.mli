@@ -70,9 +70,10 @@ val find : t -> Term.t -> Certificate.t option
 val flatten : t -> (Term.t * Certificate.t) list
 
 (** Applies a function to every invariant, keeping its certificate and
-    whether it is one-state or two-state. The function must not weaken a
-    two-state invariant into a one-state one, or the reverse. *)
-val map : (Term.t -> Term.t) -> t -> t
+    whether it is one-state or two-state. The function is given [true] for a
+    two-state invariant, as in [filter]. It must not turn a two-state
+    invariant into a one-state one, or the reverse. *)
+val map : (bool -> Term.t -> Term.t) -> t -> t
 
 (** Merges two collections of invariants (non-destructive). *)
 val merge : t -> t -> t

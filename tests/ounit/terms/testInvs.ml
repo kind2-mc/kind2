@@ -15,12 +15,13 @@
    permissions and limitations under the License.
 
  *)
-(** Merging collections of invariants.
+(** Merging and mapping collections of invariants.
 
     [Invs.merge] keeps the one-state and the two-state invariants of both of
     its arguments, each in its own table. It used to start the two-state table
     of the result from the one-state invariants of the second argument, which
-    lost the two-state invariants of the first. *)
+    lost the two-state invariants of the first. [Invs.map] tells the function
+    it applies whether an invariant is two-state. *)
 
 open OUnit2
 
@@ -50,7 +51,17 @@ let check ~os ~ts invs =
   assert_equal ~cmp:Term.TermSet.equal ~printer
     (Term.TermSet.of_list ts) (Invs.get_ts invs)
 
-let tests = "Invs.merge" >::: [
+let test_map _ =
+  let seen = ref [] in
+  Invs.map
+    (fun two_state inv -> seen := (two_state, inv) :: !seen ; inv)
+    (invs ~os:[os_inv] ~ts:[ts_inv])
+  |> check ~os:[os_inv] ~ts:[ts_inv] ;
+  assert_bool "map tells a two-state invariant from a one-state one"
+    (List.mem (false, os_inv) !seen && List.mem (true, ts_inv) !seen)
+
+let tests = "Invs" >::: [
+  "map keeps the kind of each invariant, and tells it" >:: test_map;
   "keeps the two-state invariants of the first argument" >:: (fun _ ->
     Invs.merge (invs ~os:[] ~ts:[ts_inv]) (invs ~os:[] ~ts:[])
     |> check ~os:[] ~ts:[ts_inv]);
