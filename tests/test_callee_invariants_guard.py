@@ -34,7 +34,10 @@ def test_false_property_not_proved(compositional):
         "--modular": "true",
         "--compositional": compositional,
         "--invgen_prune_trivial": "false",
-        "--timeout": "5",
+        # The counterexample to "p" is 1000 steps long, so that BMC does not
+        # find it before the unguarded invariant is lifted. Finding it takes
+        # a few seconds, more on slower machines.
+        "--timeout": "30",
     }
     arg_list = [arg for pair in args.items() for arg in pair]
     run = subprocess.run(
