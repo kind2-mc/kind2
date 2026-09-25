@@ -1,0 +1,25 @@
+-- The first analysis of main abstracts Sub by its contract, which does not
+-- give the step of x, so "q" is falsified. Sub's own analysis proved its
+-- guarantee, so main is refined. "q" follows from the guarantee and the
+-- implementation of Sub; without the guarantee, it is not k-inductive, as x
+-- could step from any negative value to -1. The refinement used to be given
+-- the invariants of the first analysis of main only, where Sub was abstract
+-- and got none, so the guarantee was not assumed and "q" was left unknown
+-- by k-induction.
+--
+-- The run is falsifiable either way, as "q" is falsified in the first
+-- analysis, so test_refinement_callee_invariants.py checks the answer of the
+-- refinement, with BMC and k-induction only.
+node Sub () returns (x: int);
+(*@contract
+  guarantee "g" x >= 0;
+*)
+let
+  x = 0 -> pre x + 1;
+tel
+
+node main () returns (y: int);
+let
+  y = Sub();
+  check "q" y <> -1 and (true -> y = pre y + 1);
+tel

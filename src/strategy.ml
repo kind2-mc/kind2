@@ -187,6 +187,32 @@ let get_refinement_abstraction results subs_of_scope result =
 
     Some (sub, abstraction)
 
+(* The invariants that the last analysis of each system a refinement makes
+   concrete established, to be assumed in the refinement.
+
+   The assumptions of an analysis are the invariants of the analysis before
+   it (see [last_assumptions]). The one before a refinement is the analysis
+   of the same system in which the refined systems were abstract, and an
+   abstract system is given no assumptions: the invariants established by
+   the analysis of a refined system, its guarantees among them, are not
+   passed on. The invariants of a contract check are left out, as they were
+   established assuming the contract. *)
+let assumptions_of_refined results prev_abstraction abstraction =
+  Scope.Map.fold (fun scope is_abstract acc ->
+    let was_abstract =
+      match Scope.Map.find_opt scope prev_abstraction with
+      | Some b -> b
+      | None -> false
+    in
+    if is_abstract || not was_abstract then acc
+    else
+      match A.results_find scope results with
+      | { A.param = A.First _ | A.Refinement _ ; A.sys } :: _ ->
+        A.assumptions_merge (A.assumptions_of_sys sys) acc
+      | _ -> acc
+      | exception Not_found -> acc
+  ) abstraction A.assumptions_empty
+
 let is_candidate_for_analysis { has_impl ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || has_impl
 
@@ -385,12 +411,16 @@ let next_modular_analysis results subs_of_scope = function
                 go_up prefix
               )
               | Some abs -> (
+                let prev_abs = (A.info_of_param result.A.param).A.abstraction_map in
                 Some (
                   A.Refinement (
                     { A.top = sys ;
                       A.uid = A.get_uid () ;
                       A.abstraction_map = abs ;
-                      A.assumptions = last_assumptions () ; },
+                      A.assumptions =
+                        A.assumptions_merge
+                          (assumptions_of_refined results prev_abs abs)
+                          (last_assumptions ()) ; },
                     result
                   )
                 )
@@ -400,12 +430,16 @@ let next_modular_analysis results subs_of_scope = function
               | None -> (* Cannot refine, going up. *)
                 go_up prefix
               | Some (_, abs) -> (* Refinement found. *)
+                let prev_abs = (A.info_of_param result.A.param).A.abstraction_map in
                 Some (
                   A.Refinement (
                     { A.top = sys ;
                       A.uid = A.get_uid () ;
                       A.abstraction_map = abs ;
-                      A.assumptions = last_assumptions () ; },
+                      A.assumptions =
+                        A.assumptions_merge
+                          (assumptions_of_refined results prev_abs abs)
+                          (last_assumptions ()) ; },
                     result
                   )
                 )
