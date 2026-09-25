@@ -650,7 +650,7 @@ and desugar_expr ctx adt_map expr =
       | Some e -> (fname, e)
       | None -> (fname, default_value ctx adt_map pos ftype)
     ) (inst_fields adt_info.all_payload_fields) in
-    LA.RecordExpr (pos, adt_info.type_name, [],
+    LA.RecordExpr (pos, adt_info.type_name, ty_args',
       (adt_info.disc_field, disc_e) :: payload_pairs)
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
     (* The type checker records the scrutinee's type in every match it checks *)
