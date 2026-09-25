@@ -45,7 +45,7 @@ env:
   # Per-benchmark wall-clock timeout (seconds).
   BENCH_TIMEOUT: "120"
   OCAML_VERSION: 5.5.1
-  Z3_VERSION: "4.15.3"
+  Z3_VERSION: "5.1.0"
   MATHSAT_VERSION: "5.6.17"
 
 jobs:
@@ -224,9 +224,9 @@ jobs:
           mkdir -p ~/solver-bin
           case "${{ matrix.platform }}" in
             linux-x86_64) Z3_DIR=z3-${Z3_VERSION}-x64-glibc-2.39   ; MS_DIR=mathsat-${MATHSAT_VERSION}-linux-x86_64  ;;
-            linux-arm64)  Z3_DIR=z3-${Z3_VERSION}-arm64-glibc-2.34 ; MS_DIR=mathsat-${MATHSAT_VERSION}-linux-aarch64 ;;
-            macos-x86_64) Z3_DIR=z3-${Z3_VERSION}-x64-osx-13.7.6   ; MS_DIR=mathsat-${MATHSAT_VERSION}-macos         ;;
-            macos-arm64)  Z3_DIR=z3-${Z3_VERSION}-arm64-osx-13.7.6 ; MS_DIR=mathsat-${MATHSAT_VERSION}-macos         ;;
+            linux-arm64)  Z3_DIR=z3-${Z3_VERSION}-arm64-glibc-2.38 ; MS_DIR=mathsat-${MATHSAT_VERSION}-linux-aarch64 ;;
+            macos-x86_64) Z3_DIR=z3-${Z3_VERSION}-x64-osx-13.3     ; MS_DIR=mathsat-${MATHSAT_VERSION}-macos         ;;
+            macos-arm64)  Z3_DIR=z3-${Z3_VERSION}-arm64-osx-13.3   ; MS_DIR=mathsat-${MATHSAT_VERSION}-macos         ;;
           esac
           curl -sSL -o z3.zip "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DIR}.zip"
           unzip -q z3.zip

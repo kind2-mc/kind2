@@ -42,7 +42,7 @@ env:
   OCAML_VERSION: 5.5.1
   # SMT solvers used by the benchmark run (Z3 as solver, MathSAT for
   # interpolation). Bumping either version invalidates the solver cache.
-  Z3_VERSION: "4.15.3"
+  Z3_VERSION: "5.1.0"
   MATHSAT_VERSION: "5.6.17"
 
 jobs:
