@@ -70,7 +70,8 @@ let have_ref_type ctx outputs =
 
 let rec can_be_abstracted' ctx contracts (_, items) =
   items |> List.exists (function
-    | A.Guarantee _ | Mode _ -> true
+    | A.Guarantee _ -> true
+    | Mode (_, _, _, ensures) -> ensures <> []
     | ContractCall (_, id, _, _, _) -> (
         match NI.Map.find_opt id contracts with
         | None -> assert false

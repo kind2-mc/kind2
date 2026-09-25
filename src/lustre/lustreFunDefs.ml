@@ -126,8 +126,8 @@ let is_lemma node =
    to abstract its recursive calls with, or if it is transparent, i.e. its
    contract is never to be used in place of its body.
 
-   A contract abstracts the function through its guarantees and modes, be
-   they explicit or from a refinement type of an output. An assumption
+   A contract abstracts the function through its guarantees and the ensures
+   of its modes, be they explicit or from a refinement type of an output. An assumption
    (explicit, or from a refinement or subrange type of an input) is an
    obligation of the callers instead, which the transition system keeps at
    every call: it does not stand in the way of a definition. *)
