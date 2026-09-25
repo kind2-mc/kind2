@@ -757,7 +757,7 @@ let prop_attributes_xml trans_sys prop_name =
 
   let pp_print_fname ppf fname =
     if fname = "" then () else
-    Format.fprintf ppf " file=\"%s\"" fname
+    Format.fprintf ppf " file=\"%s\"" (Lib.escape_xml_string fname)
   in
 
   let rec get_attributes = function
@@ -779,23 +779,23 @@ let prop_attributes_xml trans_sys prop_name =
     | Property.Assumption (pos, (scope, _)) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Assumption\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.Guarantee (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Guarantee\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.GuaranteeOneModeActive (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"OneModeActive\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.GuaranteeModeImplication (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Ensure\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.NonVacuityCheck (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"NonVacuityCheck\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.TerminationCheck pos ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" source=\"Termination\"%a"
@@ -1109,14 +1109,15 @@ let prop_attributes_json ppf trans_sys prop_name =
 
   let pp_print_fname ppf fname =
     if fname = "" then () else
-    Format.fprintf ppf "\"file\" : \"%s\",@," fname
+    Format.fprintf ppf "\"file\" : \"%s\",@," (Lib.escape_json_string fname)
   in
 
   let print_attributes pos scope source =
     let fname, lnum, cnum = file_row_col_of_pos pos in
     Format.fprintf ppf
       "\"scope\" : \"%s\",@,%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
-      (String.concat "." scope) pp_print_fname fname lnum cnum source
+      (Lib.escape_json_string (String.concat "." scope))
+      pp_print_fname fname lnum cnum source
   in
 
   let rec get_attributes = function
@@ -1150,12 +1151,12 @@ let prop_attributes_json ppf trans_sys prop_name =
           pp_print_fname fname lnum cnum
   in
 
-  Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"
-      (string_of_bool (Property.is_candidate prop));
+  Format.fprintf ppf "\"isCandidate\" : %b,@,"
+      (Property.is_candidate prop);
   (match prop.Property.prop_expr with 
   | Some expr -> 
   Format.fprintf ppf "\"expr\" : \"%s\",@,"
-      expr
+      (Lib.escape_json_string expr)
   | None -> ());
   get_attributes prop.Property.prop_source
 
@@ -1622,6 +1623,22 @@ let pp_print_user_node_name in_sys ppf scope =
     NI.pp_print_node_id_user_name ppf node_id
   | None -> Scope.pp_print_scope_internal ppf scope
 
+(* A user-facing node name, escaped for the format it is written into. The
+   name of a monomorphized node carries its type arguments in angle
+   brackets, which an XML attribute value may not hold raw. *)
+let pp_print_node_id_escaped escape ppf node_id =
+  Format.pp_print_string ppf
+    (escape (string_of_t NI.pp_print_node_id_user_name node_id))
+
+let pp_print_node_id_xml ppf = pp_print_node_id_escaped escape_xml_string ppf
+let pp_print_node_id_json ppf = pp_print_node_id_escaped escape_json_string ppf
+
+let pp_print_hstring_escaped escape ppf hs =
+  Format.pp_print_string ppf (escape (HString.string_of_hstring hs))
+
+let pp_print_hstring_xml ppf = pp_print_hstring_escaped escape_xml_string ppf
+let pp_print_hstring_json ppf = pp_print_hstring_escaped escape_json_string ppf
+
 (* Logs the end of a run. *)
 let log_run_end in_sys results =
   match get_log_format () with
@@ -1691,7 +1708,7 @@ let log_contractck_analysis_start in_sys scope =
             context=\"%s\" \
           />@.@.\
         "
-        NI.pp_print_node_id_user_name node_id
+        pp_print_node_id_xml node_id
         (match (NI.get_node_type node_id) with 
         | Environment -> "environment"
         | Type -> "type"
@@ -1714,7 +1731,7 @@ let log_contractck_analysis_start in_sys scope =
           @]@.}@.\
         "
         Log.print_json_sep
-        NI.pp_print_node_id_user_name node_id
+        pp_print_node_id_json node_id
         (match (NI.get_node_type node_id) with 
         | Environment -> "environment"
         | Type -> "type"
@@ -1770,12 +1787,12 @@ let log_analysis_start in_sys sys param =
             assumptions=\"%a\"\
           />@.@.\
         "
-        NI.pp_print_node_id_user_name node_id
-        (pp_print_list HString.pp_print_hstring ",") concrete
-        (pp_print_list HString.pp_print_hstring ",") abstract
+        pp_print_node_id_xml node_id
+        (pp_print_list pp_print_hstring_xml ",") concrete
+        (pp_print_list pp_print_hstring_xml ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
             let node_id = InputSystem.get_node_id in_sys scope in
-            Format.fprintf fmt "(%a,%d)" NI.pp_print_node_id_user_name node_id cpt
+            Format.fprintf fmt "(%a,%d)" pp_print_node_id_xml node_id cpt
           )
           ","
         ) assumption_count ;
@@ -1800,7 +1817,7 @@ let log_analysis_start in_sys sys param =
         |> List.map NI.get_user_name         
       in
       let pp_print_quoted_hstring ppf hs =
-        Format.fprintf ppf "\"%a\"" HString.pp_print_hstring hs
+        Format.fprintf ppf "\"%a\"" pp_print_hstring_json hs
       in
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "\
@@ -1813,11 +1830,11 @@ let log_analysis_start in_sys sys param =
           @]@.}@.\
         "
         Log.print_json_sep
-        NI.pp_print_node_id_user_name node_id
+        pp_print_node_id_json node_id
         (pp_print_list_attrib pp_print_quoted_hstring) concrete
         (pp_print_list_attrib pp_print_quoted_hstring) abstract
         (pp_print_list_attrib (fun fmt (name, cpt) ->
-            Format.fprintf fmt "[\"%a\",%d]" HString.pp_print_hstring name cpt
+            Format.fprintf fmt "[\"%a\",%d]" pp_print_hstring_json name cpt
           )
         ) (List.combine names assumptions);
       analysis_start_not_closed := true

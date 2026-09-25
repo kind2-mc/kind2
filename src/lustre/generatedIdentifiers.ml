@@ -60,6 +60,11 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
+  (* Indices of the instance each call stands for, when it is one of the
+     instances a call in an array equation expands into (see
+     [LustreAstNormalizer.expand_node_call]), by abstracted output. The
+     instances share the position of the call. *)
+  call_instances : int list StringMap.t;
   (* Calls to a function that are applied to enclosing quantified variables,
      and are therefore compiled to an application of the functional symbol of
      the callee rather than to a node instance (see [LustreNodeGen]). The
@@ -226,6 +231,8 @@ let union ids1 ids2 = {
     oracles = ids1.oracles @ ids2.oracles;
     ib_oracles = ids1.ib_oracles @ ids2.ib_oracles;
     calls = ids1.calls @ ids2.calls;
+    call_instances = StringMap.union (fun _ l _ -> Some l)
+      ids1.call_instances ids2.call_instances;
     qcalls = ids1.qcalls @ ids2.qcalls;
     contract_calls = StringMap.merge union_keys
       ids1.contract_calls ids2.contract_calls;
@@ -262,6 +269,7 @@ let empty () = {
   oracles = [];
   ib_oracles = [];
   calls = [];
+  call_instances = StringMap.empty;
   qcalls = [];
   contract_calls = StringMap.empty;
   refinement_type_constraints = [];

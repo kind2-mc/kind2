@@ -49,8 +49,16 @@ let get_reachability_abstraction results subs_of_scope result =
      In addition, appends the subsystems of all refined systems and
      not abstracted systems to the input. The function looks at
      the subsystems previously appended to the input recursively. *)
-  let rec loop refined abstraction = function
+  let rec loop seen refined abstraction = function
   | ( (system, { opacity } ) :: tail ) :: lower -> (
+    (* A system reached before, through another caller or through a
+       recursive call of itself, has been looked at already; without this
+       the traversal never ends on a recursive function, whose subsystems
+       include itself *)
+    if Scope.Set.mem system seen then
+      tail :: lower |> loop seen refined abstraction
+    else
+    let seen = Scope.Set.add system seen in
     (* Is system currently abstracted? *)
     if Scope.Map.find system abstraction then
       (* Is system refineable? *)
@@ -68,23 +76,23 @@ let get_reachability_abstraction results subs_of_scope result =
               merge_abstractions abstraction info.A.abstraction_map
             in
             (tail :: lower) @ [ subs_of_scope system ]
-            |> loop true abstraction
+            |> loop seen true abstraction
           )
           (* Otherwise keep going. *)
-          else tail :: lower |> loop refined abstraction
+          else tail :: lower |> loop seen refined abstraction
         | [] -> failwith "unreachable"
         with Not_found -> (* Case of imported nodes (they have no result) *)
-          tail :: lower |> loop refined abstraction
+          tail :: lower |> loop seen refined abstraction
       )
       else (
-        tail :: lower |> loop refined abstraction
+        tail :: lower |> loop seen refined abstraction
       )
     else (* System is not abstracted, remembering its subsystems and
             looping. *)
       (tail :: lower) @ [ subs_of_scope system ]
-      |> loop refined abstraction
+      |> loop seen refined abstraction
   )
-  | [] :: lower -> loop refined abstraction lower
+  | [] :: lower -> loop seen refined abstraction lower
   | [] -> if refined then Some abstraction else None
   in
 
@@ -95,7 +103,7 @@ let get_reachability_abstraction results subs_of_scope result =
     let subs = subs_of_scope sys in
     let abstraction = info.A.abstraction_map in
 
-    loop false abstraction [ subs ]
+    loop (Scope.Set.singleton sys) false abstraction [ subs ]
   )
   else
     None
@@ -108,63 +116,76 @@ let get_refinement_abstraction results subs_of_scope result =
   let sys = info.A.top in
   let subs = subs_of_scope sys in
 
-  match result.A.requirements_valid with
-  | Some false -> (* Requirements could not be proved, aborting. *)
-    None
-  | _ -> (
-    let abstraction = info.A.abstraction_map in
+  (* A refinement is attempted even when the assumptions of some callee could
+     not be proved. The guarantees of an abstracted callee are only asserted
+     while its assumptions have held so far (its "sofar" flag), and the
+     properties proved in the analysis of a concrete callee are asserted
+     under the same flag. What was proved under the abstraction therefore
+     holds of the implementation of a callee that was proved correct, even on
+     a trace that violates its assumptions, and it can be kept after the
+     refinement. A refinement can also prove the assumptions themselves: a
+     callee abstracted by a contract too weak to establish them may establish
+     them once it is concrete. *)
+  let abstraction = info.A.abstraction_map in
 
-    (* Input is a list of list of scope / whatever pairs. Initially input
-       only contains [subs]. Function looks at them as candidates and
-       returns the first refineable system from [subs], more precisely the
-       [result] corresponding to the system. When a non-refineable system
-       is encountered, it is discarded and its subsystems are appended to
-       the input. If no refineable system is found in [subs] function goes
-       looks at the subsystems previously appended to the input
-       recursively. *)
-    let rec loop = function
-      | ( (candidate, { opacity }) :: tail ) :: lower -> (
-        (* Is candidate currently abstracted? *)
-        if Scope.Map.find candidate abstraction then
-          (* Is candidate refineable? *)
-          if (opacity <> O.Opaque) then (
-            try match A.results_find candidate results with
-            | result :: _ ->
-              (* It is if everything was proved in the last analysis. *)
-              if A.result_is_all_inv_proved result then Some result
-              (* Otherwise keep going. *)
-              else tail :: lower |> loop
-            | [] -> failwith "unreachable"
-            with Not_found -> (* Case of imported nodes (they have no result) *)
-              tail :: lower |> loop
-          )
-          else (
-            tail :: lower |> loop
-          )
-        else (* Candidate is not abstracted, remembering its subsystems and
-                looping. *)
-          (tail :: lower) @ [ subs_of_scope candidate ] |> loop
-      )
-      | [] :: lower -> loop lower
-      | [] -> None
+  (* Input is a list of list of scope / whatever pairs. Initially input
+     only contains [subs]. Function looks at them as candidates and
+     returns the first refineable system from [subs], more precisely the
+     [result] corresponding to the system. When a non-refineable system
+     is encountered, it is discarded and its subsystems are appended to
+     the input. If no refineable system is found in [subs] function goes
+     looks at the subsystems previously appended to the input
+     recursively. *)
+  let rec loop seen = function
+    | ( (candidate, { opacity }) :: tail ) :: lower -> (
+      (* A candidate reached before, through another caller or through a
+         recursive call of itself, has been looked at already; without
+         this the traversal never ends on a recursive function, whose
+         subsystems include itself *)
+      if Scope.Set.mem candidate seen then
+        tail :: lower |> loop seen
+      else
+      let seen = Scope.Set.add candidate seen in
+      (* Is candidate currently abstracted? *)
+      if Scope.Map.find candidate abstraction then
+        (* Is candidate refineable? *)
+        if (opacity <> O.Opaque) then (
+          try match A.results_find candidate results with
+          | result :: _ ->
+            (* It is if everything was proved in the last analysis. *)
+            if A.result_is_all_inv_proved result then Some result
+            (* Otherwise keep going. *)
+            else tail :: lower |> loop seen
+          | [] -> failwith "unreachable"
+          with Not_found -> (* Case of imported nodes (they have no result) *)
+            tail :: lower |> loop seen
+        )
+        else (
+          tail :: lower |> loop seen
+        )
+      else (* Candidate is not abstracted, remembering its subsystems and
+              looping. *)
+        (tail :: lower) @ [ subs_of_scope candidate ] |> loop seen
+    )
+    | [] :: lower -> loop seen lower
+    | [] -> None
+  in
+
+  match loop (Scope.Set.singleton sys) [ subs ] with
+  (* No refinement possible. *)
+  | None -> None
+  | Some { A.param } ->
+    (* Refinement found, need to update abstraction and lift invariants. *)
+    let info = A.info_of_param param in
+    let sub = info.A.top in
+    (* System is now concrete. *)
+    let abstraction = Scope.Map.add sub false abstraction in
+    (* Updating with the abstraction used to prove [sub]. *)
+    let abstraction =
+      merge_abstractions abstraction info.A.abstraction_map
     in
 
-    match loop [ subs ] with
-    (* No refinement possible. *)
-    | None -> None
-    | Some { A.param } ->
-      (* Refinement found, need to update abstraction and lift invariants. *)
-      let info = A.info_of_param param in
-      let sub = info.A.top in
-      (* System is now concrete. *)
-      let abstraction = Scope.Map.add sub false abstraction in
-      (* Updating with the abstraction used to prove [sub]. *)
-      let abstraction =
-        merge_abstractions abstraction info.A.abstraction_map
-      in
-
-      Some (sub, abstraction)
-  )
+    Some (sub, abstraction)
 
 let is_candidate_for_analysis { has_impl ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || has_impl

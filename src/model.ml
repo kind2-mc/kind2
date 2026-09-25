@@ -332,20 +332,29 @@ let pp_print_map_as_xml as_type ppf m =
     pp_print_array_model_as_xml as_type true ppf 0 arm
 
 
+(* A value that JSON has no literal of its own for -- the name of a value of
+   an uninterpreted sort, say -- printed as a JSON string. A bare term is a
+   JSON value only when it happens to be a number or a Boolean. *)
+let pp_print_term_as_json_value ppf t =
+  if Term.is_numeral t || Term.is_bool t then pp_print_term ppf t
+  else
+    Format.fprintf ppf "\"%s\""
+      (escape_json_string (string_of_t pp_print_term t))
+
 let rec pp_print_value_term_json as_type ppf t = match as_type with
   | Some ty when Term.is_numeral t && Type.is_enum ty -> (
     let num_str =
       try Type.get_constr_of_num (Term.numeral_of_term t)
       with Not_found -> "_"
     in
-    Format.fprintf ppf "\"%s\"" num_str
+    Format.fprintf ppf "\"%s\"" (escape_json_string num_str)
   )
   | Some ty when Type.is_datatype ty -> (
     match destruct_datatype_value ty t with
-    | None -> pp_print_term ppf t
+    | None -> pp_print_term_as_json_value ppf t
     | Some (ctor_name, args) ->
       Format.fprintf ppf "{\"constructor\" : \"%s\", \"args\" : [%a]}"
-        ctor_name
+        (escape_json_string ctor_name)
         (pp_print_list (fun ppf (a, aty) -> pp_print_value_term_json aty ppf a) ", ")
         args
   )
@@ -364,7 +373,7 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
     in
     Numeral.pp_print_numeral ppf bv_num
   )
-  | _ -> pp_print_term ppf t
+  | _ -> pp_print_term_as_json_value ppf t
 
 
 let rec pp_print_array_model_as_json as_type ppf _ it =

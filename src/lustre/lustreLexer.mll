@@ -425,7 +425,8 @@ rule token = parse
 
   (* |===| Include file. *)
   | "include" whitespace* '\"' ([^'\"']* as p) '\"' {
-
+    if Flags.lus_no_include () then
+      raise (Lexer_error "Include statements are not allowed when --no_include is enabled");
     let include_curdir = curdir_of_lexbuf_stack () in
 
     let fname =

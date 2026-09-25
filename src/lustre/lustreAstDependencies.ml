@@ -1482,33 +1482,62 @@ let summarize_ip_vars: LA.ident list -> SI.t -> int list = fun ips critial_ips -
     then (nums::acc, nums+1)
     else (acc, nums+1)) ([], 0)) ips |> fst 
 (** Helper function to generate a node summary *)
-  
+
+(* Variables each left hand side of the node items depends on, with node calls
+   flattened through the summaries of the called nodes. The accumulated guard
+   variables are those of the conditions and scrutinees of the enclosing blocks:
+   they select which definition applies, so what a block defines depends on
+   them. A pattern variable may not shadow a node variable, so an arm's binders
+   need not be removed here. *)
+let rec node_item_deps: node_summary -> SI.t -> LA.node_item -> (LA.ident * SI.t) list
+  = fun s guard_vars -> function
+  | Body (Equation (_, LA.StructDef (_, lhss), e)) ->
+    List.mapi
+      (fun idx item ->
+        let lhs_var = SI.choose (LH.vars_of_struct_item item) in
+        (lhs_var, SI.union guard_vars (vars_with_flattened_nodes s idx e)))
+      lhss
+  | Body (Assert _) -> []
+  | IfBlock (_, cond, nis1, nis2)
+  | WhenBlock (_, cond, nis1, nis2) ->
+    let guard_vars = SI.union guard_vars (vars_with_flattened_nodes s 0 cond) in
+    List.concat_map (node_item_deps s guard_vars) (nis1 @ nis2)
+  | MatchBlock (_, scrut, arms, _) ->
+    let guard_vars = SI.union guard_vars (vars_with_flattened_nodes s 0 scrut) in
+    List.concat_map
+      (fun (_, arm_items) -> List.concat_map (node_item_deps s guard_vars) arm_items)
+      arms
+  | FrameBlock (_, _, nes, nis) ->
+    List.concat_map (node_item_deps s guard_vars)
+      (List.map (fun ne -> LA.Body ne) nes @ nis)
+  | AnnotMain _ | AnnotProperty _ | Auto _ -> []
+
 let mk_node_summary: bool -> node_summary -> LA.node_decl -> bool -> node_summary
     = fun connect_imported s (i, imported, _, _, ips, ops, _, items, _) is_rec ->
   if not imported && not is_rec
   then 
     let op_vars = List.map (fun o -> LH.extract_op_ty o |> fst) ops in
     let ip_vars = List.map (fun o -> LH.extract_ip_ty o |> fst) ips in
-    let node_equations = List.concat (List.map LH.extract_node_equation items) in
-    let process_one_eqn = fun (LA.StructDef (_, lhs), e) ->
-      let ms = List.mapi (fun idx item -> 
-          let lhs_var = SI.choose (LH.vars_of_struct_item item) in
-          let vars = vars_with_flattened_nodes s idx e in
-          IMap.singleton lhs_var (SI.elements vars))
-        lhs
-      in
-      List.fold_left (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty ms
-    in
-    let node_equation_dependency_map = List.fold_left
-      (IMap.union (fun _ _ v2 -> Some v2)) IMap.empty
-      (List.map process_one_eqn node_equations)
+    (* A variable may be defined more than once (once per branch of a block),
+       in which case it depends on the variables of all of its definitions. *)
+    let node_equation_dependency_map =
+      List.fold_left
+        (fun m (lhs_var, vars) ->
+          IMap.update lhs_var
+            (function None -> Some vars | Some vars' -> Some (SI.union vars vars'))
+            m)
+        IMap.empty
+        (List.concat_map (node_item_deps s SI.empty) items)
     in
 
     Debug.parse "Node equation dependency map for node %a {\n %a \n}"
       NI.pp_print_node_id_user_name i
       (Lib.pp_print_list (Lib.pp_print_pair (LA.pp_print_ident) (Lib.pp_print_list (LA.pp_print_ident) ", ") "->") "\n")
-      (IMap.bindings node_equation_dependency_map);
-    let mk_g = fun (lhs, vars) ->  G.connect (List.fold_left G.union G.empty (List.map G.singleton vars)) lhs in
+      (List.map (fun (lhs, vars) -> (lhs, SI.elements vars))
+         (IMap.bindings node_equation_dependency_map));
+    let mk_g = fun (lhs, vars) ->
+      G.connect (SI.fold (fun v g -> G.union (G.singleton v) g) vars G.empty) lhs
+    in
     let g = List.fold_left G.union G.empty (List.map mk_g (IMap.bindings node_equation_dependency_map)) in
 
     Debug.parse "Node equation graph: %a" G.pp_print_graph g;
@@ -1622,7 +1651,7 @@ let mk_graph_eqn: node_summary
                             empty_dependency_analysis_data
                             (List.map2 handle_one_lhs rhs_g lhss)))
              else (graph_error pos EquationWidthsUnequal))
-        | _ -> R.ok (empty_dependency_analysis_data)
+        | Assert _ -> R.ok (empty_dependency_analysis_data)
 (** Make a dependency graph from the equations. Each LHS has an edge that goes into its RHS definition. *)
              
 let rec mk_graph_node_items: node_summary -> dependency_analysis_data -> LA.node_item list -> (dependency_analysis_data, [> error]) result =
@@ -1632,10 +1661,14 @@ let rec mk_graph_node_items: node_summary -> dependency_analysis_data -> LA.node
     let* g = mk_graph_eqn m inherited eqn in
     let* gs = mk_graph_node_items m inherited items in
     R.ok (union_dependency_analysis_data g gs)
-  | IfBlock (_, _, nis1, nis2) :: items
-  | WhenBlock (_, _, nis1, nis2) :: items ->
-    let* gs1 = mk_graph_node_items m inherited nis1 in
-    let* gs2 = mk_graph_node_items m inherited nis2 in
+  | IfBlock (_, cond, nis1, nis2) :: items
+  | WhenBlock (_, cond, nis1, nis2) :: items ->
+    (* The condition selects which of the block's definitions applies, so
+       whatever the block defines depends on it. *)
+    let* cond_gs = mk_graph_expr2 m (LH.abstract_pre_subexpressions cond) in
+    let cond_g = List.fold_left union_dependency_analysis_data inherited cond_gs in
+    let* gs1 = mk_graph_node_items m cond_g nis1 in
+    let* gs2 = mk_graph_node_items m cond_g nis2 in
     let* gs3 = mk_graph_node_items m inherited items in
     R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
   | MatchBlock (_, scrut, arms, _) :: items ->

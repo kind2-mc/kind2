@@ -1456,6 +1456,11 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | AbstractSymConst _ -> SI.empty
   | ADTTester (_, e, _) -> vars e
 
+let expr_is_time_invariant is_invariant_var e =
+  has_pre_or_arrow e = None
+  && not (expr_contains_call e)
+  && SI.for_all is_invariant_var (vars_without_node_call_ids e)
+
 let rec vars_of_struct_item_with_pos = function
   | SingleIdent (p, i) -> [(p, i)]
   | TupleStructItem (_, ts) -> List.flatten (List.map vars_of_struct_item_with_pos ts)  

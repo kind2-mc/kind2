@@ -2102,11 +2102,20 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
       (R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2))
       (type_error pos (UnificationFailed (ty1, ty2)))
   | Lte  | Lt  | Gte | Gt ->
-    are_args_num ctx pos ty1 ty2
-    >>= fun is_num ->
-    if is_num
+    (* On sets, these are the (proper) subset and superset operators *)
+    let* ty1' = expand_type_syn_reftype_history ctx ty1 in
+    let* ty2' = expand_type_syn_reftype_history ctx ty2 in
+    let* is_set_comparison = match ty1', ty2' with
+      | Set (_, ty3), Set (_, ty4) -> eq_lustre_type ctx ty3 ty4
+      | _ -> Ok false
+    in
+    if is_set_comparison
     then R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2)
-    else type_error pos (ExpectedIntegerTypes (ty1, ty2))
+    else
+      let* is_num = are_args_num ctx pos ty1 ty2 in
+      if is_num
+      then R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2)
+      else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
 (** infer the type of comparison operator application *)
                   
 and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr -> LA.index -> tc_type -> (LA.expr * [> warning] list, [> error]) result =
@@ -3101,6 +3110,10 @@ and expr_contains_set_binop ctx ni expr =
   (* We call this function before relabeling Plus/Times/Minus to Union/Intersection/Difference *)
     let ty, _, _ = infer_type_expr ctx None e |> Result.get_ok in
     type_contains_map_or_set ctx ty 
+  | CompOp (_, (Lte | Lt | Gte | Gt), e1, e2) ->
+    (* On sets, these are the (proper) subset and superset operators *)
+    let ty, _, _ = infer_type_expr ctx None e1 |> Result.get_ok in
+    type_contains_map_or_set ctx ty || r e1 || r e2
   | Quantifier (_, _, tis, e) -> 
     let ctx = List.fold_left (fun acc (_, id, ty) -> 
       add_ty acc id ty 

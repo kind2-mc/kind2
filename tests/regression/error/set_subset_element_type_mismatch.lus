@@ -1,0 +1,5 @@
+node N(s1: set<int>; s2: set<real>) returns (ok: bool);
+let
+  ok = s1 <= s2;
+  check ok;
+tel

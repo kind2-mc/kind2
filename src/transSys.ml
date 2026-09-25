@@ -900,9 +900,22 @@ let find_subsystem_of_scope trans_sys scope =
     (* Return the subsystem *)
     | Some t -> t 
 
-let scope_is_visible sc t = 
-  let t' = find_subsystem_of_scope t sc in 
-  t'.is_visible
+(* A scope that is not one of a subsystem names a recursive function whose
+   unrollings are the subsystems, under their tags (see
+   [Analysis.shrink_info_to_sys]): visible as they are *)
+let scope_is_visible sc t =
+  match find_subsystem_of_scope t sc with
+  | t' -> t'.is_visible
+  | exception Not_found ->
+    match sc with
+    | [] -> false
+    | _ ->
+      fold_subsystems ?include_top:(Some false)
+        (fun visible s ->
+           match scope_of_trans_sys s with
+           | _ :: base when base = sc -> visible || s.is_visible
+           | _ -> visible)
+        false t
 
 let get_max_depth trans_sys = 
   fold_subsystem_instances

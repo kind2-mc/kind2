@@ -1,0 +1,51 @@
+(* A call in an array equation expands into one instance per index. The
+   properties lifted from the instances must stay distinct: each has its own
+   status, and the indices in its name must be those of its instance.
+   test_call_instances.py checks the status of each one. *)
+
+node Sub (x: int) returns (y: int)
+(*@contract
+  assume x >= 0;
+*)
+let
+  y = x;
+tel
+
+(* The assumption is violated for instance 0 only *)
+node Main1 () returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [-1, 1, 1];
+  s[i] = Sub(a[i]);
+  ok = s[1] = 1;
+  check "P1" ok;
+tel
+
+(* The assumption is violated for instance [1][0] only *)
+node Main2 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [-1, 1], [1, 1]];
+  s[i][j] = Sub(a[i][j]);
+  ok = s[0][0] = 1;
+  check "P2" ok;
+tel
+
+(* Instances of a call of a node whose own calls expand. The indices of an
+   instance follow the order of the indices on the left-hand side, [m][k],
+   whatever the order the index variables were first met in (k before m).
+   The assumption is violated for the instance 0 of Sub in the instances
+   [2][_] of Mid only. *)
+node Mid (b: int^2) returns (r: int^2)
+let
+  r[k] = Sub(b[k]);
+tel
+
+node Main3 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, 1], [-1, 1]];
+  s[m][k] = Mid(a[m])[k];
+  ok = s[0][0] = 1;
+  check "P3" ok;
+tel

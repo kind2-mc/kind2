@@ -735,16 +735,33 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (_, IndexAccess (_, _, _, _)) -> Ok ()
   | LA.Pre (pos, e) ->
-    let vars = LAH.vars_without_node_call_ids e in
-    let over_vars j = 
-      let found_quant = StringMap.mem j ctx.quant_vars in
-      if found_quant then syntax_error pos (QuantifiedVariableInPre j)
-      else Ok ()
+    (* The normalizer rewrites 'pre (a[i])' to '(pre a)[i]' when the index is
+       time-invariant, so a quantified variable may appear in such an index *)
+    let index_is_time_invariant =
+      LAH.expr_is_time_invariant
+        (fun v ->
+          StringMap.mem v ctx.quant_vars
+          || StringMap.mem v ctx.array_indices
+          || StringMap.mem v ctx.symbolic_array_indices
+          || StringMap.mem v ctx.consts
+          || StringMap.mem v ctx.free_consts
+          || StringSet.mem v ctx.constructors)
     in
-    let check = List.map over_vars (LA.SI.elements vars) in
-    List.fold_left (>>) (Ok ()) check
+    let rec check_under_pre = function
+      | LA.IndexAccess (_, e1, i, _) when index_is_time_invariant i ->
+        check_under_pre e1
+      | e ->
+        let vars = LAH.vars_without_node_call_ids e in
+        let over_vars j =
+          let found_quant = StringMap.mem j ctx.quant_vars in
+          if found_quant then syntax_error pos (QuantifiedVariableInPre j)
+          else Ok ()
+        in
+        let check = List.map over_vars (LA.SI.elements vars) in
+        List.fold_left (>>) (Ok ()) check
+    in
+    check_under_pre e
   | _ -> Ok ()
 
 let no_calls_to_node scope ctx = function

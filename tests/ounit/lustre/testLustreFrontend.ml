@@ -426,6 +426,30 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/test_fail_to_assign_node_inputs.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
+  mk_test "test circular if block condition" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_cond.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular if block condition in elsif branch" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_cond2.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular when block condition" (fun () ->
+    match load_file "./lustreAstDependencies/circular_when_block_cond.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular if block condition through node call" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_cond_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular if block branch through node call" (fun () ->
+    match load_file "./lustreAstDependencies/circular_if_block_branch_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
+  mk_test "test circular match block scrutinee through node call" (fun () ->
+    match load_file "./lustreAstDependencies/match_block_scrutinee_cycle_through_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
   mk_test "test output in contract assume 4" (fun () ->
     match load_file "./lustreAstDependencies/test_out_param_in_contract_assume2.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
@@ -597,7 +621,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test polymorphism 4" (fun () ->
     match load_file "./lustreTypeChecker/poly_type_checking.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test abstract type" (fun () ->
     match load_file "./lustreTypeChecker/abstract_type.lus" with
@@ -757,7 +781,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test invalid type for bound variable" (fun () ->
     match load_file "./lustreTypeChecker/bad_bound_var_type.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test invalid expression for array size 1" (fun () ->
     match load_file "./lustreTypeChecker/node_call_in_array_size_expr.lus" with
@@ -817,7 +841,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test nondeterministic choice type error" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedIntegerTypes _)) -> true
+    | Error (`LustreTypeCheckerError (_, ExpectedNumberOrSetTypes _)) -> true
     | _ -> false);
   mk_test "test nondeterministic choice type error 2" (fun () ->
     match load_file "./lustreTypeChecker/nondeterministic_choice_2.lus" with

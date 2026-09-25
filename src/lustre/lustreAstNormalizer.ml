@@ -363,6 +363,16 @@ let i = ref 0
 
 let contract_ref = ref 0
 
+(* The instances a call in an array equation expands into (see
+   [expand_node_call]) share the position of the call, and so would the names
+   of the properties lifted from them: each instance is registered here with
+   its indices, by physical equality, until the expanded equation has been
+   normalized *)
+let expanded_call_instances : (A.expr * int list) list ref = ref []
+
+let call_instance_of_expr expr =
+  try List.assq expr !expanded_call_instances with Not_found -> []
+
 let dpos = Lib.dummy_pos
 
 let union_list ids =
@@ -393,6 +403,17 @@ let expr_has_inductive_var ind_vars expr =
   match get_inductive_vars ind_vars expr with
   | [] -> false
   | _ -> true
+
+(* Whether [expr] only refers to inductive variables, quantified variables,
+   constants and enum variants, so its value does not change over time *)
+let index_is_time_invariant info expr =
+  AH.expr_is_time_invariant
+    (fun v ->
+      StringMap.mem v info.inductive_variables
+      || List.exists (fun (_, q, _) -> HString.equal q v) info.quantified_variables
+      || Ctx.lookup_const info.context v <> None
+      || Ctx.is_enum_variant info.context v)
+    expr
 
 let new_contract_reference () =
   contract_ref := ! contract_ref + 1;
@@ -1820,6 +1841,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
           else normalize_expr ?guard:None info (Some node_id) map expr, false
         )
         in
+        expanded_call_instances := [];
         let gids2 = (
           if expanded then
           let items = match lhs with | GhostVarDec (_, items) -> items in
@@ -1945,16 +1967,25 @@ and normalize_equation info node_id map = function
         (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
         | None -> normalize_expr info (Some node_id) map expr, false)
       else if expand && lhs_arity = rhs_arity then
+        (* Expand in the order of the indices on the left-hand side, which is
+           the order of the indices of the instances (see [expand_node_call]) *)
+        let ivars =
+          items
+          |> List.concat_map (function A.ArrayDef (_, _, is) -> is | _ -> [])
+          |> List.filter (fun v -> StringMap.mem v info.inductive_variables)
+        in
         let expanded_expr = List.fold_left
-          (fun acc (v, (size_opt, _, _, _)) -> 
+          (fun acc v ->
+            let (size_opt, _, _, _) = StringMap.find v info.inductive_variables in
             let size = Option.get size_opt in
             expand_node_calls_in_place info node_id v size acc)
           expr
-          (StringMap.bindings info.inductive_variables)
+          ivars
         in
         normalize_expr info (Some node_id) map expanded_expr, true
       else normalize_expr info (Some node_id) map expr, false)
     in
+    expanded_call_instances := [];
     let gids2 = if expanded then
       let items = match lhs with | StructDef (_, items) -> items in
       let ids = List.map (function
@@ -2164,7 +2195,7 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
               equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
         end)
 
-and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults =
+and mk_fresh_call ?(vmap=[]) ?(instance=[]) info (id : NI.t) map pos cond restart args defaults =
   let inlined = vmap <> [] in
   let call_ctx, gids1 =
     (* Node calls conjoin every enclosing guard regardless of 'pre' depth *)
@@ -2203,7 +2234,11 @@ and mk_fresh_call ?(vmap=[]) info (id : NI.t) map pos cond restart args defaults
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let call = (pos, name, cond, restart, call_ctx, id, args, defaults, inlined) in
-  let gids2 = { (empty ()) with calls = [call] } in
+  let call_instances =
+    if instance = [] then StringMap.empty
+    else StringMap.singleton name instance
+  in
+  let gids2 = { (empty ()) with calls = [call]; call_instances } in
   nexpr, name, union gids1 gids2
 
 (* Abstract a call that is applied to enclosing quantified variables to a fresh
@@ -2222,10 +2257,16 @@ and mk_fresh_qcall info (id : NI.t) inst_name pos args =
   let qcall = (info.quantified_variables, name, inst_name, id, args) in
   nexpr, { (empty ()) with qcalls = [qcall] }
 
-and expand_node_call info node_id expr var count =
+and expand_node_call info node_id expr instance var count =
   let ty = infer_type info node_id expr in
   let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
   let expr_array = List.init count (fun i -> AH.substitute_naive var (mk_index i) expr) in
+  (* An instance of a call that is itself an instance, in an equation over
+     several indices, extends the indices of that instance *)
+  expr_array |> List.iteri (fun i e ->
+    expanded_call_instances :=
+      (e, instance @ [i]) :: !expanded_call_instances
+  );
   match ty with
   | A.ArrayType _ -> A.GroupExpr (dpos, ArrayExpr, expr_array)
   | _ -> List.fold_left
@@ -2305,7 +2346,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
-  | Call (pos, _, id, args) ->
+  | Call (pos, _, id, args) as call ->
+    let instance = call_instance_of_expr call in
     let is_inlinable = NI.Map.mem id info.inlinable_funcs in
     (* A call that cannot be inlined but can be applied to quantified
        variables through the functional symbol of the callee *)
@@ -2368,7 +2410,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (combine_args_with_const info args flags)
       in
       let nexpr, call_name, gids2 =
-        mk_fresh_call ~vmap info id map pos cond restart nargs None
+        mk_fresh_call ~vmap ~instance info id map pos cond restart nargs None
       in
       let gids2 = 
         if NI.get_node_type id = NI.TypeAscription && args <> [] then
@@ -2433,7 +2475,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let nexpr, _, gids, warnings = handle_call vmap args in
       nexpr, gids, warnings
     )
-  | Condact (pos, cond, restart, id, args, defaults) ->
+  | Condact (pos, cond, restart, id, args, defaults) as call ->
+    let instance = call_instance_of_expr call in
     let flags = NI.Map.find id info.node_is_input_const in
     let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
       else abstract_expr ?guard true info node_id map cond in
@@ -2444,11 +2487,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (combine_args_with_const info args flags)
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, _, gids5 = mk_fresh_call info id map pos ncond nrestart nargs (Some ndefaults) in
+    let nexpr, _, gids5 =
+      mk_fresh_call ~instance info id map pos ncond nrestart nargs (Some ndefaults)
+    in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
     nexpr, gids, warnings
-  | RestartEvery (pos, id, args, restart) ->
+  | RestartEvery (pos, id, args, restart) as call ->
+    let instance = call_instance_of_expr call in
     let flags = NI.Map.find id info.node_is_input_const in
     let cond = A.Const (dummy_pos, A.True) in
     let nrestart, gids1, warnings1 = if AH.expr_is_const restart then restart, empty (), []
@@ -2457,7 +2503,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
     in
-    let nexpr, _, gids3 = mk_fresh_call info id map pos cond nrestart nargs None in
+    let nexpr, _, gids3 =
+      mk_fresh_call ~instance info id map pos cond nrestart nargs None
+    in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   | Merge (pos, clock_id, cases) ->
@@ -2506,7 +2554,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
-  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind)) ->
+  (* 'pre' can only be pushed under an index access if the index has the same
+     value at the previous instant, otherwise 'pre (a[i])' becomes '(pre a)[i]' *)
+  | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind))
+    when index_is_time_invariant info expr2 ->
     let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, kind) in
     normalize_expr ?guard info node_id map expr
   | Pre (pos, expr) ->
@@ -3047,18 +3098,22 @@ and expand_node_calls_in_place info node_id var count expr =
   | Activate (p, n, e1, e2, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     A.Activate (p, n, r e1, r e2, expr_list)
-  | Call (p, ty_args, n, expr_list) ->
+  | Call (p, ty_args, n, expr_list) as e ->
+    let instance = call_instance_of_expr e in
     let expr_list = List.map (fun e -> r e) expr_list in
-    expand_node_call info (Some node_id) (A.Call (p, ty_args, n, expr_list)) var count
-  | Condact (p, e1, e2, id, expr_list1, expr_list2) ->
+    expand_node_call info (Some node_id) (A.Call (p, ty_args, n, expr_list))
+      instance var count
+  | Condact (p, e1, e2, id, expr_list1, expr_list2) as e ->
+    let instance = call_instance_of_expr e in
     let expr_list1 = List.map (fun e -> r e) expr_list1 in
     let expr_list2 = List.map (fun e -> r e) expr_list2 in
     let e = A.Condact (p, r e1, r e2, id, expr_list1, expr_list2) in
-    expand_node_call info (Some node_id) e var count
-  | RestartEvery (p, id, expr_list, e) ->
+    expand_node_call info (Some node_id) e instance var count
+  | RestartEvery (p, id, expr_list, e) as e' ->
+    let instance = call_instance_of_expr e' in
     let expr_list = List.map (fun e -> r e) expr_list in
     let e = A.RestartEvery (p, id, expr_list, r e) in
-    expand_node_call info (Some node_id) e var count
+    expand_node_call info (Some node_id) e instance var count
   | e -> e
 
 and normalize_ty ?(guard = None) ?(id = None) info node_id map ty = 

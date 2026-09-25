@@ -117,6 +117,16 @@ contractck_args = {"--enable": "CONTRACTCK"}
 # these tests notice the check losing the ability to turn a model down.
 contractck_declined_dir_name = "declined"
 
+# Tests under a directory with this name run with compositional reasoning on,
+# and tests under a directory with this name run in modular mode; a test under
+# both (`compositional/modular/`) runs with both. These are the analyses that
+# abstract a node or function by its contract and refine it, which the default
+# arguments never reach.
+compositional_dir_name = "compositional"
+compositional_args = {"--compositional": "true"}
+modular_dir_name = "modular"
+modular_args = {"--modular": "true"}
+
 # Where to write log files
 log_dir = Path("logs")
 
@@ -312,6 +322,12 @@ class LustreItem(pytest.Item):
 
         if self._is_contractck():
             args |= contractck_args
+
+        if compositional_dir_name in self._regression_parts():
+            args |= compositional_args
+
+        if modular_dir_name in self._regression_parts():
+            args |= modular_args
 
         arg_list = list(itertools.chain.from_iterable(args.items()))
         return [kind2_bin, *arg_list, self.path]
