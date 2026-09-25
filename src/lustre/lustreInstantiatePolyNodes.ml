@@ -858,7 +858,14 @@ let expanded_instance_args ctx id ctors =
     in
     if List.for_all (fun p -> List.mem_assoc p bindings) ps
     then Some (List.map (fun p -> List.assoc p bindings) ps)
-    else None
+    else
+      (* A parameter bound by no field cannot be recovered, and the declaration's
+         own name stands for a different sort than the instantiation's *)
+      invalid_arg
+        (Format.asprintf "expanded_instance_args: unbound type parameters of %a"
+           HString.pp_print_hstring id)
+  (* A type with no parameters, or no datatype behind the name, is no
+     instantiation to begin with *)
   | Some (_ :: _), _ | Some [], _ | None, _ -> None
 
 (* The canonical form of a type argument: synonyms are expanded, so that two
@@ -896,11 +903,8 @@ let rec canon_ty_arg ctx record ty =
    instantiation, the name of a datatype or an enumeration, or the expansion of
    a synonym that is none of those *)
 and canon_named_ty ctx record pos id ty_args body =
-  match resolve_instance ctx record id ty_args with
-  (* Expanding a synonym can name an instantiation the source never spells out,
-     which still needs a declaration of its own *)
-  | Some (base, canon_args, mono_name) ->
-    record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
+  match resolve_instance ctx record pos id ty_args with
+  | Some mono_name -> A.UserType (pos, [], mono_name)
   | None ->
     match body with
     | A.ADT _ | A.EnumType _ -> A.UserType (pos, [], id)
@@ -910,20 +914,23 @@ and canon_named_ty ctx record pos id ty_args body =
     | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ ->
       canon_ty_arg ctx record body
 
-(* The instantiation a named type resolves to: the type it instantiates, the
-   canonical type arguments, and the name the instantiation is declared under. A
-   datatype is named by its own declaration however many synonyms alias it;
-   every other synonym is an instantiation of itself. *)
-and resolve_instance ctx record id ty_args =
+(* The name the instantiation a named type resolves to is declared under.
+   Resolving reports it, so the name cannot be had without a declaration to
+   match. A datatype is named by its own declaration however many synonyms alias
+   it; every other synonym is an instantiation of itself. *)
+and resolve_instance ctx record pos id ty_args =
   let instance base =
     if ty_args = [] then None
     else
       let ty_args = List.map (canon_ty_arg ctx record) ty_args in
-      Some (base, ty_args, HString.mk_hstring (adt_mono_key base ty_args))
+      let mono_name = HString.mk_hstring (adt_mono_key base ty_args) in
+      record pos base ty_args mono_name;
+      Some mono_name
   in
   match Ctx.lookup_ty_syn_body ctx id ty_args with
   | Some (A.ADT (_, base, _)) -> instance base
-  | Some (A.UserType (_, ty_args', id')) -> resolve_instance ctx record id' ty_args'
+  | Some (A.UserType (_, ty_args', id')) ->
+    resolve_instance ctx record pos id' ty_args'
   | Some (A.RefinementType _ | A.History _ | A.RecordType _ | A.ArrayType _
          | A.Set _ | A.Map _ | A.TupleType _ | A.GroupType _ | A.TArr _) ->
     instance id
@@ -946,9 +953,8 @@ let rec rewrite_ty ctx record params ty =
     if ty_args = [] || List.exists (mentions_ty_var params) ty_args then
       A.UserType (pos, ty_args', id)
     else (
-      match resolve_instance ctx record id ty_args with
-      | Some (base, canon_args, mono_name) ->
-        record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
+      match resolve_instance ctx record pos id ty_args with
+      | Some mono_name -> A.UserType (pos, [], mono_name)
       | None -> A.UserType (pos, ty_args', id))
   | A.RefinementType (pos, (p, i, ty), e) ->
     A.RefinementType (pos, (p, i, r ty), rewrite_expr ctx record params e)
@@ -971,9 +977,8 @@ let rec rewrite_ty ctx record params ty =
     (match expanded_instance_args ctx id ctors with
     | Some ty_args when not (List.exists (mentions_ty_var params) ty_args) ->
       let expanded = over_fields () in
-      (match resolve_instance ctx record id ty_args with
-      | Some (base, canon_args, mono_name) ->
-        record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
+      (match resolve_instance ctx record pos id ty_args with
+      | Some mono_name -> A.UserType (pos, [], mono_name)
       | None -> expanded)
     | Some _ | None -> over_fields ())
   | A.AbstractType _ | A.EnumType _ | A.History _ | A.Bool _ | A.Int _
@@ -994,9 +999,8 @@ and rewrite_expr ctx record params expr =
       match Ctx.lookup_constructor ctx ctor with
       | None -> unresolved ()
       | Some (ty_name, _) ->
-        match resolve_instance ctx record ty_name ty_args with
-        | Some (base, canon_args, mono_name) ->
-          record pos base canon_args mono_name;
+        match resolve_instance ctx record pos ty_name ty_args with
+        | Some mono_name ->
           A.ADTTerm (pos, [], mono_ctor_name mono_name ctor, args)
         | None -> unresolved ())
   | A.TypeAscription (pos, e, ty) -> A.TypeAscription (pos, r e, rt ty)
@@ -1011,10 +1015,8 @@ and rewrite_expr ctx record params expr =
     let unresolved () = A.RecordExpr (pos, id, ty_args', flds) in
     if List.exists (mentions_ty_var params) ty_args then unresolved ()
     else (
-      match resolve_instance ctx record id ty_args with
-      | Some (base, canon_args, mono_name) ->
-        record pos base canon_args mono_name;
-        A.RecordExpr (pos, mono_name, [], flds)
+      match resolve_instance ctx record pos id ty_args with
+      | Some mono_name -> A.RecordExpr (pos, mono_name, [], flds)
       | None -> unresolved ())
   | A.Call (pos, ty_args, id, args) ->
     A.Call (pos, List.map rt ty_args, id, List.map r args)
