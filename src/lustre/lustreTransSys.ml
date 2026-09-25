@@ -2706,6 +2706,18 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
          although its body was sliced away, leaving its outputs unconstrained *)
       let is_abstract = A.param_scope_is_abstract analysis_param base_scope in
 
+      (* Whether this is the system of the top node itself. An unrolling of the
+         top node, when it is a recursive function, has the same identifier
+         but is an instance of it called by the top system: the contract
+         assumption of the top node is asserted in the top system, while its
+         recursive calls are proof obligations of their caller; and what was
+         established by analyses of the top node, where its assumptions were
+         asserted, only holds of an unrolling while its assumptions have
+         held. *)
+      let is_top_instance =
+        NI.equal node_id top_name && NI.Map.is_empty num_unrollings
+      in
+
       (* Create a fresh state variable *)
       let mk_fresh_state_var
           ?is_const
@@ -2959,7 +2971,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               in
 
               let include_assumption =
-                NI.equal node_id top_name && not interpreter_mode
+                is_top_instance && not interpreter_mode
               in
 
               (* Add requirements to invariants if node is the top node *)
@@ -3109,7 +3121,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           let node_invariants =
             match contract with
             | Some { C.assumes = (_ :: _) as assumes ; C.sofar_assump }
-              when not (NI.equal node_id top_name) ->
+              when not is_top_instance ->
               let at offset svar =
                 Term.mk_var (Var.mk_state_var_instance svar offset)
               in
@@ -3305,7 +3317,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
             init_terms,
             trans_terms
           =
-            if NI.equal node_id top_name then
+            if is_top_instance then
               constraints_of_history_congruence
                 mk_fresh_state_var
                 history_svars
@@ -3357,7 +3369,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           in
 
           let trans_terms =
-            if NI.equal node_id top_name then
+            if is_top_instance then
               constraints_of_ctr ctr_svars trans_terms
             else
               trans_terms
@@ -3546,7 +3558,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
 
           let assumption =
             if
-              not (NI.equal node_id top_name) &&
+              not is_top_instance &&
               not is_abstract &&
               valid_prop_terms <> []
             then
