@@ -123,9 +123,18 @@ let flatten { os ; ts } =
   let f inv cert tail = (inv, cert) :: tail in
   TMap.fold f os [] |> TMap.fold f ts
 
+(** Applies a function to every invariant, keeping its certificate and
+    whether it is one-state or two-state (non-destructive). The function is
+    told whether the invariant is two-state, as in [filter]. *)
+let map f { os ; ts } =
+  let res = empty () in
+  TMap.iter (fun inv cert -> add_os res (f false inv) cert) os ;
+  TMap.iter (fun inv cert -> add_ts res (f true inv) cert) ts ;
+  res
+
 (** Merges two collections of invariants (non-destructive). *)
 let merge t_1 t_2 =
-  let res = { os = TMap.copy t_1.os ; ts = TMap.copy t_2.os } in
+  let res = { os = TMap.copy t_1.os ; ts = TMap.copy t_1.ts } in
   TMap.iter (add_os res) t_2.os ;
   TMap.iter (add_ts res) t_2.ts ;
   res
