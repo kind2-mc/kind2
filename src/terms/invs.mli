@@ -69,6 +69,11 @@ val find : t -> Term.t -> Certificate.t option
 (** {e Temporary.} Flattens some invariants into a list. *)
 val flatten : t -> (Term.t * Certificate.t) list
 
+(** Applies a function to every invariant, keeping its certificate and
+    whether it is one-state or two-state. The function must not weaken a
+    two-state invariant into a one-state one, or the reverse. *)
+val map : (Term.t -> Term.t) -> t -> t
+
 (** Merges two collections of invariants (non-destructive). *)
 val merge : t -> t -> t
 

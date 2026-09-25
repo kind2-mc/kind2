@@ -3092,6 +3092,35 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
             )
           in
 
+          (* The invariants this node is given were established by an analysis
+             of the node as the top system, where its assumptions are asserted:
+             they hold while its assumptions have held, and not on a trace of
+             its caller that violates them. They are guarded by the history of
+             the assumptions (its "sofar" flag), as its guarantees are when it
+             is abstracted, before they become invariants of its system: the
+             invariant generator checks its candidates against them and lifts
+             what it proves into the caller. A function has no history flag;
+             being stateless, it is guarded by its assumptions at the current
+             step. The properties of the node found among them are asserted
+             under the same guard below. *)
+          let node_invariants =
+            match contract with
+            | Some { C.assumes = (_ :: _) as assumes ; C.sofar_assump }
+              when not (NI.equal node_id top_name) ->
+              let guard =
+                let at_base svar =
+                  Term.mk_var
+                    (Var.mk_state_var_instance svar TransSys.prop_base)
+                in
+                match sofar_assump with
+                | Some sofar -> at_base sofar
+                | None ->
+                  Term.mk_and (List.map (fun { C.svar } -> at_base svar) assumes)
+              in
+              Invs.map (fun inv -> Term.mk_implies [guard; inv]) node_assumptions
+            | _ -> node_assumptions
+          in
+
           let filter_enum_svars =
             List.filter (fun state_var ->
               let state_var_type = StateVar.type_of_state_var state_var in
@@ -3775,7 +3804,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               subsystems
               properties
               mode_requires
-              node_assumptions
+              node_invariants
               (NI.get_node_type node_id <> NodeId.FreeConstant &&
                NI.get_node_type node_id <> NodeId.TypeAscription &&
                NI.get_node_type node_id <> NodeId.ClockedExpr)

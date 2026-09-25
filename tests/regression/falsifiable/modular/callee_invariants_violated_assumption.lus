@@ -1,0 +1,23 @@
+-- main calls Sub with an argument that violates its assumption, so "p" fails:
+-- y = 1000 - n at step n. The analysis of Sub as the top system, where its
+-- assumption is asserted, establishes x > 0. Those invariants were given to
+-- Sub in the analyses of main without the guard for its assumption, and the
+-- invariant generator lifted x > 0 into main, where "p" was then proved.
+-- They are now guarded by the history of Sub's assumption.
+--
+-- The run is falsifiable either way, as the assumption of Sub is falsified,
+-- so test_callee_invariants_guard.py checks that "p" is never proved.
+node Sub (a: int) returns (x: int);
+(*@contract
+  assume a > 0;
+  guarantee x > 0;
+*)
+let
+  x = 1000 -> pre x + a;
+tel
+
+node main () returns (y: int);
+let
+  y = Sub(-1);
+  check "p" y > 0;
+tel
