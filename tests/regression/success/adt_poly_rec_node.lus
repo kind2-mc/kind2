@@ -1,0 +1,14 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node mk<T>(x: T) returns (l: List<T>);
+let
+  l = Cons(x, Nil@<T>);
+tel
+
+node main(i: int) returns (ok: bool);
+var y: List<int>;
+let
+  y = mk@<int>(i);
+  ok = Cons?(y);
+  check ok;
+tel

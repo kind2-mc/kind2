@@ -1674,7 +1674,8 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
     | Type.Datatype (name, ctors) ->
       Format.fprintf ppf "type=\"datatype\" datatypeName=\"%a\"@ constructors=\"%a\""
         pp_print_name_xml name
-        (pp_print_list pp_print_name_xml ", ") (List.map fst ctors)
+        (pp_print_list pp_print_name_xml ", ")
+        (List.map (fun (c, _) -> Type.source_ctor_name c) ctors)
     (* A stream's own declared type is never a bare self-reference placeholder --
        those only ever occur nested inside a datatype's own constructor fields. *)
     | Type.DatatypeRef _ -> assert false
@@ -2011,7 +2012,7 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
         "
         field field pp_print_name_json name
         (pp_print_list pp_print_qstring ", ")
-        (List.map fst ctors)
+        (List.map (fun (c, _) -> Type.source_ctor_name c) ctors)
   )
   (* A stream's own declared type is never a bare self-reference placeholder --
      those only ever occur nested inside a datatype's own constructor fields. *)

@@ -1,0 +1,14 @@
+datatype Opt<T> = None | Some (v: T);
+datatype W<S> = WA (n: S) | WB (m: S);
+
+node f(w: W<Opt<int>>) returns (b: bool);
+let b = WB?(w); tel
+
+node g(w: W<Opt<bool>>) returns (b: bool);
+let b = WB?(w); tel
+
+node main(i: int; c: bool) returns (ok: bool);
+let
+  ok = f(WB(Some(i))) and g(WB(Some(c)));
+  check ok;
+tel

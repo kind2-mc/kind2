@@ -1,0 +1,9 @@
+type Box<T> = struct { a: T };
+type A1<T> = Box<T>;
+type A2<T> = A1<Box<T>>;
+
+node main(x: A2<int>) returns (ok: bool);
+let
+  ok = x.a.a >= 0 or x.a.a < 0;
+  check ok;
+tel

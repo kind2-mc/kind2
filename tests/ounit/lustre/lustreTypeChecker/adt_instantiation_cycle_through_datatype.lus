@@ -1,0 +1,10 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+datatype M = MN | MC (v: L<M>, m: M);
+
+node main(i: int) returns (ok: bool);
+var x: M;
+let
+  x = MN;
+  ok = MN?(x);
+  check ok;
+tel

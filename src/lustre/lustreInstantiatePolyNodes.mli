@@ -22,8 +22,15 @@ module NI = NodeId
 module Ctx = TypeCheckerContext
 module GI = GeneratedIdentifiers
 
-(** Canonical key for a monomorphized ADT instantiation, e.g. ["Opt<int>"]. *)
-val adt_mono_key : HString.t -> A.lustre_type list -> string
+(** [instantiate_polymorphic_adts ctx gids type_decls decls] declares every
+    ground instantiation of a polymorphic datatype the program uses, and rewrites
+    each use to name the declaration of its instantiation, so that no later pass
+    has to resolve one. Fails when an instantiation's field types break a
+    restriction that only a concrete type can break. *)
+val instantiate_polymorphic_adts :
+  Ctx.tc_context -> GI.t NI.Map.t -> A.declaration list -> A.declaration list ->
+  (Ctx.tc_context * GI.t NI.Map.t * A.declaration list * A.declaration list,
+   [> LustreTypeChecker.error ]) result
 
 val instantiate_polymorphic_nodes :
   Ctx.tc_context -> GI.t NI.Map.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t * A.declaration list

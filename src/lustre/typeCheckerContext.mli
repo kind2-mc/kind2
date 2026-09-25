@@ -95,7 +95,25 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
-    
+
+val map_types:
+  in_definition:(LA.ident list -> tc_type -> tc_type) ->
+  in_use:(tc_type -> tc_type) -> tc_context -> tc_context
+(** The context with every type it records rewritten. A pass that changes the
+    types of a program has to change the context that types it too, or the two
+    spellings of a type are compared against each other later. The type a
+    declaration is defined as is rewritten by [in_definition], which is given the
+    type parameters that declaration binds; every other type is a use, and is
+    rewritten by [in_use]. The values of constants are left alone: they are
+    propagated before any such pass runs. *)
+
+val lookup_ty_syn_body: tc_context -> LA.ident -> tc_type list -> tc_type option
+(** The definition of a type synonym, with its type parameters substituted by
+    the given type arguments. Unlike {!lookup_ty_syn}, a definition that is
+    itself a named type is returned as such rather than chased, so that the
+    caller sees each link of an alias chain and the type arguments it passes
+    on. *)
+
 val expand_type_syn: tc_context -> tc_type -> tc_type
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 

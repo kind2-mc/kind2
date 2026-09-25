@@ -130,8 +130,10 @@ type error_kind = Unknown of string
   | NonRecursiveADTDecreases of tc_type
   | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
-  | RecursiveFieldWithTypeArgs of HString.t * HString.t
+  | NonUniformRecursiveDatatype of HString.t * HString.t
+  | MutuallyRecursiveDatatypes of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
+  | UnsupportedRefinementInRecursiveAdtInstantiation of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -311,15 +313,25 @@ let error_message kind = match kind with
     ^ "' with a non-scalar type (array, tuple, record, set, or map); a recursive datatype's \
        fields must each be either a scalar type or a direct self-reference, so this is not yet \
        supported"
-  | RecursiveFieldWithTypeArgs (ty_name, field) ->
+  | NonUniformRecursiveDatatype (ty_name, field) ->
     "Datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
     ^ HString.string_of_hstring field
-    ^ "' applied to type arguments; polymorphic recursive datatypes are not yet supported"
+    ^ "' applied to type arguments other than the datatype's own type parameters, in order; \
+       a self-reference must repeat the declaration's type parameters exactly, so this is \
+       not yet supported"
+  | MutuallyRecursiveDatatypes (ty_name1, ty_name2) ->
+    "Datatypes '" ^ HString.string_of_hstring ty_name1 ^ "' and '"
+    ^ HString.string_of_hstring ty_name2
+    ^ "' are mutually recursive, which is not yet supported"
   | UnsupportedRefinementInRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
     ^ "' with a refinement type; refinement types on fields of recursive datatypes \
        are not yet supported"
+  | UnsupportedRefinementInRecursiveAdtInstantiation ty_name ->
+    "Instantiation '" ^ HString.string_of_hstring ty_name
+    ^ "' of a recursive datatype has a type argument with a refinement type; \
+       refinement types as arguments of recursive datatypes are not yet supported"
 
 type warning_kind =
   | UnusedBoundVariableWarning of HString.t
@@ -772,6 +784,26 @@ let update_ty_with_ctx node_ty call_params ctx arg_exprs =
     LH.apply_subst_in_type (List.combine call_param_len_idents array_len_exprs) node_ty
   )
 
+(* Monomorphization instantiates a polymorphic datatype once per set of type
+   arguments it is used at, so a self-reference must be at the declaration's own
+   type parameters; anything else has no finite expansion. *)
+let check_uniform_recursion pos ty_name ty_params ctors =
+  let uniform ty_args =
+    List.length ty_args = List.length ty_params
+    && List.for_all2 (fun ty p -> match ty with
+         | LA.UserType (_, [], id) -> HString.equal id p
+         | _ -> false) ty_args ty_params
+  in
+  match List.concat_map (fun (_, fields) ->
+    List.filter_map (fun (fn, ty) -> match ty with
+      | LA.UserType (_, (_ :: _ as ty_args), id)
+        when HString.equal id ty_name && not (uniform ty_args) -> Some fn
+      | _ -> None
+    ) fields
+  ) ctors with
+  | fn :: _ -> type_error pos (NonUniformRecursiveDatatype (ty_name, fn))
+  | [] -> R.ok ()
+
 let instantiate_type_variables: tc_context -> Lib.position -> NI.t -> tc_type -> tc_type list -> (tc_type, [> error ]) result
 = fun ctx pos node_id ty ty_args -> 
   (* In "ty", substitute each type variable for corresponding type from "tys" *)
@@ -1213,14 +1245,14 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* scrut_ty, e', warnings = infer_type_expr ctx nname e in
     let* scrut_ty_exp = expand_type_syn_reftype_history ctx scrut_ty in
     (match scrut_ty_exp with
-    | LA.ADT (_, adt_name, _) -> (
-      match lookup_constructor ctx c with
-      | None -> type_error pos (UnboundConstructor c)
-      | Some (ty_name, _) ->
-        if HString.equal adt_name ty_name then
-          R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
-        else
-          type_error pos (UnboundConstructor c))
+    (* Each instantiation names its constructors after itself, so a tester is
+       resolved against the constructors of the datatype it tests *)
+    | LA.ADT (_, _, ctors) ->
+      let source_name c = Type.source_ctor_name (HString.string_of_hstring c) in
+      if List.exists (fun (ctor, _) ->
+           String.equal (source_name ctor) (source_name c)) ctors
+      then R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
+      else type_error pos (UnboundConstructor c)
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty))
 
   (* Values *)
@@ -2700,10 +2732,14 @@ and tc_ctx_of_ty_decl: tc_context -> LA.type_decl -> (LA.type_decl * tc_context,
       else R.ok ()
     ) () ps in
 
+    let* () = match ty with
+      | LA.ADT (_, _, ctors) -> check_uniform_recursion pos i ps ctors
+      | _ -> R.ok ()
+    in
+    let ctx = add_ty_vars_ty ctx i ps in
     let ctx' = List.fold_left (fun acc p -> 
       add_ty_syn acc p (LA.AbstractType (pos, p))
     ) ctx ps in
-    let ctx = add_ty_vars_ty ctx i ps in
     (* For recursive ADTs, add the type itself to ctx' before checking so that
        self-referential field types are recognized as valid *)
     let ctx' = match ty with
@@ -3275,18 +3311,6 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
             type_error pos (UndeclaredType i)
       )
     | ADT (pos, new_ty_name, ctors) ->
-      (* Reject polymorphic recursive ADTs for now *)
-      let* () =
-        match List.concat_map (fun (_, fields) ->
-          List.filter_map (fun (fn, ty) -> match ty with
-            | LA.UserType (_, (_ :: _), _) when LH.is_direct_self_reference new_ty_name ty ->
-              Some fn
-            | _ -> None
-          ) fields
-        ) ctors with
-        | fn :: _ -> type_error pos (RecursiveFieldWithTypeArgs (new_ty_name, fn))
-        | [] -> R.ok ()
-      in
       let* ctors, all_warnings = R.seq (List.map (fun (ctor, fields) ->
         let* _ = (match lookup_constructor ctx ctor with
           | Some (existing_ty_name, _) ->
@@ -3436,7 +3460,14 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
 (** Function type for nodes will be [TupleType ips] -> [TupleTy outputs]  *)
 
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
-  = fun ctx t1 t2 ->
+  = fun ctx t1 t2 -> eq_lustre_type_seen HString.HStringSet.empty ctx t1 t2
+
+(* [seen] holds the datatypes the comparison is already inside of, so that the
+   recursion through a datatype's self-referential fields terminates; every case
+   but the datatype one passes it through unchanged *)
+and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
+  = fun seen ctx t1 t2 ->
+  let eq_lustre_type ctx t1 t2 = eq_lustre_type_seen seen ctx t1 t2 in
   match (t1, t2) with
   (* Simple types *)
   | Bool _, Bool _ -> R.ok true
@@ -3505,7 +3536,18 @@ and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
         (List.fold_left (&&) true (List.map2 (=) (LH.sort_idents is1) (LH.sort_idents is2))))
     else
       R.ok false
-  | ADT (_, n1, _), ADT (_, n2, _) -> R.ok (n1 = n2)
+  | ADT (_, n1, cons1), ADT (_, n2, cons2) ->
+    (* Two instantiations of a polymorphic datatype share their name, and differ
+       only in the field types their constructors carry. Each name is entered
+       once per comparison path, so that a self-reference terminates. *)
+    if not (HString.equal n1 n2) then R.ok false
+    else if HString.HStringSet.mem n1 seen then R.ok true
+    else
+      let seen = HString.HStringSet.add n1 seen in
+      let field_types cons = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+      let tys1, tys2 = field_types cons1, field_types cons2 in
+      if List.length tys1 <> List.length tys2 then R.ok false
+      else R.seqM (&&) true (List.map2 (eq_lustre_type_seen seen ctx) tys1 tys2)
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2

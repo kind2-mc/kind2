@@ -1,0 +1,10 @@
+type Pos = subtype { n: int | n > 0 };
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var x: List<Pos>;
+let
+  x = Nil@<Pos>;
+  ok = Nil?(x);
+  check ok;
+tel

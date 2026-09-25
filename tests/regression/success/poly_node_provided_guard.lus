@@ -1,0 +1,16 @@
+node h<A>(x: A) returns (y: bool);
+let
+  y = true;
+tel
+
+node g<A>(x: A) returns (y: bool);
+let
+  y = true;
+  check y provided h@<A>(x);
+tel
+
+node main(i: int) returns (ok: bool);
+let
+  ok = g@<int>(i);
+  check ok;
+tel

@@ -106,7 +106,52 @@ let width_val_of_map m =
     ) m 0
 
 
-let pp_print_value_term as_type ppf t = match as_type with
+(* The source name of the constructor a datatype value is built with, and its
+   arguments paired with the types the constructor declares for them *)
+let destruct_datatype_value ty t =
+  let flat = Term.destruct t in
+  let ctor = match flat with
+    | Term.T.Const sym | Term.T.App (sym, _) -> (
+      match Symbol.node_of_symbol sym with
+      | `UF uf_sym -> Some (UfSymbol.name_of_uf_symbol uf_sym)
+      | _ -> None)
+    | Term.T.Var _ -> None
+  in
+  match ctor with
+  | None -> None
+  | Some ctor_name ->
+    let args = match flat with
+      | Term.T.App (_, args) -> args
+      | Term.T.Const _ | Term.T.Var _ -> []
+    in
+    let field_types =
+      match List.assoc_opt ctor_name (Type.constructors_of_datatype ty) with
+      | Some tys -> tys
+      | None -> []
+    in
+    (* A field that is a self-reference has the datatype's own type *)
+    let resolve_field_type fty =
+      if Type.is_datatype_ref fty && Type.name_of_datatype_ref fty = Type.name_of_datatype ty
+      then ty else fty
+    in
+    let args_as_type =
+      if List.length args = List.length field_types then
+        List.map (fun fty -> Some (resolve_field_type fty)) field_types
+      else List.map (fun _ -> None) args
+    in
+    Some (Type.source_ctor_name ctor_name, List.combine args args_as_type)
+
+let rec pp_print_value_term as_type ppf t = match as_type with
+  | Some ty when Type.is_datatype ty -> (
+    match destruct_datatype_value ty t with
+    | None -> pp_print_term ppf t
+    | Some (ctor_name, args) ->
+      Format.pp_print_string ppf ctor_name;
+      if args <> [] then
+        Format.fprintf ppf "(%a)"
+          (pp_print_list (fun ppf (a, aty) -> pp_print_value_term aty ppf a) ", ")
+          args
+  )
   | Some ty when Term.is_numeral t && Type.is_enum ty -> (
     try (
       Term.numeral_of_term t
@@ -219,7 +264,17 @@ let map_to_array_model m =
   |> MIL.fold add_at_indexes m
 
 
-let pp_print_value_term_xml as_type ppf t = match as_type with
+let rec pp_print_value_term_xml as_type ppf t = match as_type with
+  | Some ty when Type.is_datatype ty -> (
+    match destruct_datatype_value ty t with
+    | None -> pp_print_term ppf t
+    | Some (ctor_name, args) ->
+      Format.pp_print_string ppf ctor_name;
+      if args <> [] then
+        Format.fprintf ppf "(%a)"
+          (pp_print_list (fun ppf (a, aty) -> pp_print_value_term_xml aty ppf a) ", ")
+          args
+  )
   | Some ty when Term.is_numeral t && Type.is_enum ty -> (
     try (
       Term.numeral_of_term t
@@ -295,40 +350,13 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
     Format.fprintf ppf "\"%s\"" (escape_json_string num_str)
   )
   | Some ty when Type.is_datatype ty -> (
-    let pp_print_ctor ppf ctor_name args =
-      let field_types =
-        match List.assoc_opt ctor_name (Type.constructors_of_datatype ty) with
-        | Some tys -> tys
-        | None -> []
-      in
-      let resolve_field_type fty =
-        if Type.is_datatype_ref fty && Type.name_of_datatype_ref fty = Type.name_of_datatype ty
-        then ty else fty
-      in
-      let args_as_type =
-        if List.length args = List.length field_types then
-          List.map (fun fty -> Some (resolve_field_type fty)) field_types
-        else List.map (fun _ -> None) args
-      in
+    match destruct_datatype_value ty t with
+    | None -> pp_print_term_as_json_value ppf t
+    | Some (ctor_name, args) ->
       Format.fprintf ppf "{\"constructor\" : \"%s\", \"args\" : [%a]}"
         (escape_json_string ctor_name)
         (pp_print_list (fun ppf (a, aty) -> pp_print_value_term_json aty ppf a) ", ")
-        (List.combine args args_as_type)
-    in
-    (* A constructor that takes no fields is a constant rather than an
-       application, and so reaches this through [Const] *)
-    match Term.destruct t with
-    | Term.T.App (sym, args) -> (
-      match Symbol.node_of_symbol sym with
-      | `UF uf_sym -> pp_print_ctor ppf (UfSymbol.name_of_uf_symbol uf_sym) args
-      | _ -> pp_print_term_as_json_value ppf t
-    )
-    | Term.T.Const sym -> (
-      match Symbol.node_of_symbol sym with
-      | `UF uf_sym -> pp_print_ctor ppf (UfSymbol.name_of_uf_symbol uf_sym) []
-      | _ -> pp_print_term_as_json_value ppf t
-    )
-    | _ -> pp_print_term_as_json_value ppf t
+        args
   )
   | _ when Term.is_decimal t -> (
     let d = Term.decimal_of_term t in

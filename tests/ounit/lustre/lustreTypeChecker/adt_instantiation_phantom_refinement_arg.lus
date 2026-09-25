@@ -1,0 +1,8 @@
+type Small = subrange [0, 5] of int;
+datatype L<T> = LN | LC (t: L<T>);
+
+node main(x: L<Small>) returns (ok: bool);
+let
+  ok = LN?(x);
+  check ok;
+tel

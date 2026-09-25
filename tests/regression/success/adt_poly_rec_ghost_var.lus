@@ -1,0 +1,16 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+
+node g<A>(x: L<A>) returns (y: bool);
+(*@contract
+  var gv: L<A> = x;
+  guarantee y => (LN?(gv) or LC?(gv));
+*)
+let
+  y = true;
+tel
+
+node main(i: int) returns (ok: bool);
+let
+  ok = g@<int>(LC(i, LN@<int>));
+  check ok;
+tel

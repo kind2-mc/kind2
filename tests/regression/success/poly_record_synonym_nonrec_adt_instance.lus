@@ -1,0 +1,9 @@
+type Box<T> = struct { a: T };
+datatype Opt<T> = None | Some (v: T);
+type Wrapped<T> = Box<Opt<T>>;
+
+node main(x: Wrapped<int>) returns (ok: bool);
+let
+  ok = None?(x.a) or Some?(x.a);
+  check ok;
+tel

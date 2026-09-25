@@ -1,0 +1,9 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main (l: List<int>) returns (h: int);
+let
+  match l with
+  | Cons (a, r):
+    h = a;
+  end
+tel

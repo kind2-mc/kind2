@@ -363,10 +363,29 @@ let rec default_value ctx adt_map pos ty =
     LA.GroupExpr (pos, LA.ExprList, List.map (default_value ctx adt_map pos) tys)
   | LA.ArrayType (_, (ety, size)) ->
     LA.ArrayConstr (pos, default_value ctx adt_map pos ety, size)
-  | LA.UserType _ ->
-    (match Ctx.expand_type_syn ctx ty with
-    | LA.UserType _ -> assert false
-    | expanded -> default_value ctx adt_map pos expanded)
+  | LA.UserType (_, ty_args, name) -> (
+    match HStringMap.find_opt name adt_map with
+    (* A recursive ADT stays an SMT-LIB datatype; its default is built from the
+       instantiation's field types, so that the term names the right one *)
+    | Some info when info.is_recursive ->
+      let subst =
+        if List.length info.type_params = List.length ty_args
+        then List.combine info.type_params ty_args else []
+      in
+      let ctors =
+        List.map (fun ctor ->
+          (ctor,
+           match HStringMap.find_opt ctor info.ctor_fields with
+           | Some fs -> List.map (fun (_, ty) -> LH.apply_type_subst_in_type subst ty) fs
+           | None -> [])
+        ) info.ctor_variants
+      in
+      default_adt_term ctx adt_map pos name ty_args
+        (declared_and_instance adt_map name ctors)
+    | Some _ | None ->
+      match Ctx.expand_type_syn ctx ty with
+      | LA.UserType _ -> assert false
+      | expanded -> default_value ctx adt_map pos expanded)
   | LA.Set (_, ty) -> LA.EmptySet (pos, Some ty)
   | LA.Map (_, kt, vt) -> LA.EmptyMap (pos, Some (kt, vt))
   | LA.RefinementType (_, (_, _, inner_ty), _) -> default_value ctx adt_map pos inner_ty
@@ -377,20 +396,37 @@ let rec default_value ctx adt_map pos ty =
   | LA.AbstractType _ -> LA.AbstractSymConst (pos, ty)
   | LA.TArr _ -> assert false
   | LA.ADT (_, name, ctors) ->
-    (* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
-       (one with no self-recursive fields) as the default "junk" value.  This
-       junk is only placed in payload slots of non-recursive ADT records where
-       the discriminant guarantees it is never accessed, so any value is correct. *)
-    let is_self_recursive = function
-      | LA.ADT (_, n, _) | LA.UserType (_, _, n) -> HString.equal n name
-      | _ -> false
-    in
-    (match List.find_opt (fun (_, fields) ->
-        not (List.exists (fun (_, ty) -> is_self_recursive ty) fields)) ctors with
-    | Some (ctor, fields) ->
-      let args = List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields in
-      LA.ADTTerm (pos, [], ctor, args)
-    | None -> assert false)
+    let ctors = List.map (fun (ctor, fields) -> (ctor, List.map snd fields)) ctors in
+    default_adt_term ctx adt_map pos name []
+      (declared_and_instance adt_map name ctors)
+
+(* Each constructor's field types paired with the declared ones: once the type
+   arguments are substituted in, only the declaration says which are self-references *)
+and declared_and_instance adt_map name ctors =
+  let declared ctor =
+    match HStringMap.find_opt name adt_map with
+    | Some info -> HStringMap.find_opt ctor info.ctor_fields
+    | None -> None
+  in
+  List.map (fun (ctor, ftys) ->
+    match declared ctor with
+    | Some dfs when List.length dfs = List.length ftys ->
+      (ctor, List.combine (List.map snd dfs) ftys)
+    | Some _ | None -> (ctor, List.map (fun ty -> (ty, ty)) ftys)
+  ) ctors
+
+(* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
+   (one with no self-recursive fields) as the default "junk" value.  This junk
+   is only placed in payload slots of non-recursive ADT records where the
+   discriminant guarantees it is never accessed, so any value is correct. *)
+and default_adt_term ctx adt_map pos name ty_args ctors =
+  let is_self_recursive (declared, _) = LH.is_direct_self_reference name declared in
+  match List.find_opt
+          (fun (_, fields) -> not (List.exists is_self_recursive fields)) ctors with
+  | Some (ctor, fields) ->
+    LA.ADTTerm (pos, ty_args, ctor,
+      List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields)
+  | None -> assert false
 
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
@@ -444,7 +480,7 @@ and desugar_type pos ctx adt_map ty =
    of an array (under a quantifier over its indexes), the value of a
    refinement type, a type synonym or a history type. None when [ty] is not
    compound in that sense. *)
-and over_components ctx pos mk expr ty =
+and over_components ctx adt_map pos mk expr ty =
   match ty with
   | LA.RecordType (_, _, fields) ->
     Some (List.concat_map (fun (_, fname, ftype) ->
@@ -470,6 +506,12 @@ and over_components ctx pos mk expr ty =
   | LA.RefinementType (_, (_, _, t), _) -> Some (mk expr t)
   | LA.History (_, id) ->
     Some (match Ctx.lookup_ty ctx id with Some t -> mk expr t | None -> [])
+  (* A recursive ADT is a single SMT-LIB datatype value, not a structure of
+     components, and expanding its name does not terminate *)
+  | LA.UserType (_, _, name)
+    when (match HStringMap.find_opt name adt_map with
+          | Some info -> info.is_recursive
+          | None -> false) -> None
   | LA.UserType _ ->
     (match Ctx.expand_type_syn ctx ty with
     | LA.UserType _ -> None
@@ -492,7 +534,7 @@ and mk_is_default ctx adt_map pos expr ty =
   | LA.Set (_, kt) -> empty LA.Set kt
   | LA.Map (_, kt, _) -> empty LA.Map kt
   | _ ->
-    match over_components ctx pos mk expr ty with
+    match over_components ctx adt_map pos mk expr ty with
     | Some cs -> cs
     | None -> [LA.CompOp (pos, LA.Eq, expr, default_value ctx adt_map pos ty)]
 
@@ -556,7 +598,7 @@ and mk_canonical_exprs ctx adt_map pos expr ty =
     in
     only_canonical_keys LA.Map kt @ values
   | _ ->
-    match over_components ctx pos mk expr ty with
+    match over_components ctx adt_map pos mk expr ty with
     | Some cs -> cs
     | None -> []
 
@@ -608,7 +650,7 @@ and desugar_expr ctx adt_map expr =
       | Some e -> (fname, e)
       | None -> (fname, default_value ctx adt_map pos ftype)
     ) (inst_fields adt_info.all_payload_fields) in
-    LA.RecordExpr (pos, adt_info.type_name, [],
+    LA.RecordExpr (pos, adt_info.type_name, ty_args',
       (adt_info.disc_field, disc_e) :: payload_pairs)
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
     (* The type checker records the scrutinee's type in every match it checks *)
