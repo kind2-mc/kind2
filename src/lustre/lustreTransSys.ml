@@ -3940,7 +3940,20 @@ let trans_sys_of_nodes
   ( match analysis_param with
     | A.Refinement (_,result) ->
       (* The analysis that's going to run is a refinement. *)
+      (* The system may be sliced to a single property, as IC3IA builds its
+         own for each property it checks (see [IC3IA.main]). The properties
+         outside of the cone of that property, such as those lifted from a
+         call it does not depend on, are then not in the system, and their
+         statuses have nothing to be carried over to. *)
+      let has_prop =
+        let names =
+          TransSys.get_properties trans_sys
+          |> List.map (fun { P.prop_name } -> prop_name)
+        in
+        fun name -> List.mem name names
+      in
       TransSys.get_prop_status_all_nocands result.A.sys
+      |> List.filter (fun (name, _) -> has_prop name)
       |> List.iter (function
         | _, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
           ()
