@@ -1,0 +1,19 @@
+-- The contract of Sub has modes but no guarantee, and no mode has an ensure,
+-- so its abstraction, [(x > 0 => true) and (x <= 0 => true)], says nothing
+-- about y. Sub was still counted as having a contract and abstracted in a
+-- compositional analysis, and "p", which holds of its body, was reported
+-- falsified.
+node Sub (x: int) returns (y: int);
+(*@contract
+  mode pos (require x > 0;);
+  mode nonpos (require x <= 0;);
+*)
+let
+  y = x + 1;
+tel
+
+node main (x: int) returns (y: int);
+let
+  y = Sub(x);
+  --%PROPERTY "p" y = x + 1;
+tel

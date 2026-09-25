@@ -1068,10 +1068,13 @@ let rec ident_of_top = function
   | _ :: tl -> ident_of_top tl
 
 
-(* Node has a contract if it has at least one guarantee or one mode *)
+(* Node has a contract if it has at least one guarantee or one mode with an
+   ensure. A mode without ensures only contributes [requires => true] to the
+   abstraction of the node, which says nothing about its outputs. *)
 let has_effective_contract = function
 | { contract = None } -> false
-| { contract = Some { C.guarantees;  C.modes } } -> guarantees != [] || modes != []
+| { contract = Some { C.guarantees;  C.modes } } ->
+  guarantees != [] || List.exists (fun { C.ensures } -> ensures != []) modes
 
 let has_modes = function
 | { contract = None } -> false

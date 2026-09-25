@@ -120,7 +120,7 @@ let get_testgen_uid () =
   uid
 
 (** Returns the analysis param for [top] that abstracts all its abstractable
-    subsystems if [top] has a contract. *)
+    subsystems if [top] has a contract with modes. *)
 let maximal_abstraction_for_testgen (type s)
 : s t -> Scope.t -> A.assumptions -> A.param option = function
 
@@ -137,12 +137,14 @@ let maximal_abstraction_for_testgen (type s)
     let rec get_abstraction_for_top = function
       | sub :: tail ->
         if sub.S.scope = top then
-          (* Sub is the system we're looking for. *)
-          if sub.S.has_contract then
-            (* System has contracts, collecting subsystems. *)
+          (* Sub is the system we're looking for. Test generation explores
+             the modes of its contract, whose activation only depends on
+             their requires, so modes without ensures are enough. *)
+          if sub.S.has_modes then
+            (* System has modes, collecting subsystems. *)
             collect (Scope.Map.add sub.S.scope false Scope.Map.empty) tail
           else
-            (* System has no contracts. *)
+            (* System has no modes. *)
             None
         else
           (* Sub is not the system we're looking for, skipping. *)

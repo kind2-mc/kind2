@@ -378,7 +378,7 @@ val find_main : t list -> NI.t list
 val ident_of_top : t list -> NI.t
 
 (** Return true if the node has a contract with
-    at least one guarantee or one mode *)
+    at least one guarantee or one mode with an ensure *)
 val has_effective_contract : t -> bool
 
 (** Return a list of tree-like subsystem hierarchies from a flat list of nodes,
