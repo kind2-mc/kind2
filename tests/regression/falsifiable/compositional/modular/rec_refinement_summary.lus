@@ -1,0 +1,24 @@
+-- The first analysis of main abstracts Fact by its contract, which does not
+-- give Fact(0) = 1, so the check is falsified. Fact's own analysis proved its
+-- contract, so main is refined: Fact is unrolled and the check is proved. The
+-- run is falsifiable, as the check was disproven in one analysis.
+--
+-- The summary of the refinement lists the systems it refined. It looked up
+-- every subsystem of main in the abstraction map of the first analysis,
+-- including the unrollings of Fact, whose scopes (rec_1.Fact) are fresh for
+-- each system, and the run failed with "could not find system rec_1.Fact in
+-- abstraction map of previous result".
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(0);
+  check "fact0" y = 1;
+tel
