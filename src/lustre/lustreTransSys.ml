@@ -2660,9 +2660,22 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
 
       in
         
+      (* The number of times the body of a recursive function is unrolled
+         along a chain of recursive calls before a call is abstracted by its
+         contract (or, for a defined function, left to its definition): once,
+         unless a refinement set more (see [Analysis.info.unrollings]) *)
+      let unrolling_depth node_id =
+        let scope =
+          [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+        in
+        match A.param_unrollings_of_scope analysis_param scope with
+        | Some depth -> depth
+        | None -> 1
+      in
+
       let reached_limit =
         match NI.Map.find_opt node_id num_unrollings with
-        | Some n -> n >= 1
+        | Some n -> n >= unrolling_depth node_id
         | None -> false
       in
 
@@ -2793,7 +2806,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
 
              let reached_limit =
                match NI.Map.find_opt call_node_id num_unrollings'' with
-               | Some n -> n >= 2
+               | Some n -> n >= unrolling_depth call_node_id + 1
                | None -> false
              in
 

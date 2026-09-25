@@ -1388,6 +1388,27 @@ module Contracts = struct
     )
   let refinement () = !refinement
 
+  (* Unrollings of a recursive function a refinement tries before defining
+     it. *)
+  let rec_unrollings_default = 2
+  let rec_unrollings = ref rec_unrollings_default
+  let _ = add_spec
+    "--rec_unrollings"
+    (Arg.Set_int rec_unrollings)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        In a compositional and modular analysis, a call to a recursive@ \
+        function whose contract does not prove the properties of the@ \
+        caller is refined by unrolling the function, once, then up to@ \
+        <int> times, with its recursive calls abstracted by the contract,@ \
+        before the function is defined at the SMT level@ \
+        Default: %d\
+      @]"
+      rec_unrollings_default
+    )
+  let rec_unrollings () = !rec_unrollings
+
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default
   let _ = add_spec

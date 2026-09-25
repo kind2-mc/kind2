@@ -1,16 +1,17 @@
 -- The analysis of append proves its guarantee "G1", after a refinement that
--- defines length. The first analysis of reverse abstracts length and append,
--- and the contract of length does not give length(Cons(h, t)) =
--- 1 + length(t), so "G1" of reverse is falsified. The refinement of reverse
--- defines length and append, and "G1" of reverse follows from "G1" of append
--- at the call, the contract of reverse at its recursive call, and one
--- unfolding of length. The definition of append alone would need induction
--- to give its "G1" for an arbitrary list, so the refinement must assume it,
--- as proved in the analysis of append.
+-- unrolls length once. The guarantee "G1" of reverse needs "G1" of append at
+-- the call on the symbolic list reverse(t), and, on the empty list, the
+-- definition of append: three appends to Nil need three unrollings, more
+-- than the limit. The contract of append gives neither, unrolling append
+-- gives the first conjunct but not the second, so the refinements of reverse
+-- unroll append and length, then define them at the SMT level. The
+-- definition of append alone would need induction to give its "G1" for an
+-- arbitrary list, so the refinement must assume it, as proved in the
+-- analysis of append.
 --
--- The instance of append in reverse, a recursive function, has a tagged
--- scope, and the invariants of append's analysis were looked up by it, so
--- the refinement did not find them and left "G1" unknown.
+-- The instances of append in reverse, a recursive function, have tagged
+-- scopes, and the invariants of append's analysis were looked up by the
+-- tagged scope, so the refinement did not find them and left "G1" unknown.
 --
 -- The run is falsifiable, as the first analyses of append and reverse
 -- falsify their "G1", so test_rec_refinement.py checks the answers of the
@@ -42,7 +43,10 @@ tel
 function rec reverse (l: IntList) returns (r: IntList);
 con
   decreases l;
-  guarantee "G1" length(r) = length(l);
+  guarantee "G1"
+    length(r) = length(l)
+    and (l = Nil =>
+         append(append(append(r, 1), 2), 3) = Cons(1, Cons(2, Cons(3, Nil))));
 noc
 let
   r = match l with

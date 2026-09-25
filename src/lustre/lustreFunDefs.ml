@@ -136,23 +136,27 @@ let is_lemma node =
 
    The contract of a translucent function stands in for its body only in a
    compositional analysis, and there only when the function is abstract in
-   the abstraction map of the analysis, or when the top system of the
-   analysis is the function itself or a function of its recursive group,
-   [top_scc]: the recursive calls of the group being analyzed are abstracted
-   by their contracts after one unrolling, which is the induction hypothesis
-   of the recursion. A concrete function of another group, which a modular
-   analysis has refined once the analysis of the function itself proved its
-   contract valid, is defined instead. Outside of compositional analyses, the
-   contract of a translucent function is never assumed in place of its body,
-   as for any other node or function. *)
+   the abstraction map of the analysis, when a refinement made it concrete
+   with a number of unrollings of its body (see [Analysis.info.unrollings]),
+   or when the top system of the analysis is the function itself or a
+   function of its recursive group, [top_scc]: the recursive calls of the
+   group being analyzed are abstracted by their contracts after one
+   unrolling, which is the induction hypothesis of the recursion. A concrete
+   function of another group with no number of unrollings, which a modular
+   analysis has refined past its unrollings once the analysis of the function
+   itself proved its contract valid, is defined instead. Outside of
+   compositional analyses, the contract of a translucent function is never
+   assumed in place of its body, as for any other node or function. *)
 let contract_abstracts analysis_param top_scc node =
   N.has_effective_contract node
   && (match node.N.opacity with
       | Opacity.Transparent -> false
       | Opacity.Opaque -> true
       | Opacity.Translucent ->
+        let scope = N.scope_of_node node in
         Flags.Contracts.compositional ()
-        && (A.param_scope_is_abstract analysis_param (N.scope_of_node node)
+        && (A.param_scope_is_abstract analysis_param scope
+            || A.param_unrollings_of_scope analysis_param scope <> None
             || (top_scc <> None && scc_of_node node = top_scc)))
 
 (* A recursive function is eligible for a definition if its contract does not

@@ -1,7 +1,9 @@
 -- In a compositional and modular analysis, the analysis of Fact proves its
--- contract, the first analysis of main abstracts Fact by that contract, which
--- does not give Fact(3) = 6, and the refinement of main then defines Fact at
--- the SMT level in place of its contract, which does.
+-- contract, and the first analysis of main abstracts Fact by that contract,
+-- which does not give Fact(3) = 6. The refinements of main then unroll Fact
+-- once, then twice, its recursive call abstracted by the contract, which does
+-- not give the check either (it needs Fact(0) to be the body, four
+-- unrollings), and finally define Fact at the SMT level, which does.
 --
 -- The run is falsifiable, as the first analysis of main falsifies the
 -- checks and the documented exit code counts every analysis, so

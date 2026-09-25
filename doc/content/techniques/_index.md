@@ -69,12 +69,15 @@ anything proved with the abstraction of `sub` is still valid after refinement,
 and Kind 2 will use these results right away.
 
 A [recursive function]({{< relref "/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
-is refined the same way. In a compositional analysis its contract stands in for
-its recursive calls; once its own analysis has proved that contract, refining a
-call to it from another node or function replaces the contract by a definition
-of the function at the SMT level, which the solver unfolds. The analysis of the
-function itself, or of a function of its recursive group, is not refined this
-way: there the contract remains the induction hypothesis of the recursion.
+is refined the same way, in steps. In a compositional analysis its contract
+stands in for its recursive calls; once its own analysis has proved that
+contract, refining a call to it from another node or function first unrolls
+the body of the function once, with its recursive calls abstracted by the
+contract, then up to `--rec_unrollings` times (2 by default), and finally
+replaces the contract by a definition of the function at the SMT level, which
+the solver unfolds. The analysis of the function itself, or of a function of
+its recursive group, is not refined this way: there the contract remains the
+induction hypothesis of the recursion.
 
 ## Modifiers to control node/function abstraction
 

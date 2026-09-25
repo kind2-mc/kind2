@@ -35,6 +35,9 @@ type 'a t = {
   (* System has an implementation. *)
   has_impl : bool ;
 
+  (* The recursive group of a recursive function. *)
+  rec_group : int option ;
+
   map : 'a t Scope.Hashtbl.t ;
 
   (* Direct sub-systems. *)
@@ -43,13 +46,13 @@ type 'a t = {
 
 (* Strategy info of a subsystem. *)
 let strategy_info_of {
-  opacity; has_contract ; has_modes ; has_impl
+  opacity; has_contract ; has_modes ; has_impl ; rec_group
 } = {
   Strategy.opacity ;
   Strategy.has_contract ;
   Strategy.has_modes ;
   Strategy.has_impl;
-
+  Strategy.rec_group;
 }
 
 

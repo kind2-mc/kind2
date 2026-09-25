@@ -943,13 +943,18 @@ defined at the SMT level as above even in a compositional analysis, while an
 
 When the analysis is both compositional and modular, a call to a recursive
 function from another node or function is refined like any other call (see
-[refinement]({{< relref "/techniques#refinement-in-compositional-and-modular-analyses" >}})):
-if the contract of the function is not enough to prove the properties of the
-caller, and the analysis of the function itself proved its contract valid, the
-caller is analyzed again with the function defined at the SMT level in place
-of its contract. This refinement does not apply to the analysis of the
-recursive function itself, or of a function of its recursive group: there the
-recursive calls keep the contract as their induction hypothesis.
+[refinement]({{< relref "/techniques#refinement-in-compositional-and-modular-analyses" >}})),
+in steps: if the contract of the function is not enough to prove the
+properties of the caller, and the analysis of the function itself proved its
+contract valid, the caller is analyzed again with the body of the function
+unrolled once, its recursive calls abstracted by the contract; if that is not
+enough either, with the body unrolled twice, and so on up to the limit set
+with `--rec_unrollings` (2 by default); and finally with the function defined
+at the SMT level in place of its contract. Every function of a mutually
+recursive group is unrolled to the limit before the group is defined. This
+refinement does not apply to the analysis of the recursive function itself,
+or of a function of its recursive group: there the recursive calls keep the
+contract as their induction hypothesis.
 
 This encoding is only used with the Z3 and cvc5 solvers, which support
 recursive function definitions. It is also left out when a logic is given with

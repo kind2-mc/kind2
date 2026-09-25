@@ -77,6 +77,13 @@ type info = {
   assumptions : assumptions ;
   (** Properties that can be assumed invariant in subsystems *)
 
+  unrollings : int Scope.Map.t ;
+  (** The number of times the body of each concrete recursive function that
+      a refinement made concrete is unrolled, its recursive calls abstracted
+      by its contract (see {!Strategy}). A concrete recursive function that
+      is not in the map is defined at the SMT level, when it can be (see
+      {!LustreFunDefs}); elsewhere its body is unrolled once. *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
      refinement. *)
@@ -141,6 +148,10 @@ val shrink_param_to_sys : param -> TransSys.t -> param
 (** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
 val param_scope_is_abstract : param -> Scope.t -> bool
+
+(** The number of unrollings of a recursive function in the analysis of a
+    [param], if a refinement set one (see [info]) *)
+val param_unrollings_of_scope : param -> Scope.t -> int option
 
 (** Return [true] if no system is flagged abstract
     in the [abstraction_map] of a [param]. *)

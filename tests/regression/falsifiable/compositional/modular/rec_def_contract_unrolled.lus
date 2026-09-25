@@ -1,0 +1,25 @@
+-- The contract of Fact does not give Fact(1) = 1, so the first analysis of
+-- main falsifies the check. Fact's own analysis proved its contract, so main
+-- is refined: Fact is unrolled once, its recursive call abstracted by the
+-- contract, which does not give the check either, as Fact(0) is abstract;
+-- then twice, which does, as Fact(0) is then the body. With a limit of one
+-- unrolling (--rec_unrollings 1), the second refinement defines Fact at the
+-- SMT level instead, which proves the check as well.
+--
+-- The run is falsifiable, as the first analysis of main falsifies the check
+-- and the documented exit code counts every analysis, so
+-- test_rec_refinement_levels.py checks the answers of the analyses of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(1);
+  check "fact1" y = 1;
+tel

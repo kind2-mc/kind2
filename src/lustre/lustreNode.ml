@@ -1117,6 +1117,13 @@ let rec subsystem_of_nodes' map nodes top =
   (* Does node have an implementation? *)
   let has_impl = not node.is_extern in
 
+  (* The recursive group of a recursive function *)
+  let rec_group =
+    match node.comp_type with
+    | Function { rec_info = Some (scc_id, _) } -> Some scc_id
+    | _ -> None
+  in
+
   let sub =
     { SubSystem.scope = scope;
       source = node;
@@ -1124,6 +1131,7 @@ let rec subsystem_of_nodes' map nodes top =
       has_contract;
       has_modes;
       has_impl;
+      rec_group;
       map;
       subsystems
     }

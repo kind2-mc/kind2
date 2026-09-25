@@ -528,6 +528,10 @@ module Contracts : sig
   (** Activate refinement. *)
   val refinement : unit -> bool
 
+  (** Unrollings of a recursive function a refinement tries, its recursive
+      calls abstracted by its contract, before defining it *)
+  val rec_unrollings : unit -> int
+
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool
 

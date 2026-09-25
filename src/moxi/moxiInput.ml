@@ -83,6 +83,7 @@ let rec mk_subsystem map sys =
     opacity = Opacity.Transparent;
     has_contract = false;
     has_impl = true;
+    rec_group = None;
     has_modes = false;
     map;
     subsystems = subsystems |> List.map TS.scope_of_trans_sys;

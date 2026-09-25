@@ -31,6 +31,7 @@ type info = {
   has_contract: bool ; (** Does the system have a contract? *)
   has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
+  rec_group: int option ; (** The recursive group of a recursive function *)
 }
 
 (** Takes some results and some information about (sub)systems, and returns
