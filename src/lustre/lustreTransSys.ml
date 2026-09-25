@@ -2945,13 +2945,19 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           in
 
 
-          (* Filter assumptions for this node's assumptions *)
+          (* Filter assumptions for this node's assumptions. They are looked
+             up by the scope of the node without the tag of an unrolling, as
+             whether it is abstract is: the invariants a refinement is given
+             for a node it makes concrete are those of the node's own analysis,
+             where it is the top system and has no tag, whereas an instance of
+             a recursive function called from a recursive function has a tag
+             that is fresh in every system. *)
           let node_assumptions =
             (* No assumptions if abstract. *)
             if is_abstract then
               Invs.empty ()
             else
-              A.param_assumptions_of_scope analysis_param scope
+              A.param_assumptions_of_scope analysis_param base_scope
           in
 
 

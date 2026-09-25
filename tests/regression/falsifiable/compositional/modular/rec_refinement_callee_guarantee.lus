@@ -1,0 +1,52 @@
+-- The analysis of append proves its guarantee "G1", after a refinement that
+-- defines length. The first analysis of reverse abstracts length and append,
+-- and the contract of length does not give length(Cons(h, t)) =
+-- 1 + length(t), so "G1" of reverse is falsified. The refinement of reverse
+-- defines length and append, and "G1" of reverse follows from "G1" of append
+-- at the call, the contract of reverse at its recursive call, and one
+-- unfolding of length. The definition of append alone would need induction
+-- to give its "G1" for an arbitrary list, so the refinement must assume it,
+-- as proved in the analysis of append.
+--
+-- The instance of append in reverse, a recursive function, has a tagged
+-- scope, and the invariants of append's analysis were looked up by it, so
+-- the refinement did not find them and left "G1" unknown.
+--
+-- The run is falsifiable, as the first analyses of append and reverse
+-- falsify their "G1", so test_rec_refinement.py checks the answers of the
+-- last refinement of reverse.
+datatype IntList = Nil | Cons (head: int, tail: IntList);
+
+function rec length (l: IntList) returns (n: int);
+con
+  decreases l;
+  guarantee "G1" n >= 0;
+  guarantee "G2" l = Nil => n = 0;
+noc
+let
+  n = match l with | Nil : 0 | Cons (h, t) : 1 + length(t) end;
+tel
+
+function rec append (l: IntList; n: int) returns (r: IntList);
+con
+  decreases l;
+  guarantee "G1" length(r) = 1 + length(l);
+noc
+let
+  r = match l with
+      | Nil : Cons(n, Nil)
+      | Cons (h, t) : Cons(h, append(t, n))
+      end;
+tel
+
+function rec reverse (l: IntList) returns (r: IntList);
+con
+  decreases l;
+  guarantee "G1" length(r) = length(l);
+noc
+let
+  r = match l with
+      | Nil : Nil
+      | Cons (h, t) : append(reverse(t), h)
+      end;
+tel
