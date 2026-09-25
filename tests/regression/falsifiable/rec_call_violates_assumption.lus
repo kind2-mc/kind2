@@ -1,0 +1,13 @@
+-- f(1) calls f(-1), which violates the assumption of f. The recursive call
+-- is an unrolling of f with the same node identifier as f, the top system,
+-- and was taken for the top system: the assumption of f was asserted on it
+-- rather than checked, and the violation was reported valid.
+function rec f (n: int) returns (r: int);
+con
+  assume n >= 0;
+  decreases n;
+  guarantee "g" r >= 0;
+noc
+let
+  r = when n <= 0 then 0 else f(n - 2);
+tel
