@@ -3003,11 +3003,13 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                  An inconsistent transition system makes every property
                  vacuously valid, the guarantees themselves included.
 
-                 A transparent function is therefore verified from its body
-                 alone: its guarantees stay proof obligations at every
-                 instance, without the inductive hypothesis the contract
-                 abstraction provides, and one that needs induction over the
-                 recursion is better left to a lemma. *)
+                 A defined function (a transparent one, or, outside of
+                 compositional analyses, any recursive function; see
+                 [LustreFunDefs]) is therefore verified from its body alone:
+                 its guarantees stay proof obligations at every instance,
+                 without the inductive hypothesis the contract abstraction
+                 provides, and one that needs induction over the recursion is
+                 left to a compositional analysis, or to a lemma. *)
               let use_contract_as_abstraction =
                 (reached_limit || is_abstract)
                 && not is_defined
@@ -3869,7 +3871,8 @@ let uf_applied_warned = ref NI.Set.empty
    a call is only accepted for a function [LustreUserFunctions] finds a
    definition is to be built for, but the definition can still be left out here,
    for a reason that is only known once the nodes are compiled: the body is not
-   a total function of its inputs, or definitions are off. The symbol is then
+   a total function of its inputs, or the solver or logic does not take
+   definitions. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
    hold of the function can be reported falsifiable. Say so. *)
@@ -3888,11 +3891,13 @@ let warn_undefined_uf_applications fun_defs nodes =
            hold of it may be reported falsifiable.@]"
           NI.pp_print_node_id_user_name call_node_id
           (if LustreFunDefs.enabled () then
-             "because its body is not a total function of its inputs that \
-              the solver can be given"
+             "because its body, or the body of a function of its recursive \
+              group, is not a total function of its inputs that the solver \
+              can be given, or a function of its group is abstracted by its \
+              contract"
            else
-             "because recursive functions are not being defined at the \
-              SMT level")
+             "because recursive functions are not defined at the SMT level \
+              with the current solver or logic")
       )
     )
   )
@@ -3957,10 +3962,11 @@ let trans_sys_of_nodes
 
   let nodes = N.nodes_of_subsystem subsystem' in
 
-  (* The SMT-level definitions of the recursive functions that have no
-     contract or are transparent (see [LustreFunDefs]) *)
+  (* The SMT-level definitions of the recursive functions whose contract does
+     not abstract them in this analysis (see [LustreFunDefs]) *)
   let fun_defs =
-    LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
+    LustreFunDefs.compute
+      ~adt_junk_ufs:globals.G.adt_junk_ufs analysis_param nodes
   in
 
   warn_undefined_uf_applications fun_defs nodes;

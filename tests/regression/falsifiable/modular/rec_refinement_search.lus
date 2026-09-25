@@ -2,9 +2,13 @@
 -- leaves a property of main unproved, the search for a subsystem to refine
 -- walks the subsystems of main, and used to walk Fact, then Fact again,
 -- forever: the run printed its verdict and then hung until the timeout.
+--
+-- The analysis is not compositional, so Fact is defined at the SMT level:
+-- its guarantee must hold of the definition without induction, and the check
+-- is false of it.
 function rec Fact(n: int) returns (f: int);
 (*@contract
-  guarantee "positive" f > 0;
+  guarantee "base" n <= 0 => f = 1;
   decreases n;
 *)
 let
@@ -14,5 +18,5 @@ tel
 node main(x: int) returns (y: int);
 let
   y = Fact(3);
-  check "fact3" y = 6;
+  check "fact3" y = 7;
 tel

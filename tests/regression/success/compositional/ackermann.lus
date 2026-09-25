@@ -1,3 +1,6 @@
+-- The guarantee needs induction over the recursion: the contract of ack
+-- abstracts its recursive calls in a compositional analysis, which is what
+-- makes it provable.
 -- The Ackermann function terminates by the lexicographic ordering of the
 -- pair (m, n): each recursive call either decreases m, or keeps m equal and
 -- decreases n.

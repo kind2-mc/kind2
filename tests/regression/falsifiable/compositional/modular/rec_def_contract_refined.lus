@@ -1,0 +1,22 @@
+-- In a compositional and modular analysis, the analysis of Fact proves its
+-- contract, the first analysis of main abstracts Fact by that contract, which
+-- does not give Fact(3) = 6, and the refinement of main then defines Fact at
+-- the SMT level in place of its contract, which does.
+--
+-- The run is falsifiable, as the first analysis of main falsifies the
+-- checks and the documented exit code counts every analysis, so
+-- test_rec_refinement.py checks the answers of the last refinement.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(3);
+  check "fact3" y = 6;
+tel

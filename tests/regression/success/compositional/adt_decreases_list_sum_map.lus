@@ -1,3 +1,6 @@
+-- The guarantee of MapInc and the check in main rest on the contracts
+-- abstracting the calls, which a compositional analysis does; the guarantee
+-- needs induction over the recursion.
 datatype List = Cons (head: int, tail: List) | Nil;
 
 function rec Length (l: List) returns (len: int)

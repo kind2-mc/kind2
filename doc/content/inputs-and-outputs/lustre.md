@@ -906,20 +906,12 @@ decrease, so it is always rejected.
 
 Kind 2 unrolls the definition of a recursive function once: a call to the
 function is expanded to its body, and the recursive calls inside that body are
-abstracted by the function's contract, i.e. Kind 2 assumes their guarantees
-(the inductive hypothesis of the recursion), which is only justified when the
-termination checks above hold. This is what makes a property such as
-`Fact(n) > 0` provable from a `guarantee f > 0`, but it also means that a
-recursive function without a contract is essentially unknown to the solver
-past its first unrolling: `Fact(4) = 24` cannot be established that way.
+handled in one of two ways, depending on the kind of analysis.
 
-When a recursive function has no contract to abstract it with (no guarantee
-and no mode, whether explicit or coming from a refinement type on an output;
-assumptions and input types do not count, they are obligations of the callers)
-or is declared `transparent`, Kind 2 additionally defines the function at the
-SMT level with an SMT-LIB `define-funs-rec` command built from the body of the
-function, and lets the solver unfold that definition. For the contract-less
-`Fact` above, `Fact(4) = 24` is then proved directly. In the definition, each
+By default, and in a modular analysis (`--modular true`), Kind 2 defines the
+function at the SMT level with an SMT-LIB `define-funs-rec` command built from
+the body of the function, and lets the solver unfold that definition: for the
+`Fact` above, `Fact(4) = 24` is proved directly. In the definition, each
 recursive call is guarded by its termination checks, so the definition is
 well-founded whether or not the measure actually decreases and cannot make the
 analysis inconsistent; the termination checks are still verified as properties.
@@ -929,16 +921,38 @@ A defined function's contract, if it has one, is never assumed in place of its
 body. A definition says exactly what the function is, so assuming its
 guarantees on top of it would add nothing when they hold of the definition and
 contradict it when they do not, and an inconsistent analysis reports every
-property as valid, the guarantees included. A `transparent` recursive function
-is therefore verified from its body alone: its guarantees remain proof
-obligations at every instance, and they do not serve as the induction
-hypothesis of the recursion. A guarantee that needs induction over the
-recursion to hold for every input will no longer be proved; drop the
-`transparent` modifier to get the contract-based encoding back.
+property as valid, the guarantees included. A defined function is therefore
+verified from its body alone: its guarantees remain proof obligations at every
+instance, and they do not serve as the induction hypothesis of the recursion.
+A guarantee that needs induction over the recursion to hold for every input,
+such as `Fact(n) > 0`, is not proved this way; a compositional analysis, or a
+lemma, is what proves it.
+
+In a compositional analysis (`--compositional true`), the recursive calls of a
+function that has a contract are abstracted by that contract instead: Kind 2
+assumes their guarantees, the inductive hypothesis of the recursion, which is
+only justified when the termination checks above hold. This is what makes a
+property such as `Fact(n) > 0` provable from a `guarantee f > 0`, but it also
+means that the function is essentially unknown to the solver past its first
+unrolling: `Fact(4) = 24` cannot be established that way. A function with no
+contract to abstract it with (no guarantee and no mode, whether explicit or
+coming from a refinement type on an output; assumptions and input types do not
+count, they are obligations of the callers), or declared `transparent`, is
+defined at the SMT level as above even in a compositional analysis, while an
+`opaque` function is always abstracted by its contract.
+
+When the analysis is both compositional and modular, a call to a recursive
+function from another node or function is refined like any other call (see
+[refinement]({{< relref "/techniques#refinement-in-compositional-and-modular-analyses" >}})):
+if the contract of the function is not enough to prove the properties of the
+caller, and the analysis of the function itself proved its contract valid, the
+caller is analyzed again with the function defined at the SMT level in place
+of its contract. This refinement does not apply to the analysis of the
+recursive function itself, or of a function of its recursive group: there the
+recursive calls keep the contract as their induction hypothesis.
 
 This encoding is only used with the Z3 and cvc5 solvers, which support
-recursive function definitions, and can be turned off with
-`--define_fun_rec false`. It is also left out when a logic is given with
+recursive function definitions. It is also left out when a logic is given with
 `--smt_logic`, since the solvers accept recursive definitions under very few
 of the named SMT-LIB logics, and since the options they need in order to
 handle the definitions are selected from the inferred logic. The IC3IA engine turns itself off on a system that
@@ -985,10 +999,13 @@ arguments only, so under a quantifier it would stand for an arbitrary function
 and a property that does hold of the function could be reported falsifiable.
 Such a call is rejected. It is also rejected when the enclosing quantified
 variable is a symbolic array index rather than a variable of an explicit
-quantifier. When the definition is left out for one of the reasons above (the
-body is not a total function of its inputs, or `--define_fun_rec false`), the
-call is still accepted and Kind 2 warns that the function is an arbitrary
-function of its inputs under the quantifier.
+quantifier, and, in a compositional analysis, when the function has a contract
+and is not `transparent`, since the contract then abstracts the function in
+some analysis of the run. When the definition is left out for one of the other
+reasons above (the body is not a total function of its inputs, or the solver
+or logic does not take definitions), the call is still accepted and Kind 2
+warns that the function is an arbitrary function of its inputs under the
+quantifier.
 
 ### Benefits and limitations
 

@@ -1,0 +1,20 @@
+(* Outside of compositional analyses a recursive function is defined at the
+   SMT level whatever its contract, so its contract is never assumed in place
+   of its body, not even at the recursion cutoff. Here F(n) is n, so both the
+   guarantee and the check are false and both must be reported so; assuming
+   the guarantee at the cutoff would have made the system inconsistent and
+   every property vacuously valid. *)
+function rec F(n: int) returns (f: int);
+(*@contract
+  guarantee "g" f < 2;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 0 else 1 + F(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = F(4);
+  check "p" y = 999;
+tel

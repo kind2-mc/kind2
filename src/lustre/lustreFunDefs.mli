@@ -18,16 +18,27 @@
 
 (** SMT-level definitions of recursive functions
 
-    A recursive function is compiled by unrolling its definition once and
-    abstracting its recursive calls by its contract, with the outputs of every
-    instance tied to a functional symbol [f.out.__function_of_inputs] (see
-    {!LustreTransSys}). This module gives that symbol a definition, as an
-    SMT-LIB [define-funs-rec] block, when the function has no contract to
-    abstract its calls with (no guarantee and no mode, neither explicit nor
-    through a refinement type of an output; an assumption is an obligation of
-    the callers and does not count) or is declared transparent, so that a
-    solver can reason about the function by unfolding its definition rather
-    than through a contract.
+    A recursive function is compiled by unrolling its definition once, with
+    the outputs of every instance tied to a functional symbol
+    [f.out.__function_of_inputs] (see {!LustreTransSys}). Its recursive calls
+    are then either abstracted by its contract, which constrains that symbol
+    at the arguments of each instance only, or given a definition by this
+    module, as an SMT-LIB [define-funs-rec] block, so that a solver can
+    reason about the function by unfolding its definition.
+
+    The contract abstracts the recursive calls only in a compositional
+    analysis ([--compositional true]), and only of a function it abstracts
+    there: one that has a contract to abstract it with (a guarantee or a
+    mode, explicit or through a refinement type of an output; an assumption
+    is an obligation of the callers and does not count), is not declared
+    transparent, and is either abstract in the abstraction map of the
+    analysis or the top system of the analysis or a function of its
+    recursive group. An opaque function with a contract is always abstracted.
+    Every other recursive function is defined: any function of a
+    non-compositional analysis, modular or not; a function with no contract
+    or declared transparent; and, in a compositional and modular analysis, a
+    function of another group than the top system that a refinement made
+    concrete once its own analysis proved its contract valid.
 
     The definition of a function is built from the equations of its body. A
     call to a function of the same recursive group applies the symbol of the
@@ -42,12 +53,14 @@
     functional symbol; and a call to any other function is inlined.
 
     Every function of a recursive group is defined, or none is. A group is
-    defined only if each of its functions is eligible and definable: its
-    body is a total function of its inputs, without assertions, oracles,
-    array-typed variables or calls to nodes, and the same holds for the
-    functions it inlines. Definitions are only produced for the solvers that
-    support them (Z3 and cvc5) and when no logic is set with [--smt_logic],
-    and can be turned off with [--define_fun_rec false].
+    defined only if each of its functions is eligible (not abstracted by its
+    contract, as above) and definable: its body is a total function of its
+    inputs, without assertions, oracles, array-typed variables or calls to
+    nodes, and the same holds for the functions it inlines. Definitions are
+    only produced for the solvers that support them (Z3 and cvc5) and when
+    no logic is set with [--smt_logic]; a function that is not defined, for
+    any of these reasons, is abstracted by its contract after one unrolling
+    (see {!LustreTransSys}).
 
     A defined function's contract, if it has one, is never assumed in place
     of its body: see [LustreTransSys]. *)
@@ -65,14 +78,17 @@ type t
 val empty : t
 
 (** [true] iff recursive functions are to be defined at the SMT level: the
-    option is on, the SMT solver supports recursive function definitions,
-    and the logic is inferred from the system rather than set explicitly. *)
+    SMT solver supports recursive function definitions, and the logic is
+    inferred from the system rather than set explicitly. *)
 val enabled : unit -> bool
 
-(** Compute the definitions of the recursive functions of the given nodes.
+(** Compute the definitions of the recursive functions of the given nodes for
+    the analysis the parameter describes, whose abstraction map and top
+    system decide which functions a contract abstracts (see above).
     [adt_junk_ufs] are the symbols giving selectors their value outside of
     their constructor, which a definition may apply. *)
-val compute : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
+val compute :
+  adt_junk_ufs:UfSymbol.t list -> Analysis.param -> LustreNode.t list -> t
 
 (** [true] iff the functional symbols of the given function are defined *)
 val is_defined : t -> NodeId.t -> bool

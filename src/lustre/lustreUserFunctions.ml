@@ -95,6 +95,18 @@ let can_be_abstracted ctx contracts outputs contract =
 let has_no_effective_contract ctx contracts opac contract outputs =
   opac = A.Transparent || not (can_be_abstracted ctx contracts outputs contract)
 
+(* [true] if the contract of the recursive function, if any, abstracts it in
+   no analysis of the run, so that the function is to be defined at the SMT
+   level in every one of them (see [LustreFunDefs.contract_abstracts]): it has
+   no effective contract, or it is translucent and the analyses are not
+   compositional, the only ones that abstract a translucent function by its
+   contract. In a compositional analysis a translucent function with a
+   contract is abstracted until a refinement makes it concrete, which happens
+   analysis by analysis, whereas the calls are compiled once for the run. *)
+let contract_never_abstracts ctx contracts opac contract outputs =
+  has_no_effective_contract ctx contracts opac contract outputs
+  || (opac = A.Default && not (Flags.Contracts.compositional ()))
+
 let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals items =
   has_no_effective_contract ctx contracts opac contract outputs &&
   valid_outputs ctx outputs &&
@@ -107,10 +119,10 @@ let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals item
    variables can therefore be compiled to an application of (see
    [LustreAstNormalizer.mk_fresh_qcall]).
 
-   A function a contract abstracts is left out: its symbol is uninterpreted,
-   constrained by the contract at the arguments of its instances only, so under
-   a quantifier it would be an arbitrary function and a property that does hold
-   of it could be reported falsifiable.
+   A function a contract abstracts in some analysis of the run is left out: its
+   symbol is then uninterpreted, constrained by the contract at the arguments
+   of its instances only, so under a quantifier it would be an arbitrary
+   function and a property that does hold of it could be reported falsifiable.
 
    The remaining conditions [LustreFunDefs] puts on a definition -- the body is
    a total function of the inputs, the solver defines recursive functions --
@@ -128,7 +140,7 @@ let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
     | A.FuncDecl
         (_, (id, false, opac, _, _, outputs, _, _, contract), { A.is_rec = true; _ })
       -> (
-      if has_no_effective_contract ctx contracts opac contract outputs then
+      if contract_never_abstracts ctx contracts opac contract outputs then
         NI.Set.add id set, contracts
       else
         set, contracts

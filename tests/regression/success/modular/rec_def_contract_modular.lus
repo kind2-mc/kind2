@@ -1,0 +1,20 @@
+-- In a modular analysis that is not compositional, a recursive function with
+-- a contract is defined at the SMT level, in its own analysis and in that of
+-- its callers: the check needs the definition, since the contract only says
+-- what the base case is. A guarantee that needs induction over the recursion,
+-- such as f > 0, is not proved from the definition; that takes a
+-- compositional analysis.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "base" n <= 0 => f = 1;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(3);
+  check "fact3" y = 6;
+tel

@@ -20,6 +20,7 @@ module N = LustreNode
 module E = LustreExpr
 module D = LustreIndex
 module NI = NodeId
+module A = Analysis
 
 module SVS = StateVar.StateVarSet
 module SVM = StateVar.StateVarMap
@@ -42,8 +43,6 @@ type t = node_defs NI.Map.t
 let empty = NI.Map.empty
 
 let enabled () =
-  Flags.Smt.define_fun_rec ()
-  &&
   (* Only the solvers that accept recursive function definitions *)
   (match Flags.Smt.solver () with
    | `cvc5_SMTLIB | `Z3_SMTLIB -> true
@@ -122,18 +121,44 @@ let is_lemma node =
   | Some { N.is_lemma } -> is_lemma
   | None -> false
 
-(* A recursive function is eligible for a definition if there is no contract
-   to abstract its recursive calls with, or if it is transparent, i.e. its
-   contract is never to be used in place of its body.
+(* Whether the contract of a recursive function stands in for its body in
+   the analysis [analysis_param] describes, in which case the function is not
+   defined: its functional symbols are left uninterpreted, and the transition
+   system constrains them by the contract at every instance of the function.
 
    A contract abstracts the function through its guarantees and the ensures
    of its modes, be they explicit or from a refinement type of an output. An assumption
    (explicit, or from a refinement or subrange type of an input) is an
    obligation of the callers instead, which the transition system keeps at
-   every call: it does not stand in the way of a definition. *)
-let eligible node =
-  not (N.has_effective_contract node)
-  || node.N.opacity = Opacity.Transparent
+   every call: it does not stand in the way of a definition. A function with
+   nothing to abstract it with, or declared transparent, is never abstracted;
+   an opaque function with a contract always is.
+
+   The contract of a translucent function stands in for its body only in a
+   compositional analysis, and there only when the function is abstract in
+   the abstraction map of the analysis, or when the top system of the
+   analysis is the function itself or a function of its recursive group,
+   [top_scc]: the recursive calls of the group being analyzed are abstracted
+   by their contracts after one unrolling, which is the induction hypothesis
+   of the recursion. A concrete function of another group, which a modular
+   analysis has refined once the analysis of the function itself proved its
+   contract valid, is defined instead. Outside of compositional analyses, the
+   contract of a translucent function is never assumed in place of its body,
+   as for any other node or function. *)
+let contract_abstracts analysis_param top_scc node =
+  N.has_effective_contract node
+  && (match node.N.opacity with
+      | Opacity.Transparent -> false
+      | Opacity.Opaque -> true
+      | Opacity.Translucent ->
+        Flags.Contracts.compositional ()
+        && (A.param_scope_is_abstract analysis_param (N.scope_of_node node)
+            || (top_scc <> None && scc_of_node node = top_scc)))
+
+(* A recursive function is eligible for a definition if its contract does not
+   abstract it in the current analysis *)
+let eligible analysis_param top_scc node =
+  not (contract_abstracts analysis_param top_scc node)
 
 (* The equations and calls of a node, by the state variable they define *)
 type svar_def =
@@ -474,9 +499,20 @@ let block_of_scc nodes scc_id members =
 
 module IMap = Map.Make (Int)
 
-let compute ~adt_junk_ufs nodes =
+let compute ~adt_junk_ufs analysis_param nodes =
 
   if not (enabled ()) then empty else
+
+    (* The recursive group of the top system of the analysis, if it is a
+       recursive function *)
+    let top_scc =
+      let { A.top } = A.info_of_param analysis_param in
+      match
+        List.find_opt (fun node -> Scope.equal (N.scope_of_node node) top) nodes
+      with
+      | Some node -> scc_of_node node
+      | None -> None
+    in
 
     (* The recursive groups, by identifier *)
     let sccs =
@@ -502,7 +538,9 @@ let compute ~adt_junk_ufs nodes =
       IMap.filter
         (fun _ members ->
            List.for_all
-             (fun node -> eligible node && definable nodes memo node)
+             (fun node ->
+                eligible analysis_param top_scc node
+                && definable nodes memo node)
              members)
         sccs
     in

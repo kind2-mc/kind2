@@ -1193,8 +1193,7 @@ let main fwd slice_to_prop prop in_sys param sys =
        not take them *)
     let msg =
       Format.sprintf "IC3IA disabled for property %s: system includes a recursive function \
-        defined at the SMT level. Use --define_fun_rec false to abstract recursive \
-        functions by their contract instead."
+        defined at the SMT level."
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg) ) ;
