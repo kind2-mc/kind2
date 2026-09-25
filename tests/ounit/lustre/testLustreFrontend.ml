@@ -1011,6 +1011,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_polymorphic_recursion.lus" with
     | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true
     | _ -> false);
+  mk_test "test a parameterless datatype's self-reference at type arguments is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_self_reference_with_ty_args.lus" with
+    | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true
+    | _ -> false);
   mk_test "test ADT instantiation at an array type is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_array_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
@@ -1034,6 +1038,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test ADT instantiation at a subrange type is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_subrange_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a refinement type not reaching a field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_phantom_refinement_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtInstantiation _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at an array of a refinement type is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_nested_refinement_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtInstantiation _)) -> true
     | _ -> false);
   mk_test "test mutually recursive ADT instantiations are rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_mutual_recursion.lus" with

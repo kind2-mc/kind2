@@ -863,14 +863,14 @@ let expanded_instance_args ctx id ctors =
 
 (* The canonical form of a type argument: synonyms are expanded, so that two
    spellings name one instantiation; a refinement type is preserved *)
-let rec canon_ty_arg ctx ty =
-  let r = canon_ty_arg ctx in
+let rec canon_ty_arg ctx record ty =
+  let r = canon_ty_arg ctx record in
   match ty with
   | A.UserType (pos, ty_args, id) ->
     let ty_args = List.map r ty_args in
     (match Ctx.lookup_ty_syn_body ctx id ty_args with
     | None -> A.UserType (pos, ty_args, id)
-    | Some body -> canon_named_ty ctx pos id ty_args body)
+    | Some body -> canon_named_ty ctx record pos id ty_args body)
   | A.History (pos, id) ->
     (match Ctx.lookup_ty ctx id with Some ty -> r ty | None -> A.History (pos, id))
   | A.RefinementType (pos, (p, i, ty), e) -> A.RefinementType (pos, (p, i, r ty), e)
@@ -895,9 +895,12 @@ let rec canon_ty_arg ctx ty =
 (* The canonical form of a named type with the given definition: an
    instantiation, the name of a datatype or an enumeration, or the expansion of
    a synonym that is none of those *)
-and canon_named_ty ctx pos id ty_args body =
-  match resolve_instance ctx id ty_args with
-  | Some (_, _, mono_name) -> A.UserType (pos, [], mono_name)
+and canon_named_ty ctx record pos id ty_args body =
+  match resolve_instance ctx record id ty_args with
+  (* Expanding a synonym can name an instantiation the source never spells out,
+     which still needs a declaration of its own *)
+  | Some (base, canon_args, mono_name) ->
+    record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
   | None ->
     match body with
     | A.ADT _ | A.EnumType _ -> A.UserType (pos, [], id)
@@ -905,22 +908,22 @@ and canon_named_ty ctx pos id ty_args body =
     | A.GroupType _ | A.TArr _ -> A.UserType (pos, ty_args, id)
     | A.UserType _ | A.RefinementType _ | A.History _ | A.AbstractType _
     | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ ->
-      canon_ty_arg ctx body
+      canon_ty_arg ctx record body
 
 (* The instantiation a named type resolves to: the type it instantiates, the
    canonical type arguments, and the name the instantiation is declared under. A
    datatype is named by its own declaration however many synonyms alias it;
    every other synonym is an instantiation of itself. *)
-and resolve_instance ctx id ty_args =
+and resolve_instance ctx record id ty_args =
   let instance base =
     if ty_args = [] then None
     else
-      let ty_args = List.map (canon_ty_arg ctx) ty_args in
+      let ty_args = List.map (canon_ty_arg ctx record) ty_args in
       Some (base, ty_args, HString.mk_hstring (adt_mono_key base ty_args))
   in
   match Ctx.lookup_ty_syn_body ctx id ty_args with
   | Some (A.ADT (_, base, _)) -> instance base
-  | Some (A.UserType (_, ty_args', id')) -> resolve_instance ctx id' ty_args'
+  | Some (A.UserType (_, ty_args', id')) -> resolve_instance ctx record id' ty_args'
   | Some (A.RefinementType _ | A.History _ | A.RecordType _ | A.ArrayType _
          | A.Set _ | A.Map _ | A.TupleType _ | A.GroupType _ | A.TArr _) ->
     instance id
@@ -931,7 +934,9 @@ and resolve_instance ctx id ty_args =
 (* ---- Rewriting a use of a polymorphic ADT to name its instantiation ---- *)
 
 (* The functions below rewrite every use of a polymorphic ADT to the declaration
-   it stands for and report it, so a use cannot be rewritten without one *)
+   it stands for and report it, so a use cannot be rewritten without one. Each
+   site rewrites its type arguments before resolving itself, since resolving
+   discards them and an argument may name the only use of an instantiation. *)
 
 let rec rewrite_ty ctx record params ty =
   let r = rewrite_ty ctx record params in
@@ -941,7 +946,7 @@ let rec rewrite_ty ctx record params ty =
     if ty_args = [] || List.exists (mentions_ty_var params) ty_args then
       A.UserType (pos, ty_args', id)
     else (
-      match resolve_instance ctx id ty_args with
+      match resolve_instance ctx record id ty_args with
       | Some (base, canon_args, mono_name) ->
         record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
       | None -> A.UserType (pos, ty_args', id))
@@ -965,10 +970,11 @@ let rec rewrite_ty ctx record params ty =
     (* An expanded instantiation names its instantiation like any other use of it *)
     (match expanded_instance_args ctx id ctors with
     | Some ty_args when not (List.exists (mentions_ty_var params) ty_args) ->
-      (match resolve_instance ctx id ty_args with
+      let expanded = over_fields () in
+      (match resolve_instance ctx record id ty_args with
       | Some (base, canon_args, mono_name) ->
         record pos base canon_args mono_name; A.UserType (pos, [], mono_name)
-      | None -> over_fields ())
+      | None -> expanded)
     | Some _ | None -> over_fields ())
   | A.AbstractType _ | A.EnumType _ | A.History _ | A.Bool _ | A.Int _
   | A.Real _ | A.SBitVector _ | A.UBitVector _ -> ty
@@ -979,7 +985,8 @@ and rewrite_expr ctx record params expr =
   match expr with
   | A.ADTTerm (pos, ty_args, ctor, args) ->
     let args = List.map r args in
-    let unresolved () = A.ADTTerm (pos, List.map rt ty_args, ctor, args) in
+    let ty_args' = List.map rt ty_args in
+    let unresolved () = A.ADTTerm (pos, ty_args', ctor, args) in
     if List.exists (mentions_ty_var params) ty_args then unresolved ()
     else (
       (* A constructor with no ADT left belongs to a non-recursive one,
@@ -987,7 +994,7 @@ and rewrite_expr ctx record params expr =
       match Ctx.lookup_constructor ctx ctor with
       | None -> unresolved ()
       | Some (ty_name, _) ->
-        match resolve_instance ctx ty_name ty_args with
+        match resolve_instance ctx record ty_name ty_args with
         | Some (base, canon_args, mono_name) ->
           record pos base canon_args mono_name;
           A.ADTTerm (pos, [], mono_ctor_name mono_name ctor, args)
@@ -1000,10 +1007,11 @@ and rewrite_expr ctx record params expr =
      the instantiation whose value it builds *)
   | A.RecordExpr (pos, id, ty_args, flds) ->
     let flds = List.map (fun (f, e) -> (f, r e)) flds in
-    let unresolved () = A.RecordExpr (pos, id, List.map rt ty_args, flds) in
+    let ty_args' = List.map rt ty_args in
+    let unresolved () = A.RecordExpr (pos, id, ty_args', flds) in
     if List.exists (mentions_ty_var params) ty_args then unresolved ()
     else (
-      match resolve_instance ctx id ty_args with
+      match resolve_instance ctx record id ty_args with
       | Some (base, canon_args, mono_name) ->
         record pos base canon_args mono_name;
         A.RecordExpr (pos, mono_name, [], flds)
@@ -1158,6 +1166,7 @@ let rewrite_gids ctx record gids =
    declared as, and the types it must be declared after *)
 type instance = {
   use_pos : Lib.position;
+  ty_args : A.lustre_type list;
   body : A.lustre_type;
   refs : HString.t list;
 }
@@ -1199,11 +1208,14 @@ let rec is_scalar_field_type ctx ty =
   | A.ADT (_, name, ctors) -> LH.is_directly_recursive_adt name ctors
   | A.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ctx ty
   | A.UserType (_, ty_args, id) ->
-    (* Every name a field can mention is a declared type by now, the
-       instantiations this pass adds included, so a miss is a type parameter *)
+    (* A type parameter reaches here as an abstract type, so a name that does not
+       resolve is an instantiation this pass failed to declare *)
     (match Ctx.lookup_ty_syn ctx id ty_args with
     | Some ty -> is_scalar_field_type ctx ty
-    | None -> true)
+    | None ->
+      invalid_arg
+        (Format.asprintf "is_scalar_field_type: undeclared type %a"
+           A.pp_print_lustre_type ty))
   | A.TupleType _ | A.GroupType _ | A.RecordType _ | A.ArrayType _
   | A.Set _ | A.Map _ | A.TArr _ | A.History _ -> false
 
@@ -1224,9 +1236,9 @@ let rec has_refinement ctx ty =
   | A.ADT _ | A.AbstractType _ | A.EnumType _ | A.History _ | A.Bool _
   | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ -> false
 
-(* A recursive datatype's field restrictions are checked where it is declared,
-   but a field declared as a type parameter only becomes concrete here *)
-let check_instantiated_fields ctx mono_name inst =
+(* A recursive datatype's restrictions are checked where it is declared, but a
+   type parameter only becomes concrete here *)
+let check_instantiation ctx mono_name inst =
   let fields = match inst.body with
     | A.ADT (_, _, ctors) ->
       List.concat_map (fun (_, fields) ->
@@ -1246,7 +1258,18 @@ let check_instantiated_fields ctx mono_name inst =
     | Some (fname, _) ->
       Chk.type_error inst.use_pos
         (Chk.UnsupportedRefinementInRecursiveAdtField (mono_name, fname))
-    | None -> R.ok ()
+    | None ->
+      (* A refinement is erased when two types are compared, so an argument
+         carrying one would let values cross between two distinct datatypes *)
+      match inst.body with
+      | A.ADT _ when List.exists (has_refinement ctx) inst.ty_args ->
+        Chk.type_error inst.use_pos
+          (Chk.UnsupportedRefinementInRecursiveAdtInstantiation mono_name)
+      | A.ADT _ | A.UserType _ | A.AbstractType _ | A.TupleType _
+      | A.GroupType _ | A.RecordType _ | A.ArrayType _ | A.EnumType _
+      | A.RefinementType _ | A.History _ | A.TArr _ | A.Set _ | A.Map _
+      | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ ->
+        R.ok ()
 
 (* The datatypes a declared name reaches, when it names a datatype that is not an
    instantiation. Those are declared once, so a cycle through one of them still
@@ -1350,7 +1373,7 @@ let instantiate_polymorphic_adts ctx gids type_decls decls =
         | body -> rewrite_ty ctx record [] body
       in
       let refs = base :: instance_refs body in
-      close (i + 1) ((mono_name, { use_pos; body; refs }) :: acc)
+      close (i + 1) ((mono_name, { use_pos; ty_args; body; refs }) :: acc)
   in
   let instances = close 0 [] in
   if instances = [] then R.ok (out_ctx, gids, type_decls, decls)
@@ -1376,7 +1399,7 @@ let instantiate_polymorphic_adts ctx gids type_decls decls =
     in
     let* () =
       R.seq_ (List.map (fun (mono_name, inst) ->
-        check_instantiated_fields out_ctx mono_name inst) instances)
+        check_instantiation out_ctx mono_name inst) instances)
     in
     let* order = sort_instances out_ctx instances in
     let insertions =

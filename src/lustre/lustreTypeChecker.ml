@@ -133,6 +133,7 @@ type error_kind = Unknown of string
   | NonUniformRecursiveDatatype of HString.t * HString.t
   | MutuallyRecursiveDatatypes of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
+  | UnsupportedRefinementInRecursiveAdtInstantiation of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -313,10 +314,11 @@ let error_message kind = match kind with
        fields must each be either a scalar type or a direct self-reference, so this is not yet \
        supported"
   | NonUniformRecursiveDatatype (ty_name, field) ->
-    "Polymorphic datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
+    "Datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
     ^ HString.string_of_hstring field
     ^ "' applied to type arguments other than the datatype's own type parameters, in order; \
-       polymorphic recursion is not supported"
+       a self-reference must repeat the declaration's type parameters exactly, so this is \
+       not yet supported"
   | MutuallyRecursiveDatatypes (ty_name1, ty_name2) ->
     "Datatypes '" ^ HString.string_of_hstring ty_name1 ^ "' and '"
     ^ HString.string_of_hstring ty_name2
@@ -326,6 +328,10 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring field
     ^ "' with a refinement type; refinement types on fields of recursive datatypes \
        are not yet supported"
+  | UnsupportedRefinementInRecursiveAdtInstantiation ty_name ->
+    "Instantiation '" ^ HString.string_of_hstring ty_name
+    ^ "' of a recursive datatype has a type argument with a refinement type; \
+       refinement types as arguments of recursive datatypes are not yet supported"
 
 type warning_kind =
   | UnusedBoundVariableWarning of HString.t

@@ -973,7 +973,11 @@ and compile_ast_type
     (* Every use of a polymorphic type names its own instantiation, at concrete
        types or at the type parameters of the declaration it occurs in, so the
        type arguments here are the ones that declaration binds *)
-    StringMap.find ident cstate.type_alias
+    (match StringMap.find_opt ident cstate.type_alias with
+     | Some ty -> ty
+     | None ->
+       invalid_arg ("compile_ast_type: undeclared type "
+                    ^ HString.string_of_hstring ident))
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
