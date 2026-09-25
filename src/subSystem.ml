@@ -54,8 +54,17 @@ let strategy_info_of {
 
 
 (* Add all subsystems of the systems in the second argument to the accumulator
-   in topological order with the top system at the head of the list. *)
-let rec all_subsystems' accum = function
+   in topological order with the top system at the head of the list.
+
+   [visiting] holds the scopes of the systems that are waiting, further down
+   the stack, for their subsystems to be added: a subsystem among them is a
+   caller of the current system, i.e. the two are in a recursive group, and
+   it is not pushed again, which is what ends the traversal of a cycle. Any
+   other subsystem that is not in the accumulator is pushed, even when it is
+   queued further down the stack as the subsystem of another system: it must
+   be added before the current system, whereas where it is queued it would
+   only be added after. *)
+let rec all_subsystems' visiting accum = function
 
 (* All subsystems added, return. *)
 | [] -> accum
@@ -65,7 +74,7 @@ let rec all_subsystems' accum = function
   fun { scope = s } -> scope = s
 ) ->
   (* Skip altogether, subsystems have already been added. *)
-  all_subsystems' accum tl
+  all_subsystems' visiting accum tl
 
 (* First system on the stack. *)
 | { scope = top; map; subsystems } as h :: tl -> 
@@ -74,9 +83,9 @@ let rec all_subsystems' accum = function
   let tl' =
     subsystems |> List.fold_left (fun tl' scope ->
       if
-       (* System of the same name is in the stack? *)
+       (* System calls itself, or a system waiting for it? *)
        scope = top
-       || List.exists (fun { scope = s } -> scope = s) tl
+       || List.exists (fun s -> scope = s) visiting
        (* System of the same name is in the accumulator? *)
        || List.exists
          (fun { scope = s } -> scope = s)
@@ -92,17 +101,19 @@ let rec all_subsystems' accum = function
   match tl' with
 
   (* Now add this system. *)
-  | [] -> all_subsystems' (h :: accum) tl
+  | [] ->
+    all_subsystems'
+      (List.filter (fun s -> s <> top) visiting) (h :: accum) tl
 
   (* First add all subsystems. *)
-  | _ -> all_subsystems' accum (tl' @ h :: tl)
+  | _ -> all_subsystems' (top :: visiting) accum (tl' @ h :: tl)
 
 
 (* Return all subsystems in topological order with the top system at the head
    of the list. *)
-let all_subsystems s = all_subsystems' [] [s]
+let all_subsystems s = all_subsystems' [] [] [s]
 
-let all_subsystems_of_list l = all_subsystems' [] l
+let all_subsystems_of_list l = all_subsystems' [] [] l
 
 (* Return the subsystem of the given scope.
 
