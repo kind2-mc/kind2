@@ -238,6 +238,23 @@ let result_is_all_inv_proved { sys } =
     | _ -> false
   )
 
+(** Returns true if the contract of the system in a [result] was proved:
+    every guarantee and mode property is valid, and so is every termination
+    check of the system, when it is a recursive function. The guarantees of
+    a recursive function are proved with its recursive calls abstracted by
+    the contract, an induction hypothesis that only the termination checks
+    justify. The other properties of the system, the checks of its body,
+    the obligations generated for it and the properties lifted from its
+    subsystems, have no bearing on whether its implementation satisfies its
+    contract. *)
+let result_is_contract_proved { contract_valid ; sys } =
+  contract_valid = Some true
+  && (TransSys.get_properties sys |> List.for_all (fun p ->
+        match p.Property.prop_source, p.Property.prop_status with
+        | Property.TerminationCheck _, Property.PropInvariant _ -> true
+        | Property.TerminationCheck _, _ -> false
+        | _ -> true))
+
 (** Returns true if some invariant properties in the system
     in a [result] have been falsified. *)
 let result_is_some_inv_falsified { sys } =

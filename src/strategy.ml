@@ -65,8 +65,8 @@ let get_reachability_abstraction results subs_of_scope result =
       if (opacity <> Opaque) then (
         try match A.results_find system results with
         | ({ A.param } as result) :: _ ->
-          (* It is if everything was proved in the last analysis. *)
-          if A.result_is_all_inv_proved result then (
+          (* It is if its contract was proved in its last analysis. *)
+          if A.result_is_contract_proved result then (
             let info = A.info_of_param param in
             let sub = info.A.top in
             (* System is now concrete. *)
@@ -152,8 +152,12 @@ let get_refinement_abstraction results subs_of_scope result =
         if (opacity <> O.Opaque) then (
           try match A.results_find candidate results with
           | result :: _ ->
-            (* It is if everything was proved in the last analysis. *)
-            if A.result_is_all_inv_proved result then Some result
+            (* It is if its contract was proved in its last analysis. A
+               refinement keeps what was proved under the abstraction of the
+               candidate, which holds of its implementation once its contract
+               does; the checks of its body and the other properties of its
+               analysis are not what the abstraction assumed. *)
+            if A.result_is_contract_proved result then Some result
             (* Otherwise keep going. *)
             else tail :: lower |> loop seen
           | [] -> failwith "unreachable"

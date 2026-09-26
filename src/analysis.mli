@@ -160,6 +160,12 @@ val result_is_all_proved : result -> bool
     in a [result] have been proved. *)
 val result_is_all_inv_proved : result -> bool
 
+(** Returns true if the contract of the system in a [result] was proved:
+    every guarantee and mode property is valid, and so is every termination
+    check of the system, when it is a recursive function. What a refinement
+    of a caller needs of the system (see {!Strategy}). *)
+val result_is_contract_proved : result -> bool
+
 (** Returns true if some properties in the system
     in a [result] have been falsified. *)
 val result_is_some_falsified : result -> bool

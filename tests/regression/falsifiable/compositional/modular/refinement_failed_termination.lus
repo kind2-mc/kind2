@@ -1,0 +1,23 @@
+-- The recursive call of h does not decrease its measure, so h's decrease
+-- check fails. Its guarantee "g" is proved anyway: the recursive call is
+-- abstracted by the contract, an induction hypothesis that only the
+-- termination checks justify. A refinement of main must not take h for
+-- correct on the strength of that guarantee: main is analyzed once, with h
+-- abstract, and "q" stays falsified.
+--
+-- The run is falsifiable, as the decrease check and "q" are, so
+-- test_refinement_contract_proved.py checks the number of analyses of main.
+function rec h (n: int) returns (r: int);
+con
+  guarantee "g" r = 0;
+  decreases n;
+noc
+let
+  r = h(n);
+tel
+
+node main () returns (y: int);
+let
+  y = h(3);
+  check "q" y = 1;
+tel
