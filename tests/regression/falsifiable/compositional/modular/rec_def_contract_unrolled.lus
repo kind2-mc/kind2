@@ -3,8 +3,8 @@
 -- is refined: Fact is unrolled once, its recursive call abstracted by the
 -- contract, which does not give the check either, as Fact(0) is abstract;
 -- then twice, which does, as Fact(0) is then the body. With a limit of one
--- unrolling (--rec_unrollings 1), the second refinement defines Fact at the
--- SMT level instead, which proves the check as well.
+-- unrolling (--rec_unrollings 1), there is no second refinement and the
+-- check stays falsified.
 --
 -- The run is falsifiable, as the first analysis of main falsifies the check
 -- and the documented exit code counts every analysis, so

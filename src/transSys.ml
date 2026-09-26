@@ -84,6 +84,11 @@ type instance =
        clock of the node instance is false *)
     guard_clock : Numeral.t -> Term.t -> Term.t;
 
+    (* The call is executed at the offset: the clock of a call with an
+       activation condition, the branch of a call in a [when] block, [true]
+       for an unconditional call; in the state variables of this system *)
+    active : Numeral.t -> Term.t;
+
     (* [None] if there is no assumption associated to the call. Otherwise,
        [Some (l,s)] where [l] is the list of instantiated assume terms, and
        [s] is SoFar(conjunction of instantiated assume terms) *)
@@ -205,6 +210,14 @@ type t =
 
     is_visible: bool ; 
     (** Is this transition system visible (in the output)? *)
+
+    rec_cutoff : Scope.t option;
+    (** [Some f] if this system is the cutoff of the unrolling of the
+        recursive function [f]: an instance of [f] past the number of
+        unrollings of the analysis whose outputs are left unconstrained,
+        in an analysis that is not compositional (see [LustreTransSys]).
+        A counterexample that reaches such an instance may be spurious:
+        see [cutoffs_reached]. *)
 
     datatype_types : Type.t list;
     (** Recursive ADTs used anywhere in this system, in dependency order. *)
@@ -1938,6 +1951,7 @@ let mk_trans_sys
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
   ?(fun_defs = [])
+  ?rec_cutoff
   scope
   instance_state_var
   init_flag_state_var
@@ -2226,6 +2240,7 @@ let mk_trans_sys
       logic;
       invariants;
       is_visible;
+      rec_cutoff;
       datatype_types;}
   in
 
@@ -2393,6 +2408,119 @@ let instantiate_term_cert_all_levels
 
 
 let get_state_var_bounds { state_var_bounds } = state_var_bounds
+
+
+(* The cutoffs of the unrollings of the recursive functions of the system,
+   each with the function and the term stating, at offset zero, that the
+   chain of calls from the top system down to the cutoff is executed *)
+let cutoff_terms t =
+  fold_subsystem_instances
+    (fun sub chain acc ->
+       let acc = List.concat acc in
+       match sub.rec_cutoff with
+       | None -> acc
+       | Some f ->
+         (* [chain] goes from the call of the cutoff up to the top: the
+            term is lifted through each call and conjoined with the
+            activation of that call, in the variables of the caller *)
+         let reached =
+           List.fold_left
+             (fun term (_, { map_up ; active }) ->
+                let term =
+                  Term.map_state_vars
+                    (fun sv -> try SVM.find sv map_up with Not_found -> sv)
+                    term
+                in
+                Term.mk_and [ active Numeral.zero ; term ])
+             Term.t_true
+             chain
+         in
+         (f, reached) :: acc)
+    t
+
+(* The recursive functions a cutoff of which the counterexample reaches: at
+   some step of the counterexample, the chain of calls down to an instance
+   of the function past its unrollings is executed. The outputs of that
+   instance are unconstrained, so the counterexample may be spurious. A
+   state variable the counterexample has no value for belongs to a call that
+   is not in the system the counterexample was found on, which is not
+   reached. *)
+let cutoffs_reached t cex =
+  match cutoff_terms t with
+  | [] -> []
+  | cutoffs ->
+    let path = Model.path_of_list cex in
+    let steps = List.init (Model.path_length path) Numeral.of_int in
+    let reached_at term k =
+      let model = Model.model_at_k_of_path path k in
+      match Eval.eval_term [] model (Term.bump_state k term) with
+      | v -> not (Eval.value_is_unknown v) && Eval.bool_of_value v
+      | exception _ -> false
+    in
+    List.fold_left
+      (fun acc (f, term) ->
+         if List.exists (Scope.equal f) acc then acc
+         else if List.exists (reached_at term) steps then f :: acc
+         else acc)
+      [] cutoffs
+
+(* Carries what was established of [from] over to [into]: the statuses of
+   the properties of [from] that [into] has, by name, and the invariants of
+   [from] over state variables [into] has. [into] is [from] built again with
+   a recursive function unrolled further (see [Kind2Flow]), which has fewer
+   behaviors, so what holds of [from] holds of [into]; the instances of
+   recursive functions carry fresh scopes in every system, so their state
+   variables, and the invariants over them, are not carried over. *)
+let transfer_results ~from ~into =
+  from.properties |> List.iter (fun { P.prop_name ; P.prop_status } ->
+    try
+      match prop_status with
+      | P.PropUnknown -> ()
+      | P.PropInvariant cert ->
+        set_prop_invariant into prop_name cert ;
+        add_invariant into (get_prop_term into prop_name) cert false |> ignore
+      | status -> set_prop_status into prop_name status
+    with PropertyNotFound _ -> ()) ;
+  let svars = SVS.of_list into.state_vars in
+  (* The symbols [into] declares: the predicates of its systems and the
+     functions they apply. An invariant of [from] built from its predicates
+     (see [mk_trans_sys]) applies symbols [into] does not have. *)
+  let symbols =
+    let module UFS = UfSymbol.UfSymbolSet in
+    List.fold_left
+      (fun acc (uf, _) -> UFS.add uf acc)
+      (fold_subsystems (fun acc t -> UFS.union (UFS.of_list t.ufs) acc)
+         UFS.empty into)
+      (uf_defs into)
+  in
+  let ufs_of_term term =
+    let acc = ref [] in
+    Term.map
+      (fun _ t ->
+         (match Term.node_of_term t with
+          | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
+            acc := Symbol.uf_of_symbol s :: !acc
+          | _ -> ());
+         t)
+      term
+    |> ignore ;
+    !acc
+  in
+  let known inv =
+    Term.state_vars_of_term inv
+    |> SVS.for_all (fun sv -> StateVar.is_const sv || SVS.mem sv svars)
+    && List.for_all
+      (fun uf -> UfSymbol.UfSymbolSet.mem uf symbols) (ufs_of_term inv)
+  in
+  let carry two_state inv =
+    match Invs.find from.invariants inv with
+    | Some cert when known inv ->
+      if two_state then Invs.add_ts into.invariants inv cert
+      else Invs.add_os into.invariants inv cert
+    | _ -> ()
+  in
+  Invs.get_os from.invariants |> Term.TermSet.iter (carry false) ;
+  Invs.get_ts from.invariants |> Term.TermSet.iter (carry true)
 
 
 

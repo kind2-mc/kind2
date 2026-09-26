@@ -95,18 +95,6 @@ let can_be_abstracted ctx contracts outputs contract =
 let has_no_effective_contract ctx contracts opac contract outputs =
   opac = A.Transparent || not (can_be_abstracted ctx contracts outputs contract)
 
-(* [true] if the contract of the recursive function, if any, abstracts it in
-   no analysis of the run, so that the function is to be defined at the SMT
-   level in every one of them (see [LustreFunDefs.contract_abstracts]): it has
-   no effective contract, or it is translucent and the analyses are not
-   compositional, the only ones that abstract a translucent function by its
-   contract. In a compositional analysis a translucent function with a
-   contract is abstracted until a refinement makes it concrete, which happens
-   analysis by analysis, whereas the calls are compiled once for the run. *)
-let contract_never_abstracts ctx contracts opac contract outputs =
-  has_no_effective_contract ctx contracts opac contract outputs
-  || (opac = A.Default && not (Flags.Contracts.compositional ()))
-
 let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals items =
   has_no_effective_contract ctx contracts opac contract outputs &&
   valid_outputs ctx outputs &&
@@ -115,41 +103,13 @@ let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals item
   is_output_defined outputs items
 
 (* The recursive functions whose functional symbols are given a definition at
-   the SMT level (see [LustreFunDefs]), and which a call applied to quantified
-   variables can therefore be compiled to an application of (see
-   [LustreAstNormalizer.mk_fresh_qcall]).
-
-   A function a contract abstracts in some analysis of the run is left out: its
-   symbol is then uninterpreted, constrained by the contract at the arguments
-   of its instances only, so under a quantifier it would be an arbitrary
-   function and a property that does hold of it could be reported falsifiable.
-
-   The remaining conditions [LustreFunDefs] puts on a definition -- the body is
-   a total function of the inputs, the solver defines recursive functions --
-   are not known at this point. A call to a function that fails them is
-   accepted here, and [LustreTransSys] warns about it. *)
+   the SMT level, which a call applied to quantified variables could be
+   compiled to an application of. Recursive functions are no longer defined:
+   their functional symbols are uninterpreted, constrained at the arguments
+   of their instances only, so under a quantifier they would be arbitrary
+   functions. No such call is accepted. *)
 let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
-= fun ctx decls ->
-  List.fold_left (fun (set, contracts) dcl ->
-    match dcl with
-    | A.ContractNodeDecl (_, contract_node_decl) -> (
-      let (id, _, _, _, _) = contract_node_decl in
-      set, NI.Map.add id contract_node_decl contracts
-    )
-    (* A non-imported recursive function *)
-    | A.FuncDecl
-        (_, (id, false, opac, _, _, outputs, _, _, contract), { A.is_rec = true; _ })
-      -> (
-      if contract_never_abstracts ctx contracts opac contract outputs then
-        NI.Set.add id set, contracts
-      else
-        set, contracts
-    )
-    | _ -> set, contracts
-  )
-  (NI.Set.empty, NI.Map.empty)
-  decls
-  |> fst
+= fun _ _ -> NI.Set.empty
 
 let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t 
 = fun ctx decls ->

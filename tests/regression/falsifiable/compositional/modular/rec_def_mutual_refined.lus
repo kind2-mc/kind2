@@ -1,8 +1,7 @@
--- A mutually recursive group is defined as a whole once every function of
--- the group is unrolled to the limit. Each function's analysis proves its
--- contract with the other abstracted; the analyses of main then refine IsEven
--- and IsOdd in turn, unrolling each once, then twice, until both are at the
--- limit and the group is defined, which the checks need.
+-- Each function's analysis proves its contract with the other abstracted;
+-- the analyses of main then refine IsEven and IsOdd in turn, unrolling each
+-- once more, until the chains of calls from IsEven(6) and IsOdd(6) reach
+-- their base cases, which the checks need.
 --
 -- The run is falsifiable, as the first analysis of main falsifies the
 -- checks and the documented exit code counts every analysis, so

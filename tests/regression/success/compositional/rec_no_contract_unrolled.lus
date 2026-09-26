@@ -1,0 +1,19 @@
+-- A recursive function with no contract to abstract it with (a decreases
+-- clause is not a contract) is not cut off by an empty contract in a
+-- compositional analysis, which would leave its outputs unconstrained
+-- past one unrolling and falsify the property: like a node without a
+-- contract, it is unrolled with its recursive calls left unconstrained,
+-- and unrolled further whenever a counterexample reaches one, until the
+-- concrete argument is exhausted.
+function rec Sum(n: int) returns (s: int);
+(*@contract
+  decreases n;
+*)
+let
+  s = when n <= 0 then 0 else n + Sum(n - 1);
+tel
+
+node main() returns ();
+let
+  check "sum_four" Sum(4) = 10;
+tel

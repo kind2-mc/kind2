@@ -904,42 +904,45 @@ decrease, so it is always rejected.
 
 ### How recursive functions are analyzed
 
-Kind 2 unrolls the definition of a recursive function once: a call to the
-function is expanded to its body, and the recursive calls inside that body are
-handled in one of two ways, depending on the kind of analysis.
+Kind 2 unrolls the definition of a recursive function a bounded number of
+times: a call to the function is expanded to its body, and so are the
+recursive calls inside that body, up to a number of unrollings; what the
+recursive calls past those unrollings stand for depends on the kind of
+analysis.
 
-By default, and in a modular analysis (`--modular true`), Kind 2 defines the
-function at the SMT level with an SMT-LIB `define-funs-rec` command built from
-the body of the function, and lets the solver unfold that definition: for the
-`Fact` above, `Fact(4) = 24` is proved directly. In the definition, each
-recursive call is guarded by its termination checks, so the definition is
-well-founded whether or not the measure actually decreases and cannot make the
-analysis inconsistent; the termination checks are still verified as properties.
-Every function of a mutually recursive group is defined this way, or none is.
+By default, and in a modular analysis (`--modular true`), such a call is left
+unconstrained: its outputs are tied to the outputs of the other calls of the
+function with the same arguments, and to nothing else. A property that holds
+of the unrolled function then holds of the function, while a counterexample
+that reaches such a call may be spurious. When one does, Kind 2 unrolls the
+function once more, from one unrolling up to the limit set with
+`--rec_unrollings` (10 by default), and runs its engines again on the new
+system, keeping what they had established; this is not an analysis of its
+own, and it stops as soon as the arguments of the recursive calls are
+exhausted, as for `Fact(4)`, which is proved equal to 24 after four
+unrollings. A property whose counterexample still reaches such a call at the
+limit is left unknown, and Kind 2 says so. That is the fate of a property that
+holds of the function for every input only by induction over the recursion,
+such as `Fact(n) > 0`: a compositional analysis, or a lemma, is what proves
+it. The termination checks are verified as properties at every unrolling.
+An `opaque` function is the exception: its recursive calls past the
+unrollings are abstracted by its contract in every analysis, as described
+next for a compositional one. A lemma is opaque, which is what lets its
+guarantees be proved by induction over its recursion.
 
-A defined function's contract, if it has one, is never assumed in place of its
-body. A definition says exactly what the function is, so assuming its
-guarantees on top of it would add nothing when they hold of the definition and
-contradict it when they do not, and an inconsistent analysis reports every
-property as valid, the guarantees included. A defined function is therefore
-verified from its body alone: its guarantees remain proof obligations at every
-instance, and they do not serve as the induction hypothesis of the recursion.
-A guarantee that needs induction over the recursion to hold for every input,
-such as `Fact(n) > 0`, is not proved this way; a compositional analysis, or a
-lemma, is what proves it.
-
-In a compositional analysis (`--compositional true`), the recursive calls of a
-function that has a contract are abstracted by that contract instead: Kind 2
-assumes their guarantees, the inductive hypothesis of the recursion, which is
-only justified when the termination checks above hold. This is what makes a
-property such as `Fact(n) > 0` provable from a `guarantee f > 0`, but it also
-means that the function is essentially unknown to the solver past its first
-unrolling: `Fact(4) = 24` cannot be established that way. A function with no
-contract to abstract it with (no guarantee and no mode, whether explicit or
-coming from a refinement type on an output; assumptions and input types do not
-count, they are obligations of the callers), or declared `transparent`, is
-defined at the SMT level as above even in a compositional analysis, while an
-`opaque` function is always abstracted by its contract.
+In a compositional analysis (`--compositional true`), the recursive calls
+past the unrollings of a function that has a contract are abstracted by that
+contract instead: Kind 2 assumes their guarantees, the inductive hypothesis
+of the recursion, which is only justified when the termination checks hold.
+This is what makes a property such as `Fact(n) > 0` provable from a
+`guarantee f > 0`, but it also means that the function is essentially unknown
+to the solver past its unrollings: `Fact(4) = 24` cannot be established that
+way. A function with no contract to abstract it with (no guarantee and no
+mode with an ensure, whether explicit or coming from a refinement type on an
+output; assumptions and input types do not count, they are obligations of
+the callers), or declared `transparent`, is unrolled with its recursive calls
+left unconstrained, as above, while an `opaque` function is always abstracted
+by its contract.
 
 When the analysis is both compositional and modular, a call to a recursive
 function from another node or function is refined like any other call (see
@@ -949,68 +952,15 @@ properties of the caller, and the analysis of the function itself proved its
 contract valid, the caller is analyzed again with the body of the function
 unrolled once, its recursive calls abstracted by the contract; if that is not
 enough either, with the body unrolled twice, and so on up to the limit set
-with `--rec_unrollings` (2 by default); and finally with the function defined
-at the SMT level in place of its contract. Every function of a mutually
-recursive group is unrolled to the limit before the group is defined. This
-refinement does not apply to the analysis of the recursive function itself,
-or of a function of its recursive group: there the recursive calls keep the
-contract as their induction hypothesis.
+with `--rec_unrollings`. This refinement does not apply to the analysis of
+the recursive function itself, or of a function of its recursive group:
+there the recursive calls keep the contract as their induction hypothesis.
 
-This encoding is only used with the Z3 and cvc5 solvers, which support
-recursive function definitions. It is also left out when a logic is given with
-`--smt_logic`, since the solvers accept recursive definitions under very few
-of the named SMT-LIB logics, and since the options they need in order to
-handle the definitions are selected from the inferred logic. The IC3IA engine turns itself off on a system that
-contains such a definition, as the interpolating solvers do not support them
-(this is in addition to the IC3QE engine, which turns itself off on any
-system with a function, see below). It is not used for a function whose body is not a
-total function of its inputs that the solver can be given: functions with
-assertions, array-typed variables, or calls to functions whose outputs are not
-all defined by equations (other than recursive and imported functions) keep
-the contract-based encoding. Note that the solver reasons about a defined
-function by unfolding it, which settles any query about concrete arguments but
-is no substitute for induction: a property of the function for all its inputs
-still calls for a contract, or a lemma.
-
-Because such a function is a symbol the solver knows at every argument, a call
-to it may be applied to a quantified variable, which a call to a node or to a
-function that is neither inlinable nor defined this way may not (see the
+A call to a recursive function may not be applied to a quantified variable
+(see the
 [limitations]({{< relref "/inputs-and-outputs/arrays#limitations" >}}) on
-quantifiers):
-
-```lustre
-datatype Nat = Zero | Succ (p: Nat);
-
-function rec Even (n: Nat) returns (r: bool)
-con
-  decreases n;
-noc
-let
-  r = match n with | Zero : true | Succ(m) : not Even(m) end;
-tel
-
-node main () returns ();
-let
-  check forall (n: Nat) Even(Succ(n)) = not Even(n);
-tel
-```
-
-Each call is compiled to an application of the function's symbol, so the
-quantifier ranges over its argument, and the property is proved by unfolding
-the definition once. A recursive function that a contract
-abstracts is left out: its symbol is then uninterpreted, tied to the outputs of
-the instances of the function and constrained by the contract at their
-arguments only, so under a quantifier it would stand for an arbitrary function
-and a property that does hold of the function could be reported falsifiable.
-Such a call is rejected. It is also rejected when the enclosing quantified
-variable is a symbolic array index rather than a variable of an explicit
-quantifier, and, in a compositional analysis, when the function has a contract
-and is not `transparent`, since the contract then abstracts the function in
-some analysis of the run. When the definition is left out for one of the other
-reasons above (the body is not a total function of its inputs, or the solver
-or logic does not take definitions), the call is still accepted and Kind 2
-warns that the function is an arbitrary function of its inputs under the
-quantifier.
+quantifiers): the function is only known at the arguments of its calls, and
+under a quantifier it would be an arbitrary function of its inputs.
 
 ### Benefits and limitations
 

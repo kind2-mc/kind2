@@ -1,0 +1,22 @@
+-- The guarantee of Fact holds only by induction over the recursion, which
+-- the unrolling of the function cannot provide. An opaque function is always
+-- abstracted by its contract: in the analysis of main the call is abstracted
+-- by the contract, as any opaque call is, and in a modular analysis, where
+-- Fact is analyzed on its own, its recursive calls past the unrollings
+-- assume the guarantee as the induction hypothesis in every kind of
+-- analysis, compositional or not, so the guarantee is proved; the
+-- termination checks, which justify the induction, are verified as
+-- properties.
+opaque function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 1 then 1 else n * Fact(n - 1);
+tel
+
+node main(n: int) returns ();
+let
+  check "positive_call" Fact(n) > 0;
+tel

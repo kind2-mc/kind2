@@ -326,6 +326,7 @@ let mk_subsystem_calls local_map sys_name systems subsys =
         map_down ;
         map_up ;
         guard_clock = (fun _ t -> t);
+        active = (fun _ -> Term.t_true);
         assumes = None
       }
     in

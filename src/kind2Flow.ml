@@ -919,6 +919,10 @@ let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
     modules
 
 (** Performs an analysis. *)
+(* The parameter and system the engines of the analysis under way ran on
+   last, when a recursive function was unrolled further (see [analyze]) *)
+let latest_param_and_sys = ref None
+
 let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
@@ -940,37 +944,95 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
 
       KEvent.log L_debug "Starting child processes." ;
 
-      (* Get rid of messages from the previous analysis. *)
-      KEvent.purge_im msg_setup ;
+      RecUnrolling.reset () ;
 
-      let modules = process_invgen_mach_modules sys in_sys modules in
-      let modules = process_invgen_arith_modules sys modules in
-      (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
-        query with a lower bound *)
-      let modules = process_bmc_modules sys modules in
-      let modules = process_ic3_modules modules in
+      (* Runs the engines on [sys]. When a counterexample reaches a
+         recursive call past the unrollings of its function, whose outputs
+         are unconstrained, the function is unrolled further, the system is
+         built again, and the engines are run again on it, with what they
+         had established carried over (see [RecUnrolling]). Returns the
+         parameter and the system the engines ran on last. *)
+      let rec run_engines param sys =
+        RecUnrolling.clear_requested () ;
 
-      let to_run, pending = create_processes slice_to_prop modules sys in
+        (* Get rid of messages from the previous analysis. *)
+        KEvent.purge_im msg_setup ;
 
-      (* Register the mailboxes of all child processes before spawning
-         any of them, so that no engine misses the messages of an
-         earlier-spawned sibling. *)
-      let prepared =
-        to_run |> List.map (prepare_process sys msg_setup)
+        let modules = process_invgen_mach_modules sys in_sys modules in
+        let modules = process_invgen_arith_modules sys modules in
+        (* Add BMCSKIP engine if BMC is enabled and there is at least one
+           reachability query with a lower bound *)
+        let modules = process_bmc_modules sys modules in
+        let modules = process_ic3_modules modules in
+
+        let to_run, pending = create_processes slice_to_prop modules sys in
+
+        (* Register the mailboxes of all child processes before spawning
+           any of them, so that no engine misses the messages of an
+           earlier-spawned sibling. *)
+        let prepared =
+          to_run |> List.map (prepare_process sys msg_setup)
+        in
+
+        (* Start all child processes. *)
+        prepared |> List.iter (spawn_process in_sys param) ;
+
+        (* Running supervisor. *)
+        InvarManager.main
+          (run_process in_sys param sys msg_setup)
+          pending
+          ignore_props stop_if_falsified child_pids in_sys param sys ;
+
+        let requested = RecUnrolling.requested () in
+
+        (* Killing kids when supervisor's done. The summary of the
+           properties is printed on the way, and only once the engines ran
+           for the last time. *)
+        (if requested = [] then Some sys else None)
+        |> slaughter_kids `Supervisor ;
+
+        match requested with
+        | [] -> param, sys
+        | functions ->
+          (* A fresh uid: the symbols and state variables of a system are
+             named after the uid of its analysis, and the system is built
+             again *)
+          let param' =
+            Anal.map_info (fun ({ Anal.unrollings } as info) ->
+              { info with
+                Anal.uid = Anal.get_uid () ;
+                Anal.unrollings =
+                  List.fold_left
+                    (fun unrollings f ->
+                       Scope.Map.add f (RecUnrolling.depth param f + 1) unrollings)
+                    unrollings functions }) param
+          in
+          KEvent.log L_info
+            "@[<hov>Unrolling %a further (%a).@]"
+            (pp_print_list (KEvent.pp_print_user_node_name in_sys) ", ")
+            functions
+            (pp_print_list
+               (fun fmt f ->
+                  Format.fprintf fmt "%a: %d"
+                    (KEvent.pp_print_user_node_name in_sys) f
+                    (RecUnrolling.depth param' f))
+               ", ")
+            functions ;
+          let sys', _ = ISys.trans_sys_of_analysis in_sys param' in
+          TSys.transfer_results ~from:sys ~into:sys' ;
+          run_engines param' sys'
       in
 
-      (* Start all child processes. *)
-      prepared |> List.iter (spawn_process in_sys param) ;
-
-      (* Running supervisor. *)
-      InvarManager.main 
-        (run_process in_sys param sys msg_setup)
-        pending
-        ignore_props stop_if_falsified child_pids in_sys param sys ;
-
-      (* Killing kids when supervisor's done. *)
-      Some sys |> slaughter_kids `Supervisor
+      let param, sys = run_engines param sys in
+      latest_param_and_sys := Some (param, sys)
   ) ;
+
+  let param, sys =
+    match !latest_param_and_sys with
+    | Some (param, sys) -> param, sys
+    | None -> param, sys
+  in
+  latest_param_and_sys := None ;
 
   let result =
     Stat.get_float Stat.analysis_time

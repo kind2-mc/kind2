@@ -238,6 +238,7 @@ let subsystems_of_sexpr = function
       map_down;
       map_up;
       guard_clock;
+      active = (fun _ -> Term.t_true);
       assumes = None
     }
     in

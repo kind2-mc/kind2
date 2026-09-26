@@ -23,6 +23,34 @@ let handle_events input_sys aparam trans_sys =
   (* Receive queued events *)
   let events = KEvent.recv () in
 
+  (* A property found false by a counterexample that reaches a recursive
+     call past the unrollings of its function, whose outputs are
+     unconstrained, and whose violation depends on them: the counterexample
+     may be spurious, and the event is dropped. The function is unrolled
+     further and the engines run again (see [RecUnrolling] and
+     [Kind2Flow]), or, when it is at the limit, the property is left
+     unknown. *)
+  let events =
+    events |> List.filter (function
+      | (_, KEvent.PropStatus (p, Property.PropFalse cex)) -> (
+        match RecUnrolling.suspect trans_sys p cex with
+        | [] -> true
+        | reached ->
+          ( match RecUnrolling.request aparam p reached with
+            | `At_limit (_ :: _ as functions) ->
+              KEvent.log L_warn
+                "@[<hov>Counterexamples reach a recursive call of %a left \
+                 unconstrained after %d unrollings, the limit;@ the \
+                 properties they falsify are left unknown.@]"
+                (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
+                functions
+                (Flags.Contracts.rec_unrollings ())
+            | _ -> () ) ;
+          false
+      )
+      | _ -> true)
+  in
+
   (* Output events *)
   List.iter 
     (function (m, e) -> 
@@ -223,9 +251,13 @@ let rec loop
 
   let done_at' =
 
-    (* All properties proved? *)
-    if (TransSys.all_props_proved trans_sys && not ignore_props)
+    (* All properties proved, disproved or given up on? Or a recursive
+       function to unroll further, on which the engines are to be run
+       again (see [RecUnrolling])? *)
+    let deepening = RecUnrolling.requested () <> [] in
+    if (RecUnrolling.all_settled trans_sys && not ignore_props)
     || (TransSys.at_least_one_prop_falsified trans_sys && stop_if_falsified)
+    || deepening
     then (
 
       (* Has is_done been true in the last iteration? *)
@@ -233,12 +265,20 @@ let rec loop
 
       | None ->
           (* Message after is_done becomes true first time *)
-          KEvent.log L_info
-            "<Done> @[<v>\
-              All properties proved or disproved in %.3fs.@ \
-              Waiting for children to terminate.\
-            @]"
-            (Stat.get_float Stat.total_time) ;
+          if deepening then
+            KEvent.log L_info
+              "<Done> @[<v>\
+                Recursive functions to unroll further after %.3fs.@ \
+                Waiting for children to terminate.\
+              @]"
+              (Stat.get_float Stat.total_time)
+          else
+            KEvent.log L_info
+              "<Done> @[<v>\
+                All properties proved or disproved in %.3fs.@ \
+                Waiting for children to terminate.\
+              @]"
+              (Stat.get_float Stat.total_time) ;
 
           (* Solvers of terminating engines are killed outright instead
              of shut down gracefully, as the engine processes and their

@@ -4,8 +4,8 @@ In a compositional and modular analysis, a recursive function is abstracted
 by its contract in the analyses of its callers. Once the function's own
 analysis has proved its contract, the refinements of a caller unroll the
 function once, then up to --rec_unrollings times, its recursive calls
-abstracted by the contract, and then define it at the SMT level. Each
-refinement is an analysis of the caller. The first analysis falsifies the
+abstracted by the contract, and stop there. Each refinement is an analysis
+of the caller. The first analysis falsifies the
 check, and the documented exit code counts every analysis, so this checks
 the number of analyses of the caller and their answers.
 """
@@ -51,15 +51,14 @@ def answers_of_main(model, limit):
 @pytest.mark.parametrize(
     "model, limit, expected",
     [
-        # Fact(1) = 1 needs Fact(0) to be the body: two unrollings
-        ("rec_def_contract_unrolled.lus", 1, ["falsifiable", "falsifiable", "valid"]),
+        # Fact(1) = 1 needs Fact(0) to be the body: two unrollings. At the
+        # limit, no further refinement is tried.
+        ("rec_def_contract_unrolled.lus", 1, ["falsifiable", "falsifiable"]),
         ("rec_def_contract_unrolled.lus", 2, ["falsifiable", "falsifiable", "valid"]),
         ("rec_def_contract_unrolled.lus", 3, ["falsifiable", "falsifiable", "valid"]),
-        # Fact(3) = 6 needs Fact(0) to be the body: four unrollings, more than
-        # any of these limits, so the definition
-        ("rec_def_contract_refined.lus", 1, ["falsifiable"] * 2 + ["valid"]),
-        ("rec_def_contract_refined.lus", 2, ["falsifiable"] * 3 + ["valid"]),
-        ("rec_def_contract_refined.lus", 3, ["falsifiable"] * 4 + ["valid"]),
+        # Fact(3) = 6 needs Fact(0) to be the body: four unrollings
+        ("rec_def_contract_refined.lus", 2, ["falsifiable"] * 3),
+        ("rec_def_contract_refined.lus", 4, ["falsifiable"] * 4 + ["valid"]),
     ],
 )
 def test_analyses_of_caller(model, limit, expected):

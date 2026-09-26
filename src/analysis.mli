@@ -78,11 +78,13 @@ type info = {
   (** Properties that can be assumed invariant in subsystems *)
 
   unrollings : int Scope.Map.t ;
-  (** The number of times the body of each concrete recursive function that
-      a refinement made concrete is unrolled, its recursive calls abstracted
-      by its contract (see {!Strategy}). A concrete recursive function that
-      is not in the map is defined at the SMT level, when it can be (see
-      {!LustreFunDefs}); elsewhere its body is unrolled once. *)
+  (** The number of times the body of each recursive function is unrolled
+      along a chain of recursive calls, once when the function is not in
+      the map. In a compositional analysis, the calls past the unrollings
+      are abstracted by the contract of the function, and a refinement adds
+      an unrolling (see {!Strategy}); in any other analysis they are left
+      unconstrained, and an unrolling is added when a counterexample
+      reaches one (see {!RecUnrolling}). *)
 
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
@@ -135,6 +137,9 @@ and result = {
 
 (** Clones an [info], only changes its [uid]. *)
 val info_clone : info -> info
+
+(** Applies a function to the info of a param. *)
+val map_info : (info -> info) -> param -> param
 
 (** Clones a [param], only changes its [uid]. *)
 val param_clone : param -> param

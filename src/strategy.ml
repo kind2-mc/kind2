@@ -42,73 +42,36 @@ let merge_abstractions =
 (* A recursive function a compositional analysis abstracts by its contract
    is refined in steps, when the analysis of the function itself proved its
    contract: its body is unrolled once, its recursive calls abstracted by the
-   contract; then one more time up to the limit below; then the function is
-   defined at the SMT level (see [LustreFunDefs]). [Analysis.info.unrollings]
-   holds the current number of unrollings of each function so refined; a
-   concrete recursive function that is not in it is defined. The top system
-   and the functions of its recursive group are never in it: their recursive
-   calls keep the contract as the induction hypothesis of the recursion, and
-   they are never defined. *)
+   contract; then one more time, up to the limit below.
+   [Analysis.info.unrollings] holds the current number of unrollings of each
+   function so refined; a concrete recursive function that is not in it is
+   unrolled once. The top system and the functions of its recursive group
+   are never in it: their recursive calls keep the contract as the induction
+   hypothesis of the recursion. *)
 
-(* The number of unrollings a refinement tries before defining the
-   function *)
+(* The number of unrollings a refinement goes up to *)
 let unrolling_limit () = Flags.Contracts.rec_unrollings ()
 
 (* Merges the unrollings of the previous analysis with those of the analysis
-   that proved the refined system, given the abstractions they go with: a
-   function defined in either (concrete, with no unrollings) is defined, and
-   one unrolled in both keeps the larger number of unrollings *)
-let merge_unrollings (abs_1, unr_1) (abs_2, unr_2) =
-  let defined abstraction unrollings scope =
-    Scope.Map.find_opt scope abstraction = Some false
-    && not (Scope.Map.mem scope unrollings)
-  in
-  Scope.Map.merge (fun scope n_1 n_2 ->
-    if defined abs_1 unr_1 scope || defined abs_2 unr_2 scope then None
-    else match n_1, n_2 with
-      | Some n, None | None, Some n -> Some n
-      | Some n, Some n' -> Some (max n n')
-      | None, None -> None
+   that proved the refined system: a function unrolled in both keeps the
+   larger number of unrollings *)
+let merge_unrollings unr_1 unr_2 =
+  Scope.Map.merge (fun _ n_1 n_2 ->
+    match n_1, n_2 with
+    | Some n, None | None, Some n -> Some n
+    | Some n, Some n' -> Some (max n n')
+    | None, None -> None
   ) unr_1 unr_2
 
-(* The functions of the recursive group of [scope], reached through the
-   subsystems of one another *)
-let group_members subs_of_scope scope group =
-  let rec collect seen = function
-    | [] -> Scope.Set.elements seen
-    | s :: rest when Scope.Set.mem s seen -> collect seen rest
-    | s :: rest ->
-      let subs =
-        subs_of_scope s |> List.filter_map (fun (s', { rec_group }) ->
-          if rec_group = Some group then Some s' else None)
-      in
-      collect (Scope.Set.add s seen) (subs @ rest)
-  in
-  collect Scope.Set.empty [ scope ]
-
 (* The unrollings after refining the concrete recursive function [scope] one
-   step further: one more unrolling up to the limit, then, once every
-   function of its group is concrete and at the limit, the definition of the
-   group, whose functions are removed from the map. [None] if the function
-   cannot be refined further: it is defined already, it is the top system or
-   a function of its group, or a function of its group is not at the limit
-   (its contract was not proved, or the top system is one of them). *)
-let next_unrollings subs_of_scope abstraction unrollings scope group =
+   step further: one more unrolling, up to the limit. [None] if the function
+   cannot be refined further: it is at the limit, or it is the top system or
+   a function of its group. *)
+let next_unrollings unrollings scope =
   match Scope.Map.find_opt scope unrollings with
-  | None -> None
   | Some n when n < unrolling_limit () ->
     Some (Scope.Map.add scope (n + 1) unrollings)
-  | Some _ ->
-    let at_limit s =
-      Scope.Map.find_opt s abstraction = Some false
-      && (match Scope.Map.find_opt s unrollings with
-          | Some n -> n >= unrolling_limit ()
-          | None -> false)
-    in
-    let members = group_members subs_of_scope scope group in
-    if List.for_all at_limit members then
-      Some (List.fold_left (fun unr s -> Scope.Map.remove s unr) unrollings members)
-    else None
+  | Some _ | None -> None
 
 (* Whether the last analysis of [scope] proved its contract, i.e. its
    contract holds of its implementation (see [A.result_is_contract_proved]).
@@ -129,10 +92,7 @@ let make_concrete results (abstraction, unrollings) scope rec_group =
   let abstraction' = Scope.Map.add scope false abstraction in
   (* Updating with the abstraction used to prove [scope]. *)
   let abstraction' = merge_abstractions abstraction' info.A.abstraction_map in
-  let unrollings' =
-    merge_unrollings
-      (abstraction, unrollings) (info.A.abstraction_map, info.A.unrollings)
-  in
+  let unrollings' = merge_unrollings unrollings info.A.unrollings in
   let unrollings' =
     if rec_group <> None then Scope.Map.add scope 1 unrollings' else unrollings'
   in
@@ -172,10 +132,8 @@ let get_reachability_abstraction results subs_of_scope result =
             step further; remembering its subsystems and looping. *)
       let refined, maps =
         match rec_group with
-        | Some group when opacity <> Opaque && proved_correct results system -> (
-          match
-            next_unrollings subs_of_scope abstraction unrollings system group
-          with
+        | Some _ when opacity <> Opaque && proved_correct results system -> (
+          match next_unrollings unrollings system with
           | Some unrollings -> true, (abstraction, unrollings)
           | None -> refined, maps
         )
@@ -263,12 +221,10 @@ let get_refinement_abstraction results subs_of_scope result =
      further, if it can be *)
   let pick_unrolled candidate { opacity ; rec_group } =
     match rec_group with
-    | Some group
+    | Some _
       when not (Scope.Map.find candidate abstraction)
            && opacity <> O.Opaque && proved_correct results candidate -> (
-      match
-        next_unrollings subs_of_scope abstraction unrollings candidate group
-      with
+      match next_unrollings unrollings candidate with
       | Some unrollings -> Some (abstraction, unrollings)
       | None -> None
     )

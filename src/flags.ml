@@ -1390,7 +1390,7 @@ module Contracts = struct
 
   (* Unrollings of a recursive function a refinement tries before defining
      it. *)
-  let rec_unrollings_default = 2
+  let rec_unrollings_default = 10
   let rec_unrollings = ref rec_unrollings_default
   let _ = add_spec
     "--rec_unrollings"
@@ -1398,11 +1398,15 @@ module Contracts = struct
     (fun fmt ->
       Format.fprintf fmt
       "@[<v>\
+        Maximum number of unrollings of a recursive function.@ \
         In a compositional and modular analysis, a call to a recursive@ \
         function whose contract does not prove the properties of the@ \
         caller is refined by unrolling the function, once, then up to@ \
-        <int> times, with its recursive calls abstracted by the contract,@ \
-        before the function is defined at the SMT level@ \
+        <int> times, with its recursive calls abstracted by the contract.@ \
+        In any other analysis, a recursive call past the unrollings of@ \
+        its function is left unconstrained, and the function is unrolled@ \
+        once more, up to <int> times, when a counterexample reaches@ \
+        such a call@ \
         Default: %d\
       @]"
       rec_unrollings_default

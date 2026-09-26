@@ -77,11 +77,13 @@ type info = {
   (** Properties that can be assumed invariant in subsystems *)
 
   unrollings : int Scope.Map.t ;
-  (** The number of times the body of each concrete recursive function that
-      a refinement made concrete is unrolled, its recursive calls abstracted
-      by its contract (see [Strategy]). A concrete recursive function that is
-      not in the map is defined at the SMT level, when it can be (see
-      [LustreFunDefs]); elsewhere its body is unrolled once. *)
+  (** The number of times the body of each recursive function is unrolled
+      along a chain of recursive calls, once when the function is not in
+      the map. In a compositional analysis, the calls past the unrollings
+      are abstracted by the contract of the function, and a refinement adds
+      an unrolling (see [Strategy]); in any other analysis they are left
+      unconstrained, and an unrolling is added when a counterexample
+      reaches one (see [RecUnrolling]). *)
 
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
@@ -154,6 +156,14 @@ and result = {
 
 (* Clones an [info], only changes its [uid]. *)
 let info_clone info = { info with uid = get_uid () } 
+
+(* Applies a function to the info of a param. *)
+let map_info f = function
+| Interpreter info -> Interpreter (f info)
+| ContractCheck info -> ContractCheck (f info)
+| First info -> First (f info)
+| Refinement (info, res) -> Refinement (f info, res)
+| ContractMonitor info -> ContractMonitor (f info)
 
 (* Clones a [param], only changes its [uid]. *)
 let param_clone = function
@@ -503,22 +513,14 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
     let { abstraction_map = pre_abs_map ; unrollings = pre_unrollings } =
       get_first_analysis_info pre_param
     in
-    (* Whether a refinement before this one had unrolled [scope]: a
-       recursive function with no unrollings left was defined *)
-    let rec ever_unrolled scope = function
-      | Refinement ({ unrollings }, { param }) ->
-        Scope.Map.mem scope unrollings || ever_unrolled scope param
-      | param -> Scope.Map.mem scope (info_of_param param).unrollings
-    in
-    (* How a refined recursive function stands: unrolled a number of times,
-       or defined *)
+    (* How a refined recursive function stands: unrolled a number of
+       times *)
     let pp_print_refined fmt scope =
       pp_print_system_user_name fmt scope ;
       match Scope.Map.find_opt scope unrollings with
       | Some n ->
         Format.fprintf fmt " (%d unrolling%s)" n (if n = 1 then "" else "s")
-      | None ->
-        if ever_unrolled scope pre_param then Format.fprintf fmt " (defined)"
+      | None -> ()
     in
     let count =
       Scope.Map.fold (

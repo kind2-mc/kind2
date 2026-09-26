@@ -123,6 +123,11 @@ type instance =
         the term [c => t] where [c] is the clock of the subsystem
         instance. *)
 
+    active : Numeral.t -> Term.t;
+    (** The call is executed at the offset: the clock of a call with an
+        activation condition, the branch of a call in a [when] block, [true]
+        for an unconditional call; in the state variables of this system *)
+
     assumes: (Term.t list * Term.t) option;
     (** [None] if there is no assumption associated to the call. Otherwise,
         [Some (l,s)] where [l] is the list of instantiated assume terms, and
@@ -300,6 +305,7 @@ val mk_trans_sys :
   (* Definitions of the recursive functions of the system, as blocks of
      mutually recursive definitions in dependency order *)
   ?fun_defs:fun_def list list ->
+  ?rec_cutoff:Scope.t ->
 
   (* Name of the transition system *)
   Scope.t ->
@@ -784,6 +790,17 @@ val instantiate_term_all_levels:
   t -> Numeral.t -> Scope.t -> Term.t -> bool ->
   (t * Term.t list) * ((t * Term.t list) list) 
 
+
+(** The recursive functions a cutoff of which the counterexample reaches:
+    an instance of the function past its unrollings, whose outputs are left
+    unconstrained, is executed at some step of the counterexample, which may
+    therefore be spurious *)
+val cutoffs_reached : t -> (StateVar.t * Model.value list) list -> Scope.t list
+
+(** Carries the statuses of the properties and the invariants of the first
+    system over to the second, which is the first built again with a
+    recursive function unrolled further *)
+val transfer_results : from:t -> into:t -> unit
 
 (** Return arrays bounds of state variables of array type used in the system *)
 val get_state_var_bounds : t ->
