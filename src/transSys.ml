@@ -2482,14 +2482,21 @@ let transfer_results ~from ~into =
       | status -> set_prop_status into prop_name status
     with PropertyNotFound _ -> ()) ;
   let svars = SVS.of_list into.state_vars in
-  (* The symbols [into] declares: the predicates of its systems and the
-     functions they apply. An invariant of [from] built from its predicates
-     (see [mk_trans_sys]) applies symbols [into] does not have. *)
+  (* The symbols [into] declares or defines: the predicates of its systems,
+     the functions they apply and the recursive functions they define. An
+     invariant of [from] built from its predicates (see [mk_trans_sys])
+     applies symbols [into] does not have. *)
   let symbols =
     let module UFS = UfSymbol.UfSymbolSet in
     List.fold_left
       (fun acc (uf, _) -> UFS.add uf acc)
-      (fold_subsystems (fun acc t -> UFS.union (UFS.of_list t.ufs) acc)
+      (fold_subsystems
+         (fun acc t ->
+            List.fold_left
+              (fun acc block ->
+                 List.fold_left (fun acc (uf, _, _) -> UFS.add uf acc) acc block)
+              (UFS.union (UFS.of_list t.ufs) acc)
+              t.fun_defs)
          UFS.empty into)
       (uf_defs into)
   in

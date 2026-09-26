@@ -67,11 +67,16 @@ let requested () = Scope.Set.elements !requested_functions
    satisfiable, the violation depends on values the inputs do not determine,
    the outputs of the cutoffs among them. The query is that of bounded model
    checking at the length of the counterexample, with the inputs fixed. *)
+(* The time given to the solver for the query, in seconds. A query the
+   solver cannot decide in time is taken to depend on free values: the
+   counterexample is not reported, and the function is unrolled further. *)
+let query_timeout = 2
+
 let violation_depends_on_free_values sys prop cex =
   let path = Model.path_of_list cex in
   let k = Numeral.of_int (Model.path_length path - 1) in
   let solver =
-    SMTSolver.create_instance ~produce_models:false
+    SMTSolver.create_instance ~timeout:query_timeout ~produce_models:false
       (TransSys.get_logic sys) (Flags.Smt.solver ())
   in
   let result =
@@ -106,13 +111,24 @@ let violation_depends_on_free_values sys prop cex =
       TransSys.get_prop_term sys prop
       |> Term.bump_state k
       |> SMTSolver.assert_term solver ;
-      SMTSolver.check_sat solver
-    with e ->
-      SMTSolver.delete_instance solver ;
-      raise e
+      `Result (SMTSolver.check_sat solver)
+    with
+    | SMTSolver.Timeout ->
+      (* The solver was killed on the timeout, the instance is gone *)
+      `Timeout
+    | SMTSolver.Unknown -> `Result true
+    | e ->
+      (* A solver that stops on its own timeout answers in its own way,
+         which reads as a failure: the query is undecided, as well *)
+      KEvent.log L_debug
+        "Query on the counterexample to %s failed: %s" prop
+        (Printexc.to_string e) ;
+      `Failed
   in
-  SMTSolver.delete_instance solver ;
-  result
+  match result with
+  | `Result r -> SMTSolver.delete_instance solver ; r
+  | `Timeout -> true
+  | `Failed -> (try SMTSolver.delete_instance solver with _ -> ()) ; true
 
 (* The recursive functions the counterexample to the property may be
    spurious for: a cutoff of theirs is reached, and the violation depends on

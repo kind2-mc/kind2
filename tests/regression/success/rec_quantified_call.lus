@@ -1,7 +1,7 @@
--- A call to a recursive function applied to a quantified variable is
--- rejected: the function is not defined at the SMT level, its functional
--- symbol is only constrained at the arguments of its calls, and under the
--- quantifier it would be an arbitrary function of its inputs.
+-- A call to a recursive function applied to a quantified variable is compiled
+-- to an application of the functional symbol of the function, so the solver
+-- knows the function at every argument the quantifier ranges over, not only at
+-- the arguments of its instances.
 
 datatype Nat = Zero | Succ (p: Nat);
 

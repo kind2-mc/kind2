@@ -2691,25 +2691,20 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
         | None -> false
       in
 
-      (* An instance past the unrollings of its function is a cutoff. In a
-         compositional analysis it is abstracted by the contract of the
-         function, the induction hypothesis of the recursion, when the
-         function has one to abstract it with (an opaque function is always
-         abstracted by its contract, a transparent one never, like any
-         other node). Otherwise its outputs are left unconstrained, tied to
-         the functional symbols of the function only: a counterexample that
-         reaches it may be spurious, and the function is then unrolled
-         further, up to a limit (see [TransSys.cutoffs_reached] and
-         [Kind2Flow]). *)
+      (* An instance past the unrollings of its function is a cutoff. It is
+         abstracted by the contract of the function, the induction
+         hypothesis of the recursion, when the function has one to abstract
+         it with and is opaque, or translucent in a compositional analysis
+         (see [LustreFunDefs.contract_abstracts]). Otherwise its outputs
+         are left unconstrained, tied to the functional symbols of the
+         function only: a counterexample that reaches it may be spurious,
+         and the function is then unrolled further, up to a limit (see
+         [TransSys.cutoffs_reached] and [Kind2Flow]); unless the function
+         is defined at the SMT level, for the calls applied to quantified
+         variables, which ties the cutoff to the body of the function (see
+         [LustreFunDefs]). *)
       let free_cutoff =
-        reached_limit &&
-        not (
-          match node.N.opacity with
-          | Opacity.Opaque -> true
-          | Opacity.Transparent -> false
-          | Opacity.Translucent ->
-            Flags.Contracts.compositional () && N.has_effective_contract node
-        )
+        reached_limit && not (LustreFunDefs.contract_abstracts node)
       in
 
       let { N.init_flag;
@@ -3867,7 +3862,9 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               ~fun_defs:(
                 if is_defined then LustreFunDefs.blocks_of_node fun_defs node_id
                 else [])
-              ?rec_cutoff:(if free_cutoff then Some base_scope else None)
+              ?rec_cutoff:(
+                if free_cutoff && not is_defined then Some base_scope
+                else None)
               scope
               None (* instance_state_var *)
               init_flag
@@ -4019,11 +4016,16 @@ let trans_sys_of_nodes
 
   let nodes = N.nodes_of_subsystem subsystem' in
 
-  (* Recursive functions are not defined at the SMT level: a definition
-     leaves the unrolling of the recursion to the solver, out of Kind 2's
-     control. They are unrolled a bounded number of times instead, in the
-     transition system (see [free_cutoff] in [trans_sys_of_node']). *)
-  let fun_defs = LustreFunDefs.empty in
+  (* Recursive functions are unrolled a bounded number of times in the
+     transition system (see [free_cutoff] in [trans_sys_of_node']) rather
+     than defined at the SMT level, which would leave the unrolling of the
+     recursion to the solver, out of Kind 2's control. The functions that
+     calls applied to quantified variables apply are the exception: they
+     have no instance to be unrolled, and are defined (see
+     [LustreFunDefs]). *)
+  let fun_defs =
+    LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
+  in
 
   warn_undefined_uf_applications fun_defs nodes;
 

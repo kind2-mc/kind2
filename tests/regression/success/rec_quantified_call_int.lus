@@ -1,0 +1,20 @@
+-- A quantified call to a recursive function over a scalar type. The retained
+-- instance keeps the function a subsystem of the caller whatever the property
+-- being checked, so its functional symbol is defined in every slice.
+
+type Nat = subrange [0,*] of int;
+
+function rec Sum (n: Nat) returns (r: int)
+con
+  decreases n;
+noc
+let
+  r = when n = 0 then 0 else n + Sum(n-1);
+tel
+
+node main (x: bool) returns (y: bool);
+let
+  y = x;
+  check "zero" forall (n: Nat) (n = 0) => Sum(n) = 0;
+  check "unfold" forall (n: Nat) when n > 0 then Sum(n) = n + Sum(n-1) else true;
+tel

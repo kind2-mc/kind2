@@ -956,11 +956,47 @@ with `--rec_unrollings`. This refinement does not apply to the analysis of
 the recursive function itself, or of a function of its recursive group:
 there the recursive calls keep the contract as their induction hypothesis.
 
-A call to a recursive function may not be applied to a quantified variable
-(see the
-[limitations]({{< relref "/inputs-and-outputs/arrays#limitations" >}}) on
-quantifiers): the function is only known at the arguments of its calls, and
-under a quantifier it would be an arbitrary function of its inputs.
+A call to a recursive function may be applied to a quantified variable (see
+the [limitations]({{< relref "/inputs-and-outputs/arrays#limitations" >}})
+on quantifiers) when the recursive calls past its unrollings are left
+unconstrained, as above: such a call has no instance to be unrolled, so it
+is compiled to an application of the symbol of the function, and the
+function is defined at the SMT level, as a `define-funs-rec` block, so that
+the solver knows it at every argument the quantifier ranges over:
+
+```lustre
+datatype Nat = Zero | Succ (p: Nat);
+
+function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main () returns ();
+let
+  check forall (n: Nat) Even(Succ(n)) = not Even(n);
+tel
+```
+
+The property is proved by unfolding the definition once. The definition
+also ties the other calls of the function to its body past their
+unrollings, so none of their counterexamples is spurious; the solver is
+the one unfolding the recursion then, and a query about the function for
+all its inputs may not terminate. The definition applies the recursive
+calls under their termination checks, so that it has a model whether or not
+the measure decreases; the checks remain properties. A call applied to a
+quantified variable is rejected when a contract abstracts the function
+(an `opaque` function with a contract, or a translucent one with a contract
+in a compositional analysis): its symbol would then be constrained at the
+arguments of its instances only, an arbitrary function under the
+quantifier. Kind 2 warns when the definition is left out for another
+reason: the body is not a total function of its inputs that the solver can
+be given (an assertion, an array-typed variable, a call to a function whose
+outputs are not all defined by equations), or the solver or logic does not
+take recursive definitions (Z3 and cvc5 do, under the inferred logic).
 
 ### Benefits and limitations
 

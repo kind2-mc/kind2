@@ -1,0 +1,19 @@
+-- The functional symbol a quantified call is compiled to is the function, not
+-- an unconstrained symbol: a property that does not hold of the function is
+-- falsified rather than proven.
+
+datatype Nat = Zero | Succ (p: Nat);
+
+function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main (x: bool) returns (y: bool);
+let
+  y = x;
+  check "all_even" forall (n: Nat) Even(n);
+tel

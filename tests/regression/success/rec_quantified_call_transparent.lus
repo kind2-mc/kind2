@@ -1,0 +1,20 @@
+-- A transparent recursive function is defined at the SMT level even though it
+-- has a contract, since the contract is never used in place of its body, so a
+-- call to it may be applied to a quantified variable.
+
+datatype Nat = Zero | Succ (p: Nat);
+
+transparent function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+  guarantee r or not r;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main (x: bool) returns (y: bool);
+let
+  y = x;
+  check "unfold" forall (n: Nat) Even(Succ(n)) = not Even(n);
+tel
