@@ -5,9 +5,11 @@ import signal
 import subprocess
 import time
 from pathlib import Path
-from subprocess import PIPE, STDOUT, CompletedProcess, Popen, TimeoutExpired
+from subprocess import PIPE, CompletedProcess, Popen, TimeoutExpired
 
 import pytest
+
+from output_schema import jsonschema_available, violations_in_output
 
 ##########
 # Config #
@@ -31,6 +33,9 @@ run_timeout = float(common_args["--timeout"]) + 120
 
 # How long we wait for the output of a run we had to kill
 kill_timeout = 30
+
+# How many schema violations a failed test shows
+max_problems_shown = 20
 
 # The test conditions that are always enabled. These override common_args if
 # there is a disagreement.
@@ -220,10 +225,17 @@ unfinished_runs = []
 class LustreException(Exception): ...
 
 
+class LustreSchemaViolation(Exception):
+    def __init__(self, problems):
+        super().__init__()
+        self.problems = problems
+
+
 class LustreTimeout(Exception):
-    def __init__(self, output: bytes, status):
+    def __init__(self, output: bytes, errors: bytes, status):
         super().__init__()
         self.output = output
+        self.errors = errors
         # Exit status of Kind 2 when we gave up on it, or None if it was
         # still running then
         self.status = status
@@ -268,18 +280,17 @@ def run_kind2(command) -> CompletedProcess:
         # spawns can be killed along with it
         popen_args["start_new_session"] = True
 
-    # Standard error goes into the same stream as standard output rather
-    # than into a pipe of its own that nothing read: what Kind 2 says when
-    # its exit goes wrong goes to standard error and nowhere else -- the
-    # last-resort "did not exit in time" line, an uncaught exception, a
-    # warning that clearing handle inheritance failed. A run that hangs
+    # Standard error is read as well, into a pipe of its own: what Kind 2
+    # says when its exit goes wrong goes to standard error and nowhere else
+    # -- the last-resort "did not exit in time" line, an uncaught exception,
+    # a warning that clearing handle inheritance failed. A run that hangs
     # without them in its report cannot be told apart from a run that never
-    # got that far. The verdict of a test reads the exit code alone, so the
-    # merge changes what a failure shows, not what passes.
-    proc = Popen(command, stdout=PIPE, stderr=STDOUT, **popen_args)
+    # got that far. It is kept apart from standard output, which is checked
+    # to be JSON matching the schema, and shown with it when a test fails.
+    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
 
     try:
-        output, _ = proc.communicate(timeout=run_timeout)
+        output, errors = proc.communicate(timeout=run_timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -291,15 +302,15 @@ def run_kind2(command) -> CompletedProcess:
 
         kill_tree(proc)
         try:
-            output, _ = proc.communicate(timeout=kill_timeout)
+            output, errors = proc.communicate(timeout=kill_timeout)
         except TimeoutExpired:
             # Some process we could not kill still holds the pipes. Report
             # what we have rather than wait for the rest forever: the reader
             # threads are daemons, and they do not keep the session alive.
-            output = b""
-        raise LustreTimeout(output, status)
+            output, errors = b"", b""
+        raise LustreTimeout(output, errors, status)
 
-    return CompletedProcess(command, proc.returncode, output, None)
+    return CompletedProcess(command, proc.returncode, output, errors)
 
 
 class LustreItem(pytest.Item):
@@ -330,7 +341,9 @@ class LustreItem(pytest.Item):
             args |= modular_args
 
         arg_list = list(itertools.chain.from_iterable(args.items()))
-        return [kind2_bin, *arg_list, self.path]
+        # JSON, so that the output of every run is checked against the
+        # schema (see `output_schema.py`)
+        return [kind2_bin, "-json", *arg_list, self.path]
 
     def _regression_parts(self):
         # Relative to the regression tree: an absolute path would also match a
@@ -366,6 +379,18 @@ class LustreItem(pytest.Item):
         finally:
             self.elapsed = time.monotonic() - started
 
+        self._check_return_code()
+
+        # Whatever the exit code, a run that exited on its own printed all its
+        # output, which has to match the schema
+        if jsonschema_available():
+            problems = violations_in_output(
+                self.res.stdout.decode("utf-8", errors="replace")
+            )
+            if problems:
+                raise LustreSchemaViolation(problems)
+
+    def _check_return_code(self):
         if self._ic3ia_declines():
             # Answering is allowed, answering `falsifiable` is not
             if self.res.returncode not in ic3ia_declined_codes:
@@ -408,6 +433,21 @@ class LustreItem(pytest.Item):
                     stuck,
                     " ".join(map(str, self._command())),
                     excinfo.value.output.decode("utf-8", errors="replace"),
+                    excinfo.value.errors.decode("utf-8", errors="replace"),
+                ]
+            )
+
+        if isinstance(excinfo.value, LustreSchemaViolation):
+            problems = excinfo.value.problems
+            shown = problems[:max_problems_shown]
+            return "\n".join(
+                [
+                    f"The JSON output does not match the schema"
+                    f" ({len(problems)} problems):",
+                    " ".join(map(str, self._command())),
+                    *shown,
+                    *(["..."] if len(problems) > len(shown) else []),
+                    self.res.stderr.decode("utf-8", errors="replace"),
                 ]
             )
 
@@ -422,14 +462,23 @@ class LustreItem(pytest.Item):
                     f"Expected: {self.expected}, got {actual}",
                     " ".join(map(str, self._command())),
                     self.res.stdout.decode("utf-8", errors="replace"),
+                    self.res.stderr.decode("utf-8", errors="replace"),
                 ]
             )
 
         return super().repr_failure(excinfo, style)
 
 
-# Report the runs that gave up, which pass and would otherwise leave no trace
+# Report the runs that gave up, which pass and would otherwise leave no trace,
+# and that the output was not checked, which would not either
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if not jsonschema_available():
+        terminalreporter.section("JSON output not checked")
+        terminalreporter.write_line(
+            "jsonschema is not installed, so the output of the regression"
+            " tests was not checked against schemas/kind2-output.json"
+        )
+
     if not unfinished_runs:
         return
 

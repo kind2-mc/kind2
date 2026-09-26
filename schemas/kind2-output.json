@@ -348,9 +348,6 @@
                 "top": {
                     "$ref": "#/definitions/scope"
                 },
-                "context": {
-                    "enum": ["type","contract","environment"]
-                },
                 "concrete": {
                     "type": "array",
                     "items": { "$ref": "#/definitions/scope" }
@@ -375,6 +372,21 @@
             "required": [
                 "objectType", "top", "concrete", "abstract", "assumptions"
             ]
+        },
+        "contractCheckAnalysisStart": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "analysisStart"
+                },
+                "top": {
+                    "$ref": "#/definitions/scope"
+                },
+                "context": {
+                    "enum": ["type","contract","environment"]
+                }
+            },
+            "required": ["objectType", "top", "context"]
         },
         "postAnalysisStart": {
             "type": "object",
@@ -815,7 +827,7 @@
                     "$ref": "#/definitions/runtime"
                 },
                 "result": {
-                    "enum": ["realizable","unrealizable"]
+                    "enum": ["realizable","unrealizable","unknown"]
                 },
                 "viableStates": {
                     "type": "string"
@@ -841,7 +853,7 @@
                     "$ref": "#/definitions/runtime"
                 },
                 "result": {
-                    "enum": ["satisfiable","unsatisfiable"]
+                    "enum": ["satisfiable","unsatisfiable","unknown"]
                 }
             },
             "required": [
@@ -857,6 +869,7 @@
                    { "$ref": "#/definitions/progress" },
                    { "$ref": "#/definitions/kind2Options" },
                    { "$ref": "#/definitions/analysisStart" },
+                   { "$ref": "#/definitions/contractCheckAnalysisStart" },
                    { "$ref": "#/definitions/analysisStop" },
                    { "$ref": "#/definitions/postAnalysisStart" },
                    { "$ref": "#/definitions/modelElementSet" },
