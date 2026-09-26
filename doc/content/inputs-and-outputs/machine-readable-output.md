@@ -101,6 +101,14 @@ The list of properties of an `AnalysisStart` object are:
 | `abstract`    | `array`  | Names of the subcomponents whose contract is used in the analysis.       |
 | `assumptions` | `array`  | Array of pairs (name of subcomponent, number of considered invariants).  |
 
+An `AnalysisStart` object that begins a check of the contract checker
+(`--enable CONTRACTCK`) has `top` and the following property instead of
+`concrete`, `abstract` and `assumptions`:
+
+| Key           | Type     | Description                                                              |
+|---------------|----------|--------------------------------------------------------------------------|
+| `context`     | `string` | What is checked for `top`: `type`, `contract`, or `environment`.         |
+
 ### AnalysisStop Object
 
 An `AnalysisStop` object indicates the end of a main analysis.

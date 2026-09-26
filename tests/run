@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# jsonschema is what test_output_schema.py checks the JSON output with. It is
-# requested here rather than installed, so that a checkout without uv still
-# runs: that test skips itself when the package is missing.
+# jsonschema is what the JSON output of the regression tests is checked with
+# (see output_schema.py). It is requested here rather than installed, so that a
+# checkout without uv still runs: the check is then skipped, and the session
+# says so at the end.
 if command -v uvx >/dev/null 2>&1
 then
 	uvx --with jsonschema pytest "$@"
