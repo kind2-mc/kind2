@@ -117,13 +117,19 @@ let violation_depends_on_free_values sys prop cex =
       (* The solver was killed on the timeout, the instance is gone *)
       `Timeout
     | SMTSolver.Unknown -> `Result true
-    | e ->
+    | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
+    | SMTSolver.Exiting as e ->
       (* A solver that stops on its own timeout answers in its own way,
-         which reads as a failure: the query is undecided, as well *)
+         which reads as a failure: the query is undecided, as well. Any
+         other exception, the wall clock timeout first of all, is not
+         about the query and goes on unwinding. *)
       KEvent.log L_debug
         "Query on the counterexample to %s failed: %s" prop
         (Printexc.to_string e) ;
       `Failed
+    | e ->
+      (try SMTSolver.delete_instance solver with _ -> ()) ;
+      raise e
   in
   match result with
   | `Result r -> SMTSolver.delete_instance solver ; r
