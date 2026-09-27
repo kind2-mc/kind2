@@ -1414,7 +1414,7 @@ module Contracts = struct
   let rec_unrollings () = !rec_unrollings
 
   (* Instances of recursive functions the unrolling may create *)
-  let rec_instances_default = 200
+  let rec_instances_default = 100
   let rec_instances = ref rec_instances_default
   let _ = add_spec
     "--rec_instances"
