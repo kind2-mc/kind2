@@ -33,6 +33,15 @@ let handle_events input_sys aparam trans_sys =
   let events =
     events |> List.filter (function
       | (_, KEvent.PropStatus (p, Property.PropFalse cex)) -> (
+        (* On Windows the wall clock timeout is only ever noticed by the
+           polling loop; a query to a solver is a process to start and
+           wait for, and a round can bring dozens of counterexamples at
+           once, so the clock is looked at before each. *)
+        ( if Sys.win32 then
+            let timeout = Flags.timeout_wall () in
+            Stat.update_time Stat.total_time ;
+            if timeout > 0. && Stat.get_float Stat.total_time > timeout then
+              raise TimeoutWall ) ;
         match RecUnrolling.suspect trans_sys p cex with
         | [] -> true
         | reached ->

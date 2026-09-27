@@ -173,7 +173,17 @@ let suspect sys prop cex =
   match TransSys.cutoffs_reached sys cex with
   | [] -> []
   | reached ->
-    if violation_depends_on_free_values sys prop cex then reached else []
+    (* The functions are all to be unrolled further already: whether the
+       counterexample is spurious or not, the engines run again on the
+       system with them unrolled, and a genuine counterexample is found
+       again there. The query is spared, which matters where every query
+       is a solver process to start: a round that falsifies a hundred
+       properties on their first counterexample would otherwise put a
+       hundred queries to as many solvers before it ends. *)
+    if List.for_all (fun f -> Scope.Set.mem f !requested_functions) reached
+    then reached
+    else if violation_depends_on_free_values sys prop cex then reached
+    else []
 
 let is_exhausted prop = SSet.mem prop !exhausted
 
