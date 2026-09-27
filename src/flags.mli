@@ -532,6 +532,10 @@ module Contracts : sig
       calls abstracted by its contract, before defining it *)
   val rec_unrollings : unit -> int
 
+  (** Instances of recursive functions the unrolling of the functions may
+      create in a system, outside of compositional analyses *)
+  val rec_instances : unit -> int
+
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool
 

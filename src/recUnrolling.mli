@@ -38,17 +38,21 @@ val depth : Analysis.param -> Scope.t -> int
     analyzed *)
 val reset : unit -> unit
 
-(** Forget the requests: the engines are run on a system with the
-    unrollings requested *)
-val clear_requested : unit -> unit
+(** Forget the requests, and count the instances of the recursive
+    functions of the system the engines are about to run on, to tell how
+    fast the unrollings multiply them *)
+val start_round : TransSys.t -> unit
 
 (** A counterexample to the property reached the cutoffs of the functions.
-    Those below the limit are requested to be unrolled further; if there is
-    none, the property is given up on, and the functions at the limit that
-    were not reported yet are returned, to be reported once. *)
+    Those below the limits are requested to be unrolled further; if there
+    is none, the property is given up on, and the functions at a limit
+    that were not reported yet are returned, to be reported once: first
+    those whose next unrolling is expected to exceed the instances allowed
+    with [--rec_instances], then those at the limit set with
+    [--rec_unrollings]. *)
 val request :
   Analysis.param -> string -> Scope.t list ->
-  [ `Requested | `At_limit of Scope.t list ]
+  [ `Requested | `At_limit of Scope.t list * Scope.t list ]
 
 (** The functions requested to be unrolled further *)
 val requested : unit -> Scope.t list

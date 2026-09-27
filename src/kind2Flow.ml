@@ -953,7 +953,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
          had established carried over (see [RecUnrolling]). Returns the
          parameter and the system the engines ran on last. *)
       let rec run_engines param sys =
-        RecUnrolling.clear_requested () ;
+        RecUnrolling.start_round sys ;
 
         (* Get rid of messages from the previous analysis. *)
         KEvent.purge_im msg_setup ;

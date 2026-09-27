@@ -2438,6 +2438,30 @@ let cutoff_terms t =
          (f, reached) :: acc)
     t
 
+(* The recursive functions with a cutoff in the system *)
+let cutoff_functions t =
+  List.fold_left
+    (fun acc (f, _) -> if List.exists (Scope.equal f) acc then acc else f :: acc)
+    [] (cutoff_terms t)
+
+(* The instances of the recursive function of the given scope in the
+   system: those of its own scope, and those of the tagged scopes of its
+   unrollings (see [LustreTransSys]) *)
+let count_instances t f =
+  let is_instance_of scope =
+    Scope.equal scope f
+    || (match scope with
+        | tag :: base ->
+          Scope.equal base f
+          && (let tag = Ident.to_string tag in
+              String.length tag > 4 && String.sub tag 0 4 = "rec_")
+        | [] -> false)
+  in
+  fold_subsystem_instances
+    (fun sub _ children ->
+       List.fold_left (+) (if is_instance_of sub.scope then 1 else 0) children)
+    t
+
 (* The recursive functions a cutoff of which the counterexample reaches: at
    some step of the counterexample, the chain of calls down to an instance
    of the function past its unrollings is executed. The outputs of that

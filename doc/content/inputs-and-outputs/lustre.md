@@ -925,6 +925,12 @@ limit is left unknown, and Kind 2 says so. That is the fate of a property that
 holds of the function for every input only by induction over the recursion,
 such as `Fact(n) > 0`: a compositional analysis, or a lemma, is what proves
 it. The termination checks are verified as properties at every unrolling.
+A function whose body makes several recursive calls, or calls other
+recursive functions, has its instances multiplied at every unrolling: the
+Ackermann function has three times as many after each one. The unrolling
+stops early when the next one is expected to exceed the number of instances
+set with `--rec_instances` (200 by default), and the properties whose
+counterexamples reach the recursive calls are left unknown as at the limit.
 An `opaque` function is the exception: its recursive calls past the
 unrollings are abstracted by its contract in every analysis, as described
 next for a compositional one. A lemma is opaque, which is what lets its

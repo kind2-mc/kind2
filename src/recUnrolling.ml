@@ -22,6 +22,11 @@ module SSet = Set.Make (String)
    the limit *)
 let requested_functions = ref Scope.Set.empty
 
+(* The instances of the recursive functions in the system the engines run
+   on, and in the one before it: how fast the unrollings multiply them *)
+let current_count = ref 0
+let previous_count = ref 0
+
 (* The properties whose counterexample reached the cutoff of a function at
    the limit *)
 let exhausted = ref SSet.empty
@@ -38,22 +43,47 @@ let depth param f =
 let reset () =
   requested_functions := Scope.Set.empty ;
   exhausted := SSet.empty ;
-  reported := Scope.Set.empty
+  reported := Scope.Set.empty ;
+  current_count := 0 ;
+  previous_count := 0
 
-let clear_requested () = requested_functions := Scope.Set.empty
+let start_round sys =
+  requested_functions := Scope.Set.empty ;
+  previous_count := !current_count ;
+  current_count :=
+    List.fold_left
+      (fun n f -> n + TransSys.count_instances sys f)
+      0 (TransSys.cutoff_functions sys)
+
+(* Whether unrolling further is expected to exceed the number of instances
+   allowed: the instances of the recursive functions, counted together
+   since the unrolling of one multiplies the instances of the functions it
+   calls, are expected to multiply as they did over the last unrolling, or
+   to double when there was none yet *)
+let too_many_instances () =
+  let c = !current_count and p = !previous_count in
+  let expected = if p > 0 && c > p then c * c / p else 2 * c in
+  expected > Flags.Contracts.rec_instances ()
 
 let request param prop reached =
   let limit = Flags.Contracts.rec_unrollings () in
-  match List.filter (fun f -> depth param f < limit) reached with
+  let too_many = too_many_instances () in
+  let below, at_limit =
+    List.partition
+      (fun f -> depth param f < limit && not too_many)
+      reached
+  in
+  match below with
   | [] ->
     exhausted := SSet.add prop !exhausted ;
     let unreported =
-      List.filter (fun f -> not (Scope.Set.mem f !reported)) reached
+      List.filter (fun f -> not (Scope.Set.mem f !reported)) at_limit
     in
     reported :=
       List.fold_left (fun s f -> Scope.Set.add f s) !reported unreported ;
-    `At_limit unreported
-  | below ->
+    `At_limit
+      (List.partition (fun f -> depth param f < limit) unreported)
+  | _ ->
     requested_functions :=
       List.fold_left (fun s f -> Scope.Set.add f s) !requested_functions below ;
     `Requested

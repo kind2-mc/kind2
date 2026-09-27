@@ -75,3 +75,14 @@ def test_guarantee_needing_induction_left_unknown():
     assert answers["fact is positive"] == "unknown", answers
     assert code == 30
     assert elapsed < 30, elapsed
+
+
+# The body of ack makes three recursive calls, so its instances triple at
+# every unrolling: the unrolling stops once the next one would exceed
+# --rec_instances, long before --rec_unrollings, and the run ends quickly
+# with the guarantee unknown instead of building a system it cannot handle
+def test_branching_recursion_stops_at_the_instance_bound():
+    code, answers, elapsed = run("success/compositional/ackermann.lus", {})
+    assert answers["nonneg"] == "unknown", answers
+    assert code == 30
+    assert elapsed < 40, elapsed

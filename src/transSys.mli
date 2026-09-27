@@ -797,6 +797,13 @@ val instantiate_term_all_levels:
     therefore be spurious *)
 val cutoffs_reached : t -> (StateVar.t * Model.value list) list -> Scope.t list
 
+(** The recursive functions with a cutoff in the system *)
+val cutoff_functions : t -> Scope.t list
+
+(** The number of instances of the recursive function of the given scope
+    in the system, the instances of its unrollings included *)
+val count_instances : t -> Scope.t -> int
+
 (** Carries the statuses of the properties and the invariants of the first
     system over to the second, which is the first built again with a
     recursive function unrolled further *)

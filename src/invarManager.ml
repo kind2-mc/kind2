@@ -37,15 +37,25 @@ let handle_events input_sys aparam trans_sys =
         | [] -> true
         | reached ->
           ( match RecUnrolling.request aparam p reached with
-            | `At_limit (_ :: _ as functions) ->
-              KEvent.log L_warn
-                "@[<hov>Counterexamples reach a recursive call of %a left \
-                 unconstrained after %d unrollings, the limit;@ the \
-                 properties they falsify are left unknown.@]"
-                (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
-                functions
-                (Flags.Contracts.rec_unrollings ())
-            | _ -> () ) ;
+            | `At_limit (too_many, at_limit) ->
+              if too_many <> [] then
+                KEvent.log L_warn
+                  "@[<hov>Counterexamples reach a recursive call of %a left \
+                   unconstrained, and unrolling the function further would \
+                   create more than %d instances of it, the limit;@ the \
+                   properties they falsify are left unknown.@]"
+                  (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
+                  too_many
+                  (Flags.Contracts.rec_instances ()) ;
+              if at_limit <> [] then
+                KEvent.log L_warn
+                  "@[<hov>Counterexamples reach a recursive call of %a left \
+                   unconstrained after %d unrollings, the limit;@ the \
+                   properties they falsify are left unknown.@]"
+                  (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
+                  at_limit
+                  (Flags.Contracts.rec_unrollings ())
+            | `Requested -> () ) ;
           false
       )
       | _ -> true)

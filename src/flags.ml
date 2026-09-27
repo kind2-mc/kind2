@@ -1413,6 +1413,29 @@ module Contracts = struct
     )
   let rec_unrollings () = !rec_unrollings
 
+  (* Instances of recursive functions the unrolling may create *)
+  let rec_instances_default = 200
+  let rec_instances = ref rec_instances_default
+  let _ = add_spec
+    "--rec_instances"
+    (Arg.Set_int rec_instances)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximum number of instances of recursive functions the unrolling@ \
+        of the functions may create in a system, outside of compositional@ \
+        analyses. A function whose body makes several recursive calls,@ \
+        or calls other recursive functions, has the instances multiplied@ \
+        at every unrolling; no function is unrolled further when the next@ \
+        unrolling is expected to exceed <int> instances, and the@ \
+        properties whose counterexamples reach their recursive calls are@ \
+        left unknown, as at the limit set with --rec_unrollings@ \
+        Default: %d\
+      @]"
+      rec_instances_default
+    )
+  let rec_instances () = !rec_instances
+
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default
   let _ = add_spec
