@@ -794,12 +794,26 @@ let check_uniform_recursion pos ty_name ty_params ctors =
          | LA.UserType (_, [], id) -> HString.equal id p
          | _ -> false) ty_args ty_params
   in
+  let rec non_uniform ty = match ty with
+    | LA.UserType (_, (_ :: _ as ty_args), id) ->
+      (HString.equal id ty_name && not (uniform ty_args))
+      || List.exists non_uniform ty_args
+    | LA.UserType (_, [], _) | LA.AbstractType _ | LA.EnumType _
+    | LA.History _ | LA.Bool _ | LA.Int _ | LA.Real _
+    | LA.SBitVector _ | LA.UBitVector _ -> false
+    | LA.TupleType (_, tys) | LA.GroupType (_, tys) -> List.exists non_uniform tys
+    | LA.RecordType (_, _, fields) ->
+      List.exists (fun (_, _, ty) -> non_uniform ty) fields
+    | LA.ArrayType (_, (ty, _)) | LA.Set (_, ty)
+    | LA.RefinementType (_, (_, _, ty), _) -> non_uniform ty
+    | LA.TArr (_, ty1, ty2) | LA.Map (_, ty1, ty2) ->
+      non_uniform ty1 || non_uniform ty2
+    | LA.ADT (_, _, ctors) ->
+      List.exists (fun (_, fields) ->
+        List.exists (fun (_, ty) -> non_uniform ty) fields) ctors
+  in
   match List.concat_map (fun (_, fields) ->
-    List.filter_map (fun (fn, ty) -> match ty with
-      | LA.UserType (_, (_ :: _ as ty_args), id)
-        when HString.equal id ty_name && not (uniform ty_args) -> Some fn
-      | _ -> None
-    ) fields
+    List.filter_map (fun (fn, ty) -> if non_uniform ty then Some fn else None) fields
   ) ctors with
   | fn :: _ -> type_error pos (NonUniformRecursiveDatatype (ty_name, fn))
   | [] -> R.ok ()

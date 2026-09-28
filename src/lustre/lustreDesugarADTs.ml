@@ -383,9 +383,10 @@ let rec default_value ctx adt_map pos ty =
       default_adt_term ctx adt_map pos name ty_args
         (declared_and_instance adt_map name ctors)
     | Some _ | None ->
-      match Ctx.expand_type_syn ctx ty with
-      | LA.UserType _ -> assert false
-      | expanded -> default_value ctx adt_map pos expanded)
+      match Ctx.lookup_ty_syn_body ctx name ty_args with
+      | Some (LA.UserType (_, _, name')) when HString.equal name' name -> assert false
+      | Some link -> default_value ctx adt_map pos link
+      | None -> assert false)
   | LA.Set (_, ty) -> LA.EmptySet (pos, Some ty)
   | LA.Map (_, kt, vt) -> LA.EmptyMap (pos, Some (kt, vt))
   | LA.RefinementType (_, (_, _, inner_ty), _) -> default_value ctx adt_map pos inner_ty

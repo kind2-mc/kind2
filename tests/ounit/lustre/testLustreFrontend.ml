@@ -1035,6 +1035,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_polymorphic_recursion.lus" with
     | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true
     | _ -> false);
+  mk_test "test non-uniform polymorphic recursion nested in a type argument is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_polymorphic_recursion_nested.lus" with
+    | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true
+    | _ -> false);
   mk_test "test a parameterless datatype's self-reference at type arguments is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_self_reference_with_ty_args.lus" with
     | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true

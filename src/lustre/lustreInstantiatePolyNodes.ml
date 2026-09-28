@@ -1339,10 +1339,13 @@ let instantiate_polymorphic_adts ctx gids type_decls decls =
   let pos = Lib.dummy_pos in
   let span = { A.start_pos = pos; A.end_pos = pos } in
   (* The instantiations the program uses, in the order they were met *)
-  let pending = ref [] in
+  let pending = Queue.create () in
+  let recorded = HString.HStringHashtbl.create 7 in
   let record use_pos base ty_args mono_name =
-    if not (List.mem_assoc mono_name !pending) then
-      pending := !pending @ [(mono_name, (base, ty_args, use_pos))]
+    if not (HString.HStringHashtbl.mem recorded mono_name) then (
+      HString.HStringHashtbl.add recorded mono_name ();
+      Queue.add (mono_name, (base, ty_args, use_pos)) pending
+    )
   in
   (* The typing context types the program, so it is rewritten along with it; the
      original keeps resolving names as they were written *)
@@ -1356,10 +1359,10 @@ let instantiate_polymorphic_adts ctx gids type_decls decls =
   let gids = rewrite_gids ctx record gids in
   (* An instantiation's definition may name instantiations found nowhere else, so
      rewriting it adds to the list while the list is walked *)
-  let rec close i acc =
-    if i >= List.length !pending then List.rev acc
-    else
-      let mono_name, (base, ty_args, use_pos) = List.nth !pending i in
+  let rec close acc =
+    match Queue.take_opt pending with
+    | None -> List.rev acc
+    | Some (mono_name, (base, ty_args, use_pos)) ->
       let body = match Ctx.lookup_ty_syn_body ctx base ty_args with
         | Some body -> body
         | None -> assert false
@@ -1375,9 +1378,9 @@ let instantiate_polymorphic_adts ctx gids type_decls decls =
         | body -> rewrite_ty ctx record [] body
       in
       let refs = base :: instance_refs body in
-      close (i + 1) ((mono_name, { use_pos; ty_args; body; refs }) :: acc)
+      close ((mono_name, { use_pos; ty_args; body; refs }) :: acc)
   in
-  let instances = close 0 [] in
+  let instances = close [] in
   if instances = [] then R.ok (out_ctx, gids, type_decls, decls)
   else
     (* An instantiation is a type of its own from here on: its name is declared,
