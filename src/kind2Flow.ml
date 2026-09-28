@@ -1024,6 +1024,8 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
       in
 
       let param, sys = run_engines param sys in
+      (* The solver of the last round, if any, is not needed anymore *)
+      RecUnrolling.reset () ;
       latest_param_and_sys := Some (param, sys)
   ) ;
 

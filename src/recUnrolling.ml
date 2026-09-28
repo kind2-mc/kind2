@@ -40,7 +40,89 @@ let depth param f =
   | Some n -> n
   | None -> 1
 
+(* The time given to the solver for a query, in seconds *)
+let query_timeout = 2
+
+(* The solver the queries of a round are put to: one per round, with the
+   system declared and its initial state asserted once, and every query
+   under a push and a pop. A query is a whole system to send to a solver,
+   and a round can bring dozens of counterexamples at once: starting a
+   solver for each took longer than the analysis itself, and on a slow
+   machine longer than the wall clock timeout. A solver that takes a
+   timeout per query keeps the round's queries; one that does not is
+   started for every query, with its own timeout, and dies with it. *)
+type round_solver = {
+  solver : SMTSolver.t ;
+  (* The state variables are declared up to this bound *)
+  mutable declared_to : Numeral.t ;
+  (* Whether the solver takes a timeout per query, and is kept for the
+     round *)
+  kept : bool ;
+}
+
+let round_solver : round_solver option ref = ref None
+
+let drop_round_solver () =
+  ( match !round_solver with
+    | Some { solver } -> (try SMTSolver.delete_instance solver with _ -> ())
+    | None -> () ) ;
+  round_solver := None
+
+(* The solver for a query on a counterexample of length [k + 1] of the
+   system: the one of the round if there is one, with the state variables
+   declared up to [k] if they were not, or a new one *)
+let solver_for sys k =
+  match !round_solver with
+  | Some ({ solver ; declared_to ; kept = true } as rs) when Numeral.(declared_to < k) ->
+    TransSys.declare_vars_of_bounds sys (SMTSolver.declare_fun solver)
+      Numeral.(succ declared_to) k ;
+    rs.declared_to <- k ;
+    rs
+  | Some ({ kept = true } as rs) -> rs
+  | _ ->
+    drop_round_solver () ;
+    (* The per-query timeout options of Z3 and cvc5; the other solvers
+       take a timeout for the whole of their life only *)
+    let kind_takes_per_query = function
+      | `Z3_SMTLIB -> Some (":timeout", string_of_int (query_timeout * 1000))
+      | `cvc5_SMTLIB -> Some (":tlimit-per", string_of_int (query_timeout * 1000))
+      | _ -> None
+    in
+    let solver =
+      SMTSolver.create_instance ~produce_models:false
+        (TransSys.get_logic sys) (Flags.Smt.solver ())
+    in
+    let kept =
+      match kind_takes_per_query (SMTSolver.kind solver) with
+      | Some (option, value) ->
+        SMTSolver.execute_custom_command solver "set-option"
+          [ SMTExpr.ArgString option ; SMTExpr.ArgString value ] 0
+        |> ignore ;
+        true
+      | None -> false
+    in
+    let solver =
+      if kept then solver
+      else (
+        SMTSolver.delete_instance solver ;
+        SMTSolver.create_instance ~timeout:query_timeout ~produce_models:false
+          (TransSys.get_logic sys) (Flags.Smt.solver ()))
+    in
+    TransSys.define_and_declare_of_bounds sys
+      (SMTSolver.define_fun solver)
+      ~define_rec:(SMTSolver.define_funs_rec solver)
+      (SMTSolver.declare_fun solver)
+      (SMTSolver.declare_sort solver)
+      Numeral.zero k ;
+    TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
+    TransSys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Numeral.zero
+    |> SMTSolver.assert_term solver ;
+    let rs = { solver ; declared_to = k ; kept } in
+    round_solver := Some rs ;
+    rs
+
 let reset () =
+  drop_round_solver () ;
   requested_functions := Scope.Set.empty ;
   exhausted := SSet.empty ;
   reported := Scope.Set.empty ;
@@ -48,6 +130,7 @@ let reset () =
   previous_count := 0
 
 let start_round sys =
+  drop_round_solver () ;
   requested_functions := Scope.Set.empty ;
   previous_count := !current_count ;
   current_count :=
@@ -96,30 +179,18 @@ let requested () = Scope.Set.elements !requested_functions
    counterexample, and the property is asserted at the last step. If that is
    satisfiable, the violation depends on values the inputs do not determine,
    the outputs of the cutoffs among them. The query is that of bounded model
-   checking at the length of the counterexample, with the inputs fixed. *)
-(* The time given to the solver for the query, in seconds. A query the
-   solver cannot decide in time is taken to depend on free values: the
-   counterexample is not reported, and the function is unrolled further. *)
-let query_timeout = 2
+   checking at the length of the counterexample, with the inputs fixed.
 
+   A query the solver cannot decide in time is taken to depend on free
+   values: the counterexample is not reported, and the function is
+   unrolled further. *)
 let violation_depends_on_free_values sys prop cex =
   let path = Model.path_of_list cex in
   let k = Numeral.of_int (Model.path_length path - 1) in
-  let solver =
-    SMTSolver.create_instance ~timeout:query_timeout ~produce_models:false
-      (TransSys.get_logic sys) (Flags.Smt.solver ())
-  in
   let result =
     try
-      TransSys.define_and_declare_of_bounds sys
-        (SMTSolver.define_fun solver)
-        ~define_rec:(SMTSolver.define_funs_rec solver)
-        (SMTSolver.declare_fun solver)
-        (SMTSolver.declare_sort solver)
-        Numeral.zero k ;
-      TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
-      TransSys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Numeral.zero
-      |> SMTSolver.assert_term solver ;
+      let { solver ; kept } = solver_for sys k in
+      SMTSolver.push solver ;
       let rec assert_trans i =
         if Numeral.(i <= k) then (
           TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys i
@@ -141,12 +212,17 @@ let violation_depends_on_free_values sys prop cex =
       TransSys.get_prop_term sys prop
       |> Term.bump_state k
       |> SMTSolver.assert_term solver ;
-      `Result (SMTSolver.check_sat solver)
+      let r =
+        try SMTSolver.check_sat solver with SMTSolver.Unknown -> true
+      in
+      if kept then SMTSolver.pop solver else drop_round_solver () ;
+      `Result r
     with
     | SMTSolver.Timeout ->
-      (* The solver was killed on the timeout, the instance is gone *)
-      `Timeout
-    | SMTSolver.Unknown -> `Result true
+      (* The solver was killed on its timeout, the instance is gone *)
+      round_solver := None ;
+      `Undecided
+    | SMTSolver.Unknown -> `Undecided
     | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
     | SMTSolver.Exiting as e ->
       (* A solver that stops on its own timeout answers in its own way,
@@ -156,15 +232,14 @@ let violation_depends_on_free_values sys prop cex =
       KEvent.log L_debug
         "Query on the counterexample to %s failed: %s" prop
         (Printexc.to_string e) ;
-      `Failed
+      `Undecided
     | e ->
-      (try SMTSolver.delete_instance solver with _ -> ()) ;
+      drop_round_solver () ;
       raise e
   in
   match result with
-  | `Result r -> SMTSolver.delete_instance solver ; r
-  | `Timeout -> true
-  | `Failed -> (try SMTSolver.delete_instance solver with _ -> ()) ; true
+  | `Result r -> r
+  | `Undecided -> drop_round_solver () ; true
 
 (* The recursive functions the counterexample to the property may be
    spurious for: a cutoff of theirs is reached, and the violation depends on
