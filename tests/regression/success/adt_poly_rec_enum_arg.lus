@@ -1,0 +1,10 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+type Color = enum { Red, Green };
+
+node main(c: Color) returns (ok: bool);
+var x: List<Color>;
+let
+  x = Cons(c, Nil@<Color>);
+  ok = Cons?(x);
+  check ok;
+tel

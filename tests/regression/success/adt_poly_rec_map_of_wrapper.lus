@@ -1,0 +1,10 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+datatype Wrap = W (l: List<int>) | E;
+
+node main(i: int) returns (ok: bool);
+var m: map<int, Wrap>;
+let
+  m = map[]@<int, Wrap>[0 := W(Cons(i, Nil@<int>))];
+  ok = W?(m[0]);
+  check ok;
+tel

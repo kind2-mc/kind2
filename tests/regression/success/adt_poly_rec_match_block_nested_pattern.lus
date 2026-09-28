@@ -1,0 +1,18 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var x: List<int>;
+var n: int;
+let
+  x = Cons(i, Cons(i, Nil@<int>));
+  match x with
+  | Nil:
+    n = 0;
+  | Cons (a, Nil):
+    n = 1;
+  | Cons (a, Cons (b, r)):
+    n = 2;
+  end
+  ok = n = 2;
+  check ok;
+tel

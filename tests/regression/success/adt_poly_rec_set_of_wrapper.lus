@@ -1,0 +1,10 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+datatype Wrap = W (l: List<int>) | E;
+
+node main(i: int) returns (ok: bool);
+var s: set<Wrap>;
+let
+  s = {W(Cons(i, Nil@<int>))};
+  ok = W(Cons(i, Nil@<int>)) in s;
+  check ok;
+tel

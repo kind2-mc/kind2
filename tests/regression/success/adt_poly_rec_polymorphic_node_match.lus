@@ -1,0 +1,7 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+
+node g<A>(x: L<A>; d: A) returns (y: A);
+let
+  y = match x with | LN : d | LC(a, r) : a end;
+  check true;
+tel

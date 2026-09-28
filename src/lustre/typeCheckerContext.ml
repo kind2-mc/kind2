@@ -123,6 +123,32 @@ let empty_tc_context: tc_context =
   }
 (** The empty context with no information *)
 
+(* The context with every type it records rewritten. A pass that changes the
+    types of a program has to change the context that types it too, or the two
+    spellings of a type are compared against each other later. The type a
+    declaration is defined as is rewritten by [in_definition], which is given the
+    type parameters that declaration binds; every other type is a use, and is
+    rewritten by [in_use]. The values of constants are left alone: they are
+    propagated before any such pass runs. *)
+let map_types
+: in_definition:(LA.ident list -> tc_type -> tc_type) ->
+  in_use:(tc_type -> tc_type) -> tc_context -> tc_context
+= fun ~in_definition ~in_use ctx ->
+  let ty_params i =
+    match IMap.find_opt i ctx.ty_ty_vars with Some ps -> ps | None -> []
+  in
+  { ctx with
+    ty_syns = IMap.mapi (fun i ty -> in_definition (ty_params i) ty) ctx.ty_syns
+  ; adt_ctors =
+      IMap.map (fun (n, tys) -> (n, List.map (in_definition (ty_params n)) tys))
+        ctx.adt_ctors
+  ; ty_ctx = IMap.map in_use ctx.ty_ctx
+  ; contract_ctx = NI.Map.map in_use ctx.contract_ctx
+  ; node_ctx = NI.Map.map (fun (ty, is_fun) -> (in_use ty, is_fun)) ctx.node_ctx
+  ; vl_ctx = IMap.map (fun (e, ty, src) -> (e, Option.map in_use ty, src)) ctx.vl_ctx
+  ; contract_export_ctx = NI.Map.map (IMap.map in_use) ctx.contract_export_ctx
+  }
+
 (**********************************************
  * Helper functions for type checker context *
  **********************************************)
@@ -173,9 +199,29 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
   )
   | None -> None
 (** Picks out the type synonym from the context
-    If it is user type then chases it (recursively looks up) 
-    the actual type. This chasing is necessary to check type equality 
+    If it is user type then chases it (recursively looks up)
+    the actual type. This chasing is necessary to check type equality
     between user defined types. *)
+
+(* The definition of a type synonym, with its type parameters substituted by
+    the given type arguments. Unlike {!lookup_ty_syn}, a definition that is
+    itself a named type is returned as such rather than chased, so that the
+    caller sees each link of an alias chain and the type arguments it passes
+    on. *)
+let lookup_ty_syn_body: tc_context -> LA.ident -> tc_type list -> tc_type option
+= fun ctx i ty_args ->
+  match IMap.find_opt i (ctx.ty_syns) with
+  | None -> None
+  | Some ty ->
+    let ps =
+      match IMap.find_opt i (ctx.ty_ty_vars) with
+      | Some ps -> ps
+      | None -> []
+    in
+    let sigma =
+      if List.length ps = List.length ty_args then List.combine ps ty_args else []
+    in
+    Some (LustreAstHelpers.apply_type_subst_in_type sigma ty)
 
 let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function

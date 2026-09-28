@@ -1,0 +1,8 @@
+type Pos = subtype { n: int | n > 0 };
+datatype L<T> = LN | LC (t: L<T>);
+
+node main(x: L<Pos^3>) returns (ok: bool);
+let
+  ok = LN?(x);
+  check ok;
+tel

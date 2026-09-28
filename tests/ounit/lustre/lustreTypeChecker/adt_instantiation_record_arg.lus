@@ -1,0 +1,10 @@
+type R = struct { a: int };
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var x: List<R>;
+let
+  x = Nil@<R>;
+  ok = Nil?(x);
+  check ok;
+tel

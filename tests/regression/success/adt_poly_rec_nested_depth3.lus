@@ -1,0 +1,11 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+
+node main(i: int) returns (ok: bool);
+var a: L<int>; b: L<L<int>>; c: L<L<L<int>>>;
+let
+  a = LC(i, LN@<int>);
+  b = LC(a, LN@<L<int>>);
+  c = LC(b, LN@<L<L<int>>>);
+  ok = LC?(a) and LC?(b) and LC?(c);
+  check ok;
+tel

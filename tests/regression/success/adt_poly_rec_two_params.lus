@@ -1,0 +1,9 @@
+datatype Pair<A, B> = P (fst: A, snd: B) | Nested (p: Pair<A, B>);
+
+node main(i: int; r: real) returns (ok: bool);
+var x: Pair<int, real>;
+let
+  x = Nested(P(i, r));
+  ok = Nested?(x);
+  check ok;
+tel

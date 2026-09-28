@@ -1,0 +1,7 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node g<A>(x: A) returns (y: bool);
+let
+  y = Cons?(Cons(x, Nil@<A>));
+  check y;
+tel

@@ -1,0 +1,25 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int; r: real) returns (ok: bool);
+var x: List<int>;
+var y: List<real>;
+var a: int;
+var b: real;
+let
+  x = Cons(i, Nil@<int>);
+  y = Cons(r, Nil@<real>);
+  match x with
+  | Nil:
+    a = 0;
+  | Cons (h, t):
+    a = h;
+  end
+  match y with
+  | Nil:
+    b = 0.0;
+  | Cons (h, t):
+    b = h;
+  end
+  ok = a = i and b = r;
+  check ok;
+tel

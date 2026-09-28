@@ -1,0 +1,7 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+
+node main(i: int) returns (ok: bool);
+let
+  ok = true;
+  check ok provided LC?(LC(i, LN@<int>));
+tel

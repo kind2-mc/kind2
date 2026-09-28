@@ -358,6 +358,18 @@ let mk_array i t = Hkindtype.hashcons (ht ()) (Array (i, t)) ()
 
 let mk_abstr s = Hkindtype.hashcons (ht ()) (Abstr s) ()
 
+(* Constructor symbols are global in SMT, so the constructors of an
+   instantiation of a polymorphic datatype are qualified by the instantiation's
+   name ("List<int>"); a source type name is never of that shape, and a source
+   identifier never contains '$', so the source name is recoverable. *)
+let qualified_ctor_name datatype_name ctor =
+  if String.contains datatype_name '<' then datatype_name ^ "$" ^ ctor else ctor
+
+let source_ctor_name ctor =
+  match String.rindex_opt ctor '$' with
+  | None -> ctor
+  | Some i -> String.sub ctor (i + 1) (String.length ctor - i - 1)
+
 let mk_datatype name ctors = Hkindtype.hashcons (ht ()) (Datatype (name, ctors)) ()
 
 let mk_datatype_ref name = Hkindtype.hashcons (ht ()) (DatatypeRef name) ()

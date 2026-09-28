@@ -707,22 +707,24 @@ and pp_print_expr ppf =
       pp_print_expr e 
       pp_print_lustre_type ty
 
+    (* A constructor of an instantiation of a polymorphic datatype is named after
+       that instantiation; the source name is the one the user wrote *)
     | ADTTerm (_, [], c, []) ->
-      HString.pp_print_hstring ppf c
+      pp_print_ctor ppf c
 
     | ADTTerm (_, ty_args, c, []) ->
       Format.fprintf ppf "%a@<%a>"
-        HString.pp_print_hstring c
+        pp_print_ctor c
         (pp_print_list pp_print_lustre_type ";") ty_args
 
     | ADTTerm (_, [], c, args) ->
       Format.fprintf ppf "%a(%a)"
-        HString.pp_print_hstring c
+        pp_print_ctor c
         (pp_print_list pp_print_expr ",@ ") args
 
     | ADTTerm (_, ty_args, c, args) ->
       Format.fprintf ppf "%a@<%a>(%a)"
-        HString.pp_print_hstring c
+        pp_print_ctor c
         (pp_print_list pp_print_lustre_type ";") ty_args
         (pp_print_list pp_print_expr ",@ ") args
 
@@ -741,8 +743,12 @@ and pp_print_expr ppf =
 
     | ADTTester (_, e, c) ->
       Format.fprintf ppf "%a?(%a)"
-        HString.pp_print_hstring c
+        pp_print_ctor c
         pp_print_expr e
+
+and pp_print_ctor ppf c =
+  Format.pp_print_string ppf
+    (Type.source_ctor_name (HString.string_of_hstring c))
 
 (* Pretty-print an array slice *)
 and pp_print_array_slice ppf (l, u) =

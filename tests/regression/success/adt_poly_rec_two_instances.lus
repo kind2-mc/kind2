@@ -1,0 +1,11 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int; r: real) returns (ok: bool);
+var x: List<int>;
+var y: List<real>;
+let
+  x = Cons(i, Nil@<int>);
+  y = Cons(r, Nil@<real>);
+  ok = (x = Cons(i, Nil@<int>)) and (y = Cons(r, Nil@<real>));
+  check ok;
+tel

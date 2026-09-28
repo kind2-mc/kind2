@@ -1,0 +1,10 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+type Arr<T> = L<T>^2;
+
+node main(i: int) returns (ok: bool);
+var x: Arr<int>;
+let
+  x = LN@<int>^2;
+  ok = LN?(x[0]);
+  check ok;
+tel

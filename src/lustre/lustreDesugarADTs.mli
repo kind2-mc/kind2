@@ -48,19 +48,6 @@ type adt_info = {
 
 type adt_map = adt_info HStringMap.t
 
-val build_adt_info :
-  HString.t ->
-  HString.t list ->
-  (HString.t * (HString.t * LustreAst.lustre_type) list) list ->
-  is_recursive:bool ->
-  adt_info
-
-val record_type_of_adt :
-  Lib.position ->
-  ?ty_args:LustreAst.lustre_type list ->
-  adt_info ->
-  LustreAst.lustre_type
-
 (** Whether a bound variable was introduced by [mk_canonical_exprs]. Its
     quantifier characterizes the non-canonical positions of a container and
     must not itself be restricted to canonical values. *)

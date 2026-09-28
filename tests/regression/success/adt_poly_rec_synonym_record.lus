@@ -1,0 +1,10 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+type Box<T> = struct { a: L<T> };
+
+node main(i: int) returns (ok: bool);
+var x: Box<int>;
+let
+  x = Box@<int> { a = LC(i, LN@<int>) };
+  ok = LC?(x.a);
+  check ok;
+tel

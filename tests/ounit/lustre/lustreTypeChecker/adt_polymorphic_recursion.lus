@@ -1,0 +1,10 @@
+datatype Pair<T> = P (a: T, b: T);
+datatype Nest<T> = Leaf (v: T) | Deep (n: Nest<Pair<T>>);
+
+node main(i: int) returns (ok: bool);
+var x: Nest<int>;
+let
+  x = Leaf(i);
+  ok = Leaf?(x);
+  check ok;
+tel

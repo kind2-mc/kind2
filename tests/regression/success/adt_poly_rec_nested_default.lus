@@ -1,0 +1,10 @@
+datatype Msg<T> = Atomic (s1: T) | Enc (s2: Msg<T>, s3: Msg<T>);
+datatype W = W1 (m: Msg<Msg<int>>) | W2 (n: int);
+
+node main(i: int) returns (ok: bool);
+var w: W;
+let
+  w = W2(i);
+  ok = W2?(w);
+  check ok;
+tel

@@ -1,0 +1,10 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+type Pair<T> = List<T>;
+
+node main(i: int) returns (ok: bool);
+var x: Pair<int>;
+let
+  x = Cons(i, Nil@<int>);
+  ok = Cons?(x);
+  check ok;
+tel
