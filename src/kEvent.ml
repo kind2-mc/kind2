@@ -1899,22 +1899,20 @@ let log_post_analysis_end () =
 
 (* Terminate log output *)
 let terminate_log () = 
-  match get_log_format () with 
-    | F_pt -> Format.print_flush ()
+  ( match get_log_format () with 
+    | F_pt -> ()
     | F_xml ->
       log_analysis_end () ;
-      print_xml_trailer () ;
-      Format.print_flush ()
+      print_xml_trailer ()
     | F_json ->
       log_analysis_end () ;
       (* ENDING SQUARE BRACKET *)
-      Format.fprintf !log_ppf "]@.";
-      Format.print_flush ()
+      Format.fprintf !log_ppf "]@."
     | F_ijson ->
-      log_analysis_end () ;
-      (* ENDING SQUARE BRACKET *)
-      Format.print_flush ()
-    | F_relay -> ()
+      log_analysis_end ()
+    | F_relay -> () ) ;
+  Format.pp_print_flush !log_ppf () ;
+  Format.print_flush ()
 
 (** Logs a timeout. *)
 let log_timeout b =

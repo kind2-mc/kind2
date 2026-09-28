@@ -343,6 +343,12 @@ val string_of_log_level : log_level -> string
 (** Current formatter for output *)
 val log_ppf : Format.formatter ref 
 
+(** Empty the buffer of the output without writing it: what a record that
+    an exception interrupted left there, which would otherwise precede
+    what is written next, inside its string or in place of its closing.
+    For the exit path, before it writes anything. *)
+val drop_partial_output : unit -> unit
+
 (** Ouputs all log messages to the given file *)
 val log_to_file : string -> unit
 

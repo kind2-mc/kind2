@@ -784,8 +784,49 @@ let ignore_or_kfprintf level =
 (* ********************************************************************** *)
 
 
+(* The output goes through a buffer that reaches the channel when the
+   formatter is flushed, which every record of the output ends with. An
+   exception can interrupt the supervisor at any allocation, in the middle
+   of a record it is writing piece by piece -- the wall clock timeout first
+   of all -- and what had been written of the record was followed on the
+   output by the records of the exit, inside its string or in place of its
+   closing brace, which left the JSON and XML output unparsable. The piece
+   of a record that was interrupted stays in the buffer, and the exit drops
+   it (see [drop_partial_output]) before it writes anything. *)
+let out_buffer = Buffer.create 4096
+let out_channel = ref stdout
+let discarding = ref false
+
+(* The buffer is not safe to share between domains, and a write to it
+   racing with the resizing of it would corrupt the heap: whoever writes
+   holds this lock. The channel underneath has a lock of its own. *)
+let out_lock = Mutex.create ()
+
 (* Current formatter for output *)
-let log_ppf = ref std_formatter
+let log_ppf =
+  ref
+    (Format.make_formatter
+       (fun s pos len ->
+          Mutex.protect out_lock (fun () ->
+            Buffer.add_substring out_buffer s pos len))
+       (fun () ->
+          Mutex.protect out_lock (fun () ->
+            if not !discarding then
+              output_string !out_channel (Buffer.contents out_buffer) ;
+            Buffer.clear out_buffer ;
+            flush !out_channel)))
+
+(* Empties the buffer of the output without writing it: what a record
+   interrupted by an exception left there. The tokens the formatter holds
+   back are flushed into the buffer first, so that its boxes are closed
+   and its state is clean. *)
+let drop_partial_output () =
+  discarding := true ;
+  ( try Format.pp_print_flush !log_ppf () with _ -> () ) ;
+  discarding := false
+
+(* What the buffer holds at exit reaches the channel *)
+let () = at_exit (fun () -> try Format.pp_print_flush !log_ppf () with _ -> ())
 
 
 (* Set file to write log messages to *)
@@ -797,12 +838,17 @@ let log_to_file f =
       | Sys_error _ -> failwith "Could not open logfile"
   in 
   
-  (* Create and store formatter for logfile *)
-  log_ppf := formatter_of_out_channel oc
+  (* The same formatter, with its configuration, writes to the logfile;
+     without the colors of a terminal *)
+  Format.pp_print_flush !log_ppf () ;
+  out_channel := oc ;
+  Format.pp_set_mark_tags !log_ppf false
 
 
 (* Write messages to standard output *)
-let log_to_stdout () = log_ppf := std_formatter
+let log_to_stdout () =
+  Format.pp_print_flush !log_ppf () ;
+  out_channel := stdout
 
 
 (* ********************************************************************** *)
