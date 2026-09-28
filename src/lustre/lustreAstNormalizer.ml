@@ -161,6 +161,24 @@ let force_fresh = true
 
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
+
+(* A call to a function abstracted in the node being normalized, to be
+   shared by the later calls of the node to the same function with the same
+   arguments (see [mk_fresh_call]) *)
+type shared_call = {
+  sc_callee : NI.t;
+  sc_args : A.expr list;
+  sc_cond : A.expr;
+  sc_restart : A.expr;
+  sc_defaults : A.expr list option;
+  sc_scope : (Lib.position * NI.t) list;
+  sc_ref : HString.t;
+  (* The lazy contexts the call was made under, innermost first *)
+  sc_context : (A.expr * A.expr * int) list;
+  sc_name : HString.t;
+}
+
+let shared_calls : shared_call list ref = ref []
 (* Selector proof obligations already emitted, each recording the enclosing
    quantifiers and guards it was emitted under *)
 let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
@@ -169,6 +187,7 @@ let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
 let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
+  shared_calls := [];
   SelectorCache.clear selector_cache;
 
 type info = {
@@ -181,6 +200,10 @@ type info = {
       StringMap.t;
   quantified_variables : LustreAst.typed_ident list;
   node_is_input_const : (bool list) NI.Map.t;
+  (* The functions, imported or not, lemmas included: a call to one is a
+     function of its arguments, which calls with the same arguments can
+     share (see [mk_fresh_call]) *)
+  functions : NI.Set.t;
   contract_calls_info : LustreAst.contract_node_decl NI.Map.t;
   contract_scope : (Lib.position * NI.t) list;
   contract_ref : HString.t;
@@ -349,6 +372,13 @@ let compute_node_input_constant_mask decls =
     NI.Map.add id is_consts map
   | _ -> map
   in List.fold_left over_decl NI.Map.empty decls
+
+let collect_function_ids decls =
+  List.fold_left
+    (fun set -> function
+       | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> NI.Set.add id set
+       | _ -> set)
+    NI.Set.empty decls
 
 let collect_contract_node_decls decls =
   let over_decl map = function
@@ -1153,6 +1183,7 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     inductive_variables = StringMap.empty;
     quantified_variables = [];
     node_is_input_const = compute_node_input_constant_mask decls;
+    functions = collect_function_ids decls;
     contract_calls_info = collect_contract_node_decls decls;
     contract_ref = HString.mk_hstring "";
     contract_scope = [];
@@ -2197,6 +2228,61 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
 
 and mk_fresh_call ?(vmap=[]) ?(instance=[]) info (id : NI.t) map pos cond restart args defaults =
   let inlined = vmap <> [] in
+  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
+    else HString.concat2
+      (HString.mk_hstring (string_of_int info.local_group_projection))
+      (HString.mk_hstring "proj_")
+  in
+  (* A call to a function is a function of its arguments: the outputs of two
+     calls with the same arguments are equal, so the later call can reuse the
+     instance of the earlier one instead of compiling to an instance of its
+     own, which the unrolling of a recursive function would multiply at
+     every level. The earlier call must be executed whenever the later one
+     is, that is, made under the same lazy contexts or under a prefix of
+     them (the contexts are listed innermost first), so that its obligations
+     and, for a recursive function, its termination checks, cover the later
+     call. A call to a node is not shared: a node is not a function of its
+     arguments. Calls under quantifiers, array index variables, or that
+     expand into the instances of an array equation are compiled as they
+     always were. *)
+  let shareable =
+    not inlined && instance = []
+    && NI.Set.mem id info.functions
+    && info.quantified_variables = []
+    && StringMap.is_empty info.inductive_variables
+  in
+  let shared =
+    if not shareable then None else
+      let is_suffix small big =
+        let ls = List.length small and lb = List.length big in
+        ls <= lb
+        && (let rec drop n l = if n = 0 then l else drop (n - 1) (List.tl l) in
+            List.for_all2
+              (fun (c, _, d) (c', _, d') -> d = d' && expr_equal c c')
+              small (drop (lb - ls) big))
+      in
+      List.find_opt
+        (fun sc ->
+           NI.equal sc.sc_callee id
+           && List.length sc.sc_args = List.length args
+           && List.for_all2 expr_equal sc.sc_args args
+           && expr_equal sc.sc_cond cond
+           && expr_equal sc.sc_restart restart
+           && (match sc.sc_defaults, defaults with
+               | None, None -> true
+               | Some ds, Some ds' ->
+                 List.length ds = List.length ds'
+                 && List.for_all2 expr_equal ds ds'
+               | _ -> false)
+           && sc.sc_scope = info.contract_scope
+           && HString.equal sc.sc_ref info.contract_ref
+           && is_suffix sc.sc_context info.call_context)
+        !shared_calls
+  in
+  match shared with
+  | Some { sc_name } ->
+    A.Ident (pos, HString.concat2 proj sc_name), sc_name, empty ()
+  | None ->
   let call_ctx, gids1 =
     (* Node calls conjoin every enclosing guard regardless of 'pre' depth *)
     match info.call_context with
@@ -2227,13 +2313,15 @@ and mk_fresh_call ?(vmap=[]) ?(instance=[]) info (id : NI.t) map pos cond restar
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix  (HString.mk_hstring "_call") in
-  let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
-    else HString.concat2
-      (HString.mk_hstring (string_of_int info.local_group_projection))
-      (HString.mk_hstring "proj_")
-  in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
   let call = (pos, name, cond, restart, call_ctx, id, args, defaults, inlined) in
+  if shareable then
+    shared_calls :=
+      { sc_callee = id; sc_args = args; sc_cond = cond; sc_restart = restart;
+        sc_defaults = defaults; sc_scope = info.contract_scope;
+        sc_ref = info.contract_ref; sc_context = info.call_context;
+        sc_name = name }
+      :: !shared_calls;
   let call_instances =
     if instance = [] then StringMap.empty
     else StringMap.singleton name instance
