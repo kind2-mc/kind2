@@ -523,6 +523,10 @@ let watchdog_reports status =
 
 (** Called after everything has been cleaned up. *)
 let post_clean_exit process base_status exn =
+  (* The exception may have interrupted a record being written: the piece
+     of it that is pending must not precede what is written next, the
+     report of the exception first of all *)
+  Lib.drop_partial_output () ;
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
   (* Arms on the paths that come here directly; on the path through
@@ -565,6 +569,9 @@ let on_exit sys process status exn =
      silently as a zero would. *)
   arm_exit_watchdog () ;
   if keeps_the_given_status exn then watchdog_reports status ;
+  (* The exception may have interrupted a record being written: the piece
+     of it that is pending must not precede what is written next *)
+  Lib.drop_partial_output () ;
   try
     slaughter_kids ~exiting:true process sys;
     post_clean_exit process status exn

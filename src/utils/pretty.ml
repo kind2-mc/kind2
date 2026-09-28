@@ -262,7 +262,8 @@ let _ =
   add_colors err_formatter;
   add_colors !Lib.log_ppf;
   pp_set_margin std_formatter vt_width;
-  pp_set_margin err_formatter vt_width
+  pp_set_margin err_formatter vt_width;
+  pp_set_margin !Lib.log_ppf vt_width
 
 
 
