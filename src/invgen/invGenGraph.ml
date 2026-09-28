@@ -259,6 +259,7 @@ module Make (Dom: DomainSig) : Graph = struct
     Dom.mine top_only two_state param sys
     |> List.fold_left (
       fun acc (sub_sys, terms) ->
+        KEvent.check_termination () ;
         do_stuff sub_sys ;
         let rep, terms = Dom.first_rep_of terms in
         (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
@@ -1245,6 +1246,7 @@ module MakeEq (Dom: DomainSig) : Graph = struct
     Dom.mine top_only two_state param sys
     |> List.fold_left (
       fun acc (sub_sys, terms) ->
+        KEvent.check_termination () ;
         do_stuff sub_sys ;
         let rep, terms = Dom.first_rep_of terms in
         (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
