@@ -2681,14 +2681,34 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
       (* The number of times the body of a recursive function is unrolled
          along a chain of recursive calls before a call is abstracted by its
          contract (or, for a defined function, left to its definition): once,
-         unless a refinement set more (see [Analysis.info.unrollings]) *)
+         unless a refinement set more (see [Analysis.info.unrollings]). In
+         the analysis of the function itself, or of a function of its
+         recursive group, when the contract abstracts the recursive calls,
+         as many times as [--rec_contract_unrollings] says: the contract is
+         then the induction hypothesis of the proof of the contract, and a
+         guarantee may only follow from it some levels down. *)
       let unrolling_depth node_id =
         let scope =
           [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
         in
         match A.param_unrollings_of_scope analysis_param scope with
         | Some depth -> depth
-        | None -> 1
+        | None ->
+          let scc_of n =
+            match n.N.comp_type with
+            | N.Function { N.rec_info = Some (scc, _) } -> Some scc
+            | _ -> None
+          in
+          match
+            N.node_of_node_id node_id nodes, N.node_of_node_id top_name nodes
+          with
+          | callee, top
+            when scc_of callee <> None
+              && scc_of callee = scc_of top
+              && LustreFunDefs.contract_abstracts callee ->
+            Flags.Contracts.rec_contract_unrollings ()
+          | _ -> 1
+          | exception Not_found -> 1
       in
 
       let reached_limit =

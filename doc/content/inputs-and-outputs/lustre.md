@@ -955,6 +955,17 @@ the callers), or declared `transparent`, is unrolled with its recursive calls
 left unconstrained, as above, while an `opaque` function is always abstracted
 by its contract.
 
+In the analysis of the function itself, which proves its contract, the body
+is unrolled once before the recursive calls are abstracted by the contract.
+A guarantee may hold without following from the guarantees of the calls one
+level down: `Alt(n) = 1 - Alt(n - 1)` with `Alt(0) = 0` only takes the values
+0 and 1, so `guarantee r >= 0` holds, but assuming it of `Alt(n - 1)` allows
+`Alt(n - 1) = 2` and `Alt(n) = -1`. Two levels down, `Alt(n) = Alt(n - 2)`,
+and the guarantee follows. The option `--rec_contract_unrollings` sets how
+many times the body is unrolled in the analysis of the function itself (1 by
+default); a stronger contract, such as `0 <= r and r <= 1` here, is the
+alternative.
+
 When the analysis is both compositional and modular, a call to a recursive
 function from another node or function is refined like any other call (see
 [refinement]({{< relref "/techniques#refinement-in-compositional-and-modular-analyses" >}})),

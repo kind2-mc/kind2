@@ -1436,6 +1436,31 @@ module Contracts = struct
     )
   let rec_instances () = !rec_instances
 
+  (* Unrollings of a recursive function under its contract when its own
+     contract is proved *)
+  let rec_contract_unrollings_default = 1
+  let rec_contract_unrollings = ref rec_contract_unrollings_default
+  let _ = add_spec
+    "--rec_contract_unrollings"
+    (Arg.Int (fun n ->
+       if n < 1 then
+         Arg.Bad "--rec_contract_unrollings expects a positive integer" |> raise
+       else rec_contract_unrollings := n))
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Number of unrollings of a recursive function in the analysis of the@ \
+        function itself, when its recursive calls are abstracted by its@ \
+        contract, the induction hypothesis: in a compositional analysis,@ \
+        or for an opaque function. A guarantee that the recursive calls@ \
+        one level down do not imply, but those <int> levels down do, is@ \
+        proved with <int> unrollings@ \
+        Default: %d\
+      @]"
+      rec_contract_unrollings_default
+    )
+  let rec_contract_unrollings () = !rec_contract_unrollings
+
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default
   let _ = add_spec
