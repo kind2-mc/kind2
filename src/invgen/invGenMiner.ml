@@ -223,6 +223,11 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
     (* Association list between systems and their candidate terms. *)
     let rec mk_sys_map result = function
       | sys :: tail ->
+        (* Mining is where the generator spends its first seconds on a
+           large system, before it ever asks a solver: it must notice a
+           termination request here, or it holds the end of the analysis
+           until the supervisor gives up on it *)
+        KEvent.check_termination () ;
         let scope = Sys.scope_of_trans_sys sys in
 
         if List.mem_assoc sys result then
@@ -289,6 +294,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
               if Flags.Invgen.lift_candidates () then
                 Set.fold (
                   fun term map ->
+                    KEvent.check_termination () ;
                     Sys.instantiate_term_all_levels
                       top_sys TransSys.trans_base scope term two_state
                     |> fun (top, others) -> top :: others
@@ -564,6 +570,9 @@ let generic_octagons mk_plus mk_minus oct3 f =
      (*  Format.printf "  oct 2 %a (%d)@."
         fmt_term term'
         (List.length tail) ; *)
+      (* Quadratic in the terms, cubic with [oct3]: the bulk of the mining
+         of a system with many arithmetic terms *)
+      KEvent.check_termination () ;
       let oterms =
         let pair = [ term ; term' ] in
         [
