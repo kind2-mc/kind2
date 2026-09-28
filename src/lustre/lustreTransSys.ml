@@ -2632,6 +2632,12 @@ let function_congruence_group state_var_bounds inputs uf_symbols
     )
   )
 
+(* The definitions of the recursive functions the supervisor evaluates the
+   calls past the unrollings of a counterexample with (see
+   [LustreFunDefs.compute_all]), set by [trans_sys_of_nodes] for the
+   systems it builds *)
+let check_fun_defs = ref LustreFunDefs.empty
+
 let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
   trans_sys_defs output_input_dep nodes definition_set = function
 
@@ -3865,6 +3871,23 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               ?rec_cutoff:(
                 if free_cutoff && not is_defined then Some base_scope
                 else None)
+              ~rec_cutoff_io:(
+                match comp_type with
+                | N.Function { uf_symbols } when free_cutoff && not is_defined ->
+                  D.values inputs,
+                  List.filter_map
+                    (fun sv ->
+                       match SVM.find_opt sv uf_symbols with
+                       | Some uf -> Some (sv, uf)
+                       | None -> None)
+                    (D.values outputs)
+                | _ -> [], [])
+              ~check_defs:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.blocks_of_node !check_fun_defs node_id)
+              ~check_ufs:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.ufs_of_node !check_fun_defs node_id)
               scope
               None (* instance_state_var *)
               init_flag
@@ -4026,6 +4049,8 @@ let trans_sys_of_nodes
   let fun_defs =
     LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
   in
+  check_fun_defs :=
+    LustreFunDefs.compute_all ~adt_junk_ufs:globals.G.adt_junk_ufs nodes ;
 
   warn_undefined_uf_applications fun_defs nodes;
 

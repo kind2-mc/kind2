@@ -211,13 +211,27 @@ type t =
     is_visible: bool ; 
     (** Is this transition system visible (in the output)? *)
 
+    check_defs : fun_def list list;
+    (** The definitions of the recursive function of this system, and of
+        those its definition calls, that the supervisor evaluates the
+        recursive calls past the unrollings of a counterexample with; not
+        given to the engines (see [LustreFunDefs.compute_all] and
+        [RecUnrolling]) *)
+
+    check_ufs : UfSymbol.t list;
+    (** The uninterpreted symbols [check_defs] apply *)
+
     rec_cutoff : Scope.t option;
     (** [Some f] if this system is the cutoff of the unrolling of the
         recursive function [f]: an instance of [f] past the number of
-        unrollings of the analysis whose outputs are left unconstrained,
-        in an analysis that is not compositional (see [LustreTransSys]).
-        A counterexample that reaches such an instance may be spurious:
-        see [cutoffs_reached]. *)
+        unrollings of the analysis whose outputs are left unconstrained
+        (see [LustreTransSys]). A counterexample that reaches such an
+        instance may be spurious: see [cutoffs_reached]. *)
+
+    rec_cutoff_io : StateVar.t list * (StateVar.t * UfSymbol.t) list;
+    (** The inputs of the cutoff, in the order of the arguments of its
+        functional symbols, and its outputs with their functional symbols;
+        empty if the system is not a cutoff *)
 
     datatype_types : Type.t list;
     (** Recursive ADTs used anywhere in this system, in dependency order. *)
@@ -1245,11 +1259,83 @@ let define_subsystems trans_sys define =
     define_trans define t
   )
 
+(* Declare the uninterpreted symbols the check definitions of the systems
+   apply, except those in [declared], then define the blocks; returns the
+   symbols declared and the symbols defined (see [check_defs]) *)
+let declare_check_defs trans_sys declared declare define_rec =
+  let ufs, blocks =
+    fold_subsystems ~include_top:true
+      (fun (ufs, blocks) t -> ufs @ t.check_ufs, blocks @ t.check_defs)
+      ([], []) trans_sys
+  in
+  let defined_syms =
+    List.fold_left
+      (fun acc block ->
+         List.fold_left (fun acc (uf, _, _) -> UfSymbol.UfSymbolSet.add uf acc)
+           acc block)
+      UfSymbol.UfSymbolSet.empty blocks
+  in
+  let declared =
+    List.fold_left
+      (fun acc uf ->
+         if UfSymbol.UfSymbolSet.mem uf acc
+         || UfSymbol.UfSymbolSet.mem uf defined_syms then acc
+         else (declare uf ; UfSymbol.UfSymbolSet.add uf acc))
+      declared ufs
+  in
+  let defined =
+    List.fold_left
+      (fun acc block ->
+         match block with
+         | [] -> acc
+         | (uf, _, _) :: _ ->
+           if UfSymbol.UfSymbolSet.mem uf acc then acc
+           else (
+             define_rec block ;
+             List.fold_left
+               (fun acc (uf, _, _) -> UfSymbol.UfSymbolSet.add uf acc)
+               acc block))
+      UfSymbol.UfSymbolSet.empty blocks
+  in
+  declared, defined
+
+(* The check definitions of the systems, each once *)
+let check_definitions trans_sys =
+  fold_subsystems ~include_top:true
+    (fun acc t ->
+       List.fold_left
+         (fun acc block ->
+            List.fold_left
+              (fun acc ((uf, _, _) as def) ->
+                 if List.exists
+                     (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') acc
+                 then acc else def :: acc)
+              acc block)
+         acc t.check_defs)
+    [] trans_sys
+
+(* Declare the sorts of the system and give the check definitions of its
+   systems, and nothing else *)
+let define_check_defs trans_sys ~define_rec declare declare_sort =
+  trans_sys.datatype_types |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
+      | _ -> ());
+  Type.get_all_abstr_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+  if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
+  declare_check_defs trans_sys UfSymbol.UfSymbolSet.empty declare define_rec
+  |> ignore
+
 (* Define predicates, declare constant and global state variables, and
    declare state variables of the top system between and including the
    given offsets *)
 let define_and_declare_of_bounds
     ?(declare_sub_vars=false) 
+    ?(with_check_defs=false)
+    ?(with_check_ufs=false)
     trans_sys
     define 
     ~define_rec
@@ -1274,6 +1360,30 @@ let define_and_declare_of_bounds
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
 
   let declared = UfSymbol.UfSymbolSet.empty in
+
+  (* The definitions for the supervisor's evaluation of recursive calls,
+     after the sorts and before anything that applies their symbols, whose
+     symbols are then not declared again *)
+  let declared, defined_for_check =
+    if with_check_defs then
+      let declared, defined =
+        declare_check_defs trans_sys declared declare define_rec
+      in
+      UfSymbol.UfSymbolSet.union declared defined, defined
+    else if with_check_ufs then
+      (* Only the symbols the definitions apply, for a solver that is given
+         instances of the defining equations rather than the definitions *)
+      fold_subsystems ~include_top:true
+        (fun declared t ->
+           List.fold_left
+             (fun acc uf ->
+                if UfSymbol.UfSymbolSet.mem uf acc then acc
+                else (declare uf ; UfSymbol.UfSymbolSet.add uf acc))
+             declared t.check_ufs)
+        declared trans_sys,
+      UfSymbol.UfSymbolSet.empty
+    else declared, UfSymbol.UfSymbolSet.empty
+  in
 
   (* Declare other functions of top system *)
   let declared = declare_ufs trans_sys declared declare in
@@ -1303,7 +1413,7 @@ let define_and_declare_of_bounds
 
       declared, defined
     ) 
-    (declared, UfSymbol.UfSymbolSet.empty)
+    (declared, defined_for_check)
     trans_sys
   in
 
@@ -1951,7 +2061,10 @@ let mk_trans_sys
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
   ?(fun_defs = [])
+  ?(check_defs = [])
+  ?(check_ufs = [])
   ?rec_cutoff
+  ?(rec_cutoff_io = ([], []))
   scope
   instance_state_var
   init_flag_state_var
@@ -2240,7 +2353,10 @@ let mk_trans_sys
       logic;
       invariants;
       is_visible;
+      check_defs;
+      check_ufs;
       rec_cutoff;
+      rec_cutoff_io;
       datatype_types;}
   in
 
@@ -2436,6 +2552,52 @@ let cutoff_terms t =
              chain
          in
          (f, reached) :: acc)
+    t
+
+(* The recursive functions with a cutoff in the system that the supervisor
+   can evaluate: a system of the function carries definitions for it *)
+let evaluable_functions t =
+  fold_subsystems ~include_top:true
+    (fun acc sub ->
+       match sub.rec_cutoff with
+       | Some f when sub.check_defs <> [] && not (List.exists (Scope.equal f) acc) ->
+         f :: acc
+       | _ -> acc)
+    [] t
+
+(* The instances of the cutoffs in the system, each with its function, the
+   term stating at offset zero that the chain of calls from the top system
+   down to it is executed, its inputs and its outputs with their functional
+   symbols, all in the variables of the top system *)
+let cutoff_instances t =
+  fold_subsystem_instances
+    (fun sub chain acc ->
+       let acc = List.concat acc in
+       match sub.rec_cutoff with
+       | None -> acc
+       | Some f ->
+         let lift_sv sv =
+           List.fold_left
+             (fun sv (_, { map_up }) ->
+                try SVM.find sv map_up with Not_found -> sv)
+             sv chain
+         in
+         let active =
+           List.fold_left
+             (fun term (_, { map_up ; active }) ->
+                let term =
+                  Term.map_state_vars
+                    (fun sv -> try SVM.find sv map_up with Not_found -> sv)
+                    term
+                in
+                Term.mk_and [ active Numeral.zero ; term ])
+             Term.t_true
+             chain
+         in
+         let inputs, outputs = sub.rec_cutoff_io in
+         (f, active, List.map lift_sv inputs,
+          List.map (fun (sv, uf) -> lift_sv sv, uf) outputs)
+         :: acc)
     t
 
 (* The recursive functions with a cutoff in the system *)

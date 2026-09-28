@@ -96,6 +96,15 @@ val contract_abstracts : LustreNode.t -> bool
     their constructor, which a definition may apply. *)
 val compute : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
 
+(** Compute the definitions of every recursive function of the given nodes
+    that the contract does not abstract and that is definable, whether or
+    not a call applied to quantified variables applies it. These are not
+    given to the engines, whose analysis unrolls the functions instead: the
+    supervisor uses them to evaluate the recursive calls past the
+    unrollings of a counterexample, which are at concrete arguments (see
+    [RecUnrolling]). *)
+val compute_all : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
+
 (** [true] iff the functional symbols of the given function are defined *)
 val is_defined : t -> NodeId.t -> bool
 

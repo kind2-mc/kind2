@@ -484,19 +484,9 @@ let block_of_scc nodes scc_id members =
 
 module IMap = Map.Make (Int)
 
-let compute ~adt_junk_ufs nodes =
-
-  (* The recursive functions a call applied to quantified variables applies
-     the functional symbol of *)
-  let applied =
-    List.fold_left
-      (fun acc { N.calls } ->
-         List.fold_left
-           (fun acc { N.call_uf_applied; N.call_node_id } ->
-              if call_uf_applied then NI.Set.add call_node_id acc else acc)
-           acc calls)
-      NI.Set.empty nodes
-  in
+(* The definitions of the recursive groups of the functions [applied], and
+   of the groups their definitions call *)
+let compute_for ~adt_junk_ufs applied nodes =
 
   if not (enabled ()) || NI.Set.is_empty applied then empty else
 
@@ -652,3 +642,28 @@ let compute ~adt_junk_ufs nodes =
              members)
         defined_sccs
         NI.Map.empty
+
+
+let compute ~adt_junk_ufs nodes =
+  (* The recursive functions a call applied to quantified variables applies
+     the functional symbol of *)
+  let applied =
+    List.fold_left
+      (fun acc { N.calls } ->
+         List.fold_left
+           (fun acc { N.call_uf_applied; N.call_node_id } ->
+              if call_uf_applied then NI.Set.add call_node_id acc else acc)
+           acc calls)
+      NI.Set.empty nodes
+  in
+  compute_for ~adt_junk_ufs applied nodes
+
+let compute_all ~adt_junk_ufs nodes =
+  let recursive =
+    List.fold_left
+      (fun acc node ->
+         if N.is_recursive node && eligible node
+         then NI.Set.add node.N.node_id acc else acc)
+      NI.Set.empty nodes
+  in
+  compute_for ~adt_junk_ufs recursive nodes

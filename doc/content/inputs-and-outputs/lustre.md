@@ -914,7 +914,12 @@ By default, and in a modular analysis (`--modular true`), such a call is left
 unconstrained: its outputs are tied to the outputs of the other calls of the
 function with the same arguments, and to nothing else. A property that holds
 of the unrolled function then holds of the function, while a counterexample
-that reaches such a call may be spurious. When one does, Kind 2 unrolls the
+that reaches such a call may be spurious. Kind 2 then evaluates the calls the
+counterexample relies on, which are at concrete arguments, with the definition
+of the function, and reports the counterexample only if the function as it is
+violates the property with the same inputs; the property itself, or what the
+path relies on, such as an assumption on the inputs, may depend on the calls.
+Otherwise, or if the evaluation takes too long, Kind 2 unrolls the
 function once more, from one unrolling up to the limit set with
 `--rec_unrollings` (10 by default), and runs its engines again on the new
 system, keeping what they had established; this is not an analysis of its

@@ -59,10 +59,17 @@ val requested : unit -> Scope.t list
 
 (** The recursive functions the counterexample to the property may be
     spurious for: a cutoff of theirs is reached by the counterexample, and
-    the property can hold at the last step of the counterexample with the
-    same inputs, so its violation depends on values the inputs do not
-    determine, such as the unconstrained outputs of the cutoffs. The query
-    is put to a solver; the supervisor is meant to call this. *)
+    the counterexample is not known to be genuine. It is genuine if the
+    functions as they are violate the property with the inputs of the
+    counterexample. The supervisor asks a solver for a violation with those
+    inputs, evaluates the calls past the unrollings the model executes at
+    their concrete arguments, with the definitions of the functions in a
+    solver of their own, gives their values back to the query as facts, and
+    asks again, until the model only executes calls it knows the values of
+    (genuine) or there is no violation left (spurious). A function without a
+    definition, a call that cannot be evaluated or a query that cannot be
+    decided in time, or a round whose checks have taken their budget, leave
+    the counterexample suspect. The supervisor is meant to call this. *)
 val suspect :
   TransSys.t -> string -> (StateVar.t * Model.value list) list -> Scope.t list
 
