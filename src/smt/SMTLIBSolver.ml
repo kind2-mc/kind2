@@ -1199,9 +1199,24 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     (* Reap without blocking: this runs while an analysis is being torn
        down, possibly from a domain other than the one that owns the
        solver, and must never be the reason the supervisor waits. A
-       process killed with SIGKILL that is not reaped here is reaped by
-       the operating system when Kind 2 exits. *)
-    ( try Unix.waitpid [Unix.WNOHANG] solver_pid |> ignore with _ -> () )
+       process killed with SIGKILL dies at its next scheduling, within a
+       millisecond or so, but not before the kill returns: polled once,
+       it was found still alive more often than not, and every solver
+       killed this way stayed a zombie until Kind 2 exited: several per
+       analysis, hundreds in a modular run over many nodes, enough to
+       exhaust the processes a user may have on a machine running several
+       Kind 2 at once. So the process is polled for a short while, and a
+       process killed with SIGKILL that is still not reaped after that is
+       reaped by the operating system when Kind 2 exits. *)
+    let rec reap polls =
+      match
+        ( try Unix.waitpid [Unix.WNOHANG] solver_pid
+          with _ -> (solver_pid, Unix.WEXITED 0) )
+      with
+      | 0, _ when polls > 0 -> minisleep 0.001 ; reap (polls - 1)
+      | _ -> ()
+    in
+    reap 20
 
 
   (* Output a comment into the trace *)
