@@ -22,10 +22,12 @@ val inlinable_functions :
   NodeId.Set.t
 
 (** The recursive functions whose functional symbols are given a definition at
-    the SMT level (see {!LustreFunDefs}), and which a call applied to
-    quantified variables can therefore be compiled to an application of,
-    rather than to a node instance. A function that a contract abstracts is
-    left out; so are the conditions on the body that are only known once the
+    the SMT level in every analysis of the run (see {!LustreFunDefs}), and
+    which a call applied to quantified variables can therefore be compiled to
+    an application of, rather than to a node instance. A function that a
+    contract abstracts in some analysis (an opaque one, or, in compositional
+    analyses, any function with a contract that is not transparent) is left
+    out; so are the conditions on the body that are only known once the
     nodes are compiled, which {!LustreTransSys} warns about instead. *)
 val uf_callable_functions :
   TypeCheckerContext.tc_context ->

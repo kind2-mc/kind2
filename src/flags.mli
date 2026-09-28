@@ -328,10 +328,6 @@ module Smt : sig
 
   val set_check_sat_assume : bool -> unit
 
-  (** Define a recursive function that has no contract, or that is
-      transparent, with an SMT-LIB recursive function definition *)
-  val define_fun_rec : unit -> bool
-
   (** Send short names to SMT solver *)
   val short_names : unit -> bool
 
@@ -531,6 +527,18 @@ module Contracts : sig
 
   (** Activate refinement. *)
   val refinement : unit -> bool
+
+  (** Unrollings of a recursive function a refinement tries, its recursive
+      calls abstracted by its contract, before defining it *)
+  val rec_unrollings : unit -> int
+
+  (** Instances of recursive functions the unrolling of the functions may
+      create in a system, outside of compositional analyses *)
+  val rec_instances : unit -> int
+
+  (** Unrollings of a recursive function in the analysis of the function
+      itself, when its recursive calls are abstracted by its contract *)
+  val rec_contract_unrollings : unit -> int
 
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool

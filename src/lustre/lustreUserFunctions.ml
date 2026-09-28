@@ -102,20 +102,32 @@ let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals item
   valid_items set items &&
   is_output_defined outputs items
 
-(* The recursive functions whose functional symbols are given a definition at
-   the SMT level (see [LustreFunDefs]), and which a call applied to quantified
-   variables can therefore be compiled to an application of (see
-   [LustreAstNormalizer.mk_fresh_qcall]).
+(* [true] if the contract of the recursive function, if any, abstracts it in
+   no analysis of the run, so that its recursive calls past its unrollings
+   are left unconstrained in every one of them (see
+   [LustreFunDefs.contract_abstracts]): it has no effective contract, or it
+   is translucent and the analyses are not compositional, the only ones that
+   abstract a translucent function by its contract. *)
+let contract_never_abstracts ctx contracts opac contract outputs =
+  has_no_effective_contract ctx contracts opac contract outputs
+  || (opac = A.Default && not (Flags.Contracts.compositional ()))
 
-   A function a contract abstracts is left out: its symbol is uninterpreted,
-   constrained by the contract at the arguments of its instances only, so under
-   a quantifier it would be an arbitrary function and a property that does hold
-   of it could be reported falsifiable.
+(* The recursive functions a call applied to quantified variables can be
+   compiled to an application of the unrolled symbol of (see
+   [LustreAstNormalizer.mk_fresh_qcall]): those whose recursive calls past
+   their unrollings are left unconstrained, which [LustreFunDefs] defines
+   the symbol as, the function unrolled as many times as the analysis
+   unrolls it.
 
-   The remaining conditions [LustreFunDefs] puts on a definition -- the body is
-   a total function of the inputs, the solver defines recursive functions --
-   are not known at this point. A call to a function that fails them is
-   accepted here, and [LustreTransSys] warns about it. *)
+   A function a contract abstracts in some analysis of the run is left out:
+   the contract only constrains its symbol at the arguments of its
+   instances, so under a quantifier it would be an arbitrary function and a
+   property that does hold of it could be reported falsifiable.
+
+   The remaining conditions [LustreFunDefs] puts on a definition -- the body
+   is a total function of the inputs -- are not known at this point. A call
+   to a function that fails them is accepted here, and [LustreTransSys]
+   warns about it. *)
 let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
 = fun ctx decls ->
   List.fold_left (fun (set, contracts) dcl ->
@@ -128,7 +140,7 @@ let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
     | A.FuncDecl
         (_, (id, false, opac, _, _, outputs, _, _, contract), { A.is_rec = true; _ })
       -> (
-      if has_no_effective_contract ctx contracts opac contract outputs then
+      if contract_never_abstracts ctx contracts opac contract outputs then
         NI.Set.add id set, contracts
       else
         set, contracts

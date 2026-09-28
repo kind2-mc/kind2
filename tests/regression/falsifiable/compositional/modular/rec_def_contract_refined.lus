@@ -1,0 +1,23 @@
+-- In a compositional and modular analysis, the analysis of Fact proves its
+-- contract, and the first analysis of main abstracts Fact by that contract,
+-- which does not give Fact(3) = 6. The refinements of main then unroll Fact
+-- once more each, its recursive call abstracted by the contract, until
+-- Fact(0) is the body, at four unrollings, which gives the check.
+--
+-- The run is falsifiable, as the first analysis of main falsifies the
+-- checks and the documented exit code counts every analysis, so
+-- test_rec_refinement.py checks the answers of the last refinement.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(3);
+  check "fact3" y = 6;
+tel

@@ -1,0 +1,17 @@
+-- A recursive function with a contract is defined at the SMT level unless
+-- the analysis is compositional: the check needs the definition, since the
+-- contract only says the result is positive.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(3);
+  check "fact3" y = 6;
+tel

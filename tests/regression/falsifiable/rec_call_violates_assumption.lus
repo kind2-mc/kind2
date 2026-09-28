@@ -2,11 +2,16 @@
 -- is an unrolling of f with the same node identifier as f, the top system,
 -- and was taken for the top system: the assumption of f was asserted on it
 -- rather than checked, and the violation was reported valid.
+--
+-- Outside of compositional analyses f is defined at the SMT level, so its
+-- guarantee must follow from the definition without induction: a guarantee
+-- that needs induction keeps the solver unfolding the definition, and the
+-- run only ends at its timeout.
 function rec f (n: int) returns (r: int);
 con
   assume n >= 0;
   decreases n;
-  guarantee "g" r >= 0;
+  guarantee "g" n <= 0 => r = 0;
 noc
 let
   r = when n <= 0 then 0 else f(n - 2);

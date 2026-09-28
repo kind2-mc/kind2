@@ -1,4 +1,6 @@
-
+-- The guarantees of sum need induction over the recursion, and the lemma
+-- rests on the contract of sum: both take a compositional analysis, where
+-- the contract abstracts the calls to sum.
 function rec sum(n:int) returns (m:int);
 (*@contract
   guarantee "sum is non-negative" m >= 0;

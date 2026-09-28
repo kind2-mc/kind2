@@ -238,6 +238,7 @@ let subsystems_of_sexpr = function
       map_down;
       map_up;
       guard_clock;
+      active = (fun _ -> Term.t_true);
       assumes = None
     }
     in
@@ -438,6 +439,7 @@ let rec mk_subsystem map sys =
       opacity = Opacity.Transparent;
       has_contract = false;
       has_impl = true;
+      rec_group = None;
       has_modes = false;
       map;
       subsystems =

@@ -84,6 +84,11 @@ type instance =
        clock of the node instance is false *)
     guard_clock : Numeral.t -> Term.t -> Term.t;
 
+    (* The call is executed at the offset: the clock of a call with an
+       activation condition, the branch of a call in a [when] block, [true]
+       for an unconditional call; in the state variables of this system *)
+    active : Numeral.t -> Term.t;
+
     (* [None] if there is no assumption associated to the call. Otherwise,
        [Some (l,s)] where [l] is the list of instantiated assume terms, and
        [s] is SoFar(conjunction of instantiated assume terms) *)
@@ -205,6 +210,28 @@ type t =
 
     is_visible: bool ; 
     (** Is this transition system visible (in the output)? *)
+
+    check_defs : fun_def list list;
+    (** The definitions of the recursive function of this system, and of
+        those its definition calls, that the supervisor evaluates the
+        recursive calls past the unrollings of a counterexample with; not
+        given to the engines (see [LustreFunDefs.compute_all] and
+        [RecUnrolling]) *)
+
+    check_ufs : UfSymbol.t list;
+    (** The uninterpreted symbols [check_defs] apply *)
+
+    rec_cutoff : Scope.t option;
+    (** [Some f] if this system is the cutoff of the unrolling of the
+        recursive function [f]: an instance of [f] past the number of
+        unrollings of the analysis whose outputs are left unconstrained
+        (see [LustreTransSys]). A counterexample that reaches such an
+        instance may be spurious: see [cutoffs_reached]. *)
+
+    rec_cutoff_io : StateVar.t list * (StateVar.t * UfSymbol.t) list;
+    (** The inputs of the cutoff, in the order of the arguments of its
+        functional symbols, and its outputs with their functional symbols;
+        empty if the system is not a cutoff *)
 
     datatype_types : Type.t list;
     (** Recursive ADTs used anywhere in this system, in dependency order. *)
@@ -1232,11 +1259,83 @@ let define_subsystems trans_sys define =
     define_trans define t
   )
 
+(* Declare the uninterpreted symbols the check definitions of the systems
+   apply, except those in [declared], then define the blocks; returns the
+   symbols declared and the symbols defined (see [check_defs]) *)
+let declare_check_defs trans_sys declared declare define_rec =
+  let ufs, blocks =
+    fold_subsystems ~include_top:true
+      (fun (ufs, blocks) t -> ufs @ t.check_ufs, blocks @ t.check_defs)
+      ([], []) trans_sys
+  in
+  let defined_syms =
+    List.fold_left
+      (fun acc block ->
+         List.fold_left (fun acc (uf, _, _) -> UfSymbol.UfSymbolSet.add uf acc)
+           acc block)
+      UfSymbol.UfSymbolSet.empty blocks
+  in
+  let declared =
+    List.fold_left
+      (fun acc uf ->
+         if UfSymbol.UfSymbolSet.mem uf acc
+         || UfSymbol.UfSymbolSet.mem uf defined_syms then acc
+         else (declare uf ; UfSymbol.UfSymbolSet.add uf acc))
+      declared ufs
+  in
+  let defined =
+    List.fold_left
+      (fun acc block ->
+         match block with
+         | [] -> acc
+         | (uf, _, _) :: _ ->
+           if UfSymbol.UfSymbolSet.mem uf acc then acc
+           else (
+             define_rec block ;
+             List.fold_left
+               (fun acc (uf, _, _) -> UfSymbol.UfSymbolSet.add uf acc)
+               acc block))
+      UfSymbol.UfSymbolSet.empty blocks
+  in
+  declared, defined
+
+(* The check definitions of the systems, each once *)
+let check_definitions trans_sys =
+  fold_subsystems ~include_top:true
+    (fun acc t ->
+       List.fold_left
+         (fun acc block ->
+            List.fold_left
+              (fun acc ((uf, _, _) as def) ->
+                 if List.exists
+                     (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') acc
+                 then acc else def :: acc)
+              acc block)
+         acc t.check_defs)
+    [] trans_sys
+
+(* Declare the sorts of the system and give the check definitions of its
+   systems, and nothing else *)
+let define_check_defs trans_sys ~define_rec declare declare_sort =
+  trans_sys.datatype_types |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
+      | _ -> ());
+  Type.get_all_abstr_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+  if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
+  declare_check_defs trans_sys UfSymbol.UfSymbolSet.empty declare define_rec
+  |> ignore
+
 (* Define predicates, declare constant and global state variables, and
    declare state variables of the top system between and including the
    given offsets *)
 let define_and_declare_of_bounds
     ?(declare_sub_vars=false) 
+    ?(with_check_defs=false)
+    ?(with_check_ufs=false)
     trans_sys
     define 
     ~define_rec
@@ -1261,6 +1360,30 @@ let define_and_declare_of_bounds
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
 
   let declared = UfSymbol.UfSymbolSet.empty in
+
+  (* The definitions for the supervisor's evaluation of recursive calls,
+     after the sorts and before anything that applies their symbols, whose
+     symbols are then not declared again *)
+  let declared, defined_for_check =
+    if with_check_defs then
+      let declared, defined =
+        declare_check_defs trans_sys declared declare define_rec
+      in
+      UfSymbol.UfSymbolSet.union declared defined, defined
+    else if with_check_ufs then
+      (* Only the symbols the definitions apply, for a solver that is given
+         instances of the defining equations rather than the definitions *)
+      fold_subsystems ~include_top:true
+        (fun declared t ->
+           List.fold_left
+             (fun acc uf ->
+                if UfSymbol.UfSymbolSet.mem uf acc then acc
+                else (declare uf ; UfSymbol.UfSymbolSet.add uf acc))
+             declared t.check_ufs)
+        declared trans_sys,
+      UfSymbol.UfSymbolSet.empty
+    else declared, UfSymbol.UfSymbolSet.empty
+  in
 
   (* Declare other functions of top system *)
   let declared = declare_ufs trans_sys declared declare in
@@ -1290,7 +1413,7 @@ let define_and_declare_of_bounds
 
       declared, defined
     ) 
-    (declared, UfSymbol.UfSymbolSet.empty)
+    (declared, defined_for_check)
     trans_sys
   in
 
@@ -1938,6 +2061,10 @@ let mk_trans_sys
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
   ?(fun_defs = [])
+  ?(check_defs = [])
+  ?(check_ufs = [])
+  ?rec_cutoff
+  ?(rec_cutoff_io = ([], []))
   scope
   instance_state_var
   init_flag_state_var
@@ -2226,6 +2353,10 @@ let mk_trans_sys
       logic;
       invariants;
       is_visible;
+      check_defs;
+      check_ufs;
+      rec_cutoff;
+      rec_cutoff_io;
       datatype_types;}
   in
 
@@ -2393,6 +2524,196 @@ let instantiate_term_cert_all_levels
 
 
 let get_state_var_bounds { state_var_bounds } = state_var_bounds
+
+
+(* The cutoffs of the unrollings of the recursive functions of the system,
+   each with the function and the term stating, at offset zero, that the
+   chain of calls from the top system down to the cutoff is executed *)
+let cutoff_terms t =
+  fold_subsystem_instances
+    (fun sub chain acc ->
+       let acc = List.concat acc in
+       match sub.rec_cutoff with
+       | None -> acc
+       | Some f ->
+         (* [chain] goes from the call of the cutoff up to the top: the
+            term is lifted through each call and conjoined with the
+            activation of that call, in the variables of the caller *)
+         let reached =
+           List.fold_left
+             (fun term (_, { map_up ; active }) ->
+                let term =
+                  Term.map_state_vars
+                    (fun sv -> try SVM.find sv map_up with Not_found -> sv)
+                    term
+                in
+                Term.mk_and [ active Numeral.zero ; term ])
+             Term.t_true
+             chain
+         in
+         (f, reached) :: acc)
+    t
+
+(* The recursive functions with a cutoff in the system that the supervisor
+   can evaluate: a system of the function carries definitions for it *)
+let evaluable_functions t =
+  fold_subsystems ~include_top:true
+    (fun acc sub ->
+       match sub.rec_cutoff with
+       | Some f when sub.check_defs <> [] && not (List.exists (Scope.equal f) acc) ->
+         f :: acc
+       | _ -> acc)
+    [] t
+
+(* The instances of the cutoffs in the system, each with its function, the
+   term stating at offset zero that the chain of calls from the top system
+   down to it is executed, its inputs and its outputs with their functional
+   symbols, all in the variables of the top system *)
+let cutoff_instances t =
+  fold_subsystem_instances
+    (fun sub chain acc ->
+       let acc = List.concat acc in
+       match sub.rec_cutoff with
+       | None -> acc
+       | Some f ->
+         let lift_sv sv =
+           List.fold_left
+             (fun sv (_, { map_up }) ->
+                try SVM.find sv map_up with Not_found -> sv)
+             sv chain
+         in
+         let active =
+           List.fold_left
+             (fun term (_, { map_up ; active }) ->
+                let term =
+                  Term.map_state_vars
+                    (fun sv -> try SVM.find sv map_up with Not_found -> sv)
+                    term
+                in
+                Term.mk_and [ active Numeral.zero ; term ])
+             Term.t_true
+             chain
+         in
+         let inputs, outputs = sub.rec_cutoff_io in
+         (f, active, List.map lift_sv inputs,
+          List.map (fun (sv, uf) -> lift_sv sv, uf) outputs)
+         :: acc)
+    t
+
+(* The recursive functions with a cutoff in the system *)
+let cutoff_functions t =
+  List.fold_left
+    (fun acc (f, _) -> if List.exists (Scope.equal f) acc then acc else f :: acc)
+    [] (cutoff_terms t)
+
+(* The instances of the recursive function of the given scope in the
+   system: those of its own scope, and those of the tagged scopes of its
+   unrollings (see [LustreTransSys]) *)
+let count_instances t f =
+  let is_instance_of scope =
+    Scope.equal scope f
+    || (match scope with
+        | tag :: base ->
+          Scope.equal base f
+          && (let tag = Ident.to_string tag in
+              String.length tag > 4 && String.sub tag 0 4 = "rec_")
+        | [] -> false)
+  in
+  fold_subsystem_instances
+    (fun sub _ children ->
+       List.fold_left (+) (if is_instance_of sub.scope then 1 else 0) children)
+    t
+
+(* The recursive functions a cutoff of which the counterexample reaches: at
+   some step of the counterexample, the chain of calls down to an instance
+   of the function past its unrollings is executed. The outputs of that
+   instance are unconstrained, so the counterexample may be spurious. A
+   state variable the counterexample has no value for belongs to a call that
+   is not in the system the counterexample was found on, which is not
+   reached. *)
+let cutoffs_reached t cex =
+  match cutoff_terms t with
+  | [] -> []
+  | cutoffs ->
+    let path = Model.path_of_list cex in
+    let steps = List.init (Model.path_length path) Numeral.of_int in
+    let reached_at term k =
+      let model = Model.model_at_k_of_path path k in
+      match Eval.eval_term [] model (Term.bump_state k term) with
+      | v -> not (Eval.value_is_unknown v) && Eval.bool_of_value v
+      | exception _ -> false
+    in
+    List.fold_left
+      (fun acc (f, term) ->
+         if List.exists (Scope.equal f) acc then acc
+         else if List.exists (reached_at term) steps then f :: acc
+         else acc)
+      [] cutoffs
+
+(* Carries what was established of [from] over to [into]: the statuses of
+   the properties of [from] that [into] has, by name, and the invariants of
+   [from] over state variables [into] has. [into] is [from] built again with
+   a recursive function unrolled further (see [Kind2Flow]), which has fewer
+   behaviors, so what holds of [from] holds of [into]; the instances of
+   recursive functions carry fresh scopes in every system, so their state
+   variables, and the invariants over them, are not carried over. *)
+let transfer_results ~from ~into =
+  from.properties |> List.iter (fun { P.prop_name ; P.prop_status } ->
+    try
+      match prop_status with
+      | P.PropUnknown -> ()
+      | P.PropInvariant cert ->
+        set_prop_invariant into prop_name cert ;
+        add_invariant into (get_prop_term into prop_name) cert false |> ignore
+      | status -> set_prop_status into prop_name status
+    with PropertyNotFound _ -> ()) ;
+  let svars = SVS.of_list into.state_vars in
+  (* The symbols [into] declares or defines: the predicates of its systems,
+     the functions they apply and the recursive functions they define. An
+     invariant of [from] built from its predicates (see [mk_trans_sys])
+     applies symbols [into] does not have. *)
+  let symbols =
+    let module UFS = UfSymbol.UfSymbolSet in
+    List.fold_left
+      (fun acc (uf, _) -> UFS.add uf acc)
+      (fold_subsystems
+         (fun acc t ->
+            List.fold_left
+              (fun acc block ->
+                 List.fold_left (fun acc (uf, _, _) -> UFS.add uf acc) acc block)
+              (UFS.union (UFS.of_list t.ufs) acc)
+              t.fun_defs)
+         UFS.empty into)
+      (uf_defs into)
+  in
+  let ufs_of_term term =
+    let acc = ref [] in
+    Term.map
+      (fun _ t ->
+         (match Term.node_of_term t with
+          | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
+            acc := Symbol.uf_of_symbol s :: !acc
+          | _ -> ());
+         t)
+      term
+    |> ignore ;
+    !acc
+  in
+  let known inv =
+    Term.state_vars_of_term inv
+    |> SVS.for_all (fun sv -> StateVar.is_const sv || SVS.mem sv svars)
+    && List.for_all
+      (fun uf -> UfSymbol.UfSymbolSet.mem uf symbols) (ufs_of_term inv)
+  in
+  let carry two_state inv =
+    match Invs.find from.invariants inv with
+    | Some cert when known inv ->
+      if two_state then Invs.add_ts into.invariants inv cert
+      else Invs.add_os into.invariants inv cert
+    | _ -> ()
+  in
+  Invs.get_os from.invariants |> Term.TermSet.iter (carry false) ;
+  Invs.get_ts from.invariants |> Term.TermSet.iter (carry true)
 
 
 

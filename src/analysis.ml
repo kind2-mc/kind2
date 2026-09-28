@@ -76,6 +76,15 @@ type info = {
   assumptions : assumptions ;
   (** Properties that can be assumed invariant in subsystems *)
 
+  unrollings : int Scope.Map.t ;
+  (** The number of times the body of each recursive function is unrolled
+      along a chain of recursive calls, once when the function is not in
+      the map. In a compositional analysis, the calls past the unrollings
+      are abstracted by the contract of the function, and a refinement adds
+      an unrolling (see [Strategy]); in any other analysis they are left
+      unconstrained, and an unrolling is added when a counterexample
+      reaches one (see [RecUnrolling]). *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -86,7 +95,7 @@ type info = {
     function's under a tag (see [LustreTransSys]): it stands for the
     function, which is abstracted, or not, as the map says of the function.
     A subsystem the map knows nothing of otherwise is left out. *)
-let shrink_info_to_sys ({ top ; abstraction_map } as info) sys =
+let shrink_info_to_sys ({ top ; abstraction_map ; unrollings } as info) sys =
   let abstraction_map =
     TransSys.fold_subsystems ?include_top:(Some false) (
       fun map sys ->
@@ -104,7 +113,10 @@ let shrink_info_to_sys ({ top ; abstraction_map } as info) sys =
         )
     ) Scope.Map.empty sys
   in
-  { info with abstraction_map }
+  let unrollings =
+    Scope.Map.filter (fun scope _ -> Scope.Map.mem scope abstraction_map) unrollings
+  in
+  { info with abstraction_map ; unrollings }
 
 (** Parameter of an analysis. *)
 type param =
@@ -144,6 +156,14 @@ and result = {
 
 (* Clones an [info], only changes its [uid]. *)
 let info_clone info = { info with uid = get_uid () } 
+
+(* Applies a function to the info of a param. *)
+let map_info f = function
+| Interpreter info -> Interpreter (f info)
+| ContractCheck info -> ContractCheck (f info)
+| First info -> First (f info)
+| Refinement (info, res) -> Refinement (f info, res)
+| ContractMonitor info -> ContractMonitor (f info)
 
 (* Clones a [param], only changes its [uid]. *)
 let param_clone = function
@@ -188,6 +208,12 @@ let param_scope_is_abstract param scope =
     Scope.Map.find scope abstraction_map
   (* Assume node to be concrete if not in map *)
   with Not_found -> false
+
+(* The number of unrollings of a recursive function in the analysis, if a
+   refinement set one (see [info]) *)
+let param_unrollings_of_scope param scope =
+  let { unrollings } = info_of_param param in
+  Scope.Map.find_opt scope unrollings
 
 let no_system_is_abstract ?(include_top=true) param =
   let { top; abstraction_map } = info_of_param param in
@@ -385,7 +411,16 @@ let results_clean = Scope.Map.filter (
 
 let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.formatter -> param -> unit
 = fun verbose sys pp_print_system_user_name fmt param ->
-  let { top ; abstraction_map ; assumptions } = info_of_param param in
+  let { top ; abstraction_map ; assumptions ; unrollings } = info_of_param param in
+  (* A concrete recursive function a refinement unrolled, with its number of
+     unrollings *)
+  let pp_print_concrete fmt scope =
+    pp_print_system_user_name fmt scope ;
+    match Scope.Map.find_opt scope unrollings with
+    | Some n ->
+      Format.fprintf fmt " (%d unrolling%s)" n (if n = 1 then "" else "s")
+    | None -> ()
+  in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
@@ -415,7 +450,7 @@ let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.fo
           | [] -> ()
           | concrete ->
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list pp_print_system_user_name ",@ ") concrete;
+              (pp_print_list pp_print_concrete ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
@@ -474,8 +509,19 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
       fmt "without refinement: %d abstract system%s" count (
         if count = 1 then "" else "s"
       )
-  | Refinement ( { abstraction_map }, { param = pre_param } ) ->
-    let { abstraction_map = pre_abs_map } = get_first_analysis_info pre_param in
+  | Refinement ( { abstraction_map ; unrollings }, { param = pre_param } ) ->
+    let { abstraction_map = pre_abs_map ; unrollings = pre_unrollings } =
+      get_first_analysis_info pre_param
+    in
+    (* How a refined recursive function stands: unrolled a number of
+       times *)
+    let pp_print_refined fmt scope =
+      pp_print_system_user_name fmt scope ;
+      match Scope.Map.find_opt scope unrollings with
+      | Some n ->
+        Format.fprintf fmt " (%d unrolling%s)" n (if n = 1 then "" else "s")
+      | None -> ()
+    in
     let count =
       Scope.Map.fold (
         fun _ is_abs acc ->
@@ -492,7 +538,12 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
                recursive functions, whose scopes are fresh for each system *)
             match Scope.Map.find_opt scope pre_abs_map with
             | Some true -> scope :: acc
-            | Some false | None -> acc
+            | Some false | None ->
+              (* A recursive function that was concrete already, refined a
+                 step further *)
+              if Scope.Map.find_opt scope unrollings
+                 <> Scope.Map.find_opt scope pre_unrollings
+              then scope :: acc else acc
           ) else acc
       ) abstraction_map []
     in
@@ -506,7 +557,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
       (List.length refined)
       (if (List.length refined) = 1 then "" else "s")
       (pp_print_list
-        pp_print_system_user_name
+        pp_print_refined
         ",@ "
       ) refined
 

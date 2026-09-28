@@ -317,27 +317,6 @@ module Smt = struct
     )
   let check_sat_assume () = !(Domain.DLS.get check_sat_assume)
 
-  (* Define recursive functions with define-funs-rec. *)
-  let define_fun_rec_default = true
-  let define_fun_rec = ref define_fun_rec_default
-  let _ = add_spec
-    "--define_fun_rec"
-    (bool_arg define_fun_rec)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          Define a recursive function that has no contract (no guarantee@ \
-          or mode, explicit or through refinement types), or that is@ \
-          transparent, with an SMT-LIB recursive function definition@ \
-          (define-funs-rec) instead of abstracting its recursive calls@ \
-          by its contract. Only with the Z3 and cvc5 solvers, and only@ \
-          when the logic is inferred; ignored otherwise@ \
-          Default: %a\
-        @]"
-      fmt_bool define_fun_rec_default
-    )
-  let define_fun_rec () = !define_fun_rec
-
   (* Use short name for variables at SMT level. *)
   let short_names_default = true
   let short_names = ref short_names_default
@@ -1408,6 +1387,79 @@ module Contracts = struct
       fmt_bool refinement_default
     )
   let refinement () = !refinement
+
+  (* Unrollings of a recursive function a refinement tries before defining
+     it. *)
+  let rec_unrollings_default = 10
+  let rec_unrollings = ref rec_unrollings_default
+  let _ = add_spec
+    "--rec_unrollings"
+    (Arg.Set_int rec_unrollings)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximum number of unrollings of a recursive function.@ \
+        In a compositional and modular analysis, a call to a recursive@ \
+        function whose contract does not prove the properties of the@ \
+        caller is refined by unrolling the function, once, then up to@ \
+        <int> times, with its recursive calls abstracted by the contract.@ \
+        In any other analysis, a recursive call past the unrollings of@ \
+        its function is left unconstrained, and the function is unrolled@ \
+        once more, up to <int> times, when a counterexample reaches@ \
+        such a call@ \
+        Default: %d\
+      @]"
+      rec_unrollings_default
+    )
+  let rec_unrollings () = !rec_unrollings
+
+  (* Instances of recursive functions the unrolling may create *)
+  let rec_instances_default = 100
+  let rec_instances = ref rec_instances_default
+  let _ = add_spec
+    "--rec_instances"
+    (Arg.Set_int rec_instances)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximum number of instances of recursive functions the unrolling@ \
+        of the functions may create in a system, outside of compositional@ \
+        analyses. A function whose body makes several recursive calls,@ \
+        or calls other recursive functions, has the instances multiplied@ \
+        at every unrolling; no function is unrolled further when the next@ \
+        unrolling is expected to exceed <int> instances, and the@ \
+        properties whose counterexamples reach their recursive calls are@ \
+        left unknown, as at the limit set with --rec_unrollings@ \
+        Default: %d\
+      @]"
+      rec_instances_default
+    )
+  let rec_instances () = !rec_instances
+
+  (* Unrollings of a recursive function under its contract when its own
+     contract is proved *)
+  let rec_contract_unrollings_default = 1
+  let rec_contract_unrollings = ref rec_contract_unrollings_default
+  let _ = add_spec
+    "--rec_contract_unrollings"
+    (Arg.Int (fun n ->
+       if n < 1 then
+         Arg.Bad "--rec_contract_unrollings expects a positive integer" |> raise
+       else rec_contract_unrollings := n))
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Number of unrollings of a recursive function in the analysis of the@ \
+        function itself, when its recursive calls are abstracted by its@ \
+        contract, the induction hypothesis: in a compositional analysis,@ \
+        or for an opaque function. A guarantee that the recursive calls@ \
+        one level down do not imply, but those <int> levels down do, is@ \
+        proved with <int> unrollings@ \
+        Default: %d\
+      @]"
+      rec_contract_unrollings_default
+    )
+  let rec_contract_unrollings () = !rec_contract_unrollings
 
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default

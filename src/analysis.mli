@@ -77,6 +77,15 @@ type info = {
   assumptions : assumptions ;
   (** Properties that can be assumed invariant in subsystems *)
 
+  unrollings : int Scope.Map.t ;
+  (** The number of times the body of each recursive function is unrolled
+      along a chain of recursive calls, once when the function is not in
+      the map. In a compositional analysis, the calls past the unrollings
+      are abstracted by the contract of the function, and a refinement adds
+      an unrolling (see {!Strategy}); in any other analysis they are left
+      unconstrained, and an unrolling is added when a counterexample
+      reaches one (see {!RecUnrolling}). *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
      refinement. *)
@@ -129,6 +138,9 @@ and result = {
 (** Clones an [info], only changes its [uid]. *)
 val info_clone : info -> info
 
+(** Applies a function to the info of a param. *)
+val map_info : (info -> info) -> param -> param
+
 (** Clones a [param], only changes its [uid]. *)
 val param_clone : param -> param
 
@@ -141,6 +153,10 @@ val shrink_param_to_sys : param -> TransSys.t -> param
 (** Return [true] if a scope is flagged as abstract in the [abstraction_map] of
    a [param]. Default to [false] if the node is not in the map. *)
 val param_scope_is_abstract : param -> Scope.t -> bool
+
+(** The number of unrollings of a recursive function in the analysis of a
+    [param], if a refinement set one (see [info]) *)
+val param_unrollings_of_scope : param -> Scope.t -> int option
 
 (** Return [true] if no system is flagged abstract
     in the [abstraction_map] of a [param]. *)

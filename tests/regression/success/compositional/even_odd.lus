@@ -1,3 +1,6 @@
+-- The guarantees need induction over the mutual recursion, and the check
+-- in Obs applies IsEven to a symbolic argument: both rest on the contracts
+-- abstracting the calls, which a compositional analysis does.
 type Nat = subrange [0,*] of int;
 
 function rec IsEven(n: Nat) returns (e: bool);

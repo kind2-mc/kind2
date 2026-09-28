@@ -1,0 +1,35 @@
+-- Each function's analysis proves its contract with the other abstracted;
+-- the analyses of main then refine IsEven and IsOdd in turn, unrolling each
+-- once more, until the chains of calls from IsEven(6) and IsOdd(6) reach
+-- their base cases, which the checks need.
+--
+-- The run is falsifiable, as the first analysis of main falsifies the
+-- checks and the documented exit code counts every analysis, so
+-- test_rec_refinement.py checks the answers of the last refinement.
+type Nat = subrange [0,*] of int;
+
+function rec IsEven(n: Nat) returns (e: bool);
+con
+  decreases n;
+  guarantee "nonneg" n >= 0;
+noc
+let
+  e = when n = 0 then true else IsOdd(n - 1);
+tel
+
+function rec IsOdd(n: Nat) returns (o: bool);
+con
+  decreases n;
+  guarantee "nonneg" n >= 0;
+noc
+let
+  o = when n = 0 then false else IsEven(n - 1);
+tel
+
+node main(x: int) returns (e, o: bool);
+let
+  e = IsEven(6);
+  o = IsOdd(6);
+  check "even6" e;
+  check "not_odd6" not o;
+tel

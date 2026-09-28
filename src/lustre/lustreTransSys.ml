@@ -716,6 +716,7 @@ let add_subsystem
     map_up
     map_down
     guard_clock
+    active
     assumes
     subsystems =
 
@@ -725,6 +726,7 @@ let add_subsystem
       TransSys.map_up; 
       TransSys.map_down; 
       TransSys.guard_clock;
+      TransSys.active;
       TransSys.assumes }
   in
 
@@ -1288,6 +1290,12 @@ let rec constraints_of_node_calls
            this node instance does not have an activation
            condition *)
         (fun _ t -> t)
+        (* The call is executed when the branch of the when block it is in
+           is, always otherwise *)
+        (fun i ->
+           match call_context with
+           | Some sv -> Term.mk_var (Var.mk_state_var_instance sv i)
+           | None -> Term.t_true)
         node_assumes
         subsystems
     in
@@ -1371,6 +1379,8 @@ let rec constraints_of_node_calls
              [Var.mk_state_var_instance restart i |> Term.mk_var
               |> Term.mk_not;
               t])
+        (* The call is executed at every step, restarted or not *)
+        (fun _ -> Term.t_true)
         node_assumes
         subsystems
     in
@@ -1849,6 +1859,8 @@ let rec constraints_of_node_calls
         state_var_map_up
         state_var_map_down
         guard_clock
+        (* The call is executed when its clock is true *)
+        (fun i -> Var.mk_state_var_instance clock i |> Term.mk_var)
         node_assumes
         subsystems
     in
@@ -2620,6 +2632,12 @@ let function_congruence_group state_var_bounds inputs uf_symbols
     )
   )
 
+(* The definitions of the recursive functions the supervisor evaluates the
+   calls past the unrollings of a counterexample with (see
+   [LustreFunDefs.compute_all]), set by [trans_sys_of_nodes] for the
+   systems it builds *)
+let check_fun_defs = ref LustreFunDefs.empty
+
 let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
   trans_sys_defs output_input_dep nodes definition_set = function
 
@@ -2660,10 +2678,59 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
 
       in
         
+      (* The number of times the body of a recursive function is unrolled
+         along a chain of recursive calls before a call is abstracted by its
+         contract (or, for a defined function, left to its definition): once,
+         unless a refinement set more (see [Analysis.info.unrollings]). In
+         the analysis of the function itself, or of a function of its
+         recursive group, when the contract abstracts the recursive calls,
+         as many times as [--rec_contract_unrollings] says: the contract is
+         then the induction hypothesis of the proof of the contract, and a
+         guarantee may only follow from it some levels down. *)
+      let unrolling_depth node_id =
+        let scope =
+          [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+        in
+        match A.param_unrollings_of_scope analysis_param scope with
+        | Some depth -> depth
+        | None ->
+          let scc_of n =
+            match n.N.comp_type with
+            | N.Function { N.rec_info = Some (scc, _) } -> Some scc
+            | _ -> None
+          in
+          match
+            N.node_of_node_id node_id nodes, N.node_of_node_id top_name nodes
+          with
+          | callee, top
+            when scc_of callee <> None
+              && scc_of callee = scc_of top
+              && LustreFunDefs.contract_abstracts callee ->
+            Flags.Contracts.rec_contract_unrollings ()
+          | _ -> 1
+          | exception Not_found -> 1
+      in
+
       let reached_limit =
         match NI.Map.find_opt node_id num_unrollings with
-        | Some n -> n >= 1
+        | Some n -> n >= unrolling_depth node_id
         | None -> false
+      in
+
+      (* An instance past the unrollings of its function is a cutoff. It is
+         abstracted by the contract of the function, the induction
+         hypothesis of the recursion, when the function has one to abstract
+         it with and is opaque, or translucent in a compositional analysis
+         (see [LustreFunDefs.contract_abstracts]). Otherwise its outputs
+         are left unconstrained, tied to the functional symbols of the
+         function only: a counterexample that reaches it may be spurious,
+         and the function is then unrolled further, up to a limit (see
+         [TransSys.cutoffs_reached] and [Kind2Flow]); unless the function
+         is defined at the SMT level, for the calls applied to quantified
+         variables, which ties the cutoff to the body of the function (see
+         [LustreFunDefs]). *)
+      let free_cutoff =
+        reached_limit && not (LustreFunDefs.contract_abstracts node)
       in
 
       let { N.init_flag;
@@ -2793,7 +2860,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
 
              let reached_limit =
                match NI.Map.find_opt call_node_id num_unrollings'' with
-               | Some n -> n >= 2
+               | Some n -> n >= unrolling_depth call_node_id + 1
                | None -> false
              in
 
@@ -2945,13 +3012,19 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
           in
 
 
-          (* Filter assumptions for this node's assumptions *)
+          (* Filter assumptions for this node's assumptions. They are looked
+             up by the scope of the node without the tag of an unrolling, as
+             whether it is abstract is: the invariants a refinement is given
+             for a node it makes concrete are those of the node's own analysis,
+             where it is the top system and has no tag, whereas an instance of
+             a recursive function called from a recursive function has a tag
+             that is fresh in every system. *)
           let node_assumptions =
             (* No assumptions if abstract. *)
             if is_abstract then
               Invs.empty ()
             else
-              A.param_assumptions_of_scope analysis_param scope
+              A.param_assumptions_of_scope analysis_param base_scope
           in
 
 
@@ -3003,13 +3076,15 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                  An inconsistent transition system makes every property
                  vacuously valid, the guarantees themselves included.
 
-                 A transparent function is therefore verified from its body
-                 alone: its guarantees stay proof obligations at every
-                 instance, without the inductive hypothesis the contract
-                 abstraction provides, and one that needs induction over the
-                 recursion is better left to a lemma. *)
+                 A defined function (a transparent one, or, outside of
+                 compositional analyses, any recursive function; see
+                 [LustreFunDefs]) is therefore verified from its body alone:
+                 its guarantees stay proof obligations at every instance,
+                 without the inductive hypothesis the contract abstraction
+                 provides, and one that needs induction over the recursion is
+                 left to a compositional analysis, or to a lemma. *)
               let use_contract_as_abstraction =
-                (reached_limit || is_abstract)
+                (is_abstract || (reached_limit && not free_cutoff))
                 && not is_defined
               in
 
@@ -3018,7 +3093,11 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               | _, false ->  
                 (*First is assertions, second are proof obligations, want contract to go in proof obligation*)
                 contract_asserts,
-                guarantees_of_contract scope contract @ properties
+                (* The guarantees are not obligations of a free cutoff:
+                   its outputs are unconstrained, and the obligations are
+                   those of the unrolled instances *)
+                (if free_cutoff then properties
+                 else guarantees_of_contract scope contract @ properties)
               | _, true -> 
                 abstraction_of_contract include_assumption contract :: contract_asserts,
                 properties
@@ -3809,6 +3888,26 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
               ~fun_defs:(
                 if is_defined then LustreFunDefs.blocks_of_node fun_defs node_id
                 else [])
+              ?rec_cutoff:(
+                if free_cutoff && not is_defined then Some base_scope
+                else None)
+              ~rec_cutoff_io:(
+                match comp_type with
+                | N.Function { uf_symbols } when free_cutoff && not is_defined ->
+                  D.values inputs,
+                  List.filter_map
+                    (fun sv ->
+                       match SVM.find_opt sv uf_symbols with
+                       | Some uf -> Some (sv, uf)
+                       | None -> None)
+                    (D.values outputs)
+                | _ -> [], [])
+              ~check_defs:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.blocks_of_node !check_fun_defs node_id)
+              ~check_ufs:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.ufs_of_node !check_fun_defs node_id)
               scope
               None (* instance_state_var *)
               init_flag
@@ -3869,7 +3968,8 @@ let uf_applied_warned = ref NI.Set.empty
    a call is only accepted for a function [LustreUserFunctions] finds a
    definition is to be built for, but the definition can still be left out here,
    for a reason that is only known once the nodes are compiled: the body is not
-   a total function of its inputs, or definitions are off. The symbol is then
+   a total function of its inputs, or the solver or logic does not take
+   definitions. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
    hold of the function can be reported falsifiable. Say so. *)
@@ -3888,11 +3988,13 @@ let warn_undefined_uf_applications fun_defs nodes =
            hold of it may be reported falsifiable.@]"
           NI.pp_print_node_id_user_name call_node_id
           (if LustreFunDefs.enabled () then
-             "because its body is not a total function of its inputs that \
-              the solver can be given"
+             "because its body, or the body of a function of its recursive \
+              group, is not a total function of its inputs that the solver \
+              can be given, or a function of its group is abstracted by its \
+              contract"
            else
-             "because recursive functions are not being defined at the \
-              SMT level")
+             "because recursive functions are not defined at the SMT level \
+              with the current solver or logic")
       )
     )
   )
@@ -3957,11 +4059,18 @@ let trans_sys_of_nodes
 
   let nodes = N.nodes_of_subsystem subsystem' in
 
-  (* The SMT-level definitions of the recursive functions that have no
-     contract or are transparent (see [LustreFunDefs]) *)
+  (* Recursive functions are unrolled a bounded number of times in the
+     transition system (see [free_cutoff] in [trans_sys_of_node']) rather
+     than defined at the SMT level, which would leave the unrolling of the
+     recursion to the solver, out of Kind 2's control. The functions that
+     calls applied to quantified variables apply are the exception: they
+     have no instance to be unrolled, and are defined (see
+     [LustreFunDefs]). *)
   let fun_defs =
     LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
   in
+  check_fun_defs :=
+    LustreFunDefs.compute_all ~adt_junk_ufs:globals.G.adt_junk_ufs nodes ;
 
   warn_undefined_uf_applications fun_defs nodes;
 

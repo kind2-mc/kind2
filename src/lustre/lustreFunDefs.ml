@@ -42,8 +42,6 @@ type t = node_defs NI.Map.t
 let empty = NI.Map.empty
 
 let enabled () =
-  Flags.Smt.define_fun_rec ()
-  &&
   (* Only the solvers that accept recursive function definitions *)
   (match Flags.Smt.solver () with
    | `cvc5_SMTLIB | `Z3_SMTLIB -> true
@@ -122,18 +120,30 @@ let is_lemma node =
   | Some { N.is_lemma } -> is_lemma
   | None -> false
 
-(* A recursive function is eligible for a definition if there is no contract
-   to abstract its recursive calls with, or if it is transparent, i.e. its
-   contract is never to be used in place of its body.
+(* Whether the contract of a recursive function stands in for its body past
+   its unrollings, in which case the function is not defined: its functional
+   symbols are left uninterpreted, and the transition system constrains them
+   by the contract at every cutoff of the function.
 
    A contract abstracts the function through its guarantees and the ensures
-   of its modes, be they explicit or from a refinement type of an output. An assumption
-   (explicit, or from a refinement or subrange type of an input) is an
-   obligation of the callers instead, which the transition system keeps at
-   every call: it does not stand in the way of a definition. *)
-let eligible node =
-  not (N.has_effective_contract node)
-  || node.N.opacity = Opacity.Transparent
+   of its modes, be they explicit or from a refinement type of an output. An
+   assumption (explicit, or from a refinement or subrange type of an input)
+   is an obligation of the callers instead, which the transition system keeps
+   at every call: it does not stand in the way of a definition. A function
+   with nothing to abstract it with, or declared transparent, is never
+   abstracted; an opaque function with a contract always is; and the contract
+   of a translucent function stands in for its body in a compositional
+   analysis only. *)
+let contract_abstracts node =
+  N.has_effective_contract node
+  && (match node.N.opacity with
+      | Opacity.Transparent -> false
+      | Opacity.Opaque -> true
+      | Opacity.Translucent -> Flags.Contracts.compositional ())
+
+(* A recursive function is eligible for a definition if its contract does not
+   abstract it in the current analysis *)
+let eligible node = not (contract_abstracts node)
 
 (* The equations and calls of a node, by the state variable they define *)
 type svar_def =
@@ -474,9 +484,11 @@ let block_of_scc nodes scc_id members =
 
 module IMap = Map.Make (Int)
 
-let compute ~adt_junk_ufs nodes =
+(* The definitions of the recursive groups of the functions [applied], and
+   of the groups their definitions call *)
+let compute_for ~adt_junk_ufs applied nodes =
 
-  if not (enabled ()) then empty else
+  if not (enabled ()) || NI.Set.is_empty applied then empty else
 
     (* The recursive groups, by identifier *)
     let sccs =
@@ -495,13 +507,38 @@ let compute ~adt_junk_ufs nodes =
         nodes
     in
 
-    (* The groups to define: every function of the group must be eligible and
-       definable *)
+    (* The groups the applied functions and their definitions call, by
+       following the calls of the nodes from the applied functions *)
+    let needed_sccs =
+      let rec visit (seen, sccs) node_id =
+        if NI.Set.mem node_id seen then seen, sccs
+        else
+          match N.node_of_node_id node_id nodes with
+          | exception Not_found -> seen, sccs
+          | node ->
+            let sccs =
+              match scc_of_node node with
+              | Some scc_id -> scc_id :: sccs
+              | None -> sccs
+            in
+            List.fold_left
+              (fun acc { N.call_node_id } -> visit acc call_node_id)
+              (NI.Set.add node_id seen, sccs)
+              node.N.calls
+      in
+      NI.Set.fold (fun node_id acc -> visit acc node_id) applied
+        (NI.Set.empty, [])
+      |> snd
+    in
+
+    (* The groups to define: needed, and every function of the group
+       eligible and definable *)
     let memo = ref NI.Map.empty in
     let defined_sccs =
       IMap.filter
-        (fun _ members ->
-           List.for_all
+        (fun scc_id members ->
+           List.mem scc_id needed_sccs
+           && List.for_all
              (fun node -> eligible node && definable nodes memo node)
              members)
         sccs
@@ -605,3 +642,28 @@ let compute ~adt_junk_ufs nodes =
              members)
         defined_sccs
         NI.Map.empty
+
+
+let compute ~adt_junk_ufs nodes =
+  (* The recursive functions a call applied to quantified variables applies
+     the functional symbol of *)
+  let applied =
+    List.fold_left
+      (fun acc { N.calls } ->
+         List.fold_left
+           (fun acc { N.call_uf_applied; N.call_node_id } ->
+              if call_uf_applied then NI.Set.add call_node_id acc else acc)
+           acc calls)
+      NI.Set.empty nodes
+  in
+  compute_for ~adt_junk_ufs applied nodes
+
+let compute_all ~adt_junk_ufs nodes =
+  let recursive =
+    List.fold_left
+      (fun acc node ->
+         if N.is_recursive node && eligible node
+         then NI.Set.add node.N.node_id acc else acc)
+      NI.Set.empty nodes
+  in
+  compute_for ~adt_junk_ufs recursive nodes

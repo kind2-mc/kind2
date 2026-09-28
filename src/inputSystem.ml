@@ -169,6 +169,7 @@ let maximal_abstraction_for_testgen (type s)
         A.top = top ;
         A.uid = get_testgen_uid () ;
         A.abstraction_map = map ;
+        A.unrollings = Scope.Map.empty ;
         A.assumptions = assumptions ;
       }
     )
@@ -268,6 +269,7 @@ let moxi_params (type s) (input_system : s t) =
       A.top = sub.S.scope ;
       A.uid = A.get_uid () ;
       A.abstraction_map = Scope.Map.empty ;
+      A.unrollings = Scope.Map.empty ;
       A.assumptions = Scope.Map.empty ;
     }
   in
@@ -297,6 +299,7 @@ let mcs_params (type s) (input_system : s t) =
       A.top = scope ;
       A.uid = A.get_uid () ;
       A.abstraction_map = abstraction_map ;
+      A.unrollings = Scope.Map.empty ;
       A.assumptions = Scope.Map.empty ;
     }
   in
@@ -347,6 +350,7 @@ let contract_check_params (type s) (input_system : s t) =
           )
           (Scope.Map.singleton scope true)
           subsystems;
+      A.unrollings = Scope.Map.empty ;
       A.assumptions = Scope.Map.empty ;
     }, sub.S.has_contract)
   in
@@ -398,6 +402,7 @@ let interpreter_param (type s) (input_system : s t) =
     A.top = scope ;
     A.uid = A.get_uid () ;
     A.abstraction_map = abstraction_map ;
+    A.unrollings = Scope.Map.empty ;
     A.assumptions = Scope.Map.empty ;
   }
 
@@ -1237,6 +1242,7 @@ let monitor_param (type s) (input_system : s t) =
     A.top = scope ;
     A.uid = A.get_uid () ;
     A.abstraction_map = abstraction_map ; 
+    A.unrollings = Scope.Map.empty ;
     A.assumptions = Scope.Map.empty ;
   }
 
