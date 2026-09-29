@@ -1558,6 +1558,9 @@ module ReservedIds = struct
   (* Value of a recursive call whose termination checks fail, in the SMT-level
      definition of a recursive function *)
   let undefined_call = "__undefined_call"
+  (* Definition of an output of a function that is neither recursive nor
+     imported, in the SMT-level definition of a recursive function *)
+  let function_definition = "__function_definition"
   
   (* Init flag string. *)
   let init_flag_string = "__init_flag"
@@ -1572,6 +1575,7 @@ module ReservedIds = struct
     max_depth_input_string ;
     function_of_inputs ;
     undefined_call ;
+    function_definition ;
 
     abs_ident_string ;
     oracle_ident_string ;

@@ -3907,7 +3907,9 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                 else LustreFunDefs.blocks_of_node !check_fun_defs node_id)
               ~check_ufs:(
                 if is_defined || not options.add_functional_constraints then []
-                else LustreFunDefs.ufs_of_node !check_fun_defs node_id)
+                else
+                  LustreFunDefs.ufs_of_node !check_fun_defs node_id
+                  @ LustreFunDefs.helper_ufs_of_node !check_fun_defs node_id)
               scope
               None (* instance_state_var *)
               init_flag

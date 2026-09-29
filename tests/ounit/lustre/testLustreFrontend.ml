@@ -1427,3 +1427,42 @@ let _ = run_test_tt_main ("frontend LustreAst printing tests" >::: [
     let e = LustreAst.ADTTester (pos, LustreAst.Ident (pos, hs "x"), hs "List<int>$Cons") in
     Format.asprintf "%a" LustreAst.pp_print_expr e = "Cons?(x)");
 ])
+
+(* *************************************************************************** *)
+(*                              LustreFunDefs                                  *)
+(* *************************************************************************** *)
+
+(* The size of the definitions of the recursive function [F] of the model, as
+   the length of their printed bodies *)
+let size_of_definitions file =
+  Flags.Smt.set_solver `Z3_SMTLIB ;
+  match LustreInput.of_file false file with
+  | Ok (Some (subsystems, globals, _)) ->
+    let nodes =
+      SubSystem.all_subsystems_of_list subsystems
+      |> List.concat_map LustreNode.nodes_of_subsystem
+    in
+    let f =
+      List.find
+        (fun { LustreNode.node_id ; _ } ->
+          HString.string_of_hstring (NodeId.get_name node_id) = "F")
+        nodes
+    in
+    let defs =
+      LustreFunDefs.compute_all
+        ~adt_junk_ufs:globals.LustreGlobals.adt_junk_ufs nodes
+    in
+    LustreFunDefs.blocks_of_node defs f.LustreNode.node_id
+    |> List.concat
+    |> List.fold_left
+      (fun acc (_, _, body) -> acc + String.length (Term.string_of_term body))
+      0
+  | _ -> assert_failure "the model does not load"
+
+let _ = run_test_tt_main ("LustreFunDefs tests" >::: [
+  "definition of a helper chain is linear in its depth" >:: (fun _ ->
+    let size = size_of_definitions "./lustreFunDefs/helper_chain.lus" in
+    assert_bool
+      (Format.sprintf "definitions of %d characters" size)
+      (size > 0 && size < 10_000));
+])
