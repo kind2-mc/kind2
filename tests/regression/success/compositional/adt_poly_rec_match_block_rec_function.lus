@@ -1,3 +1,6 @@
+-- The guarantee of Length and the check in main need induction over the
+-- recursion: the contract of Length abstracts its recursive call in a
+-- compositional analysis, which is what makes them provable.
 datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
 
 function rec Length (l: List<int>) returns (n: int)
