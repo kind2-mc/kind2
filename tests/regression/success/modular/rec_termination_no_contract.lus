@@ -1,0 +1,28 @@
+-- Recursive functions with no contract and no property. The analysis of
+-- each still checks the termination of its recursive calls, and proves it;
+-- test_rec_termination_checked.py checks that the checks are there.
+type Nat = subrange [0,*] of int;
+
+function rec IsEven(n: Nat) returns (e: bool);
+(*@contract
+  decreases n;
+*)
+let
+  e = when n = 0 then true else IsOdd(n - 1);
+tel
+
+function rec IsOdd(n: Nat) returns (o: bool);
+(*@contract
+  decreases n;
+*)
+let
+  o = when n = 0 then false else IsEven(n - 1);
+tel
+
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
