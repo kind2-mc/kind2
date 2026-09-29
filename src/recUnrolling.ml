@@ -94,27 +94,61 @@ let facts : Term.t Facts.t = Facts.create 64
 
 (* The calls of the round whose function's defining equation is
    instantiated at their arguments in the round's solver, and the
-   applications of the defined functions in those instances *)
+   applications of the defined functions in those instances, each with
+   the condition under which the instance executes it *)
 let instantiated : Term.t Facts.t = Facts.create 16
-let pending : (UfSymbol.t * Term.t list) list ref = ref []
+let pending : (UfSymbol.t * Term.t list * Term.t) list ref = ref []
 
-(* The applications of the defined symbols in a term *)
+(* The applications of the defined symbols in a term, each with the
+   condition under which the term executes it: the conditions of the
+   branches of the if-then-elses it is under. The let bindings the
+   applications are under are substituted into their arguments and
+   conditions, which are terms whose values are asked of the solver, and
+   the solver knows nothing of the variables the lets bind. An application
+   under a quantifier, whose arguments are not closed, is left out.
+
+   An application on a branch the model does not take is not executed,
+   and must not be evaluated: the branch that ends the recursion of a
+   function applies it again on the other branch, at arguments the
+   recursion never reaches, and evaluating the function there would go on
+   past the end of the recursion. *)
 let applications definitions term =
   let defined uf =
     List.exists (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') definitions
   in
-  let acc = ref [] in
-  Term.map
-    (fun _ t ->
-       ( match Term.node_of_term t with
-         | Term.T.Node (s, args) when Symbol.is_uf s ->
-           let uf = Symbol.uf_of_symbol s in
-           if defined uf then acc := (uf, args) :: !acc
-         | _ -> () ) ;
-       t)
+  let closed t = Var.VarSet.is_empty (Term.vars_of_term t) in
+  let add calls ((uf, args, guard) as call) =
+    if List.exists
+         (fun (uf', args', guard') ->
+            FactKey.equal (uf, args) (uf', args')
+            && List.equal Term.equal guard guard')
+         calls
+    then calls
+    else call :: calls
+  in
+  let under cond calls =
+    List.map (fun (uf, args, guard) -> (uf, args, cond :: guard)) calls
+  in
+  Term.eval_t ~fail_on_quantifiers:false
+    (fun flat calls ->
+       match flat, calls with
+       | Term.T.App (s, [ cond ; _ ; _ ]), [ in_cond ; in_then ; in_else ]
+         when Symbol.equal_symbols s Symbol.s_ite ->
+         if closed cond then
+           List.fold_left add in_cond
+             (under cond in_then @ under (Term.mk_not cond) in_else)
+         else
+           List.fold_left add in_cond (in_then @ in_else)
+       | Term.T.App (s, args), _ ->
+         let calls = List.fold_left (List.fold_left add) [] calls in
+         if Symbol.is_uf s
+         && defined (Symbol.uf_of_symbol s)
+         && List.for_all closed args
+         then add calls (Symbol.uf_of_symbol s, args, [])
+         else calls
+       | _, calls -> List.concat calls)
     term
-  |> ignore ;
-  !acc
+  |> List.map (fun (uf, args, guard) -> (uf, args, Term.mk_and guard))
 
 let fact_term (uf, args) value = Term.mk_eq [ Term.mk_uf uf args ; value ]
 
@@ -369,7 +403,7 @@ let genuine sys prop cex =
               Term.bump_state i active :: List.map (fun sv -> var_at sv i) inputs)
            instances)
       steps
-    @ List.concat_map (fun (_, args) -> args) !pending
+    @ List.concat_map (fun (_, args, guard) -> guard :: args) !pending
   in
   (* The calls the model executes that are not facts yet, or [None] if one
      of them cannot be evaluated: those of the instances past the
@@ -381,10 +415,14 @@ let genuine sys prop cex =
     in
     let from_pending =
       List.fold_left
-        (fun acc (uf, args) ->
+        (fun acc (uf, args, guard) ->
            match acc with
            | None -> None
            | Some calls ->
+             match value_of guard with
+             | None -> None
+             | Some (_, v) when not (Term.equal v Term.t_true) -> Some calls
+             | Some _ ->
              let args = List.map value_of args in
              if List.exists Option.is_none args then None
              else
