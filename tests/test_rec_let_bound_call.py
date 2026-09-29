@@ -12,10 +12,15 @@ instance of F at 0 applies F at -50 on its other branch, and evaluating that
 call went on past the end of the recursion until the rounds of evaluation ran
 out. Either way, with no unrollings left, the falsifiable property was left
 unknown.
+
+The lazy operators "and then", "or else" and "==>" are if-then-elses too,
+and the calls on the side they do not evaluate are not collected either.
 """
 
 import json
 import subprocess
+
+import pytest
 
 from conftest import common_args, kind2_bin, run_timeout
 
@@ -38,8 +43,41 @@ tel
 """
 
 
-def test_counterexample_past_cutoff_with_let_bound_call(tmp_path):
-    path = tmp_path / "rec_let_bound_call.lus"
+def lazy_model(body):
+    return f"""
+function imported E (x: int) returns (z: bool);
+
+function rec F (n: int) returns (r: bool);
+(*@contract
+  decreases n;
+*)
+let
+  r = {body};
+tel
+
+node main (n: int) returns (u: bool);
+let
+  u = true;
+  check "p" n = 12 => not F(n);
+tel
+"""
+
+
+cases = {
+    "let_bound_call": model,
+    "and_then_or_else": lazy_model(
+        "(n <= 10 and then E(n)) or else (n > 10 and then F(n - 1))"
+    ),
+    "lazy_implication": lazy_model(
+        "(n > 10 ==> F(n - 1)) and then (n <= 10 ==> E(n))"
+    ),
+}
+
+
+@pytest.mark.parametrize("case", cases)
+def test_counterexample_past_cutoff_is_evaluated(tmp_path, case):
+    model = cases[case]
+    path = tmp_path / f"rec_{case}.lus"
     path.write_text(model)
     args = common_args | {"--timeout": "60", "--rec_unrollings": "0"}
     arg_list = [arg for pair in args.items() for arg in pair]
