@@ -76,6 +76,16 @@ def enabled_test_cases(config):
 # Where to find the regression tests
 regression_dir = Path("regression").absolute()
 
+# Regression tests that are skipped, relative to the regression tree, with
+# the reason. Each is a test that a released solver cannot run; remove it
+# once a release fixes the solver.
+skipped_tests = {
+    "falsifiable/msg_enc_commutative.lus": (
+        "Z3 5.1.0 crashes on it (https://github.com/Z3Prover/z3/issues/10969,"
+        " fixed upstream but not released yet)"
+    ),
+}
+
 # Extra files to test with a fixed expected result, as (path, expected) pairs
 extra_files = [
     (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
@@ -370,6 +380,10 @@ class LustreItem(pytest.Item):
         )
 
     def runtest(self):
+        skip_reason = skipped_tests.get("/".join(self._regression_parts()))
+        if skip_reason is not None:
+            pytest.skip(skip_reason)
+
         if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
             pytest.skip(f"{ic3ia_solver} is not installed")
 
