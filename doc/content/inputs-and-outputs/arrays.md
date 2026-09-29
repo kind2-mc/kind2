@@ -532,6 +532,12 @@ use the builtin theory of arrays of the solvers instead. If you want to try it,
 it’s probably a good idea to use it in combination of `--smtlogic detect` for
 better performances.
 
+Kind 2 turns this option on by itself when a recursive function with an
+array-typed input is defined at the SMT level (see the section on
+[recursive functions]({{< relref "/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})), since the solvers
+do not handle the definition well with the ad-hoc selection functions. Give
+`--smt_arrays false` to keep them.
+
 #### `--inline_arrays`
 
 By default, Kind 2 will generate problems with quantifiers for arrays which

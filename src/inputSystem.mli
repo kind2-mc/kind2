@@ -48,6 +48,11 @@ val read_input_native : string -> TransSys.t t
 (** Read MoXI input from file *)
 val read_input_moxi : string -> TransSys.t t option
 
+(** [true] iff a recursive function of a Lustre input system is to be
+    defined at the SMT level, and it, or a function it calls, has an
+    array-typed input (see {!LustreFunDefs.defines_array_input}). *)
+val defines_array_input : 'a t -> bool
+
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)
 val ordered_scopes_of : 'a t -> Scope.t list

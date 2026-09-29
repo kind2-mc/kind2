@@ -1054,7 +1054,9 @@ reason: the body is not a total function of its inputs that the solver can
 be given (an assertion, an array-typed output or local variable, a call to
 a function whose outputs are not all defined by equations), or the solver or
 logic does not take recursive definitions (Z3 and cvc5 do, under the
-inferred logic).
+inferred logic). When a function with an array-typed input is defined, Kind 2
+uses the theory of arrays in the solvers, as with `--smt_arrays true`, unless
+the option is given explicitly.
 
 ### Benefits and limitations
 

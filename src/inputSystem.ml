@@ -64,6 +64,13 @@ let read_input_moxi input_file =
 
 (*let read_input_horn input_file = assert false*)
 
+let defines_array_input (type s) : s t -> bool = function
+  | Lustre (main_subs, _, _) ->
+    S.all_subsystems_of_list main_subs
+    |> List.map (fun { S.source } -> source)
+    |> LustreFunDefs.defines_array_input
+  | Moxi _ | Native _ | Horn _ -> false
+
 let ordered_scopes_of (type s) : s t -> Scope.t list = function
   | Lustre (main_subs, _, _) ->
     S.all_subsystems_of_list main_subs

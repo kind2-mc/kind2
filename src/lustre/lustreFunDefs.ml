@@ -252,6 +252,39 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node
         (true, SVS.empty)
       |> fst)
 
+(* Whether a definable recursive function, or a function it calls, has an
+   array-typed input. An over-approximation of the definitions that
+   [compute_for] may build with an array parameter, whatever the analysis *)
+let defines_array_input nodes =
+  let array_input { N.inputs } =
+    D.values inputs
+    |> List.exists (fun sv -> Type.is_array (StateVar.type_of_state_var sv))
+  in
+  let rec reaches_array_input seen node_id =
+    if NI.Set.mem node_id seen then false, seen
+    else
+      let seen = NI.Set.add node_id seen in
+      match N.node_of_node_id node_id nodes with
+      | exception Not_found -> false, seen
+      | node ->
+        if array_input node then true, seen
+        else
+          List.fold_left
+            (fun (found, seen) { N.call_node_id } ->
+               if found then found, seen
+               else reaches_array_input seen call_node_id)
+            (false, seen)
+            node.N.calls
+  in
+  let memo = ref NI.Map.empty in
+  enabled ()
+  && List.exists
+    (fun node ->
+       N.is_recursive node
+       && definable nodes memo node
+       && fst (reaches_array_input NI.Set.empty node.N.node_id))
+    nodes
+
 
 (* ********************************************************************** *)
 (* Definitions                                                            *)

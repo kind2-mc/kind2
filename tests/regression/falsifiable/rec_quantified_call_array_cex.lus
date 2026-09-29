@@ -1,0 +1,22 @@
+-- A falsifiable property next to a valid one, both quantified over calls to a
+-- recursive function with an array parameter. With the arrays encoded as an
+-- uninterpreted sort, Z3 did not find a model of the valid quantified
+-- property, and the counterexample to the other one was never found: the
+-- analysis ran until its timeout. Kind 2 uses the theory of arrays for such
+-- a program instead.
+
+-- The number of occurrences of x in the first n elements of a
+function rec Count(a: int^3; x: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r =
+    when n <= 0 or n > 3 then 0
+    else Count(a, x, n - 1) + (if a[n - 1] = x then 1 else 0);
+tel
+
+node Test(b: int^3) returns ();
+let
+  check "valid" forall (x: int) x <> b[0] => Count(b, x, 1) = 0;
+  -- Falsified when the three elements of b are equal
+  check "falsifiable" forall (y: int) Count(b, y, 3) <= 2;
+tel
