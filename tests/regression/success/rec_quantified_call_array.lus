@@ -1,0 +1,25 @@
+-- Quantified calls to recursive functions with an array parameter. The array
+-- input does not prevent the definition of the functional symbol, whose body
+-- selects in the array: without it, the symbol is an arbitrary function under
+-- the quantifier, and the properties are falsified (issue #1597).
+
+function rec F(a: int^1; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then a[0] else F(a, n - 1);
+tel
+
+-- The number of occurrences of x in the first n elements of a
+function rec Count(a: int^3; x: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r =
+    when n <= 0 or n > 3 then 0
+    else Count(a, x, n - 1) + (if a[n - 1] = x then 1 else 0);
+tel
+
+node Test(a: int^1; b: int^3) returns ();
+let
+  check "const_index" forall (k: int) k <= 0 => F(a, k) = a[0];
+  check "var_index" forall (x: int) x <> b[0] => Count(b, x, 1) = 0;
+tel

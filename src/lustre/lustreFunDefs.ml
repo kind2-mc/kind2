@@ -180,13 +180,13 @@ let deps_of_def = function
     | Some sv -> SVS.add sv deps
     | None -> deps
 
-let all_svars { N.inputs; N.outputs; N.locals } =
-  D.values inputs
-  @ D.values outputs
-  @ List.concat_map D.values locals
+(* The state variables of a node other than its inputs *)
+let defined_svars { N.outputs; N.locals } =
+  D.values outputs @ List.concat_map D.values locals
 
 (* Whether the body of a function is a total function of its inputs that a
-   definition can be built from: no assertion, oracle or array; every output
+   definition can be built from: no assertion or oracle, and no array but the
+   inputs (whose selects are terms of the definition); every output
    defined, through equations and calls only, from the inputs (and global
    constants); and every callee recursive, imported, or itself definable
    (memoized in [memo]; a function in progress is not definable, which only
@@ -244,7 +244,7 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node
   && node.N.oracles = []
   && node.N.asserts = []
   && List.for_all (fun ((_, bounds), _) -> bounds = []) equations
-  && List.for_all no_array (all_svars node)
+  && List.for_all no_array (defined_svars node)
   && List.for_all call_ok calls
   && (D.values outputs
       |> List.fold_left
@@ -451,11 +451,14 @@ let body_of_output bindings output =
       bindings
   in
   (* [kept] is in dependency order: nest the bindings from the innermost
-     (last) one *)
+     (last) one. Without the theory of arrays, a select of an array input
+     is encoded as the application of its select symbol, as in the
+     transition relation *)
   List.fold_right
     (fun binding body -> Term.mk_let [binding] body)
     kept
     (Term.mk_var output_var)
+  |> Term.convert_select
 
 (* The uninterpreted function symbols applied by a term *)
 let ufs_of_term term =
