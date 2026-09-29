@@ -1,0 +1,7 @@
+-- A guarantee on an input is realizable when the assumption implies it.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  assume x > 0;
+  guarantee x > 0 and y = x;
+*)

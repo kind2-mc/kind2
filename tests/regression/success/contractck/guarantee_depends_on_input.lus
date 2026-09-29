@@ -1,0 +1,6 @@
+-- The output can always be chosen after the input is known.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y > x;
+*)

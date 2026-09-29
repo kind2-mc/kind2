@@ -1190,7 +1190,15 @@ let get_qe_z3 solver expr =
   let res =
     (* Execute custom command *)
     let arg =
-      if Flags.Smt.z3_qe_light () then "(then qe-light qe2)" else "qe"
+      (* Apply qe2 only if qe-light leaves quantifiers. Since Z3 5.0
+         (Z3Prover/z3#9970), qe2 decides the satisfiability of a
+         quantifier-free goal instead of eliminating quantifiers, and
+         returns the empty goal (true) if it is satisfiable. The result
+         is equisatisfiable, but we need an equivalent formula.
+         See https://github.com/Z3Prover/z3/issues/10646 *)
+      if Flags.Smt.z3_qe_light () then
+        "(then qe-light (cond has-quantifiers qe2 skip))"
+      else "qe"
     in
     match execute_custom_command solver "apply" [SMTExpr.ArgString arg] 1 with
     | `Custom r ->

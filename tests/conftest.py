@@ -119,8 +119,9 @@ ic3ia_solver = "mathsat"
 # Tests under a directory with this name run the contract checker rather than
 # the verification engines, which is the only way to reach the realizability
 # path from the regression tree. A `success` case there means every contract
-# was found realizable; `error` means Kind 2 rejected the model before getting
-# that far.
+# was found realizable; `falsifiable` means some contract, or the environment
+# of some contract, was found unrealizable; `error` means Kind 2 rejected the
+# model before getting that far.
 contractck_dir_name = "contractck"
 contractck_args = {"--enable": "CONTRACTCK"}
 

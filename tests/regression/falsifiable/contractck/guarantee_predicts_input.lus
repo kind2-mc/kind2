@@ -1,0 +1,6 @@
+-- The output would have to predict the next input.
+
+node imported F(x: int) returns (y: int);
+(*@contract
+  guarantee true -> pre y = x;
+*)

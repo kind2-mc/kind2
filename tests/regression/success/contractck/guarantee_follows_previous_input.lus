@@ -1,0 +1,6 @@
+-- The output may depend on the previous input, which is known.
+
+node imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y = (0 -> pre x);
+*)

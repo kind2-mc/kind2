@@ -1,0 +1,8 @@
+-- The guarantee constrains only inputs, and is violated after the first
+-- step, so the contract is unrealizable in the inductive case rather than
+-- in the initial state.
+
+node imported F(x: int) returns (y: int);
+(*@contract
+  guarantee true -> x > pre x;
+*)

@@ -1,0 +1,6 @@
+-- No value of the output satisfies both conjuncts, whatever the input.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y > 0 and y < 0;
+*)
