@@ -1,0 +1,25 @@
+-- The definition of F applies the definition of C, a function with no
+-- input, rather than inlining its body. The value of F(0, 0) depends on the
+-- imported E, so the supervisor instantiates the definition of F at (0, 0)
+-- to check a counterexample, and the value of C() must then be that of its
+-- body: it used to be left to the solver, which falsified "p".
+function C () returns (y: int);
+let
+  y = 5;
+tel
+
+function imported E (x: int) returns (z: int);
+
+function rec F (n, m: int) returns (r: int);
+con
+  decreases n;
+noc
+let
+  r = when n <= 0 then (if E(n) > 0 then C() else -C()) else F(m, m);
+tel
+
+node main (n: int) returns (u: bool);
+let
+  u = true;
+  check "p" n = 1 => (F(n, 0) = 5 or F(n, 0) = -5);
+tel

@@ -221,6 +221,11 @@ type t =
     check_ufs : UfSymbol.t list;
     (** The uninterpreted symbols [check_defs] apply *)
 
+    check_helpers : UfSymbol.t list;
+    (** The symbols [check_defs] define for the functions that are neither
+        recursive nor imported, which the supervisor expands where it
+        instantiates a defining equation (see [RecUnrolling]) *)
+
     rec_cutoff : Scope.t option;
     (** [Some f] if this system is the cutoff of the unrolling of the
         recursive function [f]: an instance of [f] past the number of
@@ -1314,6 +1319,40 @@ let check_definitions trans_sys =
          acc t.check_defs)
     [] trans_sys
 
+(* Define the functions that are neither recursive nor imported that the
+   check definitions apply, each once, in dependency order *)
+let define_check_helpers trans_sys define =
+  let helpers =
+    fold_subsystems ~include_top:true
+      (fun acc t -> t.check_helpers @ acc) [] trans_sys
+  in
+  fold_subsystems ~include_top:true
+    (fun defined t ->
+       List.fold_left
+         (fun defined block ->
+            List.fold_left
+              (fun defined (uf, formals, body) ->
+                 if List.exists (UfSymbol.equal_uf_symbols uf) helpers
+                 && not (UfSymbol.UfSymbolSet.mem uf defined)
+                 then (
+                   define uf formals body ;
+                   UfSymbol.UfSymbolSet.add uf defined)
+                 else defined)
+              defined block)
+         defined t.check_defs)
+    UfSymbol.UfSymbolSet.empty trans_sys
+  |> ignore
+
+let check_helper_symbols trans_sys =
+  fold_subsystems ~include_top:true
+    (fun acc t ->
+       List.fold_left
+         (fun acc uf ->
+            if List.exists (UfSymbol.equal_uf_symbols uf) acc then acc
+            else uf :: acc)
+         acc t.check_helpers)
+    [] trans_sys
+
 (* Declare the sorts of the system and give the check definitions of its
    systems, and nothing else *)
 let define_check_defs trans_sys ~define_rec declare declare_sort =
@@ -1419,7 +1458,16 @@ let define_and_declare_of_bounds
 
   (* Define recursive functions of top system *)
   define_fun_defs trans_sys defined define_rec |> ignore ;
-       
+
+  (* The definitions of the functions that are neither recursive nor
+     imported, which the definitions for the supervisor's evaluation apply,
+     for a solver that is given instances of those definitions rather than
+     the definitions: they are not recursive, and the solver is given them
+     rather than left to choose their values. They come last, as their
+     bodies may apply the functional symbols of recursive functions, which
+     the subsystems declare. *)
+  if with_check_ufs then define_check_helpers trans_sys define ;
+
   (* Declare constant state variables of top system *)
   declare_vars_of_bounds trans_sys declare lbound ubound
        
@@ -2063,6 +2111,7 @@ let mk_trans_sys
   ?(fun_defs = [])
   ?(check_defs = [])
   ?(check_ufs = [])
+  ?(check_helpers = [])
   ?rec_cutoff
   ?(rec_cutoff_io = ([], []))
   scope
@@ -2355,6 +2404,7 @@ let mk_trans_sys
       is_visible;
       check_defs;
       check_ufs;
+      check_helpers;
       rec_cutoff;
       rec_cutoff_io;
       datatype_types;}

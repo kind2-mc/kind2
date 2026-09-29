@@ -126,9 +126,10 @@ val blocks_of_node : t -> NodeId.t -> block list
 val ufs_of_node : t -> NodeId.t -> UfSymbol.t list
 
 (** The symbols the blocks of the given function define for the functions
-    that are neither recursive nor imported, to be declared by a solver that
-    is given instances of the defining equations rather than the
-    definitions; empty if the function is not defined *)
+    that are neither recursive nor imported; empty if the function is not
+    defined. A solver that is given instances of the defining equations
+    rather than the definitions expands their applications into the bodies
+    of their definitions, as the definitions used to be built. *)
 val helper_ufs_of_node : t -> NodeId.t -> UfSymbol.t list
 
 (** [bounded_below ms] states that every component of the measure [ms] is

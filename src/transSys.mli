@@ -307,6 +307,7 @@ val mk_trans_sys :
   ?fun_defs:fun_def list list ->
   ?check_defs:fun_def list list ->
   ?check_ufs:UfSymbol.t list ->
+  ?check_helpers:UfSymbol.t list ->
   ?rec_cutoff:Scope.t ->
   ?rec_cutoff_io:(StateVar.t list * (StateVar.t * UfSymbol.t) list) ->
 
@@ -808,6 +809,13 @@ val cutoff_functions : t -> Scope.t list
     for the supervisor (see [define_check_defs]), each once: the symbol, its
     formal parameters and its body *)
 val check_definitions : t -> fun_def list
+
+(** The symbols among [check_definitions] that define functions that are
+    neither recursive nor imported, each once. The definitions that call
+    such a function apply these symbols rather than inline its body (see
+    [LustreFunDefs]), and the supervisor expands them where it instantiates
+    a defining equation. *)
+val check_helper_symbols : t -> UfSymbol.t list
 
 (** [define_check_defs t ~define_rec declare declare_sort] declares the
     sorts of [t] and gives the definitions of the recursive functions its
