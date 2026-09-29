@@ -21,10 +21,13 @@ type t = {
   timeout_ms : int ;
   define : SMTSolver.t -> unit ;
   mutable solver : SMTSolver.t option ;
+  (* Whether the solver failed on the definitions, which it would fail on
+     again: no solver is started anymore *)
+  mutable failed : bool ;
 }
 
 let create ~logic ~timeout_ms define =
-  { logic ; timeout_ms ; define ; solver = None }
+  { logic ; timeout_ms ; define ; solver = None ; failed = false }
 
 let delete t =
   ( match t.solver with
@@ -48,17 +51,25 @@ let set_per_query_timeout ~ms solver =
     true
   | None -> false
 
+exception Failed
+
+(* The solver of the evaluator, started with the definitions if it is not
+   running. It is kept before it is given the definitions, so that [delete]
+   stops it if they fail. *)
 let solver_of t =
   match t.solver with
   | Some solver -> solver
+  | None when t.failed -> raise Failed
   | None ->
     let solver =
       SMTSolver.create_instance ~produce_models:true t.logic
         (Flags.Smt.solver ())
     in
-    set_per_query_timeout ~ms:t.timeout_ms solver |> ignore ;
-    t.define solver ;
     t.solver <- Some solver ;
+    ( try
+        set_per_query_timeout ~ms:t.timeout_ms solver |> ignore ;
+        t.define solver
+      with e -> t.failed <- true ; raise e ) ;
     solver
 
 let evaluate t uf args =
@@ -99,6 +110,7 @@ let evaluate t uf args =
     SMTSolver.pop solver ;
     value
   with
+  | Failed -> `Unknown
   (* The solver was killed on its timeout, the instance is gone *)
   | SMTSolver.Timeout -> t.solver <- None ; `Unknown
   | SMTSolver.Unknown -> delete t ; `Unknown

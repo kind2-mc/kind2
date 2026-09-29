@@ -2679,10 +2679,16 @@ end)
 type evaluation = {
   (* The nodes of the system before slicing *)
   eval_nodes : N.t list;
-  (* The definitions of the functions evaluated, which are not given to the
-     engines (see [LustreFunDefs.compute_evaluable]) *)
-  eval_defs : LustreFunDefs.t;
-  evaluator : evaluator;
+  (* The recursive functions proved terminating, with every recursive
+     function they may call: those whose calls are evaluated *)
+  candidates : NI.Set.t;
+  (* The evaluator of each candidate a call at constant arguments was found
+     to, with the definitions of the functions its own depends on, or
+     [None] if they cannot be defined. The definitions are only built for
+     the functions a call needs: inlining the functions a definition calls
+     can make it large (see [LustreFunDefs]). *)
+  mutable evaluators : evaluator option NI.Map.t;
+  mk_evaluator : NI.t -> evaluator option;
   (* The values of the calls evaluated so far, by functional symbol and
      arguments, or [None] for a call without a unique value *)
   values : Term.t option CallTbl.t;
@@ -2694,6 +2700,60 @@ let evaluation_timeout = 1000
 (* The scope of the system of a node, without the tag of an unrolling *)
 let base_scope_of_node_id node_id =
   [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+
+(* The evaluator of the calls to [node_id], made on the first call that
+   needs it *)
+let evaluator_of evaluation node_id =
+  match NI.Map.find_opt node_id evaluation.evaluators with
+  | Some evaluator -> evaluator
+  | None ->
+    let evaluator = evaluation.mk_evaluator node_id in
+    evaluation.evaluators <-
+      NI.Map.add node_id evaluator evaluation.evaluators ;
+    evaluator
+
+let delete_evaluation { evaluators } =
+  NI.Map.iter (fun _ -> Option.iter (fun { delete } -> delete ())) evaluators
+
+(* An evaluator of [node_id] with its definition, and those of the functions
+   it may call, if they can be defined *)
+let evaluator_of_definitions globals mk_evaluator nodes node_id =
+  let eval_defs =
+    LustreFunDefs.compute_evaluable
+      ~adt_junk_ufs:globals.G.adt_junk_ufs (NI.Set.singleton node_id) nodes
+  in
+  if not (LustreFunDefs.is_defined eval_defs node_id) then None
+  else
+    let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
+    let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
+    let logic =
+      let of_def (uf, formals, body) =
+        TermLib.sup_logics
+          (TermLib.logic_of_term [] body
+           :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
+           :: List.map (fun v -> TermLib.logic_of_sort (Var.type_of_var v))
+             formals)
+      in
+      `Inferred
+        TermLib.FeatureSet.(
+          TermLib.sup_logics (List.concat_map (List.map of_def) blocks)
+          |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
+    in
+    (* The sorts, then the symbols the definitions apply, then the
+       definitions, which are in dependency order *)
+    let define ~declare_sort ~declare_fun ~define_rec =
+      Type.get_all_abstr_types () |>
+      List.iter (fun ty -> match Type.node_of_type ty with
+        | Type.Abstr _ -> declare_sort ty
+        | _ -> ());
+      globals.G.recursive_datatypes |>
+      List.iter (fun ty -> match Type.node_of_type ty with
+        | Type.Datatype _ -> declare_sort ty
+        | _ -> ());
+      List.iter declare_fun ufs ;
+      List.iter define_rec blocks
+    in
+    Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
 
 (* The evaluation of the calls of the analysis to the recursive functions
    proved terminating, if any *)
@@ -2736,92 +2796,57 @@ let evaluation_of_param globals options analysis_param nodes =
             calls
     in
     (* A function is evaluated when every recursive function its body may
-       call, itself included, is proved terminating *)
-    let rec all_terminating seen node_id =
-      NI.Set.mem node_id seen ||
-      match N.node_of_node_id node_id nodes with
-      | exception Not_found -> false
-      | node ->
-        proved_terminating node
-        && List.for_all
-          (fun { N.call_node_id } ->
-             all_terminating (NI.Set.add node_id seen) call_node_id)
-          node.N.calls
+       call, itself included, is proved terminating. The nodes that may
+       call one that is not, or one that is not known, are found by
+       following the calls backwards from those, each node once. *)
+    let is_known node_id =
+      List.exists (fun { N.node_id = id } -> NI.equal id node_id) nodes
     in
-    let evaluated =
+    let callers =
+      List.fold_left
+        (fun acc { N.node_id ; N.calls } ->
+           List.fold_left
+             (fun acc { N.call_node_id } ->
+                let callers =
+                  Option.value ~default:[] (NI.Map.find_opt call_node_id acc)
+                in
+                NI.Map.add call_node_id (node_id :: callers) acc)
+             acc calls)
+        NI.Map.empty nodes
+    in
+    let rec not_terminating acc = function
+      | [] -> acc
+      | node_id :: tl when NI.Set.mem node_id acc -> not_terminating acc tl
+      | node_id :: tl ->
+        let callers =
+          Option.value ~default:[] (NI.Map.find_opt node_id callers)
+        in
+        not_terminating (NI.Set.add node_id acc) (callers @ tl)
+    in
+    let not_terminating =
+      List.filter_map
+        (fun ({ N.node_id ; N.calls } as node) ->
+           if proved_terminating node
+           && List.for_all (fun { N.call_node_id } -> is_known call_node_id) calls
+           then None
+           else Some node_id)
+        nodes
+      |> not_terminating NI.Set.empty
+    in
+    let candidates =
       List.fold_left
         (fun acc ({ N.node_id } as node) ->
-           if N.is_recursive node && all_terminating NI.Set.empty node_id
+           if N.is_recursive node && not (NI.Set.mem node_id not_terminating)
            then NI.Set.add node_id acc else acc)
         NI.Set.empty nodes
     in
-    let eval_defs =
-      LustreFunDefs.compute_evaluable
-        ~adt_junk_ufs:globals.G.adt_junk_ufs evaluated nodes
-    in
-    let evaluated =
-      NI.Set.filter (LustreFunDefs.is_defined eval_defs) evaluated
-      |> NI.Set.elements
-    in
-    if evaluated = [] then None
+    if NI.Set.is_empty candidates then None
     else
-      let blocks =
-        List.concat_map (LustreFunDefs.blocks_of_node eval_defs) evaluated
-      in
-      let ufs =
-        List.concat_map (LustreFunDefs.ufs_of_node eval_defs) evaluated
-      in
-      let logic =
-        let of_def (uf, formals, body) =
-          TermLib.sup_logics
-            (TermLib.logic_of_term [] body
-             :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
-             :: List.map (fun v -> TermLib.logic_of_sort (Var.type_of_var v))
-               formals)
-        in
-        `Inferred
-          TermLib.FeatureSet.(
-            TermLib.sup_logics (List.concat_map (List.map of_def) blocks)
-            |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
-      in
-      (* The sorts, then the symbols the definitions apply, then the
-         definitions, each once *)
-      let define ~declare_sort ~declare_fun ~define_rec =
-        Type.get_all_abstr_types () |>
-        List.iter (fun ty -> match Type.node_of_type ty with
-          | Type.Abstr _ -> declare_sort ty
-          | _ -> ());
-        globals.G.recursive_datatypes |>
-        List.iter (fun ty -> match Type.node_of_type ty with
-          | Type.Datatype _ -> declare_sort ty
-          | _ -> ());
-        let module UFS = UfSymbol.UfSymbolSet in
-        let defined =
-          List.fold_left
-            (fun acc block ->
-               List.fold_left (fun acc (uf, _, _) -> UFS.add uf acc) acc block)
-            UFS.empty blocks
-        in
-        List.fold_left
-          (fun declared uf ->
-             if UFS.mem uf declared || UFS.mem uf defined then declared
-             else (declare_fun uf ; UFS.add uf declared))
-          UFS.empty ufs
-        |> ignore ;
-        List.fold_left
-          (fun done_ block ->
-             match block with
-             | (uf, _, _) :: _ when not (UFS.mem uf done_) ->
-               define_rec block ;
-               List.fold_left (fun acc (uf, _, _) -> UFS.add uf acc) done_ block
-             | _ -> done_)
-          UFS.empty blocks
-        |> ignore
-      in
       Some {
         eval_nodes = nodes ;
-        eval_defs ;
-        evaluator = mk_evaluator ~logic ~timeout_ms:evaluation_timeout define ;
+        candidates ;
+        evaluators = NI.Map.empty ;
+        mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
         values = CallTbl.create 16 ;
       }
 
@@ -2833,7 +2858,8 @@ let evaluation_of_param globals options analysis_param nodes =
    replaced by their values; this includes the outputs of an unconditional
    call evaluated in turn, as the inner call of [F(F(3))]. *)
 let facts_of_calls
-    { eval_nodes = nodes ; eval_defs ; evaluator ; values } equations calls =
+    ({ eval_nodes = nodes ; candidates ; values } as evaluation)
+    equations calls =
   let equation_of_svar =
     List.fold_left
       (fun acc ((sv, bounds), e) ->
@@ -2846,10 +2872,10 @@ let facts_of_calls
          D.fold (fun _ sv acc -> SVM.add sv call acc) call_outputs acc)
       SVM.empty calls
   in
-  (* The functional symbols of the outputs of the callee, if it is
+  (* The functional symbols of the outputs of the callee, if its calls are
      evaluated *)
   let evaluated_outputs { N.call_node_id } =
-    if not (LustreFunDefs.is_defined eval_defs call_node_id) then None
+    if not (NI.Set.mem call_node_id candidates) then None
     else
       match N.node_of_node_id call_node_id nodes with
       | { N.outputs ; N.comp_type = N.Function { N.uf_symbols } } ->
@@ -2857,11 +2883,15 @@ let facts_of_calls
       | _ -> None
       | exception Not_found -> None
   in
-  let evaluate uf args =
+  let evaluate node_id uf args =
     match CallTbl.find_opt values (uf, args) with
     | Some value -> value
     | None ->
-      let value = evaluator.evaluate uf args in
+      let value =
+        match evaluator_of evaluation node_id with
+        | Some { evaluate } -> evaluate uf args
+        | None -> None
+      in
       CallTbl.replace values (uf, args) value ;
       value
   in
@@ -2933,14 +2963,16 @@ let facts_of_calls
             with
             | Some init, Some step when Term.equal init step -> Some init
             | _ -> None )
-        | None, Some ({ N.call_cond = [] ; N.call_context = None ;
-                        N.call_defaults = None ; N.call_outputs } as call) ->
+        | None, Some ({ N.call_node_id ; N.call_cond = [] ;
+                        N.call_context = None ; N.call_defaults = None ;
+                        N.call_outputs } as call) ->
           ( match evaluated_outputs call, values_of_call call with
             | Some ufs, Some args ->
               D.values call_outputs
               |> List.combine ufs
               |> List.find_map (fun (uf, out) ->
-                if StateVar.equal_state_vars out sv then evaluate uf args
+                if StateVar.equal_state_vars out sv
+                then evaluate call_node_id uf args
                 else None)
             | _ -> None )
         | None, _ -> None
@@ -2956,7 +2988,7 @@ let facts_of_calls
       (D.values call_inputs) (Some [])
   in
   List.concat_map
-    (fun call ->
+    (fun ({ N.call_node_id } as call) ->
        match evaluated_outputs call with
        | None -> []
        | Some ufs ->
@@ -2965,7 +2997,7 @@ let facts_of_calls
          | Some args ->
            List.filter_map
              (fun uf ->
-                evaluate uf args
+                evaluate call_node_id uf args
                 |> Option.map (fun value ->
                   Term.mk_eq [ Term.mk_uf uf args ; value ]))
              ufs)
@@ -4440,7 +4472,7 @@ let trans_sys_of_nodes
 
       Fun.protect
         ~finally:(fun () ->
-          Option.iter (fun { evaluator } -> evaluator.delete ()) evaluation)
+          Option.iter delete_evaluation evaluation)
       @@ fun () ->
 
       (* Create a transition system for each node *)
