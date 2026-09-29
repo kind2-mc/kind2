@@ -1117,7 +1117,8 @@ let rec slice_nodes
 
 
 (* The outputs of the calls of a recursive function to the functions of its
-   recursive group, among [nodes], and the outputs of the function.
+   recursive group, among [nodes], and the inputs and outputs of the
+   function.
 
    The termination checks of a recursive call are generated with the call,
    so slicing a call away would leave its termination unchecked. In the
@@ -1125,10 +1126,12 @@ let rec slice_nodes
    call is proved for all the inputs of the function, nothing need depend on
    a call for it to be kept: a function with no contract and no property, or
    a call whose value no guarantee depends on, is still checked. A call of
-   the function to itself refers to the outputs of the function, which are
-   kept as well, for the outputs of the call to match them (see
-   [roots_of_lemma_calls]). *)
-let roots_of_recursive_calls nodes { N.comp_type; N.calls; N.outputs } =
+   the function to itself refers to the signature of the function, which is
+   kept whole, for the arguments and the outputs of the call to match it (see
+   [roots_of_lemma_calls]): an input that nothing reads is still passed by
+   the call. *)
+let roots_of_recursive_calls
+    nodes { N.comp_type; N.calls; N.inputs; N.outputs } =
   let group_of node_id =
     match N.node_of_node_id node_id nodes with
     | { N.comp_type = N.Function { N.rec_info = Some (group, _) } } ->
@@ -1143,7 +1146,7 @@ let roots_of_recursive_calls nodes { N.comp_type; N.calls; N.outputs } =
          if group_of call_node_id = Some group then
            D.fold (fun _ sv acc -> SVS.add sv acc) call_outputs acc
          else acc)
-      (D.values outputs |> SVS.of_list) calls
+      (D.values inputs @ D.values outputs |> SVS.of_list) calls
   | _ -> SVS.empty
 
 (* Slice a node to its implementation, starting from the outputs,
