@@ -826,7 +826,10 @@ tel
 For an integer measure, Kind 2 generates two proof obligations per recursive
 call and verifies them like any other property: the measure must be bounded
 below by `0`, and it must strictly decrease (lexicographically, for tuples)
-from caller to callee.
+from caller to callee. The analysis of the function itself, in a modular
+analysis (`--modular true`), verifies them for every recursive call of the
+function, whether or not a property or a guarantee depends on the call, and
+whether or not the function has a contract.
 
 Note the use of `when ... then ... else` rather than plain `if ... then ... else`:
 in Lustre, both branches of an `if` are part of the expression's definition

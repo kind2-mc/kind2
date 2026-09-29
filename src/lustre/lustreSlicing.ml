@@ -1116,9 +1116,43 @@ let rec slice_nodes
           ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
 
 
+(* The outputs of the calls of a recursive function to the functions of its
+   recursive group, among [nodes], and the inputs and outputs of the
+   function.
+
+   The termination checks of a recursive call are generated with the call,
+   so slicing a call away would leave its termination unchecked. In the
+   analysis of the function itself, where the termination of every recursive
+   call is proved for all the inputs of the function, nothing need depend on
+   a call for it to be kept: a function with no contract and no property, or
+   a call whose value no guarantee depends on, is still checked. A call of
+   the function to itself refers to the signature of the function, which is
+   kept whole, for the arguments and the outputs of the call to match it (see
+   [roots_of_lemma_calls]): an input that nothing reads is still passed by
+   the call. *)
+let roots_of_recursive_calls
+    nodes { N.comp_type; N.calls; N.inputs; N.outputs } =
+  let group_of node_id =
+    match N.node_of_node_id node_id nodes with
+    | { N.comp_type = N.Function { N.rec_info = Some (group, _) } } ->
+      Some group
+    | _ -> None
+    | exception Not_found -> None
+  in
+  match comp_type with
+  | N.Function { N.rec_info = Some (group, _) } ->
+    List.fold_left
+      (fun acc { N.call_node_id; N.call_outputs } ->
+         if group_of call_node_id = Some group then
+           D.fold (fun _ sv acc -> SVS.add sv acc) call_outputs acc
+         else acc)
+      (D.values inputs @ D.values outputs |> SVS.of_list) calls
+  | _ -> SVS.empty
+
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
+    nodes
     property
     is_top
     roots
@@ -1167,6 +1201,11 @@ let root_and_leaves_of_impl
 
     (* Do not slice calls to lemmas *)
     |> SVS.union (roots_of_lemma_calls node)
+
+    (* Do not slice the recursive calls of the top node, whose termination
+       the analysis checks *)
+    |> SVS.union
+      (if is_top then roots_of_recursive_calls nodes node else SVS.empty)
 
     |> SVS.elements
   in
@@ -1229,13 +1268,13 @@ let node_is_abstract analysis { N.node_id } =
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-  property is_top roots abstraction_map node
+  nodes property is_top roots abstraction_map node
 =
   if node_is_abstract abstraction_map node
   then (* Node is to be abstract *)
     root_and_leaves_of_contracts property is_top roots node 
   else (* Node is to be concrete *)
-    root_and_leaves_of_impl property is_top roots node
+    root_and_leaves_of_impl nodes property is_top roots node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
@@ -1257,10 +1296,10 @@ let slice_to_abstraction'
 
     slice_nodes
       preserve_sig
-      (root_and_leaves_of_abstraction_map property false roots analysis)
+      (root_and_leaves_of_abstraction_map nodes property false roots analysis)
       nodes
       []
-      [root_and_leaves_of_abstraction_map property true roots analysis (List.hd nodes)]
+      [root_and_leaves_of_abstraction_map nodes property true roots analysis (List.hd nodes)]
 
   in
 

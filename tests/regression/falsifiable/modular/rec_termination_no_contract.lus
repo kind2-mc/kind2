@@ -1,0 +1,12 @@
+-- F has no contract and no property, and it does not terminate on odd
+-- arguments. Its analysis still checks the termination of its recursive
+-- call, which slicing used to remove, as nothing depended on it: the system
+-- of F had no property, and its analysis was skipped. The bounded check is
+-- falsified.
+function rec F(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n = 0 then 0 else F(n - 2);
+tel
