@@ -1,0 +1,13 @@
+const k: int = 7;
+datatype T = A (k: int) | B (w: int);
+
+node main (n: int) returns (y: int);
+var t: T;
+let
+  t = A(n);
+  y = match t with
+      | A (k) : any { v: int | v = k }
+      | B (w) : w
+      end;
+  --%PROPERTY y = n;
+tel

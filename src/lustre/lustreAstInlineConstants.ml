@@ -396,7 +396,15 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
   | Match (pos, e, arms, ty_opt) ->
     let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
-    let arms' = List.map (fun (pat, body) -> (pat, simplify_expr ~ind_vars ~is_guarded ctx body)) arms in
+    (* Don't inline constants that are shadowed by an arm's pattern variables
+       (by removing these constants from the ctx) *)
+    let arms' = List.map (fun (pat, body) ->
+      let arm_ctx =
+        LH.pat_bound_vars pat |> LA.SI.elements
+        |> List.fold_left TC.remove_const ctx
+      in
+      (pat, simplify_expr ~ind_vars ~is_guarded arm_ctx body)
+    ) arms in
     Match (pos, e', arms', ty_opt)
   | StructUpdate (p, e, lois, e_opt) -> 
     let lois = List.map (fun loi -> match loi with 

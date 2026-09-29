@@ -336,8 +336,9 @@ let rec pat_bound_vars_with_pos = function
   | VarPat (pos, id) -> [(id, pos)]
   | Pat (_, _, sub_pats) -> List.concat_map pat_bound_vars_with_pos sub_pats
 
-(* Renames a variable bound by a pattern. Reached only after type checking, so
-   a VarPat is always a genuine binder and never a 0-arg constructor. *)
+(* Renames a variable bound by a pattern. A variable pattern that is really a
+   nullary constructor must not be renamed, so a caller running before type
+   checking checks that the name is not a constructor. *)
 let rec rename_pat_var id id' = function
   | VarPat (pos, i) as p -> if i = id then VarPat (pos, id') else p
   | Pat (pos, ctor, sub_pats) ->
@@ -544,6 +545,51 @@ and subst_under_binder sigma (ipos, i, ty) e =
 
 (* Substitute t for var *)
 let substitute_naive (var:HString.t) t e = apply_subst_in_expr [(var, t)] e
+
+(* Apply a substitution to every expression of a node item. The left-hand sides
+   are left alone: they name the variables the item defines, which a
+   substitution never replaces. *)
+let rec apply_subst_in_node_item sigma item =
+  let r = apply_subst_in_node_item sigma in
+  let re = apply_subst_in_expr sigma in
+  let req = function
+    | Assert (pos, e) -> Assert (pos, re e)
+    | Equation (pos, lhs, e) -> Equation (pos, lhs, re e)
+  in
+  match item with
+  | Body eq -> Body (req eq)
+  | IfBlock (pos, e, items1, items2) ->
+    IfBlock (pos, re e, List.map r items1, List.map r items2)
+  | WhenBlock (pos, e, items1, items2) ->
+    WhenBlock (pos, re e, List.map r items1, List.map r items2)
+  (* Match block arms introduce bound variables, so substituting into an arm
+     must avoid capture, as for a match expression's arms *)
+  | MatchBlock (pos, e, arms, ty) ->
+    let arms = List.map (fun (pat, items) ->
+      let bound = pat_bound_vars pat in
+      match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+      (* Every substitution is shadowed by a binder, so nothing to rename either *)
+      | [] -> (pat, items)
+      | sigma ->
+        let pat, items =
+          List.fold_left (fun (pat, items) (i, ipos) ->
+            if List.exists (fun (_, t) -> expr_contains_id i t) sigma then
+              let fresh = fresh_bound_ident i in
+              (rename_pat_var i fresh pat,
+               List.map (apply_subst_in_node_item [(i, Ident (ipos, fresh))]) items)
+            else (pat, items)
+          ) (pat, items) (pat_bound_vars_with_pos pat)
+        in
+        (pat, List.map (apply_subst_in_node_item sigma) items)
+    ) arms in
+    MatchBlock (pos, re e, arms, ty)
+  | FrameBlock (pos, vars, eqs, items) ->
+    FrameBlock (pos, vars, List.map req eqs, List.map r items)
+  | AnnotProperty (pos, name, e, Provided e2) ->
+    AnnotProperty (pos, name, re e, Provided (re e2))
+  | AnnotProperty (pos, name, e, (Invariant | Reachable _ as k)) ->
+    AnnotProperty (pos, name, re e, k)
+  | AnnotMain _ | Auto _ -> item
 
 (* Type level substitutions at the expression level *)
 let rec apply_type_subst_in_expr

@@ -47,10 +47,69 @@ fun ctx ids ->
     | _ -> Ctx.lookup_constructor ctx i |> Option.is_none
   ) ids
 
+(* Resolve a match arm before the nodes its body needs are generated, returning
+   the arm's pattern, a substitution to apply to its body, and the context the
+   body is processed in.
+
+   The arm's variables are bound to the types of the constructor fields they
+   stand for, as they are when the arm is type checked later; a variable that
+   shadows a global constant is also renamed apart.  Without this a variable
+   whose name is a constant's would be taken for that constant, and a node
+   generated from the arm body would read the constant instead of the field. *)
+let resolve_arm: Ctx.tc_context -> A.lustre_type option -> A.pattern
+  -> Ctx.tc_context * A.pattern * (HString.t * A.expr) list =
+fun ctx scrut_ty pat ->
+  (* Only a global constant (an enum variant among them) is renamed away: it is
+     in scope everywhere, so it is the one thing a generated node cannot take a
+     parameter for.  A variable of the enclosing node keeps its name, which a
+     match block's own shadowing check still reports. *)
+  let shadows_global id =
+    match Ctx.lookup_const ctx id with
+    | Some (_, _, Ctx.Global) -> true
+    | Some (_, _, (Ctx.Input | Ctx.Output | Ctx.Local | Ctx.Ghost)) | None -> false
+  in
+  (* Type checking has not run yet, so a variable pattern naming a nullary
+     constructor is not a binder *)
+  let binders =
+    AH.pat_bound_vars_with_pos pat
+    |> List.filter (fun (id, _) ->
+         Ctx.lookup_constructor ctx id |> Option.is_none && shadows_global id)
+    |> List.sort_uniq (fun (i, _) (j, _) -> HString.compare i j)
+  in
+  let pat, subst =
+    List.fold_left (fun (pat, subst) (id, ipos) ->
+      let fresh = AH.fresh_bound_ident id in
+      (AH.rename_pat_var id fresh pat, (id, A.Ident (ipos, fresh)) :: subst)
+    ) (pat, []) binders
+  in
+  (* A pattern the type checker will reject leaves the arm's variables untyped,
+     which keeps the abstractions below from generating a node for the arm; the
+     later pass reports the error *)
+  let ctx =
+    match scrut_ty with
+    | Some scrut_ty ->
+      (match Chk.bind_pattern_ty ctx scrut_ty pat with
+      | Ok (ctx, _) -> ctx
+      | Error _ -> ctx)
+    | None -> ctx
+  in
+  (ctx, pat, subst)
+
+(* The type of a match scrutinee, if it can be inferred before the nodes its own
+   subexpressions need are generated. As elsewhere in this pass the inference is
+   best-effort: it may fail, or raise on a construct desugared below, and the
+   error is then the later type-checking pass's to report. *)
+let scrutinee_type: Ctx.tc_context -> NI.t -> A.expr -> A.lustre_type option =
+fun ctx node_name scrut ->
+  match Chk.infer_type_expr ctx (Some node_name) scrut with
+  | Ok (ty, _, _) -> Some ty
+  | Error _ -> None
+  | exception _ -> None
+
 (* When a branch of a when-then-else expression is temporal (it uses '->' or
-   'pre'), abstract it into a call to a fresh internal node whose single output
-   equals the original expression and whose arguments are the variables used in
-   the expression. Non-temporal branches are returned unchanged. *)
+   'pre'), abstract it into a call to a fresh internal node whose outputs equal
+   the original expression and whose arguments are the variables used in the
+   expression. Non-temporal branches are returned unchanged. *)
 let abstract_temporal_branch: Ctx.tc_context -> NI.t -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name e ->
   match AH.has_pre_or_arrow e with
@@ -85,19 +144,28 @@ fun ctx node_name e ->
       then fresh_output (HString.concat2 name (HString.mk_hstring "_"))
       else name
     in
-    let op_id =
-      fresh_output (HString.mk_hstring Lib.StringValues.type_ascription_output_name)
+    (* A branch of a group type defines one output per component, so that the
+       call standing in for it keeps the branch's width *)
+    let out_tys = match out_ty with
+      | A.GroupType (_, tys) -> tys
+      | ty -> [ty]
     in
-    let op = (pos, op_id, out_ty, A.ClockTrue) in
-    let eq =
-      A.Body (A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, op_id)]), e))
+    let op_ids = List.mapi (fun i ty ->
+      let name = Lib.StringValues.type_ascription_output_name in
+      let name = if i = 0 then name else name ^ string_of_int i in
+      (fresh_output (HString.mk_hstring name), ty)
+    ) out_tys in
+    let ops = List.map (fun (id, ty) -> (pos, id, ty, A.ClockTrue)) op_ids in
+    let lhs =
+      A.StructDef (pos, List.map (fun (id, _) -> A.SingleIdent (pos, id)) op_ids)
     in
+    let eq = A.Body (A.Equation (pos, lhs, e)) in
     (* The generated node might be polymorphic, so find all the needed type variables *)
     let ty_params = Ctx.ty_vars_of_expr ctx node_name e |> Ctx.SI.elements in
     let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
     let decl =
       A.NodeDecl (span,
-        (node_id, false, A.Transparent, ty_params, input_decls, [op], [], [eq], None))
+        (node_id, false, A.Transparent, ty_params, input_decls, ops, [], [eq], None))
     in
     A.Call (pos, ty_args, node_id, inputs_call), [decl]
 
@@ -355,11 +423,18 @@ fun ctx node_name fun_ids expr ->
        lazy if-then-else chain later in the pipeline). When a body is a
        temporal expression (it uses '->' or 'pre'), abstract it into a call
        to a fresh internal node so that its temporal behavior is driven by
-       that clock, just as is done for when-then-else branches. *)
+       that clock, just as is done for when-then-else branches.
+
+       The arms are resolved against the scrutinee as written, before the nodes
+       its own subexpressions need are generated and while its type can still be
+       inferred. *)
+    let scrut_ty = scrutinee_type ctx node_name e in
+    let arms = List.map (fun (pat, arm_e) -> resolve_arm ctx scrut_ty pat, arm_e) arms in
     let e, gen_nodes1 = rec_call e in
-    let arms, gen_nodes2 = List.map (fun (pat, arm_e) ->
-      let arm_e, gen_nodes = rec_call arm_e in
-      let arm_e, gen_nodes' = abstract_temporal_branch ctx node_name arm_e in
+    let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
+      let arm_e = AH.apply_subst_in_expr subst arm_e in
+      let arm_e, gen_nodes = desugar_expr arm_ctx node_name fun_ids arm_e in
+      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
     Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
@@ -466,7 +541,7 @@ fun ctx node_name fun_ids ni ->
   | MatchBlock (pos, scrut, arms, ty) ->
     (* A match block becomes a chain of when blocks later in the pipeline, so
        its arms need the same temporal abstraction as a when-block branch *)
-    let process_branch_item ni =
+    let process_branch_item ctx ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
@@ -474,11 +549,14 @@ fun ctx node_name fun_ids ni ->
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
       | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ ->
-        rec_call ni
+        desugar_node_item ctx node_name fun_ids ni
     in
+    let scrut_ty = scrutinee_type ctx node_name scrut in
     let arms, gen_nodes1 =
       List.map (fun (p, items) ->
-        let items, gn = List.map process_branch_item items |> List.split in
+        let arm_ctx, p, subst = resolve_arm ctx scrut_ty p in
+        let items = List.map (AH.apply_subst_in_node_item subst) items in
+        let items, gn = List.map (process_branch_item arm_ctx) items |> List.split in
         (p, items), List.flatten gn) arms
       |> List.split
     in

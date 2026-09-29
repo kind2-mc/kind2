@@ -1147,7 +1147,9 @@ let rec bind_pattern_ty ctx field_ty pat =
         )
       | _ -> type_error pos (UnboundConstructor id)
     ) else
-      R.ok (add_ty ctx id field_ty, pat)
+      (* A pattern variable denotes a constructor field, not a constant, so its
+         binding must hide a constant of the same name *)
+      R.ok (add_ty (remove_const ctx id) id field_ty, pat)
   | LA.Pat (pos, ctor, sub_pats) ->
     (match adt_opt with
     | Some (LA.ADT (_, _, adt_cons)) ->

@@ -70,6 +70,13 @@ val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
     Bound variables introduced by match arms, quantifiers and [any]/[choose] are
     alpha-renamed when needed to avoid capture. *)
 
+val apply_subst_in_node_item : (HString.t * expr) list -> node_item -> node_item
+(** [apply_subst_in_node_item s i] applies the substitution defined by association
+    list [s] to every expression of the node item [i], leaving the left-hand sides
+    of its equations alone.
+    Bound variables introduced by match block arms are alpha-renamed when needed
+    to avoid capture. *)
+
 val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
 (** [apply_subst_in_type s t] applies the substitution defined by association list [s]
     to the expressions of (possibly dependent) type [t]
@@ -254,3 +261,12 @@ val pat_bound_vars : pattern -> LustreAst.SI.t
 
 val pat_bound_vars_with_pos : pattern -> (LustreAst.ident * Lib.position) list
 (** The variables a pattern binds, each with the position it is bound at. *)
+
+val rename_pat_var : LustreAst.ident -> LustreAst.ident -> pattern -> pattern
+(** [rename_pat_var i i' pat] renames the variable [i] bound by [pat] to [i'].
+    A variable pattern that is really a nullary constructor must not be renamed,
+    so a caller running before type checking checks that [i] is not a
+    constructor. *)
+
+val fresh_bound_ident : LustreAst.ident -> LustreAst.ident
+(** A fresh name for an alpha-renamed binder, derived from its current name *)
