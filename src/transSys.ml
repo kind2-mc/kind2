@@ -233,10 +233,18 @@ type t =
         (see [LustreTransSys]). A counterexample that reaches such an
         instance may be spurious: see [cutoffs_reached]. *)
 
+    rec_abstracted : Scope.t option;
+    (** [Some f] if this system is an instance of the recursive function
+       [f] that its contract abstracts: an abstract instance in a
+       compositional analysis, or one past the unrollings of [f] when the
+       contract stands in for its body. A counterexample that executes such
+       an instance may rely on outputs the function does not have, which
+       refining the function could rule out: see [abstracted_instances]. *)
+
     rec_cutoff_io : StateVar.t list * (StateVar.t * UfSymbol.t) list;
-    (** The inputs of the cutoff, in the order of the arguments of its
-        functional symbols, and its outputs with their functional symbols;
-        empty if the system is not a cutoff *)
+    (** The inputs of the cutoff or of the abstracted instance, in the
+        order of the arguments of its functional symbols, and its outputs
+        with their functional symbols; empty if the system is neither *)
 
     datatype_types : Type.t list;
     (** Recursive ADTs used anywhere in this system, in dependency order. *)
@@ -2113,6 +2121,7 @@ let mk_trans_sys
   ?(check_ufs = [])
   ?(check_helpers = [])
   ?rec_cutoff
+  ?rec_abstracted
   ?(rec_cutoff_io = ([], []))
   scope
   instance_state_var
@@ -2406,6 +2415,7 @@ let mk_trans_sys
       check_ufs;
       check_helpers;
       rec_cutoff;
+      rec_abstracted;
       rec_cutoff_io;
       datatype_types;}
   in
@@ -2604,26 +2614,33 @@ let cutoff_terms t =
          (f, reached) :: acc)
     t
 
-(* The recursive functions with a cutoff in the system that the supervisor
-   can evaluate: a system of the function carries definitions for it *)
-let evaluable_functions t =
+(* The recursive functions of the systems that [kind] marks (the cutoffs, or
+   the abstracted instances) that the supervisor can evaluate: a system of
+   the function carries definitions for it *)
+let evaluable_functions_of kind t =
   fold_subsystems ~include_top:true
     (fun acc sub ->
-       match sub.rec_cutoff with
+       match kind sub with
        | Some f when sub.check_defs <> [] && not (List.exists (Scope.equal f) acc) ->
          f :: acc
        | _ -> acc)
     [] t
 
-(* The instances of the cutoffs in the system, each with its function, the
-   term stating at offset zero that the chain of calls from the top system
-   down to it is executed, its inputs and its outputs with their functional
-   symbols, all in the variables of the top system *)
-let cutoff_instances t =
+let evaluable_functions t = evaluable_functions_of (fun t -> t.rec_cutoff) t
+
+let abstracted_evaluable_functions t =
+  evaluable_functions_of (fun t -> t.rec_abstracted) t
+
+(* The instances of the systems that [kind] marks (the cutoffs, or the
+   abstracted instances), each with its function, the term stating at
+   offset zero that the chain of calls from the top system down to it is
+   executed, its inputs and its outputs with their functional symbols, all
+   in the variables of the top system *)
+let instances_of kind t =
   fold_subsystem_instances
     (fun sub chain acc ->
        let acc = List.concat acc in
-       match sub.rec_cutoff with
+       match kind sub with
        | None -> acc
        | Some f ->
          let lift_sv sv =
@@ -2649,6 +2666,10 @@ let cutoff_instances t =
           List.map (fun (sv, uf) -> lift_sv sv, uf) outputs)
          :: acc)
     t
+
+let cutoff_instances t = instances_of (fun t -> t.rec_cutoff) t
+
+let abstracted_instances t = instances_of (fun t -> t.rec_abstracted) t
 
 (* The recursive functions with a cutoff in the system *)
 let cutoff_functions t =

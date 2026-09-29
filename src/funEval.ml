@@ -108,6 +108,11 @@ let evaluate t uf args =
       | other -> other
     in
     SMTSolver.pop solver ;
+    (* A solver that gave up on a query is not kept: Z3 keeps the depth to
+       which it unfolded the definitions across the queries, and a solver
+       that gave up on a deep call gives up on the next ones as well, where
+       a new one answers at once *)
+    if value = `Unknown then delete t ;
     value
   with
   | Failed -> `Unknown

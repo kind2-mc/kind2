@@ -104,12 +104,12 @@ val contract_abstracts : LustreNode.t -> bool
 val compute : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
 
 (** Compute the definitions of every recursive function of the given nodes
-    that the contract does not abstract and that is definable, whether or
-    not a call applied to quantified variables applies it. These are not
+    that is definable, whether or not a call applied to quantified variables
+    applies it, and whether or not its contract abstracts it. These are not
     given to the engines, whose analysis unrolls the functions instead: the
-    supervisor uses them to evaluate the recursive calls past the
-    unrollings of a counterexample, which are at concrete arguments (see
-    [RecUnrolling]). *)
+    supervisor uses them to evaluate the recursive calls of a counterexample
+    that are past the unrollings or abstracted by a contract, which are at
+    concrete arguments (see [RecUnrolling]). *)
 val compute_all : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
 
 (** Compute the definitions of the given recursive functions, and of the

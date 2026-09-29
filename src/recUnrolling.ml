@@ -31,6 +31,12 @@ let previous_count = ref 0
    the limit *)
 let exhausted = ref SSet.empty
 
+(* The properties falsified by a counterexample that the recursive functions
+   as they are, rather than their contracts, violate the property with: the
+   counterexample executes instances of the functions that their contracts
+   abstract, and does not rely on outputs the functions do not have *)
+let genuine_props = ref SSet.empty
+
 (* The functions at the limit whose cutoff a counterexample reached, and
    that were reported *)
 let reported = ref Scope.Set.empty
@@ -274,6 +280,7 @@ let reset () =
   pending := [] ;
   requested_functions := Scope.Set.empty ;
   exhausted := SSet.empty ;
+  genuine_props := SSet.empty ;
   reported := Scope.Set.empty ;
   current_count := 0 ;
   previous_count := 0
@@ -348,15 +355,30 @@ let max_evaluation_rounds = 8
    A query the solver cannot decide in time, a call that cannot be
    evaluated, or too many rounds of evaluation, leave the counterexample
    undecided, and it is not taken as genuine: it is not reported, and the
-   function is unrolled further. *)
-let genuine sys prop cex =
+   function is unrolled further.
+
+   With [~abstracted:true], the calls whose values are evaluated include
+   those of the instances that the contracts of their functions abstract,
+   whose outputs are constrained by the contracts only, besides the calls
+   past the unrollings. *)
+let genuine ?(abstracted = false) sys prop cex =
   let path = Model.path_of_list cex in
   let k = Numeral.of_int (Model.path_length path - 1) in
   let steps = List.init (Numeral.to_int k + 1) Numeral.of_int in
-  let instances = TransSys.cutoff_instances sys in
-  let evaluable = TransSys.evaluable_functions sys in
+  let instances =
+    TransSys.cutoff_instances sys
+    @ (if abstracted then TransSys.abstracted_instances sys else [])
+  in
+  let evaluable =
+    TransSys.evaluable_functions sys
+    @ (if abstracted then TransSys.abstracted_evaluable_functions sys else [])
+  in
   let definitions = TransSys.check_definitions sys in
   let helpers = TransSys.check_helper_symbols sys in
+  (* A system sliced to the property may not have all the variables of the
+     counterexample, which was found on the whole system: the others are
+     not in the cone of influence of the property *)
+  let state_vars = StateVar.StateVarSet.of_list (TransSys.state_vars sys) in
   let var_at sv i = Term.mk_var (Var.mk_state_var_instance sv i) in
   (* The terms whose values tell the calls the model executes *)
   let observed () =
@@ -475,7 +497,8 @@ let genuine sys prop cex =
     assert_trans Numeral.one ;
     (* The inputs and the constants at every step of the counterexample *)
     cex |> List.iter (fun (sv, values) ->
-      if StateVar.is_input sv || StateVar.is_const sv then
+      if (StateVar.is_input sv || StateVar.is_const sv)
+      && StateVar.StateVarSet.mem sv state_vars then
         values |> List.iteri (fun i value ->
           match value with
           | Model.Term t ->
@@ -569,6 +592,68 @@ let suspect sys prop cex =
             (fun () -> genuine sys prop cex)
         in
         if genuine then [] else reached)
+
+(* Run [f] with a round solver, an evaluator and tables of facts of its own,
+   for a system other than the one of the round, whose symbols the round's
+   solver and facts may not have, and restore those of the round after *)
+let isolated f =
+  let saved_solver = !round_solver
+  and saved_evaluator = !evaluator
+  and saved_facts = Facts.copy facts
+  and saved_instantiated = Facts.copy instantiated
+  and saved_pending = !pending in
+  round_solver := None ;
+  evaluator := None ;
+  Facts.reset facts ;
+  Facts.reset instantiated ;
+  pending := [] ;
+  Fun.protect
+    ~finally:(fun () ->
+      drop_round_solver () ;
+      drop_evaluator () ;
+      round_solver := saved_solver ;
+      evaluator := saved_evaluator ;
+      Facts.reset facts ;
+      Facts.iter (Facts.replace facts) saved_facts ;
+      Facts.reset instantiated ;
+      Facts.iter (Facts.replace instantiated) saved_instantiated ;
+      pending := saved_pending)
+    f
+
+let check_abstractions ~sliced sys prop cex =
+  if Flags.Contracts.compositional ()
+  && Flags.modular ()
+  && Flags.Contracts.refinement ()
+  && TransSys.abstracted_instances sys = []
+  then
+    (* No recursive function is abstracted by its contract in the system,
+       sliced as it is to what the properties depend on: refining one
+       cannot change what the counterexample relies on *)
+    genuine_props := SSet.add prop !genuine_props
+  else if Flags.Contracts.compositional ()
+  && Flags.modular ()
+  && Flags.Contracts.refinement ()
+  && !round_time <= round_budget
+  then (
+    let started = Unix.gettimeofday () in
+    let genuine =
+      Fun.protect
+        ~finally:(fun () ->
+          round_time := !round_time +. (Unix.gettimeofday () -. started))
+        (fun () ->
+           (* On the system sliced to the property, the counterexample only
+              executes the calls the property depends on, or an assertion
+              or an assumption does: a call it executes on the whole
+              system, but that cannot change the answer, would leave it
+              undecided if it cannot be evaluated *)
+           match sliced () with
+           | Some sliced_sys ->
+             isolated (fun () -> genuine ~abstracted:true sliced_sys prop cex)
+           | None -> genuine ~abstracted:true sys prop cex)
+    in
+    if genuine then genuine_props := SSet.add prop !genuine_props)
+
+let genuine_properties () = SSet.elements !genuine_props
 
 let is_exhausted prop = SSet.mem prop !exhausted
 

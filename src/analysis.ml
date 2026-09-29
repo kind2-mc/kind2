@@ -160,6 +160,12 @@ and result = {
   (** [None] if system analyzed has not sub-requirements,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
+
+  genuine : string list ;
+  (** The properties falsified by a counterexample that the recursive
+      functions as they are violate, rather than their contracts that
+      abstract them in the system (see [RecUnrolling.check_abstractions]):
+      refining the recursive functions cannot prove them. *)
 }
 
 (* Clones an [info], only changes its [uid]. *)
@@ -238,7 +244,7 @@ let no_system_is_abstract ?(include_top=true) param =
 (* type prop_kind = | Contract | Subreq | Prop *)
 
 (* Creates a [result] from a [param], a [t] and an analysis time. *)
-let mk_result param sys time =
+let mk_result ?(genuine = []) param sys time =
 
   let valid, invalid, unknown = TransSys.get_split_properties sys in
 
@@ -260,7 +266,7 @@ let mk_result param sys time =
     find c_valid r_valid false unknown
   in
 
-  { param ; time ; sys ; contract_valid ; requirements_valid }
+  { param ; time ; sys ; contract_valid ; requirements_valid ; genuine }
 
 (** Returns true if all invariant properties in the system
     in a [result] have been proved. *)

@@ -184,6 +184,22 @@ let get_reachability_abstraction results subs_of_scope result =
 (* Looks for the first refineable subsystem of the system [result] corresponds
    to. Traversal of the subsystems is breadth first. Returns an option of the
    scope of the system refined, and the new abstraction and unrollings. *)
+(* Whether refining the recursive functions of the system [result]
+   corresponds to may prove an invariant property its analysis left
+   unproved: one is unknown, or falsified by a counterexample that may rely
+   on outputs the contracts of the functions allow but the functions do not
+   have. A property the functions as they are falsify (see
+   [A.result.genuine]) is falsified again in any refinement of them, which
+   only replaces their contracts by their bodies. *)
+let recursive_refinement_useful { A.sys ; A.genuine } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.exists (function
+    | _, Property.PropInvariant _, _ -> false
+    | name, Property.PropFalse _, Property.Invariant ->
+      not (List.mem name genuine)
+    | _, _, Property.Invariant -> true
+    | _ -> false)
+
 let get_refinement_abstraction results subs_of_scope result =
   let info = A.info_of_param result.A.param in
   let sys = info.A.top in
@@ -233,8 +249,12 @@ let get_refinement_abstraction results subs_of_scope result =
 
   (* An abstract system that is not opaque and was proved correct is made
      concrete *)
+  let recursive = recursive_refinement_useful result in
+
+  (* A recursive function is refined only if that may prove a property *)
   let pick_abstract candidate { opacity ; rec_group } =
-    if Scope.Map.find candidate abstraction
+    if (recursive || rec_group = None)
+       && Scope.Map.find candidate abstraction
        && opacity <> O.Opaque && proved_correct results candidate
     then Some (make_concrete results (abstraction, unrollings) candidate rec_group)
     else None
@@ -244,7 +264,8 @@ let get_refinement_abstraction results subs_of_scope result =
   let pick_unrolled candidate { opacity ; rec_group } =
     match rec_group with
     | Some _
-      when not (Scope.Map.find candidate abstraction)
+      when recursive
+           && not (Scope.Map.find candidate abstraction)
            && opacity <> O.Opaque && proved_correct results candidate -> (
       match next_unrollings unrollings candidate with
       | Some unrollings -> Some (abstraction, unrollings)

@@ -23,7 +23,8 @@
     definitions are more than a solver can handle in the queries on a whole
     system, while an application at concrete arguments is unfolded in no
     time. The solver is started on the first evaluation, and started again
-    after one that lost it, unless it failed on the definitions. *)
+    after one that lost it or could not tell a value in time, unless it
+    failed on the definitions. *)
 
 (** An evaluator *)
 type t

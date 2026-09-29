@@ -755,11 +755,13 @@ let compute_all ~adt_junk_ufs nodes =
   let recursive =
     List.fold_left
       (fun acc node ->
-         if N.is_recursive node && eligible node
-         then NI.Set.add node.N.node_id acc else acc)
+         if N.is_recursive node then NI.Set.add node.N.node_id acc else acc)
       NI.Set.empty nodes
   in
-  compute_for ~adt_junk_ufs recursive nodes
+  (* The definitions are only given to the supervisor's solvers, so a
+     contract that abstracts a function in the analysis does not stand in
+     the way *)
+  compute_for ~eligible:(fun _ -> true) ~adt_junk_ufs recursive nodes
 
 let compute_evaluable ~adt_junk_ufs applied nodes =
   (* The definitions are only given to the solver that evaluates the

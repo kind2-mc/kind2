@@ -3305,6 +3305,18 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
             && LustreFunDefs.is_defined fun_defs node_id
           in
 
+          (* Is the node an instance of a recursive function that its
+             contract abstracts, rather than its body? Its outputs are tied
+             to the functional symbols of the function, so the supervisor
+             can tell whether a counterexample relies on outputs the
+             function does not have (see [RecUnrolling]). *)
+          let is_abstracted_rec =
+            options.add_functional_constraints
+            && N.is_recursive node
+            && (is_abstract || (reached_limit && not free_cutoff))
+            && not is_defined
+          in
+
           (* If node is a function, for each undefined output,
           create the term `(= (f <inputs>) output)` to add it to `init` and
           `trans`. *)
@@ -4269,9 +4281,12 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               ?rec_cutoff:(
                 if free_cutoff && not is_defined then Some base_scope
                 else None)
+              ?rec_abstracted:(
+                if is_abstracted_rec then Some base_scope else None)
               ~rec_cutoff_io:(
                 match comp_type with
-                | N.Function { uf_symbols } when free_cutoff && not is_defined ->
+                | N.Function { uf_symbols }
+                  when (free_cutoff || is_abstracted_rec) && not is_defined ->
                   D.values inputs,
                   List.filter_map
                     (fun sv ->
@@ -4455,8 +4470,11 @@ let trans_sys_of_nodes
   let fun_defs =
     LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
   in
+  (* From the nodes before slicing, which have the bodies of the functions
+     that the contracts abstract *)
   check_fun_defs :=
-    LustreFunDefs.compute_all ~adt_junk_ufs:globals.G.adt_junk_ufs nodes ;
+    LustreFunDefs.compute_all
+      ~adt_junk_ufs:globals.G.adt_junk_ufs unsliced_nodes ;
 
   warn_undefined_uf_applications fun_defs nodes;
 
