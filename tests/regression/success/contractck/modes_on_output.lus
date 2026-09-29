@@ -1,0 +1,7 @@
+-- Exhaustive and exclusive modes whose ensures constrain the output.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  mode pos (require x > 0; ensure y > 0;);
+  mode nonpos (require x <= 0; ensure y <= 0;);
+*)

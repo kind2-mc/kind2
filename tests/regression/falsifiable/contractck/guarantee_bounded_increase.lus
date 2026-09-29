@@ -1,0 +1,9 @@
+-- The output can increase for a while, but not forever while staying within
+-- [0, 3). Only a fixpoint computation over several steps shows that no
+-- initial value leads to an infinite run.
+
+node imported F(x: int) returns (y: int);
+(*@contract
+  guarantee 0 <= y and y < 3;
+  guarantee true -> y > pre y;
+*)

@@ -1,0 +1,11 @@
+-- The contract of a node with a body, met by its body as well.
+
+node F(x: int) returns (y: int);
+(*@contract
+  assume x >= 0;
+  guarantee y >= 0;
+  guarantee y >= x;
+*)
+let
+  y = x + 1;
+tel

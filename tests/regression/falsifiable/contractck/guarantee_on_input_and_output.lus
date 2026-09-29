@@ -1,0 +1,7 @@
+-- The output can follow the input, but the conjunct on the input alone rules
+-- out every value the environment may pick below 1.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee x > 0 and y = x;
+*)

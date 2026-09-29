@@ -1,0 +1,6 @@
+-- Integers are unbounded, so the output can increase forever.
+
+node imported F(x: int) returns (y: int);
+(*@contract
+  guarantee true -> y > pre y;
+*)

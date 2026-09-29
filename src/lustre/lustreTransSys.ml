@@ -3337,6 +3337,18 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
                 if rec_info <> None then D.values outputs
                 else undefined_outputs
               in
+              (* Slicing may remove the inputs of the top node that its
+                 properties do not depend on, but the functional symbols
+                 take every input. An output may depend on the inputs
+                 removed, so it is not a function of the others *)
+              let constrained_outputs =
+                constrained_outputs |> List.filter (fun sv ->
+                  match SVM.find_opt sv uf_symbols with
+                  | Some uf ->
+                    List.length (UfSymbol.arg_type_of_uf_symbol uf)
+                    = D.cardinal inputs
+                  | None -> true)
+              in
               (* The functional symbols of a recursive function defined at
                  the SMT level are not declared but defined, by the blocks
                  of definitions the system carries (see below); what is
