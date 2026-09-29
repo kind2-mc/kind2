@@ -3337,10 +3337,14 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
                 if rec_info <> None then D.values outputs
                 else undefined_outputs
               in
-              (* Slicing may remove the inputs of the top node that its
-                 properties do not depend on, but the functional symbols
-                 take every input. An output may depend on the inputs
-                 removed, so it is not a function of the others *)
+              (* The functional symbols take every input, but slicing may
+                 remove the inputs of the top node that its contract does
+                 not depend on. This only happens for an imported function
+                 at the top, when the deadlocking trace of an unrealizable
+                 contract is computed (see [Realizability]): recursive
+                 functions keep their whole signature, and the outputs of
+                 other functions are defined. An output may depend on the
+                 inputs removed, so it is not a function of the others *)
               let constrained_outputs =
                 constrained_outputs |> List.filter (fun sv ->
                   match SVM.find_opt sv uf_symbols with
