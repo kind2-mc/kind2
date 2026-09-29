@@ -233,6 +233,18 @@ let compute_unviable_trace_and_core analyze in_sys param sys u_result =
 
 let core_desc = "conflicting constraints"
 
+(* Compute a deadlocking trace and the print data of the conflicting
+   constraints, with the time taken to compute them. The conflicting
+   constraints are a minimal unsat core, hence not approximate. *)
+let compute_unviable_trace_and_core_data analyze in_sys param sys u_result =
+  let start = Unix.gettimeofday () in
+  let trace, core =
+    compute_unviable_trace_and_core analyze in_sys param sys u_result
+  in
+  let time = Unix.gettimeofday () -. start in
+  let cpd = ME.loc_core_to_print_data in_sys sys core_desc (Some time) core in
+  trace, ME.attach_approx_to_print_data cpd false
+
 let pp_print_viable_states in_sys param fmt fp =
   if fp = Term.t_true then
     Format.fprintf fmt "@[<hov>true@]"
@@ -364,12 +376,9 @@ let pp_print_realizability_result_pt
 
     if Flags.Contracts.print_deadlock () || Flags.Contracts.dump_deadlock () then (
       KEvent.log L_note "Computing deadlocking trace and conflict..." ;
-      let trace, core =
-        compute_unviable_trace_and_core
+      let trace, cpd =
+        compute_unviable_trace_and_core_data
           analyze in_sys param sys u_res
-      in
-      let cpd =
-        ME.loc_core_to_print_data in_sys sys core_desc None core
       in
       (* Store dump_cex value *)
       let dump_cex = Flags.dump_cex () in 
@@ -418,14 +427,11 @@ let pp_print_realizability_result_json
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
         try (
-          let trace, core =
-            compute_unviable_trace_and_core
+          let trace, cpd =
+            compute_unviable_trace_and_core_data
               analyze in_sys param sys u_res
           in
           (fun fmt ->
-            let cpd =
-              ME.loc_core_to_print_data in_sys sys core_desc None core
-            in
             Format.fprintf
             fmt
             ",@,%a,@,\
@@ -482,14 +488,11 @@ let pp_print_realizability_result_xml
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
         try (
-          let trace, core =
-            compute_unviable_trace_and_core
+          let trace, cpd =
+            compute_unviable_trace_and_core_data
               analyze in_sys param sys u_res
           in
           (fun fmt ->
-            let cpd =
-              ME.loc_core_to_print_data in_sys sys core_desc None core
-            in
             Format.fprintf
             fmt
             "@,%a@,%a"
