@@ -611,6 +611,10 @@ module ReservedIds : sig
       SMT-level definition of a recursive function *)
   val undefined_call: string
 
+  (** Definition of an output of a function that is neither recursive nor
+      imported, in the SMT-level definition of a recursive function *)
+  val function_definition: string
+
   (** All reserved identifiers. *)
   val reserved_strings: string list
 

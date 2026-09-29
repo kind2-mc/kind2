@@ -1,0 +1,22 @@
+-- A recursive function calls a chain of helpers, each calling the next one
+-- twice. Its definition applies the definition of each helper, rather than
+-- inlining them, which would copy the last helper 2^11 times.
+function H12(x: int) returns (y: int); let y = x; tel
+function H11(x: int) returns (y: int); let y = H12(x) + H12(x + 1); tel
+function H10(x: int) returns (y: int); let y = H11(x) + H11(x + 1); tel
+function H9(x: int) returns (y: int); let y = H10(x) + H10(x + 1); tel
+function H8(x: int) returns (y: int); let y = H9(x) + H9(x + 1); tel
+function H7(x: int) returns (y: int); let y = H8(x) + H8(x + 1); tel
+function H6(x: int) returns (y: int); let y = H7(x) + H7(x + 1); tel
+function H5(x: int) returns (y: int); let y = H6(x) + H6(x + 1); tel
+function H4(x: int) returns (y: int); let y = H5(x) + H5(x + 1); tel
+function H3(x: int) returns (y: int); let y = H4(x) + H4(x + 1); tel
+function H2(x: int) returns (y: int); let y = H3(x) + H3(x + 1); tel
+function H1(x: int) returns (y: int); let y = H2(x) + H2(x + 1); tel
+function rec F(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F(n - 1) + H1(n);
+tel

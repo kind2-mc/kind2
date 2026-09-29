@@ -35,6 +35,9 @@ type block = def list
 type node_defs = {
   blocks : block list;
   ufs : UfSymbol.t list;
+  (* The symbols of the definitions of the functions that are neither
+     recursive nor imported among the blocks *)
+  helper_ufs : UfSymbol.t list;
 }
 
 type t = node_defs NI.Map.t
@@ -67,6 +70,11 @@ let blocks_of_node t node_id =
 let ufs_of_node t node_id =
   match NI.Map.find_opt node_id t with
   | Some { ufs } -> ufs
+  | None -> []
+
+let helper_ufs_of_node t node_id =
+  match NI.Map.find_opt node_id t with
+  | Some { helper_ufs } -> helper_ufs
   | None -> []
 
 
@@ -268,16 +276,36 @@ let undefined_call_symbol node_id inputs output =
   UfSymbol.mk_uf_symbol
     name (List.map type_of (D.values inputs)) (type_of output)
 
+(* The symbol of the definition of an output of a function that is neither
+   recursive nor imported, which the definitions that call the function
+   apply. It is a symbol of its own rather than the functional symbol of the
+   function, which the transition system ties to the instances of the
+   function, where a contract may abstract it. *)
+let helper_symbol node_id inputs output =
+  let type_of = StateVar.type_of_state_var in
+  let name =
+    Format.asprintf "%a.%s.%s"
+      HString.pp_print_hstring (NI.get_internal_name node_id)
+      (StateVar.name_of_state_var output)
+      Lib.ReservedIds.function_definition
+  in
+  UfSymbol.mk_uf_symbol
+    name (List.map type_of (D.values inputs)) (type_of output)
+
 (* Context of the construction of the bindings of a function's body *)
 type ctx = {
   nodes : N.t list;
-  (* The recursive group being defined *)
-  scc_id : int;
+  (* The recursive group being defined, if any: none for a function that is
+     not recursive *)
+  scc_id : int option;
   (* The measure of the function being defined, over its inputs *)
   caller_rf : E.expr list;
   (* Symbols giving the recursive calls of the group their value when their
      termination checks fail, by callee output *)
   undefined_calls : UfSymbol.t SVM.t;
+  (* The functions that are neither recursive nor imported that the
+     bindings apply the definitions of *)
+  helpers : NI.Set.t ref;
 }
 
 (* The bindings of the state variables defined in the body of [node], in
@@ -332,7 +360,7 @@ and bindings_of_call
       acc
   in
   match scc_of_node callee with
-  | Some scc_id when scc_id = ctx.scc_id ->
+  | Some scc_id when Some scc_id = ctx.scc_id ->
     (* A recursive call of the group: apply the symbol of the callee under
        the guard of the termination checks of the call (and of its context,
        if any), and leave the value of the call undefined otherwise. Whether
@@ -395,19 +423,16 @@ and bindings_of_call
       (fun callee_out -> Term.mk_uf (SVM.find callee_out uf_symbols) args)
       acc
   | None ->
-    (* Any other function is inlined: bind its formal inputs to the
-       arguments, then its body, then the outputs of the call to its
-       outputs. A later inlining of the same function rebinds the same
-       variables, which the nesting of the bindings keeps apart. *)
-    let acc =
-      D.fold2
-        (fun _ formal arg acc -> (var_of_svar formal, term_of_svar arg) :: acc)
-        callee.N.inputs
-        call_inputs
-        acc
-    in
-    let acc = bindings_of_node ctx callee acc in
-    bind_outputs (fun callee_out -> term_of_svar callee_out) acc
+    (* Any other function has a definition of its own (see
+       [block_of_helper]), which is applied. Inlining its body instead would
+       copy it at every call, and the body of a function that calls
+       another twice, which calls another twice, and so on, would grow
+       exponentially with the depth of the calls. *)
+    ctx.helpers := NI.Set.add call_node_id !(ctx.helpers) ;
+    bind_outputs
+      (fun callee_out ->
+         Term.mk_uf (helper_symbol call_node_id callee.N.inputs callee_out) args)
+      acc
 
 (* The body of the definition of [output] from the bindings of the body of
    its function, in reverse dependency order: the bindings the output
@@ -448,7 +473,7 @@ let ufs_of_term term =
   !acc
 
 (* The block of definitions of a recursive group *)
-let block_of_scc nodes scc_id members =
+let block_of_scc nodes helpers scc_id members =
   let undefined_calls =
     List.fold_left
       (fun acc ({ N.node_id; N.inputs; N.outputs }) ->
@@ -467,7 +492,9 @@ let block_of_scc nodes scc_id members =
          | Some { N.rec_info = Some (_, rf); N.uf_symbols } -> rf, uf_symbols
          | _ -> assert false
        in
-       let ctx = { nodes; scc_id; caller_rf; undefined_calls } in
+       let ctx =
+         { nodes; scc_id = Some scc_id; caller_rf; undefined_calls; helpers }
+       in
        let formals = D.values node.N.inputs |> List.map var_of_svar in
        let bindings = bindings_of_node ctx node [] in
        D.values node.N.outputs
@@ -478,11 +505,41 @@ let block_of_scc nodes scc_id members =
     members
 
 
+(* The block of the definition of a function that is neither recursive nor
+   imported, one definition for each of its outputs. It calls no function of
+   the recursive group that applies it, or it would be part of the group. *)
+let block_of_helper nodes helpers ({ N.node_id; N.inputs; N.outputs } as node) =
+  let ctx =
+    { nodes; scc_id = None; caller_rf = []; undefined_calls = SVM.empty;
+      helpers }
+  in
+  let formals = D.values inputs |> List.map var_of_svar in
+  let bindings = bindings_of_node ctx node [] in
+  D.values outputs
+  |> List.map (fun output ->
+    helper_symbol node_id inputs output,
+    formals,
+    body_of_output bindings output)
+
+
 (* ********************************************************************** *)
 (* All definitions                                                        *)
 (* ********************************************************************** *)
 
 module IMap = Map.Make (Int)
+
+(* A block of definitions: that of a recursive group, or that of a function
+   that is neither recursive nor imported *)
+module Key = struct
+  type t = Group of int | Helper of NI.t
+  let compare k k' =
+    match k, k' with
+    | Group g, Group g' -> Int.compare g g'
+    | Helper n, Helper n' -> NI.compare n n'
+    | Group _, Helper _ -> -1
+    | Helper _, Group _ -> 1
+end
+module KMap = Map.Make (Key)
 
 (* The definitions of the recursive groups of the functions [applied], and
    of the groups their definitions call *)
@@ -546,10 +603,34 @@ let compute_for ~adt_junk_ufs applied nodes =
 
     if IMap.is_empty defined_sccs then empty else
 
+      (* The blocks of the groups, then those of the functions they apply
+         the definitions of, and of the functions those apply in turn *)
+      let helpers = ref NI.Set.empty in
       let blocks =
-        IMap.mapi (fun scc_id members -> block_of_scc nodes scc_id members)
-          defined_sccs
+        IMap.fold
+          (fun scc_id members acc ->
+             KMap.add (Key.Group scc_id)
+               (block_of_scc nodes helpers scc_id members) acc)
+          defined_sccs KMap.empty
       in
+      let rec add_helpers blocks =
+        let missing =
+          NI.Set.filter
+            (fun node_id -> not (KMap.mem (Key.Helper node_id) blocks))
+            !helpers
+        in
+        if NI.Set.is_empty missing then blocks
+        else
+          NI.Set.fold
+            (fun node_id acc ->
+               KMap.add (Key.Helper node_id)
+                 (block_of_helper nodes helpers
+                    (N.node_of_node_id node_id nodes))
+                 acc)
+            missing blocks
+          |> add_helpers
+      in
+      let blocks = add_helpers blocks in
 
       (* The symbols each block defines and applies *)
       let defined_of_block block =
@@ -562,7 +643,7 @@ let compute_for ~adt_junk_ufs applied nodes =
           block
       in
       let all_defined =
-        IMap.fold
+        KMap.fold
           (fun _ block acc -> UFS.union acc (defined_of_block block))
           blocks
           UFS.empty
@@ -604,15 +685,15 @@ let compute_for ~adt_junk_ufs applied nodes =
       (* Blocks in dependency order (a block after the ones defining the
          symbols it applies), each with the uninterpreted symbols it applies *)
       let block_info =
-        IMap.map
+        KMap.map
           (fun block ->
              let applied = applied_of_block block in
              let deps =
-               IMap.fold
-                 (fun scc_id block' acc ->
+               KMap.fold
+                 (fun key block' acc ->
                     if UFS.is_empty (UFS.inter applied (defined_of_block block'))
                     then acc
-                    else scc_id :: acc)
+                    else key :: acc)
                  blocks
                  []
              in
@@ -620,22 +701,33 @@ let compute_for ~adt_junk_ufs applied nodes =
           blocks
       in
 
-      (* The blocks a group's own depends on, followed by its own, and the
-         symbols they apply *)
-      let rec closure (order, seen, ufs) scc_id =
-        if List.mem scc_id seen then order, seen, ufs
+      (* The blocks a group's own depends on, followed by its own, the
+         symbols they apply, and the symbols of the definitions of functions
+         that are neither recursive nor imported among them *)
+      let rec closure ((order, seen, ufs, helper_ufs) as acc) key =
+        if List.exists (fun k -> Key.compare k key = 0) seen then acc
         else
-          let block, deps, applied = IMap.find scc_id block_info in
-          let order, seen, ufs =
-            List.fold_left closure (order, scc_id :: seen, ufs) deps
+          let block, deps, applied = KMap.find key block_info in
+          let order, seen, ufs, helper_ufs =
+            List.fold_left closure (order, key :: seen, ufs, helper_ufs) deps
           in
-          order @ [block], seen, UFS.union ufs applied
+          let helper_ufs =
+            match key with
+            | Key.Helper _ -> UFS.union helper_ufs (defined_of_block block)
+            | Key.Group _ -> helper_ufs
+          in
+          order @ [block], seen, UFS.union ufs applied, helper_ufs
       in
 
       IMap.fold
         (fun scc_id members acc ->
-           let blocks, _, ufs = closure ([], [], UFS.empty) scc_id in
-           let node_defs = { blocks; ufs = UFS.elements ufs } in
+           let blocks, _, ufs, helper_ufs =
+             closure ([], [], UFS.empty, UFS.empty) (Key.Group scc_id)
+           in
+           let node_defs =
+             { blocks; ufs = UFS.elements ufs;
+               helper_ufs = UFS.elements helper_ufs }
+           in
            List.fold_left
              (fun acc { N.node_id } -> NI.Map.add node_id node_defs acc)
              acc

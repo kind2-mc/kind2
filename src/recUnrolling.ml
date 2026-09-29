@@ -111,10 +111,28 @@ let pending : (UfSymbol.t * Term.t list * Term.t) list ref = ref []
    and must not be evaluated: the branch that ends the recursion of a
    function applies it again on the other branch, at arguments the
    recursion never reaches, and evaluating the function there would go on
-   past the end of the recursion. *)
-let applications definitions term =
-  let defined uf =
-    List.exists (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') definitions
+   past the end of the recursion.
+
+   The definition of a function that is neither recursive nor imported,
+   among [helpers], is given to the solver (see
+   [TransSys.define_and_declare_of_bounds]), and its application is not
+   evaluated: the applications it executes are those in the body of its
+   definition at its arguments, as when the definitions that call it
+   inlined its body. *)
+let rec applications helpers definitions term =
+  let definition uf =
+    List.find_opt (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') definitions
+  in
+  let defined uf = Option.is_some (definition uf) in
+  let helper uf = List.exists (UfSymbol.equal_uf_symbols uf) helpers in
+  (* The applications the body of a helper executes at closed arguments *)
+  let of_helper uf args =
+    match definition uf with
+    | Some (_, formals, body) ->
+      Term.apply_subst (List.combine formals args) body
+      |> applications helpers definitions
+      |> List.map (fun (uf, args, guard) -> (uf, args, [ guard ]))
+    | None -> []
   in
   let closed t = Var.VarSet.is_empty (Term.vars_of_term t) in
   let add calls ((uf, args, guard) as call) =
@@ -141,11 +159,15 @@ let applications definitions term =
            List.fold_left add in_cond (in_then @ in_else)
        | Term.T.App (s, args), _ ->
          let calls = List.fold_left (List.fold_left add) [] calls in
-         if Symbol.is_uf s
-         && defined (Symbol.uf_of_symbol s)
-         && List.for_all closed args
-         then add calls (Symbol.uf_of_symbol s, args, [])
+         if Symbol.is_uf s && List.for_all closed args then
+           let uf = Symbol.uf_of_symbol s in
+           if helper uf then List.fold_left add calls (of_helper uf args)
+           else if defined uf then add calls (uf, args, [])
+           else calls
          else calls
+       | Term.T.Const s, _
+         when Symbol.is_uf s && helper (Symbol.uf_of_symbol s) ->
+         of_helper (Symbol.uf_of_symbol s) []
        | _, calls -> List.concat calls)
     term
   |> List.map (fun (uf, args, guard) -> (uf, args, Term.mk_and guard))
@@ -393,6 +415,7 @@ let genuine sys prop cex =
   let instances = TransSys.cutoff_instances sys in
   let evaluable = TransSys.evaluable_functions sys in
   let definitions = TransSys.check_definitions sys in
+  let helpers = TransSys.check_helper_symbols sys in
   let var_at sv i = Term.mk_var (Var.mk_state_var_instance sv i) in
   (* The terms whose values tell the calls the model executes *)
   let observed () =
@@ -494,7 +517,7 @@ let genuine sys prop cex =
         ( match !round_solver with
           | Some { solver } -> SMTSolver.assert_term solver equation
           | None -> () ) ;
-        pending := applications definitions instance @ !pending ;
+        pending := applications helpers definitions instance @ !pending ;
         true
   in
   let rec loop n =

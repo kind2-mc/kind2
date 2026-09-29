@@ -52,7 +52,14 @@
     the transition system. A call to a recursive function of another group
     applies the functional symbol of the callee, which either has a definition
     of its own or is uninterpreted; a call to an imported function applies its
-    functional symbol; and a call to any other function is inlined.
+    functional symbol; and a call to any other function applies the symbols
+    of a definition of that function ([f.out.__function_definition]), in a
+    block of its own. Inlining the body of such a function instead would copy
+    it at every call, and the definition of a function that calls another
+    twice, which calls another twice, and so on, would grow exponentially
+    with the depth of the calls. The symbols are not the functional symbols
+    of the function, which the transition system ties to the instances of
+    the function, where a contract may abstract it.
 
     Every function of a recursive group is defined, or none is. A group is
     defined only if a function of it is applied to quantified variables, or
@@ -60,7 +67,7 @@
     eligible (not abstracted by its contract, as above) and definable: its
     body is a total function of its inputs, without assertions, oracles,
     array-typed variables or calls to nodes, and the same holds for the
-    functions it inlines. Definitions are only produced for the solvers that
+    functions it calls that are neither recursive nor imported. Definitions are only produced for the solvers that
     support them (Z3 and cvc5) and when no logic is set with [--smt_logic]; a
     function that is applied to quantified variables but not defined, for
     any of these reasons, has its functional symbol left uninterpreted, and
@@ -109,12 +116,21 @@ val compute_all : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
 val is_defined : t -> NodeId.t -> bool
 
 (** The blocks of definitions the given function's own depends on, followed
-    by its own, in dependency order; empty if the function is not defined *)
+    by its own, in dependency order; empty if the function is not defined.
+    The blocks it depends on include the definitions of the functions that
+    are neither recursive nor imported it calls. *)
 val blocks_of_node : t -> NodeId.t -> block list
 
 (** The uninterpreted symbols applied by the blocks of the given function,
     to be declared before them; empty if the function is not defined *)
 val ufs_of_node : t -> NodeId.t -> UfSymbol.t list
+
+(** The symbols the blocks of the given function define for the functions
+    that are neither recursive nor imported; empty if the function is not
+    defined. A solver that is given instances of the defining equations
+    rather than the definitions expands their applications into the bodies
+    of their definitions, as the definitions used to be built. *)
+val helper_ufs_of_node : t -> NodeId.t -> UfSymbol.t list
 
 (** [bounded_below ms] states that every component of the measure [ms] is
     non-negative *)
