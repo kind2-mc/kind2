@@ -18,6 +18,25 @@
         
 open Lib
 
+(* The system of the analysis sliced to the property, as IC3IA builds it,
+   for a property that was in the input system and when the nodes are
+   sliced *)
+let sliced_to_property input_sys aparam trans_sys name () =
+  if Flags.slice_nodes () <> `On then None
+  else
+    let prop = TransSys.property_of_name trans_sys name in
+    match prop.Property.prop_source with
+    | Property.Instantiated _
+    | Property.Assumption _
+    | Property.Generated (None, _, _) -> None
+    | _ ->
+      match
+        InputSystem.trans_sys_of_analysis ~slice_to_prop:prop input_sys
+          (Analysis.param_clone aparam)
+      with
+      | sys, _ -> Some sys
+      | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+
 let handle_events input_sys aparam trans_sys = 
 
   (* Receive queued events *)
@@ -43,7 +62,13 @@ let handle_events input_sys aparam trans_sys =
             if timeout > 0. && Stat.get_float Stat.total_time > timeout then
               raise TimeoutWall ) ;
         match RecUnrolling.suspect trans_sys p cex with
-        | [] -> true
+        | [] ->
+          (* Reported: whether refining the recursive functions whose
+             contracts abstract them may rule the counterexample out *)
+          RecUnrolling.check_abstractions
+            ~sliced:(sliced_to_property input_sys aparam trans_sys p)
+            trans_sys p cex ;
+          true
         | reached ->
           ( match RecUnrolling.request aparam p reached with
             | `At_limit (too_many, at_limit) ->

@@ -73,6 +73,25 @@ val requested : unit -> Scope.t list
 val suspect :
   TransSys.t -> string -> (StateVar.t * Model.value list) list -> Scope.t list
 
+(** The counterexample to the property, which is reported, executes
+    instances of recursive functions that their contracts abstract, in a
+    compositional and modular analysis. If the functions as they are, rather
+    than their contracts, violate the property with the inputs of the
+    counterexample, the property is recorded as falsified by the functions
+    (see [genuine_properties]): refining the functions, which only replaces
+    their contracts by their bodies, cannot prove it. The check is the one of
+    [suspect], with the abstracted instances as well as the calls past the
+    unrollings, and takes from the same budget; an undecided counterexample
+    is not recorded. It is made on the system [sliced ()] gives, the system
+    of the analysis sliced to the property, if any, and on the system of the
+    analysis otherwise. The supervisor is meant to call this. *)
+val check_abstractions :
+  sliced:(unit -> TransSys.t option) ->
+  TransSys.t -> string -> (StateVar.t * Model.value list) list -> unit
+
+(** The properties recorded by [check_abstractions] since [reset] *)
+val genuine_properties : unit -> string list
+
 (** Whether the property was given up on *)
 val is_exhausted : string -> bool
 

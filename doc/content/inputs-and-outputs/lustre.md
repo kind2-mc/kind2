@@ -981,6 +981,19 @@ with `--rec_unrollings`. This refinement does not apply to the analysis of
 the recursive function itself, or of a function of its recursive group:
 there the recursive calls keep the contract as their induction hypothesis.
 
+A counterexample found with a recursive function abstracted by its contract
+is checked against the function as it is: Kind 2 evaluates the calls of the
+function the counterexample executes, at their concrete arguments, and
+checks whether the property still fails with their values, on the system
+sliced to the property. If it does, the property is false of the function
+itself, and unrolling the function, which only replaces its contract by its
+body, cannot prove it: the recursive functions are then not refined for that
+property. They are still refined for a property that is unknown, or whose
+counterexample relies on outputs the contracts allow but the functions do not
+have, or cannot be checked in time; and the other callees are refined as
+before. A check such as `Fact(4) = 25` is then falsified in the first
+analysis of the caller, which is not analyzed again up to the limit.
+
 In such an analysis, a call at constant arguments to a recursive function
 that is proved terminating is evaluated instead: Kind 2 computes its value
 with the definition of the function, in a solver of its own, and gives it to

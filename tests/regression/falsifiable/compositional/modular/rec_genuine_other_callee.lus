@@ -1,0 +1,30 @@
+-- The counterexample to "c" in the first analysis of main executes the call
+-- of Fact that its contract abstracts, and is not ruled out by Fact as it
+-- is: Fact(x) < 0 is false of Fact as well as of its contract, and "c"
+-- fails because of Callee, whose contract gives y >= 0. Refining Fact
+-- cannot prove "c", but making Callee concrete does, and main is refined
+-- that way, once.
+--
+-- The run is falsifiable, as the first analysis falsifies "c", so
+-- test_rec_genuine_refinement.py checks the answers of the analyses of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node Callee(x: int) returns (y: int);
+(*@contract
+  guarantee "nonneg" y >= 0;
+*)
+let
+  y = 1;
+tel
+
+node main(x: int) returns ();
+let
+  check "c" Callee(x) = 1 or Fact(x) < 0;
+tel

@@ -309,6 +309,7 @@ val mk_trans_sys :
   ?check_ufs:UfSymbol.t list ->
   ?check_helpers:UfSymbol.t list ->
   ?rec_cutoff:Scope.t ->
+  ?rec_abstracted:Scope.t ->
   ?rec_cutoff_io:(StateVar.t list * (StateVar.t * UfSymbol.t) list) ->
 
   (* Name of the transition system *)
@@ -841,6 +842,20 @@ val cutoff_instances :
     definitions for the supervisor to evaluate their calls with, which
     [define_and_declare_of_bounds ~with_check_defs:true] gives the solver *)
 val evaluable_functions : t -> Scope.t list
+
+(** The instances of the recursive functions that their contracts abstract
+    in the system, as [cutoff_instances] gives the cutoffs: an abstract
+    instance in a compositional analysis, or one past the unrollings of its
+    function when the contract stands in for its body. Their outputs are
+    tied to the functional symbols of the function, and constrained by its
+    contract only. *)
+val abstracted_instances :
+  t -> (Scope.t * Term.t * StateVar.t list * (StateVar.t * UfSymbol.t) list) list
+
+(** The recursive functions with an abstracted instance in the system whose
+    systems carry definitions for the supervisor to evaluate their calls
+    with *)
+val abstracted_evaluable_functions : t -> Scope.t list
 
 (** The number of instances of the recursive function of the given scope
     in the system, the instances of its unrollings included *)

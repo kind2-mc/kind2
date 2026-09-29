@@ -142,6 +142,12 @@ and result = {
   (** [None] if system analyzed has not sub-requirements,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
+
+  genuine : string list ;
+  (** The properties falsified by a counterexample that the recursive
+      functions as they are violate, rather than their contracts that
+      abstract them in the system (see [RecUnrolling.check_abstractions]):
+      refining the recursive functions cannot prove them. *)
 }
 
 
@@ -176,7 +182,7 @@ val no_system_is_abstract : ?include_top:bool -> param -> bool
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
 (** Returns a result from an analysis. *)
-val mk_result : param -> TransSys.t -> float -> result
+val mk_result : ?genuine:string list -> param -> TransSys.t -> float -> result
 
 (** Returns true if all properties in the system
     in a [result] have been proved. *)
