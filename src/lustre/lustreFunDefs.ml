@@ -542,8 +542,9 @@ end
 module KMap = Map.Make (Key)
 
 (* The definitions of the recursive groups of the functions [applied], and
-   of the groups their definitions call *)
-let compute_for ~adt_junk_ufs applied nodes =
+   of the groups their definitions call, whose functions are all [eligible]
+   and definable *)
+let compute_for ?(eligible = eligible) ~adt_junk_ufs applied nodes =
 
   if not (enabled ()) || NI.Set.is_empty applied then empty else
 
@@ -759,3 +760,9 @@ let compute_all ~adt_junk_ufs nodes =
       NI.Set.empty nodes
   in
   compute_for ~adt_junk_ufs recursive nodes
+
+let compute_evaluable ~adt_junk_ufs applied nodes =
+  (* The definitions are only given to the solver that evaluates the
+     functions, so a contract that abstracts a function in the analysis
+     does not stand in the way *)
+  compute_for ~eligible:(fun _ -> true) ~adt_junk_ufs applied nodes

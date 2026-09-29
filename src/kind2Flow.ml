@@ -1062,8 +1062,28 @@ let handle_exception process e =
       pp_print_kind_module process
       print_backtrace backtrace
 
+(* The evaluator of recursive functions at concrete arguments that the
+   Lustre transition systems are built with (see
+   [LustreTransSys.set_mk_evaluator]) *)
+let mk_evaluator ~logic ~timeout_ms define =
+  let evaluator =
+    FunEval.create ~logic ~timeout_ms (fun solver ->
+      define
+        ~declare_sort:(SMTSolver.declare_sort solver)
+        ~declare_fun:(SMTSolver.declare_fun solver)
+        ~define_rec:(SMTSolver.define_funs_rec solver))
+  in
+  { LustreTransSys.evaluate =
+      (fun uf args ->
+         match FunEval.evaluate evaluator uf args with
+         | `Value v -> Some v
+         | `Not_unique | `Unknown -> None) ;
+    LustreTransSys.delete = (fun () -> FunEval.delete evaluator) }
+
 (** Runs the analyses produced by the strategy module. *)
 let run in_sys =
+
+  LustreTransSys.set_mk_evaluator mk_evaluator ;
 
   (* Who's active? *)
   match Flags.enabled () with

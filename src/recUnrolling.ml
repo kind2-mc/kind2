@@ -174,11 +174,9 @@ let rec applications helpers definitions term =
 
 let fact_term (uf, args) value = Term.mk_eq [ Term.mk_uf uf args ; value ]
 
-(* The solver the functions are evaluated with: their definitions, and
-   nothing of the system but its sorts. Recursive definitions in the
-   queries on the whole system are more than a solver can handle, while an
-   application at concrete arguments is unfolded in no time. *)
-let eval_solver : SMTSolver.t option ref = ref None
+(* The evaluator of the functions: their definitions, and nothing of the
+   system but its sorts (see [FunEval]) *)
+let evaluator : FunEval.t option ref = ref None
 
 let drop_round_solver () =
   ( match !round_solver with
@@ -186,98 +184,41 @@ let drop_round_solver () =
     | None -> () ) ;
   round_solver := None
 
-let drop_eval_solver () =
-  ( match !eval_solver with
-    | Some solver -> (try SMTSolver.delete_instance solver with _ -> ())
-    | None -> () ) ;
-  eval_solver := None
+let drop_evaluator () =
+  Option.iter FunEval.delete !evaluator ;
+  evaluator := None
 
-(* The per-query timeout options of Z3 and cvc5, in milliseconds; the other
-   solvers take a timeout for the whole of their life only *)
-let kind_takes_per_query ms = function
-  | `Z3_SMTLIB -> Some (":timeout", string_of_int ms)
-  | `cvc5_SMTLIB -> Some (":tlimit-per", string_of_int ms)
-  | _ -> None
+let set_per_query_timeout solver =
+  FunEval.set_per_query_timeout ~ms:(query_timeout * 1000) solver
 
-let set_per_query_timeout ?(ms = query_timeout * 1000) solver =
-  match kind_takes_per_query ms (SMTSolver.kind solver) with
-  | Some (option, value) ->
-    SMTSolver.execute_custom_command solver "set-option"
-      [ SMTExpr.ArgString option ; SMTExpr.ArgString value ] 0
-    |> ignore ;
-    true
-  | None -> false
-
-(* The value of the functional symbol at the concrete arguments: [`Value v]
-   if it has the one value [v], [`Not_unique] if it may take several, and
-   [`Unknown] if the solver cannot tell in time *)
+(* The value of the functional symbol at the concrete arguments (see
+   [FunEval.evaluate]) *)
 let evaluate sys uf args =
-  try
-    let solver =
-      match !eval_solver with
-      | Some solver -> solver
-      | None ->
-        let features =
-          match TransSys.get_logic sys with
-          | `Inferred features -> features
-          | _ -> TermLib.FeatureSet.empty
-        in
-        let logic =
-          `Inferred
-            TermLib.FeatureSet.(
-              features |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
-        in
-        let solver =
-          SMTSolver.create_instance ~produce_models:true logic
-            (Flags.Smt.solver ())
-        in
-        set_per_query_timeout ~ms:evaluation_timeout solver |> ignore ;
-        TransSys.define_check_defs sys
-          ~define_rec:(SMTSolver.define_funs_rec solver)
-          (SMTSolver.declare_fun solver)
-          (SMTSolver.declare_sort solver) ;
-        eval_solver := Some solver ;
-        solver
-    in
-    SMTSolver.push solver ;
-    let result = UfSymbol.mk_fresh_uf_symbol [] (UfSymbol.res_type_of_uf_symbol uf) in
-    SMTSolver.declare_fun solver result ;
-    let result = Term.mk_uf result [] in
-    SMTSolver.assert_term solver (Term.mk_eq [ result ; Term.mk_uf uf args ]) ;
-    let value =
-      (* An evaluation the solver gives up on in time is not a reason to
-         give up on the solver *)
-      try
-        SMTSolver.check_sat_and_get_term_values solver
-          (fun _ values ->
-             match List.assq_opt result values with
-             | Some v -> `Value v
-             | None -> `Unknown)
-          (fun _ -> `Unknown)
-          [ result ]
-      with SMTSolver.Unknown -> `Unknown
-    in
-    (* The value must be the only one: a definition may apply symbols that
-       are not defined, the value of a call whose termination checks fail,
-       or a constant the system shares, such as that of a 'choose', which
-       the solver would pick here on its own *)
-    let value =
-      match value with
-      | `Value v ->
-        SMTSolver.assert_term solver (Term.mk_not (Term.mk_eq [ result ; v ])) ;
-        ( match SMTSolver.check_sat solver with
-          | false -> `Value v
-          | true -> `Not_unique
-          | exception SMTSolver.Unknown -> `Unknown )
-      | other -> other
-    in
-    SMTSolver.pop solver ;
-    value
-  with
-  | SMTSolver.Timeout -> eval_solver := None ; `Unknown
-  | SMTSolver.Unknown -> drop_eval_solver () ; `Unknown
-  | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
-  | SMTSolver.Exiting -> drop_eval_solver () ; `Unknown
+  let evaluator =
+    match !evaluator with
+    | Some evaluator -> evaluator
+    | None ->
+      let features =
+        match TransSys.get_logic sys with
+        | `Inferred features -> features
+        | _ -> TermLib.FeatureSet.empty
+      in
+      let logic =
+        `Inferred
+          TermLib.FeatureSet.(
+            features |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
+      in
+      let e =
+        FunEval.create ~logic ~timeout_ms:evaluation_timeout (fun solver ->
+          TransSys.define_check_defs sys
+            ~define_rec:(SMTSolver.define_funs_rec solver)
+            (SMTSolver.declare_fun solver)
+            (SMTSolver.declare_sort solver))
+      in
+      evaluator := Some e ;
+      e
+  in
+  FunEval.evaluate evaluator uf args
 
 (* The solver for a query on a counterexample of length [k + 1] of the
    system: the one of the round if there is one, with the state variables
@@ -327,7 +268,7 @@ let solver_for sys k =
 let reset () =
   round_time := 0. ;
   drop_round_solver () ;
-  drop_eval_solver () ;
+  drop_evaluator () ;
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
@@ -340,7 +281,7 @@ let reset () =
 let start_round sys =
   round_time := 0. ;
   drop_round_solver () ;
-  drop_eval_solver () ;
+  drop_evaluator () ;
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;

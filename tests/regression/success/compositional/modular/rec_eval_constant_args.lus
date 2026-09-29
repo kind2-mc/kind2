@@ -1,0 +1,91 @@
+-- In a compositional and modular analysis, the analyses of the recursive
+-- functions prove their termination checks, and a call to one of them at
+-- constant arguments is then evaluated: its value is given to the solver,
+-- so the first analysis of main proves the checks without refining the
+-- functions, although their contracts do not give the values. An argument
+-- is constant when it is a literal, a local defined from constants, or the
+-- output of another call evaluated in turn. test_rec_evaluation.py checks
+-- that main is analyzed once.
+type Nat = subrange [0,*] of int;
+
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+function rec ack(m, n: int) returns (r: int);
+(*@contract
+  assume m >= 0 and n >= 0;
+  guarantee "nonneg" r >= 0;
+  decreases m, n;
+*)
+let
+  r = when m <= 0 then n + 1
+      else when n <= 0 then ack(m - 1, 1)
+      else ack(m - 1, ack(m, n - 1));
+tel
+
+function rec IsEven(n: Nat) returns (e: bool);
+(*@contract
+  guarantee "zero" n = 0 => e;
+  decreases n;
+*)
+let
+  e = when n = 0 then true else IsOdd(n - 1);
+tel
+
+function rec IsOdd(n: Nat) returns (o: bool);
+(*@contract
+  guarantee "zero" n = 0 => not o;
+  decreases n;
+*)
+let
+  o = when n = 0 then false else IsEven(n - 1);
+tel
+
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Length(l: List) returns (len: int);
+(*@contract
+  guarantee "nonneg" len >= 0;
+  decreases l;
+*)
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, tl) : 1 + Length(tl)
+  end;
+tel
+
+-- A function with no contract is not abstracted but unrolled, up to
+-- --rec_unrollings (10 by default): the check on Sum(20) is past that limit,
+-- and is proved because the analysis of Sum checks its termination, so that
+-- the call is evaluated
+function rec Sum(n: int) returns (s: int);
+(*@contract
+  decreases n;
+*)
+let
+  s = when n <= 0 then 0 else n + Sum(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+var a, b: int;
+let
+  a = 3;
+  b = a + 1;
+  y = Fact(b);
+  check "literal" Fact(10) = 3628800;
+  check "local" y = 24;
+  check "nested" Fact(Fact(3)) = 720;
+  check "ack" ack(2, 3) = 9;
+  check "mutual" IsOdd(7) and not IsEven(7);
+  check "adt" Length(Cons(1, Cons(2, Cons(3, Nil)))) = 3;
+  check "no_contract" Sum(20) = 210;
+  -- A symbolic argument is left to the contract
+  check "symbolic" Fact(x) > 0;
+tel

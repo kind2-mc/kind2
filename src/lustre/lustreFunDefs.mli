@@ -112,6 +112,14 @@ val compute : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
     [RecUnrolling]). *)
 val compute_all : adt_junk_ufs:UfSymbol.t list -> LustreNode.t list -> t
 
+(** Compute the definitions of the given recursive functions, and of the
+    functions their definitions call, whether or not the contract abstracts
+    them, provided they are definable. These are not given to the engines
+    either: the transition system evaluates the calls to the functions at
+    constant arguments with them (see {!LustreTransSys}). *)
+val compute_evaluable :
+  adt_junk_ufs:UfSymbol.t list -> NodeId.Set.t -> LustreNode.t list -> t
+
 (** [true] iff the functional symbols of the given function are defined *)
 val is_defined : t -> NodeId.t -> bool
 

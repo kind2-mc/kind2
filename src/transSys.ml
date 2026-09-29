@@ -2843,11 +2843,19 @@ let slice_term (cone_of_influence : SVS.t) (term : Term.t) =
     try Some (Var.state_var_of_state_var_instance var) with _ -> None
   in
 
+  (* A conjunct is kept if it constrains a state variable in the cone of
+     influence, or no state variable at all: a constraint that holds in
+     every state, such as the value of a function at constant arguments
+     (see [LustreTransSys]), may matter to any property *)
   let keep_term t =
-    Term.vars_of_term t |> Var.VarSet.to_seq
-    |> Seq.filter_map state_var_of_state_var_instance_opt
-    |> Seq.find (fun x -> StateVar.StateVarSet.mem x cone_of_influence)
-    |> is_some
+    let state_vars =
+      Term.vars_of_term t |> Var.VarSet.to_seq
+      |> Seq.filter_map state_var_of_state_var_instance_opt
+    in
+    Seq.is_empty state_vars
+    || Seq.exists
+      (fun x -> StateVar.StateVarSet.mem x cone_of_influence)
+      state_vars
   in
   try
     assert ((Term.node_symbol_of_term term |> Symbol.node_of_symbol) == `AND);

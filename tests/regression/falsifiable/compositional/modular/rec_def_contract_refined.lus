@@ -4,6 +4,10 @@
 -- once more each, its recursive call abstracted by the contract, until
 -- Fact(0) is the body, at four unrollings, which gives the check.
 --
+-- The argument of the call is an input, which the check fixes, rather than
+-- a constant: a call at constant arguments would be evaluated, Fact being
+-- proved terminating, and need no refinement (see rec_eval_constant_args).
+--
 -- The run is falsifiable, as the first analysis of main falsifies the
 -- checks and the documented exit code counts every analysis, so
 -- test_rec_refinement.py checks the answers of the last refinement.
@@ -18,6 +22,6 @@ tel
 
 node main(x: int) returns (y: int);
 let
-  y = Fact(3);
-  check "fact3" y = 6;
+  y = Fact(x);
+  check "fact3" x = 3 => y = 6;
 tel

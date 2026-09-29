@@ -86,6 +86,16 @@ type info = {
       unconstrained, and an unrolling is added when a counterexample
       reaches one (see {!RecUnrolling}). *)
 
+  terminating : Lib.position list Scope.Map.t ;
+  (** The recursive functions whose own analysis proved valid every
+      termination check it had, each with the positions of the calls of
+      those checks, which are looked up by call: a call whose checks the
+      analysis did not have is not taken as terminating. In a compositional
+      and modular analysis, a call to one of
+      them at constant arguments is evaluated, and its value given to the
+      solver, when the checks of all its recursive calls are among them (see
+      {!LustreTransSys}). *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
      refinement. *)
@@ -181,6 +191,16 @@ val result_is_all_inv_proved : result -> bool
     check of the system, when it is a recursive function. What a refinement
     of a caller needs of the system (see {!Strategy}). *)
 val result_is_contract_proved : result -> bool
+
+(** Returns true if every termination check of the system in a [result]
+    was proved valid. The system of a function that is not recursive has
+    none. *)
+val result_is_termination_proved : result -> bool
+
+(** The positions of the calls whose termination checks the analysis of a
+    [result] proved, if it proved every termination check of the system,
+    [None] otherwise *)
+val result_termination_checks : result -> Lib.position list option
 
 (** Returns true if some properties in the system
     in a [result] have been falsified. *)

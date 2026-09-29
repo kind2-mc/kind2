@@ -85,6 +85,14 @@ type info = {
       unconstrained, and an unrolling is added when a counterexample
       reaches one (see [RecUnrolling]). *)
 
+  terminating : Lib.position list Scope.Map.t ;
+  (** The recursive functions whose own analysis proved valid every
+      termination check it had, each with the positions of the calls of
+      those checks. In a compositional and modular analysis, a call to one
+      of them at constant arguments is evaluated, and its value given to the
+      solver, when the checks of all its recursive calls are among them (see
+      [LustreTransSys]). *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -264,6 +272,25 @@ let result_is_all_inv_proved { sys } =
     | _ -> false
   )
 
+(** Returns true if every termination check of the system in a [result]
+    was proved valid *)
+let result_is_termination_proved { sys } =
+  TransSys.get_properties sys |> List.for_all (fun p ->
+    match p.Property.prop_source, p.Property.prop_status with
+    | Property.TerminationCheck _, Property.PropInvariant _ -> true
+    | Property.TerminationCheck _, _ -> false
+    | _ -> true)
+
+(** The positions of the calls whose termination checks the analysis of a
+    [result] proved, if it proved every termination check of the system *)
+let result_termination_checks ({ sys } as result) =
+  if not (result_is_termination_proved result) then None
+  else
+    Some (TransSys.get_properties sys |> List.filter_map (fun p ->
+      match p.Property.prop_source with
+      | Property.TerminationCheck pos -> Some pos
+      | _ -> None))
+
 (** Returns true if the contract of the system in a [result] was proved:
     every guarantee and mode property is valid, and so is every termination
     check of the system, when it is a recursive function. The guarantees of
@@ -273,13 +300,8 @@ let result_is_all_inv_proved { sys } =
     the obligations generated for it and the properties lifted from its
     subsystems, have no bearing on whether its implementation satisfies its
     contract. *)
-let result_is_contract_proved { contract_valid ; sys } =
-  contract_valid = Some true
-  && (TransSys.get_properties sys |> List.for_all (fun p ->
-        match p.Property.prop_source, p.Property.prop_status with
-        | Property.TerminationCheck _, Property.PropInvariant _ -> true
-        | Property.TerminationCheck _, _ -> false
-        | _ -> true))
+let result_is_contract_proved ({ contract_valid } as result) =
+  contract_valid = Some true && result_is_termination_proved result
 
 (** Returns true if some invariant properties in the system
     in a [result] have been falsified. *)
