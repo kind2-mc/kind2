@@ -6,6 +6,10 @@
 -- unrolling (--rec_unrollings 1), there is no second refinement and the
 -- check stays falsified.
 --
+-- The argument of the call is an input, which the check fixes, rather than
+-- a constant: a call at constant arguments would be evaluated, Fact being
+-- proved terminating, and need no refinement (see rec_eval_constant_args).
+--
 -- The run is falsifiable, as the first analysis of main falsifies the check
 -- and the documented exit code counts every analysis, so
 -- test_rec_refinement_levels.py checks the answers of the analyses of main.
@@ -20,6 +24,6 @@ tel
 
 node main(x: int) returns (y: int);
 let
-  y = Fact(1);
-  check "fact1" y = 1;
+  y = Fact(x);
+  check "fact1" x = 1 => y = 1;
 tel

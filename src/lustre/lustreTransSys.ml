@@ -2638,8 +2638,373 @@ let function_congruence_group state_var_bounds inputs uf_symbols
    systems it builds *)
 let check_fun_defs = ref LustreFunDefs.empty
 
-let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
-  trans_sys_defs output_input_dep nodes definition_set = function
+(* The evaluation of the calls to recursive functions at constant arguments,
+   in a compositional and modular analysis. A function whose own analysis
+   proved its termination checks, and those of the recursive functions it
+   calls, is total: a call at constant arguments has the one value its
+   definition unfolds to, which it is evaluated to (see [FunEval]). The
+   value is given to the solver as a fact on the functional symbols of the
+   function, to which every instance of the function ties its outputs,
+   whether the contract abstracts the function or not: the caller is then
+   spared the refinements that unroll the function as deep as the call
+   needs. A call that cannot be evaluated in time is left as it was. *)
+
+type evaluator = {
+  evaluate : UfSymbol.t -> Term.t list -> Term.t option ;
+  delete : unit -> unit ;
+}
+
+type mk_evaluator =
+  logic:TermLib.logic -> timeout_ms:int ->
+  (declare_sort:(Type.t -> unit) ->
+   declare_fun:(UfSymbol.t -> unit) ->
+   define_rec:(LustreFunDefs.def list -> unit) -> unit) ->
+  evaluator
+
+(* Evaluating takes a solver, which this module cannot start: the solver
+   modules depend on it *)
+let mk_evaluator : mk_evaluator option Atomic.t = Atomic.make None
+
+let set_mk_evaluator mk = Atomic.set mk_evaluator (Some mk)
+
+(* A call by functional symbol and arguments *)
+module CallTbl = Hashtbl.Make (struct
+  type t = UfSymbol.t * Term.t list
+  let equal (f, a) (g, b) =
+    UfSymbol.equal_uf_symbols f g && List.equal Term.equal a b
+  let hash (f, a) =
+    Hashtbl.hash (UfSymbol.hash_uf_symbol f, List.map Term.hash a)
+end)
+
+type evaluation = {
+  (* The nodes of the system before slicing *)
+  eval_nodes : N.t list;
+  (* The recursive functions proved terminating, with every recursive
+     function they may call: those whose calls are evaluated *)
+  candidates : NI.Set.t;
+  (* The evaluator of each candidate a call at constant arguments was found
+     to, with the definitions of the functions its own depends on, or
+     [None] if they cannot be defined. The definitions are only built for
+     the functions a call needs: inlining the functions a definition calls
+     can make it large (see [LustreFunDefs]). *)
+  mutable evaluators : evaluator option NI.Map.t;
+  mk_evaluator : NI.t -> evaluator option;
+  (* The values of the calls evaluated so far, by functional symbol and
+     arguments, or [None] for a call without a unique value *)
+  values : Term.t option CallTbl.t;
+}
+
+(* The time given to the solver to evaluate a call, in milliseconds *)
+let evaluation_timeout = 1000
+
+(* The scope of the system of a node, without the tag of an unrolling *)
+let base_scope_of_node_id node_id =
+  [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+
+(* The evaluator of the calls to [node_id], made on the first call that
+   needs it *)
+let evaluator_of evaluation node_id =
+  match NI.Map.find_opt node_id evaluation.evaluators with
+  | Some evaluator -> evaluator
+  | None ->
+    let evaluator = evaluation.mk_evaluator node_id in
+    evaluation.evaluators <-
+      NI.Map.add node_id evaluator evaluation.evaluators ;
+    evaluator
+
+let delete_evaluation { evaluators } =
+  NI.Map.iter (fun _ -> Option.iter (fun { delete } -> delete ())) evaluators
+
+(* An evaluator of [node_id] with its definition, and those of the functions
+   it may call, if they can be defined *)
+let evaluator_of_definitions globals mk_evaluator nodes node_id =
+  let eval_defs =
+    LustreFunDefs.compute_evaluable
+      ~adt_junk_ufs:globals.G.adt_junk_ufs (NI.Set.singleton node_id) nodes
+  in
+  if not (LustreFunDefs.is_defined eval_defs node_id) then None
+  else
+    let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
+    let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
+    let logic =
+      let of_def (uf, formals, body) =
+        TermLib.sup_logics
+          (TermLib.logic_of_term [] body
+           :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
+           :: List.map (fun v -> TermLib.logic_of_sort (Var.type_of_var v))
+             formals)
+      in
+      `Inferred
+        TermLib.FeatureSet.(
+          TermLib.sup_logics (List.concat_map (List.map of_def) blocks)
+          |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
+    in
+    (* The sorts, then the symbols the definitions apply, then the
+       definitions, which are in dependency order *)
+    let define ~declare_sort ~declare_fun ~define_rec =
+      Type.get_all_abstr_types () |>
+      List.iter (fun ty -> match Type.node_of_type ty with
+        | Type.Abstr _ -> declare_sort ty
+        | _ -> ());
+      globals.G.recursive_datatypes |>
+      List.iter (fun ty -> match Type.node_of_type ty with
+        | Type.Datatype _ -> declare_sort ty
+        | _ -> ());
+      List.iter declare_fun ufs ;
+      List.iter define_rec blocks
+    in
+    Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
+
+(* The evaluation of the calls of the analysis to the recursive functions
+   proved terminating, if any *)
+let evaluation_of_param globals options analysis_param nodes =
+  let { A.terminating } = A.info_of_param analysis_param in
+  match Atomic.get mk_evaluator with
+  | None -> None
+  | Some _ when
+      Scope.Map.is_empty terminating
+      || not options.add_functional_constraints
+      || not (Flags.Contracts.compositional () && Flags.modular ()) -> None
+  | Some mk_evaluator ->
+    let rec_info_of node_id =
+      match N.node_of_node_id node_id nodes with
+      | { N.comp_type = N.Function { N.rec_info } } -> rec_info
+      | _ -> None
+      | exception Not_found -> None
+    in
+    (* A recursive function is proved terminating when its own analysis
+       proved the termination checks of each of its recursive calls. They
+       are looked up by call, so that a call whose checks the analysis did
+       not have is not taken as terminating. A call on an ADT measure has
+       none, its decrease being established statically. *)
+    let proved_terminating ({ N.node_id ; N.calls } as node) =
+      match rec_info_of node_id with
+      | None -> not (N.is_recursive node)
+      | Some (scc_id, caller_rf) ->
+        match
+          Scope.Map.find_opt (base_scope_of_node_id node_id) terminating
+        with
+        | None -> false
+        | Some positions ->
+          List.for_all
+            (fun { N.call_node_id ; N.call_pos } ->
+               match rec_info_of call_node_id with
+               | Some (scc_id', callee_rf)
+                 when scc_id' = scc_id && caller_rf <> [] && callee_rf <> [] ->
+                 List.exists (Lib.equal_pos call_pos) positions
+               | _ -> true)
+            calls
+    in
+    (* A function is evaluated when every recursive function its body may
+       call, itself included, is proved terminating. The nodes that may
+       call one that is not, or one that is not known, are found by
+       following the calls backwards from those, each node once. *)
+    let is_known node_id =
+      List.exists (fun { N.node_id = id } -> NI.equal id node_id) nodes
+    in
+    let callers =
+      List.fold_left
+        (fun acc { N.node_id ; N.calls } ->
+           List.fold_left
+             (fun acc { N.call_node_id } ->
+                let callers =
+                  Option.value ~default:[] (NI.Map.find_opt call_node_id acc)
+                in
+                NI.Map.add call_node_id (node_id :: callers) acc)
+             acc calls)
+        NI.Map.empty nodes
+    in
+    let rec not_terminating acc = function
+      | [] -> acc
+      | node_id :: tl when NI.Set.mem node_id acc -> not_terminating acc tl
+      | node_id :: tl ->
+        let callers =
+          Option.value ~default:[] (NI.Map.find_opt node_id callers)
+        in
+        not_terminating (NI.Set.add node_id acc) (callers @ tl)
+    in
+    let not_terminating =
+      List.filter_map
+        (fun ({ N.node_id ; N.calls } as node) ->
+           if proved_terminating node
+           && List.for_all (fun { N.call_node_id } -> is_known call_node_id) calls
+           then None
+           else Some node_id)
+        nodes
+      |> not_terminating NI.Set.empty
+    in
+    let candidates =
+      List.fold_left
+        (fun acc ({ N.node_id } as node) ->
+           if N.is_recursive node && not (NI.Set.mem node_id not_terminating)
+           then NI.Set.add node_id acc else acc)
+        NI.Set.empty nodes
+    in
+    if NI.Set.is_empty candidates then None
+    else
+      Some {
+        eval_nodes = nodes ;
+        candidates ;
+        evaluators = NI.Map.empty ;
+        mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
+        values = CallTbl.create 16 ;
+      }
+
+(* The facts on the functional symbols of the functions evaluated that the
+   calls of a node at constant arguments give: the value of each output of
+   the call. An argument is constant when the variable it is bound to is
+   defined by an equation whose initial and step values are the same
+   ground term, once the variables it depends on that are constant are
+   replaced by their values; this includes the outputs of an unconditional
+   call evaluated in turn, as the inner call of [F(F(3))]. *)
+let facts_of_calls
+    ({ eval_nodes = nodes ; candidates ; values } as evaluation)
+    equations calls =
+  let equation_of_svar =
+    List.fold_left
+      (fun acc ((sv, bounds), e) ->
+         if bounds = [] then SVM.add sv e acc else acc)
+      SVM.empty equations
+  in
+  let call_of_output =
+    List.fold_left
+      (fun acc ({ N.call_outputs } as call) ->
+         D.fold (fun _ sv acc -> SVM.add sv call acc) call_outputs acc)
+      SVM.empty calls
+  in
+  (* The functional symbols of the outputs of the callee, if its calls are
+     evaluated *)
+  let evaluated_outputs { N.call_node_id } =
+    if not (NI.Set.mem call_node_id candidates) then None
+    else
+      match N.node_of_node_id call_node_id nodes with
+      | { N.outputs ; N.comp_type = N.Function { N.uf_symbols } } ->
+        Some (D.values outputs |> List.map (fun sv -> SVM.find sv uf_symbols))
+      | _ -> None
+      | exception Not_found -> None
+  in
+  let evaluate node_id uf args =
+    match CallTbl.find_opt values (uf, args) with
+    | Some value -> value
+    | None ->
+      let value =
+        match evaluator_of evaluation node_id with
+        | Some { evaluate } -> evaluate uf args
+        | None -> None
+      in
+      CallTbl.replace values (uf, args) value ;
+      value
+  in
+  (* The constructors of the datatypes are the only uninterpreted symbols
+     of a value *)
+  let is_constructor uf =
+    let ty = UfSymbol.res_type_of_uf_symbol uf in
+    Type.is_datatype ty
+    && Type.constructors_of_datatype ty |> List.exists (fun (ctor, _) ->
+      Type.qualified_ctor_name (Type.name_of_datatype ty)
+        (Type.source_ctor_name ctor)
+      = UfSymbol.name_of_uf_symbol uf)
+  in
+  (* A term without variables or uninterpreted symbols, such as a free
+     constant of the system, other than constructors *)
+  let is_ground t =
+    let applies_uf = ref false in
+    Term.map
+      (fun _ t ->
+         ( match Term.node_of_term t with
+           | Term.T.Leaf s | Term.T.Node (s, _)
+             when Symbol.is_uf s && not (is_constructor (Symbol.uf_of_symbol s)) ->
+             applies_uf := true
+           | _ -> () ) ;
+         t)
+      t
+    |> ignore ;
+    Var.VarSet.is_empty (Term.vars_of_term t) && not !applies_uf
+  in
+  (* The constant value of each variable, or [None], memoized; a variable
+     being visited has none, which only matters for a cycle through [pre] *)
+  let constants = ref SVM.empty in
+  let rec value_of_svar sv =
+    match SVM.find_opt sv !constants with
+    | Some value -> value
+    | None ->
+      constants := SVM.add sv None !constants ;
+      let value =
+        match SVM.find_opt sv equation_of_svar, SVM.find_opt sv call_of_output with
+        | Some e, _ ->
+          (* The value of an expression at offset zero, with the
+             variables of the same instant replaced by their values *)
+          let value_of_expr term_of expr =
+            let term = term_of Numeral.zero expr in
+            let subst =
+              Var.VarSet.fold
+                (fun v acc ->
+                   match acc with
+                   | None -> None
+                   | Some subst ->
+                     if Var.is_state_var_instance v
+                     && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
+                     then
+                       match value_of_svar (Var.state_var_of_state_var_instance v) with
+                       | Some value -> Some ((v, value) :: subst)
+                       | None -> None
+                     else None)
+                (Term.vars_of_term term) (Some [])
+            in
+            match subst with
+            | None -> None
+            | Some subst ->
+              let term = Term.apply_subst subst term |> Simplify.simplify_term [] in
+              if is_ground term then Some term else None
+          in
+          ( match
+              value_of_expr E.base_term_of_expr (E.init_expr e),
+              value_of_expr E.cur_term_of_expr (E.step_expr e)
+            with
+            | Some init, Some step when Term.equal init step -> Some init
+            | _ -> None )
+        | None, Some ({ N.call_node_id ; N.call_cond = [] ;
+                        N.call_context = None ; N.call_defaults = None ;
+                        N.call_outputs } as call) ->
+          ( match evaluated_outputs call, values_of_call call with
+            | Some ufs, Some args ->
+              D.values call_outputs
+              |> List.combine ufs
+              |> List.find_map (fun (uf, out) ->
+                if StateVar.equal_state_vars out sv
+                then evaluate call_node_id uf args
+                else None)
+            | _ -> None )
+        | None, _ -> None
+      in
+      constants := SVM.add sv value !constants ;
+      value
+  and values_of_call { N.call_inputs } =
+    List.fold_right
+      (fun sv acc ->
+         match acc, value_of_svar sv with
+         | Some args, Some value -> Some (value :: args)
+         | _ -> None)
+      (D.values call_inputs) (Some [])
+  in
+  List.concat_map
+    (fun ({ N.call_node_id } as call) ->
+       match evaluated_outputs call with
+       | None -> []
+       | Some ufs ->
+         match values_of_call call with
+         | None -> []
+         | Some args ->
+           List.filter_map
+             (fun uf ->
+                evaluate call_node_id uf args
+                |> Option.map (fun value ->
+                  Term.mk_eq [ Term.mk_uf uf args ; value ]))
+             ufs)
+    calls
+
+let rec trans_sys_of_node' options globals fun_defs evaluation top_name
+  analysis_param trans_sys_defs output_input_dep nodes definition_set = function
 
   (* Transition system for all nodes created *)
   | [] -> trans_sys_defs
@@ -2653,7 +3018,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
-        options globals fun_defs top_name analysis_param trans_sys_defs
+        options globals fun_defs evaluation top_name analysis_param trans_sys_defs
         output_input_dep nodes definition_set tl
 
     (* Transition system has not been created *)
@@ -2909,6 +3274,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
             options
             globals
             fun_defs
+            evaluation
             top_name
             analysis_param
             trans_sys_defs
@@ -3170,6 +3536,18 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
                  E.cur_term_of_t TransSys.trans_base e |> Term.convert_select)
                  adt_constraints)
               trans_terms
+          in
+
+          (* The values of the calls of the node at constant arguments to
+             the recursive functions proved terminating: facts on the
+             functional symbols of the functions, whatever the state *)
+          let init_terms, trans_terms =
+            match evaluation with
+            | None -> init_terms, trans_terms
+            | Some evaluation ->
+              let facts = facts_of_calls evaluation equations calls in
+              List.rev_append facts init_terms,
+              List.rev_append facts trans_terms
           in
 
           (* Only keep assumptions that are defined given the current sys. *)
@@ -3939,6 +4317,7 @@ let rec trans_sys_of_node' options globals fun_defs top_name analysis_param
             options
             globals
             fun_defs
+            evaluation
             top_name
             analysis_param
             (NodeInstanceMap.add 
@@ -4043,6 +4422,10 @@ let trans_sys_of_nodes
 
   let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
 
+  (* The nodes before slicing, which still have the bodies of the functions
+     the contracts abstract, to be evaluated with *)
+  let unsliced_nodes = N.nodes_of_subsystem subsystem' in
+
   let { SubSystem.source = { N.node_id = top_name } } as subsystem' =
 
   if options.slice_nodes != `Experimental then
@@ -4077,15 +4460,27 @@ let trans_sys_of_nodes
 
   warn_undefined_uf_applications fun_defs nodes;
 
+  (* The calls at constant arguments to the recursive functions proved
+     terminating are evaluated while the systems are built *)
+  let evaluation =
+    evaluation_of_param globals options analysis_param unsliced_nodes
+  in
+
   let { trans_sys; definition_set} =
 
     try
+
+      Fun.protect
+        ~finally:(fun () ->
+          Option.iter delete_evaluation evaluation)
+      @@ fun () ->
 
       (* Create a transition system for each node *)
       trans_sys_of_node'
         options
         globals
         fun_defs
+        evaluation
         top_name
         analysis_param
         NodeInstanceMap.empty

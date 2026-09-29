@@ -238,6 +238,34 @@ val default_settings: settings
     @author Adrien Champion *)
 
 
+(** An evaluator of recursive functions at concrete arguments: the value of
+    a functional symbol at ground arguments, if it has the one value the
+    evaluator can tell in time, and how to stop it *)
+type evaluator = {
+  evaluate : UfSymbol.t -> Term.t list -> Term.t option ;
+  delete : unit -> unit ;
+}
+
+(** [mk ~logic ~timeout_ms define] makes an evaluator with a solver of its
+    own, in the logic [logic], giving an evaluation [timeout_ms]
+    milliseconds, and to which [define] gives the sorts, the uninterpreted
+    symbols and the recursive definitions of the functions evaluated *)
+type mk_evaluator =
+  logic:TermLib.logic -> timeout_ms:int ->
+  (declare_sort:(Type.t -> unit) ->
+   declare_fun:(UfSymbol.t -> unit) ->
+   define_rec:(LustreFunDefs.def list -> unit) -> unit) ->
+  evaluator
+
+(** Install how evaluators are made. In a compositional and modular
+    analysis, the calls at constant arguments to the recursive functions
+    proved terminating (see [Analysis.info.terminating]) are evaluated while
+    the transition system is built, and their values given to the solver as
+    facts on the functional symbols of the functions. Evaluating takes a
+    solver, which this module cannot start, as the solver modules depend on
+    it; without an evaluator, no call is evaluated. *)
+val set_mk_evaluator : mk_evaluator -> unit
+
 val trans_sys_of_nodes:
   ?options:settings ->
   LustreGlobals.t ->

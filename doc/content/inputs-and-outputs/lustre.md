@@ -981,6 +981,25 @@ with `--rec_unrollings`. This refinement does not apply to the analysis of
 the recursive function itself, or of a function of its recursive group:
 there the recursive calls keep the contract as their induction hypothesis.
 
+In such an analysis, a call at constant arguments to a recursive function
+that is proved terminating is evaluated instead: Kind 2 computes its value
+with the definition of the function, in a solver of its own, and gives it to
+the solver of the analysis, whether the contract abstracts the function or
+not. A function is proved terminating when its own analysis proved the
+termination checks of each of its recursive calls, or its measure is an ADT
+one, and so is every recursive function it calls. `Fact(4) = 24` is then
+proved in the first analysis of the caller, although the contract of `Fact`
+does not give it, with no refinement. An argument is constant when it is a
+literal, a local variable whose value is the same constant at every step,
+such as `b` in `a = 3; b = a + 1`, or the output of a call evaluated in
+turn, as the inner call of `Fact(Fact(3))`; an input, or an expression with
+a `pre` or a `->`, is not. A function with no contract is evaluated as
+well: it is unrolled rather than abstracted, and a call that needs more
+unrollings than `--rec_unrollings` allows, such as `Sum(20)` for a `Sum`
+that recurses down to 0, is then proved rather than left unknown. A call
+whose value cannot be computed in time, or is not unique, is left as it
+was.
+
 A call to a recursive function may be applied to a quantified variable (see
 the [limitations]({{< relref "/inputs-and-outputs/arrays#limitations" >}})
 on quantifiers) when the recursive calls past its unrollings are left

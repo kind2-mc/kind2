@@ -3,6 +3,10 @@
 -- contract, so main is refined: Fact is unrolled and the check is proved. The
 -- run is falsifiable, as the check was disproven in one analysis.
 --
+-- The argument of the call is an input, which the check fixes, rather than
+-- a constant, which would be evaluated and need no refinement (see
+-- rec_eval_constant_args).
+--
 -- The summary of the refinement lists the systems it refined. It looked up
 -- every subsystem of main in the abstraction map of the first analysis,
 -- including the unrollings of Fact, whose scopes (rec_1.Fact) are fresh for
@@ -19,6 +23,6 @@ tel
 
 node main(x: int) returns (y: int);
 let
-  y = Fact(0);
-  check "fact0" y = 1;
+  y = Fact(x);
+  check "fact0" x = 0 => y = 1;
 tel

@@ -1,0 +1,21 @@
+-- F does not terminate on odd arguments, so the bounded check of its
+-- recursive call fails, although F(4) unfolds to 0. A call to F is only
+-- evaluated once F is proved terminating: main is analyzed with F abstracted
+-- by its contract, which does not give F(4), and "f4" is falsified. The
+-- contract of F is not proved either, so main is not refined.
+--
+-- The run is falsifiable, as the bounded check and "f4" are, so
+-- test_rec_evaluation.py checks the answers of the analyses of main.
+function rec F(n: int) returns (r: int);
+(*@contract
+  guarantee "zero" n = 0 => r = 0;
+  decreases n;
+*)
+let
+  r = when n = 0 then 0 else F(n - 2);
+tel
+
+node main() returns ();
+let
+  check "f4" F(4) = 0;
+tel

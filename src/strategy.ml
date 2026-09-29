@@ -84,6 +84,28 @@ let proved_correct results scope =
   | [] -> failwith "unreachable"
   | exception Not_found -> false
 
+(* The recursive functions of [all_nodes] whose last analysis proved valid
+   every termination check it had, with the positions of the calls of those
+   checks (see [A.result_termination_checks]). In a compositional and
+   modular analysis, a call to one of them at constant arguments is
+   evaluated, and its value given to the solver (see [LustreTransSys]); in
+   any other, it is left to the unrolling of the function, and no function
+   is listed. *)
+let terminating_functions results all_nodes =
+  if not (Flags.Contracts.compositional () && Flags.modular ()) then
+    Scope.Map.empty
+  else
+    List.fold_left (fun acc (scope, { rec_group }) ->
+      match rec_group, A.results_find scope results with
+      | Some _, result :: _ -> (
+        match A.result_termination_checks result with
+        | Some positions -> Scope.Map.add scope positions acc
+        | None -> acc
+      )
+      | _ -> acc
+      | exception Not_found -> acc
+    ) Scope.Map.empty all_nodes
+
 (* Makes the abstract system [scope] concrete: the abstraction and the
    unrollings are updated with those its own analysis proved it under, and a
    recursive function gets one unrolling *)
@@ -273,7 +295,7 @@ let is_candidate_for_analysis { has_impl ; has_modes } =
   (has_modes && Flags.Contracts.check_modes ()) || has_impl
 
 (* Returns an option of the parameter for the first analysis of a system. *)
-let first_param_of ass _results all_nodes scope =
+let first_param_of ass results all_nodes scope =
 
   let rec loop abstraction = function
     | (sys, { opacity; has_impl ; has_contract ; has_modes }) :: tail -> (
@@ -330,6 +352,7 @@ let first_param_of ass _results all_nodes scope =
           A.uid = A.get_uid () ;
           A.abstraction_map = abstraction ;
           A.unrollings = Scope.Map.empty ;
+          A.terminating = terminating_functions results all_nodes ;
           A.assumptions = ass }
       in
       if Scope.Map.find scope abstraction then
@@ -413,13 +436,14 @@ let last_assumptions () =
 
 (* The parameter of the refinement of [sys] with the abstraction and
    unrollings [maps], after [result] *)
-let refinement_of results sys result (abstraction, unrollings) =
+let refinement_of results all_nodes sys result (abstraction, unrollings) =
   let prev = A.info_of_param result.A.param in
   A.Refinement (
     { A.top = sys ;
       A.uid = A.get_uid () ;
       A.abstraction_map = abstraction ;
       A.unrollings = unrollings ;
+      A.terminating = terminating_functions results all_nodes ;
       A.assumptions =
         A.assumptions_merge
           (assumptions_of_refined results
@@ -485,13 +509,13 @@ let next_modular_analysis results subs_of_scope = function
                 (* Going up. *)
                 go_up prefix
               )
-              | Some maps -> Some (refinement_of results sys result maps)
+              | Some maps -> Some (refinement_of results all_syss sys result maps)
             ) else if Flags.Contracts.refinement () then (
               match get_refinement_abstraction results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
                 go_up prefix
               | Some (_, maps) -> (* Refinement found. *)
-                Some (refinement_of results sys result maps)
+                Some (refinement_of results all_syss sys result maps)
             ) else go_up prefix
         ) with Not_found ->
           (* Format.printf "|> not the last system, going down@." ; *)
