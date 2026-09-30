@@ -1,0 +1,40 @@
+-- A recursive polymorphic function instantiated with a type argument that
+-- contains a refinement type. Instantiations with refinement types are
+-- otherwise not reused, so the recursive call inside Id<Nat> used to create a
+-- new instantiation Id<Nat>, whose recursive call created another one, and so
+-- on, and the front end never terminated (issue #1625).
+type Nat = subrange [0,*] of int;
+
+function rec Id<T> (x: T; n: int) returns (r: T)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then x else Id(x, n - 1);
+tel
+
+-- The type argument only types an input
+function rec Len<T> (x: T; n: int) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else 1 + Len(x, n - 1);
+tel
+
+-- A refinement type argument that has no type parameter
+function rec Ground<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else Ground@<Nat>(n - 1, 0);
+tel
+
+node main (a: Nat; b: subrange [0,10] of int; c: bool) returns ()
+let
+  check "id_named" Id@<Nat>(a, 2) = a;
+  check "id_inline" Id@<subrange [0,10] of int>(b, 2) = b;
+  check "len" Len@<Nat>(a, 2) = 2;
+  check "ground" Ground@<bool>(2, c) = 0;
+tel
