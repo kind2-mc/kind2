@@ -484,6 +484,11 @@ let get_node_id in_sys scope =
   | None -> 
     NI.mk_node_id (Lib.string_of_t Scope.pp_print_scope_internal scope |> HString.mk_hstring)
 
+let is_lemma in_sys scope =
+  match get_lustre_node in_sys scope with
+  | Some { comp_type = N.Function { N.is_lemma } } -> is_lemma
+  | _ -> false
+
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
     let lustre_nodes = retrieve_lustre_nodes in_sys in

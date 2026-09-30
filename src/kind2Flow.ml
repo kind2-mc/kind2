@@ -206,7 +206,7 @@ let status_of_realiz_results in_sys =
   in
   let report_incomplete_analysis () =
     KEvent.log L_note
-      "Incomplete analysis result: Not all imported nodes could be proven realizable" ;
+      "Incomplete analysis result: Not all imported nodes/functions and lemmas could be proven realizable" ;
     ExitCodes.incomplete_analysis
   in
   match Flags.exit_code_mode () with
@@ -1209,7 +1209,7 @@ let run in_sys =
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
-      | [] -> KEvent.log L_note "No imported nodes found, skipping contract checking."
+      | [] -> KEvent.log L_note "No imported nodes/functions or lemmas found, skipping contract checking."
       | params -> (
         Flags.Arrays.set_smt true ; (* Uninterpreted functions are not supported *)
         params |> List.iter (fun (param, has_contract) ->
