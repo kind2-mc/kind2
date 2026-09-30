@@ -2242,9 +2242,11 @@ module Arrays = struct
 
   let smt_default = false
   let smt = ref smt_default
+  (* Whether --smt_arrays was given *)
+  let smt_given = ref false
   let _ = add_spec
     "--smt_arrays"
-    (bool_arg smt)
+    (Arg.Bool (fun b -> smt := b; smt_given := true))
     (fun fmt ->
       Format.fprintf fmt
         "@[<v>Use the builtin theory of arrays in solvers.@ Default: %a@]"
@@ -2252,6 +2254,7 @@ module Arrays = struct
     )
     let set_smt f = smt := f
     let smt () = !smt
+    let smt_given () = !smt_given
 
   let inline_default = true
   let inline = ref inline_default

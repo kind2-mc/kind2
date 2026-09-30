@@ -34,6 +34,29 @@ let classify_input_stream: string -> string = fun in_file ->
    | _  -> "input file '" ^ in_file ^ "'"
 
 
+(* The definition of a recursive function with an array input selects in
+   its array parameter. Without the theory of arrays, the parameter is of an
+   uninterpreted sort, the selects are applications of an uninterpreted
+   function, and Z3 does not find a model of a quantified formula that
+   applies the definition: a falsifiable property is left unknown, or the
+   solver does not return. Use the theory of arrays for such an input,
+   unless the command line sets the encoding of the arrays. This is done
+   before any transition system is built, since all of them must use the
+   same encoding. *)
+let use_smt_arrays_for_definitions in_sys =
+  if not (Flags.Arrays.smt ())
+  && not (Flags.Arrays.smt_given ())
+  && not (Flags.Arrays.recdef ())
+  && InputSystem.defines_array_input in_sys
+  then (
+    KEvent.log L_note
+      "Using the theory of arrays in the SMT solvers: a recursive function \
+       with an array input is defined at the SMT level \
+       (use --smt_arrays false to prevent it).";
+    Flags.Arrays.set_smt true
+  )
+
+
 (* Setup everything and returns the input system. Setup includes:
    - flag parsing,
    - debug setup,
@@ -225,7 +248,7 @@ let setup : unit -> any_input = fun () ->
       | `Lustre -> (
         KEvent.log L_debug "Lustre input detected";
         match InputSystem.read_input_lustre (Flags.only_parse ()) in_file with
-        | Some in_sys -> Input in_sys
+        | Some in_sys -> use_smt_arrays_for_definitions in_sys; Input in_sys
         | None -> (
             KEvent.log L_note "No parse errors found!";
             KEvent.terminate_log ();

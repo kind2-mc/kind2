@@ -90,6 +90,12 @@ val empty : t
     inferred from the system rather than set explicitly. *)
 val enabled : unit -> bool
 
+(** [true] iff recursive functions are to be defined, and a definable
+    recursive function of the given nodes, or a function it calls, has an
+    array-typed input: some definition may then select in an array
+    parameter. *)
+val defines_array_input : LustreNode.t list -> bool
+
 (** Whether the contract of a recursive function stands in for its body
     past its unrollings, so that its recursive calls there are abstracted
     by the contract rather than left unconstrained: the function has a

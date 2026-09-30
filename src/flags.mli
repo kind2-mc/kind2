@@ -691,6 +691,9 @@ module Arrays : sig
 
   val set_smt : bool -> unit
 
+  (** Whether the use of the theory of arrays was set on the command line *)
+  val smt_given : unit -> bool
+
   (** Inline arrays with fixed bounds *)
   val inline : unit -> bool
 
