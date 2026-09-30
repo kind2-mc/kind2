@@ -83,6 +83,8 @@ type error_kind = Unknown of string
   | AssignmentToPatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | CallInDecreasesMeasure of HString.t
+  | TypeAscriptionInDecreasesMeasure
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t
@@ -171,6 +173,13 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
     ^ "mention the input parameters of the function and constants"
+  | CallInDecreasesMeasure id -> "Call to '"
+    ^ HString.string_of_hstring id
+    ^ "' cannot occur in a decreases clause; a decreases measure may only "
+    ^ "mention the input parameters of the function and constants"
+  | TypeAscriptionInDecreasesMeasure -> "A type ascription cannot occur in "
+    ^ "a decreases clause; a decreases measure may only mention the input "
+    ^ "parameters of the function and constants"
   | MultipleDecreasesClauses id -> "Recursive function '"
     ^ HString.string_of_hstring id
     ^ "' has more than one decreases clause in its contract; combine them "
@@ -932,8 +941,62 @@ let rec expr_only_supported_in_merge observer expr =
     r observer e >>
     Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
   | ADTTerm (_, _, _, args) -> r_list observer args
-  | AbstractSymConst _ -> assert false 
+  | AbstractSymConst _ -> assert false
   | ADTTester (_, e, _) -> r observer e
+
+(* The position of the first type ascription in an expression, if any,
+   including the index expressions of a structural update and the expressions
+   within the types the expression carries *)
+let rec type_ascription_pos expr =
+  let r = type_ascription_pos in
+  let r_list es = List.find_map r es in
+  let first a b = match a with Some _ -> a | None -> b () in
+  let r_ty ty =
+    LAH.fold_lustre_ty ~into_ty_args:true r None
+      (fun a b -> first a (fun () -> b)) ty
+  in
+  let r_tys tys = List.find_map r_ty tys in
+  let r_idx idx =
+    LAH.fold_label_or_index None (fun a b -> first a (fun () -> b)) r idx
+  in
+  match expr with
+  | LA.TypeAscription (pos, _, _) -> Some pos
+  | Ident _ | Last _ | Const _ | ModeRef _
+  | EmptyMap (_, None) | EmptySet (_, None) -> None
+  | EmptyMap (_, Some (kt, vt)) -> r_tys [kt; vt]
+  | EmptySet (_, Some ty)
+  | AbstractSymConst (_, ty) -> r_ty ty
+  | FieldProject (_, e, _, _)
+  | UnaryOp (_, _, e)
+  | ConvOp (_, _, e)
+  | Pre (_, e)
+  | Extract (_, e, _, _)
+  | When (_, e, _)
+  | ADTTester (_, e, _) -> r e
+  | Quantifier (_, _, vars, e) ->
+    first (r_tys (List.map (fun (_, _, ty) -> ty) vars)) (fun () -> r e)
+  | AnyOp (_, (_, _, ty), e)
+  | ChooseOp (_, (_, _, ty), e) -> first (r_ty ty) (fun () -> r e)
+  | StructUpdate (_, e1, idx, e2) ->
+    first (r e1) (fun () ->
+      first (r_idx idx) (fun () -> Option.bind e2 r))
+  | BinaryOp (_, _, e1, e2)
+  | CompOp (_, _, e1, e2)
+  | Arrow (_, e1, e2)
+  | IndexAccess (_, e1, e2, _)
+  | ArrayConstr (_, e1, e2) -> r_list [e1; e2]
+  | TernaryOp (_, _, e1, e2, e3) -> r_list [e1; e2; e3]
+  | GroupExpr (_, _, es) -> r_list es
+  | Call (_, tys, _, es)
+  | ADTTerm (_, tys, _, es) -> first (r_tys tys) (fun () -> r_list es)
+  | RecordExpr (_, _, tys, fields) ->
+    first (r_tys tys) (fun () -> r_list (List.map snd fields))
+  | Merge (_, _, cases) -> r_list (List.map snd cases)
+  | Condact (_, e1, e2, _, es1, es2) -> r_list (e1 :: e2 :: es1 @ es2)
+  | Activate (_, _, e1, e2, es) -> r_list (e1 :: e2 :: es)
+  | RestartEvery (_, _, es, e) -> r_list (e :: es)
+  | Match (_, e, arms, ty) ->
+    first (r_list (e :: List.map snd arms)) (fun () -> Option.bind ty r_ty)
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
@@ -1035,8 +1098,14 @@ and no_reachability_modifiers item = match item with
    while being rendered as if both were the same variable. Ghost variables and
    ghost constants are not legal either: the measure is compiled before the
    contract is, so they are not in scope yet and reaching one raises an
-   assertion failure in LustreNodeGen. *)
-and check_decreases_measures inputs outputs contract =
+   assertion failure in LustreNodeGen.
+
+   A call is not a legal measure either: the measure is compiled to a term over
+   the state variables of the function, which has no instance of the callee to
+   stand for the call. A constructor application is not a call. Neither is a
+   type ascription a legal measure, since it is turned into a call to a
+   generated function (see LustreGenNodes). *)
+and check_decreases_measures ctx inputs outputs contract =
   let contract_items = match contract with
     | Some (_, items) -> items
     | None -> []
@@ -1060,9 +1129,18 @@ and check_decreases_measures inputs outputs contract =
   in
   let check_measure (pos, e) =
     let used = LAH.vars_without_node_call_ids e in
-    match LA.SI.elements (LA.SI.inter used illegal_ids) with
-    | [] -> Ok ()
-    | id :: _ -> syntax_error pos (IllegalDecreasesMeasure id)
+    let calls =
+      LAH.calls_of_expr e
+      |> NI.Set.filter (fun i ->
+        not (StringSet.mem (NI.get_name i) ctx.constructors))
+    in
+    match LA.SI.elements (LA.SI.inter used illegal_ids), NI.Set.elements calls with
+    | id :: _, _ -> syntax_error pos (IllegalDecreasesMeasure id)
+    | [], i :: _ -> syntax_error pos (CallInDecreasesMeasure (NI.get_user_name i))
+    | [], [] -> (
+      match type_ascription_pos e with
+      | Some pos -> syntax_error pos TypeAscriptionInDecreasesMeasure
+      | None -> Ok ())
   in
   contract_items
   |> List.filter_map (function LA.Decreases d -> Some d | _ -> None)
@@ -1153,7 +1231,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
       | [] ->
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
-      | [_] -> check_decreases_measures inputs outputs contract
+      | [_] -> check_decreases_measures ctx inputs outputs contract
       | _ :: _ :: _ ->
         (* Downstream passes each pick "the" clause independently and can
            disagree, each then trusting some other pass to check the rest. *)

@@ -1,0 +1,31 @@
+-- Quantified calls to a recursive function whose arguments contain a call, a
+-- tuple projection, or a contract variable. The arguments of the application
+-- of the functional symbol are normalized like any other expression; they used
+-- to be compiled as written, and raised assertion failures in LustreNodeGen
+-- (issue #1600).
+
+datatype L = Nil | Cons(h: int, t: L);
+
+function rec Count(l: L; v: int) returns (c: int);
+con decreases l; noc
+let
+  c = match l with | Nil : 0 | Cons(h, t) : (if h = v then 1 else 0) + Count(t, v) end;
+tel
+
+function Push(l: L; y: int) returns (r: L);
+let
+  r = Cons(y, l);
+tel
+
+node M(l: L; y: int; p: [int, L]) returns ();
+con
+  var q: L = Push(l, y);
+  guarantee "contract_var"
+    forall (v: int) Count(q, v) = (if y = v then 1 else 0) + Count(l, v);
+noc
+let
+  check "call" forall (v: int) Count(Push(l, y), v) = (if y = v then 1 else 0) + Count(l, v);
+  check "quantified_call" forall (v: int) Count(l, Push(Nil, v).h) = Count(l, v);
+  check "projection"
+    forall (v: int) Count(Cons(p[0], p[1]), v) = (if p[0] = v then 1 else 0) + Count(p[1], v);
+tel

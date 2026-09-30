@@ -1,0 +1,13 @@
+-- A decreases measure with a type ascription in a type it carries, here the
+-- size of an array type. It is rejected like any other type ascription in a
+-- measure (issue #1600).
+function rec F(n: int) returns (r: int);
+con decreases n + (choose @<int^(1 : int)>)[0]; noc
+let
+  r = when n <= 0 then 0 else F(n - 1);
+tel
+
+node main() returns ();
+let
+  check "ok" F(3) >= 0;
+tel
