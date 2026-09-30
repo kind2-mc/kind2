@@ -1228,6 +1228,11 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let* () =
     if is_rec.LA.is_rec then
       match decreases_clause_positions contract with
+      | [] when is_rec.LA.is_lemma ->
+        (* Lemmas are always marked recursive, but only a lemma that is
+           actually part of a recursive group needs a decreases clause. This is
+           checked by the dependency analysis, which knows the call graph. *)
+        Ok ()
       | [] ->
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))

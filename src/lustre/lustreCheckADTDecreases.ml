@@ -459,7 +459,9 @@ let check_func_decl ctx adt_map scc_map func_map decl =
       Chk.add_full_node_ctx ctx fname_id ty_params inputs outputs locals
     in
     match get_decreases contract with
-    | None -> assert false
+    (* Only a lemma outside any recursive group may omit its decreases
+       clause (see LustreAstDependencies), so there is nothing to check. *)
+    | None -> Ok ()
     | Some t ->
       if not (is_adt_decreases local_ctx adt_map fname_id t) then Ok ()
       else

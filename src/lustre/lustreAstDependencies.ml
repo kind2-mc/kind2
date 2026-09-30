@@ -45,6 +45,7 @@ type error_kind = Unknown of string
   | ImportedCyclicDependency of (HString.t list * NI.t)
   | MismatchedDecreasesArity of HString.t list
   | RecursiveAnnotationWithoutRecursion of HString.t
+  | MissingDecreasesClause of HString.t
 
 let error_message error = match error with
   | Unknown s -> s
@@ -81,6 +82,9 @@ let error_message error = match error with
     ^ "' is declared with 'rec' but does not call itself, directly or through "
     ^ "a cycle of other functions; remove the 'rec' modifier, or add the "
     ^ "recursive call that was intended"
+  | MissingDecreasesClause id ->
+    "Recursive lemma '" ^ HString.string_of_hstring id
+    ^ "' must include a decreases clause in its contract"
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind
@@ -1344,6 +1348,28 @@ let check_decreases_arity ad decl_map scc =
       in
       graph_error pos (MismatchedDecreasesArity (List.map fst arities))
 
+(* A lemma is always marked recursive, but it only needs a decrease measure
+   when it actually belongs to a recursive group; other recursive functions
+   are already required to have one by the syntax checks. *)
+let check_decreases_present ad decl_map scc =
+  let missing =
+    List.find_opt
+      (fun id ->
+        match IMap.find_opt id decl_map with
+        | Some (Some decl) -> decreases_arity decl = None
+        | _ -> false)
+      scc
+  in
+  match missing with
+  | None -> R.ok ()
+  | Some id ->
+    let pos =
+      match find_id_pos ad.id_pos_data id with
+      | Some p -> p
+      | None -> assert false
+    in
+    graph_error pos (MissingDecreasesClause id)
+
 let topological_sort_with_rec_funs decl_map ad =
   let sccs =
     (* Topological ordered *)
@@ -1371,6 +1397,7 @@ let topological_sort_with_rec_funs decl_map ad =
         acc
         scc
     in
+    let* () = check_decreases_present ad decl_map scc in
     let* () = check_decreases_arity ad decl_map scc in
     let scc_map' =
       List.fold_left (fun acc id -> IMap.add id scc_id acc) scc_map scc
