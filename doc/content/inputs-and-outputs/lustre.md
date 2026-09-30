@@ -1937,6 +1937,33 @@ Note that polymorphic nodes can have `check(.)` statements just as non-polymorph
 When checking properties of polymorphic nodes at the top level, the type parameters are interpreted
 as abstract types.
 
+A [recursive function]({{< relref "/inputs-and-outputs/lustre#recursive-functions" >}})
+can be polymorphic too. Kind 2 analyzes a copy of a polymorphic node for each list of type arguments
+it is called with, so a call within a recursive group (that is, a call to the function itself, or to a
+function it is mutually recursive with) cannot instantiate a type parameter with a type built from a
+type parameter of the caller, which would require infinitely many copies. Each type argument of such
+a call must be either one of the caller's type parameters, or a type that mentions none of them:
+
+```
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+function rec Length<T>(l: List<T>) returns (n: int);
+(*@contract
+  decreases l;
+*)
+let
+  n = match l with | Nil : 0 | Cons (_, tl) : 1 + Length@<T>(tl) end;  -- Accepted
+tel
+
+function rec F<T>(n: int; x: T) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F@<List<T>>(n - 1, Cons(x, Nil@<T>));  -- Rejected
+tel
+```
+
 ## Polymorphic contracts
 
 In addition to polymorphic nodes, Kind 2 supports polymorphic contracts.

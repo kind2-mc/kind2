@@ -1,0 +1,24 @@
+-- Same as poly_rec_nonuniform_call.lus, through two mutually recursive
+-- functions, and with the offending type argument inferred rather than given.
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+function rec F<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else G(n - 1, Cons(d, Nil@<T>));
+tel
+
+function rec G<U> (n: int; d: U) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F@<U>(n - 1, d);
+tel
+
+node main (i: int) returns ()
+let
+  check "nonneg" F@<int>(3, i) >= 0;
+tel

@@ -35,6 +35,7 @@ type error_kind =
   (* (substituted callee measure, caller measure) *)
   | MixedDecreasesKindsInScc of LA.ident list
   | RecursiveCallInContract of LA.ident
+  | NonUniformRecursiveCall of LA.ident * LA.ident
 
 type error = [`LustreCheckADTDecreasesError of Lib.position * error_kind]
 
@@ -58,6 +59,14 @@ let error_message = function
        specified; a recursive call in a function's own contract is not \
        supported, because the contract is what the call is abstracted to at \
        the recursion cutoff. Move the call into the function's body"
+  | NonUniformRecursiveCall (id, ty_param) ->
+    Format.asprintf
+      "Call to '%a', which belongs to the same recursive group as the caller, \
+       instantiates a type parameter with a type built from the caller's \
+       type parameter '%a'; a type argument of a recursive call must be \
+       either one of the caller's type parameters or a type with no type \
+       parameter, so this is not yet supported"
+      LA.pp_print_ident id LA.pp_print_ident ty_param
 
 let check_error pos kind = Error (`LustreCheckADTDecreasesError (pos, kind))
 
@@ -114,8 +123,8 @@ let shadow_measure caller_measure shadowed =
   LA.SI.fold HStringSet.add
     (LH.vars_without_node_call_ids caller_measure) shadowed
 
-(* Collect all (pos, callee_id, args, safe_env) for calls in the same SCC as
-   caller_scc, by walking all sub-expressions. `safe_env` is the set of
+(* Collect all (pos, callee_id, ty_args, args, safe_env) for calls in the same
+   SCC as caller_scc, by walking all sub-expressions. `safe_env` is the set of
    variables, in scope at each point, known to be strict structural subterms
    of `caller_measure`. `shadowed` is the set of variable names rebound by
    any enclosing pattern so far, safe or not -- used only to invalidate
@@ -133,23 +142,23 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
   let go_ty_list tys = List.concat_map go_ty tys in
   (* `restart`/`condact`/`activate` on a (stateless) function are no-ops, but
      they still name a callee, so they are recursive calls like any other. *)
-  let rec_call pos callee_id args sub =
+  let rec_call pos callee_id ty_args args sub =
     let callee_name = NI.get_internal_name callee_id in
     let in_scc = match HStringMap.find_opt callee_name scc_map with
       | Some id -> id = caller_scc
       | None -> false
     in
-    if in_scc then (pos, callee_id, args, safe_env) :: sub else sub
+    if in_scc then (pos, callee_id, ty_args, args, safe_env) :: sub else sub
   in
   match expr with
   | LA.Call (pos, ty_args, callee_id, args) ->
-    rec_call pos callee_id args (go_list args @ go_ty_list ty_args)
+    rec_call pos callee_id ty_args args (go_list args @ go_ty_list ty_args)
   | LA.Condact (pos, e1, e2, callee_id, args, defaults) ->
-    rec_call pos callee_id args (go_list ([e1; e2] @ args @ defaults))
+    rec_call pos callee_id [] args (go_list ([e1; e2] @ args @ defaults))
   | LA.Activate (pos, callee_id, e1, e2, args) ->
-    rec_call pos callee_id args (go_list ([e1; e2] @ args))
+    rec_call pos callee_id [] args (go_list ([e1; e2] @ args))
   | LA.RestartEvery (pos, callee_id, args, e) ->
-    rec_call pos callee_id args (go_list (e :: args))
+    rec_call pos callee_id [] args (go_list (e :: args))
   | LA.Match (_, scrut, arms, _) ->
     let scrut_calls = go scrut in
     let scrut_safe = scrutinee_is_safe caller_measure shadowed safe_env scrut in
@@ -379,6 +388,61 @@ let check_no_rec_calls_in_contract scc_map decls =
     | _ -> Ok ()
   ) decls)
 
+(* Whether `ty` mentions one of the type parameters `ty_params`. *)
+let rec mentions_ty_params ty_params ty =
+  let go = mentions_ty_params ty_params in
+  match ty with
+  | LA.UserType (_, [], id) | LA.AbstractType (_, id) -> List.mem id ty_params
+  | LA.UserType (_, tys, _) | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
+    List.exists go tys
+  | LA.RecordType (_, _, tis) -> List.exists (fun (_, _, ty) -> go ty) tis
+  | LA.ADT (_, _, ctors) ->
+    List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> go ty) fields) ctors
+  | LA.ArrayType (_, (ty, _)) | LA.Set (_, ty)
+  | LA.RefinementType (_, (_, _, ty), _) -> go ty
+  | LA.Map (_, ty1, ty2) | LA.TArr (_, ty1, ty2) -> go ty1 || go ty2
+  | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+  | LA.EnumType _ | LA.History _ -> false
+
+(* Reject a call within a recursive group that instantiates a type parameter
+   with a type built from a type parameter of the caller, e.g. F<T> calling
+   F<List<T>>. Instantiating the caller would then require instantiating the
+   callee at ever larger types (see LustreInstantiatePolyNodes). *)
+let check_uniform_rec_calls scc_map decls =
+  Res.seq_ (List.map (fun decl ->
+    match decl with
+    | LA.FuncDecl (_, (fname_id, _, _, (_ :: _ as ty_params), inputs, outputs,
+                       locals, items, contract), { LA.is_rec = true; _ }) -> (
+      match HStringMap.find_opt (NI.get_internal_name fname_id) scc_map,
+            get_decreases contract with
+      | Some caller_scc, Some t ->
+        let rec_calls =
+          collect_rec_calls_decls scc_map caller_scc t inputs outputs locals
+          @ collect_rec_calls_items scc_map caller_scc t
+              HStringSet.empty HStringSet.empty items
+        in
+        (* A bare name is either one of the caller's type parameters, or a
+           type that mentions none of them (an enum, an alias, a datatype
+           without parameters, or an abstract type) *)
+        let is_uniform ty = match ty with
+          | LA.UserType (_, [], _) | LA.AbstractType _ -> true
+          | _ -> not (mentions_ty_params ty_params ty)
+        in
+        Res.seq_ (List.map (fun (pos, callee_id, ty_args, _, _) ->
+          match List.find_opt (fun ty -> not (is_uniform ty)) ty_args with
+          | Some ty ->
+            let ty_param =
+              List.find (fun p -> mentions_ty_params [p] ty) ty_params
+            in
+            check_error pos
+              (NonUniformRecursiveCall (NI.get_user_name callee_id, ty_param))
+          | None -> Ok ()
+        ) rec_calls)
+      | _ -> Ok ()
+    )
+    | _ -> Ok ()
+  ) decls)
+
 (* Build a map from function name → (formals, contract) for all FuncDecls. *)
 let build_func_map decls =
   List.fold_left (fun m decl ->
@@ -473,7 +537,7 @@ let check_func_decl ctx adt_map scc_map func_map decl =
             @ collect_rec_calls_items scc_map caller_scc t
                 HStringSet.empty HStringSet.empty items
           in
-          let check_call (pos, callee_id, args, safe_env) =
+          let check_call (pos, callee_id, _, args, safe_env) =
             let callee_name = NI.get_internal_name callee_id in
             match HStringMap.find_opt callee_name func_map with
             | None -> assert false
@@ -514,6 +578,7 @@ let check_func_decl ctx adt_map scc_map func_map decl =
 
 let check ctx adt_map scc_map decls =
   let* () = check_no_rec_calls_in_contract scc_map decls in
+  let* () = check_uniform_rec_calls scc_map decls in
   let* () = check_consistent_scc_kinds ctx adt_map scc_map decls in
   let func_map = build_func_map decls in
   let* _ = Res.seq (List.map (check_func_decl ctx adt_map scc_map func_map) decls) in

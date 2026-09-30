@@ -1,0 +1,18 @@
+-- A recursive call of a polymorphic function that instantiates its type
+-- parameter with a type built from it. Instantiating F at int would require
+-- instantiating it at List<int>, List<List<int>>, and so on, so this must be
+-- rejected (it used to overflow the stack).
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+function rec F<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F@<List<T>>(n - 1, Cons(d, Nil@<T>));
+tel
+
+node main (i: int) returns ()
+let
+  check "nonneg" F@<int>(3, i) >= 0;
+tel
