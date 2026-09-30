@@ -173,15 +173,17 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
   let decl, tyss = NI.Map.find node_id node_decls_map in 
   let find_decl tys = 
     (List.length tys = List.length ty_args) &&
-    (* eq_lustre_type only considers base types, so for now we conservatively do not reuse polymorphic 
-       instantiations with refinement types *)
-    (List.for_all2 (fun ty p -> 
-      match Ctx.type_contains_ref ctx ty, 
-            Ctx.type_contains_ref ctx p, 
-            Chk.eq_lustre_type ctx ty p with 
+    (* eq_lustre_type only considers base types, so for now we conservatively do not reuse polymorphic
+       instantiations with refinement types, unless the type arguments are syntactically identical.
+       This is the case for a recursive call inside an instantiation, whose type arguments are the
+       ones substituted for the type parameters; creating a new instantiation there would not terminate *)
+    (List.for_all2 (fun ty p ->
+      match Ctx.type_contains_ref ctx ty,
+            Ctx.type_contains_ref ctx p,
+            Chk.eq_lustre_type ctx ty p with
     | false, false, Ok true -> true
-    | _ -> false
-    ) tys ty_args) 
+    | _ -> ty = p
+    ) tys ty_args)
   in
   match Lib.find_opt_index find_decl tyss with 
   (* This polymorphic instantiation already exists *)
