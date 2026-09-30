@@ -1,0 +1,12 @@
+-- A lemma that invokes itself still needs a decreases clause to justify the
+-- termination of its recursive call.
+lemma L (n: int)
+con
+  assume n >= 0;
+  guarantee "g" n >= 0;
+noc
+let
+  if n > 0 then
+    L(n - 1);
+  fi
+tel

@@ -53,6 +53,7 @@ type error_kind = Unknown of string
   | ImportedCyclicDependency of (HString.t list * NodeId.t)
   | MismatchedDecreasesArity of HString.t list
   | RecursiveAnnotationWithoutRecursion of HString.t
+  | MissingDecreasesClause of HString.t
 
 type error = [
   | `LustreAstDependenciesError of Lib.position * error_kind

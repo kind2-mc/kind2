@@ -800,7 +800,9 @@ call cycle, must carry a `decreases` contract item. This measure is what lets
 Kind 2 establish that the recursion terminates (without it, a call could be
 given a definition that has no solution). Kind 2 rejects a `rec` function that
 lacks a `decreases` clause, and rejects a plain (non-`rec`) function that is
-found to actually be part of a (recursive) call cycle.
+found to actually be part of a (recursive) call cycle. A lemma needs a
+`decreases` clause only when it invokes itself, directly or through a cycle
+of other lemmas; a lemma without such a call may omit it.
 
 A `decreases` clause is only meaningful in the inline contract of a `rec`
 function, and exactly one clause is allowed there. Declaring one anywhere else
