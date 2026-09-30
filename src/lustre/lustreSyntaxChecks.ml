@@ -944,41 +944,59 @@ let rec expr_only_supported_in_merge observer expr =
   | AbstractSymConst _ -> assert false
   | ADTTester (_, e, _) -> r observer e
 
-(* The position of the first type ascription in an expression, if any *)
+(* The position of the first type ascription in an expression, if any,
+   including the index expressions of a structural update and the expressions
+   within the types the expression carries *)
 let rec type_ascription_pos expr =
   let r = type_ascription_pos in
   let r_list es = List.find_map r es in
+  let first a b = match a with Some _ -> a | None -> b () in
+  let r_ty ty =
+    LAH.fold_lustre_ty ~into_ty_args:true r None
+      (fun a b -> first a (fun () -> b)) ty
+  in
+  let r_tys tys = List.find_map r_ty tys in
+  let r_idx idx =
+    LAH.fold_label_or_index None (fun a b -> first a (fun () -> b)) r idx
+  in
   match expr with
   | LA.TypeAscription (pos, _, _) -> Some pos
-  | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _
-  | AbstractSymConst _ -> None
+  | Ident _ | Last _ | Const _ | ModeRef _
+  | EmptyMap (_, None) | EmptySet (_, None) -> None
+  | EmptyMap (_, Some (kt, vt)) -> r_tys [kt; vt]
+  | EmptySet (_, Some ty)
+  | AbstractSymConst (_, ty) -> r_ty ty
   | FieldProject (_, e, _, _)
   | UnaryOp (_, _, e)
   | ConvOp (_, _, e)
   | Pre (_, e)
   | Extract (_, e, _, _)
-  | Quantifier (_, _, _, e)
-  | StructUpdate (_, e, _, None)
-  | AnyOp (_, _, e)
-  | ChooseOp (_, _, e)
   | When (_, e, _)
   | ADTTester (_, e, _) -> r e
+  | Quantifier (_, _, vars, e) ->
+    first (r_tys (List.map (fun (_, _, ty) -> ty) vars)) (fun () -> r e)
+  | AnyOp (_, (_, _, ty), e)
+  | ChooseOp (_, (_, _, ty), e) -> first (r_ty ty) (fun () -> r e)
+  | StructUpdate (_, e1, idx, e2) ->
+    first (r e1) (fun () ->
+      first (r_idx idx) (fun () -> Option.bind e2 r))
   | BinaryOp (_, _, e1, e2)
-  | StructUpdate (_, e1, _, Some e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
   | IndexAccess (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r_list [e1; e2]
   | TernaryOp (_, _, e1, e2, e3) -> r_list [e1; e2; e3]
-  | GroupExpr (_, _, es)
-  | Call (_, _, _, es)
-  | ADTTerm (_, _, _, es) -> r_list es
-  | RecordExpr (_, _, _, fields) -> r_list (List.map snd fields)
+  | GroupExpr (_, _, es) -> r_list es
+  | Call (_, tys, _, es)
+  | ADTTerm (_, tys, _, es) -> first (r_tys tys) (fun () -> r_list es)
+  | RecordExpr (_, _, tys, fields) ->
+    first (r_tys tys) (fun () -> r_list (List.map snd fields))
   | Merge (_, _, cases) -> r_list (List.map snd cases)
   | Condact (_, e1, e2, _, es1, es2) -> r_list (e1 :: e2 :: es1 @ es2)
   | Activate (_, _, e1, e2, es) -> r_list (e1 :: e2 :: es)
   | RestartEvery (_, _, es, e) -> r_list (e :: es)
-  | Match (_, e, arms, _) -> r_list (e :: List.map snd arms)
+  | Match (_, e, arms, ty) ->
+    first (r_list (e :: List.map snd arms)) (fun () -> Option.bind ty r_ty)
 
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)

@@ -1,0 +1,12 @@
+-- A decreases measure with a type ascription in the index of an update. It is
+-- rejected like any other type ascription in a measure (issue #1600).
+function rec F(a: int^1; n: int) returns (r: int);
+con decreases (a[(0 : int) := n])[0]; noc
+let
+  r = when n <= 0 then 0 else F(a, n - 1);
+tel
+
+node main(a: int^1) returns ();
+let
+  check "ok" F(a, 3) >= 0;
+tel
