@@ -421,9 +421,11 @@ let check_uniform_rec_calls scc_map decls =
           @ collect_rec_calls_items scc_map caller_scc t
               HStringSet.empty HStringSet.empty items
         in
+        (* A bare name is either one of the caller's type parameters, or a
+           type that mentions none of them (an enum, an alias, a datatype
+           without parameters, or an abstract type) *)
         let is_uniform ty = match ty with
-          | LA.UserType (_, [], id) | LA.AbstractType (_, id) ->
-            List.mem id ty_params
+          | LA.UserType (_, [], _) | LA.AbstractType _ -> true
           | _ -> not (mentions_ty_params ty_params ty)
         in
         Res.seq_ (List.map (fun (pos, callee_id, ty_args, _, _) ->
