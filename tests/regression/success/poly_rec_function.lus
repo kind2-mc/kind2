@@ -14,7 +14,7 @@ function rec Count<T> (n: int; d: T) returns (r: int)
   decreases n;
 *)
 let
-  r = if n <= 0 then 0 else 1 + Count@<T>(n - 1, d);
+  r = when n <= 0 then 0 else 1 + Count@<T>(n - 1, d);
 tel
 
 function rec Length<T> (xs: List<T>) returns (r: int)
@@ -36,7 +36,7 @@ function rec IsEven<T> (n: int; d: T) returns (b: bool)
   decreases n;
 *)
 let
-  b = if n <= 0 then true else IsOdd@<T>(n - 1, d);
+  b = when n <= 0 then true else IsOdd@<T>(n - 1, d);
 tel
 
 function rec IsOdd<U> (n: int; d: U) returns (b: bool)
@@ -44,7 +44,7 @@ function rec IsOdd<U> (n: int; d: U) returns (b: bool)
   decreases n;
 *)
 let
-  b = if n <= 0 then false else IsEven@<U>(n - 1, d);
+  b = when n <= 0 then false else IsEven@<U>(n - 1, d);
 tel
 
 node main (i: int; b: bool) returns ()

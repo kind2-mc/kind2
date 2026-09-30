@@ -9,7 +9,7 @@ function rec F<T> (n: int; d: T) returns (r: int)
   decreases n;
 *)
 let
-  r = if n <= 0 then 0 else F@<List<T>>(n - 1, Cons(d, Nil@<T>));
+  r = when n <= 0 then 0 else F@<List<T>>(n - 1, Cons(d, Nil@<T>));
 tel
 
 node main (i: int) returns ()

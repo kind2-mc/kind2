@@ -7,7 +7,7 @@ function rec Ground<T> (n: int; d: T) returns (r: int)
   decreases n;
 *)
 let
-  r = if n <= 0 then 0 else Ground@<int>(n - 1, 0);
+  r = when n <= 0 then 0 else Ground@<int>(n - 1, 0);
 tel
 
 node main (b: bool) returns ()

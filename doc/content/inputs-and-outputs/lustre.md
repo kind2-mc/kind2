@@ -1814,7 +1814,7 @@ function rec F<T>(n: int; x: T) returns (r: int);
   decreases n;
 *)
 let
-  r = if n <= 0 then 0 else F@<List<T>>(n - 1, Cons(x, Nil@<T>));  -- Rejected
+  r = when n <= 0 then 0 else F@<List<T>>(n - 1, Cons(x, Nil@<T>));  -- Rejected
 tel
 ```
 

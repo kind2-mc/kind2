@@ -7,7 +7,7 @@ function rec F<T> (n: int; d: T) returns (r: int)
   decreases n;
 *)
 let
-  r = if n <= 0 then 0 else G(n - 1, Cons(d, Nil@<T>));
+  r = when n <= 0 then 0 else G(n - 1, Cons(d, Nil@<T>));
 tel
 
 function rec G<U> (n: int; d: U) returns (r: int)
@@ -15,7 +15,7 @@ function rec G<U> (n: int; d: U) returns (r: int)
   decreases n;
 *)
 let
-  r = if n <= 0 then 0 else F@<U>(n - 1, d);
+  r = when n <= 0 then 0 else F@<U>(n - 1, d);
 tel
 
 node main (i: int) returns ()
