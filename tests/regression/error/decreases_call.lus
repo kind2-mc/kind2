@@ -1,0 +1,19 @@
+-- A decreases measure that calls a function. The measure is compiled to a term
+-- over the state variables of the function, which has no instance of the
+-- callee; this used to raise an assertion failure in LustreNodeGen instead of
+-- being reported (issue #1600).
+function S(x: int) returns (r: int);
+let
+  r = x;
+tel
+
+function rec F(x: int) returns (r: int);
+con decreases S(x) + 0; noc
+let
+  r = when x <= 0 then 0 else F(x - 1);
+tel
+
+node main() returns ();
+let
+  check "ok" F(3) >= 0;
+tel

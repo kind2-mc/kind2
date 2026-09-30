@@ -83,6 +83,7 @@ type error_kind = Unknown of string
   | AssignmentToPatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | CallInDecreasesMeasure of HString.t
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t
@@ -168,6 +169,10 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' must include a decreases clause in its contract"
   | IllegalDecreasesMeasure id -> "Identifier '"
+    ^ HString.string_of_hstring id
+    ^ "' cannot occur in a decreases clause; a decreases measure may only "
+    ^ "mention the input parameters of the function and constants"
+  | CallInDecreasesMeasure id -> "Call to '"
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
     ^ "mention the input parameters of the function and constants"
@@ -1035,8 +1040,12 @@ and no_reachability_modifiers item = match item with
    while being rendered as if both were the same variable. Ghost variables and
    ghost constants are not legal either: the measure is compiled before the
    contract is, so they are not in scope yet and reaching one raises an
-   assertion failure in LustreNodeGen. *)
-and check_decreases_measures inputs outputs contract =
+   assertion failure in LustreNodeGen.
+
+   A call is not a legal measure either: the measure is compiled to a term over
+   the state variables of the function, which has no instance of the callee to
+   stand for the call. A constructor application is not a call. *)
+and check_decreases_measures ctx inputs outputs contract =
   let contract_items = match contract with
     | Some (_, items) -> items
     | None -> []
@@ -1060,9 +1069,15 @@ and check_decreases_measures inputs outputs contract =
   in
   let check_measure (pos, e) =
     let used = LAH.vars_without_node_call_ids e in
-    match LA.SI.elements (LA.SI.inter used illegal_ids) with
-    | [] -> Ok ()
-    | id :: _ -> syntax_error pos (IllegalDecreasesMeasure id)
+    let calls =
+      LAH.calls_of_expr e
+      |> NI.Set.filter (fun i ->
+        not (StringSet.mem (NI.get_name i) ctx.constructors))
+    in
+    match LA.SI.elements (LA.SI.inter used illegal_ids), NI.Set.elements calls with
+    | id :: _, _ -> syntax_error pos (IllegalDecreasesMeasure id)
+    | [], i :: _ -> syntax_error pos (CallInDecreasesMeasure (NI.get_user_name i))
+    | [], [] -> Ok ()
   in
   contract_items
   |> List.filter_map (function LA.Decreases d -> Some d | _ -> None)
@@ -1153,7 +1168,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
       | [] ->
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
-      | [_] -> check_decreases_measures inputs outputs contract
+      | [_] -> check_decreases_measures ctx inputs outputs contract
       | _ :: _ :: _ ->
         (* Downstream passes each pick "the" clause independently and can
            disagree, each then trusting some other pass to check the rest. *)

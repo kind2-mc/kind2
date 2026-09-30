@@ -2553,11 +2553,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (* The call is compiled to an application of the functional symbol of
          the callee. The node instance is kept, with free constants in place
          of the quantified variables, so that the callee remains a subsystem
-         of the caller and its functional symbol is declared (or defined) *)
+         of the caller and its functional symbol is declared (or defined).
+         The arguments of the application are normalized like any other
+         expression under the quantifier, since [LustreNodeGen] compiles them
+         as they are (e.g., a call in an argument must be abstracted) *)
       let subst_args = List.map (fun a -> AH.apply_subst_in_expr vmap a) args in
       let _, inst_name, gids1, warnings1 = handle_call vmap subst_args in
-      let nexpr, gids2 = mk_fresh_qcall info id inst_name pos args in
-      nexpr, union_list [gids0; gids1; gids2], warnings1
+      let nargs, gids2, warnings2 = normalize_list
+        (normalize_expr ?guard { info with value_context = [] } node_id map)
+        args
+      in
+      let nexpr, gids3 = mk_fresh_qcall info id inst_name pos nargs in
+      nexpr, union_list [gids0; gids1; gids2; gids3], warnings1 @ warnings2
     )
     else (
       let nexpr, _, gids, warnings = handle_call vmap args in
