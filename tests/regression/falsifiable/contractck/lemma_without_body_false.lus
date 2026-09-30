@@ -1,0 +1,19 @@
+-- The contract of a lemma guarantees a fact about its inputs only, so it is
+-- realizable exactly when the fact holds. Here it does not, which would make
+-- every analysis that invokes this lemma, which has no body, vacuous.
+function f (n: int) returns (m: int);
+let
+  m = n + 1;
+tel
+
+lemma f_large (n: int)
+con
+  guarantee f(n) > n + 5;
+noc
+
+node main (x: int) returns (ok: bool);
+let
+  f_large(x);
+  ok = true;
+  check ok;
+tel

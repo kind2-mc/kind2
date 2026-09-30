@@ -76,6 +76,7 @@ type error_kind = Unknown of string
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
   | OpaqueWithoutContract of LustreAst.ident
+  | LemmaWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
@@ -88,6 +89,7 @@ type error_kind = Unknown of string
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t
+  | DecreasesClauseInLemmaWithoutBody of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
@@ -158,6 +160,7 @@ let error_message kind = match kind with
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
   | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
   | OpaqueWithoutContract n -> "An opaque annotation found for a node/function without a contract: " ^ HString.string_of_hstring n
+  | LemmaWithoutContract n -> "Lemma '" ^ HString.string_of_hstring n ^ "' has no contract to state a fact with"
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
   | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
@@ -192,6 +195,10 @@ let error_message kind = match kind with
     ^ "into a function has no effect on that function's termination check. "
     ^ "Write the decreases clause directly in the recursive function's own "
     ^ "contract instead"
+  | DecreasesClauseInLemmaWithoutBody id -> "Lemma '"
+    ^ HString.string_of_hstring id
+    ^ "' declares a decreases clause, but it has no body, so it has no "
+    ^ "recursive call whose termination the clause could justify"
   | MisplacedDecreasesClause id -> "'"
     ^ HString.string_of_hstring id
     ^ "' declares a decreases clause, but only a recursive ('rec') function "
@@ -1156,9 +1163,11 @@ and decreases_clause_positions contract =
 
 (* Only a recursive function's contract is ever scanned for a decreases
    clause, so one declared anywhere else is silently ignored. *)
-and no_decreases_clause id contract =
+and no_decreases_clause ?(no_body_lemma=false) id contract =
   match decreases_clause_positions contract with
   | [] -> Ok ()
+  | pos :: _ when no_body_lemma ->
+    syntax_error pos (DecreasesClauseInLemmaWithoutBody id)
   | pos :: _ -> syntax_error pos (MisplacedDecreasesClause id)
 
 and check_input_items (pos, _id, _ty, clock, _const) =
@@ -1243,9 +1252,15 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
         syntax_error span.start_pos
           (MultipleDecreasesClauses (NI.get_user_name node_id))
     else
-      no_decreases_clause (NI.get_user_name node_id) contract
+      no_decreases_clause ~no_body_lemma:(is_rec.LA.is_lemma && ext)
+        (NI.get_user_name node_id) contract
   in
-  check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
+  (* A lemma is opaque by construction, which [check_opacity] would report as
+     an opaque annotation the user never wrote *)
+  (if is_rec.LA.is_lemma && contract = None then
+     syntax_error span.start_pos (LemmaWithoutContract (NI.get_user_name node_id))
+   else Ok ())
+  >> check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 

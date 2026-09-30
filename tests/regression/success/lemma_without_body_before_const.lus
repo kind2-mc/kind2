@@ -1,0 +1,18 @@
+-- A lemma without a body ends with its contract: a constant declared next is
+-- a top-level declaration, not a local of the lemma (which is why the locals
+-- of a lemma are variables only).
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+const c: int = 1;
+
+node main (x: int) returns (ok: bool);
+let
+  g_increasing(c);
+  ok = g(c) > c;
+  check ok;
+tel

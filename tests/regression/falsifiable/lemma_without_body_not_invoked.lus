@@ -1,0 +1,14 @@
+-- The guarantee of a lemma without a body is only assumed where it is invoked:
+-- without the call, nothing constrains the uninterpreted g.
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+node main (x: int) returns (ok: bool);
+let
+  ok = g(x) > x;
+  check ok;
+tel

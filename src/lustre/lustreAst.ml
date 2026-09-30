@@ -1348,14 +1348,12 @@ let pp_print_contract_node_decl ppf (n,p,i,o,(_,e))
 let pp_print_node_or_fun_decl is_fun ppf (
   _, (n, ext, opac, p, i, o, l, e, r), func_attrs
 ) =
-    if e = [] then
-      Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s%s%s %a%t@ \
-        @[<hv 1>(%a)@]@;<1 -2>\
-        returns@ @[<hv 1>(%a)@];@]@.\
-        %a@?\
-        %a@?@]@?"
-        (if func_attrs.is_lemma then
+    let is_lemma = is_fun && func_attrs.is_lemma in
+    (* A lemma is always opaque, and its only output is synthetic. A lemma
+       without a body is declared without the 'imported' keyword. *)
+    let pp_print_header ppf =
+      Format.fprintf ppf "%s%s%s%s %a%t@ @[<hv 1>(%a)@]"
+        (if is_lemma then
           ""
         else
           (match opac with
@@ -1364,37 +1362,40 @@ let pp_print_node_or_fun_decl is_fun ppf (
           | Transparent -> "transparent "
           )
         )
-        (if not func_attrs.is_lemma && func_attrs.is_rec then
+        (if not is_lemma && func_attrs.is_rec then
           "rec " else ""
         )
         (if is_fun then
-          (if func_attrs.is_lemma then "lemma" else "function")
+          (if is_lemma then "lemma" else "function")
         else 
           "node"
         )
-        (if ext then " imported" else "")
+        (if ext && not is_lemma then " imported" else "")
         HString.pp_print_hstring (NI.get_name n)
         (function ppf -> pp_print_node_param_list ppf p)
-        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i;
+      if not is_lemma then
+        Format.fprintf ppf "@;<1 -2>returns@ @[<hv 1>(%a)@]"
+          (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+    in
+    (* A lemma with an empty body is not a lemma without a body *)
+    if ext || (e = [] && not is_lemma) then
+      Format.fprintf ppf
+        "@[<hv>@[<hv 2>%t;@]@.\
+        %a@?\
+        %a@?@]@?"
+        pp_print_header
         pp_print_contract_spec r
         pp_print_node_local_decl l
     else
       Format.fprintf ppf
-        "@[<hv>@[<hv 2>%s%s %a%t@ \
-        @[<hv 1>(%a)@]@;<1 -2>\
-        returns@ @[<hv 1>(%a)@];@]@.\
+        "@[<hv>@[<hv 2>%t;@]@.\
         %a@?\
         %a@?\
         @[<v 2>let@ \
         %a@;<1 -2>\
         tel;@]@]@?"
-        (if is_fun then "function" else "node")
-        (if ext then " imported" else "")
-        HString.pp_print_hstring (NI.get_name n)
-        (function ppf -> pp_print_node_param_list ppf p)
-        (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
-        (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+        pp_print_header
         pp_print_contract_spec r
         pp_print_node_local_decl l
         (pp_print_list pp_print_node_item "@ ") e
