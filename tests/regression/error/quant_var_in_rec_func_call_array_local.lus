@@ -1,0 +1,19 @@
+-- A call to a recursive function with an array-typed local variable is
+-- rejected when it is applied to a quantified variable, as a call to a
+-- non-recursive function with such a local is. The function is not given a
+-- definition at the SMT level, so its symbol would be an arbitrary function
+-- under the quantifier, and this property, which holds, used to be reported
+-- falsifiable.
+
+function rec F(a: int; n: int) returns (r: int);
+con decreases n; noc
+var t: int^2;
+let
+  t = [a, a];
+  r = when n <= 0 then t[0] else F(a, n - 1);
+tel
+
+node Test(a: int) returns ();
+let
+  check forall (k: int) k <= 0 => F(a, k) = a;
+tel

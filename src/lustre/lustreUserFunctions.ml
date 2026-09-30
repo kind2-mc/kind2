@@ -102,15 +102,17 @@ let is_inlinable (set: NI.Set.t) contracts ctx opac contract outputs locals item
   valid_items set items &&
   is_output_defined outputs items
 
-(* [true] if the contract of the recursive function, if any, abstracts it in
-   no analysis of the run, so that its recursive calls past its unrollings
-   are left unconstrained in every one of them (see
-   [LustreFunDefs.contract_abstracts]): it has no effective contract, or it
-   is translucent and the analyses are not compositional, the only ones that
-   abstract a translucent function by its contract. *)
-let contract_never_abstracts ctx contracts opac contract outputs =
-  has_no_effective_contract ctx contracts opac contract outputs
-  || (opac = A.Default && not (Flags.Contracts.compositional ()))
+(* Whether no output or local variable of a function is of a type that contains
+   an array, once its type parameters are replaced as [subst] says *)
+let no_array_vars ?(subst = []) ctx outputs locals =
+  let no_array ty =
+    not (Ctx.type_contains_array ctx (AH.apply_type_subst_in_type subst ty))
+  in
+  List.for_all (fun (_, _, ty, _) -> no_array ty) outputs
+  && locals |> List.for_all (function
+    | A.NodeConstDecl (_, TypedConst (_, _, _, ty)) -> no_array ty
+    | A.NodeConstDecl _ -> true
+    | NodeVarDecl (_, (_, _, ty, _)) -> no_array ty)
 
 (* The recursive functions a call applied to quantified variables can be
    compiled to an application of the unrolled symbol of (see
@@ -119,15 +121,32 @@ let contract_never_abstracts ctx contracts opac contract outputs =
    the symbol as, the function unrolled as many times as the analysis
    unrolls it.
 
-   A function a contract abstracts in some analysis of the run is left out:
-   the contract only constrains its symbol at the arguments of its
-   instances, so under a quantifier it would be an arbitrary function and a
-   property that does hold of it could be reported falsifiable.
+   The conditions are those of the non-recursive functions that can be
+   inlined, whatever the analysis, on the contract and the types of the
+   variables:
+
+   - The function has no effective contract, or is transparent. A contract
+     abstracts a translucent function in compositional analyses only, but a
+     translucent function with a contract is left out in every analysis, as
+     a non-recursive one is. Its symbol would otherwise be defined in some
+     analyses and not in others. In an analysis where a contract abstracts
+     the function, the contract only constrains its symbol at the arguments
+     of its instances, so under a quantifier it would be an arbitrary
+     function and a property that does hold of it could be reported
+     falsifiable.
+   - No output or local is of a type that contains an array. [LustreFunDefs]
+     builds no definition from such a body, and the symbol would be
+     arbitrary under the quantifier as well.
+
+   A polymorphic function is checked with its type parameters as they are:
+   an instantiation of it may still have an output of a refinement type, or
+   an output or local of an array type (see [uf_callable_instance]).
 
    The remaining conditions [LustreFunDefs] puts on a definition -- the body
-   is a total function of the inputs -- are not known at this point. A call
-   to a function that fails them is accepted here, and [LustreTransSys]
-   warns about it. *)
+   is a total function of the inputs, and so are those of the functions of
+   its recursive group and of the functions it calls -- are not known at
+   this point. A call to a function that fails them is accepted here, and
+   [LustreTransSys] warns about it. *)
 let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
 = fun ctx decls ->
   List.fold_left (fun (set, contracts) dcl ->
@@ -138,9 +157,12 @@ let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
     )
     (* A non-imported recursive function *)
     | A.FuncDecl
-        (_, (id, false, opac, _, _, outputs, _, _, contract), { A.is_rec = true; _ })
+        (_, (id, false, opac, _, _, outputs, locals, _, contract),
+         { A.is_rec = true; _ })
       -> (
-      if contract_never_abstracts ctx contracts opac contract outputs then
+      if has_no_effective_contract ctx contracts opac contract outputs
+         && no_array_vars ctx outputs locals
+      then
         NI.Set.add id set, contracts
       else
         set, contracts
@@ -150,6 +172,47 @@ let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
   (NI.Set.empty, NI.Map.empty)
   decls
   |> fst
+
+(* Whether the instantiation of the function [id] of [decls] with the type
+   arguments [ty_args] of a call meets the conditions of
+   [uf_callable_functions] on the types of its variables: no output of a
+   refinement type unless the function is transparent, and no output or local
+   of a type that contains an array. [uf_callable_functions] checks the
+   declarations as they are written, with the type parameters of a polymorphic
+   function, while the calls are compiled once the functions are instantiated,
+   with the set computed from the instantiations: without this check, the two
+   would disagree, and a call accepted here would reach the compilation of
+   the nodes as a call to a node applied to quantified variables.
+
+   A type argument may mention [caller_ty_params], the type parameters of the
+   polymorphic node that makes the call, which only its instantiations give a
+   type to. Any of them may be an array type: they are taken to be one, which
+   rules out any output or local whose type mentions them, whatever type an
+   instantiation gives them. *)
+let uf_callable_instance ctx decls ~caller_ty_params id ty_args =
+  let some_array =
+    let pos = Lib.dummy_pos in
+    A.ArrayType (pos, (A.Int pos, A.Const (pos, Num (HString.mk_hstring "1"))))
+  in
+  let caller_subst = List.map (fun p -> p, some_array) caller_ty_params in
+  let ty_args = List.map (AH.apply_type_subst_in_type caller_subst) ty_args in
+  ty_args = []
+  || decls |> List.exists (function
+    | A.FuncDecl (_, (id', _, opac, params, _, outputs, locals, _, _), _)
+      when NI.equal id id' ->
+      List.length params = List.length ty_args
+      &&
+      let subst = List.combine params ty_args in
+      (* A refinement type of an output is a contract, which abstracts a
+         function that is not transparent (see [has_no_effective_contract]) *)
+      let outputs =
+        List.map
+          (fun (p, i, ty, c) -> p, i, AH.apply_type_subst_in_type subst ty, c)
+          outputs
+      in
+      (opac = A.Transparent || not (have_ref_type ctx outputs))
+      && no_array_vars ~subst ctx outputs locals
+    | _ -> false)
 
 let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t 
 = fun ctx decls ->

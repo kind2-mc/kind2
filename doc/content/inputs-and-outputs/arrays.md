@@ -479,10 +479,10 @@ is currently defined as a function that meets all the following criteria:
 
 A quantified variable may also appear in the arguments of a call to a
 [recursive function]({{< relref "/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
-that Kind 2 defines at the SMT level, that is, one whose recursive calls are
-not abstracted by its contract: a function with no contract to abstract its
-calls with, or declared `transparent`, or, outside of compositional
-analyses, any function not declared `opaque`. Such a call is
+that Kind 2 defines at the SMT level. The function must meet the second
+criterion above, whatever the analysis: there is no proof obligation on its
+outputs, or it is annotated as transparent. It must also have no output or
+local variable of an array type. Such a call is
 compiled to an application of the symbol the function is defined as rather than
 to an instance of the function, so the quantifier is free to range over its
 arguments. This does not extend to a symbolic array index, which still cannot

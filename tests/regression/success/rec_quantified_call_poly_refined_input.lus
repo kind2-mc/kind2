@@ -1,0 +1,19 @@
+-- A quantified call to an instantiation of a polymorphic recursive function
+-- with a refinement type argument that only types an input. The instantiation
+-- has no output of a refinement type, so it has no contract to abstract it
+-- with, and the call is compiled to an application of its functional symbol
+-- (see error/quant_var_in_poly_rec_func_call_refinement_instance.lus for one
+-- whose output has the refinement type).
+
+type Nat = subrange [0,*] of int;
+
+function rec Len<T>(x: T; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then 0 else Len(x, n - 1);
+tel
+
+node Test(a: Nat) returns ();
+let
+  check forall (k: int) k <= 0 => Len@<Nat>(a, k) = 0;
+tel

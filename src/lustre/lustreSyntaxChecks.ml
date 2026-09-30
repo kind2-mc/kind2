@@ -248,6 +248,14 @@ type context = {
      [LustreUserFunctions.uf_callable_functions]). Only filled in by
      [no_quant_vars_in_calls_to_non_inlinable_funcs], the check that reads it *)
   uf_callable_funcs : StringSet.t;
+  (* Whether the instantiation of a function of [uf_callable_funcs] with the
+     type arguments of a call, made in a node with the given type parameters,
+     meets the conditions on the types of its variables (see
+     [LustreUserFunctions.uf_callable_instance]). Filled in with the set. *)
+  uf_callable_instance :
+    caller_ty_params:HString.t list -> NI.t -> LA.lustre_type list -> bool;
+  (* The type parameters of the node or contract being checked *)
+  ty_params : HString.t list;
   contracts : contract_data StringMap.t;
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
@@ -264,6 +272,8 @@ let empty_ctx () = {
     functions = StringMap.empty;
     lemmas = StringSet.empty;
     uf_callable_funcs = StringSet.empty;
+    uf_callable_instance = (fun ~caller_ty_params:_ _ _ -> true);
+    ty_params = [];
     contracts = StringMap.empty;
     free_consts = StringMap.empty;
     consts = StringMap.empty;
@@ -1734,6 +1744,7 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
      variable itself. *)
   let is_uf_callable =
     StringSet.mem (NI.get_internal_name node_id) ctx.uf_callable_funcs
+    && ctx.uf_callable_instance ~caller_ty_params:ctx.ty_params node_id tys
   in
   let is_non_inlinable =
     not (LA.SI.mem (NI.get_internal_name node_id) inlinable_funcs)
@@ -1896,7 +1907,8 @@ let oqv_check_locals oqv_on_ty base_ctx locals =
   in
   Ok (List.flatten warnings1)
 
-let oqv_check_node_decl ?(in_lemma=false) inlinable_funcs ctx tc_ctx (_, _, _, _, inputs, outputs, locals, items, contract) =
+let oqv_check_node_decl ?(in_lemma=false) inlinable_funcs ctx tc_ctx (_, _, _, ty_params, inputs, outputs, locals, items, contract) =
+  let ctx = { ctx with ty_params } in
   let props = StringSet.empty in
   let ctx_io = build_local_ctx ctx [] inputs outputs in
   let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
@@ -1922,7 +1934,8 @@ let oqv_check_node_decl ?(in_lemma=false) inlinable_funcs ctx tc_ctx (_, _, _, _
   in
   Ok (warnings1 @ warnings2 @ warnings3 @ warnings4 @ warnings5)
 
-let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, _, inputs, outputs, contract) =
+let oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx (_, ty_params, inputs, outputs, contract) =
+  let ctx = { ctx with ty_params } in
   let props = StringSet.empty in
   let ctx_io = build_local_ctx ctx [] inputs outputs in
   let oqv_on_ty ctx ty = oqv_check_type tc_ctx inlinable_funcs false ctx ty in
@@ -1951,7 +1964,8 @@ let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =
         LUF.uf_callable_functions tc_ctx ast
         |> NI.Set.elements
         |> List.map NI.get_internal_name
-        |> StringSet.of_list }
+        |> StringSet.of_list;
+      uf_callable_instance = LUF.uf_callable_instance tc_ctx ast }
   in
   let* warnings = Res.seq (List.map (oqv_check_decl inlinable_funcs ctx tc_ctx) ast) in
   Ok (List.flatten warnings)
