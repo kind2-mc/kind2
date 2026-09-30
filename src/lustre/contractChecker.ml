@@ -326,6 +326,22 @@ let pp_print_viable_states in_sys param fmt fp =
     Format.fprintf fmt "@[<hov>%a@]"
       (LE.pp_print_term_as_expr_pvar false pvar) fp
 
+(* Description of the kind of node being checked, for result messages *)
+let node_kind_description in_sys scope node_id =
+  match NI.get_node_type node_id with
+  | Environment -> "Environment of"
+  | Contract -> "Contract of"
+  | Type -> "Type"
+  | Component ->
+    if ISys.is_lemma in_sys scope then "Contract of lemma"
+    else "Contract of imported node"
+  | Any -> "'Any' operator"
+  | TypeAscription -> "Type ascription operator"
+  | DefinedConstant -> "Global constant"
+  | FreeConstant -> "Global constant"
+  | ClockedExpr -> "clocked expression"
+  | Choose -> "'Choose' operator"
+
 let pp_print_realizability_result_pt
   analyze in_sys param sys fmt result =
   (* Update time *)
@@ -338,17 +354,7 @@ let pp_print_realizability_result_pt
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match (NI.get_node_type node_id) with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | Component -> "Contract of imported node"
-      | Any -> "'Any' operator"
-      | TypeAscription -> "Type ascription operator"
-      | DefinedConstant -> "Global constant"
-      | FreeConstant -> "Global constant"
-      | ClockedExpr -> "clocked expression"
-      | Choose -> "'Choose' operator")
+      (node_kind_description in_sys scope node_id)
       NI.pp_print_node_id_user_name node_id
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
@@ -574,17 +580,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       "@[<hov>%t Could not determine whether the %s \
         %a is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      (match (NI.get_node_type node_id) with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | Component -> "Contract of imported node"
-      | Any -> "'Any' operator"
-      | TypeAscription -> "Type ascription operator"
-      | DefinedConstant -> "Global constant"
-      | FreeConstant -> "Global constant"
-      | ClockedExpr -> "clocked expression"
-      | Choose -> "'Choose' operator")
+      (node_kind_description in_sys scope node_id)
       NI.pp_print_node_id_user_name node_id
       (Stat.get_float Stat.analysis_time)
   )
@@ -599,17 +595,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match (NI.get_node_type node_id) with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | Component -> "Contract of imported node"
-      | Any -> "'Any' operator"
-      | TypeAscription -> "Type ascription operator"
-      | DefinedConstant -> "Global constant"
-      | FreeConstant -> "Global constant"
-      | ClockedExpr -> "clocked expression"
-      | Choose -> "'Choose' operator")
+      (node_kind_description in_sys scope node_id)
       NI.pp_print_node_id_user_name node_id
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)

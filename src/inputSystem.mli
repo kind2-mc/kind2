@@ -172,6 +172,9 @@ val get_node_user_name : _ t -> Scope.t -> LustreIdent.t
 
 val get_node_id : _ t -> Scope.t -> NodeId.t
 
+(** Whether the node of the scope is a lemma *)
+val is_lemma : _ t -> Scope.t -> bool
+
 val current_state_props : _ t -> Scope.t -> string list
 
 val prefix_system : 'a t -> string -> 'a t

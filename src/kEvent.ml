@@ -1692,7 +1692,9 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment of"
         | Contract -> "contract of"
         | Type -> "type"
-        | Component -> "contract of imported node"
+        | Component ->
+          if InputSystem.is_lemma in_sys scope then "contract of lemma"
+          else "contract of imported node"
         | Any -> "'any' operator"
         | TypeAscription -> "type ascription operator"
         | FreeConstant -> "global constant"
