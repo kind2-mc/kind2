@@ -56,6 +56,7 @@ type error_kind = Unknown of string
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
   | OpaqueWithoutContract of LustreAst.ident
+  | LemmaWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
@@ -68,6 +69,7 @@ type error_kind = Unknown of string
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t
+  | DecreasesClauseInLemmaWithoutBody of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t

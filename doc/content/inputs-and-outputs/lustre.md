@@ -800,13 +800,14 @@ call cycle, must carry a `decreases` contract item. This measure is what lets
 Kind 2 establish that the recursion terminates (without it, a call could be
 given a definition that has no solution). Kind 2 rejects a `rec` function that
 lacks a `decreases` clause, and rejects a plain (non-`rec`) function that is
-found to actually be part of a (recursive) call cycle. A lemma needs a
+found to actually be part of a (recursive) call cycle. A
+[lemma]({{< relref "/inputs-and-outputs/lustre#lemmas" >}}) needs a
 `decreases` clause only when it invokes itself, directly or through a cycle
 of other lemmas; a lemma without such a call may omit it.
 
 A `decreases` clause is only meaningful in the inline contract of a `rec`
-function, and exactly one clause is allowed there. Declaring one anywhere else
-is an error.
+function or of a lemma, and exactly one clause is allowed there. Declaring
+one anywhere else is an error.
 
 A `decreases` clause takes one of two forms. In either form, the measure may
 only mention the input parameters of the function and constants; in
@@ -1095,6 +1096,151 @@ Using a function instead of a node simply results in a better abstraction. Kind
 The downside of using functions in your model is that the IC3QE engine and
 the IC3IA engine with the Z3qe or cvc5qe options must shut down,
 since their current implementation cannot reason about the resulting system.
+
+## Lemmas
+
+A *lemma* states a fact about its inputs in its contract and proves it in its
+body. It is declared like a function, with the `lemma` keyword and no
+`returns` clause:
+
+```lustre
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+lemma g_twice (n: int)
+con
+  guarantee g(g(n)) > n;
+noc
+let
+  g_increasing(n);
+  g_increasing(g(n));
+tel
+```
+
+Here `g_increasing` has no body: it is assumed rather than proved (see
+[Lemmas without a body](#lemmas-without-a-body)), while `g_twice` is proved
+from it.
+
+A lemma must have a contract, and is always opaque: its callers only know
+what its contract says, never its body. Its body is subject to the same
+restrictions as the body of a function, and may hold equations of local
+variables, but its purpose is to invoke other lemmas, whose guarantees are
+what its own guarantees are proved from. Its local declarations are
+variables only (`var`): a lemma cannot declare local constants.
+
+### Invoking a lemma
+
+A lemma is invoked in a *call statement*, a call written on its own, with no
+left-hand side, in the body of a node, a function or a lemma. This is the
+only place a lemma may be invoked (not in an expression, nor in a contract),
+and the only thing a call statement may invoke. At the invocation, the
+guarantees of the lemma are assumed for the arguments it is given, and each
+of its assumptions is a proof obligation of the caller, reported as a
+property named after the invocation and the assumption: for instance,
+`L[L21C3].assume[L10C3]` for the assumption at line 10 of a lemma `L`
+invoked at line 21. In a node, the invocation holds at every
+step; its arguments may be any expression, including one with `pre`:
+
+```lustre
+node main (x: int) returns (ok: bool);
+let
+  g_twice(x);
+  ok = g(g(x)) > x;
+  check ok;
+tel
+```
+
+An invocation inside an `if`, `when` or `match` block (see
+[If statements and frame conditions]({{< relref "/inputs-and-outputs/lustre#if-statements-and-frame-conditions" >}}))
+only takes effect in the branch it is written in. This is how a proof
+distinguishes cases. A branch that needs no invocation, because the
+guarantee follows directly there, contains the statement `auto;`, which does
+nothing and is only allowed in the body of a lemma:
+
+```lustre
+datatype L = Nil | Cons (hd: int, tl: L);
+
+function rec len (l: L) returns (n: int)
+con
+  decreases l;
+noc
+let
+  n = match l with
+    | Nil : 0
+    | Cons (h, t) : 1 + len(t)
+  end;
+tel
+
+lemma LenNonNeg (l: L)
+con
+  guarantee len(l) >= 0;
+  decreases l;
+noc
+let
+  match l with
+  | Nil:
+    auto;
+  | Cons (h, t):
+    LenNonNeg(t);
+  end
+tel
+```
+
+### Proofs by induction
+
+A lemma may invoke itself, directly or through a cycle of other lemmas, as
+`LenNonNeg` does. The guarantees of the recursive invocation are then the
+induction hypothesis, which is only justified if the recursion terminates:
+such a lemma needs a `decreases` clause, and its recursive invocations are
+checked to decrease exactly as the calls of a recursive function are (see
+[Recursive functions]({{< relref "/inputs-and-outputs/lustre#recursive-functions" >}})).
+Unlike a function, a lemma needs no `rec` modifier. A lemma that does not
+invoke itself may omit the `decreases` clause.
+
+### How lemmas are analyzed
+
+A lemma is analyzed like a function: its analysis proves its guarantees under
+its assumptions, from the guarantees of the lemmas it invokes, and checks the
+assumptions of those invocations. Which lemmas are analyzed follows the usual
+rules for choosing top-level nodes: by default, only the top-level nodes are,
+so a lemma that is invoked by another node is only assumed there, *not
+proved*. To prove every lemma along with the rest of the model, run a
+modular analysis (`--modular true`), or designate the lemma as the main
+node with `--lus_main`.
+
+### Lemmas without a body
+
+A lemma may be declared without a body, ending with its contract. Its
+contract is then never proved: its guarantees are assumed wherever the lemma
+is invoked, and its assumptions, as for any lemma, are an obligation of the
+caller. A typical use is to state properties of an imported function, as
+`g_increasing` does above, or:
+
+```lustre
+function imported len (l: L) returns (n: int);
+
+lemma len_nil ()
+con
+  guarantee len(Nil) = 0;
+noc
+
+lemma len_cons (h: int; t: L)
+con
+  guarantee len(Cons(h, t)) = 1 + len(t);
+noc
+```
+
+Such a lemma cannot invoke itself, so it takes no `decreases` clause. Nothing
+checks that its guarantees are true: a false one makes every analysis that
+invokes the lemma vacuous. When its guarantees only mention functions with a
+body, enabling the realizability checks (`--enable CONTRACTCK`) proves or
+refutes them. Note that a lemma with an empty body (`let tel`), or a body
+holding only `auto;`, is not a lemma without a body: its guarantees are
+proved from its assumptions alone.
 
 ## Conditional expressions
 

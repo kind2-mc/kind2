@@ -296,11 +296,16 @@ decl:
     let (l, e) = def in
     [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), { is_lemma = false; is_rec })]
   }
-  | LEMMA; decl = lemma_decl ; def = node_def {
+  (* A lemma without a body has nothing to prove its contract with: its
+     contract is assumed. Without a body, it cannot be recursive. *)
+  | LEMMA; decl = lemma_decl ; def = option(lemma_def) {
     let (n, p, i, r) = decl in
     let o = [mk_pos $startpos, HString.mk_hstring ".out", A.Bool (mk_pos $startpos), A.ClockTrue] in
-    let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
+    match def with
+    | Some (l, e) ->
+      [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
+    | None ->
+      [A.FuncDecl (mk_span $startpos($1) $endpos, (n, true, A.Opaque, p, i, o, [], [], r), { is_lemma = true; is_rec = false })]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
@@ -572,6 +577,24 @@ lemma_decl:
   {
     (NI.mk_node_id n, p, List.flatten i, r)
   }
+
+(* A lemma definition (locals + body). Its locals are variables only: a
+   constant declaration, local or not, starts with the same keyword, so after
+   a lemma without a body it could not be told apart from the next top-level
+   declaration. *)
+lemma_def:
+  l = list(lemma_local_decl);
+  LET;
+  e = list(node_item);
+  TEL
+  option(node_sep)
+
+  { (List.flatten l, e) }
+
+lemma_local_decl:
+  | v = var_decls { List.map 
+                      (function e -> A.NodeVarDecl (mk_pos $startpos, e)) 
+                      v }
 
 (* A node definition (locals + body). *)
 node_def:

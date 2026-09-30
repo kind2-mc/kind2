@@ -1,0 +1,14 @@
+-- A lemma without a body, like any lemma, can only be invoked in a call
+-- statement.
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+node main (x: int) returns (ok: bool);
+let
+  ok = g_increasing(x);
+  check ok;
+tel
