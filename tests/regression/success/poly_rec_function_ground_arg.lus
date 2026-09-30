@@ -1,0 +1,16 @@
+-- A recursive call of a polymorphic function with a type argument that has no
+-- type parameter: Ground<bool> calls Ground<int>, which calls itself. Only
+-- Ground<int> is recursive, so Ground<bool> must not be taken for a member of
+-- its recursive group (see poly_rec_function.lus).
+function rec Ground<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = if n <= 0 then 0 else Ground@<int>(n - 1, 0);
+tel
+
+node main (b: bool) returns ()
+let
+  check "ground_nonneg" Ground@<bool>(3, b) >= 0;
+tel

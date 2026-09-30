@@ -129,6 +129,23 @@ let build_node_fun_ty
   let arg_ty = if List.length ips = 1 then List.hd ips else A.GroupType (pos, ips) in
   A.TArr (pos, arg_ty, ret_ty)
 
+(* True iff calling `node_id` from `caller_nname` with type arguments `ty_args`
+   is a call of a polymorphic node to itself with its own type parameters *)
+let is_self_call node_decls_map caller_nname node_id ty_args =
+  match caller_nname with
+  | Some caller_nname when NI.equal caller_nname node_id -> (
+    match NI.Map.find_opt node_id node_decls_map with
+    | Some (A.FuncDecl (_, (_, _, _, ps, _, _, _, _, _), _), _)
+    | Some (A.NodeDecl (_, (_, _, _, ps, _, _, _, _, _)), _) ->
+      List.length ps = List.length ty_args &&
+      List.for_all2 (fun p ty -> match ty with
+        | A.UserType (_, [], id) | A.AbstractType (_, id) -> HString.equal p id
+        | _ -> false
+      ) ps ty_args
+    | _ -> false
+  )
+  | _ -> false
+
 (* Given a context, a map of node names to existing polymorphic instantiations, a (polymorphic) node to call,
    and type arguments, return the associated generated polymorphic node name, a new declaration for the 
    polymorphic node instantiation (if it hasn't already been created), and the updated map of 
@@ -389,7 +406,14 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) exprs in 
-    let ctx, gids, pnname, decls2, node_decls_map  = gen_poly_decl ctx gids caller_nname node_decls_map node_id (ty :: tys) in
+    let ctx, gids, pnname, decls2, node_decls_map =
+      (* A recursive call of a polymorphic node to itself with its own type
+         parameters is not an instantiation: it calls the node itself *)
+      if is_self_call node_decls_map caller_nname node_id (ty :: tys) then
+        ctx, gids, node_id, [], node_decls_map
+      else
+        gen_poly_decl ctx gids caller_nname node_decls_map node_id (ty :: tys)
+    in
 
     let ty_args =
       match caller_nname with
@@ -1432,3 +1456,58 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declarat
   let ctx, gids, decls, gen_decls, _ = gen_poly_decls_decls ctx gids node_decls_map decls in
   let merged_decls = merge_decls decls gen_decls in
   ctx, gids, merged_decls
+
+module G = Graph.Make(struct
+  type t = HString.t
+  let compare = HString.compare
+  let pp_print_t = HString.pp_print_hstring
+end)
+
+let instantiate_scc_map scc_map gids decls =
+  let module SM = HString.HStringMap in
+  (* The internal name of the polymorphic function [node_id] instantiates *)
+  let base_name node_id =
+    NI.mk_node_id ~node_type:(NI.get_node_type node_id) (NI.get_name node_id)
+    |> NI.get_internal_name
+  in
+  let funcs = List.filter_map (fun decl -> match decl with
+    | A.FuncDecl (_, (node_id, _, _, _, _, _, _, _, _), _) -> Some node_id
+    | _ -> None
+  ) decls
+  in
+  let rec_insts = List.filter (fun node_id ->
+    NI.get_monomorphization node_id <> []
+    && SM.mem (base_name node_id) scc_map
+  ) funcs
+  in
+  if rec_insts = [] then scc_map
+  else
+    (* The functions that may be in a recursive group: the members of one
+       before instantiation, and their instantiations *)
+    let members = List.filter (fun node_id ->
+      SM.mem (NI.get_internal_name node_id) scc_map
+      || List.exists (NI.equal node_id) rec_insts
+    ) funcs
+    in
+    let names = List.map NI.get_internal_name members in
+    let graph = List.fold_left (fun graph node_id ->
+      let caller = NI.get_internal_name node_id in
+      let graph = G.add_vertex graph caller in
+      match NI.Map.find_opt node_id gids with
+      | None -> graph
+      | Some { GI.calls } ->
+        List.fold_left (fun graph (_, _, _, _, _, callee_id, _, _, _) ->
+          let callee = NI.get_internal_name callee_id in
+          if List.exists (HString.equal callee) names then
+            G.add_edge (G.add_vertex graph callee) (G.mk_edge caller callee)
+          else graph
+        ) graph calls
+    ) G.empty members
+    in
+    List.fold_left (fun (scc_id, acc) scc ->
+      match G.to_vertex_list scc with
+      | [name] when not (G.has_edge graph name name) -> (scc_id, acc)
+      | scc ->
+        (scc_id + 1, List.fold_left (fun acc name -> SM.add name scc_id acc) acc scc)
+    ) (0, SM.empty) (G.get_sccs graph)
+    |> snd

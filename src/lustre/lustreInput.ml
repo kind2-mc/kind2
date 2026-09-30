@@ -299,6 +299,10 @@ let type_check declarations =
                     (const_inlined_type_and_consts @ const_inlined_nodes_and_contracts) gids
     in
 
+    (* Step 26. Compute the recursive groups of the instantiations of recursive
+       functions *)
+    let scc_map = LIP.instantiate_scc_map scc_map gids normalized_decls in
+
     Res.ok (inlined_global_ctx,
       gids,
       normalized_decls,

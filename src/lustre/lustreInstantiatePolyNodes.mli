@@ -34,3 +34,15 @@ val instantiate_polymorphic_adts :
 
 val instantiate_polymorphic_nodes :
   Ctx.tc_context -> GI.t NI.Map.t  -> A.declaration list -> Ctx.tc_context * GI.t NI.Map.t * A.declaration list
+
+(** [instantiate_scc_map scc_map gids decls] returns the map from the internal
+    name of each (possibly mutually) recursive function in the normalized
+    declarations [decls], with generated identifiers [gids], to the identifier
+    of its recursive group, given [scc_map], the map computed before the
+    instantiation of polymorphic functions. An instantiation of a recursive
+    function need not be in a recursive group with the instantiations of the
+    other members of the group of that function, so the groups are computed
+    again, from the calls in [gids], when there is such an instantiation. *)
+val instantiate_scc_map :
+  int HString.HStringMap.t -> GI.t NI.Map.t -> A.declaration list ->
+  int HString.HStringMap.t
