@@ -1,0 +1,14 @@
+-- A decreases measure with a type ascription. The ascription is turned into a
+-- call to a generated function, which the measure has no instance of; this
+-- used to raise an assertion failure in LustreNodeGen instead of being
+-- reported (issue #1600).
+function rec F(x: int) returns (r: int);
+con decreases (x : int) + 0; noc
+let
+  r = when x <= 0 then 0 else F(x - 1);
+tel
+
+node main() returns ();
+let
+  check "ok" F(3) >= 0;
+tel

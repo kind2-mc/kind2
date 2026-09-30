@@ -808,8 +808,9 @@ is an error.
 
 A `decreases` clause takes one of two forms. In either form, the measure may
 only mention the input parameters of the function and constants; in
-particular, it cannot call a node or a function. A measure that needs a value
-computed by a function can take that value as an additional input parameter.
+particular, it cannot call a node or a function, or contain a type
+ascription. A measure that needs a value computed by a function can take that
+value as an additional input parameter.
 
 **Integer measure.** A single integer expression, or a comma-separated tuple of
 integer expressions read lexicographically:
