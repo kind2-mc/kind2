@@ -1,0 +1,6 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+node N(c: bool; x: int) returns (y: int);
+let
+  when c then y = 100 -> pre (R { f = x }).f; else y = 100; end
+  check y + 1 > y;
+tel

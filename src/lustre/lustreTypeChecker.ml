@@ -115,6 +115,7 @@ type error_kind = Unknown of string
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
   | TempOperatorInFuncTypeAscription 
+  | RefinementTypeArgInConstant of HString.t
   | NoIndexAccessInArrayLength of tc_type
   | NestedTypeTemporal of LustreAst.lustre_type
   | NestedTypeNodeCall of LustreAst.lustre_type
@@ -254,6 +255,9 @@ let error_message kind = match kind with
     Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
       NI.pp_print_node_id_user_name node_id
   | TempOperatorInFuncTypeAscription -> "Type ascription in the context of a function cannot have temporal operator or node call"
+  | RefinementTypeArgInConstant id ->
+    Format.asprintf "Record expression of type %a with a refinement type argument is not supported in the definition of a constant"
+      HString.pp_print_hstring id
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
       LA.pp_print_lustre_type ty
@@ -700,6 +704,43 @@ let rec infer_const_attr ctx exp =
     let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
     combine r_args r_tys
   | LA.AbstractSymConst _ -> assert false 
+
+(* A record expression in e with a type argument containing a refinement
+   type, whose refinement cannot be checked in a constant definition *)
+let rec refinement_type_arg_in_expr ctx e =
+  let r = refinement_type_arg_in_expr ctx in
+  let first l = List.fold_left (fun acc x -> match acc with Some _ -> acc | None -> x) None l in
+  let r_ty ty = LH.fold_lustre_ty ~into_ty_args:true r None (fun a b -> first [a; b]) ty in
+  match e with
+  | LA.RecordExpr (pos, name, ty_args, flds) ->
+    if List.exists (type_contains_ref ctx) ty_args then Some (pos, name)
+    else first (List.map r_ty ty_args @ List.map (fun (_, e) -> r e) flds)
+  | Ident _ | ModeRef _ | Const _ | Last _ | EmptyMap (_, None) | EmptySet (_, None) -> None
+  | EmptyMap (_, Some (kt, vt)) -> first [r_ty kt; r_ty vt]
+  | EmptySet (_, Some ty) | AbstractSymConst (_, ty) -> r_ty ty
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e) | ConvOp (_, _, e)
+  | Extract (_, e, _, _) | When (_, e, _) | Pre (_, e) | ADTTester (_, e, _) -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) -> first [r e1; r e2]
+  | TernaryOp (_, _, e1, e2, e3) -> first [r e1; r e2; r e3]
+  | AnyOp (_, (_, _, ty), e) | ChooseOp (_, (_, _, ty), e) | TypeAscription (_, e, ty) ->
+    first [r_ty ty; r e]
+  | GroupExpr (_, _, es) -> first (List.map r es)
+  | StructUpdate (_, e1, idx, e2) ->
+    first [r e1; LH.fold_label_or_index None (fun a b -> first [a; b]) r idx; Option.bind e2 r]
+  | Quantifier (_, _, tis, e) -> first (List.map (fun (_, _, ty) -> r_ty ty) tis @ [r e])
+  | Condact (_, e1, e2, _, es1, es2) -> first ([r e1; r e2] @ List.map r es1 @ List.map r es2)
+  | Activate (_, _, e1, e2, es) -> first ([r e1; r e2] @ List.map r es)
+  | Merge (_, _, arms) -> first (List.map (fun (_, e) -> r e) arms)
+  | RestartEvery (_, _, es, e) -> first (List.map r es @ [r e])
+  | Call (_, ty_args, _, es) | ADTTerm (_, ty_args, _, es) ->
+    first (List.map r_ty ty_args @ List.map r es)
+  | Match (_, e, arms, _) -> first (r e :: List.map (fun (_, e) -> r e) arms)
+
+let check_no_refinement_type_arg ctx e =
+  match refinement_type_arg_in_expr ctx e with
+  | Some (pos, name) -> type_error pos (RefinementTypeArgInConstant name)
+  | None -> R.ok ()
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -2290,6 +2331,7 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
+            let* _ = check_no_refinement_type_arg local_ctx e in
             let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
             let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
             R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings1 @ warnings2)
@@ -2707,6 +2749,7 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
+      let* _ = check_no_refinement_type_arg ctx e in
       let* ty, e, warnings = infer_type_expr ctx nname e in
       let* ctx = check_and_add_constant_definition ctx i e ty src in 
       R.ok (LA.UntypedConst (pos, i, e), ctx, warnings)
@@ -2716,6 +2759,7 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
+      let* _ = check_no_refinement_type_arg ctx e in
       let* e, warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
       let* ctx = check_and_add_constant_definition ctx i e exp_ty src in 
       R.ok (LA.TypedConst (pos, i, e, exp_ty), ctx, warnings1 @ warnings2)

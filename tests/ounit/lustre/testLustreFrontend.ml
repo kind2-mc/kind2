@@ -1148,6 +1148,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | Error (`LustreTypeCheckerError (_,
         MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
     | _ -> false);
+  mk_test "refinement type argument in global constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_global_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in node-local constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_local_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in ghost constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_ghost_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

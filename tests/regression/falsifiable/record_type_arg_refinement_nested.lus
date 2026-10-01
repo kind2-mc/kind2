@@ -1,0 +1,3 @@
+type R<T> = struct { f: T };
+node N(x: int) returns (y: bool);
+let y = ((R@<R<subtype { w: int | w >= 100 }>> { f = R { f = x } }).f.f = x); check y; tel
