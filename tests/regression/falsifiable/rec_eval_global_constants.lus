@@ -1,0 +1,35 @@
+-- Recursive functions that read global constants, a scalar and an array,
+-- called past the unrollings. A counterexample is checked by evaluating the
+-- calls past the unrollings, which depend on the constants: the calls are
+-- evaluated under the values of the constants in the counterexample, so
+-- "sum_wrong" and "shift_wrong" are falsified with any number of
+-- unrollings, while "sum_right" and "shift_right" hold, and are not.
+--
+-- The run is falsifiable, so test_rec_global_constants.py checks the
+-- answers of each property.
+const c: int;
+const a: int^20;
+
+function rec Sum(n: int) returns (s: int);
+(*@contract
+  decreases n;
+*)
+let
+  s = when n <= 0 then 0 else Sum(n - 1) + a[n - 1];
+tel
+
+function rec Shift(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then c else Shift(n - 1) + 1;
+tel
+
+node main() returns ();
+let
+  check "sum_wrong" Sum(20) = 0;
+  check "sum_right" Sum(3) = a[0] + a[1] + a[2];
+  check "shift_wrong" Shift(10) = 10;
+  check "shift_right" Shift(10) = c + 10;
+tel

@@ -105,6 +105,13 @@ let facts : Term.t Facts.t = Facts.create 64
 let instantiated : Term.t Facts.t = Facts.create 16
 let pending : (UfSymbol.t * Term.t list * Term.t) list ref = ref []
 
+(* The values of calls whose function reads global constants, each under
+   the values of the constants in the counterexample it was evaluated for:
+   implications from those values to the value of the call, which hold
+   whatever the counterexample of the query, and are not facts about the
+   function itself *)
+let conditional : Term.t list ref = ref []
+
 (* The values of the calls evaluated by the checks of the abstractions of
    the analysis that showed a counterexample spurious (see
    [check_abstractions]) *)
@@ -186,7 +193,7 @@ let rec applications helpers definitions term =
 let fact_term (uf, args) value = Term.mk_eq [ Term.mk_uf uf args ; value ]
 
 (* The evaluator of the functions: their definitions, and nothing of the
-   system but its sorts (see [FunEval]) *)
+   system but its sorts and global constants (see [FunEval]) *)
 let evaluator : FunEval.t option ref = ref None
 
 let drop_round_solver () =
@@ -204,7 +211,7 @@ let set_per_query_timeout solver =
 
 (* The value of the functional symbol at the concrete arguments (see
    [FunEval.evaluate]) *)
-let evaluate sys uf args =
+let evaluate ?assuming sys uf args =
   let evaluator =
     match !evaluator with
     | Some evaluator -> evaluator
@@ -229,7 +236,41 @@ let evaluate sys uf args =
       evaluator := Some e ;
       e
   in
-  FunEval.evaluate evaluator uf args
+  FunEval.evaluate ?assuming evaluator uf args
+
+(* The formulas that fix the variable to the value of a model: an array of
+   known size to the values of its elements, a value of another array is
+   left out *)
+let fix_value var value =
+  match value with
+  | Model.Term t -> [ Term.mk_eq [ var ; t ] ]
+  | Model.Lambda _ -> []
+  | Model.Map m ->
+    let index ty i =
+      if Type.is_ubitvector ty || Type.is_bitvector ty then
+        match Type.get_bv_size ty with
+        | Some size ->
+          Bitvector.num_to_ubv (Numeral.of_int size) (Numeral.of_int i)
+          |> Term.mk_ubv
+        | None -> raise Exit
+      else Term.mk_num_of_int i
+    in
+    (* The indexes of an element are from the outermost array in *)
+    let rec select t ty = function
+      | [] -> t
+      | i :: indexes ->
+        select
+          (Term.mk_select t (index (Type.index_type_of_array ty) i))
+          (Type.elem_type_of_array ty) indexes
+    in
+    let ty = Term.type_of_term var in
+    (try
+       Model.MIL.fold
+         (fun indexes v acc ->
+            (Term.mk_eq [ select var ty indexes ; v ] |> Term.convert_select)
+            :: acc)
+         m []
+     with Exit | Invalid_argument _ -> [])
 
 (* The solver for a query on a counterexample of length [k + 1] of the
    system: the one of the round if there is one, with the state variables
@@ -272,6 +313,7 @@ let solver_for sys k =
       facts ;
     Facts.iter (fun _ equation -> SMTSolver.assert_term solver equation)
       instantiated ;
+    List.iter (SMTSolver.assert_term solver) !conditional ;
     let rs = { solver ; declared_to = k ; kept } in
     round_solver := Some rs ;
     rs
@@ -283,6 +325,7 @@ let reset () =
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
+  conditional := [] ;
   requested_functions := Scope.Set.empty ;
   exhausted := SSet.empty ;
   genuine_props := SSet.empty ;
@@ -298,6 +341,7 @@ let start_round sys =
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
+  conditional := [] ;
   requested_functions := Scope.Set.empty ;
   previous_count := !current_count ;
   current_count :=
@@ -390,6 +434,21 @@ let outcome ?(abstracted = false) sys prop cex =
      not in the cone of influence of the property *)
   let state_vars = StateVar.StateVarSet.of_list (TransSys.state_vars sys) in
   let var_at sv i = Term.mk_var (Var.mk_state_var_instance sv i) in
+  (* The values of the global constants in the counterexample, which the
+     definitions may read, and the calls settled under them *)
+  let constants =
+    let globals = TransSys.global_const_state_vars sys in
+    List.concat_map
+      (fun (sv, values) ->
+         match values with
+         | value :: _
+           when List.exists (StateVar.equal_state_vars sv) globals
+             && StateVar.StateVarSet.mem sv state_vars ->
+           fix_value (var_at sv Numeral.zero) value
+         | _ -> [])
+      cex
+  in
+  let settled_under_constants = Facts.create 16 in
   (* The terms whose values tell the calls the model executes *)
   let observed () =
     List.concat_map
@@ -408,6 +467,7 @@ let outcome ?(abstracted = false) sys prop cex =
     let value_of t = List.find_opt (fun (t', _) -> Term.equal t t') values in
     let known call =
       Facts.mem facts call || Facts.mem instantiated call
+      || Facts.mem settled_under_constants call
     in
     let from_pending =
       List.fold_left
@@ -467,31 +527,49 @@ let outcome ?(abstracted = false) sys prop cex =
      defining equation of its function is instantiated at its arguments,
      which shares the symbols of the definition the value depends on with
      the rest of the query; the calls the equation applies are then
-     executed calls in turn *)
+     executed calls in turn. A value that is not unique because it depends
+     on the global constants the definition reads is the one under their
+     values in the counterexample, which the query fixes, if there is one:
+     it is given to the query under those values, and the call is settled
+     for this counterexample only. *)
+  let assert_in_round term =
+    match !round_solver with
+    | Some { solver } -> SMTSolver.assert_term solver term
+    | None -> ()
+  in
+  let instantiate ((uf, args) as call) =
+    match
+      List.find_opt
+        (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') definitions
+    with
+    | None -> false
+    | Some (_, formals, body) ->
+      let instance = Term.apply_subst (List.combine formals args) body in
+      let equation = Term.mk_eq [ Term.mk_uf uf args ; instance ] in
+      Facts.replace instantiated call equation ;
+      assert_in_round equation ;
+      pending := applications helpers definitions instance @ !pending ;
+      true
+  in
   let settle ((uf, args) as call) =
     match evaluate sys uf args with
     | `Unknown -> false
     | `Value value ->
       Facts.replace facts call value ;
-      ( match !round_solver with
-        | Some { solver } -> SMTSolver.assert_term solver (fact_term call value)
-        | None -> () ) ;
+      assert_in_round (fact_term call value) ;
       true
+    | `Not_unique when constants = [] -> instantiate call
     | `Not_unique ->
-      match
-        List.find_opt
-          (fun (uf', _, _) -> UfSymbol.equal_uf_symbols uf uf') definitions
-      with
-      | None -> false
-      | Some (_, formals, body) ->
-        let instance = Term.apply_subst (List.combine formals args) body in
-        let equation = Term.mk_eq [ Term.mk_uf uf args ; instance ] in
-        Facts.replace instantiated call equation ;
-        ( match !round_solver with
-          | Some { solver } -> SMTSolver.assert_term solver equation
-          | None -> () ) ;
-        pending := applications helpers definitions instance @ !pending ;
+      match evaluate ~assuming:constants sys uf args with
+      | `Value value ->
+        let implication =
+          Term.mk_implies [ Term.mk_and constants ; fact_term call value ]
+        in
+        conditional := implication :: !conditional ;
+        Facts.replace settled_under_constants call () ;
+        assert_in_round implication ;
         true
+      | `Not_unique | `Unknown -> instantiate call
   in
   let rec loop n =
     if n = 0 then `Undecided else
@@ -510,11 +588,8 @@ let outcome ?(abstracted = false) sys prop cex =
       if (StateVar.is_input sv || StateVar.is_const sv)
       && StateVar.StateVarSet.mem sv state_vars then
         values |> List.iteri (fun i value ->
-          match value with
-          | Model.Term t ->
-            Term.mk_eq [ var_at sv (Numeral.of_int i) ; t ]
-            |> SMTSolver.assert_term solver
-          | Model.Lambda _ | Model.Map _ -> ())) ;
+          fix_value (var_at sv (Numeral.of_int i)) value
+          |> List.iter (SMTSolver.assert_term solver))) ;
     TransSys.get_prop_term sys prop
     |> Term.bump_state k
     |> Term.mk_not
@@ -616,12 +691,14 @@ let isolated f =
   and saved_evaluator = !evaluator
   and saved_facts = Facts.copy facts
   and saved_instantiated = Facts.copy instantiated
-  and saved_pending = !pending in
+  and saved_pending = !pending
+  and saved_conditional = !conditional in
   round_solver := None ;
   evaluator := None ;
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
+  conditional := [] ;
   Fun.protect
     ~finally:(fun () ->
       drop_round_solver () ;
@@ -632,7 +709,8 @@ let isolated f =
       Facts.iter (Facts.replace facts) saved_facts ;
       Facts.reset instantiated ;
       Facts.iter (Facts.replace instantiated) saved_instantiated ;
-      pending := saved_pending)
+      pending := saved_pending ;
+      conditional := saved_conditional)
     f
 
 let check_abstractions ~sliced sys prop cex =

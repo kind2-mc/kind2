@@ -41,9 +41,11 @@ val create :
     if it has the one value [v], [`Not_unique] if it may take several, and
     [`Unknown] if the solver cannot tell in time. A definition that applies
     a symbol it does not define, such as the value of a call whose
-    termination checks fail, may leave the value not unique. *)
+    termination checks fail, may leave the value not unique. The value is
+    the one under the formulas [assuming], such as values of the constants
+    the definitions read. *)
 val evaluate :
-  t -> UfSymbol.t -> Term.t list ->
+  ?assuming:Term.t list -> t -> UfSymbol.t -> Term.t list ->
   [ `Value of Term.t | `Not_unique | `Unknown ]
 
 (** Stop the solver of the evaluator, if it was started *)

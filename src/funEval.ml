@@ -72,10 +72,11 @@ let solver_of t =
       with e -> t.failed <- true ; raise e ) ;
     solver
 
-let evaluate t uf args =
+let evaluate ?(assuming = []) t uf args =
   try
     let solver = solver_of t in
     SMTSolver.push solver ;
+    List.iter (SMTSolver.assert_term solver) assuming ;
     let result = UfSymbol.mk_fresh_uf_symbol [] (UfSymbol.res_type_of_uf_symbol uf) in
     SMTSolver.declare_fun solver result ;
     let result = Term.mk_uf result [] in
