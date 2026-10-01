@@ -1,13 +1,14 @@
 """A call to a recursive function proved terminating is evaluated.
 
-In a compositional and modular analysis, once the analysis of a recursive
+In a modular analysis, compositional or not, once the analysis of a recursive
 function has proved the termination checks of its recursive calls, a call to
 the function at constant arguments is evaluated while the system of the
-caller is built, and its value given to the solver. The caller then needs no
-refinement to know the value of the call, although the contract of the
-function, which abstracts it, does not give it. A falsifiable run counts every
-analysis in its exit code, so this checks the answers of each analysis of
-main.
+caller is built, and its value given to the solver. In a compositional
+analysis, the caller then needs no refinement to know the value of the call,
+although the contract of the function, which abstracts it, does not give it;
+in a non-compositional one, the value is known past the unrollings of the
+function. A falsifiable run counts every analysis in its exit code, so this
+checks the answers of each analysis of main.
 """
 
 import json
@@ -21,8 +22,12 @@ from conftest import common_args, kind2_bin, run_timeout
 regression = Path(__file__).parent / "regression"
 
 
-def answers_of_main(model):
-    args = common_args | {"--compositional": "true", "--modular": "true"}
+COMPOSITIONAL = {"--compositional": "true", "--modular": "true"}
+MODULAR = {"--modular": "true"}
+
+
+def answers_of_main(model, mode=COMPOSITIONAL):
+    args = common_args | mode
     arg_list = [arg for pair in args.items() for arg in pair]
     run = subprocess.run(
         [kind2_bin, "-json", *arg_list, str(regression / model)],
@@ -63,3 +68,26 @@ def test_function_not_proved_terminating_is_not_evaluated():
         "falsifiable/compositional/modular/rec_eval_not_terminating.lus"
     )
     assert of_main == [{"f4": "falsifiable"}], of_main
+
+
+def test_evaluated_calls_in_non_compositional_analysis():
+    of_main = answers_of_main(
+        "success/modular/rec_eval_constant_args.lus", MODULAR
+    )
+    assert len(of_main) == 1, of_main
+    assert set(of_main[0].values()) == {"valid"}, of_main[0]
+
+
+def test_evaluated_value_in_non_compositional_analysis():
+    of_main = answers_of_main(
+        "falsifiable/modular/rec_eval_constant_args.lus", MODULAR
+    )
+    assert of_main[0]["right"] == "valid", of_main[0]
+    assert of_main[0]["wrong"] == "falsifiable", of_main[0]
+
+
+def test_not_terminating_not_evaluated_in_non_compositional_analysis():
+    of_main = answers_of_main(
+        "falsifiable/modular/rec_eval_not_terminating.lus", MODULAR
+    )
+    assert of_main == [{"f40": "unknown"}], of_main

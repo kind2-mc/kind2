@@ -2756,7 +2756,9 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
     Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
 
 (* The evaluation of the calls of the analysis to the recursive functions
-   proved terminating, if any *)
+   proved terminating, if any. The termination of a function is only known
+   once its own analysis has run, so a call is only evaluated in a modular
+   analysis, whether compositional or not. *)
 let evaluation_of_param globals options analysis_param nodes =
   let { A.terminating } = A.info_of_param analysis_param in
   match Atomic.get mk_evaluator with
@@ -2764,7 +2766,7 @@ let evaluation_of_param globals options analysis_param nodes =
   | Some _ when
       Scope.Map.is_empty terminating
       || not options.add_functional_constraints
-      || not (Flags.Contracts.compositional () && Flags.modular ()) -> None
+      || not (Flags.modular ()) -> None
   | Some mk_evaluator ->
     let rec_info_of node_id =
       match N.node_of_node_id node_id nodes with
