@@ -593,12 +593,56 @@ fun ?(insert = true) ctx node_name fun_ids ni ->
   | Auto _ -> ni, []
     
 
+(* The calls in the node items that define the outputs of a node *)
+let rec calls_of_items items =
+  let calls_of_eq = function
+    | A.Equation (_, _, e) -> AH.calls_of_expr e
+    | A.Assert _ -> NI.Set.empty
+  in
+  List.fold_left (fun acc item ->
+    let calls = match item with
+      | A.Body eq -> calls_of_eq eq
+      | A.IfBlock (_, c, items1, items2) | A.WhenBlock (_, c, items1, items2) ->
+        NI.Set.flatten [AH.calls_of_expr c; calls_of_items items1; calls_of_items items2]
+      | A.MatchBlock (_, scrut, arms, _) ->
+        NI.Set.flatten (AH.calls_of_expr scrut :: List.map (fun (_, items) -> calls_of_items items) arms)
+      | A.FrameBlock (_, _, eqs, items) ->
+        NI.Set.flatten (calls_of_items items :: List.map calls_of_eq eqs)
+      | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ -> NI.Set.empty
+    in
+    NI.Set.union acc calls
+  ) NI.Set.empty items
+
+(* The recursive functions, and the functions their definitions call directly
+   or indirectly, which are encoded together with them (see LustreFunDefs) *)
+let functions_of_recursive_definitions decls =
+  let bodies = List.fold_left (fun acc decl -> match decl with
+    | A.FuncDecl (_, (id, _, _, _, _, _, _, items, _), _) ->
+      NI.Map.add id (calls_of_items items) acc
+    | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _ | A.ContractNodeDecl _
+    | A.NodeParamInst _ -> acc
+  ) NI.Map.empty decls
+  in
+  let rec visit seen id =
+    if NI.Set.mem id seen then seen
+    else match NI.Map.find_opt id bodies with
+      | Some calls -> NI.Set.fold (fun c seen -> visit seen c) calls (NI.Set.add id seen)
+      | None -> seen
+  in
+  List.fold_left (fun seen decl ->
+    match decl with
+    | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), { A.is_rec = true; _ }) -> visit seen id
+    | A.FuncDecl _ | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _
+    | A.ContractNodeDecl _ | A.NodeParamInst _ -> seen
+  ) NI.Set.empty decls
+
 let gen_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list =
 fun ctx decls ->
   let fun_ids = List.filter_map
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
     decls
   in
+  let rec_def_funs = functions_of_recursive_definitions decls in
   (* Pre-populate the context with the signatures of all nodes and functions so
      that the types of node calls appearing in abstracted when branches can be
      inferred (node/contract type checking happens later in the pipeline). This
@@ -673,9 +717,9 @@ fun ctx decls ->
         | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
             A.NodeConstDecl (pos, cd), []
       ) locals |> List.split in
-      (* An ascription would prevent the encoding of a recursive function as a
-         recursive SMT definition *)
-      let insert = not is_rec.A.is_rec in
+      (* An ascription would prevent the encoding of a recursive definition as
+         an SMT definition *)
+      let insert = not (NI.Set.mem id rec_def_funs) in
       let items, gen_nodes = List.map (desugar_node_item ~insert ctx id fun_ids) items |> List.split in
       let contract, gen_nodes2 = desugar_contract ~insert ctx id fun_ids contract in
       let gen_nodes = 
