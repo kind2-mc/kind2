@@ -1989,8 +1989,55 @@ and compile_ast_expr
     let ctor_str = compiled_ctor_sym (E.type_of_lustre_expr e') ctor in
     X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
-and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
+and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx cstate map mk_outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
+  let node_inputs_of_exprs inputs ast =
+    let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
+    let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
+    let cexpr = flatten_list_indexes cexpr in
+    let over_indices i input_sv expr accum =
+      let sv = state_var_of_expr expr in
+      N.set_state_var_instance sv pos ident input_sv;
+      let i' = match i with
+        | (X.ListIndex _)::idx -> idx
+        | idx -> idx
+      in
+      if not (StateVar.is_input sv) then
+        N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, i'));
+      X.add i sv accum
+    in
+    let result = X.fold2 over_indices inputs cexpr X.empty in
+    result
+  in
+  let (called_node_inputs, _, _) = NI.Map.find node_id cstate.node_io in
+  let input_state_vars = node_inputs_of_exprs called_node_inputs args in
+  (* The bounds of the indexes of the outputs and oracles of the callee may
+     refer to its constant inputs (e.g. the size [k] of an output of type
+     [int^k]). Express them in terms of the actual arguments of this call,
+     the callee's state variables are not in the scope of the caller. *)
+  let subst_bound =
+    let actuals =
+      X.fold2
+        (fun _ formal actual acc -> SVM.add formal actual acc)
+        called_node_inputs input_state_vars SVM.empty
+    in
+    E.map_vars_expr (fun v ->
+      if not (Var.is_const_state_var v) then v
+      else
+        match SVM.find_opt (Var.state_var_of_state_var_instance v) actuals with
+        | Some actual when StateVar.is_const actual ->
+          Var.mk_const_state_var actual
+        | _ -> v
+    )
+  in
+  let subst_index =
+    List.map (function
+      | X.ArrayVarIndex b -> X.ArrayVarIndex (subst_bound b)
+      | X.SetMapIndex b -> X.SetMapIndex (subst_bound b)
+      | i -> i
+    )
+  in
+  let outputs = mk_outputs subst_index in
   let called_node_oracles =
     try
       let called_node = N.node_of_node_id node_id cstate.nodes in
@@ -2018,7 +2065,12 @@ and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx csta
         match sv' with
         | Some sv' -> (
           (* Use the bounds computed for the original oracle *)
-          SVT.add !map.bounds sv' (SVT.find cstate.state_var_bounds sv);
+          SVT.add !map.bounds sv'
+            (SVT.find cstate.state_var_bounds sv
+             |> List.map (function
+               | E.Bound b -> E.Bound (subst_bound b)
+               | E.Fixed b -> E.Fixed (subst_bound b)
+               | E.Unbound b -> E.Unbound (Option.map subst_bound b)));
           sv'
         )
         | None -> assert false
@@ -2026,24 +2078,6 @@ and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx csta
       N.set_state_var_instance propagated_oracle pos ident sv;
       propagated_oracle
     )
-  in
-  let node_inputs_of_exprs inputs ast =
-    let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
-    let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
-    let cexpr = flatten_list_indexes cexpr in
-    let over_indices i input_sv expr accum =
-      let sv = state_var_of_expr expr in
-      N.set_state_var_instance sv pos ident input_sv;
-      let i' = match i with
-        | (X.ListIndex _)::idx -> idx
-        | idx -> idx
-      in 
-      if not (StateVar.is_input sv) then
-        N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, i'));
-      X.add i sv accum
-    in
-    let result = X.fold2 over_indices inputs cexpr X.empty in
-    result
   in
   let node_act_cond_of_expr cond defaults =
     let cond_test = match cond with
@@ -2067,8 +2101,6 @@ and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx csta
     else let state_var = restart |> extract_normalized |> H.find !map.state_var
     in Some state_var
   in
-  let (called_node_inputs, _, _) = NI.Map.find node_id cstate.node_io in
-  let input_state_vars = node_inputs_of_exprs called_node_inputs args in
   let act_state_var, defaults = node_act_cond_of_expr cond defaults in
   let restart_state_var = restart_cond_of_expr restart in
   let cond_state_var = match act_state_var, restart_state_var with
@@ -2787,8 +2819,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         | _ -> assert false)
       in *)
       let local_map = H.create 7 in
-      let outputs =
+      let mk_outputs subst_index =
         let over_vars = fun index sv compiled_vars ->
+          let index = subst_index index in
           let var_id = mk_ident var in
           let possible_state_var = mk_state_var
             ~force_return:true
@@ -2825,7 +2858,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         |> Option.value ~default:[]
       in
       let node_call = compile_node_call ~uf_applied ~instance
-        node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties
+        node_scope pos ctx cstate map mk_outputs cond restart call_ctx node_id args defaults inlined ties
       in
       (* For a (possibly mutually) recursive call, i.e. a call to a function in
          the same dependency cycle, render the source-level decrease constraint
