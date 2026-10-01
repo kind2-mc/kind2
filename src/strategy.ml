@@ -86,13 +86,14 @@ let proved_correct results scope =
 
 (* The recursive functions of [all_nodes] whose last analysis proved valid
    every termination check it had, with the positions of the calls of those
-   checks (see [A.result_termination_checks]). In a compositional and
-   modular analysis, a call to one of them at constant arguments is
+   checks (see [A.result_termination_checks]). In a modular analysis,
+   compositional or not, a call to one of them at constant arguments is
    evaluated, and its value given to the solver (see [LustreTransSys]); in
-   any other, it is left to the unrolling of the function, and no function
-   is listed. *)
+   any other, the analysis of the function does not run, its termination is
+   not known, and the call is left to the unrolling of the function, so no
+   function is listed. *)
 let terminating_functions results all_nodes =
-  if not (Flags.Contracts.compositional () && Flags.modular ()) then
+  if not (Flags.modular ()) then
     Scope.Map.empty
   else
     List.fold_left (fun acc (scope, { rec_group }) ->

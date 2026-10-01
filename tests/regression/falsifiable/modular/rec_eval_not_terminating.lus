@@ -1,0 +1,21 @@
+-- F does not terminate on odd arguments, so the bounded check of its
+-- recursive call fails, although F(40) unfolds to 0. In a modular,
+-- non-compositional analysis, a call to F is only evaluated once F is proved
+-- terminating: F is not, so F(40) is left to the unrolling of F, which stops
+-- at --rec_unrollings (10 by default), before reaching 0, and "f40" is left
+-- unknown rather than proved.
+--
+-- The run is falsifiable, as the bounded check is, so test_rec_evaluation.py
+-- checks the answers of the analysis of main.
+function rec F(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n = 0 then 0 else F(n - 2);
+tel
+
+node main() returns ();
+let
+  check "f40" F(40) = 0;
+tel

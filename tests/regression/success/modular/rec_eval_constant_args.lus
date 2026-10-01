@@ -1,0 +1,70 @@
+-- In a modular analysis, compositional or not, the analyses of the recursive
+-- functions prove their termination checks, and a call to one of them at
+-- constant arguments is then evaluated: its value is given to the solver.
+-- In this non-compositional analysis, the functions are unrolled rather
+-- than abstracted, up to --rec_unrollings (10 by default), and every check
+-- below needs more unrollings than that: each is proved because its call is
+-- evaluated. An argument is constant when it is a literal, a local defined
+-- from constants, or the output of another call evaluated in turn.
+-- test_rec_evaluation.py checks that main is analyzed once.
+type Nat = subrange [0,*] of int;
+
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+function rec Sum(n: int) returns (s: int);
+(*@contract
+  decreases n;
+*)
+let
+  s = when n <= 0 then 0 else n + Sum(n - 1);
+tel
+
+function rec IsEven(n: Nat) returns (e: bool);
+(*@contract
+  decreases n;
+*)
+let
+  e = when n = 0 then true else IsOdd(n - 1);
+tel
+
+function rec IsOdd(n: Nat) returns (o: bool);
+(*@contract
+  decreases n;
+*)
+let
+  o = when n = 0 then false else IsEven(n - 1);
+tel
+
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Length(l: List) returns (len: int);
+(*@contract
+  decreases l;
+*)
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, tl) : 1 + Length(tl)
+  end;
+tel
+
+node main() returns (y: int);
+var a, b: int;
+let
+  a = 11;
+  b = a + 1;
+  y = Fact(b);
+  check "literal" Fact(12) = 479001600;
+  check "local" y = 479001600;
+  check "nested" Fact(Fact(3)) = 720;
+  check "mutual" IsOdd(25) and not IsEven(25);
+  check "adt" Length(Cons(1, Cons(2, Cons(3, Cons(4, Cons(5, Cons(6,
+    Cons(7, Cons(8, Cons(9, Cons(10, Cons(11, Cons(12, Nil))))))))))))) = 12;
+  check "sum" Sum(20) = 210;
+tel

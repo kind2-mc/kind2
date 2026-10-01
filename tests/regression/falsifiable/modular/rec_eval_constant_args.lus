@@ -1,0 +1,22 @@
+-- A call to a recursive function proved terminating, at constant arguments,
+-- is evaluated in a modular analysis, compositional or not: its value is
+-- what the function returns, so a check that holds of it is proved, and one
+-- that does not is falsified, in the first analysis of main, although
+-- Fact(12) needs more unrollings than --rec_unrollings (10 by default).
+--
+-- The run is falsifiable, as "wrong" is, so test_rec_evaluation.py checks
+-- the answers of the first analysis of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main() returns (y: int);
+let
+  y = Fact(12);
+  check "right" y = 479001600;
+  check "wrong" y = 479001601;
+tel

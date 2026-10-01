@@ -1001,15 +1001,20 @@ have, or cannot be checked in time; and the other callees are refined as
 before. A check such as `Fact(4) = 25` is then falsified in the first
 analysis of the caller, which is not analyzed again up to the limit.
 
-In such an analysis, a call at constant arguments to a recursive function
-that is proved terminating is evaluated instead: Kind 2 computes its value
-with the definition of the function, in a solver of its own, and gives it to
-the solver of the analysis, whether the contract abstracts the function or
-not. A function is proved terminating when its own analysis proved the
-termination checks of each of its recursive calls, or its measure is an ADT
-one, and so is every recursive function it calls. `Fact(4) = 24` is then
-proved in the first analysis of the caller, although the contract of `Fact`
-does not give it, with no refinement. An argument is constant when it is a
+In a modular analysis, compositional or not, a call at constant arguments
+to a recursive function that is proved terminating is evaluated instead:
+Kind 2 computes its value with the definition of the function, in a solver
+of its own, and gives it to the solver of the analysis, whether the contract
+abstracts the function or not. A function is proved terminating when its own
+analysis proved the termination checks of each of its recursive calls, or
+its measure is an ADT one, and so is every recursive function it calls. Only
+a modular analysis runs the analyses of the functions themselves, so in any
+other analysis the termination of a function is not known, and a call to it
+is left to its unrolling. In a compositional and modular analysis,
+`Fact(4) = 24` is then proved in the first analysis of the caller, although
+the contract of `Fact` does not give it, with no refinement; in a modular,
+non-compositional one, where `Fact` is unrolled, `Fact(12) = 479001600` is
+proved although it needs more unrollings than `--rec_unrollings` allows. An argument is constant when it is a
 literal, a local variable whose value is the same constant at every step,
 such as `b` in `a = 3; b = a + 1`, or the output of a call evaluated in
 turn, as the inner call of `Fact(Fact(3))`; an input, or an expression with
