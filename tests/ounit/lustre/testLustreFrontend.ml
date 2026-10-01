@@ -887,6 +887,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_any.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
     | _ -> false);
+  mk_test "test quantified variable shadowing a constant in a nested binder type" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_shadows_const_in_nested_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable shadowing a constant in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_shadows_const_param_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
   mk_test "test illegal node call in subrange bound" (fun () ->
     match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
     | Error (`LustreTypeCheckerError (_, UnboundNodeName _)) -> true

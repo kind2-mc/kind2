@@ -1528,7 +1528,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   )
   (* Quantified expressions *)
   | LA.Quantifier (p, q, qs, e) ->
-    let* qs, warnings1, _ =
+    let* qs, warnings1, extn_ctx =
       (Res.seq_chain (fun (acc_q, acc_w, acc_ctx) (p, id, ty) ->
         let* ty, warnings = check_type_well_formed acc_ctx Local nname true ty in 
         (* bound variables shadow global constants *)
@@ -1544,8 +1544,6 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       else
         R.ok ()
     ) qs) in
-    let extn_ctx = List.fold_left union ctx
-                    (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 

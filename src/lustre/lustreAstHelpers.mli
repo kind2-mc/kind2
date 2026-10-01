@@ -139,11 +139,13 @@ val vars_of_type: lustre_type -> SI.t
     while excluding node call identifiers and refinement type bound variables *)
 
 val rename_self_referencing_binders :
+  ?expand:(lustre_type -> lustre_type) ->
   (Lib.position * ident * lustre_type) list -> expr ->
   (Lib.position * ident * lustre_type) list * expr
-(** [rename_self_referencing_binders tis e] alpha-renames, in the quantifier
-    binders [tis] and body [e], each variable whose own type mentions a variable
-    of the same name, which it does not denote *)
+(** [rename_self_referencing_binders ~expand tis e] alpha-renames, in the
+    quantifier binders [tis] and body [e], each variable whose name occurs in a
+    binder type, after expansion by [expand], where it does not denote the
+    quantified variable *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)
