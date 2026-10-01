@@ -434,34 +434,29 @@ let rec apply_subst_in_expr sigma = function
     ChooseOp (pos, ti, e)
   (* Quantifiers introduce bound variables, so substituting into the body must
      avoid capture, as for match arms *)
-  | Quantifier (pos, q, tis, e) ->
-    (* A substitution firing in a binder type must not bring a binder's name
-       there either, since the type constrains the binder inside its scope *)
-    let captured_in_types i =
-      List.exists (fun (v, t) ->
-        expr_contains_id i t
-        && List.exists (fun (_, _, ty) -> fold_lustre_ty (expr_contains_id v) false (||) ty) tis
-      ) sigma
-    in
-    (* The binder types lie outside the binders' scope, so the unfiltered
-       substitution applies there *)
-    let tis = List.map (fun (ipos, i, ty) -> (ipos, i, apply_subst_in_type_rec sigma ty)) tis in
+  | Quantifier (pos, q, tis, e) -> (
+    (* A binder type can only be a refinement type over constants, and no caller
+       substitutes for a constant, so only the body is rewritten *)
     let bound = List.fold_left (fun acc (_, i, _) -> SI.add i acc) SI.empty tis in
-    let body_sigma = List.filter (fun (v, _) -> not (SI.mem v bound)) sigma in
-    (* A repeated name is renamed to a single fresh name at all of its binders,
-       which preserves the shadowing between them *)
-    let rename i i' =
-      List.map (fun (ipos, j, ty) -> if j = i then (ipos, i', ty) else (ipos, j, ty))
-    in
-    let tis, e =
-      List.fold_left (fun (tis, e) (ipos, i, _) ->
-        if captured_in_types i || subst_captures body_sigma i e then
-          let fresh = fresh_bound_ident i in
-          (rename i fresh tis, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
-        else (tis, e)
-      ) (tis, e) tis
-    in
-    Quantifier (pos, q, tis, apply_subst_in_expr body_sigma e)
+    match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+    (* Every substitution is shadowed by a binder, so nothing to rename either *)
+    | [] -> Quantifier (pos, q, tis, e)
+    | sigma ->
+      (* A repeated name is renamed to a single fresh name at all of its binders,
+         which preserves the shadowing between them *)
+      let rename i i' =
+        List.map (fun (ipos, j, ty) -> if j = i then (ipos, i', ty) else (ipos, j, ty))
+      in
+      let tis, e =
+        List.fold_left (fun (tis, e) (ipos, i, _) ->
+          if subst_captures sigma i e then
+            let fresh = fresh_bound_ident i in
+            (rename i fresh tis, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
+          else (tis, e)
+        ) (tis, e) tis
+      in
+      Quantifier (pos, q, tis, apply_subst_in_expr sigma e)
+  )
   (* Match arms introduce bound variables, so substituting into an arm body
      must avoid capture *)
   | Match (pos, e, arms, ty) ->
@@ -530,31 +525,11 @@ let rec apply_subst_in_expr sigma = function
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
-(* Substitute in a type, avoiding capture by refinement type bound variables *)
-and apply_subst_in_type_rec sigma ty =
-  let r = apply_subst_in_type_rec sigma in
-  match ty with
-  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _
-  | EnumType _ | AbstractType _ | UserType _ | History _ -> ty
-  | Map (p, kt, vt) -> Map (p, r kt, r vt)
-  | Set (p, ty) -> Set (p, r ty)
-  | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, apply_subst_in_expr sigma len))
-  | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
-  | GroupType (p, tys) -> GroupType (p, List.map r tys)
-  | TupleType (p, tys) -> TupleType (p, List.map r tys)
-  | RecordType (p, id, tis) ->
-    RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
-  | RefinementType (p, b, e) ->
-    let b, e = subst_under_binder sigma b e in
-    RefinementType (p, b, e)
-  | ADT (p, id, cons) ->
-    ADT (p, id, List.map (fun (cid, flds) -> cid, List.map (fun (fn, ty) -> fn, r ty) flds) cons)
-
 (* Substitute under a single binder, alpha-renaming it when needed to avoid
-   capture. A binder's type may depend on outer variables, and lies outside the
-   binder's own scope, so the unfiltered substitution applies there. *)
+   capture. An any/choose binder's type may depend on outer variables, and lies
+   outside the binder's own scope, so the unfiltered substitution applies there. *)
 and subst_under_binder sigma (ipos, i, ty) e =
-  let ty = apply_subst_in_type_rec sigma ty in
+  let ty = map_lustre_ty (apply_subst_in_expr sigma) ty in
   match List.filter (fun (v, _) -> v <> i) sigma with
   (* The binder shadows every substitution, so nothing to rename either *)
   | [] -> ((ipos, i, ty), e)
