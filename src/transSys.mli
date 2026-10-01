@@ -819,11 +819,11 @@ val check_definitions : t -> fun_def list
 val check_helper_symbols : t -> UfSymbol.t list
 
 (** [define_check_defs t ~define_rec declare declare_sort] declares the
-    sorts of [t] and gives the definitions of the recursive functions its
-    systems carry for the supervisor to evaluate the calls past the
-    unrollings of a counterexample with (see [LustreFunDefs.compute_all]),
-    and nothing else: a solver to evaluate the functions at concrete
-    arguments *)
+    sorts and the global constants of [t], which the definitions may read,
+    and gives the definitions of the recursive functions its systems carry
+    for the supervisor to evaluate the calls past the unrollings of a
+    counterexample with (see [LustreFunDefs.compute_all]), and nothing
+    else: a solver to evaluate the functions at concrete arguments *)
 val define_check_defs :
   t ->
   define_rec:(fun_def list -> unit) ->

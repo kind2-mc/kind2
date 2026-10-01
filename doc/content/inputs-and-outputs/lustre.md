@@ -929,6 +929,8 @@ counterexample relies on, which are at concrete arguments, with the definition
 of the function, and reports the counterexample only if the function as it is
 violates the property with the same inputs; the property itself, or what the
 path relies on, such as an assumption on the inputs, may depend on the calls.
+A function that reads a global constant is evaluated with the value the
+counterexample gives the constant.
 Otherwise, or if the evaluation takes too long, Kind 2 unrolls the
 function once more, from one unrolling up to the limit set with
 `--rec_unrollings` (2 by default), and runs its engines again on the new

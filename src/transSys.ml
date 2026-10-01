@@ -1361,8 +1361,8 @@ let check_helper_symbols trans_sys =
          acc t.check_helpers)
     [] trans_sys
 
-(* Declare the sorts of the system and give the check definitions of its
-   systems, and nothing else *)
+(* Declare the sorts and the global constants of the system and give the
+   check definitions of its systems, and nothing else *)
 let define_check_defs trans_sys ~define_rec declare declare_sort =
   trans_sys.datatype_types |>
   List.iter (fun ty -> match Type.node_of_type ty with
@@ -1373,6 +1373,9 @@ let define_check_defs trans_sys ~define_rec declare declare_sort =
       | Type.Abstr _ -> declare_sort ty
       | _ -> ());
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
+  (* The global constants, which the definitions may read; they are free,
+     and a value that depends on them is not unique *)
+  Var.declare_constant_vars declare trans_sys.global_consts;
   declare_check_defs trans_sys UfSymbol.UfSymbolSet.empty declare define_rec
   |> ignore
 
