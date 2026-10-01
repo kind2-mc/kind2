@@ -931,11 +931,13 @@ violates the property with the same inputs; the property itself, or what the
 path relies on, such as an assumption on the inputs, may depend on the calls.
 Otherwise, or if the evaluation takes too long, Kind 2 unrolls the
 function once more, from one unrolling up to the limit set with
-`--rec_unrollings` (10 by default), and runs its engines again on the new
+`--rec_unrollings` (2 by default), and runs its engines again on the new
 system, keeping what they had established; this is not an analysis of its
 own, and it stops as soon as the arguments of the recursive calls are
-exhausted, as for `Fact(4)`, which is proved equal to 24 after four
-unrollings. A property whose counterexample still reaches such a call at the
+exhausted, as for `Fact(4)`, which is proved equal to 24 after five
+unrollings, with `--rec_unrollings 5`. In a modular analysis, such a call
+at constant arguments is evaluated instead (see below), whatever the
+limit. A property whose counterexample still reaches such a call at the
 limit is left unknown, and Kind 2 says so. That is the fate of a property that
 holds of the function for every input only by induction over the recursion,
 such as `Fact(n) > 0`: a compositional analysis, or a lemma, is what proves
@@ -1000,6 +1002,16 @@ counterexample relies on outputs the contracts allow but the functions do not
 have, or cannot be checked in time; and the other callees are refined as
 before. A check such as `Fact(4) = 25` is then falsified in the first
 analysis of the caller, which is not analyzed again up to the limit.
+
+When the check shows the counterexample spurious, the property cannot fail
+with the values the functions have, and the values of the calls it
+evaluated are not lost: those of the functions proved terminating (see
+below) are given to the refinements of the caller, as facts on the
+functions, like the values of the calls at constant arguments. A check such
+as `x = 3 => Fact(x) = 6`, whose argument is an input that the check fixes,
+is then proved in the first refinement, rather than after as many
+refinements as `Fact(3)` needs unrollings, four, which the default limit of
+two does not allow. The option `--rec_learn_values false` turns this off.
 
 In a modular analysis, compositional or not, a call at constant arguments
 to a recursive function that is proved terminating is evaluated instead:

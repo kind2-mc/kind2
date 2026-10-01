@@ -92,6 +92,14 @@ val check_abstractions :
 (** The properties recorded by [check_abstractions] since [reset] *)
 val genuine_properties : unit -> string list
 
+(** The values of the calls to recursive functions that [check_abstractions]
+    evaluated since [reset], while showing a counterexample spurious: each a
+    functional symbol of an output of the function, with the concrete
+    arguments of the call and its value. These are values the functions do
+    have, which the contracts that abstract them allowed to differ (see
+    [Analysis.info.learned]). *)
+val learned_facts : unit -> (UfSymbol.t * Term.t list * Term.t) list
+
 (** Whether the property was given up on *)
 val is_exhausted : string -> bool
 

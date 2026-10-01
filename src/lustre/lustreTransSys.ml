@@ -2692,6 +2692,10 @@ type evaluation = {
   (* The values of the calls evaluated so far, by functional symbol and
      arguments, or [None] for a call without a unique value *)
   values : Term.t option CallTbl.t;
+  (* The facts that the values of calls learned by earlier analyses of the
+     top system give, for the functions among [candidates] (see
+     [Analysis.info.learned]) *)
+  learned : Term.t list;
 }
 
 (* The time given to the solver to evaluate a call, in milliseconds *)
@@ -2760,7 +2764,7 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
    once its own analysis has run, so a call is only evaluated in a modular
    analysis, whether compositional or not. *)
 let evaluation_of_param globals options analysis_param nodes =
-  let { A.terminating } = A.info_of_param analysis_param in
+  let { A.terminating ; A.learned } = A.info_of_param analysis_param in
   match Atomic.get mk_evaluator with
   | None -> None
   | Some _ when
@@ -2844,12 +2848,34 @@ let evaluation_of_param globals options analysis_param nodes =
     in
     if NI.Set.is_empty candidates then None
     else
+      (* The values learned for the outputs of the candidates: their value
+         is the value of the function, which is proved terminating, as for
+         an evaluated call *)
+      let candidate_ufs =
+        NI.Set.fold
+          (fun node_id acc ->
+             match N.node_of_node_id node_id nodes with
+             | { N.comp_type = N.Function { N.uf_symbols } } ->
+               SVM.fold (fun _ uf acc -> uf :: acc) uf_symbols acc
+             | _ -> acc
+             | exception Not_found -> acc)
+          candidates []
+      in
+      let learned =
+        List.filter_map
+          (fun (uf, args, value) ->
+             if List.exists (UfSymbol.equal_uf_symbols uf) candidate_ufs
+             then Some (Term.mk_eq [ Term.mk_uf uf args ; value ])
+             else None)
+          learned
+      in
       Some {
         eval_nodes = nodes ;
         candidates ;
         evaluators = NI.Map.empty ;
         mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
         values = CallTbl.create 16 ;
+        learned ;
       }
 
 (* The facts on the functional symbols of the functions evaluated that the
@@ -3570,12 +3596,19 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
 
           (* The values of the calls of the node at constant arguments to
              the recursive functions proved terminating: facts on the
-             functional symbols of the functions, whatever the state *)
+             functional symbols of the functions, whatever the state; and,
+             in the system of the top node, the values that the checks of
+             the counterexamples of earlier analyses learned *)
           let init_terms, trans_terms =
             match evaluation with
             | None -> init_terms, trans_terms
-            | Some evaluation ->
+            | Some ({ learned } as evaluation) ->
               let facts = facts_of_calls evaluation equations calls in
+              let facts =
+                if NI.equal node_id top_name && NI.Map.is_empty num_unrollings
+                then List.rev_append learned facts
+                else facts
+              in
               List.rev_append facts init_terms,
               List.rev_append facts trans_terms
           in

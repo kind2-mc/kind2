@@ -532,6 +532,12 @@ module Contracts : sig
       calls abstracted by its contract, before defining it *)
   val rec_unrollings : unit -> int
 
+  (** Whether the values of the calls that the check of a spurious
+      counterexample evaluated are given to the refinements of the caller,
+      in a compositional and modular analysis (see
+      [Analysis.info.learned]) *)
+  val rec_learn_values : unit -> bool
+
   (** Instances of recursive functions the unrolling of the functions may
       create in a system, outside of compositional analyses *)
   val rec_instances : unit -> int

@@ -171,6 +171,7 @@ let maximal_abstraction_for_testgen (type s)
         A.abstraction_map = map ;
         A.unrollings = Scope.Map.empty ;
         A.terminating = Scope.Map.empty ;
+        A.learned = [] ;
         A.assumptions = assumptions ;
       }
     )
@@ -272,6 +273,7 @@ let moxi_params (type s) (input_system : s t) =
       A.abstraction_map = Scope.Map.empty ;
       A.unrollings = Scope.Map.empty ;
       A.terminating = Scope.Map.empty ;
+      A.learned = [] ;
       A.assumptions = Scope.Map.empty ;
     }
   in
@@ -303,6 +305,7 @@ let mcs_params (type s) (input_system : s t) =
       A.abstraction_map = abstraction_map ;
       A.unrollings = Scope.Map.empty ;
       A.terminating = Scope.Map.empty ;
+      A.learned = [] ;
       A.assumptions = Scope.Map.empty ;
     }
   in
@@ -355,6 +358,7 @@ let contract_check_params (type s) (input_system : s t) =
           subsystems;
       A.unrollings = Scope.Map.empty ;
       A.terminating = Scope.Map.empty ;
+      A.learned = [] ;
       A.assumptions = Scope.Map.empty ;
     }, sub.S.has_contract)
   in
@@ -408,6 +412,7 @@ let interpreter_param (type s) (input_system : s t) =
     A.abstraction_map = abstraction_map ;
     A.unrollings = Scope.Map.empty ;
     A.terminating = Scope.Map.empty ;
+    A.learned = [] ;
     A.assumptions = Scope.Map.empty ;
   }
 
@@ -1254,6 +1259,7 @@ let monitor_param (type s) (input_system : s t) =
     A.abstraction_map = abstraction_map ; 
     A.unrollings = Scope.Map.empty ;
     A.terminating = Scope.Map.empty ;
+    A.learned = [] ;
     A.assumptions = Scope.Map.empty ;
   }
 
