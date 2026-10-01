@@ -101,6 +101,7 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
                   ; adt_ctors: (LA.ident * LA.lustre_type list) IMap.t
                                                   (* ctor -> (type_name, field_types) *)
+                  ; shadowed_consts: SI.t         (* constants shadowed by a bound variable in scope *)
                   }
 (** The type checker global context *)
 
@@ -120,6 +121,7 @@ let empty_tc_context: tc_context =
   ; contract_ty_vars = NI.Map.empty
   ; ty_ty_vars = IMap.empty
   ; adt_ctors = IMap.empty
+  ; shadowed_consts = SI.empty
   }
 (** The empty context with no information *)
 
@@ -389,7 +391,9 @@ let remove_ty_ctx: tc_context -> tc_context
   = fun ctx -> {ctx with ty_ctx = IMap.empty}
 
 let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
-  = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
+  = fun ctx i e ty sc ->
+  {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx;
+            shadowed_consts = SI.remove i ctx.shadowed_consts}
 (** Adds a constant variable along with its expression and type  *)
 
 let remove_const: tc_context -> LA.ident -> tc_context
@@ -397,7 +401,17 @@ let remove_const: tc_context -> LA.ident -> tc_context
 (** Removes a constant variable *)
 
 let add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
-= fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
+= fun ctx i e sc ->
+  {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx;
+            shadowed_consts = SI.remove i ctx.shadowed_consts}
+
+(* The constant stays in the context, since types declared outside the bound
+   variable's scope may mention it *)
+let shadow_const: tc_context -> LA.ident -> tc_context
+  = fun ctx i -> {ctx with shadowed_consts = SI.add i ctx.shadowed_consts}
+
+let is_shadowed_const: tc_context -> LA.ident -> bool
+  = fun ctx i -> SI.mem i ctx.shadowed_consts
 
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun _ _ v2 -> Some v2)
@@ -436,6 +450,7 @@ let union: tc_context -> tc_context -> tc_context
                     ; adt_ctors = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.adt_ctors)
                                    (ctx2.adt_ctors))
+                    ; shadowed_consts = SI.union ctx1.shadowed_consts ctx2.shadowed_consts
                      }
 (** Unions the two typing contexts *)
 

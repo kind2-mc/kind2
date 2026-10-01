@@ -1,0 +1,6 @@
+const k: int = 3;
+
+node main (a: int^k; b: int^3) returns ();
+let
+  check forall (k: int) a = b or a <> b or k = 0;
+tel
