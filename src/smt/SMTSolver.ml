@@ -344,9 +344,33 @@ let define_fun s uf_symbol vars term =
        (S.Conv.smtexpr_of_term term))
 
 
-(* Define a group of (mutually) recursive function symbols *)
+(* Define a group of (mutually) recursive function symbols. A group whose
+   bodies apply no symbol of the group is not recursive, and its functions
+   are defined one by one with [define-fun] instead: a solver expands such a
+   definition as a macro, while it unfolds a function of [define-funs-rec]
+   on demand, as many times as the search needs, which is far more costly
+   for a function a recursive definition applies at every unfolding (see
+   [LustreFunDefs]). *)
 let define_funs_rec s defs =
   let module S = (val s.solver_inst) in
+
+  let group =
+    List.fold_left
+      (fun acc (uf_symbol, _, _) -> UfSymbol.UfSymbolSet.add uf_symbol acc)
+      UfSymbol.UfSymbolSet.empty defs
+  in
+  let recursive =
+    List.exists
+      (fun (_, _, term) ->
+         not
+           (UfSymbol.UfSymbolSet.disjoint group (Term.uf_symbols_of_term term)))
+      defs
+  in
+
+  if not recursive then
+    List.iter (fun (uf_symbol, vars, term) -> define_fun s uf_symbol vars term)
+      defs
+  else
 
   fail_on_smt_error s
     (S.define_funs_rec

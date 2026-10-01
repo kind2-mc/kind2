@@ -1863,6 +1863,20 @@ let select_symbols_of_term term =
   |> ignore;
   !selm
 
+(* Return the uninterpreted function symbols applied in a term; a symbol of
+   arity zero is applied as a constant, i.e. a leaf *)
+let uf_symbols_of_term term =
+  let ufs = ref UfSymbol.UfSymbolSet.empty in
+  map
+    (fun _ t -> match node_of_term t with
+      | T.Leaf s | T.Node (s, _) when Symbol.is_uf s ->
+        ufs := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !ufs;
+        t
+      | _ -> t
+    ) term
+  |> ignore;
+  !ufs
+
 let select_terms term =
   eval_t ~fail_on_quantifiers:false
     (function 
