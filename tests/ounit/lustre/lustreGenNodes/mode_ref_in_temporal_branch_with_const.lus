@@ -1,0 +1,8 @@
+node N(const n: int; c: bool; x: int) returns (y: int);
+(*@contract
+  mode M ( require x > n; );
+  guarantee when c then (true -> pre ::M) or n < 0 else true;
+*)
+let
+  y = x;
+tel

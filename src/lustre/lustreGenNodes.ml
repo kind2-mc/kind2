@@ -21,6 +21,19 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
+type error_kind = ConstInClockedTemporalExpr of HString.t
+
+type error = [ `LustreGenNodesError of Lib.position * error_kind ]
+
+let error_message kind = match kind with
+  | ConstInClockedTemporalExpr id ->
+    "A temporal expression in a clocked position that reads constant '"
+    ^ HString.string_of_hstring id ^ "' is not supported"
+
+(* Raised where the offending expression is, and turned into an error by
+   gen_nodes *)
+exception Const_in_clocked_temporal_expr of Lib.position * error_kind
+
 let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
 fun pos node_name node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
@@ -178,14 +191,14 @@ fun ctx decls ->
    expression. Non-temporal branches are returned unchanged. *)
 let abstract_temporal_branch:
   Ctx.tc_context -> NI.t -> A.declaration list -> A.expr -> A.expr * A.declaration list =
-fun ctx node_name gen_decls e ->
-  match AH.has_pre_or_arrow e with
-  | None -> e, []
+fun ctx node_name gen_decls orig_e ->
+  match AH.has_pre_or_arrow orig_e with
+  | None -> orig_e, []
   | Some _ ->
     (* The branch can call a node generated for one of its own subexpressions,
        which the enclosing context does not know about yet *)
     let ctx = add_node_sigs ctx gen_decls in
-    let pos = AH.pos_of_expr e in
+    let pos = AH.pos_of_expr orig_e in
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let node_id = mk_fresh_fn_name pos node_name ClockedExpr in
     (* A generated node is not compiled correctly when it takes a constant of the
@@ -209,7 +222,7 @@ fun ctx node_name gen_decls e ->
         let seen = List.fold_left (fun acc (i, _) -> Ctx.SI.add i acc) seen sigma in
         inline_consts seen (AH.apply_subst_in_expr sigma e)
     in
-    let e = inline_consts Ctx.SI.empty e in
+    let e = inline_consts Ctx.SI.empty orig_e in
     (* A generated node has no modes of its own, so a mode reference becomes a
        boolean parameter and is passed as the reference itself, which resolves at
        the call site *)
@@ -224,12 +237,9 @@ fun ctx node_name gen_decls e ->
     let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
     (* If the type of any free variable cannot be determined here (e.g. a
        match-arm pattern variable that is only substituted by a later pass),
-       skip the abstraction and leave the branch unchanged. *)
-    if List.exists Option.is_none input_tys then e, []
-    (* A constant declared without a value cannot be inlined, so a branch reading
-       one is left unabstracted rather than passing it as an argument *)
-    else if List.exists (fun i -> Ctx.lookup_const ctx i |> Option.is_some) inputs
-    then e, []
+       skip the abstraction, returning the branch as it came in: the rewrites
+       above are only sound inside the generated node. *)
+    if List.exists Option.is_none input_tys then orig_e, []
     else
     let input_decls = List.map2 (fun input ty ->
       let ty = match ty with Some ty -> ty | None -> assert false in
@@ -243,8 +253,16 @@ fun ctx node_name gen_decls e ->
        is in no position to repair either; any other exception is left to
        propagate rather than be turned into a silent change of clock. *)
     match Chk.infer_type_expr ctx (Some node_name) e with
-    | Error _ | exception Assert_failure _ -> e, []
+    | Error _ | exception Assert_failure _ -> orig_e, []
     | Ok (out_ty, _, _) ->
+    (* A constant declared without a value cannot be inlined, and a generated
+       node taking one as an argument is not compiled correctly. Checked after
+       inference so that an ill-typed branch still gets its type error. *)
+    let () =
+      match List.find_opt (fun i -> Ctx.lookup_const ctx i |> Option.is_some) inputs with
+      | Some i -> raise (Const_in_clocked_temporal_expr (pos, ConstInClockedTemporalExpr i))
+      | None -> ()
+    in
     (* Choose an output name that does not clash with any of the argument names *)
     let rec fresh_output name =
       if List.exists (fun i -> HString.equal i name) inputs
@@ -724,7 +742,7 @@ fun ctx node_name fun_ids ni ->
   | Auto _ -> ni, []
     
 
-let gen_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list =
+let gen_nodes_of_decls: Ctx.tc_context -> A.declaration list -> A.declaration list =
 fun ctx decls ->
   let fun_ids = List.filter_map
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
@@ -813,3 +831,10 @@ fun ctx decls ->
     | decl -> decl :: decls
   ) [] decls in 
   decls
+
+let gen_nodes: Ctx.tc_context -> A.declaration list
+  -> (A.declaration list, [> error]) result =
+fun ctx decls ->
+  try Ok (gen_nodes_of_decls ctx decls) with
+  | Const_in_clocked_temporal_expr (pos, kind) ->
+    Error (`LustreGenNodesError (pos, kind))

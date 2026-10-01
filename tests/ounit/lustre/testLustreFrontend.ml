@@ -1411,6 +1411,21 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
     | _ -> false);
 ])
 
+let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
+  mk_test "test constant input read by a clocked temporal expression" (fun () ->
+    match load_file "./lustreGenNodes/const_input_in_temporal_branch.lus" with
+    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
+    | _ -> false);
+  mk_test "test ghost constant read by a clocked temporal expression" (fun () ->
+    match load_file "./lustreGenNodes/ghost_const_in_temporal_branch.lus" with
+    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
+    | _ -> false);
+  mk_test "test mode reference in a clocked temporal expression reading a constant" (fun () ->
+    match load_file "./lustreGenNodes/mode_ref_in_temporal_branch_with_const.lus" with
+    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
+    | _ -> false);
+])
+
 (* *************************************************************************** *)
 (*                           Lustre Ast Printing                               *)
 (* *************************************************************************** *)
