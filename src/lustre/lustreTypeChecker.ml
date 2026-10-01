@@ -1846,17 +1846,11 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     R.ifM (eq_lustre_type ctx inf_ty exp_ty) 
       (R.ok (LA.BinaryOp (pos, op, e1, e2), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
-  | LA.TernaryOp (pos, ite, con, e1, e2) ->
-    let* ty, con, warnings1 = infer_type_expr ctx nname con in (
-    match ty with 
-        | Bool _ ->
-          let* ty1, e1, warnings2 = infer_type_expr ctx nname e1 in
-          let* ty2, e2, warnings3 = infer_type_expr ctx nname e2 in
-          R.ifM (eq_lustre_type ctx ty1 ty2)
-            (R.ok (LA.TernaryOp (pos, ite, con, e1, e2), (warnings1 @ warnings2 @ warnings3)))
-            (type_error pos (UnificationFailed (ty1, ty2)))
-        | ty  -> type_error pos (ExpectedType ((Bool pos), ty))
-    )
+  | LA.TernaryOp (pos, _, _, _, _) as e ->
+    let* inf_ty, e, warnings = infer_type_expr ctx nname e in
+    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+      (R.ok (e, warnings))
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | ConvOp (pos, cvop, e) ->
     let* inf_ty, e, warnings = infer_type_conv_op ctx nname pos e cvop in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)

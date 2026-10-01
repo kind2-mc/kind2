@@ -1,0 +1,5 @@
+node N(c: bool) returns (y: int);
+(*@contract guarantee if c then 1 else 0; *)
+let
+  y = 0;
+tel
