@@ -91,7 +91,9 @@ val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
 (** Define a group of (mutually) recursive function symbols, each given with
     its formal parameters and its body, in a single [define-funs-rec]
-    command. The bodies may apply any symbol of the group. *)
+    command. The bodies may apply any symbol of the group. If none does, the
+    group is not recursive, and each function is defined with [define-fun]
+    instead. *)
 val define_funs_rec : t -> (UfSymbol.t * Var.t list * Term.t) list -> unit
 
 

@@ -460,21 +460,6 @@ let body_of_output bindings output =
     (Term.mk_var output_var)
   |> Term.convert_select
 
-(* The uninterpreted function symbols applied by a term *)
-let ufs_of_term term =
-  let acc = ref UFS.empty in
-  Term.map
-    (fun _ t ->
-       (match Term.node_of_term t with
-        (* A symbol of arity zero is applied as a constant, i.e. a leaf *)
-        | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
-          acc := UFS.add (Symbol.uf_of_symbol s) !acc
-        | _ -> ());
-       t)
-    term
-  |> ignore;
-  !acc
-
 (* The block of definitions of a recursive group *)
 let block_of_scc nodes helpers scc_id members =
   let undefined_calls =
@@ -642,7 +627,7 @@ let compute_for ?(eligible = eligible) ~adt_junk_ufs applied nodes =
       in
       let applied_of_block block =
         List.fold_left
-          (fun acc (_, _, body) -> UFS.union acc (ufs_of_term body))
+          (fun acc (_, _, body) -> UFS.union acc (Term.uf_symbols_of_term body))
           UFS.empty
           block
       in

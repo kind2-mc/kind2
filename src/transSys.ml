@@ -2757,24 +2757,10 @@ let transfer_results ~from ~into =
          UFS.empty into)
       (uf_defs into)
   in
-  let ufs_of_term term =
-    let acc = ref [] in
-    Term.map
-      (fun _ t ->
-         (match Term.node_of_term t with
-          | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
-            acc := Symbol.uf_of_symbol s :: !acc
-          | _ -> ());
-         t)
-      term
-    |> ignore ;
-    !acc
-  in
   let known inv =
     Term.state_vars_of_term inv
     |> SVS.for_all (fun sv -> StateVar.is_const sv || SVS.mem sv svars)
-    && List.for_all
-      (fun uf -> UfSymbol.UfSymbolSet.mem uf symbols) (ufs_of_term inv)
+    && UfSymbol.UfSymbolSet.subset (Term.uf_symbols_of_term inv) symbols
   in
   let carry two_state inv =
     match Invs.find from.invariants inv with
