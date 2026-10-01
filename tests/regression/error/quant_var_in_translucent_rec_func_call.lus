@@ -1,0 +1,25 @@
+-- A call to a recursive function with a contract that is not transparent is
+-- rejected when it is applied to a quantified variable, in every analysis.
+-- Outside of compositional analyses the contract is never used in place of the
+-- body of a translucent function, so the function could be defined at the SMT
+-- level, but the call is rejected there as well, as a call to a non-recursive
+-- function with such a contract is: the rule does not depend on the analysis
+-- (see compositional/quant_var_in_abstracted_rec_func_call.lus, and
+-- success/rec_quantified_call_transparent.lus for a transparent function).
+
+datatype Nat = Zero | Succ (p: Nat);
+
+function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+  guarantee r or not r;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main (x: bool) returns (y: bool);
+let
+  y = x;
+  check "unfold" forall (n: Nat) Even(Succ(n)) = not Even(n);
+tel

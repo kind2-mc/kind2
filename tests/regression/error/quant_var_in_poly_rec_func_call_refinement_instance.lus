@@ -1,0 +1,20 @@
+-- A call to a polymorphic recursive function is rejected when it is applied
+-- to a quantified variable and the instantiation it calls has an output of a
+-- refinement type, even though the function, as written, has none. The
+-- refinement type is a contract, which abstracts a function that is not
+-- transparent, as for a monomorphic function (see
+-- error/quant_var_in_translucent_rec_func_call.lus). The call used to be
+-- accepted, and a compositional analysis failed an assertion (issue #1627).
+
+type Nat = subrange [0,*] of int;
+
+function rec Id<T>(x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else Id(x, n - 1);
+tel
+
+node Test(a: Nat) returns ();
+let
+  check forall (k: int) k <= 0 => Id@<Nat>(a, k) = a;
+tel

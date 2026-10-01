@@ -2,9 +2,9 @@
 -- abstracted by that contract: its functional symbol is uninterpreted,
 -- constrained by the contract at the arguments of its instances only. A call
 -- to it applied to a quantified variable is rejected, since the symbol would
--- stand for an arbitrary function under the quantifier. Outside of
--- compositional analyses the function is defined at the SMT level and the
--- call is accepted (see success/rec_quantified_call_contract.lus).
+-- stand for an arbitrary function under the quantifier. The call is rejected
+-- outside of compositional analyses as well (see
+-- error/quant_var_in_translucent_rec_func_call.lus).
 
 datatype Nat = Zero | Succ (p: Nat);
 

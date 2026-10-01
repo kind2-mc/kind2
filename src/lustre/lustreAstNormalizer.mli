@@ -68,6 +68,7 @@
 
 type error = [
   | `LustreAstNormalizerError
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
 ]
 
 type warning_kind =

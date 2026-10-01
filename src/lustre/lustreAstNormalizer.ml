@@ -80,7 +80,13 @@ module LDAT = LustreDesugarADTs
 
 type error = [
   | `LustreAstNormalizerError
+  | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
 ]
+
+(* A call to a function applied to quantified variables that can neither be
+   inlined nor be compiled to an application of the functional symbol of the
+   callee (see [normalize_expr]) *)
+exception Quantified_call_not_callable of Lib.position * HString.t * NI.t
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
@@ -1208,9 +1214,14 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     accum,
     warnings @ warnings_accum
   in
-  let ast, map, warnings =
-    List.fold_left over_declarations ([], gids, []) decls
-  in
+  match List.fold_left over_declarations ([], gids, []) decls with
+  | exception Quantified_call_not_callable (pos, q, id) ->
+    Error
+      (`LustreSyntaxChecksError
+         (pos,
+          LustreSyntaxChecks.QuantifiedVariableInNodeArgument
+            (q, NI.get_user_name id)))
+  | ast, map, warnings ->
   let ast = List.rev ast in
   
   Debug.parse ("===============================================\n"
@@ -2442,6 +2453,28 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let is_uf_callable =
       not is_inlinable && NI.Set.mem id info.uf_callable_funcs
     in
+    (* [LustreSyntaxChecks] rejects such a call, but it checks the
+       declarations as they are written, while the sets are computed from the
+       instantiations of the polymorphic functions. A call accepted there may
+       be to an instantiation that is in neither set, for one whose output or
+       local, or that of a function it calls, is given a refinement or array
+       type by the instantiation: report it as the check would, rather than
+       compile it as a call to a node applied to quantified variables *)
+    ( if not (is_inlinable || is_uf_callable) && NI.Set.mem id info.functions
+      then
+        let args_vars =
+          List.fold_left
+            (fun acc e -> A.SI.union acc (AH.vars_without_node_call_ids e))
+            A.SI.empty
+            args
+        in
+        match
+          List.find_opt
+            (fun (_, q, _) -> A.SI.mem q args_vars)
+            info.quantified_variables
+        with
+        | Some (_, q, _) -> raise (Quantified_call_not_callable (pos, q, id))
+        | None -> () ) ;
     let info, vmap, gids0 =
       if is_inlinable || is_uf_callable then
         (* Only generate variables if the call can be inlined or compiled to

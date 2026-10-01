@@ -1,0 +1,24 @@
+-- A call to an instantiation of a polymorphic recursive function applied to a
+-- quantified variable is rejected when a polymorphic non-recursive function it
+-- calls is instantiated with an array type for its local variable, and so
+-- cannot be inlined. The declarations as written are accepted (see
+-- success/rec_quantified_call_poly_helper.lus), and the call is rejected when
+-- the instantiations are compiled.
+
+function Keep<T> (x: T) returns (y: T);
+var t: T;
+let
+  t = x;
+  y = t;
+tel
+
+function rec Fp<T> (x: T; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then (if Keep(x) = x then 0 else 1) else Fp(x, n - 1);
+tel
+
+node Test (a: int^2) returns ();
+let
+  check forall (k: int) k <= 0 => Fp@<int^2>(a, k) = 0;
+tel

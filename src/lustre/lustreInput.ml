@@ -281,7 +281,8 @@ let type_check declarations =
       LUF.uf_callable_functions inlined_global_ctx const_inlined_nodes_and_contracts
     in
     let* warnings5 =
-      LS.no_quant_vars_in_calls_to_non_inlinable_funcs inlined_global_ctx inlinable_funcs declarations
+      LS.no_quant_vars_in_calls_to_non_inlinable_funcs
+        inlined_global_ctx inlinable_funcs uf_callable_funcs declarations
     in
 
     (* Step 24. Convert free constants to functions without args *)

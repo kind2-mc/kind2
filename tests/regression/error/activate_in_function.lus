@@ -1,0 +1,23 @@
+-- An activation condition is a temporal operator: the call holds its previous
+-- value while its clock is false. A function has no state, so it is rejected
+-- in the body of a function, as pre and -> are. A recursive function that
+-- activated another one used to make the analysis fail an assertion.
+
+function rec G (a: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then a else G(a, n - 1);
+tel
+
+function rec F (a: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r =
+    when n <= 0 then (activate G every (a > 0) initial default a)(a, 0)
+    else F(a, n - 1);
+tel
+
+node Test (a: int) returns ();
+let
+  check F(a, 0) = a;
+tel

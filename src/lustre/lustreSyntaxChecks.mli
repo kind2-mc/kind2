@@ -94,5 +94,13 @@ val error_if_lus_strict: warning_kind -> bool
 
 val syntax_check : LA.t -> (([> warning] list * LA.t), [> error]) result
 
+(** [no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs
+    uf_callable_funcs ast] checks that no quantified variable is in an
+    argument of a call to a node or function that is neither in
+    [inlinable_funcs] nor in [uf_callable_funcs], the recursive functions a
+    call applied to quantified variables is compiled to an application of
+    (see {!LustreUserFunctions.uf_callable_functions}). Both sets are those
+    the normalizer is given. *)
 val no_quant_vars_in_calls_to_non_inlinable_funcs :
-  TypeCheckerContext.tc_context -> NodeId.Set.t -> LA.t -> ([> warning ] list, [> error]) result
+  TypeCheckerContext.tc_context -> NodeId.Set.t -> NodeId.Set.t -> LA.t ->
+  ([> warning ] list, [> error]) result

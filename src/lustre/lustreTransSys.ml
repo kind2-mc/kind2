@@ -4379,10 +4379,11 @@ let uf_applied_warned = ref NI.Set.empty
 (* A call applied to quantified variables is compiled to an application of the
    functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]). Such
    a call is only accepted for a function [LustreUserFunctions] finds a
-   definition is to be built for, but the definition can still be left out here,
-   for a reason that is only known once the nodes are compiled: the body is not
-   a total function of its inputs, or the solver or logic does not take
-   definitions. The symbol is then
+   definition is to be built for, together with the functions of its recursive
+   group and the functions they call, but the definition can still be left out
+   here: the solver or logic does not take definitions, which the check of the
+   call does not depend on, or a body is not a total function of its inputs in
+   a way the check does not see. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
    hold of the function can be reported falsifiable. Say so. *)
@@ -4402,9 +4403,8 @@ let warn_undefined_uf_applications fun_defs nodes =
           NI.pp_print_node_id_user_name call_node_id
           (if LustreFunDefs.enabled () then
              "because its body, or the body of a function of its recursive \
-              group, is not a total function of its inputs that the solver \
-              can be given, or a function of its group is abstracted by its \
-              contract"
+              group or of a function it calls, is not a total function of its \
+              inputs that the solver can be given"
            else
              "because recursive functions are not defined at the SMT level \
               with the current solver or logic")
