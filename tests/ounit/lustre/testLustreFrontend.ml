@@ -979,6 +979,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
     | _ -> false);
+  mk_test "test duplicate constructor symbol within one ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_constructor_in_type.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructorInType _)) -> true
+    | _ -> false);
   mk_test "test duplicate field name across constructors of same ADT" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
