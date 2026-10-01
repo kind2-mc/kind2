@@ -258,11 +258,10 @@ let callees declared items =
    an instantiation of it may still have an output of a refinement type, or
    an output or local of an array type (see [uf_callable_instance]).
 
-   The remaining conditions of [LustreFunDefs] -- the solver or logic takes
-   recursive definitions, and the body has no construct the compilation of
-   the nodes makes partial, such as an activation condition -- are not
-   known at this point. A call to a function that fails them is accepted
-   here, and [LustreTransSys] warns about it. *)
+   The remaining condition of [LustreFunDefs] -- the solver or logic takes
+   recursive definitions -- is not checked: whether a call is accepted does
+   not depend on the options. A call to a function that is not defined for
+   this reason is accepted here, and [LustreTransSys] warns about it. *)
 let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
 = fun ctx decls ->
   let inlinable = inlinable_functions ctx decls in

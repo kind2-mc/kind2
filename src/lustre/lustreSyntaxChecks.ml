@@ -808,6 +808,19 @@ let no_temporal_operator decl_ctx expr =
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
   | _ -> Ok []
+
+(* An activation condition or a restart makes a call depend on the previous
+   states of the caller: the call holds its previous value while its clock is
+   false, or its callee starts again from its initial state. A function has no
+   state, so neither has a meaning in it *)
+let no_activation_condition decl_ctx expr =
+  match expr with
+  | LA.Condact (pos, _, _, _, _, _)
+  | Activate (pos, _, _, _, _) ->
+    syntax_error pos (IllegalTemporalOperator ("activate", decl_ctx))
+  | RestartEvery (pos, _, _, _) ->
+    syntax_error pos (IllegalTemporalOperator ("restart", decl_ctx))
+  | _ -> Ok []
   
 let has_forbidden_chars (name : H.t option) =
     match name with 
@@ -1236,13 +1249,15 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let composed_items_checks ctx e =
     (no_calls_to_node "functions" ctx e)
     >> (no_temporal_operator "functions" e)
+    >> (no_activation_condition "functions" e)
     >> (common_node_equations_checks ctx e)
   in
   let function_contract_checks ctx e =
     (no_calls_to_node "function contracts" ctx e) >> 
     let* warnings1 =  (common_contract_checks ctx e) in
     let* warnings2 = (no_temporal_operator "function contracts" e) in 
-    Ok (warnings1 @ warnings2)
+    let* warnings3 = (no_activation_condition "function contracts" e) in
+    Ok (warnings1 @ warnings2 @ warnings3)
   in
   let* () =
     if is_rec.LA.is_rec then

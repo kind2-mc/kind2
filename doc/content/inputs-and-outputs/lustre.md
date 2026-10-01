@@ -753,7 +753,7 @@ Kind 2 supports the `function` keyword which is used just like the `node` one
 but has slightly different semantics. Like the name suggests, the output(s) of
 a `function` must be a *non-temporal* combination of its inputs. That is, a
 function cannot depend on the `->`, `pre`, `merge`, `when`,
-`condact`, or `activate` operators.
+`condact`, `activate`, or `restart` operators.
 A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
@@ -1079,10 +1079,10 @@ for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
 value of its type parameter. In the body of a polymorphic node, a type
 parameter of the node given as a type argument is taken to be an array
 type, whatever the instantiations of the node. Kind 2 warns when the
-definition is left out for another reason: a body has a construct that the
-solver cannot be given, such as an activation condition, or the solver or
-logic does not take recursive definitions (Z3 and cvc5 do, under the
-inferred logic).
+definition is left out because the solver or logic does not take recursive
+definitions (Z3 and cvc5 do, under the inferred logic). The symbol is then
+an arbitrary function under the quantifier, and a property that holds may be
+reported falsifiable: with `--smt_logic UFLIA`, for instance.
 
 ### Benefits and limitations
 

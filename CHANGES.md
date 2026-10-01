@@ -25,6 +25,9 @@ Improvements:
   - The schema knows the `adt` stream type, and the `ghost` and `constant` stream classes, all of which the output has been producing.
   - The schema accepts a machine integer of any width. The JSON output names every one of them in the general form, `uint<8>` and `sint<8>`, while the schema listed only `int8` through `uint64`. Note that the XML output names the four widths it knows as `uint8` and `int8` instead, and raises on any other; the two formats disagreeing is left for a separate change.
 
+Breaking changes:
+- The `activate` and `restart` operators are rejected in the body and the contract of a function, as `pre` and `->` are: they make a call depend on the previous states of the caller, and a function has no state. The documentation already listed `activate` among the operators a function cannot use, but it was accepted, and a recursive function that activated or restarted another one made the analysis fail an assertion.
+
 # Kind 2 v3.0.0
 
 New features:

@@ -4381,10 +4381,9 @@ let uf_applied_warned = ref NI.Set.empty
    a call is only accepted for a function [LustreUserFunctions] finds a
    definition is to be built for, together with the functions of its recursive
    group and the functions they call, but the definition can still be left out
-   here, for a reason that is only known once the nodes are compiled: the solver
-   or logic does not take definitions, or a body has a construct that makes it
-   a partial function of its inputs, such as an activation condition. The
-   symbol is then
+   here: the solver or logic does not take definitions, which the check of the
+   call does not depend on, or a body is not a total function of its inputs in
+   a way the check does not see. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
    hold of the function can be reported falsifiable. Say so. *)
