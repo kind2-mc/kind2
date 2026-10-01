@@ -1,0 +1,8 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+datatype T = Leaf | Node (lt: T, v: int, rt: T);
+
+node main (l: L; t: T) returns (ok: bool);
+let
+  ok = not (Cons?(l) and Node?(t));
+  check ok;
+tel

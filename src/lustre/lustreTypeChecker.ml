@@ -123,6 +123,7 @@ type error_kind = Unknown of string
   | MatchScrutineeNotADT of tc_type
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
+  | DuplicateConstructorInType of HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
@@ -276,6 +277,9 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' is already declared in type '"
     ^ HString.string_of_hstring ty1 ^ "' and cannot be reused in type '"
     ^ HString.string_of_hstring ty2 ^ "'"
+  | DuplicateConstructorInType (ctor, ty) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' is declared more than once in type '"
+    ^ HString.string_of_hstring ty ^ "'"
   | DuplicateFieldName (field, ctor1, ctor2) ->
     "Selector for field '" ^ HString.string_of_hstring field ^ "' is ambiguous: appears in constructor '"
     ^ HString.string_of_hstring ctor1 ^ "' and constructor '"
@@ -3343,6 +3347,17 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         ) fields) |> R.map List.split in
         R.ok ((ctor, fields'), List.flatten warnings)
       ) ctors) |> R.map List.split in
+      (* Constructor names must be unique within a type: two constructors of one
+         type sharing a name declare one symbol with two conflicting signatures. *)
+      let* () =
+        let seen = Hashtbl.create 8 in
+        match List.filter_map (fun (ctor, _) ->
+          if Hashtbl.mem seen ctor then Some ctor
+          else (Hashtbl.add seen ctor (); None)
+        ) ctors with
+        | ctor :: _ -> type_error pos (DuplicateConstructorInType (ctor, new_ty_name))
+        | [] -> R.ok ()
+      in
       (* Field names must be unique across all constructors, not just within one: dot-
          notation projection resolves a field by name alone, so reusing a name would be
          ambiguous. *)
