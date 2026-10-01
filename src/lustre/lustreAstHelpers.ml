@@ -2469,13 +2469,13 @@ let rec constants_to_calls: ident list -> expr -> expr
     (* Remove 'tis' from new_func_ids because they're bound in 'e' *)
     let is = List.map (fun (_, i, _) -> i) tis in
     let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
-    let tis = List.map (fun (p, i, ty) -> p, i, map_lustre_ty (constants_to_calls new_func_ids) ty) tis in
+    let tis = List.map (fun (p, i, ty) -> p, i, constants_to_calls_in_type new_func_ids ty) tis in
     Quantifier (p, b, tis, constants_to_calls new_func_ids e)
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
   | TypeAscription (p, e, ty) ->
-    TypeAscription (p, r e, map_lustre_ty r ty)
+    TypeAscription (p, r e, constants_to_calls_in_type new_func_ids ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
   | Last _ as e -> e
@@ -2494,13 +2494,14 @@ let rec constants_to_calls: ident list -> expr -> expr
   
   | GroupExpr (p, ge, l) -> GroupExpr (p, ge, List.map r l)
   | Call (p, ty_args, id, l) -> 
-    let ty_args = List.map (map_lustre_ty (constants_to_calls new_func_ids)) ty_args in
+    let ty_args = List.map (constants_to_calls_in_type new_func_ids) ty_args in
     Call (p, ty_args, id, List.map r l)
   | EmptyMap (_, None) | EmptySet (_, None) -> expr
   | EmptyMap (p, Some (kt, vt)) ->
-    EmptyMap (p, Some (map_lustre_ty r kt, map_lustre_ty r vt))
+    EmptyMap (p, Some (constants_to_calls_in_type new_func_ids kt,
+                       constants_to_calls_in_type new_func_ids vt))
   | EmptySet (p, Some t) ->
-    EmptySet (p, Some (map_lustre_ty r t))
+    EmptySet (p, Some (constants_to_calls_in_type new_func_ids t))
 
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
@@ -2551,10 +2552,33 @@ let rec constants_to_calls: ident list -> expr -> expr
     ) arms in
     Match (pos, r e, arms, ty_opt)
   | ADTTerm (pos, ty_args, ctor, args) ->
-    let ty_args = List.map (map_lustre_ty r) ty_args in
+    let ty_args = List.map (constants_to_calls_in_type new_func_ids) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map r args)
   | AbstractSymConst _ as e -> e
   | ADTTester (pos, e, c) -> ADTTester (pos, r e, c)
+
+(* Convert identifiers present in `new_func_ids` to calls with no args in the
+   expressions of a type *)
+and constants_to_calls_in_type: ident list -> lustre_type -> lustre_type
+= fun new_func_ids ty ->
+  let r = constants_to_calls_in_type new_func_ids in
+  match ty with
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _
+  | EnumType _ | AbstractType _ | UserType _ | History _ -> ty
+  | Map (p, kt, vt) -> Map (p, r kt, r vt)
+  | Set (p, ty) -> Set (p, r ty)
+  | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, constants_to_calls new_func_ids len))
+  | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
+  | GroupType (p, tys) -> GroupType (p, List.map r tys)
+  | TupleType (p, tys) -> TupleType (p, List.map r tys)
+  | RecordType (p, id, tis) ->
+    RecordType (p, id, List.map (fun (p, id, ty) -> p, id, r ty) tis)
+  | RefinementType (p1, (p2, id, ty), e) ->
+    (* The bound variable shadows any constant of the same name *)
+    let new_func_ids' = List.filter (fun i -> not (HString.equal i id)) new_func_ids in
+    RefinementType (p1, (p2, id, r ty), constants_to_calls new_func_ids' e)
+  | ADT (p, id, cons) ->
+    ADT (p, id, List.map (fun (cid, flds) -> cid, List.map (fun (fn, ty) -> fn, r ty) flds) cons)
 
 let pos_of_type ty = match ty with 
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)

@@ -134,6 +134,8 @@ fun ctx node_name fun_ids ty ->
     RecordType (p, id, tis), List.flatten gen_nodes
   | RefinementType (p1, (p2, id, ty), e) ->
     let ty, gen_nodes1 = r ty in
+    (* The bound variable shadows any constant or variable of the same name *)
+    let ctx = Ctx.add_ty (Ctx.remove_const ctx id) id ty in
     let e, gen_nodes2 = desugar_expr ctx node_name fun_ids e in
     RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
   | ADT (p, name, constructors) ->

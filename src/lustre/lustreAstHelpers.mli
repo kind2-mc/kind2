@@ -231,6 +231,10 @@ val constants_to_calls: ident list -> expr -> expr
 (** `constants_to_calls const_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
      provided that `C` is in `const_func_ids` *)
 
+val constants_to_calls_in_type: ident list -> lustre_type -> lustre_type
+(** `constants_to_calls_in_type const_func_ids ty` applies {!constants_to_calls} to the
+     expressions of `ty`, except where a refinement type's bound variable shadows a constant *)
+
 val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 (** `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
 

@@ -3242,7 +3242,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
-      let ctx = add_ty ctx i ty' in
+      (* The bound variable shadows any constant of the same name *)
+      let ctx = add_ty (remove_const ctx i) i ty' in
       let* _ = (if is_const then 
         let ctx = add_const ctx i (LA.Ident (p, i)) ty' Local in
         check_expr_is_constant ctx "type of constant" e 

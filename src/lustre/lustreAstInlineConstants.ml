@@ -441,7 +441,8 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     TArr (pos, ty1', ty2')
   | RefinementType (pos, (pos2, id, ty), expr) ->
     let ty' = inline_constants_of_lustre_type ctx ty in 
-    let expr' = simplify_expr ~ind_vars ctx expr in
+    (* The bound variable shadows any constant of the same name *)
+    let expr' = simplify_expr ~ind_vars (TC.remove_const ctx id) expr in
     RefinementType (pos, (pos2, id, ty'), expr')
     
   | ADT (pos, name, cons) ->

@@ -1,0 +1,8 @@
+const k: int = 7;
+datatype T = A (f: subtype { k: int | k > 0 }) | B;
+
+node main (t: T) returns (y: int);
+let
+  y = match t with | A(x) : x | B : 1 end;
+  check y > 0;
+tel
