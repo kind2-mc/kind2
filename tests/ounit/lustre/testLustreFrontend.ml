@@ -1148,6 +1148,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | Error (`LustreTypeCheckerError (_,
         MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
     | _ -> false);
+  mk_test "if-then-else constant of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Int _, Real _))) -> true
+    | _ -> false);
+  mk_test "if-then-else property of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_property_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
+    | _ -> false);
+  mk_test "if-then-else guarantee of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_guarantee_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
