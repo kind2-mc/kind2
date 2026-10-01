@@ -2468,8 +2468,9 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
    array bound taken from the bounds table when the index type is
    unbounded), and the value arrays of a map are compared only at keys
    present in the map (guarded by its domain array). *)
-let function_congruence_group state_var_bounds inputs uf_symbols
+let function_congruence_group globals inputs uf_symbols
     constrained_outputs =
+  let state_var_bounds = globals.G.state_var_bounds in
   let bindings = D.bindings inputs in
   if constrained_outputs = [] ||
      not (
@@ -2496,6 +2497,42 @@ let function_congruence_group state_var_bounds inputs uf_symbols
         Term.mk_uf (StateVar.encode_select sv) (Term.mk_var v :: iterms)
     in
     let args_a = List.map (fun (_, _, _, a, _) -> Term.mk_var a) arg_vars in
+    (* A bound of a dimension may refer to constant inputs of the function
+       (e.g. the size [n] of an argument of type [int^n]), which are not in
+       the scope of its callers. Express it in terms of the free variables
+       of the first argument tuple: if the two applications differ in such an
+       input, the instance already holds by its scalar disjunct. A bound can
+       also refer to global free constants; any other state variable makes it
+       unusable. *)
+    let global_consts =
+      List.fold_left (fun acc (_, vt, _) ->
+        D.fold (fun _ v acc ->
+          SVS.add (Var.state_var_of_state_var_instance v) acc
+        ) vt acc
+      ) SVS.empty globals.G.free_constants
+    in
+    let input_vars =
+      List.fold_left (fun acc (_, sv, _, a, _) -> SVM.add sv a acc)
+        SVM.empty arg_vars
+    in
+    let instantiate_bound t =
+      if Term.var_offsets_of_term t <> (None, None) then None
+      else
+        let usable = ref true in
+        let t =
+          Term.map_vars (fun v ->
+            if Var.is_const_state_var v then
+              let sv = Var.state_var_of_state_var_instance v in
+              match SVM.find_opt sv input_vars with
+              | Some a -> a
+              | None ->
+                if not (SVS.mem sv global_consts) then usable := false ;
+                v
+            else v
+          ) t
+        in
+        if !usable then Some t else None
+    in
     let args_b = List.map (fun (_, _, _, _, b) -> Term.mk_var b) arg_vars in
     (* The domain prefixes of a leaf index: for every MapValue-tagged entry,
        the index up to that position with the MapDomain tag instead (cf.
@@ -2552,9 +2589,7 @@ let function_congruence_group state_var_bounds inputs uf_symbols
             | bounds when List.length bounds = List.length idx_tys ->
               bounds |> List.map (function
                 | E.Bound e | E.Fixed e ->
-                  let t = E.unsafe_term_of_expr e in
-                  if Term.var_offsets_of_term t = (None, None) then Some t
-                  else None
+                  instantiate_bound (E.unsafe_term_of_expr e)
                 | E.Unbound _ -> None)
             | _ | exception Not_found ->
               List.map (fun _ -> None) idx_tys
@@ -3419,7 +3454,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
                 if is_defined then None, [] else
                 match
                   function_congruence_group
-                    globals.G.state_var_bounds inputs uf_symbols
+                    globals inputs uf_symbols
                     constrained_outputs
                 with
                 | Some (group, wufs) -> Some group, wufs
