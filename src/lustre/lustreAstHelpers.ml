@@ -1498,6 +1498,16 @@ let rec vars_of_type = function
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left SI.union SI.empty (List.map vars_of_type tys)
 
+(* Renames each quantified variable whose own type mentions a variable of the
+   same name, which the quantified variable is not in scope for *)
+let rename_self_referencing_binders tis e =
+  List.fold_right (fun (p, i, ty) (tis, e) ->
+    if SI.mem i (vars_of_type ty) then
+      let fresh = fresh_bound_ident i in
+      ((p, fresh, ty) :: tis, apply_subst_in_expr [(i, Ident (p, fresh))] e)
+    else ((p, i, ty) :: tis, e)
+  ) tis ([], e)
+
 let rec defined_vars_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
   | IfBlock (_, _, l1, l2)
@@ -2468,8 +2478,9 @@ let rec constants_to_calls: ident list -> expr -> expr
   | Quantifier (p, b, tis, e) -> 
     (* Remove 'tis' from new_func_ids because they're bound in 'e' *)
     let is = List.map (fun (_, i, _) -> i) tis in
-    let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
+    (* The binders are not in scope in their own types *)
     let tis = List.map (fun (p, i, ty) -> p, i, constants_to_calls_in_type new_func_ids ty) tis in
+    let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
     Quantifier (p, b, tis, constants_to_calls new_func_ids e)
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
