@@ -242,9 +242,14 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
   let bind ids = desugar_expr ~insert ~bound:(Ctx.SI.union bound ids) ctx node_name fun_ids in
   (* Arguments for constant parameters of node id must be constant expressions *)
   let desugar_args id args =
+    (* When the arguments cannot be matched one-to-one with the parameters
+       (e.g. a tuple spread over several parameters), none of them is checked *)
     let is_const_param = match Ctx.lookup_node_param_attr ctx id with
       | Some attrs when List.length attrs = List.length args -> List.map snd attrs
-      | Some _ | None -> List.map (fun _ -> false) args
+      | Some _ -> List.map (fun _ -> true) args
+      | None ->
+        let is_constructor = Option.is_some (Ctx.lookup_constructor ctx (NI.get_name id)) in
+        List.map (fun _ -> not is_constructor) args
     in
     List.map2 (fun is_const e ->
       desugar_expr ~insert:(insert && not is_const) ~bound ctx node_name fun_ids e
@@ -613,19 +618,59 @@ let rec calls_of_items items =
     NI.Set.union acc calls
   ) NI.Set.empty items
 
-(* The recursive functions, and the functions their definitions call directly
-   or indirectly, which are encoded together with them (see LustreFunDefs) *)
+(* The calls in the expressions of a type *)
+let calls_of_type ty = AH.fold_lustre_ty AH.calls_of_expr NI.Set.empty NI.Set.union ty
+
+let calls_of_const_decl = function
+  | A.FreeConst (_, _, ty) -> calls_of_type ty
+  | A.UntypedConst (_, _, e) -> AH.calls_of_expr e
+  | A.TypedConst (_, _, e, ty) -> NI.Set.union (AH.calls_of_expr e) (calls_of_type ty)
+
+(* The calls in a contract, including the contract nodes it imports *)
+let calls_of_contract contract =
+  let calls_of_item = function
+    | A.GhostConst c -> calls_of_const_decl c
+    | A.GhostVars (_, A.GhostVarDec (_, tis), e) ->
+      NI.Set.flatten (AH.calls_of_expr e :: List.map (fun (_, _, ty) -> calls_of_type ty) tis)
+    | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e) | A.Decreases (_, e) -> AH.calls_of_expr e
+    | A.Mode (_, _, reqs, enss) ->
+      NI.Set.flatten (List.map (fun (_, _, e) -> AH.calls_of_expr e) (reqs @ enss))
+    | A.ContractCall (_, id, _, es, _) ->
+      NI.Set.flatten (NI.Set.singleton id :: List.map AH.calls_of_expr es)
+    | A.AssumptionVars _ -> NI.Set.empty
+  in
+  match contract with
+  | Some (_, items) -> NI.Set.flatten (List.map calls_of_item items)
+  | None -> NI.Set.empty
+
+(* The calls in the types of the inputs and outputs of a node *)
+let calls_of_signature inputs outputs =
+  NI.Set.flatten
+    (List.map (fun (_, _, ty, _, _) -> calls_of_type ty) inputs
+     @ List.map (fun (_, _, ty, _) -> calls_of_type ty) outputs)
+
+(* The recursive functions, and the functions and contract nodes their
+   definitions use directly or indirectly (through bodies, contracts and
+   signatures), which are encoded together with them (see LustreFunDefs) *)
 let functions_of_recursive_definitions decls =
-  let bodies = List.fold_left (fun acc decl -> match decl with
-    | A.FuncDecl (_, (id, _, _, _, _, _, _, items, _), _) ->
-      NI.Map.add id (calls_of_items items) acc
-    | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _ | A.ContractNodeDecl _
-    | A.NodeParamInst _ -> acc
+  let uses = List.fold_left (fun acc decl -> match decl with
+    | A.FuncDecl (_, (id, _, _, _, inputs, outputs, _, items, contract), _) ->
+      let calls =
+        NI.Set.flatten
+          [calls_of_items items; calls_of_contract contract; calls_of_signature inputs outputs]
+      in
+      NI.Map.add id calls acc
+    | A.ContractNodeDecl (_, (id, _, inputs, outputs, contract)) ->
+      let calls =
+        NI.Set.union (calls_of_contract (Some contract)) (calls_of_signature inputs outputs)
+      in
+      NI.Map.add id calls acc
+    | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _ | A.NodeParamInst _ -> acc
   ) NI.Map.empty decls
   in
   let rec visit seen id =
     if NI.Set.mem id seen then seen
-    else match NI.Map.find_opt id bodies with
+    else match NI.Map.find_opt id uses with
       | Some calls -> NI.Set.fold (fun c seen -> visit seen c) calls (NI.Set.add id seen)
       | None -> seen
   in
@@ -655,6 +700,16 @@ fun ctx decls ->
       | Ok (_, ctx, _) -> ctx
       | Error _ -> ctx
     with _ -> ctx
+  in
+  (* Which parameters are constant is read from the declarations, so that it
+     is known for every node whatever the order of the declarations *)
+  let ctx =
+    List.fold_left (fun ctx decl ->
+      match decl with
+      | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _))
+      | A.FuncDecl (_, (id, _, _, _, inputs, _, _, _, _), _) -> Ctx.add_node_param_attr ctx id inputs
+      | A.TypeDecl _ | A.ConstDecl _ | A.ContractNodeDecl _ | A.NodeParamInst _ -> ctx
+    ) ctx decls
   in
   let ctx =
     List.fold_left (fun ctx decl ->
@@ -737,7 +792,8 @@ fun ctx decls ->
         let ty, gen_nodes = desugar_type ctx id fun_ids ty in
         (p, id', ty, c), gen_nodes
       ) outputs |> List.split in
-      let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
+      let insert = not (NI.Set.mem id rec_def_funs) in
+      let contract, gen_nodes = desugar_contract ~insert ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract
       | None -> assert false in (* Must have a contract *)
