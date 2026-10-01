@@ -1053,28 +1053,36 @@ all its inputs may not terminate. The definition applies the recursive
 calls under their termination checks, so that it has a model whether or not
 the measure decreases; the checks remain properties.
 
-A call applied to a quantified variable is rejected, as for a non-recursive
-function that cannot be inlined, when the function has a contract with
-guarantees, modes or a refinement type on an output and is not declared
-`transparent`, or when it has an output or local variable of an array
-type. The rule does not depend on the analysis. A translucent function
-with a contract is abstracted by it in compositional analyses only, but
-calls to it are rejected in every analysis. Where a contract abstracts the
-function, its symbol would be constrained at the arguments of its
-instances only, an arbitrary function under the quantifier. A body with an
-array-typed output or local variable is not given a definition. For a
-polymorphic function, the rule applies to the instantiation that is called,
-with the type arguments of the call: `Id@<int>` may be applied to a
-quantified variable while `Id@<Nat>`, for a refinement type `Nat`, and
-`Id@<int^2>` may not, if `Id` returns a value of its type parameter. In the
-body of a polymorphic node, a type parameter of the node given as a type
-argument is taken to be an array type, whatever the instantiations of the
-node. Kind 2
-warns when the definition is left out for another reason: the body is not a
-total function of its inputs that the solver can be given (an assertion, a
-call to a function whose outputs are not all defined by equations), or the
-solver or logic does not take recursive definitions (Z3 and cvc5 do, under
-the inferred logic).
+A call applied to a quantified variable is accepted under the conditions
+of a call to a non-recursive function that can be inlined, whatever the
+analysis:
+
+- The function has no contract with guarantees, modes or a refinement type
+  on an output, or is declared `transparent`. A translucent function with a
+  contract is abstracted by it in compositional analyses only, but calls to
+  it are rejected in every analysis. Where a contract abstracts the
+  function, its symbol would be constrained at the arguments of its
+  instances only, an arbitrary function under the quantifier.
+- Its body is made of equations that define all of its outputs and local
+  variables, without assertions, and no output or local variable is of an
+  array type. No definition is built from another body.
+- Every function the body calls can be inlined, or is a recursive function
+  that meets these conditions in turn. A function is defined together with
+  the functions of its recursive group and the functions they call, and an
+  imported function, in particular, is an arbitrary function under the
+  quantifier.
+
+Otherwise the call is rejected. For a polymorphic function, the rule
+applies to the instantiation that is called, with the type arguments of the
+call: `Id@<int>` may be applied to a quantified variable while `Id@<Nat>`,
+for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
+value of its type parameter. In the body of a polymorphic node, a type
+parameter of the node given as a type argument is taken to be an array
+type, whatever the instantiations of the node. Kind 2 warns when the
+definition is left out for another reason: a body has a construct that the
+solver cannot be given, such as an activation condition, or the solver or
+logic does not take recursive definitions (Z3 and cvc5 do, under the
+inferred logic).
 
 ### Benefits and limitations
 

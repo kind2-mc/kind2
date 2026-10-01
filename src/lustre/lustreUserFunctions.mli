@@ -24,13 +24,16 @@ val inlinable_functions :
 (** The recursive functions whose functional symbols can be given a
     definition at the SMT level in every analysis of the run (see
     {!LustreFunDefs}), and which a call applied to quantified variables can
-    therefore be compiled to
-    an application of, rather than to a node instance. As for the functions
-    that can be inlined, and whatever the analysis, a function with an
-    effective contract is left out unless it is transparent, and so is a
-    function with an output or local of a type that contains an array. The
-    conditions on the body that are only known once the nodes are compiled
-    are not checked, and {!LustreTransSys} warns about them instead. *)
+    therefore be compiled to an application of, rather than to a node
+    instance. As for the functions that can be inlined, and whatever the
+    analysis, a function with an effective contract is left out unless it is
+    transparent, and so is a function with an assertion, an output or local
+    of a type that contains an array, or an output or local that no equation
+    defines. A function is also left out if it calls a function that can
+    neither be inlined nor is in the set: the set is the greatest one closed
+    under calls. The conditions that are only known once the nodes are
+    compiled are not checked, and {!LustreTransSys} warns about them
+    instead. *)
 val uf_callable_functions :
   TypeCheckerContext.tc_context ->
   LustreAst.declaration list ->

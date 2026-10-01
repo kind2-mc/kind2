@@ -1956,12 +1956,13 @@ let oqv_check_decl: NI.Set.t -> context -> Ctx.tc_context -> LA.declaration -> (
     oqv_check_contract_node_decl inlinable_funcs ctx tc_ctx decl
   | _ -> Ok []
 
-let no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs ast =
+let no_quant_vars_in_calls_to_non_inlinable_funcs
+    tc_ctx inlinable_funcs uf_callable_funcs ast =
   let ctx = build_global_ctx ast in
   let ctx =
     { ctx with
       uf_callable_funcs =
-        LUF.uf_callable_functions tc_ctx ast
+        uf_callable_funcs
         |> NI.Set.elements
         |> List.map NI.get_internal_name
         |> StringSet.of_list;

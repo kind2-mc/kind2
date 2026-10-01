@@ -114,65 +114,6 @@ let no_array_vars ?(subst = []) ctx outputs locals =
     | A.NodeConstDecl _ -> true
     | NodeVarDecl (_, (_, _, ty, _)) -> no_array ty)
 
-(* The recursive functions a call applied to quantified variables can be
-   compiled to an application of the unrolled symbol of (see
-   [LustreAstNormalizer.mk_fresh_qcall]): those whose recursive calls past
-   their unrollings are left unconstrained, which [LustreFunDefs] defines
-   the symbol as, the function unrolled as many times as the analysis
-   unrolls it.
-
-   The conditions are those of the non-recursive functions that can be
-   inlined, whatever the analysis, on the contract and the types of the
-   variables:
-
-   - The function has no effective contract, or is transparent. A contract
-     abstracts a translucent function in compositional analyses only, but a
-     translucent function with a contract is left out in every analysis, as
-     a non-recursive one is. Its symbol would otherwise be defined in some
-     analyses and not in others. In an analysis where a contract abstracts
-     the function, the contract only constrains its symbol at the arguments
-     of its instances, so under a quantifier it would be an arbitrary
-     function and a property that does hold of it could be reported
-     falsifiable.
-   - No output or local is of a type that contains an array. [LustreFunDefs]
-     builds no definition from such a body, and the symbol would be
-     arbitrary under the quantifier as well.
-
-   A polymorphic function is checked with its type parameters as they are:
-   an instantiation of it may still have an output of a refinement type, or
-   an output or local of an array type (see [uf_callable_instance]).
-
-   The remaining conditions [LustreFunDefs] puts on a definition -- the body
-   is a total function of the inputs, and so are those of the functions of
-   its recursive group and of the functions it calls -- are not known at
-   this point. A call to a function that fails them is accepted here, and
-   [LustreTransSys] warns about it. *)
-let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
-= fun ctx decls ->
-  List.fold_left (fun (set, contracts) dcl ->
-    match dcl with
-    | A.ContractNodeDecl (_, contract_node_decl) -> (
-      let (id, _, _, _, _) = contract_node_decl in
-      set, NI.Map.add id contract_node_decl contracts
-    )
-    (* A non-imported recursive function *)
-    | A.FuncDecl
-        (_, (id, false, opac, _, _, outputs, locals, _, contract),
-         { A.is_rec = true; _ })
-      -> (
-      if has_no_effective_contract ctx contracts opac contract outputs
-         && no_array_vars ctx outputs locals
-      then
-        NI.Set.add id set, contracts
-      else
-        set, contracts
-    )
-    | _ -> set, contracts
-  )
-  (NI.Set.empty, NI.Map.empty)
-  decls
-  |> fst
-
 (* Whether the instantiation of the function [id] of [decls] with the type
    arguments [ty_args] of a call meets the conditions of
    [uf_callable_functions] on the types of its variables: no output of a
@@ -240,3 +181,141 @@ let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
   (NI.Set.empty, NI.Map.empty)
   decls
   |> fst
+
+(* Whether the body of a function is made of equations that define all of its
+   outputs and local variables, each a single variable or a tuple of them,
+   and of properties: no assertion, and no array element defined on its own *)
+let defines_all_vars outputs locals items =
+  let defined =
+    List.fold_left (fun acc item ->
+      match acc, item with
+      | None, _ -> None
+      | Some acc, A.Body (Equation (_, StructDef (_, lhs), _)) ->
+        List.fold_left (fun acc s ->
+          match acc, s with
+          | Some acc, A.SingleIdent (_, id) -> Some (A.SI.add id acc)
+          | _ -> None)
+          (Some acc) lhs
+      | Some acc, (AnnotProperty _ | AnnotMain _ | Auto _) -> Some acc
+      | Some _, (Body (Assert _) | FrameBlock _ | IfBlock _ | WhenBlock _
+                | MatchBlock _) -> None)
+      (Some A.SI.empty) items
+  in
+  match defined with
+  | None -> false
+  | Some defined ->
+    List.for_all (fun (_, id, _, _) -> A.SI.mem id defined) outputs
+    && locals |> List.for_all (function
+      | A.NodeVarDecl (_, (_, id, _, _)) -> A.SI.mem id defined
+      | A.NodeConstDecl _ -> true)
+
+(* The functions and nodes the equations of a body call, among the declared
+   ones [declared] (a constructor of an algebraic datatype is applied as a
+   call, but is not declared as a function) *)
+let callees declared items =
+  List.fold_left (fun acc item ->
+    match item with
+    | A.Body (Equation (_, _, rhs)) ->
+      NI.Set.union acc (NI.Set.inter declared (AH.calls_of_expr rhs))
+    | _ -> acc)
+    NI.Set.empty items
+
+(* The recursive functions a call applied to quantified variables can be
+   compiled to an application of the unrolled symbol of (see
+   [LustreAstNormalizer.mk_fresh_qcall]): those whose recursive calls past
+   their unrollings are left unconstrained, which [LustreFunDefs] defines
+   the symbol as, the function unrolled as many times as the analysis
+   unrolls it.
+
+   The conditions are those of the non-recursive functions that can be
+   inlined, whatever the analysis:
+
+   - The function has no effective contract, or is transparent. A contract
+     abstracts a translucent function in compositional analyses only, but a
+     translucent function with a contract is left out in every analysis, as
+     a non-recursive one is. Its symbol would otherwise be defined in some
+     analyses and not in others. In an analysis where a contract abstracts
+     the function, the contract only constrains its symbol at the arguments
+     of its instances, so under a quantifier it would be an arbitrary
+     function and a property that does hold of it could be reported
+     falsifiable.
+   - No output or local is of a type that contains an array, and the body
+     is made of equations that define all of its outputs and locals, without
+     assertions. [LustreFunDefs] builds no definition from another body, and
+     the symbol would be arbitrary under the quantifier as well.
+   - Every function the body calls can be inlined, or is a recursive
+     function that meets these conditions in turn. [LustreFunDefs] defines
+     a function together with the functions of its recursive group and the
+     functions they call: if one of them cannot be defined, none is. An
+     imported function, or a function that can neither be inlined nor be
+     defined, is an arbitrary function under the quantifier.
+
+   The last condition makes the set a greatest fixpoint: a recursive group
+   is in it if all of its functions meet the other conditions and call no
+   function outside of it but those that can be inlined or are in it.
+
+   A polymorphic function is checked with its type parameters as they are:
+   an instantiation of it may still have an output of a refinement type, or
+   an output or local of an array type (see [uf_callable_instance]).
+
+   The remaining conditions of [LustreFunDefs] -- the solver or logic takes
+   recursive definitions, and the body has no construct the compilation of
+   the nodes makes partial, such as an activation condition -- are not
+   known at this point. A call to a function that fails them is accepted
+   here, and [LustreTransSys] warns about it. *)
+let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
+= fun ctx decls ->
+  let inlinable = inlinable_functions ctx decls in
+  let declared =
+    List.fold_left (fun acc dcl ->
+      match dcl with
+      | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _)
+      | A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) -> NI.Set.add id acc
+      | _ -> acc)
+      NI.Set.empty decls
+  in
+  (* The recursive functions that meet the conditions on themselves, with
+     the functions they call *)
+  let candidates, _ =
+    List.fold_left (fun (cands, contracts) dcl ->
+      match dcl with
+      | A.ContractNodeDecl (_, contract_node_decl) -> (
+        let (id, _, _, _, _) = contract_node_decl in
+        cands, NI.Map.add id contract_node_decl contracts
+      )
+      (* A non-imported recursive function *)
+      | A.FuncDecl
+          (_, (id, false, opac, _, _, outputs, locals, items, contract),
+           { A.is_rec = true; is_lemma = false })
+        -> (
+        if has_no_effective_contract ctx contracts opac contract outputs
+           && no_array_vars ctx outputs locals
+           && defines_all_vars outputs locals items
+        then
+          NI.Map.add id (callees declared items) cands, contracts
+        else
+          cands, contracts
+      )
+      | _ -> cands, contracts
+    )
+    (NI.Map.empty, NI.Map.empty)
+    decls
+  in
+  (* Remove the functions that call a function that is neither inlinable nor
+     a remaining candidate, until there is none *)
+  let rec fixpoint cands =
+    let cands' =
+      NI.Map.filter
+        (fun _ calls ->
+           NI.Set.for_all
+             (fun c -> NI.Set.mem c inlinable || NI.Map.mem c cands)
+             calls)
+        cands
+    in
+    if NI.Map.cardinal cands' = NI.Map.cardinal cands then cands
+    else fixpoint cands'
+  in
+  fixpoint candidates
+  |> NI.Map.bindings
+  |> List.map fst
+  |> NI.Set.of_list
