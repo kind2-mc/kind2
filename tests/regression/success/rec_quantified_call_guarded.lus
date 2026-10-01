@@ -68,6 +68,16 @@ let
   check "imported function" Sub(m);
   -- The obligations of Leftmost hold where the guard does
   check "callee obligations" forall (x: Message) IsPair(x) ==> Leftmost(x) = Leftmost(x);
+  -- A quantifier in the guard, whose variable the call in the guard stays
+  -- applied to
+  check "quantifier in guard"
+    forall (x: Message) (forall (y: Message) Subterm(y, x)) ==> Size(Pair(m, m)) = 1 + Size(m) + Size(m);
+  -- Arithmetic in the guard, on a variable the call does not mention, and on
+  -- a call
+  check "arithmetic on a variable"
+    forall (n: int; x: Message) n + 1 > 0 and Subterm(x, m) ==> Size(Pair(x, x)) = 1 + Size(x) + Size(x);
+  check "arithmetic on a call"
+    forall (x, y: Message) Size(y) + 1 > 0 and Subterm(x, m) ==> Size(Pair(x, x)) = 1 + Size(x) + Size(x);
   Lem(m);
 tel
 
