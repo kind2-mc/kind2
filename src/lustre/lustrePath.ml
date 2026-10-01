@@ -51,11 +51,19 @@ type t =
 (* Reconstruct a model for a node hierarchy                               *)
 (* ********************************************************************** *)
 
-(* Map a state variable to its instance in the top system *)
+(* Map a state variable to its instance in the top system
+
+   An input of a node can be bound to a free global constant, which
+   [map_up] maps to the constant itself. The constant is shared by all
+   nodes, so it has no entry in the [map_up] of the instances further
+   up, and it is its own instance in the top system. *)
 let map_top instances state_var =
 
   List.fold_left 
-    (fun state_var (_, { T.map_up }, _) -> SVM.find state_var map_up)
+    (fun state_var (_, { T.map_up }, _) ->
+       match SVM.find state_var map_up with
+       | sv -> sv
+       | exception Not_found when StateVar.is_const state_var -> state_var)
     state_var
     instances
 

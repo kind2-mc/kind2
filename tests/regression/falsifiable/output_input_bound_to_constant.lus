@@ -1,0 +1,41 @@
+-- Calls whose argument is exactly a free global constant, made from inside
+-- a function or a node rather than from the top node. The input of the
+-- callee is bound to the constant, so its stream is the constant's stream:
+-- printing the counterexample once crashed in -json and -xml mode, and the
+-- text output left the input out (issue #1610).
+const N: int;
+
+function S(x: int) returns (r: int);
+let
+  r = x;
+tel
+
+function rec R(x: int) returns (r: int);
+(*@contract
+  decreases x;
+*)
+let
+  r = if x <= 0 then 0 else 1 + R(x - 1);
+tel
+
+function T() returns (r: int);
+let
+  r = S(N);
+tel
+
+node U() returns (r: int);
+let
+  r = S(N);
+tel
+
+function V() returns (r: int);
+let
+  r = R(N);
+tel
+
+node Main() returns ();
+let
+  check "via_function" T() = 1;
+  check "via_node" U() = 1;
+  check "via_recursive" V() = 1;
+tel
