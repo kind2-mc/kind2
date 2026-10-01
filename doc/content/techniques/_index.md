@@ -73,7 +73,10 @@ is refined the same way, in steps. In a compositional analysis its contract
 stands in for its recursive calls; once its own analysis has proved that
 contract, refining a call to it from another node or function first unrolls
 the body of the function once, with its recursive calls abstracted by the
-contract, then up to `--rec_unrollings` times (10 by default). The analysis
+contract, then up to `--rec_unrollings` times (2 by default); the values
+of the calls that a spurious counterexample relied on are given to the
+refinements as well, so that they need not unroll the function as deep as
+the calls go. The analysis
 of the function itself, or of a function of its recursive group, is not
 refined this way: there the contract remains the induction hypothesis of the
 recursion.

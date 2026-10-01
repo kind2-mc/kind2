@@ -1027,21 +1027,22 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
 
       let param, sys = run_engines param sys in
       let genuine = RecUnrolling.genuine_properties () in
+      let learned = RecUnrolling.learned_facts () in
       (* The solver of the last round, if any, is not needed anymore *)
       RecUnrolling.reset () ;
-      latest_param_and_sys := Some (param, sys, genuine)
+      latest_param_and_sys := Some (param, sys, genuine, learned)
   ) ;
 
-  let param, sys, genuine =
+  let param, sys, genuine, learned =
     match !latest_param_and_sys with
-    | Some (param, sys, genuine) -> param, sys, genuine
-    | None -> param, sys, []
+    | Some (param, sys, genuine, learned) -> param, sys, genuine, learned
+    | None -> param, sys, [], []
   in
   latest_param_and_sys := None ;
 
   let result =
     Stat.get_float Stat.analysis_time
-    |> Anal.mk_result ~genuine param sys
+    |> Anal.mk_result ~genuine ~learned param sys
   in
 
   if not ignore_props && save_results then (

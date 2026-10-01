@@ -375,6 +375,7 @@ let first_param_of ass results all_nodes scope =
           A.abstraction_map = abstraction ;
           A.unrollings = Scope.Map.empty ;
           A.terminating = terminating_functions results all_nodes ;
+          A.learned = [] ;
           A.assumptions = ass }
       in
       if Scope.Map.find scope abstraction then
@@ -456,6 +457,15 @@ let last_assumptions () =
   | None -> A.assumptions_empty
   | Some sys -> A.assumptions_of_sys sys
 
+(* The values of calls of [learned], followed by those of [learned'] that
+   are not among them *)
+let merge_learned learned learned' =
+  let same (f, a, _) (g, b, _) =
+    UfSymbol.equal_uf_symbols f g && List.equal Term.equal a b
+  in
+  learned
+  @ List.filter (fun l -> not (List.exists (same l) learned)) learned'
+
 (* The parameter of the refinement of [sys] with the abstraction and
    unrollings [maps], after [result] *)
 let refinement_of results all_nodes sys result (abstraction, unrollings) =
@@ -466,6 +476,9 @@ let refinement_of results all_nodes sys result (abstraction, unrollings) =
       A.abstraction_map = abstraction ;
       A.unrollings = unrollings ;
       A.terminating = terminating_functions results all_nodes ;
+      (* The values of calls evaluated by the checks of the counterexamples
+         of the previous analyses of [sys], which showed them spurious *)
+      A.learned = merge_learned prev.A.learned result.A.learned ;
       A.assumptions =
         A.assumptions_merge
           (assumptions_of_refined results

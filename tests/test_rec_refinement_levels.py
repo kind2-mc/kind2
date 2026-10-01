@@ -8,6 +8,11 @@ abstracted by the contract, and stop there. Each refinement is an analysis
 of the caller. The first analysis falsifies the
 check, and the documented exit code counts every analysis, so this checks
 the number of analyses of the caller and their answers.
+
+The values of the calls that the check of a spurious counterexample
+evaluates would otherwise prove the check in the first refinement (see
+test_rec_learned_values.py): they are not learned here, with
+--rec_learn_values false, so that the unrollings are what is tested.
 """
 
 import json
@@ -28,6 +33,7 @@ def answers_of_main(model, limit):
         "--compositional": "true",
         "--modular": "true",
         "--rec_unrollings": str(limit),
+        "--rec_learn_values": "false",
     }
     arg_list = [arg for pair in args.items() for arg in pair]
     run = subprocess.run(

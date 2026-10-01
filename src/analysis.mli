@@ -96,6 +96,16 @@ type info = {
       solver, when the checks of all its recursive calls are among them (see
       {!LustreTransSys}). *)
 
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** Values of calls to recursive functions, each a functional symbol of
+      an output of the function with the concrete arguments of the call and
+      its value, that earlier analyses of the top system evaluated while
+      checking their counterexamples, which these values showed to be
+      spurious (see [RecUnrolling.check_abstractions]). Those of the
+      functions proved terminating (see [terminating]) are given to the
+      solver as facts (see [LustreTransSys]), so that a refinement knows
+      them without unrolling the functions as deep as the calls go. *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
      refinement. *)
@@ -148,6 +158,11 @@ and result = {
       functions as they are violate, rather than their contracts that
       abstract them in the system (see [RecUnrolling.check_abstractions]):
       refining the recursive functions cannot prove them. *)
+
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** The values of calls to recursive functions that the checks of the
+      counterexamples of the analysis evaluated, when they showed a
+      counterexample to be spurious (see [info.learned]). *)
 }
 
 
@@ -182,7 +197,9 @@ val no_system_is_abstract : ?include_top:bool -> param -> bool
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
 (** Returns a result from an analysis. *)
-val mk_result : ?genuine:string list -> param -> TransSys.t -> float -> result
+val mk_result :
+  ?genuine:string list -> ?learned:(UfSymbol.t * Term.t list * Term.t) list ->
+  param -> TransSys.t -> float -> result
 
 (** Returns true if all properties in the system
     in a [result] have been proved. *)

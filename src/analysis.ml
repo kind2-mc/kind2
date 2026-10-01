@@ -93,6 +93,16 @@ type info = {
       solver, when the checks of all its recursive calls are among them (see
       [LustreTransSys]). *)
 
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** Values of calls to recursive functions, each a functional symbol of
+      an output of the function with the concrete arguments of the call and
+      its value, that earlier analyses of the top system evaluated while
+      checking their counterexamples, which these values showed to be
+      spurious (see [RecUnrolling.check_abstractions]). Those of the
+      functions proved terminating (see [terminating]) are given to the
+      solver as facts (see [LustreTransSys]), so that a refinement knows
+      them without unrolling the functions as deep as the calls go. *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
       refinement. *)
@@ -166,6 +176,11 @@ and result = {
       functions as they are violate, rather than their contracts that
       abstract them in the system (see [RecUnrolling.check_abstractions]):
       refining the recursive functions cannot prove them. *)
+
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** The values of calls to recursive functions that the checks of the
+      counterexamples of the analysis evaluated, when they showed a
+      counterexample to be spurious (see [info.learned]). *)
 }
 
 (* Clones an [info], only changes its [uid]. *)
@@ -244,7 +259,7 @@ let no_system_is_abstract ?(include_top=true) param =
 (* type prop_kind = | Contract | Subreq | Prop *)
 
 (* Creates a [result] from a [param], a [t] and an analysis time. *)
-let mk_result ?(genuine = []) param sys time =
+let mk_result ?(genuine = []) ?(learned = []) param sys time =
 
   let valid, invalid, unknown = TransSys.get_split_properties sys in
 
@@ -266,7 +281,7 @@ let mk_result ?(genuine = []) param sys time =
     find c_valid r_valid false unknown
   in
 
-  { param ; time ; sys ; contract_valid ; requirements_valid ; genuine }
+  { param ; time ; sys ; contract_valid ; requirements_valid ; genuine ; learned }
 
 (** Returns true if all invariant properties in the system
     in a [result] have been proved. *)

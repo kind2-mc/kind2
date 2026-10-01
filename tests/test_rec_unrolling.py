@@ -40,9 +40,11 @@ def run(model, extra):
     return proc.returncode, answers, elapsed
 
 
-# Fact(3) = 6 needs Fact(0) to be the body: four unrollings
+# Fact(3) = 6 needs Fact(0) to be the body: four unrollings, more than the
+# default limit. Outside of a modular analysis the call is not evaluated, as
+# the termination of Fact is not known, so it takes the unrollings.
 def test_unrolled_until_the_arguments_are_exhausted():
-    code, answers, _ = run("success/rec_def_contract.lus", {})
+    code, answers, _ = run("success/rec_def_contract.lus", {"--rec_unrollings": "4"})
     assert code == 0, answers
     assert answers["fact3"] == "valid"
 

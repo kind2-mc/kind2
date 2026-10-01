@@ -105,6 +105,11 @@ let facts : Term.t Facts.t = Facts.create 64
 let instantiated : Term.t Facts.t = Facts.create 16
 let pending : (UfSymbol.t * Term.t list * Term.t) list ref = ref []
 
+(* The values of the calls evaluated by the checks of the abstractions of
+   the analysis that showed a counterexample spurious (see
+   [check_abstractions]) *)
+let learned : Term.t Facts.t = Facts.create 16
+
 (* The applications of the defined symbols in a term, each with the
    condition under which the term executes it: the conditions of the
    branches of the if-then-elses it is under. The let bindings the
@@ -281,6 +286,7 @@ let reset () =
   requested_functions := Scope.Set.empty ;
   exhausted := SSet.empty ;
   genuine_props := SSet.empty ;
+  Facts.reset learned ;
   reported := Scope.Set.empty ;
   current_count := 0 ;
   previous_count := 0
@@ -360,8 +366,12 @@ let max_evaluation_rounds = 8
    With [~abstracted:true], the calls whose values are evaluated include
    those of the instances that the contracts of their functions abstract,
    whose outputs are constrained by the contracts only, besides the calls
-   past the unrollings. *)
-let genuine ?(abstracted = false) sys prop cex =
+   past the unrollings.
+
+   The outcome is [`Result true] for a genuine counterexample, [`Result
+   false] for one shown spurious, with the values of the calls evaluated
+   on the way in [facts], and [`Undecided] otherwise. *)
+let outcome ?(abstracted = false) sys prop cex =
   let path = Model.path_of_list cex in
   let k = Numeral.of_int (Model.path_length path - 1) in
   let steps = List.init (Numeral.to_int k + 1) Numeral.of_int in
@@ -554,7 +564,12 @@ let genuine ?(abstracted = false) sys prop cex =
       drop_round_solver () ;
       raise e
   in
-  match result with
+  result
+
+(* Whether the counterexample is genuine (see [outcome]), an undecided one
+   not being taken as genuine *)
+let genuine ?abstracted sys prop cex =
+  match outcome ?abstracted sys prop cex with
   | `Result r -> r
   | `Undecided -> false
 
@@ -641,19 +656,36 @@ let check_abstractions ~sliced sys prop cex =
         ~finally:(fun () ->
           round_time := !round_time +. (Unix.gettimeofday () -. started))
         (fun () ->
+           (* A counterexample shown spurious only failed with values of
+              the calls that the functions do not have: the values they do
+              have, evaluated on the way, are kept for the refinements of
+              the system (see [Analysis.info.learned]). They are taken from
+              the facts of the check, before [isolated] restores those of
+              the round. *)
+           let check sys =
+             match outcome ~abstracted:true sys prop cex with
+             | `Result true -> true
+             | `Result false ->
+               if Flags.Contracts.rec_learn_values () then
+                 Facts.iter (Facts.replace learned) facts ;
+               false
+             | `Undecided -> false
+           in
            (* On the system sliced to the property, the counterexample only
               executes the calls the property depends on, or an assertion
               or an assumption does: a call it executes on the whole
               system, but that cannot change the answer, would leave it
               undecided if it cannot be evaluated *)
            match sliced () with
-           | Some sliced_sys ->
-             isolated (fun () -> genuine ~abstracted:true sliced_sys prop cex)
-           | None -> genuine ~abstracted:true sys prop cex)
+           | Some sliced_sys -> isolated (fun () -> check sliced_sys)
+           | None -> check sys)
     in
     if genuine then genuine_props := SSet.add prop !genuine_props)
 
 let genuine_properties () = SSet.elements !genuine_props
+
+let learned_facts () =
+  Facts.fold (fun (uf, args) value acc -> (uf, args, value) :: acc) learned []
 
 let is_exhausted prop = SSet.mem prop !exhausted
 

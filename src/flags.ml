@@ -1389,8 +1389,12 @@ module Contracts = struct
   let refinement () = !refinement
 
   (* Unrollings of a recursive function a refinement tries before defining
-     it. *)
-  let rec_unrollings_default = 10
+     it. Two are enough for the proofs whose induction a contract or a lemma
+     carries, where the unrolling only has to reach a base case through the
+     recursive call; a call whose arguments are constant, or are fixed in a
+     counterexample, is evaluated rather than unrolled in a modular
+     analysis. *)
+  let rec_unrollings_default = 2
   let rec_unrollings = ref rec_unrollings_default
   let _ = add_spec
     "--rec_unrollings"
@@ -1406,12 +1410,35 @@ module Contracts = struct
         In any other analysis, a recursive call past the unrollings of@ \
         its function is left unconstrained, and the function is unrolled@ \
         once more, up to <int> times, when a counterexample reaches@ \
-        such a call@ \
+        such a call. In a modular analysis, a call at constant arguments@ \
+        to a function proved terminating is evaluated instead, and so is,@ \
+        in a compositional one, a call a spurious counterexample fixes@ \
+        the arguments of@ \
         Default: %d\
       @]"
       rec_unrollings_default
     )
   let rec_unrollings () = !rec_unrollings
+
+  (* Whether the values of the calls that the check of a spurious
+     counterexample evaluated are given to the refinements of the caller *)
+  let rec_learn_values_default = true
+  let rec_learn_values = ref rec_learn_values_default
+  let _ = add_spec
+    "--rec_learn_values"
+    (bool_arg rec_learn_values)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        In a compositional and modular analysis, give the refinements of@ \
+        a caller the values of the calls to recursive functions proved@ \
+        terminating that the check of a spurious counterexample evaluated,@ \
+        so that they need not unroll the functions as deep as the calls go@ \
+        Default: %a\
+      @]"
+      fmt_bool rec_learn_values_default
+    )
+  let rec_learn_values () = !rec_learn_values
 
   (* Instances of recursive functions the unrolling may create *)
   let rec_instances_default = 100
