@@ -182,6 +182,36 @@ let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
   decls
   |> fst
 
+(* The polymorphic non-recursive functions that meet the conditions of
+   [inlinable_functions] with their type parameters as they are, given the
+   set [inlinable] of the monomorphic ones. Only the instantiations of a
+   polymorphic function are inlined, and [inlinable_functions] leaves its
+   declaration out; but the declaration of a polymorphic recursive function
+   calls the declarations of the polymorphic functions it calls, and is what
+   [LustreSyntaxChecks] looks a call up by (see [uf_callable_functions]). *)
+let generic_inlinable_functions ctx decls inlinable =
+  List.fold_left (fun (set, contracts) dcl ->
+    match dcl with
+    | A.ContractNodeDecl (_, contract_node_decl) -> (
+      let (id, _, _, _, _) = contract_node_decl in
+      set, NI.Map.add id contract_node_decl contracts
+    )
+    (* A non-imported non-recursive polymorphic function *)
+    | A.FuncDecl
+        (_, (id, false, opac, _ :: _, _, outputs, locals, items, contract),
+         { is_lemma = false; is_rec = false })
+      -> (
+      let calls_ok = NI.Set.union inlinable set in
+      if is_inlinable calls_ok contracts ctx opac contract outputs locals items
+      then NI.Set.add id set, contracts
+      else set, contracts
+    )
+    | _ -> set, contracts
+  )
+  (NI.Set.empty, NI.Map.empty)
+  decls
+  |> fst
+
 (* Whether the body of a function is made of equations that define all of its
    outputs and local variables, each a single variable or a tuple of them,
    and of properties: no assertion, and no array element defined on its own *)
@@ -254,6 +284,16 @@ let callees declared items =
    is in it if all of its functions meet the other conditions and call no
    function outside of it but those that can be inlined or are in it.
 
+   The declaration of a polymorphic function is in the set if it meets the
+   conditions with its type parameters as they are, and a polymorphic
+   non-recursive function it calls is taken to be inlinable under the same
+   terms (see [generic_inlinable_functions]): [LustreSyntaxChecks] looks a
+   call up by the declaration of the polymorphic function. Each
+   instantiation is in the set on its own terms, and is what the call is
+   compiled to: [LustreAstNormalizer] rejects a call to an instantiation that
+   is not in the set, for one that a type argument gives a variable of an
+   array or a refinement type.
+
    A polymorphic function is checked with its type parameters as they are:
    an instantiation of it may still have an output of a refinement type, or
    an output or local of an array type (see [uf_callable_instance]).
@@ -265,6 +305,9 @@ let callees declared items =
 let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
 = fun ctx decls ->
   let inlinable = inlinable_functions ctx decls in
+  let inlinable =
+    NI.Set.union inlinable (generic_inlinable_functions ctx decls inlinable)
+  in
   let declared =
     List.fold_left (fun acc dcl ->
       match dcl with

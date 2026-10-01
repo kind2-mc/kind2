@@ -1,0 +1,35 @@
+-- Quantified calls to recursive functions that call polymorphic non-recursive
+-- functions that can be inlined: from a polymorphic recursive function,
+-- directly and through another polymorphic function, and from a monomorphic
+-- one. The declaration of a polymorphic function is not inlinable, only its
+-- instantiations are, but it does not rule out the declaration of the
+-- polymorphic recursive function that calls it, which the check of the call
+-- looks up.
+
+function Once<T> (x: T) returns (y: T);
+let
+  y = x;
+tel
+
+function Twice<T> (x: T) returns (y: T);
+let
+  y = Once(x);
+tel
+
+function rec Fp<T> (x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then Twice(x) else Fp(x, n - 1);
+tel
+
+function rec F (x: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then Twice@<int>(x) else F(x, n - 1);
+tel
+
+node Test (a: int) returns ();
+let
+  check "polymorphic caller" forall (k: int) k <= 0 => Fp@<int>(a, k) = a;
+  check "monomorphic caller" forall (k: int) k <= 0 => F(a, k) = a;
+tel
