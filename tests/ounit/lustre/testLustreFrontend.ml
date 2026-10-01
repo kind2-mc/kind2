@@ -1160,6 +1160,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/refinement_type_arg_ghost_const.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
     | _ -> false);
+  mk_test "refinement type argument through a synonym in constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_synonym_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument under restart" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_restart.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument under activate" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_activate.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

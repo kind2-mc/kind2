@@ -240,6 +240,16 @@ and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t -> N
 fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ~insert ~bound ctx node_name fun_ids in
   let bind ids = desugar_expr ~insert ~bound:(Ctx.SI.union bound ids) ctx node_name fun_ids in
+  (* Arguments for constant parameters of node id must be constant expressions *)
+  let desugar_args id args =
+    let is_const_param = match Ctx.lookup_node_param_attr ctx id with
+      | Some attrs when List.length attrs = List.length args -> List.map snd attrs
+      | Some _ | None -> List.map (fun _ -> false) args
+    in
+    List.map2 (fun is_const e ->
+      desugar_expr ~insert:(insert && not is_const) ~bound ctx node_name fun_ids e
+    ) is_const_param args |> List.split
+  in
   match expr with
   | TypeAscription (pos, e, ty) ->
     let e, gen_nodes1 = rec_call e in
@@ -391,7 +401,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    let expr_list1, gen_nodes3 = List.map rec_call expr_list1 |> List.split in
+    let expr_list1, gen_nodes3 = desugar_args id expr_list1 in
     let expr_list2, gen_nodes4 = List.map rec_call expr_list2 |> List.split in
     Condact (pos, e1, e2, id, expr_list1, expr_list2), gen_nodes1 @ gen_nodes2 @ 
                                                       List.flatten gen_nodes3 @ List.flatten gen_nodes4
@@ -406,7 +416,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
     let expr_list, gen_nodes = List.split exprs_gen_nodes in
     Merge (pos, ident, List.combine id_list expr_list), List.flatten gen_nodes
   | RestartEvery (pos, ident, expr_list, e) ->
-    let expr_list, gen_nodes1 = List.map (rec_call) expr_list |> List.split in
+    let expr_list, gen_nodes1 = desugar_args ident expr_list in
     let e, gen_nodes2 = rec_call e in
     RestartEvery (pos, ident, expr_list, e), List.flatten gen_nodes1 @ gen_nodes2
   | Pre (pos, e) -> 
@@ -418,14 +428,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
-    (* Arguments for constant parameters must be constant expressions *)
-    let is_const_param = match Ctx.lookup_node_param_attr ctx id with
-      | Some attrs when List.length attrs = List.length expr_list -> List.map snd attrs
-      | Some _ | None -> List.map (fun _ -> false) expr_list
-    in
-    let args, gen_nodes = List.map2 (fun is_const e ->
-      desugar_expr ~insert:(insert && not is_const) ~bound ctx node_name fun_ids e
-    ) is_const_param expr_list |> List.split in
+    let args, gen_nodes = desugar_args id expr_list in
     let e = A.Call (pos, ty_args, id, args) in
     let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
     (* A call without type arguments to a constructor's name is a constructor application *)
@@ -462,9 +465,9 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
     let e, gen_nodes = rec_call e in
     ADTTester (pos, e, c), gen_nodes
 
-let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
-fun ctx node_name fun_ids ci ->
-  let rec_call = desugar_expr ctx node_name fun_ids in
+let desugar_contract_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids ci ->
+  let rec_call = desugar_expr ~insert ctx node_name fun_ids in
   match ci with
   | A.GhostVars (pos, lhs, e) ->
     let lhs, gen_nodes_ty = match lhs with
@@ -512,28 +515,28 @@ fun ctx node_name fun_ids ci ->
     A.GhostConst (A.UntypedConst (pos, id, e)), gen_nodes
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
-fun ctx node_name fun_ids contract -> 
+let desugar_contract: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids contract -> 
   match contract with 
   | Some (pos, contract_items) -> 
-    let items, gen_nodes = (List.map (desugar_contract_item ctx node_name fun_ids) contract_items) |> List.split in
+    let items, gen_nodes = (List.map (desugar_contract_item ~insert ctx node_name fun_ids) contract_items) |> List.split in
     Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
-let rec desugar_node_item: Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
-fun ctx node_name fun_ids ni ->
-  let rec_call = desugar_node_item ctx node_name fun_ids in
+let rec desugar_node_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids ni ->
+  let rec_call = desugar_node_item ~insert ctx node_name fun_ids in
   match ni with
   | A.Body (Equation (pos, lhs, rhs)) -> 
-    let rhs, gen_nodes = desugar_expr ctx node_name fun_ids rhs in 
+    let rhs, gen_nodes = desugar_expr ~insert ctx node_name fun_ids rhs in 
     A.Body (Equation (pos, lhs, rhs)), gen_nodes
   | AnnotProperty (pos, name, e, k) -> 
-    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in 
+    let e, gen_nodes = desugar_expr ~insert ctx node_name fun_ids e in 
     AnnotProperty(pos, name, e, k), gen_nodes
   | IfBlock (pos, cond, nis1, nis2) -> 
     let nis1, gen_nodes1 = List.map rec_call nis1 |> List.split in
     let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
-    let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
+    let cond, gen_nodes3 = desugar_expr ~insert ctx node_name fun_ids cond in
     A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | WhenBlock (pos, cond, nis1, nis2) ->
     (* The right-hand side of each equation in a when block branch becomes a
@@ -544,14 +547,14 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs', gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs', gen_nodes1 = desugar_expr ~insert ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name ~orig:rhs rhs' in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
     in
     let nis1, gen_nodes1 = List.map process_branch_item nis1 |> List.split in
     let nis2, gen_nodes2 = List.map process_branch_item nis2 |> List.split in
-    let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
+    let cond, gen_nodes3 = desugar_expr ~insert ctx node_name fun_ids cond in
     A.WhenBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | MatchBlock (pos, scrut, arms, ty) ->
     (* A match block becomes a chain of when blocks later in the pipeline, so
@@ -559,7 +562,7 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs', gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs', gen_nodes1 = desugar_expr ~insert ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name ~orig:rhs rhs' in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
@@ -572,7 +575,7 @@ fun ctx node_name fun_ids ni ->
         (p, items), List.flatten gn) arms
       |> List.split
     in
-    let scrut, gen_nodes2 = desugar_expr ctx node_name fun_ids scrut in
+    let scrut, gen_nodes2 = desugar_expr ~insert ctx node_name fun_ids scrut in
     A.MatchBlock (pos, scrut, arms, ty), List.flatten gen_nodes1 @ gen_nodes2
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
@@ -584,7 +587,7 @@ fun ctx node_name fun_ids ni ->
     let nis, gen_nodes2 = List.map rec_call nis |> List.split in
     FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
   | Body (Assert (pos, e)) ->
-    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in
+    let e, gen_nodes = desugar_expr ~insert ctx node_name fun_ids e in
     Body (Assert (pos, e)), gen_nodes
   | AnnotMain _ -> ni, []
   | Auto _ -> ni, []
@@ -670,8 +673,11 @@ fun ctx decls ->
         | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
             A.NodeConstDecl (pos, cd), []
       ) locals |> List.split in
-      let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
-      let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
+      (* An ascription would prevent the encoding of a recursive function as a
+         recursive SMT definition *)
+      let insert = not is_rec.A.is_rec in
+      let items, gen_nodes = List.map (desugar_node_item ~insert ctx id fun_ids) items |> List.split in
+      let contract, gen_nodes2 = desugar_contract ~insert ctx id fun_ids contract in
       let gen_nodes = 
         List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ List.flatten gen_nodes_loc @ List.flatten gen_nodes 
       in
