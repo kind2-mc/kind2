@@ -32,6 +32,8 @@ models = [
     "falsifiable/gen_call_in_type_decl.lus",
     # Monomorphized node names, which carry their type arguments in <>
     "success/poly_bug2.lus",
+    # Calls in subnodes whose argument is exactly a free global constant
+    "falsifiable/output_input_bound_to_constant.lus",
 ]
 
 # The names `output_escaped_names.lus` gives its properties. Escaping has to
@@ -77,3 +79,34 @@ def test_property_names_survive_xml():
     results = ET.fromstring(output_of("success/output_escaped_names.lus", "-xml"))
     names = {prop.get("name") for prop in results.iter("Property")}
     assert escaped_names <= names
+
+
+def subnodes_named(node, name):
+    if node["name"] == name:
+        yield node
+    for sub in node.get("subnodes", []):
+        yield from subnodes_named(sub, name)
+
+
+def test_input_bound_to_constant_printed():
+    # The input of a call whose argument is a free global constant takes the
+    # value of the constant, rather than being missing from the counterexample
+    for obj in json.loads(
+        output_of("falsifiable/output_input_bound_to_constant.lus", "-json")
+    ):
+        if obj.get("objectType") != "property" or "counterExample" not in obj:
+            continue
+        top = obj["counterExample"][0]
+        constant = next(s for s in top["streams"] if s["name"] == "N")
+        callees = [
+            node
+            for name in ("S", "R")
+            for node in subnodes_named(top, name)
+        ]
+        assert callees, obj["name"]
+        for callee in callees:
+            inputs = [s for s in callee["streams"] if s["class"] == "input"]
+            assert [s["name"] for s in inputs] == ["x"], obj["name"]
+            # The outermost call of R is the one applied to the constant
+            if callee is callees[0]:
+                assert inputs[0]["instantValues"] == constant["instantValues"]
