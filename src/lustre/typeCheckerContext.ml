@@ -937,7 +937,9 @@ let rec ty_vars_of_expr ctx node_name expr =
   | Ident (_, id) | Last (_, id) -> (
     match lookup_ty ctx id with
     | None -> SI.empty (* e.g. any bound variable *)
-    | Some ty -> ty_vars_of_type ctx node_name ty
+    (* The variable is not in scope in its own type, which may mention an outer
+       variable of the same name *)
+    | Some ty -> ty_vars_of_type (remove_ty ctx id) node_name ty
   )
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> SI.empty

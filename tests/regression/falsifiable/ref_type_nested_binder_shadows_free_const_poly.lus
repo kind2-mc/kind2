@@ -1,0 +1,10 @@
+const k: int;
+node id<T> (x: T) returns (y: T);
+let
+  y = x;
+tel
+node main (p: int) returns (y: int);
+let
+  y = id@<subtype { k: subtype { j: int | j < k } | k > 0 }>(p);
+  check false;
+tel
