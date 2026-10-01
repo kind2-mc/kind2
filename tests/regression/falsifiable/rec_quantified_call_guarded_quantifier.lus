@@ -1,0 +1,21 @@
+-- A guard with a quantifier of its own, whose variable the call in the guard
+-- stays applied to (issue #1519): the guard holds, and the property does not.
+
+datatype Message = Atomic (v: int) | Pair (fst: Message, snd: Message);
+
+function rec Subterm (x: Message; m: Message) returns (r: bool)
+con decreases m; noc
+let
+  r = x = m or (match m with | Pair (f, s) : Subterm(x, f) or Subterm(x, s) | _ : false end);
+tel
+
+function rec Size (m: Message) returns (r: int)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : 1 + Size(f) + Size(s) | _ : 1 end;
+tel
+
+node L (m: Message) returns ()
+let
+  check forall (x: Message) (exists (y: Message) Subterm(y, x)) ==> Size(m) = 1;
+tel

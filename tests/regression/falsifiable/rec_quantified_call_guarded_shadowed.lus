@@ -1,0 +1,24 @@
+-- A guard on a quantified variable that an inner quantifier shadows
+-- (issue #1519): the guard is on the outer x, and the inner x, which the call
+-- to Leftmost is applied to, may be an Atomic, so the selector obligation of
+-- Leftmost does not hold.
+
+datatype Message = Atomic (v: int) | Pair (fst: Message, snd: Message);
+
+function rec IsPair (m: Message) returns (r: bool)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : IsPair(f) or true | _ : false end;
+tel
+
+-- Its selector obligation holds only if it is never called with an Atomic
+function rec Leftmost (m: Message) returns (r: Message)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : (if Pair?(f) then Leftmost(f) else f) | _ : m.fst end;
+tel
+
+node L (m: Message) returns ()
+let
+  check forall (x: Message) IsPair(x) ==> (forall (x: Message) Leftmost(x) = Leftmost(x));
+tel

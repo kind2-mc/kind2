@@ -1,0 +1,16 @@
+-- A call under a quantifier guarded by a condition that depends on the
+-- quantified variables (issue #1519): the property does not hold, and is
+-- reported falsifiable rather than failing in the solver.
+
+datatype Message = Atomic (v: int) | Pair (fst: Message, snd: Message);
+
+function rec Subterm (x: Message; m: Message) returns (r: bool)
+con decreases m; noc
+let
+  r = x = m or (match m with | Pair (f, s) : Subterm(x, f) or Subterm(x, s) | _ : false end);
+tel
+
+node L (m: Message) returns ()
+let
+  check forall (x: Message) Subterm(x, m) ==> not Subterm(x, m);
+tel
