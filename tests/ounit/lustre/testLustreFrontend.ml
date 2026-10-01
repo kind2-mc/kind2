@@ -879,6 +879,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/const_param_3.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test match pattern variable in quantifier binder type" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_type_shadowed_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
   mk_test "test illegal node call in subrange bound" (fun () ->
     match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
     | Error (`LustreTypeCheckerError (_, UnboundNodeName _)) -> true
