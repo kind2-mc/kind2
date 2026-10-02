@@ -2795,16 +2795,19 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
     Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
 
 (* The evaluation of the calls of the analysis to the recursive functions
-   proved terminating, if any. The termination of a function is only known
-   once its own analysis has run, so a call is only evaluated in a modular
-   analysis, whether compositional or not. *)
+   proved terminating, if any, and to the functions that are not recursive,
+   whose evaluation does not depend on the termination of another function.
+   The termination of a function is only known once its own analysis has
+   run, so a call is only evaluated in a modular analysis, whether
+   compositional or not; with no recursive function proved terminating,
+   no evaluator is made, the calls to the functions that are not recursive
+   being evaluated through their bodies (see [facts_of_calls]). *)
 let evaluation_of_param globals options analysis_param nodes =
   let { A.terminating ; A.learned } = A.info_of_param analysis_param in
   match Atomic.get mk_evaluator with
   | None -> None
   | Some _ when
-      Scope.Map.is_empty terminating
-      || not options.add_functional_constraints
+      not options.add_functional_constraints
       || not (Flags.modular ()) -> None
   | Some mk_evaluator ->
     let rec_info_of node_id =
@@ -2881,37 +2884,35 @@ let evaluation_of_param globals options analysis_param nodes =
            then NI.Set.add node_id acc else acc)
         NI.Set.empty nodes
     in
-    if NI.Set.is_empty candidates then None
-    else
-      (* The values learned for the outputs of the candidates: their value
-         is the value of the function, which is proved terminating, as for
-         an evaluated call *)
-      let candidate_ufs =
-        NI.Set.fold
-          (fun node_id acc ->
-             match N.node_of_node_id node_id nodes with
-             | { N.comp_type = N.Function { N.uf_symbols } } ->
-               SVM.fold (fun _ uf acc -> uf :: acc) uf_symbols acc
-             | _ -> acc
-             | exception Not_found -> acc)
-          candidates []
-      in
-      let learned =
-        List.filter_map
-          (fun (uf, args, value) ->
-             if List.exists (UfSymbol.equal_uf_symbols uf) candidate_ufs
-             then Some (Term.mk_eq [ Term.mk_uf uf args ; value ])
-             else None)
-          learned
-      in
-      Some {
-        eval_nodes = nodes ;
-        candidates ;
-        evaluators = NI.Map.empty ;
-        mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
-        values = CallTbl.create 16 ;
-        learned ;
-      }
+    (* The values learned for the outputs of the candidates: their value
+       is the value of the function, which is proved terminating, as for
+       an evaluated call *)
+    let candidate_ufs =
+      NI.Set.fold
+        (fun node_id acc ->
+           match N.node_of_node_id node_id nodes with
+           | { N.comp_type = N.Function { N.uf_symbols } } ->
+             SVM.fold (fun _ uf acc -> uf :: acc) uf_symbols acc
+           | _ -> acc
+           | exception Not_found -> acc)
+        candidates []
+    in
+    let learned =
+      List.filter_map
+        (fun (uf, args, value) ->
+           if List.exists (UfSymbol.equal_uf_symbols uf) candidate_ufs
+           then Some (Term.mk_eq [ Term.mk_uf uf args ; value ])
+           else None)
+        learned
+    in
+    Some {
+      eval_nodes = nodes ;
+      candidates ;
+      evaluators = NI.Map.empty ;
+      mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
+      values = CallTbl.create 16 ;
+      learned ;
+    }
 
 (* The facts on the functional symbols of the functions evaluated that the
    calls of a node at constant arguments give: the value of each output of
