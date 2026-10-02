@@ -1,0 +1,18 @@
+-- The implementation of Callee does not satisfy its contract. When main is
+-- analyzed with Callee abstract, Callee must be replaced by its contract,
+-- under which "c" is falsifiable. Keeping the implementation as well makes
+-- the system inconsistent, and "c" vacuously valid.
+
+node Callee (x: int) returns (y: int);
+(*@contract
+  guarantee "pos" y > 0;
+*)
+let
+  y = -1;
+tel
+
+node main () returns (z: int);
+let
+  z = Callee(0);
+  check "c" z = 5;
+tel

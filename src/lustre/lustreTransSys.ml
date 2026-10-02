@@ -4541,7 +4541,13 @@ let trans_sys_of_nodes
       S.slice_to_abstraction_and_property
         ~preserve_sig analysis_param prop subsystem'
   else
-    subsystem'
+    (* The experimental slicing reduces the system to the cone of
+       influence of the properties later, on the transition system, but it
+       does not replace the implementation of the abstract nodes by their
+       contracts. Do it here, without reducing the nodes to the cone of
+       influence. *)
+    S.slice_to_abstraction
+      ~preserve_sig:options.preserve_sig false analysis_param subsystem'
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in
