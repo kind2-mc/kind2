@@ -1,0 +1,9 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node main (l: L) returns (ok: bool);
+var h: int;
+let
+  h = match l with | Nil : 0 | Cons (a, r) : a end;
+  ok = h = 0;
+  check ok;
+tel

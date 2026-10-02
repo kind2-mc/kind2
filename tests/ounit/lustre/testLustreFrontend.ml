@@ -995,6 +995,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
     | _ -> false);
+  mk_test "test duplicate constructor symbol within one ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_constructor_in_type.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructorInType _)) -> true
+    | _ -> false);
   mk_test "test duplicate field name across constructors of same ADT" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateFieldName _)) -> true
@@ -1163,6 +1167,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/mismatched_contract_import_order.lus" with
     | Error (`LustreTypeCheckerError (_,
         MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
+    | _ -> false);
+  mk_test "if-then-else constant of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Int _, Real _))) -> true
+    | _ -> false);
+  mk_test "if-then-else property of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_property_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
+    | _ -> false);
+  mk_test "if-then-else guarantee of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_guarantee_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
     | _ -> false);
 ])
 

@@ -1,0 +1,6 @@
+type B = subtype { x: bool | x or not x };
+node N(c: B) returns (y: int);
+let
+  y = 0;
+  check if c then y = 0 else true;
+tel
