@@ -97,6 +97,10 @@ def test_calls_at_outputs_of_non_recursive_functions_are_evaluated():
     for model, mode in [
         ("success/compositional/modular/rec_eval_non_rec_args.lus", COMPOSITIONAL),
         ("success/modular/rec_eval_non_rec_args.lus", MODULAR),
+        (
+            "success/compositional/modular/eval_non_rec_without_rec.lus",
+            COMPOSITIONAL,
+        ),
     ]:
         of_main = answers_of_main(model, mode)
         assert len(of_main) == 1, (model, of_main)
