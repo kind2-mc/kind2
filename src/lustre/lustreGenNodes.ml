@@ -34,14 +34,16 @@ let error_message kind = match kind with
    gen_nodes *)
 exception Const_in_clocked_temporal_expr of Lib.position * error_kind
 
-let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
-fun pos node_name node_type -> 
+let mk_fresh_fn_name: ?inserted:bool -> Lib.position -> NI.t -> NI.node_type -> NI.t = 
+fun ?(inserted = false) pos node_name node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
   let pos = String.sub pos 1 (String.length pos - 2) |> HString.mk_hstring in
   let name = match node_type with
   | Any -> HString.mk_hstring ".any_"
   | Choose -> HString.mk_hstring ".choose_"
-  | TypeAscription -> HString.mk_hstring ".type_ascription_"
+  | TypeAscription ->
+    (* Ascriptions inserted by Kind 2 are reported as subtype obligations *)
+    HString.mk_hstring (if inserted then ".subtype_" else ".type_ascription_")
   | ClockedExpr -> HString.mk_hstring ".clocked_expr_"
   | _ -> assert false
   in
@@ -296,64 +298,12 @@ fun ctx node_name gen_decls orig_e ->
     in
     A.Call (pos, ty_args, node_id, inputs_call), [decl]
 
-let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
-fun ctx node_name fun_ids ty -> 
-  let r = desugar_type ctx node_name fun_ids in 
-  match ty with 
-  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
-  | EnumType _ | AbstractType _ 
-  | UserType _ | History _ -> ty, [] 
-  | Map (p, kt, vt) -> 
-    let kt, gen_nodes1 = r kt in 
-    let vt, gen_nodes2 = r vt in
-    Map (p, kt, vt), gen_nodes1 @ gen_nodes2
-  | Set (p, ty) ->
-    let ty, gen_nodes = r ty in
-    Set (p, ty), gen_nodes  
-  | ArrayType (p, (ty, len)) ->
-    let ty, gen_nodes1 = r ty in
-    let len, gen_nodes2 = desugar_expr ctx node_name fun_ids len in
-    ArrayType (p, (ty, len)), gen_nodes1 @ gen_nodes2
-  | TArr (p, ty1, ty2) ->
-    let ty1, gen_nodes1 = r ty1 in
-    let ty2, gen_nodes2 = r ty2 in
-    TArr (p, ty1, ty2), gen_nodes1 @ gen_nodes2
-  | GroupType (p, tys) ->
-    let tys, gen_nodes = List.map r tys |> List.split in
-    GroupType (p, tys), List.flatten gen_nodes 
-  | TupleType (p, tys) ->
-    let tys, gen_nodes = List.map r tys |> List.split in
-    TupleType (p, tys), List.flatten gen_nodes 
-  | RecordType (p, id, tis) ->
-    let tis, gen_nodes = List.map (fun (p, id, ty) -> let ty, d = r ty in (p, id, ty), d) tis |> List.split in
-    RecordType (p, id, tis), List.flatten gen_nodes
-  | RefinementType (p1, (p2, id, ty), e) ->
-    let ty, gen_nodes1 = r ty in
-    (* The binder is in scope in the predicate, so the nodes the predicate needs
-       are generated in a context that holds it *)
-    let e, gen_nodes2 =
-      desugar_expr (Ctx.add_ty (Ctx.remove_const ctx id) id ty)
-        node_name fun_ids e
-    in
-    RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
-  | ADT (p, name, constructors) ->
-    let constructors, gen_nodes = List.map (fun (cname, fields) ->
-      let fields, gen_nodes = List.map (fun (fn, ty) ->
-        let ty', gn = r ty in ((fn, ty'), gn)
-      ) fields |> List.split in
-      (cname, fields), List.flatten gen_nodes
-    ) constructors |> List.split in
-    ADT (p, name, constructors), List.flatten gen_nodes
-
-and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
-fun ctx node_name fun_ids expr -> 
-  let rec_call = desugar_expr ctx node_name fun_ids in
-  match expr with
-  | TypeAscription (pos, e, ty) ->
-    let e, gen_nodes1 = rec_call e in
-    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
+(* Abstract the ascription (e : ty) into a call to a fresh node whose output
+   has type ty, so that ty yields proof obligations on e *)
+let mk_type_ascription: ?inserted:bool -> Ctx.tc_context -> NI.t -> Lib.position -> A.expr -> A.lustre_type -> A.expr * A.declaration =
+fun ?(inserted = false) ctx node_name pos e ty ->
     let span = { A.start_pos = pos; A.end_pos = pos; } in
-    let node_id = mk_fresh_fn_name pos node_name TypeAscription in
+    let node_id = mk_fresh_fn_name ~inserted pos node_name TypeAscription in
     let ip_id = HString.mk_hstring Lib.StringValues.type_ascription_input_name in 
     let op_id = HString.mk_hstring Lib.StringValues.type_ascription_output_name in
     let ip = pos, ip_id, ty, A.ClockTrue, false in
@@ -380,15 +330,142 @@ fun ctx node_name fun_ids expr ->
     let decl =
         A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
     in 
-    Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2 
+    A.Call (pos, ty_args, node_id, e :: inputs_call), decl
+
+(* The type of a record or constructor expression e of type name, when the
+   types of its fields, instantiated with the type arguments, contain a refinement.
+   e must not contain generated calls, as their nodes are not in the context yet. *)
+let refined_construction_type: Ctx.tc_context -> NI.t -> A.expr -> A.ident -> A.lustre_type list -> A.lustre_type list -> A.lustre_type option =
+fun ctx node_name e name ty_args field_tys ->
+  let pos = AH.pos_of_expr e in
+  let ty_vars = Ctx.lookup_ty_ty_vars ctx name |> Option.value ~default:[] in
+  let field_tys = match ty_args with
+    | [] -> Some field_tys
+    | _ :: _ ->
+      if List.length ty_vars = List.length ty_args then
+        let sigma = List.combine ty_vars ty_args in
+        Some (List.map (AH.apply_type_subst_in_type sigma) field_tys)
+      else None
+  in
+  match field_tys with
+  | None -> None
+  | Some field_tys ->
+    if not (List.exists (Ctx.type_contains_ref ctx) field_tys) then None
+    else match ty_args, ty_vars with
+    | _ :: _, _ | [], [] -> Some (A.UserType (pos, ty_args, name))
+    | [], _ :: _ ->
+      (* The type arguments are inferred from the fields. If inference is not
+         possible here (e.g. a field mentions a contract ghost variable), the
+         expression is left unchecked. *)
+      match Chk.infer_type_expr ctx (Some node_name) e with
+      | Ok (_, A.RecordExpr (_, _, inferred, _), _) -> Some (A.UserType (pos, inferred, name))
+      | Ok (ty, A.ADTTerm _, _) -> Some ty
+      | Ok _ | Error _ -> None
+
+(* Wrap a record or constructor expression in an inserted ascription to its
+   type when its field types contain a refinement, so that the refinement is
+   checked on the field values. The generated node takes the variables of the
+   type as arguments, so a type mentioning a locally bound variable (or one
+   whose type is unknown here) is left unchecked. *)
+let ascribe_construction ~insert ~bound ctx node_name orig e name ty_args field_tys gen_nodes =
+  match refined_construction_type ctx node_name orig name ty_args field_tys with
+  | Some ty when insert ->
+    let ty_vars = AH.vars_of_type (Ctx.expand_type_syn ctx ty) in
+    let unknown = node_arguments ctx (Ctx.SI.elements ty_vars) |> List.exists (fun v ->
+      Ctx.SI.mem v bound || Option.is_none (Ctx.lookup_ty ctx v))
+    in
+    if unknown then e, gen_nodes
+    else
+      let call, decl =
+        mk_type_ascription ~inserted:true ctx node_name (AH.pos_of_expr e) e ty
+      in
+      call, decl :: gen_nodes
+  | Some _ | None -> e, gen_nodes
+
+let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
+fun ctx node_name fun_ids ty -> 
+  let r = desugar_type ctx node_name fun_ids in 
+  match ty with 
+  | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
+  | EnumType _ | AbstractType _ 
+  | UserType _ | History _ -> ty, [] 
+  | Map (p, kt, vt) -> 
+    let kt, gen_nodes1 = r kt in 
+    let vt, gen_nodes2 = r vt in
+    Map (p, kt, vt), gen_nodes1 @ gen_nodes2
+  | Set (p, ty) ->
+    let ty, gen_nodes = r ty in
+    Set (p, ty), gen_nodes  
+  | ArrayType (p, (ty, len)) ->
+    let ty, gen_nodes1 = r ty in
+    let len, gen_nodes2 = desugar_expr ~insert:false ctx node_name fun_ids len in
+    ArrayType (p, (ty, len)), gen_nodes1 @ gen_nodes2
+  | TArr (p, ty1, ty2) ->
+    let ty1, gen_nodes1 = r ty1 in
+    let ty2, gen_nodes2 = r ty2 in
+    TArr (p, ty1, ty2), gen_nodes1 @ gen_nodes2
+  | GroupType (p, tys) ->
+    let tys, gen_nodes = List.map r tys |> List.split in
+    GroupType (p, tys), List.flatten gen_nodes 
+  | TupleType (p, tys) ->
+    let tys, gen_nodes = List.map r tys |> List.split in
+    TupleType (p, tys), List.flatten gen_nodes 
+  | RecordType (p, id, tis) ->
+    let tis, gen_nodes = List.map (fun (p, id, ty) -> let ty, d = r ty in (p, id, ty), d) tis |> List.split in
+    RecordType (p, id, tis), List.flatten gen_nodes
+  | RefinementType (p1, (p2, id, ty), e) ->
+    let ty, gen_nodes1 = r ty in
+    (* The binder is in scope in the predicate, so the nodes the predicate needs
+       are generated in a context that holds it *)
+    let e, gen_nodes2 =
+      desugar_expr ~insert:false (Ctx.add_ty (Ctx.remove_const ctx id) id ty)
+        node_name fun_ids e
+    in
+    RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
+  | ADT (p, name, constructors) ->
+    let constructors, gen_nodes = List.map (fun (cname, fields) ->
+      let fields, gen_nodes = List.map (fun (fn, ty) ->
+        let ty', gn = r ty in ((fn, ty'), gn)
+      ) fields |> List.split in
+      (cname, fields), List.flatten gen_nodes
+    ) constructors |> List.split in
+    ADT (p, name, constructors), List.flatten gen_nodes
+
+(* Ascriptions are inserted for record and constructor expressions only when
+   insert holds, as they are not allowed where a constant expression is
+   expected. bound holds the variables bound inside the expression. *)
+and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
+fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr -> 
+  let rec_call = desugar_expr ~insert ~bound ctx node_name fun_ids in
+  (* Arguments for constant parameters of node id must be constant expressions *)
+  let desugar_args id args =
+    (* When the arguments cannot be matched one-to-one with the parameters
+       (e.g. a tuple spread over several parameters), none of them is checked *)
+    let is_const_param = match Ctx.lookup_node_param_attr ctx id with
+      | Some attrs when List.length attrs = List.length args -> List.map snd attrs
+      | Some _ -> List.map (fun _ -> true) args
+      | None ->
+        let is_constructor = Option.is_some (Ctx.lookup_constructor ctx (NI.get_name id)) in
+        List.map (fun _ -> not is_constructor) args
+    in
+    List.map2 (fun is_const e ->
+      desugar_expr ~insert:(insert && not is_const) ~bound ctx node_name fun_ids e
+    ) is_const_param args |> List.split
+  in
+  match expr with
+  | TypeAscription (pos, e, ty) ->
+    let e, gen_nodes1 = rec_call e in
+    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
+    let call, decl = mk_type_ascription ctx node_name pos e ty in
+    call, decl :: gen_nodes1 @ gen_nodes2
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
     let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
     (* The binder is in scope in the predicate, so the nodes the predicate needs
        are generated in a context that holds it *)
     let expr1, gen_nodes =
-      desugar_expr (Ctx.add_ty (Ctx.remove_const ctx id) id ty)
-        node_name fun_ids expr1
+      desugar_expr ~insert ~bound:(Ctx.SI.add id bound)
+        (Ctx.add_ty (Ctx.remove_const ctx id) id ty) node_name fun_ids expr1
     in
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let contract = 
@@ -493,7 +570,13 @@ fun ctx node_name fun_ids expr ->
       List.map (fun (i, e) -> (i, (rec_call) e)) expr_list |> List.split 
     in
     let expr_list, gen_nodes = List.split exprs_gen_nodes in
-    RecordExpr (pos, ident, ps, List.combine id_list expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
+    let e = A.RecordExpr (pos, ident, ps, List.combine id_list expr_list) in
+    let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
+    let field_tys = match Ctx.lookup_ty_syn ctx ident [] with
+      | Some (A.RecordType (_, _, fields)) -> List.map (fun (_, _, ty) -> ty) fields
+      | Some _ | None -> []
+    in
+    ascribe_construction ~insert ~bound ctx node_name expr e ident ps field_tys gen_nodes
   | GroupExpr (pos, kind, expr_list) ->
     let expr_list, gen_nodes = List.map (rec_call) expr_list |> List.split in
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
@@ -506,7 +589,8 @@ fun ctx node_name fun_ids expr ->
     StructUpdate (pos, e, idx, None), gen_nodes 
   | ArrayConstr (pos, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
-    let e2, gen_nodes2 = rec_call e2 in
+    (* The size must be a constant expression *)
+    let e2, gen_nodes2 = desugar_expr ~insert:false ~bound ctx node_name fun_ids e2 in
     ArrayConstr (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | IndexAccess (pos, e1, e2, kind) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -523,7 +607,8 @@ fun ctx node_name fun_ids expr ->
       List.fold_left
         (fun ctx (_, id, ty) -> Ctx.add_ty (Ctx.remove_const ctx id) id ty) ctx tis
     in
-    let e, gen_nodes = desugar_expr body_ctx node_name fun_ids e in
+    let bound = Ctx.SI.union bound (Ctx.SI.of_list (List.map (fun (_, id, _) -> id) tis)) in
+    let e, gen_nodes = desugar_expr ~insert ~bound body_ctx node_name fun_ids e in
     Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
   | When (pos, e, clock) -> 
     let e, gen_nodes = rec_call e in
@@ -531,7 +616,7 @@ fun ctx node_name fun_ids expr ->
   | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    let expr_list1, gen_nodes3 = List.map rec_call expr_list1 |> List.split in
+    let expr_list1, gen_nodes3 = desugar_args id expr_list1 in
     let expr_list2, gen_nodes4 = List.map rec_call expr_list2 |> List.split in
     Condact (pos, e1, e2, id, expr_list1, expr_list2), gen_nodes1 @ gen_nodes2 @ 
                                                       List.flatten gen_nodes3 @ List.flatten gen_nodes4
@@ -546,7 +631,7 @@ fun ctx node_name fun_ids expr ->
     let expr_list, gen_nodes = List.split exprs_gen_nodes in
     Merge (pos, ident, List.combine id_list expr_list), List.flatten gen_nodes
   | RestartEvery (pos, ident, expr_list, e) ->
-    let expr_list, gen_nodes1 = List.map (rec_call) expr_list |> List.split in
+    let expr_list, gen_nodes1 = desugar_args ident expr_list in
     let e, gen_nodes2 = rec_call e in
     RestartEvery (pos, ident, expr_list, e), List.flatten gen_nodes1 @ gen_nodes2
   | Pre (pos, e) -> 
@@ -558,8 +643,15 @@ fun ctx node_name fun_ids expr ->
     Arrow (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | Call (pos, ty_args, id, expr_list) ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
-    let expr_list, gen_nodes = List.map rec_call expr_list |> List.split in
-    Call (pos, ty_args, id, expr_list), List.flatten gen_nodes_ty @ List.flatten gen_nodes
+    let args, gen_nodes = desugar_args id expr_list in
+    let e = A.Call (pos, ty_args, id, args) in
+    let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
+    (* A call without type arguments to a constructor's name is a constructor application *)
+    (match ty_args, Ctx.lookup_constructor ctx (NI.get_name id) with
+    | [], Some (ty_name, field_tys) ->
+      let orig = A.ADTTerm (pos, [], NI.get_name id, expr_list) in
+      ascribe_construction ~insert ~bound ctx node_name orig e ty_name [] field_tys gen_nodes
+    | _ :: _, _ | [], None -> e, gen_nodes)
   | Match (pos, e, arms, ty_opt) ->
     (* Each match arm body is evaluated under the clock determined by the
        scrutinee matching the arm's pattern (the match is desugared into a
@@ -576,7 +668,7 @@ fun ctx node_name fun_ids expr ->
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
       let arm_e = AH.apply_subst_in_expr subst arm_e in
-      let arm_e, gen_nodes = desugar_expr arm_ctx node_name fun_ids arm_e in
+      let arm_e, gen_nodes = desugar_expr ~insert ~bound arm_ctx node_name fun_ids arm_e in
       let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
@@ -584,15 +676,20 @@ fun ctx node_name fun_ids expr ->
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let args, gen_nodes = List.map rec_call args |> List.split in
-    ADTTerm (pos, ty_args, ctor, args), List.flatten gen_nodes_ty @ List.flatten gen_nodes
+    let e = A.ADTTerm (pos, ty_args, ctor, args) in
+    let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
+    (match Ctx.lookup_constructor ctx ctor with
+    | Some (ty_name, field_tys) ->
+      ascribe_construction ~insert ~bound ctx node_name expr e ty_name ty_args field_tys gen_nodes
+    | None -> e, gen_nodes)
   | AbstractSymConst _ -> assert false (* never produced before lustreGenNodes runs *)
   | ADTTester (pos, e, c) ->
     let e, gen_nodes = rec_call e in
     ADTTester (pos, e, c), gen_nodes
 
-let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
-fun ctx node_name fun_ids ci ->
-  let rec_call = desugar_expr ctx node_name fun_ids in
+let desugar_contract_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids ci ->
+  let rec_call = desugar_expr ~insert ctx node_name fun_ids in
   match ci with
   | A.GhostVars (pos, lhs, e) ->
     let lhs, gen_nodes_ty = match lhs with
@@ -612,7 +709,7 @@ fun ctx node_name fun_ids ci ->
     let e, gen_nodes = rec_call e in 
     Guarantee (pos, name, b, e), gen_nodes
   | Decreases (pos, e) ->
-    let e, gen_nodes = rec_call e in
+    let e, gen_nodes = desugar_expr ~insert:false ctx node_name fun_ids e in
     Decreases (pos, e), gen_nodes
   | Mode (pos, i, reqs, enss) ->
     let (reqs, gen_nodes1) = 
@@ -633,15 +730,15 @@ fun ctx node_name fun_ids ci ->
     A.GhostConst (A.FreeConst (pos, id, ty)), gen_nodes
   | A.GhostConst (A.TypedConst (pos, id, e, ty)) ->
     let ty, gen_nodes_ty = desugar_type ctx node_name fun_ids ty in
-    let e, gen_nodes = rec_call e in
+    let e, gen_nodes = desugar_expr ~insert:false ctx node_name fun_ids e in
     A.GhostConst (A.TypedConst (pos, id, e, ty)), gen_nodes_ty @ gen_nodes
   | A.GhostConst (A.UntypedConst (pos, id, e)) ->
-    let e, gen_nodes = rec_call e in
+    let e, gen_nodes = desugar_expr ~insert:false ctx node_name fun_ids e in
     A.GhostConst (A.UntypedConst (pos, id, e)), gen_nodes
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
-fun ctx node_name fun_ids contract ->
+let desugar_contract: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids contract ->
   match contract with
   | Some (pos, contract_items) ->
     (* A contract's ghost variables, ghost constants and modes are in scope in
@@ -665,24 +762,24 @@ fun ctx node_name fun_ids contract ->
       else add_decls ctx (List.rev unresolved)
     in
     let ctx = add_decls ctx contract_items in
-    let items, gen_nodes = (List.map (desugar_contract_item ctx node_name fun_ids) contract_items) |> List.split in
+    let items, gen_nodes = (List.map (desugar_contract_item ~insert ctx node_name fun_ids) contract_items) |> List.split in
     Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
-let rec desugar_node_item: Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
-fun ctx node_name fun_ids ni ->
-  let rec_call = desugar_node_item ctx node_name fun_ids in
+let rec desugar_node_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids ni ->
+  let rec_call = desugar_node_item ~insert ctx node_name fun_ids in
   match ni with
   | A.Body (Equation (pos, lhs, rhs)) -> 
-    let rhs, gen_nodes = desugar_expr ctx node_name fun_ids rhs in 
+    let rhs, gen_nodes = desugar_expr ~insert ctx node_name fun_ids rhs in 
     A.Body (Equation (pos, lhs, rhs)), gen_nodes
   | AnnotProperty (pos, name, e, k) -> 
-    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in 
+    let e, gen_nodes = desugar_expr ~insert ctx node_name fun_ids e in 
     AnnotProperty(pos, name, e, k), gen_nodes
   | IfBlock (pos, cond, nis1, nis2) -> 
     let nis1, gen_nodes1 = List.map rec_call nis1 |> List.split in
     let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
-    let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
+    let cond, gen_nodes3 = desugar_expr ~insert ctx node_name fun_ids cond in
     A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | WhenBlock (pos, cond, nis1, nis2) ->
     (* The right-hand side of each equation in a when block branch becomes a
@@ -693,14 +790,14 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs, gen_nodes1 = desugar_expr ~insert ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name gen_nodes1 rhs in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
     in
     let nis1, gen_nodes1 = List.map process_branch_item nis1 |> List.split in
     let nis2, gen_nodes2 = List.map process_branch_item nis2 |> List.split in
-    let cond, gen_nodes3 = desugar_expr ctx node_name fun_ids cond in
+    let cond, gen_nodes3 = desugar_expr ~insert ctx node_name fun_ids cond in
     A.WhenBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | MatchBlock (pos, scrut, arms, ty) ->
     (* A match block becomes a chain of when blocks later in the pipeline, so
@@ -708,12 +805,12 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ctx ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs, gen_nodes1 = desugar_expr ~insert ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name gen_nodes1 rhs in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
       | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ ->
-        desugar_node_item ctx node_name fun_ids ni
+        desugar_node_item ~insert ctx node_name fun_ids ni
     in
     let scrut_ty = scrutinee_type ctx node_name scrut in
     let arms, gen_nodes1 =
@@ -724,7 +821,7 @@ fun ctx node_name fun_ids ni ->
         (p, items), List.flatten gn) arms
       |> List.split
     in
-    let scrut, gen_nodes2 = desugar_expr ctx node_name fun_ids scrut in
+    let scrut, gen_nodes2 = desugar_expr ~insert ctx node_name fun_ids scrut in
     A.MatchBlock (pos, scrut, arms, ty), List.flatten gen_nodes1 @ gen_nodes2
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
@@ -736,17 +833,155 @@ fun ctx node_name fun_ids ni ->
     let nis, gen_nodes2 = List.map rec_call nis |> List.split in
     FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
   | Body (Assert (pos, e)) ->
-    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in
+    let e, gen_nodes = desugar_expr ~insert ctx node_name fun_ids e in
     Body (Assert (pos, e)), gen_nodes
   | AnnotMain _ -> ni, []
   | Auto _ -> ni, []
     
+
+(* The calls in an expression, including those in the expressions of the
+   types it mentions (type arguments and binder types) *)
+let rec calls_of_expr e =
+  let r = calls_of_expr in
+  let rs es = NI.Set.flatten (List.map r es) in
+  let call id es = NI.Set.add id (rs es) in
+  match e with
+  | A.Ident _ | A.ModeRef _ | A.Const _ | A.Last _
+  | A.EmptyMap (_, None) | A.EmptySet (_, None) -> NI.Set.empty
+  | A.EmptyMap (_, Some (kt, vt)) -> NI.Set.union (calls_of_type kt) (calls_of_type vt)
+  | A.EmptySet (_, Some ty) | A.AbstractSymConst (_, ty) -> calls_of_type ty
+  | A.FieldProject (_, e, _, _) | A.UnaryOp (_, _, e) | A.ConvOp (_, _, e)
+  | A.Extract (_, e, _, _) | A.When (_, e, _) | A.Pre (_, e) | A.ADTTester (_, e, _) -> r e
+  | A.BinaryOp (_, _, e1, e2) | A.CompOp (_, _, e1, e2) | A.Arrow (_, e1, e2)
+  | A.ArrayConstr (_, e1, e2) | A.IndexAccess (_, e1, e2, _) -> rs [e1; e2]
+  | A.TernaryOp (_, _, e1, e2, e3) -> rs [e1; e2; e3]
+  | A.AnyOp (_, (_, _, ty), e) | A.ChooseOp (_, (_, _, ty), e) | A.TypeAscription (_, e, ty) ->
+    NI.Set.union (calls_of_type ty) (r e)
+  | A.GroupExpr (_, _, es) -> rs es
+  | A.RecordExpr (_, _, tys, flds) ->
+    NI.Set.flatten (rs (List.map snd flds) :: List.map calls_of_type tys)
+  | A.StructUpdate (_, e1, idx, e2) ->
+    NI.Set.flatten
+      [r e1; AH.fold_label_or_index NI.Set.empty NI.Set.union r idx;
+       (match e2 with Some e2 -> r e2 | None -> NI.Set.empty)]
+  | A.Quantifier (_, _, tis, e) ->
+    NI.Set.flatten (r e :: List.map (fun (_, _, ty) -> calls_of_type ty) tis)
+  | A.Merge (_, _, arms) -> rs (List.map snd arms)
+  | A.Condact (_, e1, e2, id, es1, es2) -> call id (e1 :: e2 :: es1 @ es2)
+  | A.Activate (_, id, e1, e2, es) -> call id (e1 :: e2 :: es)
+  | A.RestartEvery (_, id, es, e) -> call id (e :: es)
+  | A.Call (_, tys, id, es) -> NI.Set.flatten (call id es :: List.map calls_of_type tys)
+  | A.ADTTerm (_, tys, _, es) -> NI.Set.flatten (rs es :: List.map calls_of_type tys)
+  | A.Match (_, e, arms, _) -> rs (e :: List.map snd arms)
+
+and calls_of_type ty =
+  AH.fold_lustre_ty ~into_ty_args:true calls_of_expr NI.Set.empty NI.Set.union ty
+
+(* The calls in the items of a node body *)
+let rec calls_of_items items =
+  let calls_of_eq = function
+    | A.Equation (_, _, e) | A.Assert (_, e) -> calls_of_expr e
+  in
+  List.fold_left (fun acc item ->
+    let calls = match item with
+      | A.Body eq -> calls_of_eq eq
+      | A.IfBlock (_, c, items1, items2) | A.WhenBlock (_, c, items1, items2) ->
+        NI.Set.flatten [calls_of_expr c; calls_of_items items1; calls_of_items items2]
+      | A.MatchBlock (_, scrut, arms, _) ->
+        NI.Set.flatten (calls_of_expr scrut :: List.map (fun (_, items) -> calls_of_items items) arms)
+      | A.FrameBlock (_, _, eqs, items) ->
+        NI.Set.flatten (calls_of_items items :: List.map calls_of_eq eqs)
+      | A.AnnotProperty (_, _, e, A.Provided p) -> NI.Set.union (calls_of_expr e) (calls_of_expr p)
+      | A.AnnotProperty (_, _, e, (A.Invariant | A.Reachable _)) -> calls_of_expr e
+      | A.AnnotMain _ | A.Auto _ -> NI.Set.empty
+    in
+    NI.Set.union acc calls
+  ) NI.Set.empty items
+
+let calls_of_const_decl = function
+  | A.FreeConst (_, _, ty) -> calls_of_type ty
+  | A.UntypedConst (_, _, e) -> calls_of_expr e
+  | A.TypedConst (_, _, e, ty) -> NI.Set.union (calls_of_expr e) (calls_of_type ty)
+
+(* The calls in the declarations of the local variables and constants of a node *)
+let calls_of_locals locals =
+  NI.Set.flatten (List.map (function
+    | A.NodeVarDecl (_, (_, _, ty, _)) -> calls_of_type ty
+    | A.NodeConstDecl (_, c) -> calls_of_const_decl c
+  ) locals)
+
+(* The calls in a contract, including the contract nodes it imports *)
+let calls_of_contract contract =
+  let calls_of_item = function
+    | A.GhostConst c -> calls_of_const_decl c
+    | A.GhostVars (_, A.GhostVarDec (_, tis), e) ->
+      NI.Set.flatten (calls_of_expr e :: List.map (fun (_, _, ty) -> calls_of_type ty) tis)
+    | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e) | A.Decreases (_, e) -> calls_of_expr e
+    | A.Mode (_, _, reqs, enss) ->
+      NI.Set.flatten (List.map (fun (_, _, e) -> calls_of_expr e) (reqs @ enss))
+    | A.ContractCall (_, id, _, es, _) ->
+      NI.Set.flatten (NI.Set.singleton id :: List.map calls_of_expr es)
+    | A.AssumptionVars _ -> NI.Set.empty
+  in
+  match contract with
+  | Some (_, items) -> NI.Set.flatten (List.map calls_of_item items)
+  | None -> NI.Set.empty
+
+(* The calls in the types of the inputs and outputs of a node *)
+let calls_of_signature inputs outputs =
+  NI.Set.flatten
+    (List.map (fun (_, _, ty, _, _) -> calls_of_type ty) inputs
+     @ List.map (fun (_, _, ty, _) -> calls_of_type ty) outputs)
+
+(* The recursive functions, and the functions and contract nodes their
+   definitions use directly or indirectly (through bodies, contracts and
+   signatures), which are encoded together with them (see LustreFunDefs) *)
+let functions_of_recursive_definitions decls =
+  let uses = List.fold_left (fun acc decl -> match decl with
+    | A.FuncDecl (_, (id, _, _, _, inputs, outputs, locals, items, contract), _) ->
+      let calls =
+        NI.Set.flatten
+          [calls_of_items items; calls_of_contract contract;
+           calls_of_signature inputs outputs; calls_of_locals locals]
+      in
+      NI.Map.add id calls acc
+    | A.ContractNodeDecl (_, (id, _, inputs, outputs, contract)) ->
+      let calls =
+        NI.Set.union (calls_of_contract (Some contract)) (calls_of_signature inputs outputs)
+      in
+      NI.Map.add id calls acc
+    | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _ | A.NodeParamInst _ -> acc
+  ) NI.Map.empty decls
+  in
+  let rec visit seen id =
+    if NI.Set.mem id seen then seen
+    else match NI.Map.find_opt id uses with
+      | Some calls -> NI.Set.fold (fun c seen -> visit seen c) calls (NI.Set.add id seen)
+      | None -> seen
+  in
+  List.fold_left (fun seen decl ->
+    match decl with
+    | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), { A.is_rec = true; _ }) -> visit seen id
+    | A.FuncDecl _ | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _
+    | A.ContractNodeDecl _ | A.NodeParamInst _ -> seen
+  ) NI.Set.empty decls
 
 let gen_nodes_of_decls: Ctx.tc_context -> A.declaration list -> A.declaration list =
 fun ctx decls ->
   let fun_ids = List.filter_map
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
     decls
+  in
+  let rec_def_funs = functions_of_recursive_definitions decls in
+  (* Which parameters are constant is read from the declarations, so that it
+     is known for every node whatever the order of the declarations *)
+  let ctx =
+    List.fold_left (fun ctx decl ->
+      match decl with
+      | A.NodeDecl (_, (id, _, _, _, inputs, _, _, _, _))
+      | A.FuncDecl (_, (id, _, _, _, inputs, _, _, _, _), _) -> Ctx.add_node_param_attr ctx id inputs
+      | A.TypeDecl _ | A.ConstDecl _ | A.ContractNodeDecl _ | A.NodeParamInst _ -> ctx
+    ) ctx decls
   in
   (* Pre-populate the context with the signatures of all nodes and functions so
      that the types of node calls appearing in abstracted when branches can be
@@ -805,8 +1040,11 @@ fun ctx decls ->
         | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
             A.NodeConstDecl (pos, cd), []
       ) locals |> List.split in
-      let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
-      let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
+      (* An ascription would prevent the encoding of a recursive definition as
+         an SMT definition *)
+      let insert = not (NI.Set.mem id rec_def_funs) in
+      let items, gen_nodes = List.map (desugar_node_item ~insert ctx id fun_ids) items |> List.split in
+      let contract, gen_nodes2 = desugar_contract ~insert ctx id fun_ids contract in
       let gen_nodes = 
         List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ List.flatten gen_nodes_loc @ List.flatten gen_nodes 
       in
@@ -822,7 +1060,8 @@ fun ctx decls ->
         let ty, gen_nodes = desugar_type ctx id fun_ids ty in
         (p, id', ty, c), gen_nodes
       ) outputs |> List.split in
-      let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
+      let insert = not (NI.Set.mem id rec_def_funs) in
+      let contract, gen_nodes = desugar_contract ~insert ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract
       | None -> assert false in (* Must have a contract *)

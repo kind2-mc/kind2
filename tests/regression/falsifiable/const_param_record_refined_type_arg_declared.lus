@@ -1,0 +1,5 @@
+type Nat = subtype { n: int | 0 <= n };
+type R<T> = struct { f: T };
+node M(const r: R<Nat>; x: int) returns (y: int) let y = r.f + x; tel
+node N(x: int) returns (y: bool);
+let y = M(R@<Nat> { f = -1 }, x) = x - 1; check y; tel

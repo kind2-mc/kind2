@@ -1,0 +1,8 @@
+type Nat = subrange [0,*] of int;
+type R = struct { a: Nat };
+node M(const r: R; x: int) returns (y: int) let y = r.a + x; tel
+node N(c: bool; x: int) returns (y: int)
+let
+  y = (restart M every c)(R { a = 1 }, x);
+  check y = 1 + x;
+tel

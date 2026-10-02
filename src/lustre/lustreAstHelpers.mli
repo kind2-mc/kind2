@@ -66,7 +66,8 @@ val substitute_naive : HString.t -> expr -> expr -> expr
 
 val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
 (** [apply_subst_in_expr s e] applies the substitution defined by association list [s]
-    to the expression [e].
+    to the expression [e], including the expressions of the types it carries
+    (e.g. explicit type arguments), as {!subst_in_type_exprs} does.
     Bound variables introduced by match arms, quantifiers and [any]/[choose] are
     alpha-renamed when needed to avoid capture. *)
 
@@ -83,6 +84,11 @@ val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
     to the expressions of (possibly dependent) type [t]
     AnyOp and Quantifier are not supported due to introduction of bound variables. *)
     
+val subst_in_type_exprs : (HString.t * expr) list -> lustre_type -> lustre_type
+(** [subst_in_type_exprs s t] applies the substitution [s] to every expression of
+    type [t]. A refinement type's binder shadows [s] in its predicate, and is
+    alpha-renamed when a substituted expression would be captured by it. *)
+
 val apply_type_subst_in_type : (HString.t * lustre_type) list -> lustre_type -> lustre_type
 (** [apply_type_subst_in_type s t] applies the (type-level) substitution defined by association list [s]
     to type [t]. *)

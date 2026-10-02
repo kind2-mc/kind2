@@ -100,6 +100,7 @@ type error_kind = Unknown of string
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NodeId.t 
   | TempOperatorInFuncTypeAscription 
+  | RefinementTypeArgInConstant of HString.t
   | NoIndexAccessInArrayLength of tc_type
   | NestedTypeTemporal of LustreAst.lustre_type
   | NestedTypeNodeCall of LustreAst.lustre_type

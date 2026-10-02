@@ -1,0 +1,4 @@
+type R<T> = struct { f: T };
+node N(x: int) returns (y: int);
+(*@contract const C: R<int> = R@<subtype { w: int | w >= 100 }> { f = 0 }; *)
+let y = x; tel
