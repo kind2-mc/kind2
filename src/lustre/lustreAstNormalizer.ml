@@ -3270,6 +3270,11 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
+    (* Binder types are only fully known here, after synonym expansion and
+       instantiation of polymorphic types *)
+    let vars, expr =
+      AH.rename_self_referencing_binders ~expand:(Ctx.expand_type_syn info.context) vars expr
+    in
     (* A variable that shadows one of an enclosing quantifier is renamed, so
        that nested quantifiers bind distinct names: the guard of a call is
        evaluated outside of the quantifiers, where a name must denote a

@@ -605,7 +605,7 @@ let rec infer_const_attr ctx exp =
   match exp with
   | LA.Ident (_, i) ->
     let res =
-      if member_val ctx i then R.ok ()
+      if member_val ctx i && not (is_shadowed_const ctx i) then R.ok ()
       (* An expression that includes an internal step-counter variable is
          also considered a constant expression. Currently, the only case where
          such a variable may be included is when the expression defines
@@ -1534,11 +1534,11 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   )
   (* Quantified expressions *)
   | LA.Quantifier (p, q, qs, e) ->
-    let* qs, warnings1, _ =
+    let* qs, warnings1, extn_ctx =
       (Res.seq_chain (fun (acc_q, acc_w, acc_ctx) (p, id, ty) ->
         let* ty, warnings = check_type_well_formed acc_ctx Local nname true ty in 
         (* bound variables shadow global constants *)
-        let acc_ctx = remove_const acc_ctx id in 
+        let acc_ctx = shadow_const acc_ctx id in 
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_q @ [p, id, ty], acc_w @ warnings, acc_ctx)
       ) ([], [], ctx) qs)
@@ -1550,8 +1550,6 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       else
         R.ok ()
     ) qs) in
-    let extn_ctx = List.fold_left union ctx
-                    (List.map (fun (_, i, ty) -> singleton_ty i ty) qs) in
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
@@ -3242,7 +3240,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
-      let ctx = add_ty ctx i ty' in
+      (* The bound variable shadows any constant of the same name *)
+      let ctx = add_ty (shadow_const ctx i) i ty' in
       let* _ = (if is_const then 
         let ctx = add_const ctx i (LA.Ident (p, i)) ty' Local in
         check_expr_is_constant ctx "type of constant" e 

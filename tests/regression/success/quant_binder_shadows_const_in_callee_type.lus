@@ -1,0 +1,11 @@
+const k: int = 3;
+
+function F (a: int^k) returns (y: int);
+let
+  y = a[0];
+tel
+
+node main (a: int^3) returns ();
+let
+  check forall (k: int) F(a) = a[0] or k = 0;
+tel

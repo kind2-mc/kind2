@@ -383,11 +383,14 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     (* 1. Don't inline constants that are shadowed by quantified vars (by removing these constants from the ctx)
        2. Perform inlining within tis *)
     let ctx, tis = List.fold_left (fun (acc_ctx, acc_tis) (p, id, ty) -> 
-      let acc_ctx = TC.remove_const acc_ctx id in 
+      (* The quantified variable is not in scope in its own type *)
       let acc_ti  = (p, id, inline_constants_of_lustre_type ~ind_vars acc_ctx ty) in 
+      let acc_ctx = TC.remove_const acc_ctx id in 
       acc_ctx, acc_tis @ [acc_ti] 
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
+    (* A free constant left in a binder's type must not resolve to the binder *)
+    let tis, e' = LH.rename_self_referencing_binders tis e' in
     Quantifier (pos, q, tis, e')
   | EmptySet (pos, Some ty) -> 
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
@@ -449,7 +452,8 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     TArr (pos, ty1', ty2')
   | RefinementType (pos, (pos2, id, ty), expr) ->
     let ty' = inline_constants_of_lustre_type ctx ty in 
-    let expr' = simplify_expr ~ind_vars ctx expr in
+    (* The bound variable shadows any constant of the same name *)
+    let expr' = simplify_expr ~ind_vars (TC.remove_const ctx id) expr in
     RefinementType (pos, (pos2, id, ty'), expr')
     
   | ADT (pos, name, cons) ->

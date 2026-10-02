@@ -879,6 +879,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/const_param_3.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test refinement type bound variable in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_param.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test refinement type bound variable shadowing a constant inside any" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_any.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable shadowing a constant in a nested binder type" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_shadows_const_in_nested_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable shadowing a constant in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_shadows_const_param_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
   mk_test "test match pattern variable in quantifier binder type" (fun () ->
     match load_file "./lustreTypeChecker/quant_binder_type_shadowed_const.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true

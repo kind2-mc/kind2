@@ -1,0 +1,8 @@
+const k: int = 7;
+type P = subtype { k: subtype { k: int | k > 0 } | k < 10 };
+
+node main (p: P) returns (y: int);
+let
+  y = p;
+  check y > 0 and y < 10;
+tel

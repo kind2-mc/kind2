@@ -1848,7 +1848,8 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
       if is_nested then ctx_add_quant_var ctx i (Some inner_ty) else ctx
     in
     let* warnings1 = check_expr ctx_here ovq e in
-    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs is_nested ctx_here inner_ty in
+    (* The bound variable is not in scope in its own type *)
+    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs is_nested ctx inner_ty in
     Ok (warnings1 @ warnings2)
   | LA.ArrayType (_, (b_ty, sz)) ->
     let* warnings1 = check_expr ctx ovq sz in
