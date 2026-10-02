@@ -1,0 +1,4 @@
+type Nat = subtype {n: int | 0 <= n};
+type R<T> = struct {f: T};
+function M(const n: int; const r: R<Nat>) returns (y: int); let y = r.f + n; tel
+node N(x: int) returns (y: int); let y = M(5, R@<Nat>{f = 1}); check y >= 0; tel

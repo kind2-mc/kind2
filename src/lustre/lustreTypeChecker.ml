@@ -828,7 +828,7 @@ let check_const_args_refinement_type_args ctx node_id param_tys args checked_arg
       |> List.filter_map (fun ((id, is_const), e) -> if is_const then Some (id, e) else None)
     in
     let checks = List.map2 (fun ((_, is_const), ty) (e, checked) ->
-      let ty = LH.apply_subst_in_type sigma ty in
+      let ty = LH.subst_in_type_exprs sigma ty in
       if is_const then check_no_refinement_type_arg ctx (Some ty) e checked else R.ok ()
     ) (List.combine attrs param_tys) (List.combine args checked_args) in
     R.seq_ checks
