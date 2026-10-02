@@ -1151,7 +1151,9 @@ let rec bind_pattern_ty ctx field_ty pat =
         )
       | _ -> type_error pos (UnboundConstructor id)
     ) else
-      R.ok (add_ty ctx id field_ty, pat)
+      (* A pattern variable denotes a constructor field, not a constant, so its
+         binding must hide a constant of the same name *)
+      R.ok (add_ty (remove_const ctx id) id field_ty, pat)
   | LA.Pat (pos, ctor, sub_pats) ->
     (match adt_opt with
     | Some (LA.ADT (_, _, adt_cons)) ->
@@ -1553,11 +1555,20 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
-  | AnyOp _ -> assert false
-  | ChooseOp _ -> assert false
-  (* Already desugared in lustreDesugarAnyChooseOps *)
-  (*check_type_expr ctx nname e ty >>
-    R.ok ty*)
+  (* An any/choose operator has the type its binder declares. These are turned
+     into node calls before the main type-checking pass runs, so this case only
+     serves the passes that infer types beforehand. *)
+  | LA.AnyOp (pos, (ipos, i, ty), e) ->
+    let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
+    (* The binder shadows a global constant of the same name *)
+    let extn_ctx = add_ty (remove_const ctx i) i ty in
+    let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
+    R.ok (ty, LA.AnyOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
+  | LA.ChooseOp (pos, (ipos, i, ty), e) ->
+    let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
+    let extn_ctx = add_ty (remove_const ctx i) i ty in
+    let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
+    R.ok (ty, LA.ChooseOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
   (* Clock operators *)
   | LA.When (_, e, _) -> infer_type_expr ctx nname e
   | LA.Condact (pos, c, e, node, args, defaults) ->
@@ -1872,17 +1883,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (R.ok (LA.Const (pos, c), []))
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
-  | AnyOp _ -> assert false 
-  | ChooseOp _ -> assert false 
-    (* Already desugared in lustreDesugarAnyChooseOps *)
-    (*let extn_ctx = union ctx (singleton_ty i ty) in
-    check_type_expr extn_ctx e (Bool pos)
-    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
-  | AnyOp (pos, (_, i ,ty), e1, Some e2) ->
-    let extn_ctx = union ctx (singleton_ty i ty) in
-    check_type_expr extn_ctx e1 (Bool pos)
-    >> check_type_expr extn_ctx e2 (Bool pos)
-    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
+  | AnyOp (pos, _, _)
+  | ChooseOp (pos, _, _)
   | IndexAccess (pos, _, _, _)
   | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)

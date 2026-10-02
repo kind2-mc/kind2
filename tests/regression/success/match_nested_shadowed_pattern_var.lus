@@ -1,0 +1,17 @@
+const k: int = 7;
+datatype U = C (k: int) | D;
+datatype T = A (k: int, u: U) | B;
+
+node main (n: int) returns (y: int);
+var t: T;
+let
+  t = A(n, C(n + 1));
+  y = match t with
+      | A (k, u) : (match u with
+                    | C (k) : 0 -> pre k
+                    | D : 0
+                    end)
+      | B : 0
+      end;
+  --%PROPERTY y = (0 -> pre (n + 1));
+tel
