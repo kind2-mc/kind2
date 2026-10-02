@@ -1,0 +1,12 @@
+const k: int = 7;
+datatype T = A (k: int) | B (w: int);
+type P = subtype { x: T | (match x with | A (k) : k > 0 | B (w) : true end) };
+
+node main (p: P) returns (y: int);
+let
+  y = match p with
+      | A (k) : k
+      | B (w) : w
+      end;
+  --%PROPERTY A?(p) => y > 0;
+tel

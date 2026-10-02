@@ -70,6 +70,14 @@ val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
     Bound variables introduced by match arms, quantifiers and [any]/[choose] are
     alpha-renamed when needed to avoid capture. *)
 
+val apply_subst_in_node_item : (HString.t * expr) list -> node_item -> node_item
+(** [apply_subst_in_node_item s i] applies the substitution defined by association
+    list [s] to every expression of the node item [i], leaving the left-hand sides
+    of its equations alone.
+    Bound variables introduced by match block arms and by the indices of an array
+    definition shadow [s] over the expressions they scope, and those of a match
+    block arm are alpha-renamed when needed to avoid capture. *)
+
 val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
 (** [apply_subst_in_type s t] applies the substitution defined by association list [s]
     to the expressions of (possibly dependent) type [t]
@@ -213,6 +221,11 @@ val hash : int option -> expr -> int
     the same hash value is assigned to every sub expression. This function does not include position
     information in the hash. *)
 
+val name_mode_refs : expr -> expr * (ident * Lib.position * ident list) list
+(** [name_mode_refs e] replaces each mode reference in [e] by an identifier of the
+    same name, and returns the references that were replaced, each with the
+    position and path it was written at. *)
+
 val rename_contract_vars : expr -> expr
 (** Rename contract variables from internal names (with format #_contract_var) to syntax names *)
 
@@ -267,3 +280,12 @@ val pat_bound_vars : pattern -> LustreAst.SI.t
 
 val pat_bound_vars_with_pos : pattern -> (LustreAst.ident * Lib.position) list
 (** The variables a pattern binds, each with the position it is bound at. *)
+
+val rename_pat_var : LustreAst.ident -> LustreAst.ident -> pattern -> pattern
+(** [rename_pat_var i i' pat] renames the variable [i] bound by [pat] to [i'].
+    Before type checking a variable pattern may name a nullary constructor
+    rather than a binder, so a caller running that early must pass an [i] it
+    knows is a binder. *)
+
+val fresh_bound_ident : LustreAst.ident -> LustreAst.ident
+(** A fresh name for an alpha-renamed binder, derived from its current name *)
