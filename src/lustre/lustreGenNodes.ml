@@ -667,7 +667,6 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
       let arm_e = AH.apply_subst_in_expr subst arm_e in
-      let bound = Ctx.SI.union bound (AH.pat_bound_vars pat) in
       let arm_e, gen_nodes = desugar_expr ~insert ~bound arm_ctx node_name fun_ids arm_e in
       let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
@@ -766,21 +765,20 @@ fun ?(insert = true) ctx node_name fun_ids contract ->
     Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
-(* bound holds the pattern variables of the enclosing match block arms *)
-let rec desugar_node_item: ?insert:bool -> ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
-fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids ni ->
-  let rec_call = desugar_node_item ~insert ~bound ctx node_name fun_ids in
+let rec desugar_node_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item * A.declaration list =
+fun ?(insert = true) ctx node_name fun_ids ni ->
+  let rec_call = desugar_node_item ~insert ctx node_name fun_ids in
   match ni with
   | A.Body (Equation (pos, lhs, rhs)) -> 
-    let rhs, gen_nodes = desugar_expr ~insert ~bound ctx node_name fun_ids rhs in 
+    let rhs, gen_nodes = desugar_expr ~insert ctx node_name fun_ids rhs in 
     A.Body (Equation (pos, lhs, rhs)), gen_nodes
   | AnnotProperty (pos, name, e, k) -> 
-    let e, gen_nodes = desugar_expr ~insert ~bound ctx node_name fun_ids e in 
+    let e, gen_nodes = desugar_expr ~insert ctx node_name fun_ids e in 
     AnnotProperty(pos, name, e, k), gen_nodes
   | IfBlock (pos, cond, nis1, nis2) -> 
     let nis1, gen_nodes1 = List.map rec_call nis1 |> List.split in
     let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in
-    let cond, gen_nodes3 = desugar_expr ~insert ~bound ctx node_name fun_ids cond in
+    let cond, gen_nodes3 = desugar_expr ~insert ctx node_name fun_ids cond in
     A.IfBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | WhenBlock (pos, cond, nis1, nis2) ->
     (* The right-hand side of each equation in a when block branch becomes a
@@ -791,39 +789,38 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids ni ->
     let process_branch_item ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = desugar_expr ~insert ~bound ctx node_name fun_ids rhs in
+        let rhs, gen_nodes1 = desugar_expr ~insert ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name gen_nodes1 rhs in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
     in
     let nis1, gen_nodes1 = List.map process_branch_item nis1 |> List.split in
     let nis2, gen_nodes2 = List.map process_branch_item nis2 |> List.split in
-    let cond, gen_nodes3 = desugar_expr ~insert ~bound ctx node_name fun_ids cond in
+    let cond, gen_nodes3 = desugar_expr ~insert ctx node_name fun_ids cond in
     A.WhenBlock (pos, cond, nis1, nis2), List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ gen_nodes3
   | MatchBlock (pos, scrut, arms, ty) ->
     (* A match block becomes a chain of when blocks later in the pipeline, so
        its arms need the same temporal abstraction as a when-block branch *)
-    let process_branch_item ctx bound ni =
+    let process_branch_item ctx ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = desugar_expr ~insert ~bound ctx node_name fun_ids rhs in
+        let rhs, gen_nodes1 = desugar_expr ~insert ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name gen_nodes1 rhs in
         A.Body (A.Equation (epos, lhs, rhs)), gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
       | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ ->
-        desugar_node_item ~insert ~bound ctx node_name fun_ids ni
+        desugar_node_item ~insert ctx node_name fun_ids ni
     in
     let scrut_ty = scrutinee_type ctx node_name scrut in
     let arms, gen_nodes1 =
       List.map (fun (p, items) ->
         let arm_ctx, p, subst = resolve_arm ctx scrut_ty p in
         let items = List.map (AH.apply_subst_in_node_item subst) items in
-        let bound = Ctx.SI.union bound (AH.pat_bound_vars p) in
-        let items, gn = List.map (process_branch_item arm_ctx bound) items |> List.split in
+        let items, gn = List.map (process_branch_item arm_ctx) items |> List.split in
         (p, items), List.flatten gn) arms
       |> List.split
     in
-    let scrut, gen_nodes2 = desugar_expr ~insert ~bound ctx node_name fun_ids scrut in
+    let scrut, gen_nodes2 = desugar_expr ~insert ctx node_name fun_ids scrut in
     A.MatchBlock (pos, scrut, arms, ty), List.flatten gen_nodes1 @ gen_nodes2
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
@@ -835,7 +832,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids ni ->
     let nis, gen_nodes2 = List.map rec_call nis |> List.split in
     FrameBlock(pos, vars, nes, nis), List.flatten gen_nodes1 @ List.flatten gen_nodes2
   | Body (Assert (pos, e)) ->
-    let e, gen_nodes = desugar_expr ~insert ~bound ctx node_name fun_ids e in
+    let e, gen_nodes = desugar_expr ~insert ctx node_name fun_ids e in
     Body (Assert (pos, e)), gen_nodes
   | AnnotMain _ -> ni, []
   | Auto _ -> ni, []
@@ -974,9 +971,6 @@ fun ctx decls ->
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
     decls
   in
-  (* Pre-populate the context with the signatures of all nodes and functions so
-     that the types of node calls appearing in abstracted when branches can be
-     inferred (node/contract type checking happens later in the pipeline) *)
   let rec_def_funs = functions_of_recursive_definitions decls in
   (* Which parameters are constant is read from the declarations, so that it
      is known for every node whatever the order of the declarations *)
@@ -988,6 +982,9 @@ fun ctx decls ->
       | A.TypeDecl _ | A.ConstDecl _ | A.ContractNodeDecl _ | A.NodeParamInst _ -> ctx
     ) ctx decls
   in
+  (* Pre-populate the context with the signatures of all nodes and functions so
+     that the types of node calls appearing in abstracted when branches can be
+     inferred (node/contract type checking happens later in the pipeline) *)
   let ctx = add_node_sigs ctx decls in
   let decls =
   List.fold_left (fun decls decl ->

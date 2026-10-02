@@ -66,7 +66,8 @@ val substitute_naive : HString.t -> expr -> expr -> expr
 
 val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
 (** [apply_subst_in_expr s e] applies the substitution defined by association list [s]
-    to the expression [e].
+    to the expression [e], including the expressions of the types it carries
+    (e.g. explicit type arguments), as {!subst_in_type_exprs} does.
     Bound variables introduced by match arms, quantifiers and [any]/[choose] are
     alpha-renamed when needed to avoid capture. *)
 

@@ -292,9 +292,15 @@ let rec expr_contains_id id = function
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
-  | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
+  | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | Call (_, ty_args, _, expr_list) ->
+    List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
+    || ty_args_contain_id id ty_args
+  | RecordExpr (_, _, ty_args, expr_list) ->
+    List.fold_left (fun acc (_, e) -> acc || expr_contains_id id e) false expr_list
+    || ty_args_contain_id id ty_args
+  | Merge (_, _, expr_list)
     -> List.fold_left (fun acc (_, e) -> acc || expr_contains_id id e) false expr_list
   | Activate (_, _, e1, e2, expr_list) -> 
     expr_contains_id id e1 || expr_contains_id id e2
@@ -316,9 +322,13 @@ let rec expr_contains_id id = function
     List.fold_left (fun acc (_, arm_e) -> acc || expr_contains_id id arm_e) false arms
   | ADTTerm (_, ty_args, _, args) ->
     List.fold_left (fun acc e -> acc || expr_contains_id id e) false args
-    || List.fold_left (fun acc ty -> acc || fold_lustre_ty (expr_contains_id id) false (||) ty) false ty_args
+    || ty_args_contain_id id ty_args
   | AbstractSymConst _ -> false
   | ADTTester (_, e, _) -> expr_contains_id id e
+
+(* Whether id occurs in the expressions of explicit type arguments *)
+and ty_args_contain_id id ty_args =
+  List.exists (fold_lustre_ty ~into_ty_args:true (expr_contains_id id) false (||)) ty_args
 
 (* Returns the set of variable names bound by a pattern.
    Before type checking, VarPat is used for both variable bindings and 0-arg
@@ -411,9 +421,9 @@ let rec apply_subst_in_expr sigma = function
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef (_, _) as e -> e
   | EmptyMap (p, Some (kt, vt)) ->
-    EmptyMap (p, Some (map_lustre_ty (apply_subst_in_expr sigma) kt, map_lustre_ty (apply_subst_in_expr sigma) vt))
+    EmptyMap (p, Some (subst_in_type_exprs sigma kt, subst_in_type_exprs sigma vt))
   | EmptySet (p, Some ty) -> 
-    EmptySet (p, Some (map_lustre_ty (apply_subst_in_expr sigma) ty))
+    EmptySet (p, Some (subst_in_type_exprs sigma ty))
   | FieldProject (pos, e, idx, pk) -> FieldProject (pos, apply_subst_in_expr sigma e, idx, pk)
   | Const (_, _) as e -> e
   | Extract (pos, e, idx1, idx2) -> Extract (pos, apply_subst_in_expr sigma e, idx1, idx2)
@@ -484,11 +494,12 @@ let rec apply_subst_in_expr sigma = function
     ) arms in
     Match (pos, e, arms, ty)
   | ADTTerm (pos, ty_args, ctor, args) ->
-    let ty_args = List.map (map_lustre_ty (apply_subst_in_expr sigma)) ty_args in
+    let ty_args = List.map (subst_in_type_exprs sigma) ty_args in
     ADTTerm (pos, ty_args, ctor, List.map (apply_subst_in_expr sigma) args)
   | AbstractSymConst _ as e -> e
   | ADTTester (pos, e, c) -> ADTTester (pos, apply_subst_in_expr sigma e, c)
   | RecordExpr (pos, ident, ps, expr_list) ->
+    let ps = List.map (subst_in_type_exprs sigma) ps in
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
@@ -527,6 +538,7 @@ let rec apply_subst_in_expr sigma = function
   | TypeAscription (pos, e, ty) ->
     TypeAscription (pos, apply_subst_in_expr sigma e, subst_in_type_exprs sigma ty)
   | Call (pos, ty_args, id, expr_list) ->
+    let ty_args = List.map (subst_in_type_exprs sigma) ty_args in
     Call (pos, ty_args, id, List.map (fun e -> apply_subst_in_expr sigma e) expr_list)
 
 (* The counterpart of map_lustre_ty for a substitution: it applies sigma to every
@@ -537,7 +549,8 @@ and subst_in_type_exprs sigma ty =
   let r = subst_in_type_exprs sigma in
   match ty with
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _
-  | EnumType _ | AbstractType _ | UserType _ | History _ -> ty
+  | EnumType _ | AbstractType _ | History _ -> ty
+  | UserType (p, ty_args, id) -> UserType (p, List.map r ty_args, id)
   | Map (p, kt, vt) -> Map (p, r kt, r vt)
   | Set (p, ty) -> Set (p, r ty)
   | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, apply_subst_in_expr sigma len))
@@ -567,7 +580,7 @@ and subst_in_type_exprs sigma ty =
    capture. An any/choose binder's type may depend on outer variables, and lies
    outside the binder's own scope, so the unfiltered substitution applies there. *)
 and subst_under_binder sigma (ipos, i, ty) e =
-  let ty = map_lustre_ty (apply_subst_in_expr sigma) ty in
+  let ty = subst_in_type_exprs sigma ty in
   match List.filter (fun (v, _) -> v <> i) sigma with
   (* The binder shadows every substitution, so nothing to rename either *)
   | [] -> ((ipos, i, ty), e)
