@@ -2795,16 +2795,19 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
     Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
 
 (* The evaluation of the calls of the analysis to the recursive functions
-   proved terminating, if any. The termination of a function is only known
-   once its own analysis has run, so a call is only evaluated in a modular
-   analysis, whether compositional or not. *)
+   proved terminating, if any, and to the functions that are not recursive,
+   whose evaluation does not depend on the termination of another function.
+   The termination of a function is only known once its own analysis has
+   run, so a call is only evaluated in a modular analysis, whether
+   compositional or not; with no recursive function proved terminating,
+   no evaluator is made, the calls to the functions that are not recursive
+   being evaluated through their bodies (see [facts_of_calls]). *)
 let evaluation_of_param globals options analysis_param nodes =
   let { A.terminating ; A.learned } = A.info_of_param analysis_param in
   match Atomic.get mk_evaluator with
   | None -> None
   | Some _ when
-      Scope.Map.is_empty terminating
-      || not options.add_functional_constraints
+      not options.add_functional_constraints
       || not (Flags.modular ()) -> None
   | Some mk_evaluator ->
     let rec_info_of node_id =
@@ -2881,37 +2884,35 @@ let evaluation_of_param globals options analysis_param nodes =
            then NI.Set.add node_id acc else acc)
         NI.Set.empty nodes
     in
-    if NI.Set.is_empty candidates then None
-    else
-      (* The values learned for the outputs of the candidates: their value
-         is the value of the function, which is proved terminating, as for
-         an evaluated call *)
-      let candidate_ufs =
-        NI.Set.fold
-          (fun node_id acc ->
-             match N.node_of_node_id node_id nodes with
-             | { N.comp_type = N.Function { N.uf_symbols } } ->
-               SVM.fold (fun _ uf acc -> uf :: acc) uf_symbols acc
-             | _ -> acc
-             | exception Not_found -> acc)
-          candidates []
-      in
-      let learned =
-        List.filter_map
-          (fun (uf, args, value) ->
-             if List.exists (UfSymbol.equal_uf_symbols uf) candidate_ufs
-             then Some (Term.mk_eq [ Term.mk_uf uf args ; value ])
-             else None)
-          learned
-      in
-      Some {
-        eval_nodes = nodes ;
-        candidates ;
-        evaluators = NI.Map.empty ;
-        mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
-        values = CallTbl.create 16 ;
-        learned ;
-      }
+    (* The values learned for the outputs of the candidates: their value
+       is the value of the function, which is proved terminating, as for
+       an evaluated call *)
+    let candidate_ufs =
+      NI.Set.fold
+        (fun node_id acc ->
+           match N.node_of_node_id node_id nodes with
+           | { N.comp_type = N.Function { N.uf_symbols } } ->
+             SVM.fold (fun _ uf acc -> uf :: acc) uf_symbols acc
+           | _ -> acc
+           | exception Not_found -> acc)
+        candidates []
+    in
+    let learned =
+      List.filter_map
+        (fun (uf, args, value) ->
+           if List.exists (UfSymbol.equal_uf_symbols uf) candidate_ufs
+           then Some (Term.mk_eq [ Term.mk_uf uf args ; value ])
+           else None)
+        learned
+    in
+    Some {
+      eval_nodes = nodes ;
+      candidates ;
+      evaluators = NI.Map.empty ;
+      mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
+      values = CallTbl.create 16 ;
+      learned ;
+    }
 
 (* The facts on the functional symbols of the functions evaluated that the
    calls of a node at constant arguments give: the value of each output of
@@ -2919,28 +2920,25 @@ let evaluation_of_param globals options analysis_param nodes =
    defined by an equation whose initial and step values are the same
    ground term, once the variables it depends on that are constant are
    replaced by their values; this includes the outputs of an unconditional
-   call evaluated in turn, as the inner call of [F(F(3))]. *)
+   call evaluated in turn, as the inner call of [F(F(3))].
+
+   A call to a function that is not recursive is evaluated as well, by the
+   same propagation through the equations of its body, before slicing, with
+   its inputs bound to the arguments: its outputs are constant then, as the
+   inner call of [F(G(3))], when the calls of its body are. Its facts are
+   only given for the outputs that the instances of the function in the
+   system [nodes] leave undefined, when its contract abstracts it: only
+   those are tied to its functional symbols (see [trans_sys_of_node']), and
+   the outputs of a concrete instance are defined by its body already. *)
 let facts_of_calls
-    ({ eval_nodes = nodes ; candidates ; values } as evaluation)
-    equations calls =
-  let equation_of_svar =
-    List.fold_left
-      (fun acc ((sv, bounds), e) ->
-         if bounds = [] then SVM.add sv e acc else acc)
-      SVM.empty equations
-  in
-  let call_of_output =
-    List.fold_left
-      (fun acc ({ N.call_outputs } as call) ->
-         D.fold (fun _ sv acc -> SVM.add sv call acc) call_outputs acc)
-      SVM.empty calls
-  in
+    ({ eval_nodes ; candidates ; values } as evaluation)
+    nodes equations calls =
   (* The functional symbols of the outputs of the callee, if its calls are
      evaluated *)
   let evaluated_outputs { N.call_node_id } =
     if not (NI.Set.mem call_node_id candidates) then None
     else
-      match N.node_of_node_id call_node_id nodes with
+      match N.node_of_node_id call_node_id eval_nodes with
       | { N.outputs ; N.comp_type = N.Function { N.uf_symbols } } ->
         Some (D.values outputs |> List.map (fun sv -> SVM.find sv uf_symbols))
       | _ -> None
@@ -2984,86 +2982,172 @@ let facts_of_calls
     |> ignore ;
     Var.VarSet.is_empty (Term.vars_of_term t) && not !applies_uf
   in
-  (* The constant value of each variable, or [None], memoized; a variable
-     being visited has none, which only matters for a cycle through [pre] *)
-  let constants = ref SVM.empty in
-  let rec value_of_svar sv =
-    match SVM.find_opt sv !constants with
-    | Some value -> value
-    | None ->
-      constants := SVM.add sv None !constants ;
-      let value =
-        match SVM.find_opt sv equation_of_svar, SVM.find_opt sv call_of_output with
-        | Some e, _ ->
-          (* The value of an expression at offset zero, with the
-             variables of the same instant replaced by their values *)
-          let value_of_expr term_of expr =
-            let term = term_of Numeral.zero expr in
-            let subst =
-              Var.VarSet.fold
-                (fun v acc ->
-                   match acc with
-                   | None -> None
-                   | Some subst ->
-                     if Var.is_state_var_instance v
-                     && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
-                     then
-                       match value_of_svar (Var.state_var_of_state_var_instance v) with
-                       | Some value -> Some ((v, value) :: subst)
-                       | None -> None
-                     else None)
-                (Term.vars_of_term term) (Some [])
-            in
-            match subst with
-            | None -> None
-            | Some subst ->
-              let term = Term.apply_subst subst term |> Simplify.simplify_term [] in
-              if is_ground term then Some term else None
+  (* The functional symbols of the outputs of a function that is not
+     recursive and has a body, with the values of its outputs at constant
+     arguments, memoized by functional symbol and arguments as the values
+     of evaluated calls are, or [None] if it has none *)
+  let rec outputs_of_function node_id args =
+    match N.node_of_node_id node_id eval_nodes with
+    | { N.is_extern = false ; N.inputs ; N.outputs ; N.equations ; N.calls ;
+        N.comp_type = N.Function { N.rec_info = None ; N.uf_symbols } } ->
+      let ufs = D.values outputs |> List.map (fun sv -> SVM.find sv uf_symbols) in
+      let outputs =
+        if List.for_all (fun uf -> CallTbl.mem values (uf, args)) ufs then
+          List.map (fun uf -> CallTbl.find values (uf, args)) ufs
+        else
+          let inputs =
+            List.fold_left2
+              (fun acc sv value -> SVM.add sv (Some value) acc)
+              SVM.empty (D.values inputs) args
           in
-          ( match
-              value_of_expr E.base_term_of_expr (E.init_expr e),
-              value_of_expr E.cur_term_of_expr (E.step_expr e)
-            with
-            | Some init, Some step when Term.equal init step -> Some init
-            | _ -> None )
-        | None, Some ({ N.call_node_id ; N.call_cond = [] ;
-                        N.call_context = None ; N.call_defaults = None ;
-                        N.call_outputs } as call) ->
-          ( match evaluated_outputs call, values_of_call call with
-            | Some ufs, Some args ->
-              D.values call_outputs
-              |> List.combine ufs
-              |> List.find_map (fun (uf, out) ->
-                if StateVar.equal_state_vars out sv
-                then evaluate call_node_id uf args
-                else None)
-            | _ -> None )
-        | None, _ -> None
+          let value_of_svar, _ = valuation inputs equations calls in
+          let outputs = D.values outputs |> List.map value_of_svar in
+          List.iter2 (fun uf value -> CallTbl.replace values (uf, args) value)
+            ufs outputs ;
+          outputs
       in
-      constants := SVM.add sv value !constants ;
-      value
-  and values_of_call { N.call_inputs } =
-    List.fold_right
-      (fun sv acc ->
-         match acc, value_of_svar sv with
-         | Some args, Some value -> Some (value :: args)
-         | _ -> None)
-      (D.values call_inputs) (Some [])
+      Some (List.combine ufs outputs)
+    | _ -> None
+    | exception Not_found -> None
+  (* The value of each output of a call at constant arguments, by the
+     functional symbol of the output, if its callee is evaluated *)
+  and outputs_of_call ({ N.call_node_id } as call) args =
+    match evaluated_outputs call with
+    | Some ufs ->
+      Some (List.map (fun uf -> uf, lazy (evaluate call_node_id uf args)) ufs)
+    | None ->
+      outputs_of_function call_node_id args
+      |> Option.map (List.map (fun (uf, value) -> uf, Lazy.from_val value))
+  (* The constant value of each variable of the equations and calls of a
+     node, or [None], with the values [constants] the inputs are bound to *)
+  and valuation constants equations calls =
+    let equation_of_svar =
+      List.fold_left
+        (fun acc ((sv, bounds), e) ->
+           if bounds = [] then SVM.add sv e acc else acc)
+        SVM.empty equations
+    in
+    let call_of_output =
+      List.fold_left
+        (fun acc ({ N.call_outputs } as call) ->
+           D.fold (fun _ sv acc -> SVM.add sv call acc) call_outputs acc)
+        SVM.empty calls
+    in
+    (* Memoized; a variable being visited has none, which only matters for
+       a cycle through [pre] *)
+    let constants = ref constants in
+    let rec value_of_svar sv =
+      match SVM.find_opt sv !constants with
+      | Some value -> value
+      | None ->
+        constants := SVM.add sv None !constants ;
+        let value =
+          match SVM.find_opt sv equation_of_svar, SVM.find_opt sv call_of_output with
+          | Some e, _ ->
+            (* The value of an expression at offset zero, with the
+               variables of the same instant replaced by their values *)
+            let value_of_expr term_of expr =
+              let term = term_of Numeral.zero expr in
+              let subst =
+                Var.VarSet.fold
+                  (fun v acc ->
+                     match acc with
+                     | None -> None
+                     | Some subst ->
+                       if Var.is_state_var_instance v
+                       && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
+                       then
+                         match value_of_svar (Var.state_var_of_state_var_instance v) with
+                         | Some value -> Some ((v, value) :: subst)
+                         | None -> None
+                       else None)
+                  (Term.vars_of_term term) (Some [])
+              in
+              match subst with
+              | None -> None
+              | Some subst ->
+                let term = Term.apply_subst subst term |> Simplify.simplify_term [] in
+                if is_ground term then Some term else None
+            in
+            ( match
+                value_of_expr E.base_term_of_expr (E.init_expr e),
+                value_of_expr E.cur_term_of_expr (E.step_expr e)
+              with
+              | Some init, Some step when Term.equal init step -> Some init
+              | _ -> None )
+          | None, Some ({ N.call_cond = [] ; N.call_context = None ;
+                          N.call_defaults = None ; N.call_outputs } as call) ->
+            ( match values_of_call call with
+              | None -> None
+              | Some args ->
+                match outputs_of_call call args with
+                | None -> None
+                | Some outputs ->
+                  D.values call_outputs
+                  |> List.combine outputs
+                  |> List.find_map (fun ((_, value), out) ->
+                    if StateVar.equal_state_vars out sv
+                    then Lazy.force value
+                    else None) )
+          | None, _ -> None
+        in
+        constants := SVM.add sv value !constants ;
+        value
+    and values_of_call { N.call_inputs } =
+      List.fold_right
+        (fun sv acc ->
+           match acc, value_of_svar sv with
+           | Some args, Some value -> Some (value :: args)
+           | _ -> None)
+        (D.values call_inputs) (Some [])
+    in
+    value_of_svar, values_of_call
   in
+  (* The outputs of the instances of a function that is not recursive that
+     are left undefined in the system: those abstracted by its contract *)
+  let undefined_outputs node_id =
+    match N.node_of_node_id node_id nodes with
+    | { N.outputs ; N.equations } ->
+      D.values outputs
+      |> List.filter (fun sv ->
+        not (List.exists (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
+               equations))
+    | exception Not_found -> []
+  in
+  let _, values_of_call = valuation SVM.empty equations calls in
   List.concat_map
     (fun ({ N.call_node_id } as call) ->
-       match evaluated_outputs call with
+       match values_of_call call with
        | None -> []
-       | Some ufs ->
-         match values_of_call call with
-         | None -> []
-         | Some args ->
+       | Some args ->
+         let facts outputs =
            List.filter_map
-             (fun uf ->
-                evaluate call_node_id uf args
+             (fun (uf, value) ->
+                Lazy.force value
                 |> Option.map (fun value ->
                   Term.mk_eq [ Term.mk_uf uf args ; value ]))
-             ufs)
+             outputs
+         in
+         match evaluated_outputs call with
+         | Some _ ->
+           Option.fold ~none:[] ~some:facts (outputs_of_call call args)
+         | None ->
+           match undefined_outputs call_node_id with
+           | [] -> []
+           | undefined ->
+             match outputs_of_call call args with
+             | None -> []
+             | Some outputs ->
+               (* The outputs of the callee, by position in the call *)
+               let callee_outputs =
+                 match N.node_of_node_id call_node_id nodes with
+                 | { N.outputs } -> D.values outputs
+               in
+               List.combine callee_outputs outputs
+               |> List.filter_map (fun (sv, output) ->
+                 if List.exists (StateVar.equal_state_vars sv) undefined
+                 then Some output else None)
+               |> facts)
     calls
 
 let rec trans_sys_of_node' options globals fun_defs evaluation top_name
@@ -3638,7 +3722,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
             match evaluation with
             | None -> init_terms, trans_terms
             | Some ({ learned } as evaluation) ->
-              let facts = facts_of_calls evaluation equations calls in
+              let facts = facts_of_calls evaluation nodes equations calls in
               let facts =
                 if NI.equal node_id top_name && NI.Map.is_empty num_unrollings
                 then List.rev_append learned facts

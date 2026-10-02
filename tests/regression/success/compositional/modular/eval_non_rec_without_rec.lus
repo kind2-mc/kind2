@@ -1,0 +1,20 @@
+-- A call to a function that is not recursive, at constant arguments, is
+-- evaluated through its body, although the program has no recursive
+-- function: its evaluation does not depend on the termination of another
+-- function. Its contract, which abstracts it, does not give its value, which
+-- the first analysis of main is then given. test_rec_evaluation.py checks
+-- that main is analyzed once.
+function Double(n: int) returns (m: int);
+(*@contract
+  assume n >= 0;
+  guarantee m >= n;
+*)
+let
+  m = 2 * n;
+tel
+
+node main() returns (y: int);
+let
+  y = Double(2);
+  check "value" y = 4;
+tel
