@@ -879,6 +879,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/const_param_3.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test match pattern variable in quantifier binder type" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_type_shadowed_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
   mk_test "test illegal node call in subrange bound" (fun () ->
     match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
     | Error (`LustreTypeCheckerError (_, UnboundNodeName _)) -> true
@@ -978,6 +982,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test duplicate constructor symbol across two ADTs" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_constructor.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
+    | _ -> false);
+  mk_test "test duplicate constructor symbol within one ADT" (fun () ->
+    match load_file "./lustreTypeChecker/adt_duplicate_constructor_in_type.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructorInType _)) -> true
     | _ -> false);
   mk_test "test duplicate field name across constructors of same ADT" (fun () ->
     match load_file "./lustreTypeChecker/adt_duplicate_field_name.lus" with
@@ -1175,6 +1183,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "refinement type argument in constant parameter argument under activate" (fun () ->
     match load_file "./lustreTypeChecker/refinement_type_arg_const_param_activate.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "if-then-else constant of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Int _, Real _))) -> true
+    | _ -> false);
+  mk_test "if-then-else property of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_property_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
+    | _ -> false);
+  mk_test "if-then-else guarantee of the wrong type" (fun () ->
+    match load_file "./lustreTypeChecker/ite_guarantee_wrong_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
     | _ -> false);
 ])
 
@@ -1432,6 +1452,21 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
   mk_test "test pattern variable shadowing a node output" (fun () ->
     match load_file "./lustreDesugarMatchBlocks/pattern_variable_shadows_output.lus" with
     | Error (`LustreDesugarMatchBlocksError (_, ShadowingPatternVariable _)) -> true
+    | _ -> false);
+])
+
+let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
+  mk_test "test constant input read by a clocked temporal expression" (fun () ->
+    match load_file "./lustreGenNodes/const_input_in_temporal_branch.lus" with
+    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
+    | _ -> false);
+  mk_test "test ghost constant read by a clocked temporal expression" (fun () ->
+    match load_file "./lustreGenNodes/ghost_const_in_temporal_branch.lus" with
+    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
+    | _ -> false);
+  mk_test "test mode reference in a clocked temporal expression reading a constant" (fun () ->
+    match load_file "./lustreGenNodes/mode_ref_in_temporal_branch_with_const.lus" with
+    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
     | _ -> false);
 ])
 

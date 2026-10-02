@@ -1,0 +1,5 @@
+const k: int = if true then 1.5 else 2.5;
+node N() returns (y: int);
+let
+  y = k;
+tel

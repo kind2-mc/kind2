@@ -124,6 +124,7 @@ type error_kind = Unknown of string
   | MatchScrutineeNotADT of tc_type
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
+  | DuplicateConstructorInType of HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
@@ -280,6 +281,9 @@ let error_message kind = match kind with
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' is already declared in type '"
     ^ HString.string_of_hstring ty1 ^ "' and cannot be reused in type '"
     ^ HString.string_of_hstring ty2 ^ "'"
+  | DuplicateConstructorInType (ctor, ty) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' is declared more than once in type '"
+    ^ HString.string_of_hstring ty ^ "'"
   | DuplicateFieldName (field, ctor1, ctor2) ->
     "Selector for field '" ^ HString.string_of_hstring field ^ "' is ambiguous: appears in constructor '"
     ^ HString.string_of_hstring ctor1 ^ "' and constructor '"
@@ -1233,7 +1237,9 @@ let rec bind_pattern_ty ctx field_ty pat =
         )
       | _ -> type_error pos (UnboundConstructor id)
     ) else
-      R.ok (add_ty ctx id field_ty, pat)
+      (* A pattern variable denotes a constructor field, not a constant, so its
+         binding must hide a constant of the same name *)
+      R.ok (add_ty (remove_const ctx id) id field_ty, pat)
   | LA.Pat (pos, ctor, sub_pats) ->
     (match adt_opt with
     | Some (LA.ADT (_, _, adt_cons)) ->
@@ -1635,11 +1641,20 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
-  | AnyOp _ -> assert false
-  | ChooseOp _ -> assert false
-  (* Already desugared in lustreDesugarAnyChooseOps *)
-  (*check_type_expr ctx nname e ty >>
-    R.ok ty*)
+  (* An any/choose operator has the type its binder declares. These are turned
+     into node calls before the main type-checking pass runs, so this case only
+     serves the passes that infer types beforehand. *)
+  | LA.AnyOp (pos, (ipos, i, ty), e) ->
+    let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
+    (* The binder shadows a global constant of the same name *)
+    let extn_ctx = add_ty (remove_const ctx i) i ty in
+    let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
+    R.ok (ty, LA.AnyOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
+  | LA.ChooseOp (pos, (ipos, i, ty), e) ->
+    let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
+    let extn_ctx = add_ty (remove_const ctx i) i ty in
+    let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
+    R.ok (ty, LA.ChooseOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
   (* Clock operators *)
   | LA.When (_, e, _) -> infer_type_expr ctx nname e
   | LA.Condact (pos, c, e, node, args, defaults) ->
@@ -1934,17 +1949,11 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
     R.ifM (eq_lustre_type ctx inf_ty exp_ty) 
       (R.ok (LA.BinaryOp (pos, op, e1, e2), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
-  | LA.TernaryOp (pos, ite, con, e1, e2) ->
-    let* ty, con, warnings1 = infer_type_expr ctx nname con in (
-    match ty with 
-        | Bool _ ->
-          let* ty1, e1, warnings2 = infer_type_expr ctx nname e1 in
-          let* ty2, e2, warnings3 = infer_type_expr ctx nname e2 in
-          R.ifM (eq_lustre_type ctx ty1 ty2)
-            (R.ok (LA.TernaryOp (pos, ite, con, e1, e2), (warnings1 @ warnings2 @ warnings3)))
-            (type_error pos (UnificationFailed (ty1, ty2)))
-        | ty  -> type_error pos (ExpectedType ((Bool pos), ty))
-    )
+  | LA.TernaryOp (pos, _, _, _, _) as e ->
+    let* inf_ty, e, warnings = infer_type_expr ctx nname e in
+    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+      (R.ok (e, warnings))
+      (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | ConvOp (pos, cvop, e) ->
     let* inf_ty, e, warnings = infer_type_conv_op ctx nname pos e cvop in
     R.ifM (eq_lustre_type ctx inf_ty exp_ty)
@@ -1962,17 +1971,8 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
       (R.ok (LA.Const (pos, c), []))
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
-  | AnyOp _ -> assert false 
-  | ChooseOp _ -> assert false 
-    (* Already desugared in lustreDesugarAnyChooseOps *)
-    (*let extn_ctx = union ctx (singleton_ty i ty) in
-    check_type_expr extn_ctx e (Bool pos)
-    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))
-  | AnyOp (pos, (_, i ,ty), e1, Some e2) ->
-    let extn_ctx = union ctx (singleton_ty i ty) in
-    check_type_expr extn_ctx e1 (Bool pos)
-    >> check_type_expr extn_ctx e2 (Bool pos)
-    >> R.guard_with (eq_lustre_type ctx exp_ty ty) (type_error pos (UnificationFailed (exp_ty, ty)))*)
+  | AnyOp (pos, _, _)
+  | ChooseOp (pos, _, _)
   | IndexAccess (pos, _, _, _)
   | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
@@ -3440,6 +3440,17 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
         ) fields) |> R.map List.split in
         R.ok ((ctor, fields'), List.flatten warnings)
       ) ctors) |> R.map List.split in
+      (* Constructor names must be unique within a type: two constructors of one
+         type sharing a name declare one symbol with two conflicting signatures. *)
+      let* () =
+        let seen = Hashtbl.create 8 in
+        match List.filter_map (fun (ctor, _) ->
+          if Hashtbl.mem seen ctor then Some ctor
+          else (Hashtbl.add seen ctor (); None)
+        ) ctors with
+        | ctor :: _ -> type_error pos (DuplicateConstructorInType (ctor, new_ty_name))
+        | [] -> R.ok ()
+      in
       (* Field names must be unique across all constructors, not just within one: dot-
          notation projection resolves a field by name alone, so reusing a name would be
          ambiguous. *)

@@ -1,0 +1,7 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node main (a: L^3) returns (ok: bool);
+let
+  ok = Nil?(a[0]) or Nil?(a[1]) or Nil?(a[2]);
+  check ok;
+tel

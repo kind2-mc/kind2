@@ -109,6 +109,7 @@ type error_kind = Unknown of string
   | MatchScrutineeNotADT of tc_type
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
+  | DuplicateConstructorInType of HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
@@ -228,6 +229,12 @@ val expand_type_syn_reftype_history :
 
 val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
+
+val bind_pattern_ty: tc_context -> tc_type -> LA.pattern
+  -> (tc_context * LA.pattern, [> error]) result
+(** Resolve a match pattern against the type it matches, returning the context
+    the arm's body is checked in and the pattern with each nullary-constructor
+    variable pattern resolved to a constructor pattern *)
 
 val desugar_generic_index: tc_context -> NI.t option -> LA.expr -> LA.label_or_index -> (LA.label_or_index, [> error]) result
 (** Convert the GenericIndex to one of the other indices based on type information *)

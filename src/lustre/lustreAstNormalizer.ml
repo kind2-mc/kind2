@@ -185,6 +185,23 @@ type shared_call = {
 }
 
 let shared_calls : shared_call list ref = ref []
+(* A call applied to enclosing quantified variables (see [mk_fresh_qcall]) *)
+type qcall_entry = {
+  (* The variables bound by the enclosing quantifiers, outermost first *)
+  qc_vars : A.typed_ident list;
+  (* The instance retained for the call *)
+  qc_inst : HString.t;
+  qc_callee : NI.t;
+  qc_args : A.expr list;
+  (* The output of the callee the call is projected to, if any *)
+  qc_proj : int;
+}
+
+(* The calls applied to enclosing quantified variables, by the name they are
+   abstracted to. Such a name stands for an application of the functional
+   symbol of the callee to the variables the quantifiers bind, so an
+   expression that mentions it is only meaningful under them *)
+let qcalls_by_name : qcall_entry StringMap.t ref = ref StringMap.empty
 (* Selector proof obligations already emitted, each recording the enclosing
    quantifiers and guards it was emitted under *)
 let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
@@ -194,6 +211,7 @@ let clear_cache () =
   LocalCache.clear local_cache;
   NodeArgCache.clear node_arg_cache;
   shared_calls := [];
+  qcalls_by_name := StringMap.empty;
   SelectorCache.clear selector_cache;
 
 type info = {
@@ -2237,8 +2255,109 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
               equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
         end)
 
-and mk_fresh_call ?(vmap=[]) ?(instance=[]) info (id : NI.t) map pos cond restart args defaults =
-  let inlined = vmap <> [] in
+(* The variables bound by the enclosing quantifiers that [e] depends on,
+   directly or through a call applied to them (see [mk_fresh_qcall]) *)
+and quant_deps info e =
+  A.SI.fold
+    (fun v acc ->
+      match StringMap.find_opt v !qcalls_by_name with
+      | Some { qc_args } ->
+        List.fold_left
+          (fun acc a -> A.SI.union acc (quant_deps info a)) acc qc_args
+      | None ->
+        if List.exists (fun (_, q, _) -> HString.equal v q)
+             info.quantified_variables
+        then A.SI.add v acc
+        else acc)
+    (AH.vars_without_node_call_ids e)
+    A.SI.empty
+
+(* Whether the lazy guards a call is made under depend on the variables bound
+   by the enclosing quantifiers *)
+and call_context_depends_on_quant_vars info =
+  List.exists
+    (fun (e, _, _) -> not (A.SI.is_empty (quant_deps info e)))
+    info.call_context
+
+(* The guard [conj] of a call under quantifiers, made to evaluate outside of
+   them, at the instance the call is abstracted to, and [info] with the
+   identifiers the guard introduces in its typing context.
+
+   A call under a guard that depends on the variables the quantifiers bind is
+   inlined, or compiled to an application of the functional symbol of the
+   callee (a call to any other function is rejected by [LustreSyntaxChecks]):
+   the output of its instance is not read, and the instance is retained for
+   the obligations of the callee, which the guard gates. The variables are
+   replaced by free constants in the arguments of the instance ([vmap]), and
+   so are they in the guard, with a free constant of its own for a variable
+   the arguments do not mention. A call applied to them in the guard is
+   replaced by a call to the same callee applied to the constants, which
+   stays applied to the variables of the quantifiers of the guard itself. The
+   constants being unconstrained, the obligations hold at the instance if and
+   only if they hold for all the values of the variables that satisfy the
+   guard. Nested quantifiers bind distinct names (see [normalize_expr]), so a
+   name in the guard denotes the variable of the call's quantifiers with that
+   name, if any *)
+and close_guard info vmap conj =
+  let deps = quant_deps info conj in
+  let is_outer v =
+    List.exists (fun (_, q, _) -> HString.equal v q) info.quantified_variables
+  in
+  let vmap, info, gids =
+    List.fold_left
+      (fun (vmap, info, gids) (pos_v, v, ty) ->
+        if A.SI.mem v deps && not (List.mem_assoc v vmap) then
+          let nexpr, id, gids' = mk_fresh_constant pos_v "_quant_arg" ty in
+          (v, nexpr) :: vmap, add_ty_to_info info id ty, union gids gids'
+        else vmap, info, gids)
+      (vmap, info, empty ())
+      info.quantified_variables
+  in
+  let gids = ref gids in
+  let info = ref info in
+  let rec close e =
+    let renames =
+      A.SI.fold
+        (fun v acc ->
+          match StringMap.find_opt v !qcalls_by_name with
+          | Some { qc_vars; qc_inst; qc_callee; qc_args; qc_proj } ->
+            let args = List.map close qc_args in
+            let qinfo =
+              { !info with
+                quantified_variables =
+                  List.filter (fun (_, q, _) -> not (is_outer q)) qc_vars;
+                local_group_projection = qc_proj }
+            in
+            let nexpr, gids' =
+              mk_fresh_qcall qinfo qc_callee qc_inst dpos args
+            in
+            gids := union !gids gids';
+            (* The application is typed as the output of the callee *)
+            (match nexpr, Ctx.lookup_node_ty !info.context qc_callee with
+             | A.Ident (_, id), Some (A.TArr (_, _, ret)) ->
+               let ty =
+                 match ret with
+                 | A.GroupType (_, tys) when qc_proj >= 0 -> List.nth tys qc_proj
+                 | A.GroupType (_, [ty]) -> ty
+                 | ty -> ty
+               in
+               info := add_ty_to_info !info id ty
+             | _ -> ());
+            (v, nexpr) :: acc
+          | None -> acc)
+        (AH.vars_without_node_call_ids e)
+        []
+    in
+    AH.apply_subst_in_expr (renames @ vmap) e
+  in
+  let conj = close conj in
+  conj, !info, !gids
+
+(* [inlined] marks the instance of a call that is inlined, or compiled to an
+   application of the functional symbol of the callee, which is the case of
+   any call applied to quantified variables ([vmap]) *)
+and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) map pos cond restart args defaults =
+  let inlined = inlined || vmap <> [] in
   let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
     else HString.concat2
       (HString.mk_hstring (string_of_int info.local_group_projection))
@@ -2300,13 +2419,16 @@ and mk_fresh_call ?(vmap=[]) ?(instance=[]) info (id : NI.t) map pos cond restar
     | [] -> None, empty ()
     | (c, _, _) :: cs -> (
       let conj =
-        let c = if inlined then AH.apply_subst_in_expr vmap c else c in
         List.fold_left
-          (fun acc (c', _, _) ->
-            let c' = if inlined then AH.apply_subst_in_expr vmap c' else c' in
-            A.BinaryOp (dpos, A.And, c', acc))
+          (fun acc (c', _, _) -> A.BinaryOp (dpos, A.And, c', acc))
           c cs
       in
+      (* The call is abstracted to an instance outside of the enclosing
+         quantifiers, so its guard is evaluated there too, and must not
+         depend on the variables the quantifiers bind *)
+      let conj, info, gids0 = close_guard info vmap conj in
+      (* The guard is closed: it is not generalized over the variables *)
+      let info = { info with quantified_variables = [] } in
       let nexpr, gids, warnings =
         (* `conj` is a conjunction of normalized boolean expressions.
            It may contain internal variables whose types are not present in
@@ -2318,7 +2440,7 @@ and mk_fresh_call ?(vmap=[]) ?(instance=[]) info (id : NI.t) map pos cond restar
       assert (warnings = []);
       match AH.id_of_expr nexpr with
       | None -> assert false
-      | Some id -> Some id, gids
+      | Some id -> Some id, union gids0 gids
     )
   in
   i := !i + 1;
@@ -2353,6 +2475,12 @@ and mk_fresh_qcall info (id : NI.t) inst_name pos args =
       (HString.mk_hstring "proj_")
   in
   let nexpr = A.Ident (pos, HString.concat2 proj name) in
+  qcalls_by_name :=
+    StringMap.add (HString.concat2 proj name)
+      { qc_vars = info.quantified_variables; qc_inst = inst_name;
+        qc_callee = id; qc_args = args;
+        qc_proj = info.local_group_projection }
+      !qcalls_by_name;
   let qcall = (info.quantified_variables, name, inst_name, id, args) in
   nexpr, { (empty ()) with qcalls = [qcall] }
 
@@ -2515,7 +2643,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       else
         (info, [], empty())
     in
-    let handle_call vmap args =
+    let handle_call ?(inlined=false) vmap args =
       let flags = NI.Map.find id info.node_is_input_const in
       let cond = A.Const (Lib.dummy_pos, A.True) in
       let restart =  A.Const (Lib.dummy_pos, A.False) in
@@ -2531,7 +2659,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (combine_args_with_const info args flags)
       in
       let nexpr, call_name, gids2 =
-        mk_fresh_call ~vmap ~instance info id map pos cond restart nargs None
+        mk_fresh_call ~vmap ~inlined ~instance info id map pos cond restart nargs None
       in
       let gids2 = 
         if NI.get_node_type id = NI.TypeAscription && args <> [] then
@@ -2548,12 +2676,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      * all calls within an inlined function are inlinable.
      *)
     let call_context_has_quantified_vars =
-      let quant_ids = List.map (fun (_, q, _) -> q) info.quantified_variables in
-      let has_quant_vars e =
-        let vars = AH.vars_without_node_call_ids e in
-        List.exists (fun q -> A.SI.mem q vars) quant_ids
-      in
-      List.exists (fun (e, _, _) -> has_quant_vars e) info.call_context
+      call_context_depends_on_quant_vars info
     in
     let should_inline =
       is_inlinable &&
@@ -2577,21 +2700,27 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         let args =
           List.map (fun a -> AH.apply_subst_in_expr vmap a) args
         in
-        let _, _, gids3, warnings3 = handle_call vmap args in
+        let _, _, gids3, warnings3 = handle_call ~inlined:true vmap args in
         nexpr, union_list [gids0; gids1; gids2; gids3],
         warnings1 @ warnings2 @ warnings3
     )
-    else if vmap <> [] then (
+    else if vmap <> []
+         || (is_uf_callable && call_context_has_quantified_vars) then (
       assert (is_uf_callable);
       (* The call is compiled to an application of the functional symbol of
-         the callee. The node instance is kept, with free constants in place
-         of the quantified variables, so that the callee remains a subsystem
-         of the caller and its functional symbol is declared (or defined).
+         the callee, also when it is not applied to quantified variables but
+         is made under a guard that depends on them, which its instance could
+         not evaluate (see [close_guard]). The node instance is kept, with
+         free constants in place of the quantified variables, so that the
+         callee remains a subsystem of the caller and its functional symbol is
+         declared (or defined).
          The arguments of the application are normalized like any other
          expression under the quantifier, since [LustreNodeGen] compiles them
          as they are (e.g., a call in an argument must be abstracted) *)
       let subst_args = List.map (fun a -> AH.apply_subst_in_expr vmap a) args in
-      let _, inst_name, gids1, warnings1 = handle_call vmap subst_args in
+      let _, inst_name, gids1, warnings1 =
+        handle_call ~inlined:true vmap subst_args
+      in
       let nargs, gids2, warnings2 = normalize_list
         (normalize_expr ?guard { info with value_context = [] } node_id map)
         args
@@ -3141,6 +3270,32 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
   | Quantifier (pos, kind, vars, expr) ->
+    (* A variable that shadows one of an enclosing quantifier is renamed, so
+       that nested quantifiers bind distinct names: the guard of a call is
+       evaluated outside of the quantifiers, where a name must denote a
+       single variable (see [close_guard]) *)
+    let vars, expr =
+      List.fold_right
+        (fun (p, id, ty) (vars, expr) ->
+          let shadows =
+            List.exists (fun (_, q, _) -> HString.equal q id)
+              info.quantified_variables
+          in
+          if not shadows then (p, id, ty) :: vars, expr
+          else (
+            i := !i + 1;
+            let fresh =
+              HString.concat2
+                (HString.mk_hstring (string_of_int !i ^ "_quant_"))
+                id
+            in
+            let sigma = [(id, A.Ident (p, fresh))] in
+            let subst_ty = AH.map_lustre_ty (AH.apply_subst_in_expr sigma) in
+            (p, fresh, ty)
+            :: List.map (fun (p', id', ty') -> (p', id', subst_ty ty')) vars,
+            AH.apply_subst_in_expr sigma expr))
+        vars ([], expr)
+    in
     let ctx = List.fold_left Ctx.union info.context
       (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
     in
