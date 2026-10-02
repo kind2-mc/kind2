@@ -589,7 +589,8 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids expr ->
     StructUpdate (pos, e, idx, None), gen_nodes 
   | ArrayConstr (pos, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
-    let e2, gen_nodes2 = rec_call e2 in
+    (* The size must be a constant expression *)
+    let e2, gen_nodes2 = desugar_expr ~insert:false ~bound ctx node_name fun_ids e2 in
     ArrayConstr (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | IndexAccess (pos, e1, e2, kind) ->
     let e1, gen_nodes1 = rec_call e1 in
