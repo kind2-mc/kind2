@@ -876,6 +876,17 @@ let should_not_abstract info force = function
     not (Ctx.is_enum_variant info.context id) && not force
   | _ -> false
 
+(* Whether [expr], as written, is a ghost constant. One with a definition is
+   compiled to its value, not to a state variable, so it must be abstracted
+   when it is passed for a constant input of a node or a contract *)
+let is_ghost_const info = function
+  | A.Ident (_, id) -> (
+    match Ctx.lookup_const info.context id with
+    | Some (_, _, Ghost) -> true
+    | _ -> false
+  )
+  | _ -> false
+
 let get_history_type ctx id =
   let base_ty = Ctx.lookup_ty ctx id |> get in
   let size =
@@ -1806,7 +1817,12 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in
         Mode (pos, name, nrequires, nensures), union gids1 gids2, warnings1 @ warnings2, StringMap.empty
       | ContractCall (pos, name, ty_args, inputs, outputs) ->
-        let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info (Some node_id) map) inputs in
+        (* The inputs of the imported contract are interpreted as the
+           arguments, so a ghost constant must be abstracted, as for a call *)
+        let ninputs, gids1, warnings1 = normalize_list
+          (fun e -> abstract_expr (is_ghost_const info e) info (Some node_id) map e)
+          inputs
+        in
         let noutputs = List.map
           (fun id ->
             let ty =
@@ -2576,19 +2592,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      itself, and stay in [call_context]. *)
   let abstract_node_arg ?guard force is_const info map expr =
     let info = { info with value_context = [] } in
-    (* A ghost constant with a definition is compiled to its value, not to a
-       state variable, so it is abstracted when passed for a constant input *)
-    let force =
-      force ||
-      is_const &&
-      match expr with
-      | A.Ident (_, id) -> (
-        match Ctx.lookup_const info.context id with
-        | Some (_, _, Ghost) -> true
-        | _ -> false
-      )
-      | _ -> false
-    in
+    let force = force || (is_const && is_ghost_const info expr) in
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     if should_not_abstract info force nexpr then
       nexpr, gids1, warnings
