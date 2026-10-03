@@ -752,7 +752,7 @@ dependencies among inputs and outputs.
 Kind 2 supports the `function` keyword which is used just like the `node` one
 but has slightly different semantics. Like the name suggests, the output(s) of
 a `function` must be a *non-temporal* combination of its inputs. That is, a
-function cannot depend on the `->`, `pre`, `merge`, `when`,
+function cannot depend on the `->`, `pre`, `fby`, `merge`, `when`,
 `condact`, `activate`, or `restart` operators.
 A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
@@ -1281,6 +1281,25 @@ body, enabling the realizability checks (`--enable CONTRACTCK`) proves or
 refutes them. Note that a lemma with an empty body (`let tel`), or a body
 holding only `auto;`, is not a lemma without a body: its guarantees are
 proved from its assumptions alone.
+
+## The `fby` operator
+
+Kind 2 supports the binary *followed-by* operator of Lustre V6:
+`e1 fby e2` is `e1` at the first step and the previous value of `e2`
+afterwards, that is, it is syntactic sugar for `e1 -> pre e2`.
+
+```lustre
+-- A two-deep shift register: 0, 0, a(0), a(1), ...
+b = 0 fby 0 fby a;
+-- A counter: 1, 2, 3, ...
+n = 0 fby n + 1;
+```
+
+The operator is right-associative, so `0 fby 0 fby a` is `0 fby (0 fby a)`.
+It binds tighter than the binary arithmetic, comparison and Boolean
+operators, so `0 fby n + 1` is `(0 fby n) + 1`, and looser than `pre`,
+`not` and other prefix operators except unary minus, so `not c fby c` is
+`(not c) fby c` and `- a fby b` is `- (a fby b)`.
 
 ## Conditional expressions
 

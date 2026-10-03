@@ -384,6 +384,10 @@ let y = false -> x and not pre x; tel;
 node Count() returns (y: int);
 let y = 0 -> pre y + 1; tel;
 
+-- Counter node with fby ('0 fby y' is '0 -> pre y')
+node CountFby() returns (y: int);
+let y = 0 fby y + 1; tel;
+
 -- Node counting number of rising edges with a condact 
 node CountRise(x: bool) returns (y: int);
 let y = condact(Rise(x), Count(), 0); tel;
