@@ -677,8 +677,14 @@ fun ctx node_name fun_ids ni ->
     let rhs, gen_nodes = desugar_expr ctx node_name fun_ids rhs in 
     A.Body (Equation (pos, lhs, rhs)), gen_nodes
   | AnnotProperty (pos, name, e, k) -> 
-    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in 
-    AnnotProperty(pos, name, e, k), gen_nodes
+    let e, gen_nodes = desugar_expr ctx node_name fun_ids e in
+    let k, gen_nodes' = match k with
+      | A.Provided g ->
+        let g, gen_nodes' = desugar_expr ctx node_name fun_ids g in
+        A.Provided g, gen_nodes'
+      | A.Invariant | A.Reachable _ -> k, []
+    in
+    AnnotProperty(pos, name, e, k), gen_nodes @ gen_nodes'
   | IfBlock (pos, cond, nis1, nis2) -> 
     let nis1, gen_nodes1 = List.map rec_call nis1 |> List.split in
     let nis2, gen_nodes2 = List.map rec_call nis2 |> List.split in

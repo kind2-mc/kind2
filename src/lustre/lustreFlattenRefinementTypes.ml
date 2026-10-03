@@ -203,7 +203,12 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
 
 let flatten_ref_types_item ctx item = 
   match item with 
-  | A.AnnotProperty (p, id, expr, k) -> A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
+  | A.AnnotProperty (p, id, expr, k) ->
+    let k = match k with
+      | A.Provided g -> A.Provided (flatten_ref_types_expr ctx g)
+      | A.Invariant | A.Reachable _ -> k
+    in
+    A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
   | MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ | Auto _ -> item
 
