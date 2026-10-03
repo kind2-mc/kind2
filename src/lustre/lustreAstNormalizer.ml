@@ -1915,17 +1915,19 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let tis, gids3, warnings2 = (
           let tis, gids_list, warnings = (
             List.map (
-              fun (pos, i, ty) -> 
-                let ty, gids1, warnings1 = normalize_ty ~id:(Some i) info (Some node_id) map ty in
-                let new_id = StringMap.find i info.interpretation in
+              fun (pos, i, ty) ->
+                let nty, gids1, warnings1 = normalize_ty ~id:(Some i) info (Some node_id) map ty in
                 if Ctx.type_contains_ref info.context ty then
-                  let gids2, warnings2 = 
-                    mk_fresh_refinement_type_constraint Ghost info map pos (Some node_id) (A.Ident (pos, new_id)) ty 
+                  (* Generate the constraint from the original type: [normalize_ty]
+                     renames the bound variable of every nested refinement type
+                     to [i], which is wrong for the elements of a container *)
+                  let gids2, warnings2 =
+                    mk_fresh_refinement_type_constraint Ghost info map pos (Some node_id) (A.Ident (pos, i)) ty
                   in
-                  (pos, i, ty),
+                  (pos, i, nty),
                   union gids1 gids2, 
                   warnings1 @ warnings2 
-                else (pos, i, ty), gids1, []
+                else (pos, i, nty), gids1, []
             )
             tis |> Lib.split3
           ) in
