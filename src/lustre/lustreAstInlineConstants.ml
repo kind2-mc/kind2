@@ -540,6 +540,10 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
   | (MatchBlock _) :: _ ->
     assert false (* desugared in lustreDesugarMatchBlocks *)
   | (AnnotProperty (pos, n, e, k)) :: items ->
+    let k = match k with
+      | LA.Provided g -> LA.Provided (simplify_expr ctx g)
+      | LA.Invariant | LA.Reachable _ -> k
+    in
     (AnnotProperty (pos, n, simplify_expr ctx e, k))
     :: inline_constants_of_node_items ctx items
   | (AnnotMain (pos, b)) :: items
