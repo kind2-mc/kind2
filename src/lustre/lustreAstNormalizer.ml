@@ -2356,7 +2356,7 @@ and close_guard info vmap conj =
 (* [inlined] marks the instance of a call that is inlined, or compiled to an
    application of the functional symbol of the callee, which is the case of
    any call applied to quantified variables ([vmap]) *)
-and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) map pos cond restart args defaults =
+and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) pos cond restart args defaults =
   let inlined = inlined || vmap <> [] in
   let proj = if info.local_group_projection < 0 then (HString.mk_hstring "")
     else HString.concat2
@@ -2429,15 +2429,19 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) ma
       let conj, info, gids0 = close_guard info vmap conj in
       (* The guard is closed: it is not generalized over the variables *)
       let info = { info with quantified_variables = [] } in
-      let nexpr, gids, warnings =
-        (* `conj` is a conjunction of normalized boolean expressions.
-           It may contain internal variables whose types are not present in
-           the typing context, which can cause type inference to fail.
-           We therefore explicitly annotate the type.
+      let nexpr, gids =
+        (* `conj` is a conjunction of normalized boolean expressions, so it
+           is abstracted as is rather than normalized again. It may contain
+           internal variables whose types are not present in the typing
+           context, on which normalizing it again would fail, for instance
+           when inferring the type of an operand of '+' (see #1607).
+           For the same reason, its type is given explicitly.
         *)
-        abstract_expr ~ty:(A.Bool dummy_pos) false info (Some id) map conj
+        if should_not_abstract info false conj then conj, empty ()
+        else
+          mk_fresh_local false info (AH.pos_of_expr conj)
+            info.inductive_variables (A.Bool dummy_pos) conj
       in
-      assert (warnings = []);
       match AH.id_of_expr nexpr with
       | None -> assert false
       | Some id -> Some id, union gids0 gids
@@ -2659,7 +2663,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         (combine_args_with_const info args flags)
       in
       let nexpr, call_name, gids2 =
-        mk_fresh_call ~vmap ~inlined ~instance info id map pos cond restart nargs None
+        mk_fresh_call ~vmap ~inlined ~instance info id pos cond restart nargs None
       in
       let gids2 = 
         if NI.get_node_type id = NI.TypeAscription && args <> [] then
@@ -2745,7 +2749,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in
     let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
     let nexpr, _, gids5 =
-      mk_fresh_call ~instance info id map pos ncond nrestart nargs (Some ndefaults)
+      mk_fresh_call ~instance info id pos ncond nrestart nargs (Some ndefaults)
     in
     let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
     let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
@@ -2761,7 +2765,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (combine_args_with_const info args flags)
     in
     let nexpr, _, gids3 =
-      mk_fresh_call ~instance info id map pos cond nrestart nargs None
+      mk_fresh_call ~instance info id pos cond nrestart nargs None
     in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
@@ -2777,7 +2781,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, _, gids4 = mk_fresh_call info id map pos ncond nrestart nargs None in
+        let nexpr, _, gids4 = mk_fresh_call info id pos ncond nrestart nargs None in
         let gids = union_list [gids1; gids2; gids3; gids4] in
         let warnings = warnings1 @ warnings2 @ warnings3 in
         (clock_value, nexpr), gids, warnings
@@ -2793,7 +2797,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
           (combine_args_with_const info args flags)
         in
-        let nexpr, _, gids3 = mk_fresh_call info id map pos ncond restart nargs None in
+        let nexpr, _, gids3 = mk_fresh_call info id pos ncond restart nargs None in
         let gids = union_list [gids1; gids2; gids3] in
         let warnings = warnings1 @ warnings2 in
         (clock_value, nexpr), gids, warnings
