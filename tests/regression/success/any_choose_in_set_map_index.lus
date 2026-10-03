@@ -51,9 +51,19 @@ let
   s = { x };
 tel
 
-node Poly (x: int) returns (s1, s2: set<int>)
+-- The type parameter appears only in a set element, so the nodes generated
+-- for 'any' and for the type ascription take it from there
+node PolyGen<T> (x: T) returns (b1, b2: bool)
+let
+  b1 = any { y: bool | y = ({choose@<T>} = {choose@<T>} or true) };
+  b2 = ({choose@<T>} = {choose@<T>} or true : bool);
+tel
+
+node Poly (x: int) returns (s1, s2: set<int>; b1, b2: bool)
 let
   s1 = PolyElem@<int>(x);
   s2 = PolyRef@<int>(x);
+  b1, b2 = PolyGen@<int>(x);
   check "poly" x in s1 and x in s2;
+  check "poly_ty_param" b1 and b2;
 tel
