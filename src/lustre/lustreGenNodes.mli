@@ -17,15 +17,8 @@
 
  (** @author Rob Lorch *)
 
-type error_kind = ConstInClockedTemporalExpr of HString.t
-
-type error = [ `LustreGenNodesError of Lib.position * error_kind ]
-
-val error_message : error_kind -> string
-(** Returns an error message for an error kind *)
-
 (* Generate nodes/functions for any operators, choose operators, type ascriptions,
    and temporal expressions in a clocked position *)
 val gen_nodes : TypeCheckerContext.tc_context -> 
                          LustreAst.declaration list -> 
-                         (LustreAst.declaration list, [> error]) result
+                         LustreAst.declaration list

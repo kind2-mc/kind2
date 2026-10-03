@@ -1,0 +1,69 @@
+-- A temporal branch in a clocked position that reads a constant is abstracted
+-- into a node taking the constant as a const input, and ticks on the clock of
+-- the branch. A clocked call passed the callee's own constant input to the
+-- callee instead of the actual parameter, so the solver was given an
+-- undeclared constant (issue #1622).
+
+-- The issue's example: a node-local constant
+node Local (n: int; b: bool) returns (y: int);
+const c: int = 3;
+let
+  y = (when b then (0 -> pre n) + c else 0);
+  check "local" not b => y = 0;
+tel
+
+-- A const node parameter. Both branches tick on the clock of c, so they see
+-- the same pre x, and y differs from z by n, except at the first tick of c.
+node Param (const n: int; c: bool; x: int) returns (y, z: int);
+let
+  z = when c then (0 -> pre x) else 0;
+  y = when c then (0 -> pre x + n) else 0;
+  check "param" c => (y = z or y = z + n);
+tel
+
+-- A local constant, with the same property
+node LocalClock (c: bool; x: int) returns (y, z: int);
+const k: int = 2;
+let
+  z = when c then (0 -> pre x) else 0;
+  y = when c then (0 -> pre x + k) else 0;
+  check "local_clock" c => (y = z or y = z + k);
+tel
+
+-- A ghost constant declared without a value
+node Ghost (c: bool; x: int) returns (z: int);
+(*@contract
+  const g: int;
+  var y: int = when c then (0 -> pre x + g) else 0;
+  var w: int = when c then (0 -> pre x) else 0;
+  guarantee "ghost" c => (y = w or y = w + g);
+*)
+let
+  z = 0;
+tel
+
+-- A mode reference in a branch that reads a constant: both sides tick on
+-- the clock of c
+node ModeRef (const n: int; c: bool; x: int) returns (y: int);
+(*@contract
+  mode M ( require x > n; );
+  mode N ( require x <= n; );
+  guarantee "mode_ref"
+    when c then (true -> pre ::M) = (true -> pre (x > n)) else true;
+*)
+let
+  y = x;
+tel
+
+-- Clocked calls to a node with a const input, written by hand
+node H (const c: int; n: int) returns (y: int);
+let
+  y = (0 -> pre n) + c;
+tel
+
+node Clocked (const k: int; n: int; b: bool) returns (z1, z2: int);
+let
+  z1 = when b then H(k, n) else 0;
+  z2 = merge(b; (activate H every b)(k, n); 0 when not b);
+  check "clocked" z1 = z2;
+tel
