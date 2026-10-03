@@ -1,4 +1,0 @@
-node N(const n: int; c: bool; x: int) returns (y: int);
-let
-  y = when c then (0 -> pre x + n) else 0;
-tel

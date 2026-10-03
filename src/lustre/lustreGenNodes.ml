@@ -21,19 +21,6 @@ module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
-type error_kind = ConstInClockedTemporalExpr of HString.t
-
-type error = [ `LustreGenNodesError of Lib.position * error_kind ]
-
-let error_message kind = match kind with
-  | ConstInClockedTemporalExpr id ->
-    "A temporal expression in a clocked position that reads constant '"
-    ^ HString.string_of_hstring id ^ "' is not supported"
-
-(* Raised where the offending expression is, and turned into an error by
-   gen_nodes *)
-exception Const_in_clocked_temporal_expr of Lib.position * error_kind
-
 let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
 fun pos node_name node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
@@ -201,32 +188,10 @@ fun ctx node_name gen_decls orig_e ->
     let pos = AH.pos_of_expr orig_e in
     let span = { A.start_pos = pos; A.end_pos = pos } in
     let node_id = mk_fresh_fn_name pos node_name ClockedExpr in
-    (* A generated node is not compiled correctly when it takes a constant of the
-       enclosing scope as an argument, so the constants the branch reads are
-       inlined first. Each name is inlined at most once, since a cyclic
-       definition is only reported by a later pass. *)
-    let rec inline_consts seen e =
-      let sigma =
-        AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx
-        |> List.filter_map (fun i ->
-             if Ctx.SI.mem i seen then None
-             else match Ctx.lookup_const ctx i with
-               (* A constant declared without a value stands for itself *)
-               | Some (A.Ident (_, j), _, _) when HString.equal i j -> None
-               | Some (def, _, _) -> Some (i, def)
-               | None -> None)
-      in
-      match sigma with
-      | [] -> e
-      | sigma ->
-        let seen = List.fold_left (fun acc (i, _) -> Ctx.SI.add i acc) seen sigma in
-        inline_consts seen (AH.apply_subst_in_expr sigma e)
-    in
-    let e = inline_consts Ctx.SI.empty orig_e in
     (* A generated node has no modes of its own, so a mode reference becomes a
        boolean parameter and is passed as the reference itself, which resolves at
        the call site *)
-    let e, mode_refs = AH.name_mode_refs e in
+    let e, mode_refs = AH.name_mode_refs orig_e in
     (* The variables used in the expression become the node's arguments *)
     let inputs = AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx in
     let inputs_call = List.map (fun str ->
@@ -255,14 +220,6 @@ fun ctx node_name gen_decls orig_e ->
     match Chk.infer_type_expr ctx (Some node_name) e with
     | Error _ | exception Assert_failure _ -> orig_e, []
     | Ok (out_ty, _, _) ->
-    (* A constant declared without a value cannot be inlined, and a generated
-       node taking one as an argument is not compiled correctly. Checked after
-       inference so that an ill-typed branch still gets its type error. *)
-    let () =
-      match List.find_opt (fun i -> Ctx.lookup_const ctx i |> Option.is_some) inputs with
-      | Some i -> raise (Const_in_clocked_temporal_expr (pos, ConstInClockedTemporalExpr i))
-      | None -> ()
-    in
     (* Choose an output name that does not clash with any of the argument names *)
     let rec fresh_output name =
       if List.exists (fun i -> HString.equal i name) inputs
@@ -838,9 +795,5 @@ fun ctx decls ->
   ) [] decls in 
   decls
 
-let gen_nodes: Ctx.tc_context -> A.declaration list
-  -> (A.declaration list, [> error]) result =
-fun ctx decls ->
-  try Ok (gen_nodes_of_decls ctx decls) with
-  | Const_in_clocked_temporal_expr (pos, kind) ->
-    Error (`LustreGenNodesError (pos, kind))
+let gen_nodes: Ctx.tc_context -> A.declaration list -> A.declaration list =
+gen_nodes_of_decls

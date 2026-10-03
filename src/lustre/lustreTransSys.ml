@@ -1466,10 +1466,11 @@ let rec constraints_of_node_calls
            propagate_inputs_trans, 
            interpolate_inputs) ->
 
-          (* Skip over constant formal inputs *)
-          if StateVar.is_const formal_sv then 
+          (* A constant input needs no shadow variable: the actual
+             parameter is passed as is *)
+          if StateVar.is_const formal_sv then
 
-            (D.add formal_idx formal_sv shadow_inputs, 
+            (D.add formal_idx actual_sv shadow_inputs,
              node_locals,
              propagate_inputs_init, 
              propagate_inputs_trans, 
