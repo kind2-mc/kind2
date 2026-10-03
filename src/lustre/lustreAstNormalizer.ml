@@ -1418,8 +1418,17 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   let add_exports_to info =
     List.fold_left (fun info (id, ty) -> add_ty_to_info info id ty)
       info (Ctx.IMap.bindings type_exports) in
+  (* The constant inputs of the contract must be constants in the context,
+     since they may be passed as arguments for constant parameters, e.g.,
+     of the node generated for a type ascription mentioning them *)
   let add_ivars_to info =
-    List.fold_left (fun info (_, id, ty, _, _) -> add_ty_to_info info id ty)
+    List.fold_left (fun info (p, id, ty, _, is_const) ->
+        let info = add_ty_to_info info id ty in
+        let ctx =
+          if is_const then Ctx.add_const info.context id (A.Ident (p, id)) ty Local
+          else Ctx.shadow_const info.context id
+        in
+        { info with context = ctx })
       info ivars in
   let add_ovars_to info =
     List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
@@ -1737,6 +1746,13 @@ and rename_ghost_variables info contract =
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = add_ty_to_info info new_id ty in
+    (* The ghost constant must be a constant in the context, since it may be
+       passed as an argument for a constant parameter, e.g., of the node
+       generated for a type ascription mentioning it *)
+    let info =
+      let ctx = Ctx.add_const info.context id (A.Ident (dpos, id)) ty Ghost in
+      { info with context = ctx }
+    in
     let tail, info = rename_ghost_variables info t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
@@ -2560,6 +2576,19 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      itself, and stay in [call_context]. *)
   let abstract_node_arg ?guard force is_const info map expr =
     let info = { info with value_context = [] } in
+    (* A ghost constant with a definition is compiled to its value, not to a
+       state variable, so it is abstracted when passed for a constant input *)
+    let force =
+      force ||
+      is_const &&
+      match expr with
+      | A.Ident (_, id) -> (
+        match Ctx.lookup_const info.context id with
+        | Some (_, _, Ghost) -> true
+        | _ -> false
+      )
+      | _ -> false
+    in
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     if should_not_abstract info force nexpr then
       nexpr, gids1, warnings
