@@ -1,0 +1,104 @@
+-- A type ascription whose type mentions a constant becomes a call to a
+-- generated node taking the constant as a constant input. When the ascription
+-- was in an imported contract and the constant was a constant input or a ghost
+-- constant of the contract, the argument passed for it was not accepted as
+-- constant, and the normalizer failed an assertion (issue #1648).
+
+-- A constant input of the contract
+contract CParam(const n: int; x: int) returns (y: int);
+let
+  guarantee ((y : subtype { w: int | w <= n })) = y;
+tel
+
+node ImportParam (x: int) returns (y: int);
+(*@contract import CParam(10, x) returns (y); *)
+let
+  y = 7;
+tel
+
+-- A ghost constant of the contract
+contract CGhost(x: int) returns (y: int);
+let
+  const g: int = 10;
+  guarantee ((y : subtype { w: int | w <= g })) = y;
+tel
+
+node ImportGhost (x: int) returns (y: int);
+(*@contract import CGhost(x) returns (y); *)
+let
+  y = 7;
+tel
+
+-- A ghost constant is compiled to its value, so it must also be abstracted
+-- when it is passed for a constant input in a node's own contract
+
+function F(const n: int; w: int) returns (r: bool);
+let
+  r = w <= n;
+tel
+
+node OwnGhost (x: int) returns (y: int);
+(*@contract
+  const g: int = 10;
+  guarantee ((y : subtype { w: int | w <= g })) = y;
+  guarantee F(g, y);
+*)
+let
+  y = 7;
+tel
+
+node ImportedGhostCall (x: int) returns (y: int);
+(*@contract import CGhostCall(x) returns (y); *)
+let
+  y = 7;
+tel
+
+contract CGhostCall(x: int) returns (y: int);
+let
+  const g: int = 10;
+  guarantee F(g, y);
+tel
+
+-- A ghost constant passed for a constant input of an imported contract. The
+-- input was interpreted as the ghost constant, which is compiled to its
+-- value, so the call generated for the ascription in the imported contract
+-- had no state variable to bind to its constant input
+
+contract D(const n: int; x: int) returns (y: int);
+let
+  guarantee ((y : subtype { w: int | w <= n })) = y;
+tel
+
+node OwnGhostImport (x: int) returns (y: int);
+(*@contract
+  const g: int = 11;
+  import D(g, x) returns (y);
+*)
+let
+  y = 11;
+tel
+
+contract CGhostImport(x: int) returns (y: int);
+let
+  const g: int = 11;
+  import D(g, x) returns (y);
+tel
+
+node ImportGhostImport (x: int) returns (y: int);
+(*@contract import CGhostImport(x) returns (y); *)
+let
+  y = 11;
+tel
+
+-- The ghost constant depends on a constant input of the importing contract
+contract CDerivedGhostImport(const m: int; x: int) returns (y: int);
+let
+  const g: int = m - 1;
+  import D(g, x) returns (y);
+tel
+
+node ImportDerivedGhostImport (x: int) returns (y: int);
+(*@contract import CDerivedGhostImport(10, x) returns (y); *)
+let
+  y = 9;
+tel

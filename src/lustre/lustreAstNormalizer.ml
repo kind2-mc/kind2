@@ -876,6 +876,17 @@ let should_not_abstract info force = function
     not (Ctx.is_enum_variant info.context id) && not force
   | _ -> false
 
+(* Whether [expr], as written, is a ghost constant. One with a definition is
+   compiled to its value, not to a state variable, so it must be abstracted
+   when it is passed for a constant input of a node or a contract *)
+let is_ghost_const info = function
+  | A.Ident (_, id) -> (
+    match Ctx.lookup_const info.context id with
+    | Some (_, _, Ghost) -> true
+    | _ -> false
+  )
+  | _ -> false
+
 let get_history_type ctx id =
   let base_ty = Ctx.lookup_ty ctx id |> get in
   let size =
@@ -1418,8 +1429,17 @@ and normalize_node_contract info (node_id : NI.t) map is_extern cref inputs outp
   let add_exports_to info =
     List.fold_left (fun info (id, ty) -> add_ty_to_info info id ty)
       info (Ctx.IMap.bindings type_exports) in
+  (* The constant inputs of the contract must be constants in the context,
+     since they may be passed as arguments for constant parameters, e.g.,
+     of the node generated for a type ascription mentioning them *)
   let add_ivars_to info =
-    List.fold_left (fun info (_, id, ty, _, _) -> add_ty_to_info info id ty)
+    List.fold_left (fun info (p, id, ty, _, is_const) ->
+        let info = add_ty_to_info info id ty in
+        let ctx =
+          if is_const then Ctx.add_const info.context id (A.Ident (p, id)) ty Local
+          else Ctx.shadow_const info.context id
+        in
+        { info with context = ctx })
       info ivars in
   let add_ovars_to info =
     List.fold_left (fun info (_, id, ty, _) -> add_ty_to_info info id ty)
@@ -1737,6 +1757,13 @@ and rename_ghost_variables info contract =
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
     let new_id = HString.concat sep [info.contract_ref;id] in
     let info = add_ty_to_info info new_id ty in
+    (* The ghost constant must be a constant in the context, since it may be
+       passed as an argument for a constant parameter, e.g., of the node
+       generated for a type ascription mentioning it *)
+    let info =
+      let ctx = Ctx.add_const info.context id (A.Ident (dpos, id)) ty Ghost in
+      { info with context = ctx }
+    in
     let tail, info = rename_ghost_variables info t in
     (StringMap.singleton id new_id) :: tail, info
   (* Recurse through each declaration one at a time *)
@@ -1790,7 +1817,12 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nensures, gids2, warnings2 = normalize_list (over_property info map) ensures in
         Mode (pos, name, nrequires, nensures), union gids1 gids2, warnings1 @ warnings2, StringMap.empty
       | ContractCall (pos, name, ty_args, inputs, outputs) ->
-        let ninputs, gids1, warnings1 = normalize_list (abstract_expr false info (Some node_id) map) inputs in
+        (* The inputs of the imported contract are interpreted as the
+           arguments, so a ghost constant must be abstracted, as for a call *)
+        let ninputs, gids1, warnings1 = normalize_list
+          (fun e -> abstract_expr (is_ghost_const info e) info (Some node_id) map e)
+          inputs
+        in
         let noutputs = List.map
           (fun id ->
             let ty =
@@ -2560,6 +2592,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      itself, and stay in [call_context]. *)
   let abstract_node_arg ?guard force is_const info map expr =
     let info = { info with value_context = [] } in
+    let force = force || (is_const && is_ghost_const info expr) in
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     if should_not_abstract info force nexpr then
       nexpr, gids1, warnings
