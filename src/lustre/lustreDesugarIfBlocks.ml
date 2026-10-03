@@ -495,6 +495,7 @@ let rec held_expr_init gids nis x depth e =
   | A.Pre (_, A.Ident (_, y)) when HString.equal y x -> Some None
   | A.Arrow (_, init, A.Pre (_, A.Ident (_, y))) when HString.equal y x ->
     Some (Some init)
+  | A.Fby (_, init, A.Ident (_, y)) when HString.equal y x -> Some (Some init)
   | A.Ident (_, g) when depth > 0 -> (
     match find_def_of_ident gids nis g with
     | Some rhs -> held_expr_init gids nis x (depth - 1) rhs
