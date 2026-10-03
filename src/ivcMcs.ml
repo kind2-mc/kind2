@@ -223,7 +223,7 @@ let rand_node name ts =
   |> List.map2 (fun t out -> dpos,HString.mk_hstring out,t,A.ClockTrue) ts
   in
   A.NodeDecl (dspan,
-    (name, true, Opaque, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
+    (name, true, Default, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
 
