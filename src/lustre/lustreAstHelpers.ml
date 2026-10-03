@@ -689,10 +689,16 @@ let rec apply_type_subst_in_expr
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
     GroupExpr (pos, kind, List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list)
-  | StructUpdate (pos, e1, idx, Some e2) ->
-    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, Some (apply_type_subst_in_expr sigma e2))
-  | StructUpdate (pos, e1, idx, None) ->
-    StructUpdate (pos, apply_type_subst_in_expr sigma e1, idx, None) 
+  | StructUpdate (pos, e1, idx, e2) ->
+    let r = apply_type_subst_in_expr sigma in
+    let idx = List.map (function
+      | Label _ as l -> l
+      | Index (p, e, k) -> Index (p, r e, k)
+      | MapIndex (p, e) -> MapIndex (p, r e)
+      | SetIndex (p, e) -> SetIndex (p, r e)
+      | GenericIndex (p, e) -> GenericIndex (p, r e)
+    ) idx in
+    StructUpdate (pos, r e1, idx, Option.map r e2)
   | ArrayConstr (pos, e1, e2) ->
     ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->

@@ -456,11 +456,13 @@ fun ctx node_name fun_ids expr ->
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
   | StructUpdate (pos, e1, idx, Some e2) ->
     let e1, gen_nodes1 = rec_call e1 in
+    let idx, gen_nodes_idx = desugar_indices ctx node_name fun_ids idx in
     let e2, gen_nodes2 = rec_call e2 in
-    StructUpdate (pos, e1, idx, Some e2), gen_nodes1 @ gen_nodes2
+    StructUpdate (pos, e1, idx, Some e2), gen_nodes1 @ gen_nodes_idx @ gen_nodes2
   | StructUpdate (pos, e, idx, None) ->
-    let e, gen_nodes = rec_call e in
-    StructUpdate (pos, e, idx, None), gen_nodes 
+    let e, gen_nodes1 = rec_call e in
+    let idx, gen_nodes2 = desugar_indices ctx node_name fun_ids idx in
+    StructUpdate (pos, e, idx, None), gen_nodes1 @ gen_nodes2
   | ArrayConstr (pos, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
@@ -546,6 +548,21 @@ fun ctx node_name fun_ids expr ->
   | ADTTester (pos, e, c) ->
     let e, gen_nodes = rec_call e in
     ADTTester (pos, e, c), gen_nodes
+
+(* The indices of a structure update hold expressions of their own: the
+   element of a set literal and the key of a map literal are indices *)
+and desugar_indices ctx node_name fun_ids idx =
+  let r = desugar_expr ctx node_name fun_ids in
+  List.map (function
+    | A.Label _ as l -> l, []
+    | A.Index (p, e, k) -> let e, gen_nodes = r e in A.Index (p, e, k), gen_nodes
+    | A.MapIndex (p, e) -> let e, gen_nodes = r e in A.MapIndex (p, e), gen_nodes
+    | A.SetIndex (p, e) -> let e, gen_nodes = r e in A.SetIndex (p, e), gen_nodes
+    | A.GenericIndex (p, e) ->
+      let e, gen_nodes = r e in A.GenericIndex (p, e), gen_nodes
+  ) idx
+  |> List.split
+  |> fun (idx, gen_nodes) -> idx, List.flatten gen_nodes
 
 let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->

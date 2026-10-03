@@ -912,13 +912,20 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
   | GroupExpr (pos, kind, expr_list) ->
     let* expr_list = R.seq (List.map call expr_list) in
     R.ok (LA.GroupExpr (pos, kind, expr_list))
-  | StructUpdate (pos, e1, idx, Some e2) ->
+  | StructUpdate (pos, e1, idx, e2) ->
     let* e1 = call e1 in 
-    let* e2 = call e2 in
-    R.ok (LA.StructUpdate (pos, e1, idx, Some e2))
-  | StructUpdate (pos, e1, idx, None) ->
-    let* e1 = call e1 in 
-    R.ok (LA.StructUpdate (pos, e1, idx, None))
+    let* idx = R.seq (List.map (function
+      | LA.Label _ as l -> R.ok l
+      | LA.Index (p, e, k) -> let* e = call e in R.ok (LA.Index (p, e, k))
+      | LA.MapIndex (p, e) -> let* e = call e in R.ok (LA.MapIndex (p, e))
+      | LA.SetIndex (p, e) -> let* e = call e in R.ok (LA.SetIndex (p, e))
+      | LA.GenericIndex (p, e) -> let* e = call e in R.ok (LA.GenericIndex (p, e))
+    ) idx) in
+    let* e2 = match e2 with
+      | Some e2 -> let* e2 = call e2 in R.ok (Some e2)
+      | None -> R.ok None
+    in
+    R.ok (LA.StructUpdate (pos, e1, idx, e2))
   | ArrayConstr (pos, e1, e2) ->
     let* e1 = call e1 in 
     let* e2 = call e2 in
