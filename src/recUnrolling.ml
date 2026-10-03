@@ -449,7 +449,12 @@ let outcome ?(abstracted = false) sys prop cex =
       cex
   in
   let settled_under_constants = Facts.create 16 in
-  (* The terms whose values tell the calls the model executes *)
+  (* The terms whose values tell the calls the model executes. The value of
+     an array is an opaque constant of the uninterpreted sort FArray when
+     the arrays are not the solver's, which is no argument to evaluate a
+     call at, and which would declare FArray as an abstract type for the
+     solvers that follow: it is not asked for, and a call with an array
+     argument cannot be evaluated then. *)
   let observed () =
     List.concat_map
       (fun i ->
@@ -459,6 +464,8 @@ let outcome ?(abstracted = false) sys prop cex =
            instances)
       steps
     @ List.concat_map (fun (_, args, guard) -> guard :: args) !pending
+    |> List.filter (fun t ->
+      Flags.Arrays.smt () || not (Type.is_array (Term.type_of_term t)))
   in
   (* The calls the model executes that are not facts yet, or [None] if one
      of them cannot be evaluated: those of the instances past the
