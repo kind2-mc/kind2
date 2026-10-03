@@ -1,3 +1,3 @@
 (tests
-  (names testTermQuant testSimplifyAdt testInvs)
+  (names testTermQuant testSimplifyAdt testInvs testTermLogic)
   (libraries ounit2 kind2dev))

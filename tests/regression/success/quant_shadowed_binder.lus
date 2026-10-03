@@ -1,0 +1,14 @@
+-- A quantifier may bind the same name twice: the later binder shadows the
+-- earlier one, which the body then does not mention. The logic given to the
+-- solver must still cover the sort of the shadowed binder (issue #1470).
+
+node main (a: bool; n: int) returns ()
+let
+  check "issue" forall (x: int; x: bool) (x or not x);
+  check "shadowed_by_bool" a => forall (x: int; x: bool) (x or a);
+  check "shadowed_by_real" a => exists (x: int; x: real) (a and x > 0.0);
+  check "unused" a => forall (x: int; y: bool) (y or a);
+  -- The body refers to the later binder
+  check "later_binder_int" exists (x: bool; x: int) (x > n);
+  check "later_binder_bool" forall (x: real; x: bool) (x or not x or a);
+tel
