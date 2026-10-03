@@ -2429,15 +2429,19 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) ma
       let conj, info, gids0 = close_guard info vmap conj in
       (* The guard is closed: it is not generalized over the variables *)
       let info = { info with quantified_variables = [] } in
-      let nexpr, gids, warnings =
-        (* `conj` is a conjunction of normalized boolean expressions.
-           It may contain internal variables whose types are not present in
-           the typing context, which can cause type inference to fail.
-           We therefore explicitly annotate the type.
+      let nexpr, gids =
+        (* `conj` is a conjunction of normalized boolean expressions, so it
+           is abstracted as is rather than normalized again. It may contain
+           internal variables whose types are not present in the typing
+           context, on which normalizing it again would fail, for instance
+           when inferring the type of an operand of '+' (see #1607).
+           For the same reason, its type is given explicitly.
         *)
-        abstract_expr ~ty:(A.Bool dummy_pos) false info (Some id) map conj
+        if should_not_abstract info false conj then conj, empty ()
+        else
+          mk_fresh_local false info (AH.pos_of_expr conj)
+            info.inductive_variables (A.Bool dummy_pos) conj
       in
-      assert (warnings = []);
       match AH.id_of_expr nexpr with
       | None -> assert false
       | Some id -> Some id, union gids0 gids
