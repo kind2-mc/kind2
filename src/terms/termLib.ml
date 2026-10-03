@@ -250,9 +250,25 @@ let check_add_Q t l =
                                                         
 (* Returns the logic fragment used by a term *)
 let logic_of_term fun_symbols t =
+  (* The sorts of the bound variables, which the body of a quantifier
+     may not mention: a variable may be unused, or shadowed by a later
+     binder of the same quantifier *)
+  let binder_logic = ref FeatureSet.empty in
+  let remove_quantifier _ t =
+    (match Term.T.node_of_t t with
+     | Term.T.Forall lam | Term.T.Exists lam ->
+       binder_logic :=
+         Term.T.sorts_of_lambda lam
+         |> List.map logic_of_sort
+         |> sup_logics
+         |> FeatureSet.union !binder_logic
+     | _ -> ());
+    remove_top_level_quantifier t
+  in
   t
-  |> Term.map (fun _ -> remove_top_level_quantifier)
+  |> Term.map remove_quantifier
   |> Term.eval_t ~fail_on_quantifiers:false (logic_of_flat fun_symbols)
+  |> FeatureSet.union !binder_logic
   |> check_add_Q t
 
 
