@@ -71,8 +71,8 @@ type error_kind = Unknown of string
   | IlltypedArrayConcat of bool * tc_type * tc_type option
   | IlltypedDefaults
   | IlltypedMerge of tc_type
-  | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
+  | IlltypedFby of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
   | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type
@@ -185,9 +185,8 @@ let error_message kind = match kind with
       | false -> "non-array type " ^ string_of_tc_type ty1)
   | IlltypedDefaults -> "Defaults do not have the same type as node call"
   | IlltypedMerge ty -> "All expressions in merge expected to be the same type " ^ string_of_tc_type ty
-  | IlltypedFby (ty1, ty2) -> "Both the expressions in Fby should be of the same type."
-    ^ "Found types " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
+  | IlltypedFby (ty1, ty2) -> "Fby types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
     ^ string_of_tc_type ty1 ^ " but found type " ^ string_of_tc_type ty2
   | IlltypedRecord (ty1, ty2) -> "Record expression expected to have type "
@@ -446,7 +445,8 @@ let no_mismatched_clock is_bool e =
     | TypeAscription (_, e, ty) ->
       check_clocks clock e >> LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
-    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
+    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | Fby (_, e1, e2)
+    | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
     | TernaryOp (_, _, e1, e2, e3) -> 
       check_clocks clock e1 >> check_clocks clock e2 >> check_clocks clock e3
@@ -498,7 +498,8 @@ let no_mismatched_clock is_bool e =
     | TypeAscription (_, e, ty) ->
       check_merge e >> LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
     | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
-    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | IndexAccess (_, e1, e2, _)
+    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | Fby (_, e1, e2)
+    | IndexAccess (_, e1, e2, _)
     | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
     | TernaryOp (_, _, e1, e2, e3) -> 
       check_merge e1 >> check_merge e2 >> check_merge e3
@@ -679,6 +680,8 @@ let rec infer_const_attr ctx exp =
   | Last _ -> [error exp "last operator"]
   | Arrow (_, e1, _) ->
     List.map (fun _ -> error exp "arrow operator") (r e1)
+  | Fby (_, e1, _) ->
+    List.map (fun _ -> error exp "fby operator") (r e1)
   | TypeAscription (_, e, ty) ->
     combine (r e) (LH.fold_lustre_ty r [R.ok ()] combine ty)
   (* Node calls *)
@@ -965,6 +968,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.Arrow (pos, e1, e2))
+  | Fby (pos, e1, e2) ->
+    let* e1 = call e1 in
+    let* e2 = call e2 in
+    R.ok (LA.Fby (pos, e1, e2))
   | TypeAscription (pos, e, ty) ->
     let* ty = instantiate_type_variables ctx pos nname ty ty_args in
     let* e = call e in
@@ -1627,6 +1634,12 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     R.ifM (eq_lustre_type ctx ty1 ty2)
       (R.ok (ty1, LA.Arrow (pos, e1, e2), warnings1 @ warnings2))
       (type_error pos (IlltypedArrow (ty1, ty2)))
+  | LA.Fby (pos, e1, e2) ->
+    let* ty1, e1, warnings1 = infer_type_expr ctx nname e1 in
+    let* ty2, e2, warnings2 = infer_type_expr ctx nname e2 in
+    R.ifM (eq_lustre_type ctx ty1 ty2)
+      (R.ok (ty1, LA.Fby (pos, e1, e2), warnings1 @ warnings2))
+      (type_error pos (IlltypedFby (ty1, ty2)))
   | LA.TypeAscription (pos, e, exp_ty) ->
     let* exp_ty, warnings1 = check_type_well_formed ctx Local nname false exp_ty in 
     let* inf_ty, e, warnings2 = infer_type_expr ctx nname e in
@@ -1899,6 +1912,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | Merge (pos, _, _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos, _, _)
+  | Fby (pos, _, _)
   | GroupExpr (pos, _, _)
   | StructUpdate (pos, _, _, _)
   | RecordExpr (pos, _, _, _)
@@ -3027,7 +3041,7 @@ and check_no_index_access ctx nname ty e =
       ) li)
   | Pre (_, e) ->
     r e
-  | Arrow (_, e1, e2) ->
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) ->
     r e1 >> r e2
   | TypeAscription (_, e, ty') ->
     r e >> LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
@@ -3153,6 +3167,7 @@ and expr_contains_set_binop ctx ni expr =
     -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
+  | Fby (_, e1, e2)
     -> r e1 || r e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r e1 || r e2 || r e3

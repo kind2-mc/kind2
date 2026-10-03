@@ -133,6 +133,7 @@ let rec replace_last acc e =
     RestartEvery (pos, ident, List.map r expr_list, r e)
   | Pre (pos, e) -> Pre (pos, r e)
   | Arrow (pos, e1, e2) -> Arrow (pos, r e1, r e2)
+  | Fby (pos, e1, e2) -> Fby (pos, r e1, r e2)
   | TypeAscription (pos, e, ty) -> TypeAscription (pos, r e, ty)
   | Call (pos, ty_args, id, expr_list) ->
     Call (pos, ty_args, id, List.map r expr_list)
@@ -183,7 +184,7 @@ let rec find_last_expr e = match e with
   | When (_, e, _) | Pre (_, e) | TypeAscription (_, e, _) -> find_last_expr e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
-  | Arrow (_, e1, e2) -> find_last_first [e1; e2]
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) -> find_last_first [e1; e2]
   | TernaryOp (_, _, e1, e2, e3) -> find_last_first [e1; e2; e3]
   | RecordExpr (_, _, _, l) | Merge (_, _, l) ->
     find_last_first (List.map snd l)

@@ -401,7 +401,7 @@ and mk_graph_expr ?(only_modes = false)
       empty_dependency_analysis_data
       (List.map (mk_graph_expr ~only_modes) es)
   | LA.Pre (_, e) -> mk_graph_expr ~only_modes e
-  | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
+  | LA.Arrow (_, e1, e2) | LA.Fby (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.ModeRef (pos, ids) ->
     if List.length ids > 1 then
       singleton_dependency_analysis_data empty_hs (List.fold_left HString.concat2 contract_prefix (Lib.drop_last ids)) pos
@@ -504,7 +504,7 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
      :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
-  | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.Arrow (_, e1, e2) | LA.Fby (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
@@ -819,6 +819,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* 'last x' refers to the previous value of x: no instantaneous dependency *)
   | Last _ -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | Fby (_, e1, _) -> r e1
   | TypeAscription (_, e, ty) -> SI.union (r e) (LH.vars_of_type ty)
 
   (* Node calls *)
@@ -1022,6 +1024,8 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Pre (_, e) ->
      mk_graph_expr2 m e >>= fun g ->
        R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
+  | LA.Fby (p, e1, e2) ->
+     mk_graph_expr2 m (LA.Arrow (p, e1, LA.Pre (p, e2)))
   | LA.Arrow (p, e1, e2) ->
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 ->

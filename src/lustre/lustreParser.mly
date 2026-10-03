@@ -246,6 +246,7 @@ let mk_span start_pos end_pos =
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH
+%right FBY
 %nonassoc PRE
 %nonassoc INT REAL
 %nonassoc NOT
@@ -1427,9 +1428,7 @@ pexpr(Q):
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   (* The 'last' operator (only valid inside frame blocks; desugared away early) *)
   | LAST; i = ident { A.Last (mk_pos $startpos, i) }
-  | FBY LPAREN; pexpr(Q) COMMA; NUMERAL; COMMA; pexpr(Q) RPAREN
-    { let pos = mk_pos $startpos in
-      fail_at_position pos "Unsupported operator: fby" }
+  | e1 = pexpr(Q); FBY; e2 = pexpr(Q) { A.Fby (mk_pos $startpos, e1, e2) }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 

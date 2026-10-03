@@ -75,7 +75,7 @@ let rec expr_contains_mode_ref expr =
     -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
-  | Arrow (_, e1, e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2)
     -> r e1 || r e2
   | TypeAscription (_, e, _) -> r e
   | TernaryOp (_, _, e1, e2, e3)

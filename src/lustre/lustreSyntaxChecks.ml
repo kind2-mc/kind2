@@ -51,7 +51,7 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
-  | QuantifiedVariableInPre of HString.t
+  | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
@@ -121,8 +121,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
-  | QuantifiedVariableInPre var -> "Quantified variable '"
-    ^ HString.string_of_hstring var ^ "' is not allowed in an argument to pre operator"
+  | QuantifiedVariableInPre (op, var) -> "Quantified variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed in an argument to " ^ op ^ " operator"
   | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable or refinement type bound variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
@@ -354,7 +354,7 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
 (* Expression contains a pre, an arrow, or a call to a node *)
 let rec has_stateful_op ctx =
 function
-| LA.Pre _ | Arrow _ -> true
+| LA.Pre _ | Arrow _ | Fby _ -> true
 | Last _ -> true
 
 | RestartEvery _
@@ -761,7 +761,9 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (pos, e) ->
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | LA.Pre (pos, e) | LA.Fby (pos, _, e) as expr ->
+    let op = match expr with LA.Fby _ -> "fby" | _ -> "pre" in
     (* The normalizer rewrites 'pre (a[i])' to '(pre a)[i]' when the index is
        time-invariant, so a quantified variable may appear in such an index *)
     let index_is_time_invariant =
@@ -781,7 +783,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
         let vars = LAH.vars_without_node_call_ids e in
         let over_vars j =
           let found_quant = StringMap.mem j ctx.quant_vars in
-          if found_quant then syntax_error pos (QuantifiedVariableInPre j)
+          if found_quant then syntax_error pos (QuantifiedVariableInPre (op, j))
           else Ok ()
         in
         let check = List.map over_vars (LA.SI.elements vars) in
@@ -807,6 +809,7 @@ let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
+  | Fby (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("fby", decl_ctx))
   | _ -> Ok []
 
 (* An activation condition or a restart makes a call depend on the previous
@@ -953,6 +956,7 @@ let rec expr_only_supported_in_merge observer expr =
   | StructUpdate (_, e1, _, Some e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
+  | Fby (_, e1, e2)
   | IndexAccess (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
   | TypeAscription (_, e, _) -> r observer e
@@ -1013,6 +1017,7 @@ let rec type_ascription_pos expr =
   | BinaryOp (_, _, e1, e2)
   | CompOp (_, _, e1, e2)
   | Arrow (_, e1, e2)
+  | Fby (_, e1, e2)
   | IndexAccess (_, e1, e2, _)
   | ArrayConstr (_, e1, e2) -> r_list [e1; e2]
   | TernaryOp (_, _, e1, e2, e3) -> r_list [e1; e2; e3]
@@ -1600,7 +1605,8 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | IndexAccess (_, e1, e2, _)
-    | Arrow (_, e1, e2) ->
+    | Arrow (_, e1, e2)
+    | Fby (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 
       Ok (warnings1 @ warnings2)

@@ -716,6 +716,7 @@ and desugar_expr ctx adt_map expr =
   | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
+  | LA.Fby (p, e1, e2) -> LA.Fby (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, desugar_type p ctx adt_map ty)
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map (desugar_type p ctx adt_map) ty_args, id, rlist es)
@@ -1047,6 +1048,7 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
   | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
+  | LA.Fby (p, e1, e2) -> LA.Fby (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, rewrite_type ty)
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map rewrite_type ty_args, id, rlist es)

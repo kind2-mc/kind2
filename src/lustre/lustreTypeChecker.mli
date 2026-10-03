@@ -56,8 +56,8 @@ type error_kind = Unknown of string
   | IlltypedArrayConcat of bool * tc_type * tc_type option
   | IlltypedDefaults
   | IlltypedMerge of tc_type
-  | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
+  | IlltypedFby of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
   | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type

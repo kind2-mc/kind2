@@ -1125,6 +1125,11 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     Arrow (pos, e1', e2')
+  | Fby (pos, e1, e2) ->
+    let vars1, e1' = r map e1 in
+    let vars2, e2' = r map e2 in
+    StringSet.union vars1 vars2,
+    Fby (pos, e1', e2')
   | TypeAscription (pos, e, ty) ->
     let vars, e = r map e in
     vars, TypeAscription (pos, e, ty)
@@ -2850,6 +2855,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | Fby (pos, expr1, expr2) ->
+    normalize_expr ?guard info node_id map (A.Arrow (pos, expr1, A.Pre (pos, expr2)))
   (* 'pre' can only be pushed under an index access if the index has the same
      value at the previous instant, otherwise 'pre (a[i])' becomes '(pre a)[i]' *)
   | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind))
@@ -3411,6 +3419,7 @@ and expand_node_calls_in_place info node_id var count expr =
   | ArrayConstr (p, e1, e2) -> A.ArrayConstr (p, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> A.IndexAccess (p, r e1, r e2, k)
   | Arrow (p, e1, e2) -> A.Arrow (p, r e1, r e2)
+  | Fby (p, e1, e2) -> A.Fby (p, r e1, r e2)
   | TypeAscription (p, e, ty) -> A.TypeAscription (p, r e, ty)
   | TernaryOp (p, op, e1, e2, e3) -> A.TernaryOp (p, op, r e1, r e2, r e3)
   | GroupExpr (p, k, expr_list) ->

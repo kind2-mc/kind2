@@ -149,6 +149,9 @@ type expr =
   (* Temporal operators *)
   | Pre of position * expr
   | Arrow of position * expr * expr
+  (* 'e1 fby e2' is 'e1 -> pre e2' (lowered by LustreAstNormalizer, or by
+     LustreAstInlineConstants with --lus_push_pre) *)
+  | Fby of position * expr * expr
   (* Previous value of a variable in a frame block (desugared early in the
      pipeline by LustreDesugarLast) *)
   | Last of position * ident
@@ -657,6 +660,8 @@ and pp_print_expr ppf =
       Format.fprintf ppf "%alast %a" ppos p pp_print_ident i
 
     | Arrow (p, e1, e2) -> p2 p "->" e1 e2
+
+    | Fby (p, e1, e2) -> p2 p "fby" e1 e2
 
     | Call (p, [], id, l) ->
 

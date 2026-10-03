@@ -1,0 +1,37 @@
+(* 'e1 fby e2' is 'e1 -> pre e2'. It is right-associative, binds tighter than
+   the binary arithmetic operators, and looser than 'pre' and 'not'. *)
+
+(* A two-deep shift register, as in issue #1077 *)
+node shift2 (a: int) returns (b: int);
+let
+  b = 0 fby 0 fby a;
+  --%PROPERTY "shift2" b = (0 -> pre (0 -> pre a));
+tel
+
+node precedence (a, b: int; c: bool) returns ();
+var s1, s2, s3, s4, s5: int; t: bool;
+let
+  s1 = a + 0 fby b * 2;
+  --%PROPERTY "arith" s1 = a + (0 -> pre b) * 2;
+
+  s2 = - a fby b;
+  --%PROPERTY "uminus" s2 = - (a -> pre b);
+
+  s3 = pre a fby - 1 fby b;
+  --%PROPERTY "pre" true -> s3 = pre (- (1 -> pre b));
+
+  s4 = 1 fby 2 fby 3;
+  --%PROPERTY "right_assoc" s4 = (1 -> pre (2 -> pre 3));
+
+  s5 = (1 fby 2) fby 3;
+  --%PROPERTY "parens" s5 = (1 -> 3);
+
+  t = not c fby c;
+  --%PROPERTY "not" t = (not c -> pre c);
+tel
+
+node counter () returns (n: int);
+let
+  n = 0 fby n + 1;
+  --%PROPERTY "counter" n >= 1;
+tel
