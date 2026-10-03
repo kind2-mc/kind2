@@ -191,7 +191,7 @@ let rec matches_of_expr expr =
   | A.ADTTester (_, e, _) -> r e
   | A.BinaryOp (_, _, e1, e2) | A.CompOp (_, _, e1, e2)
   | A.ArrayConstr (_, e1, e2) | A.IndexAccess (_, e1, e2, _)
-  | A.Arrow (_, e1, e2) -> r e1 @ r e2
+  | A.Arrow (_, e1, e2) | A.Fby (_, e1, e2) -> r e1 @ r e2
   | A.TernaryOp (_, _, e1, e2, e3) -> r e1 @ r e2 @ r e3
   | A.RecordExpr (_, _, ty_args, flds) ->
     rtys ty_args @ rlist (List.map snd flds)

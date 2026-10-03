@@ -289,6 +289,7 @@ let rec minimize_node_call_args ue keep expr =
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
+    | A.Fby (p,e1,e2) -> A.Fby (p,aux e1,aux e2)
     | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
     | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
     | A.Match (p, e, arms, ty_opt) ->
@@ -316,7 +317,7 @@ and ast_contains p ast =
     | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)
     | A.IndexAccess (_,e1,e2,_) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
-    | A.Arrow (_,e1,e2) -> aux e1 || aux e2
+    | A.Arrow (_,e1,e2) | A.Fby (_,e1,e2) -> aux e1 || aux e2
     | A.TypeAscription (_, e, _) -> aux e
     | A.GroupExpr (_,_,es) ->
       List.map aux es

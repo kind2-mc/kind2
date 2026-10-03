@@ -112,6 +112,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | Fby (p, e1, e2) -> Fby (p, r e1, r e2)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e

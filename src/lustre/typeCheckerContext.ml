@@ -638,7 +638,7 @@ let rec arity_of_expr ty_ctx = function
     let (_, o) = LH.type_arity node_ty in
     o
   | Pre (_, e) -> arity_of_expr ty_ctx e
-  | Arrow (_, e, _) -> arity_of_expr ty_ctx e
+  | Arrow (_, e, _) | Fby (_, e, _) -> arity_of_expr ty_ctx e
   | FieldProject (_, e, _, _) -> arity_of_expr ty_ctx e
   | TypeAscription (_, e, _) -> arity_of_expr ty_ctx e
   | When (_, e, _) -> arity_of_expr ty_ctx e
@@ -988,7 +988,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   | RestartEvery (_, _, es, e) -> SI.flatten (call e :: List.map call es)
   (* Temporal operators *)
   | Pre (_, e) -> call e
-  | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (call e1) (call e2)
   | LA.Match (_, e, arms, _) ->
     SI.union (call e) (SI.flatten (List.map (fun (_, arm_e) -> call arm_e) arms))
   | LA.ADTTerm (_, ty_args, _, args) ->
@@ -1060,7 +1060,7 @@ let rec expr_contains_node_call ctx expr =
     LH.fold_lustre_ty r false (||) ty || r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
-  | Arrow (_, e1, e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2)
     -> r e1 || r e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r e1 || r e2 || r e3

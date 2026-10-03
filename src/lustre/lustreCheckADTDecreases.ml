@@ -208,7 +208,7 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
     go_ty ty
     @ collect_rec_calls scc_map caller_scc caller_measure
         (HStringSet.add i shadowed) (HStringSet.remove i safe_env) e
-  | LA.Arrow (_, e1, e2) | LA.BinaryOp (_, _, e1, e2)
+  | LA.Arrow (_, e1, e2) | LA.Fby (_, e1, e2) | LA.BinaryOp (_, _, e1, e2)
   | LA.CompOp (_, _, e1, e2) | LA.ArrayConstr (_, e1, e2) -> go_list [e1; e2]
   | LA.TernaryOp (_, _, e1, e2, e3) -> go_list [e1; e2; e3]
   | LA.GroupExpr (_, _, es) -> go_list es

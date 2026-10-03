@@ -292,6 +292,7 @@ and push_pre is_guarded pos =
   | RestartEvery _ as e -> LA.Pre (pos, e)
   | Pre _ as e -> LA.Pre (pos, e)
   | Arrow _ as e -> LA.Pre (pos, e)
+  | Fby _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Match (p, e, arms, ty_opt) ->
@@ -338,6 +339,13 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
     let e2' = simplify_expr ~ind_vars ~is_guarded:true ctx e2 in
     Arrow (pos, e1', e2')
+  (* 'e1 fby e2' is 'e1 -> pre e2', which is what 'pre' is pushed into *)
+  | Fby (pos, e1, e2) when Flags.lus_push_pre () ->
+    simplify_expr ~ind_vars ~is_guarded ctx (Arrow (pos, e1, Pre (pos, e2)))
+  | Fby (pos, e1, e2) ->
+    let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+    let e2' = simplify_expr ~ind_vars ~is_guarded:false ctx e2 in
+    Fby (pos, e1', e2')
   | LA.TypeAscription (pos, e, ty) ->
     let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
     let ty' = inline_constants_of_lustre_type ~ind_vars ctx ty in

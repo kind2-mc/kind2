@@ -60,7 +60,7 @@ let pos_of_expr = function
   | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
   | Last (pos, _)
   | RestartEvery (pos, _, _, _)
-  | Arrow (pos , _, _) | Call (pos, _, _, _)
+  | Arrow (pos , _, _) | Fby (pos, _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _) | ChooseOp (pos, _, _) | Extract (pos, _, _, _)
   | EmptyMap (pos, _)
   | EmptySet (pos, _)
@@ -208,7 +208,8 @@ let rec expr_is_droppable = function
   | FieldProject (_, e, _, (RecordField | Unresolved | Selector (Kind2Generated, _, _)))
   | UnaryOp (_, _, e) | ConvOp (_, _, e) | Extract (_, e, _, _)
   | When (_, e, _) | Pre (_, e) | ADTTester (_, e, _) -> expr_is_droppable e
-  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) ->
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2)
+  | Fby (_, e1, e2) ->
     expr_is_droppable e1 && expr_is_droppable e2
   | TernaryOp (_, _, e1, e2, e3) ->
     expr_is_droppable e1 && expr_is_droppable e2 && expr_is_droppable e3
@@ -244,7 +245,7 @@ let rec expr_contains_call = function
     || fold_label_or_index false (||) expr_contains_call idx
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
-  | Arrow (_, e1, e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2)
     -> expr_contains_call e1 || expr_contains_call e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_call e1 || expr_contains_call e2 || expr_contains_call e3
@@ -289,6 +290,7 @@ let rec expr_contains_id id = function
     fold_lustre_ty (expr_contains_id id) false (||) ty || expr_contains_id id e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) | Arrow (_, e1, e2)
+  | Fby (_, e1, e2)
     -> expr_contains_id id e1 || expr_contains_id id e2
   | TernaryOp (_, _, e1, e2, e3)
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
@@ -387,6 +389,7 @@ let set_pos_of_expr p = function
   | Last (_, a) -> Last (p, a)
   | RestartEvery (_, a, b, c) -> RestartEvery (p, a, b, c)
   | Arrow (_, a, b) -> Arrow (p, a, b)
+  | Fby (_, a, b) -> Fby (p, a, b)
   | Call (_, a, b, c) -> Call (p, a, b, c)
   | AnyOp (_, a, b) -> AnyOp (p, a, b)
   | ChooseOp (_, a, b) -> ChooseOp (p, a, b)
@@ -524,6 +527,7 @@ let rec apply_subst_in_expr sigma = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
+  | Fby (pos, e1, e2) -> Fby (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | TypeAscription (pos, e, ty) ->
     TypeAscription (pos, apply_subst_in_expr sigma e, subst_in_type_exprs sigma ty)
   | Call (pos, ty_args, id, expr_list) ->
@@ -721,6 +725,7 @@ let rec apply_type_subst_in_expr
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, apply_type_subst_in_expr sigma e)
   | Arrow (pos, e1, e2) -> Arrow (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
+  | Fby (pos, e1, e2) -> Fby (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
   | TypeAscription (pos, e, ty) ->
     TypeAscription (pos, apply_type_subst_in_expr sigma e, apply_type_subst_in_type sigma ty)
 
@@ -889,6 +894,12 @@ let rec has_unguarded_pre ung = function
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre false e2 in
     u1 || u2
+
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | Fby (_, e1, e2) ->
+    let u1 = has_unguarded_pre ung e1 in
+    let u2 = has_unguarded_pre true e2 in
+    u1 || u2
   | Match (_, e, arms, _) ->
     let u = has_unguarded_pre ung e in
     List.fold_left (fun acc (_, arm_e) -> acc || has_unguarded_pre ung arm_e) u arms
@@ -992,6 +1003,12 @@ let rec has_unguarded_pre_no_warn ung = function
   | Arrow (_, e1, e2) ->
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn false e2 in
+    u1 || u2
+
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | Fby (_, e1, e2) ->
+    let u1 = has_unguarded_pre_no_warn ung e1 in
+    let u2 = has_unguarded_pre_no_warn true e2 in
     u1 || u2
   | Match (_, e, arms, _) ->
     let u = has_unguarded_pre_no_warn ung e in
@@ -1119,7 +1136,7 @@ let rec has_pre_or_arrow = function
     | None -> fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
     | res -> res
   )
-  | Arrow (pos, _, _) -> Some pos
+  | Arrow (pos, _, _) | Fby (pos, _, _) -> Some pos
   | Match (_, e, arms, _) ->
     has_pre_or_arrow e
     |> unwrap_or (fun _ ->
@@ -1350,7 +1367,7 @@ let rec vars_of_node_calls_h obs =
   | RestartEvery (_, _, es, e) -> SI.flatten (vars obs e :: List.map (vars obs) es)
   (* Temporal operators *)
   | Pre (_, e) -> vars obs e
-  | Arrow (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
   | TypeAscription (_, e, ty) ->
     SI.union (vars obs e) (fold_lustre_ty (vars obs) SI.empty SI.union ty)
   (* Node calls *)
@@ -1416,7 +1433,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ChooseOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   (* Temporal operators *)
   | Pre (_, e) -> vars e
-  | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   | TypeAscription (_, e, ty) ->
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
@@ -1480,7 +1497,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   | AnyOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | ChooseOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
-  | Arrow (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | TypeAscription (_, e, ty) ->
     NI.Set.union (calls_of_expr e) (fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty)
   | Match (_, e, arms, _) ->
@@ -1545,6 +1562,8 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* 'last x' refers to the previous value of x, i.e. x under a 'pre' *)
   | Last _ -> SI.empty
   | Arrow (_, e1, e2) ->  SI.union (vars e1) (vars e2)
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | Fby (_, e1, _) -> vars e1
   | TypeAscription (_, e, ty) ->
     SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
   (* Node calls *)
@@ -1760,6 +1779,7 @@ let rec replace_with_constants: expr -> expr =
   (* Temporal operators *)
   | Pre (_, e) -> replace_with_constants e
   | Arrow (p, e1, e2) ->  Arrow (p, replace_with_constants e1, replace_with_constants e2)
+  | Fby (p, e1, e2) ->  Fby (p, replace_with_constants e1, replace_with_constants e2)
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, replace_with_constants e, map_lustre_ty replace_with_constants ty)
 
@@ -1860,6 +1880,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   (* Temporal operators *)
   | Pre (p, e) -> Pre(p, replace_with_constants e)
   | Arrow (p, e1, e2) ->  Arrow (p, abstract_pre_subexpressions e1, abstract_pre_subexpressions e2)
+  | Fby (p, e1, e2) ->  Fby (p, abstract_pre_subexpressions e1, replace_with_constants e2)
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, abstract_pre_subexpressions e, map_lustre_ty abstract_pre_subexpressions ty)
 
@@ -1896,6 +1917,7 @@ let rec replace_idents locals1 locals2 expr =
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | Fby (p, e1, e2) -> Fby (p, r e1, r e2)
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, r e, map_lustre_ty r ty)
   | Const _ as e -> e
@@ -2197,7 +2219,8 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       let* ty_eq = syn_type_equal depth_limit xty yty in 
       let* e_eq = r (depth + 1) xe ye in
       Ok (ty_eq && e_eq)
-    | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2) ->
+    | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2)
+    | Fby (_, xe1, xe2), Fby (_, ye1, ye2) ->
       r (depth + 1) xe1 ye1 >>= fun e1 ->
       r (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
@@ -2448,6 +2471,10 @@ let hash depth_limit expr =
         let e1_hash = r (depth + 1) e1 in
         let e2_hash = r (depth + 1) e2 in
         Hashtbl.hash (23, e1_hash, e2_hash)
+      | Fby (_, e1, e2) ->
+        let e1_hash = r (depth + 1) e1 in
+        let e2_hash = r (depth + 1) e2 in
+        Hashtbl.hash (35, e1_hash, e2_hash)
       | Call (_, _, id, l) ->
         let l_hash = List.map (r (depth + 1)) l in
         Hashtbl.hash (24, NI.hash id, l_hash)
@@ -2544,6 +2571,7 @@ let rec rename_contract_vars = function
     RestartEvery (pos, ident, expr_list, e)
   | Pre (pos, e) -> Pre (pos, rename_contract_vars e)
   | Arrow (pos, e1, e2) -> Arrow (pos, rename_contract_vars e1, rename_contract_vars e2)
+  | Fby (pos, e1, e2) -> Fby (pos, rename_contract_vars e1, rename_contract_vars e2)
   | TypeAscription (pos, e, ty) ->
     TypeAscription (pos, rename_contract_vars e, map_lustre_ty rename_contract_vars ty)
   | Call (pos, ty_args, id, expr_list) ->
@@ -2599,6 +2627,7 @@ let name_mode_refs e =
     | RestartEvery (pos, i, es, e) -> RestartEvery (pos, i, List.map r es, r e)
     | Pre (pos, e) -> Pre (pos, r e)
     | Arrow (pos, e1, e2) -> Arrow (pos, r e1, r e2)
+    | Fby (pos, e1, e2) -> Fby (pos, r e1, r e2)
     | TypeAscription (pos, e, ty) -> TypeAscription (pos, r e, map_lustre_ty r ty)
     | Call (pos, ty_args, i, es) -> Call (pos, ty_args, i, List.map r es)
     | Match (pos, e, arms, ty) ->
@@ -2645,6 +2674,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
+  | Fby (p, e1, e2) -> Fby (p, r e1, r e2)
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, r e, constants_to_calls_in_type new_func_ids ty)
   | Const _ as e -> e

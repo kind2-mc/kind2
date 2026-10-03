@@ -1880,6 +1880,7 @@ and compile_ast_expr
   | A.Extract (_, expr, ub, lb) -> 
     compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
+  | A.Fby _ -> assert false (* already lowered in lustreAstNormalizer *)
   | A.ChooseOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
   | A.TypeAscription _ -> assert false (* already desugared in lustreDesugarTypeAscriptions *)
   (* ****************************************************************** *)
