@@ -2132,8 +2132,9 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
                   
 and check_type_record_proj: Lib.position -> tc_context -> NI.t option -> LA.expr -> LA.index -> tc_type -> (LA.expr * [> warning] list, [> error]) result =
   fun pos ctx nname expr idx exp_ty ->
-  infer_type_expr ctx nname expr
-  >>= function
+  let* rec_ty, expr, warnings = infer_type_expr ctx nname expr in
+  let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
+  match rec_ty, expr, warnings with
   | RecordType (_, _, flds), expr, warnings ->
     (match (List.find_opt (fun (_, i, _) -> i = idx) flds) with
     | None -> type_error pos (NotAFieldOfRecord idx)

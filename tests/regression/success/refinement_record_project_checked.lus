@@ -1,0 +1,21 @@
+-- A field projection out of a record whose type is a refinement type is
+-- accepted where the expected type is known: in a property, a contract item
+-- and a typed constant (issue #1637).
+
+type S = struct { f: int; b: bool };
+
+const c: subtype { x: S | x.f > 0 } = S { f = 1; b = true };
+const d: int = c.f;
+const e: bool = c.b;
+
+node N(r: subtype { x: S | x.f > 0 and x.b }) returns (y: int);
+(*@contract
+  guarantee r.b;
+  guarantee y = r.f;
+*)
+let
+  y = r.f;
+  check r.b;
+  check r.f > 0;
+  check d = c.f and e;
+tel
