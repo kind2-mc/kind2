@@ -1,0 +1,59 @@
+-- 'any', 'choose' and type ascriptions in the element of a set literal and in
+-- the key of a map literal or update, which are indices of a structure update
+-- (issue #1520).
+
+type Nat = subrange [0,*] of int;
+
+node SetAny (a: set<int>) returns (s: set<int>)
+let
+  s = a + { any { x: int | x > 0 } };
+  check "set_any" exists (x: int) x > 0 and x in s;
+tel
+
+function SetChoose () returns (s: set<int>)
+let
+  s = { choose@<int> };
+  check "set_choose" exists (x: int) x in s;
+tel
+
+node SetTuple (t: int) returns (s: set<[int, int]>)
+let
+  s = { '(t, any@<int>) };
+  check "set_tuple" exists (x: int) '(t, x) in s;
+tel
+
+node SetAscription (x: int) returns (s: set<Nat>)
+let
+  s = { ((if x >= 0 then x else 0) : Nat) };
+tel
+
+node MapLiteral () returns (m: map<int, int>)
+let
+  m = map[choose { k: int | k > 5 } := any@<int>];
+  check "map_literal" exists (k: int) k > 5 and k in m;
+tel
+
+node MapUpdate (m: map<Nat, int>; x: int) returns (r: map<Nat, int>)
+let
+  r = m[((if x >= 0 then x else 0) : Nat) := any@<int>];
+  check "map_update" x >= 0 => x in r;
+tel
+
+-- In a polymorphic node, the calls the operators are desugared to are
+-- instantiated with the type arguments of the node
+node PolyElem<T> (x: T) returns (s: set<T>)
+let
+  s = { (x : T), choose@<T> };
+tel
+
+node PolyRef<T> (x: T) returns (s: subtype { s: set<T> | (x : T) in s })
+let
+  s = { x };
+tel
+
+node Poly (x: int) returns (s1, s2: set<int>)
+let
+  s1 = PolyElem@<int>(x);
+  s2 = PolyRef@<int>(x);
+  check "poly" x in s1 and x in s2;
+tel
