@@ -250,7 +250,9 @@ and push_pre is_guarded pos =
   | BinaryOp (_, (AndThen | OrElse | LazyImpl), _, _) as e -> LA.Pre (pos, e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
-  | TernaryOp (p, LazyIte, e1, e2, e3) -> TernaryOp (p, LazyIte, e1, e2, e3)
+  (* The branches of a lazy if-then-else are not evaluated at every step,
+     so 'pre' is not pushed into them *)
+  | TernaryOp (_, LazyIte, _, _, _) as e -> LA.Pre (pos, e)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | Extract (pos, e, idx1, idx2) -> LA.Extract (pos, r e, idx1, idx2)
