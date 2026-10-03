@@ -413,6 +413,13 @@ fun ctx node_name fun_ids expr ->
   | UnaryOp (pos, op, e) -> 
     let e, gen_nodes = rec_call e in
     UnaryOp (pos, op, e), gen_nodes
+  | BinaryOp (pos, (AndThen | OrElse | LazyImpl as op), e1, e2) ->
+    (* The right operand of a lazy Boolean operator is evaluated like a
+       branch of a when-then-else expression (see below) *)
+    let e1, gen_nodes1 = rec_call e1 in
+    let e2, gen_nodes2 = rec_call e2 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name gen_nodes2 e2 in
+    BinaryOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2 @ gen_nodes2'
   | BinaryOp (pos, op, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in

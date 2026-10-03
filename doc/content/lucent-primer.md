@@ -1007,9 +1007,9 @@ end
 ```
 
 In both, only the selected branch is evaluated, with the consequences
-described above. The same restrictions apply: a branch may not contain temporal
-operators or calls to nodes, and `if` blocks and lazy blocks may not be nested
-inside one another.
+described above. A branch may contain temporal operators and calls to nodes
+(see below for what they mean there), but `if` blocks and lazy blocks may not
+be nested inside one another.
 
 A `match` block is the statement-level counterpart of the `match` expression of
 the [Algebraic Datatypes](#algebraic-datatypes) section, standing to it as the
@@ -1040,8 +1040,11 @@ block sits inside a [frame block](#frame-blocks), where a value matched by no
 arm leaves the variables to stutter.
 
 Laziness also changes what "the previous value" means. Inside a lazy branch,
+or in the right operand of a lazy Boolean operator,
 `pre x` refers to the value of `x` the last time *that branch was selected*,
-which may be several steps earlier. When a lazy block sits inside a
+which may be several steps earlier. Likewise, `->` selects its left operand
+the first time the branch is selected, and a node called in the branch only
+advances at the steps where the branch is selected. When a lazy block sits inside a
 [frame block](#frame-blocks), `last x` is the dependable way to say *the value
 at the immediately preceding timestep*.
 

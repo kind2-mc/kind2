@@ -245,6 +245,9 @@ and push_pre is_guarded pos =
   | FieldProject (p, e, i, pk) -> FieldProject (p, r e, i, pk)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
+  (* The right operand of a lazy Boolean operator is not evaluated at every
+     step, so 'pre' is not pushed into it *)
+  | BinaryOp (_, (AndThen | OrElse | LazyImpl), _, _) as e -> LA.Pre (pos, e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
   | TernaryOp (p, LazyIte, e1, e2, e3) -> TernaryOp (p, LazyIte, e1, e2, e3)
