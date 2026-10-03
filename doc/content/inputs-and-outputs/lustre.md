@@ -1308,12 +1308,25 @@ that is not selected is not evaluated at all. The lazy form is useful when one
 branch is only meaningful (for instance, only satisfies the assumptions it
 relies on) when the condition selects it.
 
-The branches of a `when ... then ... else ...` expression are subject to the
-following restrictions (the `if ... then ... else ...` expression has no such
-restrictions):
+A branch of a `when ... then ... else ...` expression may contain temporal
+operators and node calls. Since the branch is evaluated only at the steps where
+it is selected, these are evaluated on the clock of the branch:
 
-- They cannot contain temporal operators (for example `pre` or `->`).
-- They cannot call Lustre nodes (calls to functions are allowed).
+- `pre e` refers to the value of `e` the last time the branch was selected,
+  which may be several steps earlier, and `e1 -> e2` is `e1` the first time
+  the branch is selected.
+- A node called in the branch is activated only at the steps where the branch
+  is selected: its internal state does not advance at the other steps.
+
+For example, in
+
+```lustre
+x = when c then (0 -> pre x + 1) else 0;
+```
+
+`x` counts the steps at which `c` holds (starting from 0), whereas with
+`if c then (0 -> pre x + 1) else 0`, the previous value of `x` would be 0
+whenever `c` was false at the previous step.
 
 Each form has a corresponding statement-level block, described in the next
 section: `if` statements desugar to `if ... then ... else ...` expressions,
@@ -1335,11 +1348,12 @@ that evaluate their right operand only when necessary:
 
 When the right operand *is* evaluated, these operators agree with their eager
 counterparts: `and then` with `and`, `or else` with `or`, and `==>`
-with the implication operator `=>`. As with the lazy `when ... then ... else ...` expression, the right operand is subject to the following
-restrictions:
-
-- It cannot contain temporal operators (for example `pre` or `->`).
-- It cannot call Lustre nodes (calls to functions are allowed).
+with the implication operator `=>`. The right operand is evaluated like a
+branch of a `when ... then ... else ...` expression: `e1 and then e2`
+behaves as `when e1 then e2 else false`, `e1 or else e2` as
+`when e1 then true else e2`, and `e1 ==> e2` as `when e1 then e2 else true`.
+In particular, temporal operators and node calls in the right operand are
+evaluated on the clock of the steps at which it is evaluated.
 
 These operators are convenient when the right operand is only well-defined, or
 only satisfies its assumptions, when the left operand has the appropriate value,
@@ -1463,11 +1477,12 @@ and node calls appearing in it are activated on the enclosing guards (their
 internal state only advances at timesteps where the enclosing branch is
 selected).
 
-Current restrictions for `when` blocks are:
+Branch expressions may contain temporal operators and node calls, which
+are evaluated on the clock of the branch, as for the
+`when ... then ... else ...` expression.
 
-- Branch expressions cannot contain temporal operators (for example `pre` or
-  `->`).
-- Branch expressions cannot call Lustre nodes (calls to functions are allowed).
+The current restriction for `when` blocks is:
+
 - `if` blocks cannot be nested inside `when` blocks, and `when` blocks
   cannot be nested inside `if` blocks.
 
@@ -1494,10 +1509,10 @@ The semantics of `cond` blocks is the same as for `when` blocks: at each
 step, only the selected branch is evaluated, and branch expressions that are
 not selected are not evaluated.
 
-Current restrictions for `cond` blocks are the same as for `when` blocks:
+As in `when` blocks, branch expressions may contain temporal operators and
+node calls. The current restriction for `cond` blocks is the same as for
+`when` blocks:
 
-- Branch expressions cannot contain temporal operators (for example `pre` or`->`).
-- Branch expressions cannot call Lustre nodes (calls to functions are allowed).
 - `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
   cannot be nested inside `if` blocks.
 

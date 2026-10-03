@@ -1567,11 +1567,6 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
   let lazy_match ctx e =
     (f ctx e)
   in
-  let lazy_bool_op op ctx e =
-    (no_calls_to_node ("the argument of " ^ op)  ctx e)
-    >> (no_temporal_operator ("arguments of " ^ op) e)
-    >> (f ctx e)
-  in
   let res = f ctx expr in
   let check = function
     | LA.FieldProject (_, e, _, _)
@@ -1594,20 +1589,13 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* _ = check_quantified_vars ctx vars in
       let* warnings2 = check_expr ctx f e in 
       Res.ok (warnings @ warnings2)
-    | BinaryOp (_, AndThen, e1, e2) ->
+    | BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
+      (* The right operand is evaluated lazily, like a branch of a
+         when-then-else expression, so the left operand plays the role of
+         the guard *)
       let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
-      let* warnings1 = (check_expr ctx (lazy_bool_op "'and then'") e1) in 
-      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "'and then'") e2) in 
-      Ok (warnings1 @ warnings2)
-    | BinaryOp (_, OrElse, e1, e2) ->
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
-      let* warnings1 = (check_expr ctx (lazy_bool_op "'or else'") e1) in 
-      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "'or else'") e2) in 
-      Ok (warnings1 @ warnings2)
-    | BinaryOp (_, LazyImpl, e1, e2) ->
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
-      let* warnings1 = (check_expr ctx (lazy_bool_op "==>") e1) in 
-      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "==>") e2) in 
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx_lazy lazy_ite e2) in 
       Ok (warnings1 @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
