@@ -896,7 +896,8 @@ let pp_print_trace_xml
             (Model.path_of_list trace')
             tag
         with TimeoutWall -> (
-          Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag
+          Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag ;
+          raise TimeoutWall
         )
       )
 
