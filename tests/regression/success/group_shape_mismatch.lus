@@ -1,0 +1,42 @@
+-- Operands of a binary or ternary operator whose group types have the same
+-- width but a different shape, because one of them nests a multi-output node
+-- call or a group-typed local (issue #1595).
+
+node two (x: int) returns (p, q: int);
+let
+  p = x;
+  q = x + 1;
+tel
+
+node Arrow (n: int) returns (y, z, u: int);
+let
+  y, z, u = (0, 0, 0) -> (two(n), n);
+  check "arrow_init" true -> (y = n and z = n + 1 and u = n);
+  check "arrow_first" (y = 0 and z = 0 and u = 0) -> true;
+tel
+
+node ArrowSwapped (n: int) returns (y, z, u: int);
+let
+  y, z, u = (n, two(n)) -> (two(n), n);
+  check "swapped_first" (y = n and z = n and u = n + 1) -> true;
+  check "swapped_rest" true -> (y = n and z = n + 1 and u = n);
+tel
+
+node ArrowPre (n: int) returns (y, z, u: int);
+let
+  y, z, u = (0, 0, 0) -> pre (two(n), n);
+  check "pre_rest" true -> (z = y + 1 and u = y);
+tel
+
+node Ite (c: bool; n: int) returns (y, z, u: int);
+let
+  y, z, u = if c then (0, 0, 0) else (n, two(n));
+  check "ite_then" c => (y = 0 and z = 0 and u = 0);
+  check "ite_else" not c => (y = n and z = n and u = n + 1);
+tel
+
+node Eq (n: int) returns (b: bool);
+let
+  b = (two(n), n) = (n, n + 1, n);
+  check "eq" b;
+tel

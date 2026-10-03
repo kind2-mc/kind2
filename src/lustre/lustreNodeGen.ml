@@ -1002,7 +1002,8 @@ and compile_ast_type
       let compiled_type = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_type a
     in 
-    List.fold_left over_types (0, X.empty) types |> snd
+    (* Flatten nested group types, as is done for group expressions *)
+    List.fold_left over_types (0, X.empty) types |> snd |> flatten_list_indexes
   | A.Set (_, ty1) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
@@ -1923,7 +1924,11 @@ and compile_ast_expr
         flatten_expr_list accum (expr_list @ tl)
       | expr :: tl -> flatten_expr_list (expr :: accum) tl
     in let expr_list = flatten_expr_list [] expr_list in
+    (* An element may itself compile to a list (e.g. an abstracted multi-output
+       node call), so flatten the result to give every group of the same width
+       the same shape *)
     compile_group_expr bounds (fun j i -> X.ListIndex i :: j) expr_list
+    |> flatten_list_indexes
   | A.GroupExpr (_, A.TupleExpr, expr_list) ->
     compile_group_expr bounds (fun j i -> X.TupleIndex (i, None) :: j) expr_list
   | A.RecordExpr (_, _, _, expr_list) ->
