@@ -36,7 +36,11 @@ let
 
   -- merge k (Lo -> 0 when Lo(k)) (Mid -> a when Mid(k))
   --         (Hi -> (activate Acc every Hi(k))(a))
-  m2 = when k = Lo then 0 else when k = Mid then a else Acc(a);
+  cond
+    | k = Lo: m2 = 0;
+    | k = Mid: m2 = a;
+    otherwise: m2 = Acc(a);
+  end
   --%PROPERTY "merge_enum" m2 = (if k = Lo then 0 else if k = Mid then a else s_hi);
 
   -- merge c (true -> (activate Acc every c)(a)) (false -> d when not c)

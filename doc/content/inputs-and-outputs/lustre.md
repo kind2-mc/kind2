@@ -584,6 +584,18 @@ expressions, which evaluate only the selected branch, and with restart:
 | `condact(c, (restart N every r)(x), d)` | `o = when c then (restart N(x) every r) else h; h = d fby o;` |
 | `(restart N every r)(x)` | `restart N(x) every r` |
 
+A case analysis on more than two values, such as a `merge` on an enumerated
+clock, reads more naturally as a [cond block](#cond-blocks), which has the same
+meaning as the nested `when` expressions:
+
+```lustre
+cond
+  | k = A: o = e1;
+  | k = B: o = e2;
+  otherwise: o = e3;
+end
+```
+
 Temporal operators and node calls in a branch of a `when` expression run on the
 clock of the branch: their state only advances at the steps at which the branch
 is selected. A sampled expression `e when c` was evaluated at every step, and
