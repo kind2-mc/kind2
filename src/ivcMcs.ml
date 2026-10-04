@@ -279,13 +279,7 @@ let rec minimize_node_call_args ue keep expr =
     | A.ChooseOp (p,ti,e) -> A.ChooseOp (p,ti,aux e)
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
     | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
-    | A.When (p,e,c) -> A.When (p,aux e,c)
-    | A.Condact (p,e1,e2,id,es1,es2) ->
-      A.Condact (p,aux e1,aux e2,id,List.map aux es1,List.map aux es2)
-    | A.Activate (p,id,e1,e2,es) ->
-      A.Activate (p,id,aux e1,aux e2,List.map aux es)
-    | A.Merge (p,id,lst) ->
-      A.Merge (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
+    | A.Restart (p,e1,e2) -> A.Restart (p,aux e1,aux e2)
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
@@ -311,27 +305,21 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.FieldProject (_,e,_,_)
       | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
+      | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
       | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
     | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)
     | A.IndexAccess (_,e1,e2,_) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
-    | A.Arrow (_,e1,e2) | A.Fby (_,e1,e2) -> aux e1 || aux e2
+    | A.Arrow (_,e1,e2) | A.Fby (_,e1,e2) | A.Restart (_,e1,e2) -> aux e1 || aux e2
     | A.TypeAscription (_, e, _) -> aux e
     | A.GroupExpr (_,_,es) ->
       List.map aux es
       |> List.exists (fun x -> x)
     | A.TernaryOp (_,_,e1,e2,e3) ->
       aux e1 || aux e2 || aux e3
-    | A.RecordExpr (_,_,_,lst) | A.Merge (_,_,lst) ->
+    | A.RecordExpr (_,_,_,lst) ->
       List.map (fun (_,e) -> aux e) lst
-      |> List.exists (fun x -> x)
-    | A.Condact (_,e1,e2,_,es1,es2) ->
-      List.map aux (e1::e2::(es1@es2))
-      |> List.exists (fun x -> x)
-    | A.Activate (_,_,e1,e2,es) ->
-      List.map aux (e1::e2::es)
       |> List.exists (fun x -> x)
     | A.RestartEvery (_,_,es,e) ->
       List.map aux (e::es)
@@ -396,6 +384,8 @@ let rec minimize_item id_typ_map ue keep = function
                      (p, List.map (minimize_item id_typ_map ue keep) items |> List.flatten))
                      arms,
                    ty)]
+  | A.RestartBlock (pos, l, e) ->
+    [A.RestartBlock (pos, List.map (minimize_item id_typ_map ue keep) l |> List.flatten, e)]
   | A.FrameBlock (pos, vars, nes, nis) -> 
     [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue keep eq) 
                                          with | None -> [] | Some eq -> [eq]) 

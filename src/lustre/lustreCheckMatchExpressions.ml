@@ -180,6 +180,7 @@ let rec matches_of_expr expr =
   let rlist es = List.concat_map r es in
   let rtys tys = List.concat_map matches_of_type tys in
   match expr with
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.Match (pos, e, arms, ty_opt) ->
     (pos, List.map fst arms, ty_opt, true) :: (r e @ rlist (List.map snd arms))
   | A.Ident _ | A.ModeRef _ | A.Const _ | A.Last _ | A.AbstractSymConst _ -> []
@@ -187,7 +188,7 @@ let rec matches_of_expr expr =
   | A.EmptyMap (_, Some (kt, vt)) -> matches_of_type kt @ matches_of_type vt
   | A.EmptySet (_, Some ty) -> matches_of_type ty
   | A.FieldProject (_, e, _, _) | A.UnaryOp (_, _, e) | A.ConvOp (_, _, e)
-  | A.When (_, e, _) | A.Extract (_, e, _, _) | A.Pre (_, e)
+  | A.Extract (_, e, _, _) | A.Pre (_, e)
   | A.ADTTester (_, e, _) -> r e
   | A.BinaryOp (_, _, e1, e2) | A.CompOp (_, _, e1, e2)
   | A.ArrayConstr (_, e1, e2) | A.IndexAccess (_, e1, e2, _)
@@ -203,9 +204,6 @@ let rec matches_of_expr expr =
     rtys (List.map (fun (_, _, ty) -> ty) tis) @ r e
   | A.AnyOp (_, (_, _, ty), e) | A.ChooseOp (_, (_, _, ty), e) ->
     matches_of_type ty @ r e
-  | A.Condact (_, e1, e2, _, es1, es2) -> r e1 @ r e2 @ rlist es1 @ rlist es2
-  | A.Activate (_, _, e1, e2, es) -> r e1 @ r e2 @ rlist es
-  | A.Merge (_, _, flds) -> rlist (List.map snd flds)
   | A.RestartEvery (_, _, es, e) -> rlist es @ r e
   | A.Call (_, ty_args, _, es) -> rtys ty_args @ rlist es
   | A.TypeAscription (_, e, ty) -> r e @ matches_of_type ty
@@ -239,6 +237,7 @@ let matches_of_equation = function
 let rec matches_of_node_item in_frame_block item =
   let ri = List.concat_map (matches_of_node_item in_frame_block) in
   match item with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Auto _ | A.AnnotMain _ -> []
   | A.Body eq -> matches_of_equation eq
   | A.AnnotProperty (_, _, e, A.Provided e2) ->

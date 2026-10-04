@@ -16,8 +16,8 @@ tel
 node top (reset: bool) returns (OK, OK2: bool);
 var b, d: bool;
 let
-  b = (restart greycounter every reset)();
-  d = (restart intcounter every reset)(3);
+  b = restart greycounter() every reset;
+  d = restart intcounter(3) every reset;
   OK = b = d;
   OK2 = not d;
   --%PROPERTY OK;

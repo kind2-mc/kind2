@@ -1,8 +1,8 @@
--- A restarted node call in a branch of a lazy if-then-else (or of a when
--- block, or in the right operand of a lazy Boolean operator) is activated by
--- the guard of the branch, and its restart condition is sampled on that
--- guard, as with an explicit activate + restart. It used to make the
--- translation to a transition system fail an assertion.
+-- A restarted node call in a branch of a lazy when expression (or of a when
+-- block, or in the right operand of a lazy Boolean operator) runs on the
+-- clock of the branch: the call only steps where the guard of the branch
+-- holds, and its restart condition is sampled on that guard. It used to make
+-- the translation to a transition system fail an assertion.
 
 node Cnt () returns (y: int);
 let y = 0 -> pre y + 1; tel
@@ -11,35 +11,46 @@ node Once (x: bool) returns (y: bool);
 let y = x or (false -> pre y); tel
 
 node top (c, c2, r, x: bool) returns ();
-var k, expected, o1, o2, o3, o4, k2, expected2, o5: int; b1, b2: bool;
+var k, expected, o1, o2, o3, o4, k2, expected2, o5, k3, expected3: int;
+    b1, b2: bool;
 let
   -- k counts the ticks of c since the last tick at which r held
   k = if c then (if r then 1 else (0 -> pre k) + 1) else (0 -> pre k);
   expected = if c then k - 1 else -1;
 
-  o1 = when c then (restart Cnt every r)() else -1;
+  o1 = when c then (restart Cnt() every r) else -1;
   --%PROPERTY "expr" o1 = expected;
 
-  o2 = if c then (activate (restart Cnt every r) every c initial default 0)() else -1;
-  --%PROPERTY "explicit" o1 = o2;
+  -- a restart block in a when block
+  when c then
+    restart
+      o2 = Cnt();
+    every r end
+  else
+    o2 = -1;
+  end
+  --%PROPERTY "restart_block" o1 = o2;
 
   when c then
-    o3 = (restart Cnt every r)();
+    o3 = restart Cnt() every r;
   else
     o3 = -1;
   end
   --%PROPERTY "block" o3 = expected;
 
-  o4 = when c then -1 else (restart Cnt every r)();
-  --%PROPERTY "else_branch" o4 = (if c then -1 else (activate (restart Cnt every r) every not c initial default 0)());
+  -- k3 counts the ticks of not c since the last tick at which r held
+  k3 = if not c then (if r then 1 else (0 -> pre k3) + 1) else (0 -> pre k3);
+  expected3 = if not c then k3 - 1 else -1;
+  o4 = when c then -1 else (restart Cnt() every r);
+  --%PROPERTY "else_branch" o4 = expected3;
 
-  -- nested branches: the call is activated by 'c and c2'
+  -- nested branches: the call runs on the clock 'c and c2'
   k2 = if c and c2 then (if r then 1 else (0 -> pre k2) + 1) else (0 -> pre k2);
   expected2 = if c and c2 then k2 - 1 else -1;
-  o5 = when c then (when c2 then (restart Cnt every r)() else -1) else -1;
+  o5 = when c then (when c2 then (restart Cnt() every r) else -1) else -1;
   --%PROPERTY "nested" o5 = expected2;
 
-  b1 = c and then (restart Once every r)(x);
-  b2 = c and (activate (restart Once every r) every c initial default false)(x);
+  b1 = c and then (restart Once(x) every r);
+  b2 = when c then (restart Once(x) every r) else false;
   --%PROPERTY "and_then" b1 = b2;
 tel

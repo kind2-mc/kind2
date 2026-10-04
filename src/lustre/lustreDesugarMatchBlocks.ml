@@ -37,12 +37,13 @@ let error_message = function
     | A.AnnotProperty _ -> "Property annotations are not allowed inside match blocks."
     | A.FrameBlock _ -> "Frame blocks are not allowed inside match blocks."
     | A.IfBlock _ -> "If blocks are not allowed inside match blocks."
-    | A.Body (A.Equation _) | A.MatchBlock _ | A.WhenBlock _ | A.Auto _ -> assert false
+    | A.Body (A.Equation _) | A.MatchBlock _ | A.WhenBlock _ | A.Auto _
+    | A.RestartBlock _ -> assert false
   )
   | MisplacedMatchBlock ni -> (match ni with
     | A.IfBlock _ -> "Match blocks are not allowed inside if blocks."
     | A.Body _ | A.MatchBlock _ | A.WhenBlock _ | A.FrameBlock _
-    | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ -> assert false
+    | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ | A.RestartBlock _ -> assert false
   )
   | ShadowingPatternVariable id ->
     "Match block pattern variable '" ^ HString.string_of_hstring id
@@ -117,6 +118,7 @@ let rec apply_subst_in_item subs item =
   let e = AH.apply_subst_in_expr subs in
   let ri = List.map (apply_subst_in_item subs) in
   match item with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (A.Equation (pos, (A.StructDef (_, ss) as lhs), rhs)) ->
     (* The indices of an array definition bind over the right-hand side, so
        they shadow a pattern variable of the same name *)
@@ -152,6 +154,7 @@ let rec apply_subst_in_item subs item =
    block the user never wrote. *)
 let check_arm_item item =
   match item with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (A.Equation _) | A.MatchBlock _ | A.WhenBlock _ | A.Auto _ -> R.ok ()
   | A.Body (A.Assert (pos, _))
   | A.AnnotMain (pos, _)
@@ -175,6 +178,7 @@ let check_no_shadowing node_vars pat =
    both become when blocks, and those nest freely. *)
 let rec desugar_item ctx node_vars enclosing item =
   match item with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ -> R.ok [item]
   | A.IfBlock (pos, cond, l1, l2) ->
     let* l1 = desugar_items ctx node_vars (Some item) l1 in

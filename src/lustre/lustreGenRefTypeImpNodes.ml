@@ -63,6 +63,7 @@ let mk_fresh_ghost_var pos ty rhs =
 let rec expr_contains_mode_ref expr = 
   let r = expr_contains_mode_ref in 
   match expr with 
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.ModeRef (_, _) -> true
   | Ident (_, _)
   | Last (_, _)
@@ -70,7 +71,7 @@ let rec expr_contains_mode_ref expr =
   | EmptySet _
   | EmptyMap _ -> false
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | StructUpdate (_, e, _, None)
     -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
@@ -82,13 +83,10 @@ let rec expr_contains_mode_ref expr =
     -> r e1 || r e2 || r e3
   | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || r x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | RecordExpr (_, _, _, expr_list) 
     -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
-  | Activate (_, _, e1, e2, expr_list) -> 
-    r e1 || r e2
-    || List.fold_left (fun acc x -> acc || r x) false expr_list
   | Extract (_, e, _, _) -> r e
-  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _)
+  | Call (_, _, _, _) | RestartEvery (_, _, _, _)
   | AnyOp (_, _, _) | ChooseOp (_, _, _)
     -> false
   | Match (_, e, arms, _) ->

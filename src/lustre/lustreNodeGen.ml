@@ -1432,35 +1432,6 @@ and compile_ast_expr
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
 
-  and compile_merge bounds clock_ident merge_cases =
-    let merge_cases = List.map (fun (s, e) -> HString.string_of_hstring s, e) merge_cases in
-    let clock_expr = compile_id_string bounds clock_ident |> X.values |> List.hd in
-    let clock_type = E.type_of_lustre_expr clock_expr in
-    let cond_expr_clock_value clock_value = match clock_value with
-      | "true" -> clock_expr
-      | "false" -> E.mk_not clock_expr
-      | _ -> E.mk_eq clock_expr (E.mk_constr clock_value clock_type)
-    in
-    let compile_merge_case = function
-      | A.When (_, expr, _) ->
-        compile_ast_expr cstate ctx bounds map expr
-      | expr -> compile_ast_expr cstate ctx bounds map expr
-    in
-    let merge_cases_r =
-      let over_cases = fun acc (case_value, e) ->
-        let e = compile_merge_case e in
-        (cond_expr_clock_value case_value, e) :: acc
-      in List.fold_left over_cases [] merge_cases
-    in
-    let default_case, other_cases_r = match merge_cases_r with
-      | (_, d) :: l -> d, l
-      | _ -> assert false
-    in
-    let over_other_cases = fun acc (cond, e) ->
-      X.map2 (fun _ -> E.mk_ite cond) e acc
-    in
-    List.fold_left over_other_cases default_case other_cases_r
-
   (* A selector applied where its constructor is not known to be the active
      one (see [LustreDesugarADTs]): the payload when it is, and otherwise an
      arbitrary value that is a function of the ADT value, an uninterpreted
@@ -1875,8 +1846,6 @@ and compile_ast_expr
   | A.TernaryOp (_, A.LazyIte, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
-  | A.Merge (_, clock_ident, merge_cases) ->
-    compile_merge bounds clock_ident merge_cases
   | A.Extract (_, expr, ub, lb) -> 
     compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
@@ -1944,9 +1913,9 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Node calls are abstracted to identifiers or group expressions by 
     the normalizer, making these expressions impossible at this stage *)
-  | A.Condact _ -> assert false
   | A.Call _ -> assert false
   | A.RestartEvery _ -> assert false
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   (* ****************************************************************** *)
   (* Array Operators                                                    *)
   (* ****************************************************************** *)
@@ -1971,8 +1940,6 @@ and compile_ast_expr
     X.map (default_of_type cstate.abstract_type_defaults) ty
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
-  | A.When _ -> assert false
-  | A.Activate _ -> assert false
   | A.ADTTerm (_, _, ctor, arg_exprs) ->
     (* A constructor names the ADT it belongs to, which for a polymorphic ADT is
        the instantiation whose value it builds, so it carries no type arguments *)
@@ -2966,6 +2933,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in let (node_props, node_eqs, node_asserts, is_main) = 
     let over_items = fun (props, eqs, asserts, is_main) (item) ->
       match item with
+      | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body e -> (match e with
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))

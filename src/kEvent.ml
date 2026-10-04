@@ -1701,6 +1701,7 @@ let log_contractck_analysis_start in_sys scope =
         | FreeConstant -> "global constant"
         | DefinedConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
+        | Restarted -> "restart"
         | Choose -> "'choose' operator")
         NI.pp_print_node_id_user_name node_id
     )
@@ -1721,6 +1722,7 @@ let log_contractck_analysis_start in_sys scope =
         | DefinedConstant -> "global constant"
         | FreeConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
+        | Restarted -> "restart"
         | Choose -> "'choose' operator");
       analysis_start_not_closed := true
     )
@@ -1744,6 +1746,7 @@ let log_contractck_analysis_start in_sys scope =
         | DefinedConstant -> "global constant"
         | FreeConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
+        | Restarted -> "restart"
         | Choose -> "'choose' operator");
       analysis_start_not_closed := true
 

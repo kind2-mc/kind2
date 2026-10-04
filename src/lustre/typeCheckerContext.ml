@@ -630,9 +630,8 @@ let rec arity_of_expr ty_ctx = function
     List.fold_left (+) 0 (List.map (arity_of_expr ty_ctx) es)
   | GroupExpr (_, (TupleExpr | ArrayExpr), _) -> 1
   | TernaryOp (_, (LazyIte | Ite), _, e, _) -> arity_of_expr ty_ctx e
-  | Condact (_, _, _, id, _, _)
-  | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _) 
+  | Restart (_, e, _) -> arity_of_expr ty_ctx e
+  | RestartEvery (_, id, _, _)
   | Call (_, _, id, _) ->
     let node_ty = lookup_node_ty ty_ctx id |> Lib.get in
     let (_, o) = LH.type_arity node_ty in
@@ -641,8 +640,6 @@ let rec arity_of_expr ty_ctx = function
   | Arrow (_, e, _) | Fby (_, e, _) -> arity_of_expr ty_ctx e
   | FieldProject (_, e, _, _) -> arity_of_expr ty_ctx e
   | TypeAscription (_, e, _) -> arity_of_expr ty_ctx e
-  | When (_, e, _) -> arity_of_expr ty_ctx e
-  | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
   | Match (_, _, arms, _) -> arity_of_expr ty_ctx (List.hd arms |> snd)
   | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
   | EmptyMap _ | EmptySet _ | UnaryOp _ | BinaryOp _ | ConvOp _
@@ -980,11 +977,7 @@ let rec ty_vars_of_expr ctx node_name expr =
   | ArrayConstr (_, e1, e2) -> SI.union (call e1) (call e2)
   | IndexAccess (_, e1, e2,_) -> SI.union (call e1) (call e2)
   (* Clock operators *)
-  | When (_, e, _) -> call e
-  | Condact (_, e1, e2, _, es1, es2) ->
-    SI.flatten (call e1 :: call e2:: (List.map call es1) @ (List.map call es2))
-  | Activate (_, _, e1, e2, es) -> SI.flatten (call e1 :: call e2 :: List.map call es)
-  | Merge (_, _, es) -> List.split es |> snd |> List.map call |> SI.flatten
+  | Restart (_, e1, e2) -> SI.union (call e1) (call e2)
   | RestartEvery (_, _, es, e) -> SI.flatten (call e :: List.map call es)
   (* Temporal operators *)
   | Pre (_, e) -> call e
@@ -1053,7 +1046,7 @@ let rec expr_contains_node_call ctx expr =
     LH.fold_lustre_ty r false (||) kt || 
     LH.fold_lustre_ty r false (||) vt
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
   | TypeAscription (_, e, ty) ->
@@ -1066,14 +1059,12 @@ let rec expr_contains_node_call ctx expr =
     -> r e1 || r e2 || r e3
   | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || r x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | RecordExpr (_, _, _, expr_list) 
     -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
-  | Activate (_, _, e1, e2, expr_list) -> 
-    r e1 || r e2
-    || List.fold_left (fun acc x -> acc || r x) false expr_list
   | AnyOp (_, _, _) -> true 
   | ChooseOp (_, _, _) -> false
-  | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) ->
+  | Restart _ -> true
+  | Call (_, _, ni, _) | RestartEvery (_, ni, _, _) ->
     node_id_is_node ctx ni
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms

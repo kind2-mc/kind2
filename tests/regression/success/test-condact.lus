@@ -6,7 +6,10 @@ node Count() returns (y: int);
 let y = 0 -> pre y + 1; tel;
 
 node CountRise(x: bool) returns (y: int);
-let y = condact(pre Rise(x), Count(), 0); 
+var held: int;
+let
+held = 0 fby y;
+y = when pre Rise(x) then Count() else held;
 --%PROPERTY y >= 0;
 --%MAIN ;
 tel;

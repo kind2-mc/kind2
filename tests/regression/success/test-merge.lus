@@ -8,31 +8,39 @@ let
   s = e;
 tel
 
-node two_instances (e: int; h: bool) returns (s, t1, t2, t3, t4, t5, t1_k, t2_k, t3_k, t5_k: int);
+node two_instances (e: int; h: bool) returns (s, t1, t2, t3, t4, t5, t1_k, t2_k, t3_k, t4_k, t5_k: int);
+var p1, p1_k, h4, h4_k: int;
 let
   s = integr (e);
-  -- Need to use activate to clock node calls
-  -- t1 = merge (h; integr (e when h); (0 -> pre t1) when not h); 
-  t1 = merge (h; (activate integr every h) (e); 0 -> pre t1 when not h); 
-  t2 = merge (h; (activate integr every h) (e); 42 when not h);
-  t3 = merge (h; (activate integr every h) (e); (activate id every not h) (e));
-  t4 = (activate integr every h initial default (0)) (e);
-  t5 = merge (h; e when h; e + 1 when not h);
 
-  -- Our syntax 
-  t1_k = merge (h; integr(e); 0 -> pre t1); 
-  t2_k = merge (h; integr(e); 42);
-  t3_k = merge (h; integr(e); e);
-  t5_k = merge (h; e; e + 1);
+  -- Lazy when expressions: a node call in a branch runs on the clock of the
+  -- branch
+  p1 = 0 -> pre t1;
+  t1 = when h then integr (e) else p1;
+  t2 = when h then integr (e) else 42;
+  t3 = when h then integr (e) else id (e);
+  -- the output of the clocked call is held while h is false
+  h4 = 0 fby t4;
+  t4 = when h then integr (e) else h4;
+  t5 = when h then e else e + 1;
+
+  -- The same with a when block
+  p1_k = 0 -> pre t1_k;
+  h4_k = 0 fby t4_k;
+  when h then
+    t1_k = integr (e);
+    t2_k = integr (e);
+    t3_k = integr (e);
+    t4_k = integr (e);
+    t5_k = e;
+  else
+    t1_k = p1_k;
+    t2_k = 42;
+    t3_k = id (e);
+    t4_k = h4_k;
+    t5_k = e + 1;
+  end
 
   --%MAIN ;
-  --%PROPERTY t1 + t2 + t3 + t4 + t5 = t1_k + t2_k + t3_k + t5_k + t4 ;
+  --%PROPERTY t1 = t1_k and t2 = t2_k and t3 = t3_k and t4 = t4_k and t5 = t5_k;
 tel
-
-
-/*
-node X (c: bool; a, b: int) returns (OK: bool);
-let
-  OK = merge(c; a when c; b when not c);
-tel
-*/

@@ -39,9 +39,6 @@ let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_
 
 type error_kind = Unknown of string
   | Impossible of string
-  | MergeCaseExtraneous of HString.t * tc_type
-  | MergeCaseMissing of HString.t
-  | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
   | UnboundNodeName of HString.t
@@ -69,8 +66,6 @@ type error_kind = Unknown of string
   | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
-  | IlltypedDefaults
-  | IlltypedMerge of tc_type
   | IlltypedArrow of tc_type * tc_type
   | IlltypedFby of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
@@ -110,8 +105,6 @@ type error_kind = Unknown of string
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
   | ExpectedMapSetType of tc_type
-  | ClockMismatchInMerge
-  | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
   | TempOperatorInFuncTypeAscription 
@@ -147,9 +140,6 @@ type error = [
 let error_message kind = match kind with
   | Unknown s -> s
   | Impossible s -> "This should be impossible! " ^ s
-  | MergeCaseExtraneous (case, ty) -> "Merge case " ^ HString.string_of_hstring case ^ " does not exist in type " ^ string_of_tc_type ty
-  | MergeCaseMissing case -> "Merge case " ^ HString.string_of_hstring case ^ " is missing from merge expression"
-  | MergeCaseNotUnique case -> "Merge case " ^ HString.string_of_hstring case ^ " must be unique"
   | UnboundIdentifier id -> "Unbound identifier '" ^ HString.string_of_hstring id ^ "'"
   | UnboundModeReference id -> "Unbound mode reference '" ^ HString.string_of_hstring id ^ "'"
   | UnboundNodeName id -> "Unbound node identifier '" ^ HString.string_of_hstring id ^ "'"
@@ -183,8 +173,6 @@ let error_message kind = match kind with
       | true -> "array of two different types" ^ string_of_tc_type ty1
         ^ (match ty2 with | Some ty2 -> " and " ^ string_of_tc_type ty2 | None -> "")
       | false -> "non-array type " ^ string_of_tc_type ty1)
-  | IlltypedDefaults -> "Defaults do not have the same type as node call"
-  | IlltypedMerge ty -> "All expressions in merge expected to be the same type " ^ string_of_tc_type ty
   | IlltypedArrow (ty1, ty2) -> "Arrow types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedFby (ty1, ty2) -> "Fby types do not match " ^ string_of_tc_type ty1 ^ " and " ^ string_of_tc_type ty2
   | IlltypedCall (ty1, ty2) -> "Node arguments at call expect to have type "
@@ -245,8 +233,6 @@ let error_message kind = match kind with
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs whose payloads are also valid set element / map key types are supported"
   | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
-  | ClockMismatchInMerge -> "Clock mismatch for argument of merge"
-  | IllegalClockExprInActivate e -> "Illegal clock expression '" ^ LA.string_of_expr e ^ "' in activate"
   | CallRequiresExplicitAnnotation id -> 
     Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
       HString.pp_print_hstring id
@@ -405,166 +391,6 @@ let add_full_node_ctx ctx nname params inputs outputs locals =
   | _ -> Bool pos
 (** Infers type of constants *)
 
-(* Conservative syntactic check of clock arguments for merge expressions.
-  To eventually be replaced with more general clock inference/checking. *)
-let no_mismatched_clock is_bool e =
-  let clocks_match c1 c2 =
-    match c1, c2 with
-    | LA.ClockTrue, LA.ClockTrue -> true
-    | ClockPos i, ClockPos j -> HString.equal i j
-    | ClockNeg i, ClockNeg j -> HString.equal i j
-    | ClockConstr (i1, i2), ClockConstr (j1, j2) ->
-      HString.equal i1 j1 && HString.equal i2 j2
-    | _ -> false
-  in
-  let clocks_match_result pos c1 c2 =
-    if clocks_match c1 c2 then Ok ()
-    else type_error pos ClockMismatchInMerge
-  in
-  let rec check_clocks clock = function
-    | LA.Activate (pos, _, c, e, es) ->
-      check_clocks clock e >> Res.seq_ (List.map (check_clocks clock) es) >>
-      let* clk_exp =
-        match c with
-        | LA.Ident (_, i) -> Ok (LA.ClockPos i)
-        | LA.UnaryOp (_, LA.Not, LA.Ident (_, i)) -> Ok (LA.ClockNeg i)
-        | LA.CompOp (_, LA.Eq, LA.Ident (_, c), LA.Ident (_, cv)) ->
-          Ok (LA.ClockConstr (cv, c))
-        | _ -> type_error pos (IllegalClockExprInActivate c)
-      in
-      clocks_match_result pos clk_exp clock
-    | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
-    | EmptyMap (_, Some (kt, vt)) ->
-      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) kt) >>
-      (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) vt)
-    | EmptySet (_, Some ty) -> 
-      LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
-    | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-    | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | ChooseOp (_, _, e) | StructUpdate (_, e, _, None) -> check_clocks clock e
-    | TypeAscription (_, e, ty) ->
-      check_clocks clock e >> LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>) ty
-    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
-    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | Fby (_, e1, e2)
-    | IndexAccess (_, e1, e2, _)
-    | ArrayConstr (_, e1, e2) -> check_clocks clock e1 >> check_clocks clock e2
-    | TernaryOp (_, _, e1, e2, e3) -> 
-      check_clocks clock e1 >> check_clocks clock e2 >> check_clocks clock e3
-    | GroupExpr (_, _, es) | Call (_, _, _, es) -> Res.seq_ (List.map (check_clocks clock) es)
-    | RecordExpr (_, _, _, es) | Merge (_, _, es) -> 
-      Res.seq_ (List.map (check_clocks clock) (List.map (fun (_, x) -> x) es))
-    | Condact (_, e1, e2, _, es1, es2 ) -> 
-      check_clocks clock e1 >> check_clocks clock e2 >> 
-      Res.seq_ (List.map (check_clocks clock) es1) >>  Res.seq_ (List.map (check_clocks clock) es2)
-    | RestartEvery (_, _, es, e) -> 
-      Res.seq_ (List.map (check_clocks clock) es) >> check_clocks clock e
-    | When (pos, e, c) -> 
-      check_clocks clock e >> clocks_match_result pos c clock
-    | LA.Match (_, e, arms, _) ->
-      check_clocks clock e >>
-      Res.seq_ (List.map (fun (_, arm_e) -> check_clocks clock arm_e) arms)
-    | LA.ADTTerm (_, ty_args, _, args) ->
-      Res.seq_ (List.map (check_clocks clock) args) >>
-      Res.seq_ (List.map (LH.fold_lustre_ty (check_clocks clock) (R.ok ()) (>>)) ty_args)
-    | LA.AbstractSymConst _ -> assert false 
-    | LA.ADTTester (_, e, _) -> check_clocks clock e
-  in
-  let rec check_merge: LA.expr -> ( unit, [> error])
-    result = function
-    | Merge (_, clock, exprs) ->
-      if not is_bool then
-        let case (i, e) = check_clocks (ClockConstr (i, clock)) e in
-        let* _ = Res.seq (List.map case exprs) in 
-        Ok ()
-      else
-        let true_variant = List.nth_opt exprs 0 in
-        let false_variant = List.nth_opt exprs 1 in
-        (match true_variant, false_variant with
-        | Some (_, e1), Some (_, e2) ->
-          let* _ = check_merge e1 in 
-          let* _ = check_merge e2 in
-          let* _ = check_clocks (ClockPos clock) e1 in
-          check_clocks (ClockNeg clock) e2
-        | _ -> Ok ())
-    | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap (_, None) | EmptySet (_, None) -> Ok ()
-    | EmptyMap (_, Some (kt, vt)) ->
-      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) kt) >>
-      (LH.fold_lustre_ty check_merge (R.ok ()) (>>) vt)
-    | EmptySet (_, Some ty) -> 
-      LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
-    | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-    | ConvOp (_, _, e) | Pre (_, e) | Extract (_, e, _, _) | Quantifier (_, _, _, e) 
-    | AnyOp (_, _, e) | ChooseOp (_, _, e) | When (_, e, _) | StructUpdate (_, e, _, None) -> check_merge e
-    | TypeAscription (_, e, ty) ->
-      check_merge e >> LH.fold_lustre_ty check_merge (R.ok ()) (>>) ty
-    | BinaryOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
-    | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | Fby (_, e1, e2)
-    | IndexAccess (_, e1, e2, _)
-    | ArrayConstr (_, e1, e2) -> check_merge e1 >> check_merge e2
-    | TernaryOp (_, _, e1, e2, e3) -> 
-      check_merge e1 >> check_merge e2 >> check_merge e3
-    | GroupExpr (_, _, es)
-    | Call (_, _, _, es) -> Res.seq_ (List.map check_merge es)
-    | RecordExpr (_, _, _, es) -> 
-      Res.seq_ (List.map check_merge (List.map (fun (_, x) -> x) es))
-    | Condact (_, e1, e2, _, es1, es2 ) -> 
-      check_merge e1 >> check_merge e2 >> 
-      Res.seq_ (List.map check_merge es1) >>  Res.seq_ (List.map check_merge es2)
-    | Activate (_, _, e1, e2, es) -> 
-      check_merge e1 >> check_merge e2 >> Res.seq_ (List.map check_merge es)
-    | RestartEvery (_, _, es, e) -> 
-      Res.seq_ (List.map check_merge es) >> check_merge e
-    | LA.Match (_, e, arms, _) ->
-      check_merge e >>
-      Res.seq_ (List.map (fun (_, arm_e) -> check_merge arm_e) arms)
-    | LA.ADTTerm (_, ty_args, _, args) ->
-      Res.seq_ (List.map check_merge args) >>
-      Res.seq_ (List.map (LH.fold_lustre_ty check_merge (R.ok ()) (>>)) ty_args)
-    | LA.AbstractSymConst _ -> assert false 
-    | LA.ADTTester (_, e, _) -> check_merge e
-  in
-  check_merge e
-
-let check_merge_clock: LA.expr -> LA.lustre_type -> (unit, [> error]) result = fun e ty ->
-  match ty with
-  | EnumType _ -> no_mismatched_clock false e >> Ok ()
-  | Bool _ -> no_mismatched_clock true e >> Ok ()
-  | _ -> Ok ()
-
-let check_merge_exhaustive: tc_context -> Lib.position -> LA.lustre_type -> HString.t list -> (unit, [> error]) result
-  = fun ctx pos ty cases ->
-    match ty with
-    | EnumType (_, enum_id, _) -> (match lookup_variants ctx enum_id with
-        | Some variants ->
-          let check_cases_containment = R.seq_
-            (List.map (fun i ->
-                if not (List.mem i variants) then
-                  type_error pos (MergeCaseExtraneous (i, ty))
-                else Ok ())
-              cases)
-          in
-          let check_cases_cover = R.seq_
-            (List.map (fun i ->
-                if not (List.mem i cases) then
-                  type_error pos (MergeCaseMissing i)
-                else Ok ())
-              variants)
-          in
-          let check_cases_unique = R.seq_
-            (List.map (fun i -> 
-              if List.length (List.filter (fun x -> HString.equal x i) cases) > 1 then
-                type_error pos (MergeCaseNotUnique i)
-              else Ok ())
-              variants)
-          in
-          check_cases_containment >> check_cases_cover >> check_cases_unique
-        | None -> type_error pos (Impossible ("Identifier "
-          ^ (HString.string_of_hstring enum_id)
-          ^ " is not an enumeration identifier")))
-    | Bool _ -> Ok () (* TODO: What checks should we do for a boolean merge? *)
-    | _ -> type_error pos (Impossible ("Type " ^ string_of_tc_type ty ^
-      " must be a bool or an enum type"))
-
 let rec infer_const_attr ctx exp =
   let r = infer_const_attr ctx in
   let combine l1 l2 = List.map2 (fun r1 r2 -> r1 >> r2) l1 l2 in
@@ -669,11 +495,6 @@ let rec infer_const_attr ctx exp =
     let r1 = List.fold_left combine [R.ok ()] r1 in
     combine r1 (infer_const_attr ctx e)
   (* Clock operators *)
-  | When (_, e, _) ->
-    List.map (fun _ -> error exp "when operator") (r e)
-  | Merge (_, _, es) ->
-    List.map (fun _ -> error exp "merge operator")
-      (r (List.hd (snd (List.split es))))
   (* Temporal operators *)
   | Pre (_, e) ->
     List.map (fun _ -> error exp "pre operator") (r e)
@@ -682,13 +503,13 @@ let rec infer_const_attr ctx exp =
     List.map (fun _ -> error exp "arrow operator") (r e1)
   | Fby (_, e1, _) ->
     List.map (fun _ -> error exp "fby operator") (r e1)
+  | Restart _ -> [error exp "restart"]
   | TypeAscription (_, e, ty) ->
     combine (r e) (LH.fold_lustre_ty r [R.ok ()] combine ty)
   (* Node calls *)
   | AnyOp _ -> assert false
   | ChooseOp _ -> assert false
-  | Condact (_, _, _, i, _, _)
-  | Activate (_, i, _, _, _)
+  
   | RestartEvery (_, i, _, _) 
   | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
@@ -937,26 +758,10 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     let* e1 = call e1 in 
     let* e2 = call e2 in
     R.ok (LA.IndexAccess (pos, e1, e2, kind))
-  | When (pos, e, clock) -> 
+  | Restart (pos, e, r) ->
     let* e = call e in
-    R.ok (LA.When (pos, e, clock))
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let* e1 = call e1 in 
-    let* e2 = call e2 in 
-    let* expr_list1 = R.seq (List.map call expr_list1) in 
-    let* expr_list2 = R.seq (List.map call expr_list2) in 
-    R.ok (LA.Condact (pos, e1, e2, id, expr_list1, expr_list2))
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let* e1 = call e1 in 
-    let* e2 = call e2 in 
-    let* expr_list = R.seq (List.map call expr_list) in 
-    R.ok (LA.Activate (pos, ident, e1, e2, expr_list))
-  | Merge (pos, ident, expr_list) ->
-    let* expr_list = R.seq (List.map (fun (id, expr) -> 
-      let* expr = call expr in 
-      R.ok (id, expr)
-    ) expr_list) in 
-    R.ok (LA.Merge (pos, ident, expr_list))
+    let* r = call r in
+    R.ok (LA.Restart (pos, e, r))
   | RestartEvery (pos, ident, expr_list, e) ->
     let* e = call e in 
     let* expr_list = R.seq (List.map call expr_list) in 
@@ -1581,41 +1386,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let extn_ctx = add_ty (remove_const ctx i) i ty in
     let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
     R.ok (ty, LA.ChooseOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
-  (* Clock operators *)
-  | LA.When (_, e, _) -> infer_type_expr ctx nname e
-  | LA.Condact (pos, c, e, node, args, defaults) ->
-    check_type_expr ctx nname c (Bool pos) >> 
-    let* r_ty, call, warnings1 = infer_type_expr ctx nname (Call (pos, [], node, args)) in
-    let args = match call with 
-    | Call (_, _, _, args) -> args 
-    | _ -> assert false 
-    in
-    let* d_tys, defaults, warnings2 = R.seq (List.map (infer_type_expr ctx nname) defaults) |> R.map Lib.split3 in
-      R.ifM (eq_lustre_type ctx r_ty (GroupType (pos, d_tys)))
-        (R.ok (r_ty, LA.Condact (pos, c, e, node, args, defaults), warnings1 @ List.flatten warnings2))
-        (type_error pos IlltypedDefaults)
-  | LA.Activate (pos, node, cond, e, args) ->
-    let* cond, warnings1 = check_type_expr ctx nname cond (Bool pos) in 
-    let* ty, call, warnings2 = infer_type_expr ctx nname (Call (pos, [], node, args)) in (
-    match call with 
-    | Call (_, _, node, args) -> 
-      R.ok (ty, LA.Activate (pos, node, cond, e, args), warnings1 @ warnings2)
-    | _ -> assert false
-    )
-  | LA.Merge (pos, i, mcases) as e ->
-    let* ty, i_e, warnings1 = infer_type_expr ctx nname (LA.Ident (pos, i)) in
-    let i = match i_e with 
-    | LA.Ident (_, i) -> i 
-    | _ -> assert false 
-    in
-    let mcases_ids, mcases_exprs = List.split mcases in
-    let* case_tys, mcases_exprs, warnings2 = R.seq (List.map (infer_type_expr ctx nname) mcases_exprs) |> R.map Lib.split3 in
-    check_merge_exhaustive ctx pos ty mcases_ids >>
-    check_merge_clock e ty >>
-    let main_ty = List.hd case_tys in
-    R.ifM (R.seqM (&&) true (List.map (eq_lustre_type ctx main_ty) case_tys))
-    (R.ok (main_ty, LA.Merge (pos, i, List.combine mcases_ids mcases_exprs), warnings1 @ List.flatten warnings2))
-    (type_error pos (IlltypedMerge main_ty))
+  (* LustreGenNodes leaves a restart in place only when it cannot infer the
+     type of its body, with the signatures of all the nodes at hand, that is,
+     when the body is ill typed: the type error is reported here *)
+  | LA.Restart (pos, e, r) ->
+    let* _ = check_type_expr ctx nname r (LA.Bool pos) in
+    let* _ = infer_type_expr ctx nname e in
+    type_error pos (Impossible "Restart expression not desugared")
   | LA.RestartEvery (pos, node, args, cond) ->
     let* cond, warnings1 = check_type_expr ctx nname cond (LA.Bool pos) in 
     let* ty, call, warnings2 = infer_type_expr ctx nname (LA.Call (pos, [], node, args)) in (
@@ -1907,9 +1684,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
-  | Condact (pos, _, _, _, _, _)
-  | Activate (pos, _, _, _, _)
-  | Merge (pos, _, _)
+  | Restart (pos, _, _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos, _, _)
   | Fby (pos, _, _)
@@ -1918,7 +1693,6 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | RecordExpr (pos, _, _, _)
   | Pre (pos, _)
   | Last (pos, _)
-  | When (pos, _, _)
   | LA.Match (pos, _, _, _)
   | LA.ADTTerm (pos, _, _, _)
   | LA.ADTTester (pos, _, _)
@@ -2434,6 +2208,7 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
   | LA.Auto _ as ann ->
     Debug.parse "Node Item Skipped (Auto): %a" LA.pp_print_node_item ann
     ; R.ok (ann, [])
+  | LA.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | LA.AnnotProperty (p, id, e1, Provided e2) as ann ->
     Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e1
@@ -2993,7 +2768,7 @@ and check_no_index_access ctx nname ty e =
   | EmptySet (_, Some ty') ->
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty'
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | When (_, e, _)
+  | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
   | AnyOp (_, (_, _, ty'), e) ->
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
@@ -3009,14 +2784,9 @@ and check_no_index_access ctx nname ty e =
     Res.seq_ (List.map check_ty tys) >> Res.seq_ (List.map r l)
   | GroupExpr (_, _, l) ->
     Res.seq_ (List.map r l)
-  | Merge (_, _, l) ->
-    Res.seq_ (List.map (fun (_, x) -> r x) l)
+  | Restart (_, e1, e2) -> r e1 >> r e2
   | RestartEvery (_, _, l, e) ->
     r e >> Res.seq_ (List.map r l)
-  | Activate (_, _, c, re, l) ->
-    r c >> r re >> Res.seq_ (List.map r l)
-  | Condact (_, e, re, _, l1, l2) ->
-    r e >> r re >> Res.seq_ (List.map r (l1 @ l2))
   | RecordExpr (_, _, tys, ie) ->
     let check_ty = LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) in
     Res.seq_ (List.map check_ty tys) >> Res.seq_ (List.map (fun (_, e) -> r e) ie)
@@ -3162,7 +2932,7 @@ and expr_contains_set_binop ctx ni expr =
     LH.fold_lustre_ty r false (||) vt
   | EmptySet (_, Some ty) -> LH.fold_lustre_ty r false (||) ty
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | When (_, e, _) | Pre (_, e) 
+  | ConvOp (_, _, e) | Pre (_, e) 
   | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
@@ -3173,11 +2943,8 @@ and expr_contains_set_binop ctx ni expr =
     -> r e1 || r e2 || r e3
   | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || r x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | RecordExpr (_, _, _, expr_list) 
     -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
-  | Activate (_, _, e1, e2, expr_list) -> 
-    r e1 || r e2
-    || List.fold_left (fun acc x -> acc || r x) false expr_list
   | AnyOp (_, (_, _, ty), e) -> 
     LH.fold_lustre_ty r false (||) ty || 
     r e
@@ -3186,10 +2953,7 @@ and expr_contains_set_binop ctx ni expr =
     r e
   | TypeAscription (_, e, ty) ->
     LH.fold_lustre_ty r false (||) ty || r e
-  | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
-    r e1 || r e2 || 
-    List.fold_left (fun acc x -> acc || r x) false expr_list || 
-    List.fold_left (fun acc x -> acc || r x) false expr_list2
+  | Restart (_, e1, e2) -> r e1 || r e2
   | RestartEvery (_, _, expr_list, e) -> 
     r e || 
     List.fold_left (fun acc x -> acc || r x) false expr_list

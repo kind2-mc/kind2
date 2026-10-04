@@ -56,10 +56,9 @@ let pos_of_expr = function
   | RecordExpr (pos , _ , _, _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
   | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
   | Quantifier (pos, _, _, _)
-  | When (pos , _ , _) | Condact (pos , _ , _ , _ , _, _)
-  | Activate (pos , _ , _ , _ , _) | Merge (pos , _ , _ ) | Pre (pos , _)
+  | Pre (pos , _)
   | Last (pos, _)
-  | RestartEvery (pos, _, _, _)
+  | Restart (pos, _, _) | RestartEvery (pos, _, _, _)
   | Arrow (pos , _, _) | Fby (pos, _, _) | Call (pos, _, _, _)
   | AnyOp (pos, _, _) | ChooseOp (pos, _, _) | Extract (pos, _, _, _)
   | EmptyMap (pos, _)
@@ -207,7 +206,7 @@ let rec expr_is_droppable = function
   | FieldProject (_, _, _, Selector (UserWritten, _, _)) -> false
   | FieldProject (_, e, _, (RecordField | Unresolved | Selector (Kind2Generated, _, _)))
   | UnaryOp (_, _, e) | ConvOp (_, _, e) | Extract (_, e, _, _)
-  | When (_, e, _) | Pre (_, e) | ADTTester (_, e, _) -> expr_is_droppable e
+  | Pre (_, e) | ADTTester (_, e, _) -> expr_is_droppable e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2)
   | Fby (_, e1, e2) ->
     expr_is_droppable e1 && expr_is_droppable e2
@@ -220,8 +219,8 @@ let rec expr_is_droppable = function
      operators over them bring in a callee, the binders and pattern matching
      introduce bound variables, and the remaining forms are not worth
      recognizing here *)
-  | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ | Condact _
-  | Activate _ | Merge _ | RestartEvery _ | TypeAscription _ | StructUpdate _
+  | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ 
+  | Restart _ | RestartEvery _ | TypeAscription _ | StructUpdate _
   | ArrayConstr _ | IndexAccess _ | EmptyMap (_, Some _)
   | EmptySet (_, Some _) -> false
 
@@ -235,7 +234,7 @@ let rec expr_contains_call = function
     fold_lustre_ty expr_contains_call false (||) kt || 
     fold_lustre_ty expr_contains_call false (||) vt
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | Extract (_, e, _, _)
     -> expr_contains_call e
   | StructUpdate (_, e1, idx, None) ->
@@ -251,12 +250,9 @@ let rec expr_contains_call = function
     -> expr_contains_call e1 || expr_contains_call e2 || expr_contains_call e3
   | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | RecordExpr (_, _, _, expr_list) 
     -> List.fold_left (fun acc (_, e) -> acc || expr_contains_call e) false expr_list
-  | Activate (_, _, e1, e2, expr_list) -> 
-    expr_contains_call e1 || expr_contains_call e2
-    || List.fold_left (fun acc x -> acc || expr_contains_call x) false expr_list
-  | Call (_, _, _, _) | Condact (_, _, _, _, _, _) | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
+  | Call (_, _, _, _) | Restart _ | RestartEvery (_, _, _, _) | AnyOp (_, _, _) | ChooseOp (_, _, _)
   | TypeAscription _ 
     -> true
   | Match (_, e, arms, _) ->
@@ -277,7 +273,7 @@ let rec expr_contains_id id = function
     fold_lustre_ty (expr_contains_id id) false (||) vt
   | EmptySet (_, Some ty) -> fold_lustre_ty (expr_contains_id id) false (||) ty
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _) | Pre (_, e)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | Pre (_, e)
   | Extract (_, e, _, _)
     -> expr_contains_id id e
   | StructUpdate (_, e1, idx, None) ->
@@ -296,20 +292,14 @@ let rec expr_contains_id id = function
     -> expr_contains_id id e1 || expr_contains_id id e2 || expr_contains_id id e3
   | Call (_, _, _, expr_list) | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | RecordExpr (_, _, _, expr_list) 
     -> List.fold_left (fun acc (_, e) -> acc || expr_contains_id id e) false expr_list
-  | Activate (_, _, e1, e2, expr_list) -> 
-    expr_contains_id id e1 || expr_contains_id id e2
-    || List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
   (* A binder's type lies outside its own scope, so an occurrence there counts
      even when the binder shadows id *)
   | AnyOp (_, (_, id2, ty), e) | ChooseOp (_, (_, id2, ty), e) ->
     fold_lustre_ty (expr_contains_id id) false (||) ty
     || (id <> id2 && expr_contains_id id e)
-  | Condact (_, e1, e2, _, expr_list, expr_list2) -> 
-    expr_contains_id id e1 || expr_contains_id id e2 || 
-    List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list || 
-    List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list2
+  | Restart (_, e, r) -> expr_contains_id id e || expr_contains_id id r
   | RestartEvery (_, _, expr_list, e) -> 
     expr_contains_id id e || 
     List.fold_left (fun acc x -> acc || expr_contains_id id x) false expr_list
@@ -381,12 +371,9 @@ let set_pos_of_expr p = function
   | TernaryOp (_, a, b, c, d) -> TernaryOp (p, a, b, c, d)
   | CompOp (_, a, b, c) -> CompOp (p, a, b, c)
   | Quantifier (_, a, b, c) -> Quantifier (p, a, b, c)
-  | When (_, a, b) -> When (p, a, b)
-  | Condact (_, a, b, c, d, e) -> Condact (p, a, b, c, d, e)
-  | Activate (_, a, b, c, d) -> Activate (p, a, b, c, d)
-  | Merge (_, a, b) -> Merge (p, a, b)
   | Pre (_, a) -> Pre (p, a)
   | Last (_, a) -> Last (p, a)
+  | Restart (_, a, b) -> Restart (p, a, b)
   | RestartEvery (_, a, b, c) -> RestartEvery (p, a, b, c)
   | Arrow (_, a, b) -> Arrow (p, a, b)
   | Fby (_, a, b) -> Fby (p, a, b)
@@ -509,18 +496,7 @@ let rec apply_subst_in_expr sigma = function
     ArrayConstr (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
     IndexAccess (pos, apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2, kind)
-  | When (pos, e, clock) -> When (pos, apply_subst_in_expr sigma e, clock)
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let e1, e2 = apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2 in
-    let expr_list1 = List.map (fun e -> apply_subst_in_expr sigma e) expr_list1 in
-    let expr_list2 = List.map (fun e -> apply_subst_in_expr sigma e) expr_list2 in
-    Condact (pos, e1, e2, id, expr_list1, expr_list2)
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let e1, e2 = apply_subst_in_expr sigma e1, apply_subst_in_expr sigma e2 in
-    let expr_list = List.map (fun e -> apply_subst_in_expr sigma e) expr_list in
-    Activate (pos, ident, e1, e2, expr_list)
-  | Merge (pos, ident, expr_list) ->
-    Merge (pos, ident, List.map (fun (i, e) -> (i, apply_subst_in_expr sigma e)) expr_list)
+  | Restart (pos, e, r) -> Restart (pos, apply_subst_in_expr sigma e, apply_subst_in_expr sigma r)
   | RestartEvery (pos, ident, expr_list, e) ->
     let expr_list = List.map (fun e -> apply_subst_in_expr sigma e) expr_list in
     let e = apply_subst_in_expr sigma e in
@@ -613,6 +589,7 @@ let rec apply_subst_in_node_item sigma item =
     IfBlock (pos, re e, List.map r items1, List.map r items2)
   | WhenBlock (pos, e, items1, items2) ->
     WhenBlock (pos, re e, List.map r items1, List.map r items2)
+  | RestartBlock (pos, items, e) -> RestartBlock (pos, List.map r items, re e)
   (* Match block arms introduce bound variables, so substituting into an arm
      must avoid capture, as for a match expression's arms *)
   | MatchBlock (pos, e, arms, ty) ->
@@ -707,18 +684,7 @@ let rec apply_type_subst_in_expr
     ArrayConstr (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2)
   | IndexAccess (pos, e1, e2, kind) ->
     IndexAccess (pos, apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2, kind)
-  | When (pos, e, clock) -> When (pos, apply_type_subst_in_expr sigma e, clock)
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
-    let expr_list1 = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list1 in
-    let expr_list2 = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list2 in
-    Condact (pos, e1, e2, id, expr_list1, expr_list2)
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let e1, e2 = apply_type_subst_in_expr sigma e1, apply_type_subst_in_expr sigma e2 in
-    let expr_list = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list in
-    Activate (pos, ident, e1, e2, expr_list)
-  | Merge (pos, ident, expr_list) ->
-    Merge (pos, ident, List.map (fun (i, e) -> (i, apply_type_subst_in_expr sigma e)) expr_list)
+  | Restart (pos, e, r) -> Restart (pos, apply_type_subst_in_expr sigma e, apply_type_subst_in_expr sigma r)
   | RestartEvery (pos, ident, expr_list, e) ->
     let expr_list = List.map (fun e -> apply_type_subst_in_expr sigma e) expr_list in
     let e = apply_type_subst_in_expr sigma e in
@@ -805,7 +771,7 @@ let rec has_unguarded_pre ung = function
   | EmptySet (_, Some ty) ->
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | When (_, e, _)
+  | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) | Extract (_, e, _, _)
     -> has_unguarded_pre ung e
   | TypeAscription (_, e, ty) ->
@@ -833,21 +799,15 @@ let rec has_unguarded_pre ung = function
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
 
-  | Merge (_, _, l) ->
-    let us = List.map (has_unguarded_pre ung) (List.map snd l) in
-    List.exists Lib.identity us
 
+  (* The body of a restart starts afresh at every restart, as at the first
+     instant *)
+  | Restart (_, e, r) -> has_unguarded_pre true e || has_unguarded_pre ung r
   | RestartEvery (_, _, l, e) ->
     let us = List.map (has_unguarded_pre ung) (e :: l) in
     List.exists Lib.identity us
 
-  | Activate (_, _, e, r, l)  ->
-    let us = List.map (has_unguarded_pre ung) (e :: r :: l) in
-    List.exists Lib.identity us
 
-  | Condact (_, e, r, _, l1, l2) ->
-    let us = List.map (has_unguarded_pre ung) (e :: r :: l1 @ l2) in
-    List.exists Lib.identity us
 
   | RecordExpr (_, _, _, ie) ->
     let us = List.map (fun (_, e) -> has_unguarded_pre ung e) ie in
@@ -925,7 +885,7 @@ let rec has_unguarded_pre_no_warn ung = function
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | When (_, e, _)
+  | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
@@ -950,21 +910,15 @@ let rec has_unguarded_pre_no_warn ung = function
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
 
-  | Merge (_, _, l) ->
-    let us = List.map (has_unguarded_pre_no_warn ung) (List.map snd l) in
-    List.exists Lib.identity us
 
+  (* The body of a restart starts afresh at every restart, as at the first
+     instant *)
+  | Restart (_, e, r) -> has_unguarded_pre_no_warn true e || has_unguarded_pre_no_warn ung r
   | RestartEvery (_, _, l, e) ->
     let us = List.map (has_unguarded_pre_no_warn ung) (e :: l) in
     List.exists Lib.identity us
 
-  | Activate (_, _, e, r, l)  ->
-    let us = List.map (has_unguarded_pre_no_warn ung) (e :: r :: l) in
-    List.exists Lib.identity us
 
-  | Condact (_, e, r, _, l1, l2) ->
-    let us = List.map (has_unguarded_pre_no_warn ung) (e :: r :: l1 @ l2) in
-    List.exists Lib.identity us
 
   | RecordExpr (_, _, _, ie) ->
     let us = List.map (fun (_, e) -> has_unguarded_pre_no_warn ung e) ie in
@@ -1046,7 +1000,7 @@ let rec has_pre_or_arrow = function
   | EmptySet (_, Some ty) -> 
     fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | When (_, e, _)
+  | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) 
   | AnyOp (_, _, e) | ChooseOp (_, _, e) | Extract (_, e, _, _) -> 
     has_pre_or_arrow e
@@ -1074,20 +1028,9 @@ let rec has_pre_or_arrow = function
     List.map has_pre_or_arrow l
     |> some_of_list
 
-  | Merge (_, _, l) ->
-    List.map has_pre_or_arrow (List.map snd l)
-    |> some_of_list
-
+  | Restart (_, e, r) -> some_of_list [has_pre_or_arrow e; has_pre_or_arrow r]
   | RestartEvery (_, _, l, e) ->
     List.map has_pre_or_arrow (e :: l)
-    |> some_of_list
-
-  | Activate (_, _, e, r, l) ->
-    List.map has_pre_or_arrow (e :: r :: l)
-    |> some_of_list
-
-  | Condact (_, e, r, _, l1, l2) ->
-    List.map has_pre_or_arrow (e :: r :: l1 @ l2)
     |> some_of_list
 
   | RecordExpr (_, _, _, ie) ->
@@ -1155,7 +1098,7 @@ let rec lasts_of_expr acc = function
   | Const _ | Ident _ | ModeRef _ -> acc
     
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
-  | UnaryOp (_, _, e) | Current (_, e) | When (_, e, _)
+  | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) ->
     lasts_of_expr acc e
 
@@ -1170,17 +1113,11 @@ let rec lasts_of_expr acc = function
   | Call (_, _, l) | CallParam (_, _, _, l) ->
     List.fold_left lasts_of_expr acc l
 
-  | Merge (_, _, l) ->
-    List.fold_left (fun acc (_, e) -> lasts_of_expr acc e) acc l
 
   | RestartEvery (_, _, l, e) ->
     List.fold_left lasts_of_expr acc (e :: l)
 
-  | Activate (_, _, e, r, l) ->
-    List.fold_left lasts_of_expr acc (e :: r :: l)
 
-  | Condact (_, e, r, _, l1, l2) ->
-    List.fold_left lasts_of_expr acc (e :: r :: l1 @ l2)
 
   | RecordExpr (_, _, ie) ->
     List.fold_left (fun acc (_, e) -> lasts_of_expr acc e) acc ie
@@ -1254,6 +1191,10 @@ let rec node_item_has_pre_or_arrow = function
     | None -> node_item_list_has_pre_or_arrow l2
     )
   )
+| RestartBlock (_, l, e) -> (match node_item_list_has_pre_or_arrow l with
+  | Some pos -> Some pos
+  | None -> has_pre_or_arrow e
+  )
 | MatchBlock (_, e, arms, _) -> (match has_pre_or_arrow e with
   | Some pos -> Some pos
   | None ->
@@ -1312,12 +1253,6 @@ let contract_has_pre_or_arrow (_, l) =
 
 let vars_of_ty_ids: typed_ident -> iset = fun (_, i, _) -> SI.singleton i 
 
-let vars_of_clock_expr: clock_expr -> iset = function
-  | ClockTrue -> SI.empty
-  | ClockPos i -> SI.singleton i
-  | ClockNeg i -> SI.singleton i
-  | ClockConstr (i1, i2) -> SI.of_list [i1; i2]
-
 let mk_mode_ref_id ids =
   Format.asprintf "%a" (Lib.pp_print_list pp_print_ident "::") ids
   |> HString.mk_hstring
@@ -1359,11 +1294,7 @@ let rec vars_of_node_calls_h obs =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars obs e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
-  | When (_, e, clkE) -> SI.union (vars obs e) (vars_of_clock_expr clkE)
-  | Condact (_, e1, e2, _, es1, es2) ->
-    SI.flatten (vars obs e1 :: vars obs e2:: (List.map (vars obs) es1) @ (List.map (vars obs) es2))
-  | Activate (_, _, e1, e2, es) -> SI.flatten (vars obs e1 :: vars obs e2 :: List.map (vars obs) es)
-  | Merge (_, _, es) -> List.split es |> snd |> List.map (vars obs) |> SI.flatten
+  | Restart (_, e, r) -> SI.union (vars obs e) (vars obs r)
   | RestartEvery (_, _, es, e) -> SI.flatten (vars obs e :: List.map (vars obs) es)
   (* Temporal operators *)
   | Pre (_, e) -> vars obs e
@@ -1421,13 +1352,8 @@ let rec vars_without_node_call_ids: expr -> iset =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs))
   (* Clock operators *)
-  | When (_, e, clkE) -> SI.union (vars e) (vars_of_clock_expr clkE)
-  | Condact (_, e1, e2, _, es1, es2) ->
-    SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2))
-  | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   (* A merge names its clock rather than holding it as an expression *)
-  | Merge (_, i, es) ->
-    SI.add i (List.split es |> snd |> List.map vars |> SI.flatten)
+  | Restart (_, e, r) -> SI.union (vars e) (vars r)
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
   | AnyOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   | ChooseOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
@@ -1453,13 +1379,7 @@ let rec calls_of_expr: expr -> NI.Set.t =
   function
   (* Node calls *)
   | Call (_, _, i, es) -> NI.Set.union (NI.Set.singleton i) (NI.Set.flatten (List.map calls_of_expr es))
-  | Condact (_, e1, e2, i, es1, es2) ->
-    NI.Set.union (NI.Set.singleton i)
-             (NI.Set.flatten (calls_of_expr e1 :: calls_of_expr e2 :: 
-                          List.map calls_of_expr es1 @ List.map calls_of_expr es2))
-  | Activate (_, i, e1, e2, es) -> 
-    NI.Set.union (NI.Set.singleton i)
-             (NI.Set.flatten (calls_of_expr e1 :: calls_of_expr e2 :: List.map calls_of_expr es))
+  | Restart (_, e, r) -> NI.Set.union (calls_of_expr e) (calls_of_expr r)
   | RestartEvery (_, i, es, e) -> 
     NI.Set.union (NI.Set.singleton i)
              (NI.Set.flatten (calls_of_expr e :: List.map calls_of_expr es))
@@ -1492,8 +1412,6 @@ let rec calls_of_expr: expr -> NI.Set.t =
     fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty
   | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
-  | When (_, e, _) -> calls_of_expr e
-  | Merge (_, _, es) -> List.split es |> snd |> List.map calls_of_expr |> NI.Set.flatten
   | AnyOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | ChooseOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
@@ -1546,14 +1464,9 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
   (* Clock operators *)
-  | When (_, e, clkE) -> SI.union (vars e) (vars_of_clock_expr clkE)
-  | Condact (_, e1, e2, _, es1, es2) ->
-    SI.flatten (vars e1 :: vars e2:: (List.map vars es1) @ (List.map vars es2))
-  | Activate (_, _, e1, e2, es) -> SI.flatten (vars e1 :: vars e2 :: List.map vars es)
   (* A merge names its clock rather than holding it as an expression, and the
      clock is never under a 'pre' *)
-  | Merge (_, i, es) ->
-    SI.add i (List.split es |> snd |> List.map vars |> SI.flatten)
+  | Restart (_, e, r) -> SI.union (vars e) (vars r)
   | RestartEvery (_, _, es, e) -> SI.flatten (vars e :: List.map vars es)
   | AnyOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
   | ChooseOp (_, (_, i, _), e) -> SI.diff (vars e) (SI.singleton i)
@@ -1642,6 +1555,7 @@ let rec defined_vars_with_pos = function
     List.flatten (List.map defined_vars_with_pos l2)
   | MatchBlock (_, _, arms, _) ->
     List.concat_map (fun (_, items) -> List.concat_map defined_vars_with_pos items) arms
+  | RestartBlock (_, l, _) -> List.concat_map defined_vars_with_pos l
   | FrameBlock (_, vars, _, _) ->
     vars
   | _ -> [] 
@@ -1759,20 +1673,7 @@ let rec replace_with_constants: expr -> expr =
      Quantifier (p, q, qs, replace_with_constants e)
 
    (* Clock operators *)
-   | When (p, e, c) -> When (p, replace_with_constants e, c) 
-   | Condact (p, e1, e2, i, es1, es2) ->
-      Condact (p, replace_with_constants e1
-               , replace_with_constants e2
-               , i
-               , List.map replace_with_constants es1
-               , List.map replace_with_constants es2)
-   | Activate (p, i, e1, e2, es) ->
-      Activate(p, i
-               , replace_with_constants e1
-               , replace_with_constants e2
-               , List.map replace_with_constants es)
-   | Merge (p, i, es) ->
-      Merge (p, i, List.map (fun (i, e) -> i, replace_with_constants e) es)
+   | Restart (p, e, r) -> Restart (p, replace_with_constants e, replace_with_constants r)
    | RestartEvery (p, i, es, e) ->
       RestartEvery (p, i, List.map replace_with_constants es, replace_with_constants e)
 
@@ -1860,20 +1761,7 @@ let rec abstract_pre_subexpressions: expr -> expr = function
      Quantifier (p, q, qs, abstract_pre_subexpressions e)
 
    (* Clock operators *)
-   | When (p, e, c) -> When (p, abstract_pre_subexpressions e, c) 
-   | Condact (p, e1, e2, i, es1, es2) ->
-      Condact (p, abstract_pre_subexpressions e1
-               , abstract_pre_subexpressions e2
-               , i
-               , List.map abstract_pre_subexpressions es1
-               , List.map abstract_pre_subexpressions es2)
-   | Activate (p, i, e1, e2, es) ->
-      Activate(p, i
-               , abstract_pre_subexpressions e1
-               , abstract_pre_subexpressions e2
-               , List.map abstract_pre_subexpressions es)
-   | Merge (p, i, es) ->
-      Merge (p, i, List.map (fun (i, e) -> i, abstract_pre_subexpressions e) es)
+   | Restart (p, e, r) -> Restart (p, abstract_pre_subexpressions e, abstract_pre_subexpressions r)
    | RestartEvery (p, i, es, e) ->
       RestartEvery (p, i, List.map abstract_pre_subexpressions es, abstract_pre_subexpressions e)
 
@@ -1927,8 +1815,6 @@ let rec replace_idents locals1 locals2 expr =
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
-  
-  | When (p, e, c) -> When (p, r e, c)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
@@ -1948,23 +1834,13 @@ let rec replace_idents locals1 locals2 expr =
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
 
-  | Merge (p, idx, l) -> Merge (p, idx, 
-    List.combine
-    (List.map fst l)
-    (List.map r (List.map snd l)))
-  
   | RecordExpr (p, idx, tys, l) -> RecordExpr (p, idx, tys,
     List.combine
     (List.map fst l)
     (List.map r (List.map snd l)))
-  
+  | Restart (p, e, r') -> Restart (p, r e, r r')
   | RestartEvery (p, id, l, e) -> 
     RestartEvery (p, id, List.map r l, r e)
-  | Activate (p, id, e1, e2, l) ->
-    Activate (p, id, r e1, r e2, List.map r l)
-  | Condact (p, e1, e2, id, l1, l2) ->
-    Condact (p, r e1, r e2, id, 
-             List.map r l1, List.map r l2)
 
   | StructUpdate (p, e1, li, Some e2) -> 
     StructUpdate (p, r e1, 
@@ -2010,6 +1886,7 @@ let rec extract_node_equation: node_item -> (eq_lhs * expr) list =
     List.flatten (List.map extract_node_equation nis1) @ List.flatten (List.map extract_node_equation nis2)
   | MatchBlock (_, _, arms, _) ->
     List.concat_map (fun (_, items) -> List.concat_map extract_node_equation items) arms
+  | RestartBlock (_, l, _) -> List.concat_map extract_node_equation l
   | FrameBlock (_, _, nes, nis) -> 
     let nes = List.map (fun ne -> Body ne) nes in
     List.flatten (List.map extract_node_equation nes) @ List.flatten (List.map extract_node_equation nis)
@@ -2184,32 +2061,10 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       in
       l |> join >>= fun l ->
       Ok (e && l && xq = yq)
-    | When (_, x, ClockTrue), When (_, y, ClockTrue) -> r (depth + 1) x y
-    | When (_, x, ClockPos xi), When (_, y, ClockPos yi)
-    | When (_, x, ClockNeg xi), When (_, y, ClockNeg yi) ->
-      r (depth + 1) x y >>= fun e ->
-      Ok (e && HString.equal xi yi)
-    | When (_, x, ClockConstr (i1, i2)), When (_, y, ClockConstr (j1, j2)) ->
-      r (depth + 1) x y >>= fun e ->
-      Ok (e && HString.equal i1 j1 && HString.equal i2 j2)
-    | Condact (_, xe1, xe2, xi, xl1, xl2), Condact (_, ye1, ye2, yi, yl1, yl2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
-      rlist xl1 yl1 |> join >>= fun l1 ->
-      rlist xl2 yl2 |> join >>= fun l2 ->
-      Ok (e1 && e2 && l1 && l2 && NI.equal xi yi)
-    | Activate (_, xi, xe1, xe2, xl), Activate (_, yi, ye1, ye2, yl) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
-      rlist xl yl |> join >>= fun l ->
-      Ok (e1 && e2 && l && NI.equal xi yi)
-    | Merge (_, xi, xl), Merge (_, yi, yl) ->
-      let (x1, x2), (y1, y2) = List.split xl, List.split yl in
-      rlist x2 y2 |> join >>= fun e ->
-      let t = List.length x1 = List.length y1
-        && List.fold_left2 (fun a x y -> a && HString.equal x y) true x1 y1
-      in
-      Ok (e && t && HString.equal xi yi)
+    | Restart (_, xe, xr), Restart (_, ye, yr) ->
+      r (depth + 1) xe ye >>= fun e ->
+      r (depth + 1) xr yr >>= fun c ->
+      Ok (e && c)
     | RestartEvery (_, xi, xl, xe), RestartEvery (_, yi, yl, ye) ->
       r (depth + 1) xe ye >>= fun e ->
       rlist xl yl |> join >>= fun l ->
@@ -2430,36 +2285,10 @@ let hash depth_limit expr =
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (fun (_, i, _) -> HString.hash i) l in
         Hashtbl.hash (16, e1, l_hash, e2_hash)
-      | When (_, e, ClockTrue) ->
+      | Restart (_, e, c) ->
         let e_hash = r (depth + 1) e in
-        Hashtbl.hash (17, e_hash, ClockTrue)
-      | When (_, e, ClockPos i) ->
-        let e_hash = r (depth + 1) e in
-        Hashtbl.hash (17, e_hash, 0, HString.hash i)
-      | When (_, e, ClockNeg i) ->
-        let e_hash = r (depth + 1) e in
-        Hashtbl.hash (17, e_hash, 1, HString.hash i)
-      | When (_, e, ClockConstr (i1, i2)) ->
-        let e_hash = r (depth + 1) e in
-        Hashtbl.hash (17, e_hash, 0, HString.hash i1, HString.hash i2)
-      | Condact (_, e1, e2, i, l1, l2) ->
-        let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
-        let l1_hash = List.map (r (depth + 1)) l1 in
-        let l2_hash = List.map (r (depth + 1)) l2 in
-        Hashtbl.hash (18, e1_hash, e2_hash, NI.hash i, l1_hash, l2_hash)
-      | Activate (_, i, e1, e2, l) ->
-        let e1_hash = r (depth + 1) e1 in
-        let e2_hash = r (depth + 1) e2 in
-        let l_hash = List.map (r (depth + 1)) l in
-        Hashtbl.hash (19, NI.hash i, e1_hash, e2_hash, l_hash)
-      | Merge (_, i, l) ->
-        let l_hash = List.map
-          (fun (i, e) -> let e_hash = r (depth + 1) e in
-            (HString.hash i, e_hash))
-          l
-        in
-        Hashtbl.hash (20, HString.hash i, l_hash)
+        let c_hash = r (depth + 1) c in
+        Hashtbl.hash (36, e_hash, c_hash)
       | RestartEvery (_, i, l, e) ->
         let l_hash = List.map (r (depth + 1)) l in
         let e_hash = r (depth + 1) e in
@@ -2553,18 +2382,7 @@ let rec rename_contract_vars = function
     IndexAccess (pos, rename_contract_vars e1, rename_contract_vars e2, kind)
   | Quantifier (pos, kind, idents, e) ->
     Quantifier (pos, kind, idents, rename_contract_vars e)
-  | When (pos, e, clock) -> When (pos, rename_contract_vars e, clock)
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let e1, e2 = rename_contract_vars e1, rename_contract_vars e2 in
-    let expr_list1 = List.map (fun e -> rename_contract_vars e) expr_list1 in
-    let expr_list2 = List.map (fun e -> rename_contract_vars e) expr_list2 in
-    Condact (pos, e1, e2, id, expr_list1, expr_list2)
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let e1, e2 = rename_contract_vars e1, rename_contract_vars e2 in
-    let expr_list = List.map (fun e -> rename_contract_vars e) expr_list in
-    Activate (pos, ident, e1, e2, expr_list)
-  | Merge (pos, ident, expr_list) ->
-    Merge (pos, ident, List.map (fun (i, e) -> (i, rename_contract_vars e)) expr_list)
+  | Restart (pos, e, r) -> Restart (pos, rename_contract_vars e, rename_contract_vars r)
   | RestartEvery (pos, ident, expr_list, e) ->
     let expr_list = List.map (fun e -> rename_contract_vars e) expr_list in
     let e = rename_contract_vars e in
@@ -2619,11 +2437,7 @@ let name_mode_refs e =
     | ArrayConstr (pos, e1, e2) -> ArrayConstr (pos, r e1, r e2)
     | IndexAccess (pos, e1, e2, k) -> IndexAccess (pos, r e1, r e2, k)
     | Quantifier (pos, k, tis, e) -> Quantifier (pos, k, tis, r e)
-    | When (pos, e, clock) -> When (pos, r e, clock)
-    | Condact (pos, e1, e2, i, es1, es2) ->
-      Condact (pos, r e1, r e2, i, List.map r es1, List.map r es2)
-    | Activate (pos, i, e1, e2, es) -> Activate (pos, i, r e1, r e2, List.map r es)
-    | Merge (pos, i, es) -> Merge (pos, i, List.map (fun (c, e) -> (c, r e)) es)
+    | Restart (pos, e, c) -> Restart (pos, r e, r c)
     | RestartEvery (pos, i, es, e) -> RestartEvery (pos, i, List.map r es, r e)
     | Pre (pos, e) -> Pre (pos, r e)
     | Arrow (pos, e1, e2) -> Arrow (pos, r e1, r e2)
@@ -2685,8 +2499,6 @@ let rec constants_to_calls: ident list -> expr -> expr
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
-  
-  | When (p, e, c) -> When (p, r e, c)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
@@ -2707,23 +2519,13 @@ let rec constants_to_calls: ident list -> expr -> expr
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyOps *)
 
-  | Merge (p, idx, l) -> Merge (p, idx, 
-    List.combine
-    (List.map fst l)
-    (List.map r (List.map snd l)))
-  
   | RecordExpr (p, idx, tys, l) -> RecordExpr (p, idx, tys,
     List.combine
     (List.map fst l)
     (List.map r (List.map snd l)))
-  
+  | Restart (p, e, r') -> Restart (p, r e, r r')
   | RestartEvery (p, id, l, e) -> 
     RestartEvery (p, id, List.map r l, r e)
-  | Activate (p, id, e1, e2, l) ->
-    Activate (p, id, r e1, r e2, List.map r l)
-  | Condact (p, e1, e2, id, l1, l2) ->
-    Condact (p, r e1, r e2, id, 
-             List.map r l1, List.map r l2)
 
   | StructUpdate (p, e1, li, Some e2) -> 
     StructUpdate (p, r e1, 

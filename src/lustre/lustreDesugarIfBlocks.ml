@@ -214,6 +214,7 @@ let if_block_to_trees ib =
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.WhenBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+          | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
         )
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
@@ -243,6 +244,7 @@ let if_block_to_trees ib =
           | A.AnnotMain (pos, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.WhenBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+          | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
         )
       (* We've processed everything in the if block. *)
       | A. IfBlock (_, _, [], []) -> R.ok (trees)
@@ -275,6 +277,7 @@ let when_block_to_trees wb =
                    conds)
           | A.IfBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+          | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
           | A.Body (Assert (pos, _))
           | A.FrameBlock (pos, _, _, _)
           | A.AnnotProperty (pos, _, _, _)
@@ -300,6 +303,7 @@ let when_block_to_trees wb =
                    conds)
           | A.IfBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemError ni)
           | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+          | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
           | A.FrameBlock (pos, _, _, _)
           | A.Body (Assert (pos, _))
           | A.AnnotProperty (pos, _, _, _)

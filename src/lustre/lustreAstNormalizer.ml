@@ -526,6 +526,7 @@ let get_inline_func_expr inlinable_funcs name args =
   let var_map =
     items |> List.fold_left (fun acc item ->
       match item with
+      | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body (Equation (_, StructDef (_, [lhs]), rhs)) -> (
         match lhs with
         | A.SingleIdent (_, v) ->
@@ -976,6 +977,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
   in
   let rec r map expr =
   match expr with
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.Quantifier (pos, kind, idents, e) -> (
     let vars, map, idents, constrs =
       List.fold_left
@@ -1114,9 +1116,6 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     let vars2, e2' = r map e2 in
     StringSet.union vars1 vars2,
     IndexAccess (pos, e1', e2', kind)
-  | When (pos, e, c) ->
-    let vars, e' = r map e in
-    vars, When (pos, e', c)
   | Pre (pos, e) ->
     let vars, e' = r map e in
     vars, Pre (pos, e')
@@ -1138,22 +1137,6 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
     vars, Call(pos, ty_args, id, expr_list')
   | EmptyMap _ 
   | EmptySet _ -> StringSet.empty, expr
-  | Merge (pos, ident, expr_list) ->
-    let vars, expr_list' = desugar_idx_expr_list map expr_list in
-    vars, Merge (pos, ident, expr_list')
-  | Activate (pos, ident, e1, e2, expr_list) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    let vars3, expr_list' = desugar_expr_list map expr_list in
-    StringSet.(vars1 |> union vars2 |> union vars3),
-    Activate (pos, ident, e1', e2', expr_list')
-  | Condact (pos, e1, e2, id, expr_list1, expr_list2) ->
-    let vars1, e1' = r map e1 in
-    let vars2, e2' = r map e2 in
-    let vars3, expr_list1' = desugar_expr_list map expr_list1 in
-    let vars4, expr_list2' = desugar_expr_list map expr_list2 in
-    StringSet.(vars1 |> union vars2 |> union vars3 |> union vars4),
-    Condact (pos, e1', e2', id, expr_list1', expr_list2')
   | RestartEvery (pos, ident, expr_list, e) ->
     let vars1, e' = r map e in
     let vars2, expr_list' = desugar_expr_list map expr_list in
@@ -1642,6 +1625,7 @@ and desugar_history info expr =
   info, gids, expr
 
 and normalize_item info node_id map = function
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body equation ->
     let nequation, gids, warnings = normalize_equation info node_id map equation in
     [A.Body nequation], gids, warnings
@@ -2617,6 +2601,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
+  | Restart _ -> assert false (* desugared in lustreGenNodes *)
   | Call (pos, _, id, args) as call ->
     let instance = call_instance_of_expr call in
     let is_inlinable = NI.Map.mem id info.inlinable_funcs in
@@ -2776,24 +2761,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let nexpr, _, gids, warnings = handle_call vmap args in
       nexpr, gids, warnings
     )
-  | Condact (pos, cond, restart, id, args, defaults) as call ->
-    let instance = call_instance_of_expr call in
-    let flags = NI.Map.find id info.node_is_input_const in
-    let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
-      else abstract_expr ?guard true info node_id map cond in
-    let nrestart, gids2, warnings2 = if AH.expr_is_const restart then restart, empty (), []
-      else abstract_expr ?guard true info node_id map restart
-    in let nargs, gids3, warnings3 = normalize_list
-      (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-      (combine_args_with_const info args flags)
-    in
-    let ndefaults, gids4, warnings4 = normalize_list (normalize_expr ?guard info node_id map) defaults in
-    let nexpr, _, gids5 =
-      mk_fresh_call ~instance info id pos ncond nrestart nargs (Some ndefaults)
-    in
-    let gids = union_list [gids1; gids2; gids3; gids4; gids5] in
-    let warnings = warnings1 @ warnings2 @ warnings3 @ warnings4 in
-    nexpr, gids, warnings
   | RestartEvery (pos, id, args, restart) as call ->
     let instance = call_instance_of_expr call in
     let flags = NI.Map.find id info.node_is_input_const in
@@ -2809,43 +2776,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     in
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
-  | Merge (pos, clock_id, cases) ->
-    let normalize' info map ?guard = function
-      | clock_value, A.Activate (pos, id, cond, restart, args) ->
-        let flags = NI.Map.find id info.node_is_input_const in
-        let ncond, gids1, warnings1 = if AH.expr_is_true cond then cond, empty (), []
-          else abstract_expr ?guard false info node_id map cond in
-        let nrestart, gids2 , warnings2 = if AH.expr_is_const restart then restart, empty (), []
-          else abstract_expr ?guard false info node_id map restart in
-        let nargs, gids3, warnings3 = normalize_list
-          (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-          (combine_args_with_const info args flags)
-        in
-        let nexpr, _, gids4 = mk_fresh_call info id pos ncond nrestart nargs None in
-        let gids = union_list [gids1; gids2; gids3; gids4] in
-        let warnings = warnings1 @ warnings2 @ warnings3 in
-        (clock_value, nexpr), gids, warnings
-      | clock_value, A.Call (pos, _, id, args) ->
-        let flags = NI.Map.find id info.node_is_input_const in
-        let cond_expr = match HString.string_of_hstring clock_value with
-          | "true" -> A.Ident (pos, clock_id)
-          | "false" -> A.UnaryOp (pos, A.Not, A.Ident (pos, clock_id))
-          | _ -> A.CompOp (pos, A.Eq, A.Ident (pos, clock_id), A.Ident (pos, clock_value))
-        in let ncond, gids1, warnings1 = abstract_expr ?guard false info node_id map cond_expr in
-        let restart =  A.Const (Lib.dummy_pos, A.False) in
-        let nargs, gids2, warnings2 = normalize_list
-          (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
-          (combine_args_with_const info args flags)
-        in
-        let nexpr, _, gids3 = mk_fresh_call info id pos ncond restart nargs None in
-        let gids = union_list [gids1; gids2; gids3] in
-        let warnings = warnings1 @ warnings2 in
-        (clock_value, nexpr), gids, warnings
-      | clock_value, expr ->
-        let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-        (clock_value, nexpr), gids, warnings
-    in let ncases, gids, warnings = normalize_list (normalize' ?guard info map) cases in
-    Merge (pos, clock_id, ncases), gids, warnings
   (* ************************************************************************ *)
   (* Guarding and abstracting pres                                            *)
   (* ************************************************************************ *)
@@ -3369,18 +3299,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         let ty = Chk.expand_type_syn_reftype_history ctx ty |> unwrap in 
         A.Quantifier (pos, kind, [p, id, ty], A.BinaryOp (pos, A.Impl, c, acc))
     ) nexpr (List.rev vars), gids, warnings
-  | When (pos, expr, clock_expr) ->
-    let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
-    When (pos, nexpr, clock_expr), gids, warnings
-  | Activate (pos, id, expr1, expr2, expr_list) ->
-    let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    let nexpr_list, gids3, warnings3 = normalize_list
-      (normalize_expr ?guard info node_id map)
-      expr_list in
-    let gids = union (union gids1 gids2) gids3 in
-    let warnings = warnings1 @ warnings2 @ warnings3 in
-    Activate (pos, id, nexpr1, nexpr2, nexpr_list), gids, warnings
   | A.ADTTerm (pos, ty_args, ctor, args) ->
     let nargs, gids, warnings =
       normalize_list (normalize_expr ?guard info node_id map) args
@@ -3401,7 +3319,6 @@ and expand_node_calls_in_place info node_id var count expr =
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
   | Quantifier (p, k, ids, e) -> A.Quantifier (p, k, ids, r e)
-  | When (p, e, c) -> A.When (p, r e, c)
   | Pre (p, e) -> A.Pre (p, r e)
   | BinaryOp (p, op, e1, e2) -> A.BinaryOp (p, op, r e1, r e2)
   | CompOp (p, op, e1, e2) -> A.CompOp (p, op, r e1, r e2)
@@ -3428,23 +3345,11 @@ and expand_node_calls_in_place info node_id var count expr =
   | RecordExpr (p, n, ps, expr_list) ->
     let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
     A.RecordExpr (p, n, ps, expr_list)
-  | Merge (p, n, expr_list) ->
-    let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
-    A.Merge (p, n, expr_list)
-  | Activate (p, n, e1, e2, expr_list) ->
-    let expr_list = List.map (fun e -> r e) expr_list in
-    A.Activate (p, n, r e1, r e2, expr_list)
   | Call (p, ty_args, n, expr_list) as e ->
     let instance = call_instance_of_expr e in
     let expr_list = List.map (fun e -> r e) expr_list in
     expand_node_call info (Some node_id) (A.Call (p, ty_args, n, expr_list))
       instance var count
-  | Condact (p, e1, e2, id, expr_list1, expr_list2) as e ->
-    let instance = call_instance_of_expr e in
-    let expr_list1 = List.map (fun e -> r e) expr_list1 in
-    let expr_list2 = List.map (fun e -> r e) expr_list2 in
-    let e = A.Condact (p, r e1, r e2, id, expr_list1, expr_list2) in
-    expand_node_call info (Some node_id) e instance var count
   | RestartEvery (p, id, expr_list, e) as e' ->
     let instance = call_instance_of_expr e' in
     let expr_list = List.map (fun e -> r e) expr_list in

@@ -17,8 +17,19 @@
 
  (** @author Rob Lorch *)
 
+type error_kind =
+  | RestartUnknownVariable of HString.t
+  | RestartPolymorphic
+
+val error_message : error_kind -> string
+
+type error = [
+  | `LustreGenNodesError of Lib.position * error_kind
+]
+
 (* Generate nodes/functions for any operators, choose operators, type ascriptions,
-   and temporal expressions in a clocked position *)
+   temporal expressions in a clocked position, and restart expressions and
+   blocks *)
 val gen_nodes : TypeCheckerContext.tc_context -> 
                          LustreAst.declaration list -> 
-                         LustreAst.declaration list
+                         (LustreAst.declaration list, [> error]) result

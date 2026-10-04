@@ -28,8 +28,8 @@
 -- reports "unknown" every run. Both generators are needed: INVGENOS is the
 -- only one with this (one-state) property term among its candidates, and
 -- INVGEN supplies the two-state invariants lifted past the clock that make
--- the candidate come out k-inductive. k-induction is not involved. Smaller hand-written models (a single condact
--- around a counter, or around a one-step delay) do not trigger it: invariant
+-- the candidate come out k-inductive. k-induction is not involved. Smaller hand-written models (a single clocked
+-- call to a counter, or around a one-step delay) do not trigger it: invariant
 -- generation needs enough structure in the callee to mine and lift an
 -- invariant in the first place.
 --

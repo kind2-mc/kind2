@@ -845,9 +845,8 @@ Besides `node`, the language provides the keyword `function`, used in exactly
 the same way but with stricter semantics: a function's outputs must be a
 *non-temporal* combination of its inputs
 (i.e., *combinational*). 
-A function may not use `->`, `pre`,
-`merge`, `when`, `condact`, or `activate`, and it may only call other
-functions (not nodes). Functions are, in other words, stateless.
+A function may not use `->`, `pre`, `fby` or
+`restart`, and it may only call other functions (not nodes). Functions are, in other words, stateless.
 
 ```lustre
 function Abs(x: real) returns (y: real);

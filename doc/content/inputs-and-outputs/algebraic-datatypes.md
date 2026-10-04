@@ -143,9 +143,9 @@ the guard of a `when` block is sufficient to prove the well-foundedness
 of the corresponding selector in the node/function body,
 lazy implication antecedent, or `then` branch expression, respectively.
 Only the *lazy* forms guard a selector. The branches of `if ... then ... else
-...`, the operands of `and`, `or` and `=>`, the operands of an `arrow`, and the
-arms of a `merge` are all evaluated unconditionally, so a tester there does not
-discharge an obligation.
+...`, the operands of `and`, `or` and `=>`, and the operands of an `arrow` are
+all evaluated unconditionally, so a tester there does not discharge an
+obligation.
 
 ```lustre
 datatype Shape = Circle (radius: real) | Rectangle (width: real, height: real);

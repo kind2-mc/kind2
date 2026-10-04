@@ -4497,7 +4497,8 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               node_invariants
               (NI.get_node_type node_id <> NodeId.FreeConstant &&
                NI.get_node_type node_id <> NodeId.TypeAscription &&
-               NI.get_node_type node_id <> NodeId.ClockedExpr)
+               NI.get_node_type node_id <> NodeId.ClockedExpr &&
+               NI.get_node_type node_id <> NodeId.Restarted)
           in
           trans_sys_of_node'
             options

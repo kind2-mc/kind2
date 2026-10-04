@@ -60,6 +60,7 @@ let fresh_lhs_and_decls pos ty =
     with the new local declarations it introduces. *)
 let rec name_calls_item ctx node_id ni =
   match ni with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (A.Equation (pos, A.StructDef (lpos, []), rhs)) ->
     let* ty, _, _ = Chk.infer_type_expr ctx (Some node_id) rhs in
     let items_and_decls = fresh_lhs_and_decls lpos ty in

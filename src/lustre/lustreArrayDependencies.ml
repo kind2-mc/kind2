@@ -149,6 +149,7 @@ and process_expr def_ind_vars ind_vars ctx (ns:AD.node_summary) proj indices exp
   let r expr = process_expr def_ind_vars ind_vars ctx ns proj indices expr in
   match expr with
   (* Identifiers *)
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.Ident (_, id) ->
     R.ok (G.singleton (id, indices))
   | ModeRef _ -> empty_
@@ -224,18 +225,6 @@ and process_expr def_ind_vars ind_vars ctx (ns:AD.node_summary) proj indices exp
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   (* Clock operators *)
-  | When (_, e, _) -> r e
-  | Condact (_, e1, e2, _, es1, es2) ->
-    let graph1 = union_ (r e1) (r e2) in
-    let graph2 = (es1 |> (List.map r) |> (List.fold_left union_ empty_)) in
-    let graph3 = (es2 |> (List.map r) |> (List.fold_left union_ empty_)) in
-    union_ (union_ graph1 graph2) graph3
-  | Activate (_, _, e1, e2, es) ->
-    let graph1 = union_ (r e1) (r e2) in
-    let graph2 = (es |> (List.map r) |> (List.fold_left union_ empty_)) in
-    union_ graph1 graph2
-  | Merge (_, _, cases) ->
-    cases |> (List.map (fun (_, e) -> r e)) |> (List.fold_left union_ empty_)
   | RestartEvery (_, _, es, e) ->
     let graph = es |> (List.map r) |> (List.fold_left union_ empty_) in
     union_ (r e) graph
