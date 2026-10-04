@@ -142,20 +142,16 @@ let scale_coefficient_in_poly (v: Var.t) (lcm: Numeral.t) (pt: poly) : poly =
   let coe = get_coe_in_poly v pt in
   
   match coe with
-      
     | i when Numeral.(i = zero) -> pt
-      
     | i when Numeral.(i > zero) ->
 
       (* Scale polynomial with lcm/coe, this is a positive number *)
       multiply_two_polys pt [(Numeral.(lcm / coe), None)]
-        
     | i when Numeral.(i < zero) ->
 
       (* Scale polynomial with -lcm/coe, this is a positive number,
          since coe is negative *)
       multiply_two_polys pt [(Numeral.((neg one) * lcm / coe), None)]
-        
     | _ -> 
       failwith "Impossible case for scale_coefficient_in_poly."
 
@@ -187,7 +183,6 @@ let scale_coefficient_in_preAtom (v: Var.t) (lcm: Numeral.t) (pret: preAtom) : p
 
         (* Prevent division by zero, return unchanged *)
         | i when Numeral.(i = zero) -> pret
-          
         | _ -> 
           
           (* Also scale the constant in divisibility predicate *)
@@ -205,7 +200,6 @@ let scale_coefficient_in_preAtom (v: Var.t) (lcm: Numeral.t) (pret: preAtom) : p
           
         (* Prevent division by zero, return unchanged *)
         | i when Numeral.(i = zero) -> pret
-          
         | _ -> INDIVISIBLE 
           
           (* Also scale the constant in divisibility predicate *)
@@ -260,13 +254,11 @@ let substitute_variable_in_preAtom (c: Var.t -> Var.t -> int) (v: Var.t) (pl: po
 
   (* Propagate substitution to polynomial in formula *)
   match pret with
-    
     | GT pl' -> GT (substitute_variable_in_poly c v pl pl')
 
     | EQ pl' -> EQ (substitute_variable_in_poly c v pl pl')
 
     | INEQ pl' -> INEQ (substitute_variable_in_poly c v pl pl')
-        
     | DIVISIBLE (i, pl') ->
       
       DIVISIBLE (i, substitute_variable_in_poly c v pl pl')
@@ -292,13 +284,11 @@ let substitute_summand_in_poly (c: Var.t -> Var.t -> int) (v: Var.t) (pt1: poly)
 
     (* Skip if variable has coefficient zero *)
     | i when Numeral.(i = zero) -> pt2
-      
     | i when Numeral.(i > zero) ->
       
       add_two_polys c []
         pt1
         (List.filter (fun x -> not (psummand_contains_variable v x)) pt2)
-        
     | i when Numeral.(i < zero) ->
       
       add_two_polys c []
@@ -674,9 +664,7 @@ let find_divisible_lower_bound (c: Var.t -> Var.t -> int)
 let rec find_general_poly (l: poly list) : poly =
 
   match l with
-      
     | [] -> raise Not_found
-      
     | pl :: l' ->
       
       (* Skip over constant polynomials *)

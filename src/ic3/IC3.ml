@@ -2476,12 +2476,10 @@ let add_to_path model path state_vars i =
            match Var.VarHashtbl.find model v with 
 
              | Model.Term t -> t
-               
              | exception Not_found -> 
 
                TermLib.default_of_type 
                  (StateVar.type_of_state_var sv)
-                                         
              | _ -> assert false
                
          in

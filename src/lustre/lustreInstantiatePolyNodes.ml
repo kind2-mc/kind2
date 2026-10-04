@@ -37,6 +37,7 @@ let merge_decls decls gen_decls =
 
 let instantiate_type_variables_ni 
 = fun ctx node_id ty_args ni  -> match ni with 
+| A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
 | A.Body (Equation (pos, lhs, expr)) ->
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in 
   A.Body (Equation (pos, lhs, expr))
@@ -403,6 +404,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
 = fun ctx gids caller_nname node_decls_map expr ->
   let rec_call = gen_poly_decls_expr ctx gids caller_nname node_decls_map in
   match expr with 
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.Call (pos, ty :: tys, node_id, exprs) ->
     let ctx, gids, exprs, decls1, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
@@ -442,9 +444,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
   | ConvOp (p, op, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, ConvOp (p, op, expr), decls, node_decls_map
-  | When (p, expr, cl) -> 
-    let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
-    ctx, gids, When (p, expr, cl), decls, node_decls_map
   | Pre (p, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     ctx, gids, Pre (p, expr), decls, node_decls_map
@@ -524,12 +523,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) tis in 
     ctx, gids, Quantifier (p, q, tis, expr), decls1 @ decls2, node_decls_map
-  | Merge (p, id, id_exprs) ->
-    let ctx, gids, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
-      ctx, gids, acc_id_exprs @ [id, expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], [], node_decls_map) id_exprs in 
-    ctx, gids, Merge (p, id, id_exprs), decls, node_decls_map
   | RecordExpr (p, id, ps, id_exprs) ->
     let ctx, gids, id_exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_id_exprs, acc_decls, acc_node_decls_map) (id, expr) -> 
       let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
@@ -542,26 +535,6 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
       ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
     ) (ctx, gids, [], [], node_decls_map) exprs in 
     ctx, gids, GroupExpr (p, ge, exprs), decls, node_decls_map
-  | Condact (p, expr1, expr2, id, exprs1, exprs2) ->
-    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
-    let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
-    let ctx, gids, exprs1, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
-      ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls1 @ decls2, node_decls_map) exprs1 in 
-    let ctx, gids, exprs2, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
-      ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls, node_decls_map) exprs2 in 
-    ctx, gids, Condact (p, expr1, expr2, id, exprs1, exprs2), decls, node_decls_map
-  | Activate (p, id, expr1, expr2, exprs) ->
-    let ctx, gids, expr1, decls1, node_decls_map = rec_call expr1 in 
-    let ctx, gids, expr2, decls2, node_decls_map = gen_poly_decls_expr ctx gids caller_nname node_decls_map expr2 in 
-    let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
-      let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids caller_nname acc_node_decls_map expr in 
-      ctx, gids, acc_exprs @ [expr], decls @ acc_decls, node_decls_map
-    ) (ctx, gids, [], decls1 @ decls2, node_decls_map) exprs in 
-    ctx, gids, Activate (p, id, expr1, expr2, exprs), decls, node_decls_map
   | RestartEvery (p, id, exprs, expr) ->
     let ctx, gids, expr, decls, node_decls_map = rec_call expr in 
     let ctx, gids, exprs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_exprs, acc_decls, acc_node_decls_map) expr -> 
@@ -588,6 +561,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
 
 and gen_poly_decls_ni
 = fun ctx gids node_id node_decls_map ni -> match ni with 
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (Equation (p, lhs, expr)) -> 
     let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
     ctx, gids, A.Body (Equation (p, lhs, expr)), decls, node_decls_map
@@ -1018,6 +992,7 @@ and rewrite_expr ctx record params expr =
   let r = rewrite_expr ctx record params in
   let rt = rewrite_ty ctx record params in
   match expr with
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.ADTTerm (pos, ty_args, ctor, args) ->
     let args = List.map r args in
     let ty_args' = List.map rt ty_args in
@@ -1062,7 +1037,6 @@ and rewrite_expr ctx record params expr =
   | A.UnaryOp (pos, op, e) -> A.UnaryOp (pos, op, r e)
   | A.ConvOp (pos, op, e) -> A.ConvOp (pos, op, r e)
   | A.Pre (pos, e) -> A.Pre (pos, r e)
-  | A.When (pos, e, c) -> A.When (pos, r e, c)
   | A.Extract (pos, e, i1, i2) -> A.Extract (pos, r e, i1, i2)
   | A.BinaryOp (pos, op, e1, e2) -> A.BinaryOp (pos, op, r e1, r e2)
   | A.CompOp (pos, op, e1, e2) -> A.CompOp (pos, op, r e1, r e2)
@@ -1081,11 +1055,6 @@ and rewrite_expr ctx record params expr =
     A.StructUpdate (pos, r e1, List.map over_idx idx, Option.map r e2)
   | A.TernaryOp (pos, op, e1, e2, e3) -> A.TernaryOp (pos, op, r e1, r e2, r e3)
   | A.GroupExpr (pos, k, es) -> A.GroupExpr (pos, k, List.map r es)
-  | A.Condact (pos, c, e, id, args, defaults) ->
-    A.Condact (pos, r c, r e, id, List.map r args, List.map r defaults)
-  | A.Activate (pos, id, c, e, args) ->
-    A.Activate (pos, id, r c, r e, List.map r args)
-  | A.Merge (pos, c, arms) -> A.Merge (pos, c, List.map (fun (i, e) -> (i, r e)) arms)
   | A.RestartEvery (pos, id, args, e) ->
     A.RestartEvery (pos, id, List.map r args, r e)
   | A.Match _ -> assert false (* desugared in lustreDesugarADTs *)
@@ -1108,6 +1077,7 @@ let rewrite_local_decl ctx record params = function
 let rewrite_node_item ctx record params item =
   let re = rewrite_expr ctx record params in
   match item with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (Equation (pos, lhs, e)) -> A.Body (Equation (pos, lhs, re e))
   | A.Body (Assert (pos, e)) -> A.Body (Assert (pos, re e))
   (* The guard of a provided property is an expression of the node body too *)

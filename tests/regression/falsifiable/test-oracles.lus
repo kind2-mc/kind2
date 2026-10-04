@@ -11,9 +11,10 @@ tel;
 
 
 node Y(a, b: real; clk: bool) returns (c: int);
-var d: int;
+var d, held: int;
 let
-  c = condact(clk, X(0), 0);
+  held = 0 fby c;
+  c = when clk then X(0) else held;
   d = X(0);
   --%PROPERTY "trivial" c > 0 or c <= 0;
   --%MAIN ;

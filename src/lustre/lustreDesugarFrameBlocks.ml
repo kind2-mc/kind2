@@ -92,6 +92,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   let r = fill_ite_helper frame_pos node_id lhs fill in 
   match e with
   (* Replace all oracles with 'fill' *)
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | A.Ident (pos, i) -> 
     (* See if 'i' is of the form "n_iboracle" *)
     if GI.var_is_iboracle i 
@@ -123,7 +124,6 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | ConvOp (p, b, e) -> ConvOp (p, b, r e)
   | Extract (p, e, b, c) -> Extract (p, r e, b, c)
   | UnaryOp (p, b, e) -> UnaryOp (p, b, r e)
-  | When (p, e, b) -> When (p, r e, b)
   | Quantifier (p, b, c, e) -> Quantifier (p, b, c, r e)
   | BinaryOp (p, b, e1, e2) -> BinaryOp (p, b, r e1, r e2)
   | CompOp (p, b, e1, e2) -> CompOp (p, b, r e1, r e2)
@@ -132,27 +132,15 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, r e2)
   | TernaryOp (p, b, e1, e2, e3) -> TernaryOp (p, b, r e1, r e2, r e3)
-  
   | GroupExpr (p, b, l) -> GroupExpr (p, b, List.map r l)
   | Call (p, b, c, l) -> Call (p, b, c, List.map r l)
 
-  | Merge (p, b, l) -> Merge (p, b, 
-    List.combine
-    (List.map fst l)
-    (List.map r (List.map snd l)))
-  
   | RecordExpr (p, b, c, l) -> RecordExpr (p, b, c,
     List.combine
     (List.map fst l)
     (List.map r (List.map snd l)))
-  
   | RestartEvery (p, b, l, e) -> 
     RestartEvery (p, b, List.map r l, r e)
-  | Activate (p, b, e1, e2, l) ->
-    Activate (p, b, r e1, r e2, List.map r l)
-  | Condact (p, e1, e2, b, l1, l2) ->
-    Condact (p, r e1, r e2, b, 
-             List.map r l1, List.map r l2)
 
   | StructUpdate (p, e1, li, e2) -> 
     let e2 = match e2 with 
@@ -310,6 +298,7 @@ let generate_undefined_nes_no_init node_id pos nes nis var =
     and `pre v` otherwise. *) 
 let fill_ite_oracles f_pos node_id nes ni = 
 match ni with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (Equation (pos, (StructDef(_, [SingleIdent(_, i)]) as lhs), rhs_expr)) -> 
     (* Find initialization value *)
     let exprs = List.find_map (fun ne -> match ne with 

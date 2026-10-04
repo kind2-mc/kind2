@@ -72,6 +72,7 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
+  | `LustreGenNodesError of Lib.position * LustreGenNodes.error_kind
 ]
 
 let (let*) = Res.(>>=)
@@ -178,8 +179,9 @@ let type_check declarations =
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
 
-    (* Step 6. Desugar nondeterministic choice operators *)
-    let node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
+    (* Step 6. Generate nodes for nondeterministic choice operators, type
+       ascriptions, temporal expressions in a clocked position, and restarts *)
+    let* node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, scc_map, node_summary) =

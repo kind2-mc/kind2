@@ -159,7 +159,6 @@ let rec list_filter_nth' current_pos accum =
               raise 
                 (Invalid_argument
                    "list_filter_nth: list of position is not sorted")
-                
             | _ -> 
               
               list_filter_nth' 
@@ -167,7 +166,6 @@ let rec list_filter_nth' current_pos accum =
                 (h :: accum) 
                 list_tl 
                 positions_tl)
-      
         | positions -> 
           
           list_filter_nth' (succ current_pos) accum list_tl positions)

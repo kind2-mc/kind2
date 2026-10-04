@@ -1307,7 +1307,6 @@ struct
 
           (* Result stack is never empty and has a singleton list as
              first element *)
-              
           | x :: _ -> Format.eprintf "%d@." (List.length x); assert false
           | [] -> assert false
 
@@ -1660,7 +1659,6 @@ struct
   let mk_let_elim b t =
 
     match mk_let b t with 
-      
       | { H.node = Let ({ H.node = L (s, t)}, b) } -> 
 
         (* Return let binding *)

@@ -9,10 +9,12 @@ var
   toggle : bool;
   ok : bool;
   slow_count : int;
+  held : int;
 let
   count = 3 -> 1 + pre count;
   toggle = false -> not pre toggle;
-  slow_count = condact(toggle, pass(count), -1);
+  held = -1 fby slow_count;
+  slow_count = when toggle then pass(count) else held;
 
   ok = slow_count <= 10;
   --%PROPERTY ok;

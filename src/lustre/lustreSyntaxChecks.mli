@@ -47,8 +47,8 @@ type error_kind = Unknown of string
   | UnsupportedClockedInputOrOutput
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
-  | UnsupportedOutsideMerge of LustreAst.expr
-  | UnsupportedWhen of LustreAst.expr
+  | IllegalInRestartBlock of string
+  | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MultAssignArrayDef

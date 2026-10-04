@@ -64,6 +64,10 @@ tel
 node Clocked (const k: int; n: int; b: bool) returns (z1, z2: int);
 let
   z1 = when b then H(k, n) else 0;
-  z2 = merge(b; (activate H every b)(k, n); 0 when not b);
+  when b then
+    z2 = H(k, n);
+  else
+    z2 = 0;
+  end
   check "clocked" z1 = z2;
 tel

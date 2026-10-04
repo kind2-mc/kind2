@@ -237,6 +237,7 @@ and simplify_index_access ctx ?(ind_vars = []) pos e1 idx kind =
 and push_pre is_guarded pos =
   let r e = push_pre is_guarded pos e in
   function
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | Last _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
@@ -285,10 +286,6 @@ and push_pre is_guarded pos =
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
-  | When _ as e -> LA.Pre (pos, e)
-  | Condact _ as e -> LA.Pre (pos, e)
-  | Activate _ as e -> LA.Pre (pos, e)
-  | Merge _ as e -> LA.Pre (pos, e)
   | RestartEvery _ as e -> LA.Pre (pos, e)
   | Pre _ as e -> LA.Pre (pos, e)
   | Arrow _ as e -> LA.Pre (pos, e)
@@ -468,7 +465,6 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     (* The bound variable shadows any constant of the same name *)
     let expr' = simplify_expr ~ind_vars (TC.remove_const ctx id) expr in
     RefinementType (pos, (pos2, id, ty'), expr')
-    
   | ADT (pos, name, cons) ->
     let cons' = List.map (fun (ctor, flds) ->
         (ctor, List.map (fun (fn, ty) -> fn, inline_constants_of_lustre_type ~ind_vars ctx ty) flds)) cons in
@@ -552,6 +548,8 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     assert false
   | (MatchBlock _) :: _ ->
     assert false (* desugared in lustreDesugarMatchBlocks *)
+  | (RestartBlock _) :: _ ->
+    assert false (* desugared in lustreGenNodes *)
   | (AnnotProperty (pos, n, e, k)) :: items ->
     let k = match k with
       | LA.Provided g -> LA.Provided (simplify_expr ctx g)

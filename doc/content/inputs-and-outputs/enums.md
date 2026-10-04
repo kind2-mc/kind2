@@ -12,27 +12,16 @@ Enumerated datatypes are encoded as subranges so that solvers handle arithmetic
 constraints only. This also allows to use the already present quantifier
 instantiation techniques in Kind 2.
 
-## N-way merge
+## Selecting on an enumerated value
 
-As in Lustre V6, merges can also be performed on a clock of a user defined
-enumerated datatype.
-
-```lustre
-merge c
- (A -> x when A(c))
- (B -> w + 1 when B(c));
-```
-
-Arguments of merge have to be sampled with the correct clock. Clock expressions
-for merge can be just a clock identifier or its negation or `A(c)` which is a
-stream that is true whenever `c = A`.
-
-Merging on a Boolean clock can be done with two equivalent syntaxes:
+A `when` expression evaluates only its selected branch, so a stream can be
+defined by cases on the value of an enumerated stream, as a Lustre V6 `merge`
+on an enumerated clock does:
 
 ```lustre
-merge(c; a when c; b when not c);
-
-merge c
-  (true -> a when c)
-  (false -> b when not c);
+o = when c = A then x else w + 1;
 ```
+
+A temporal operator or a node call in a branch only advances at the steps at
+which the branch is selected (see [Restart]({{< relref "/inputs-and-outputs/lustre#restart" >}})
+for the correspondence with the clock operators of Lustre).

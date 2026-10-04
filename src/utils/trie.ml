@@ -526,7 +526,6 @@ module Make (Ord: Map.OrderedType) = struct
 
       (* Return accumulator on empty trie *)
       | Empty, Empty -> acc
-      
       | _ -> raise (Invalid_argument "Trie.fold2")
   
     in
@@ -688,7 +687,6 @@ module Make (Ord: Map.OrderedType) = struct
 
                     (* Don't add to map if subtrie is empty *)
                     | Empty -> (a'', t')
-                      
                     | _ -> (a'', M.add k t'' t'))
 
                 (* Subsume in left subtries *)

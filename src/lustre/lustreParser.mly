@@ -203,14 +203,8 @@ let mk_span start_pos end_pos =
 %token CONCAT
 
 (* Tokens for clocks *)
-%token CURRENT
-%token CONDACT
-%token ACTIVATE
-%token INITIAL
-%token DEFAULT
 %token EVERY
 %token RESTART
-%token MERGE
 
 (* Tokens for temporal operators *)
 %token PRE
@@ -230,9 +224,9 @@ let mk_span start_pos end_pos =
        
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT BAR
+%nonassoc BAR
 %nonassoc MATCH_ARM_BODY  (* resolves shift/reduce: match arm body ends before next | *)
-%nonassoc ELSE
+%nonassoc ELSE EVERY
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL LAZY_IMPL
@@ -863,6 +857,7 @@ node_item:
   | i = node_if_block { i }
   | i = node_when_block { i }
   | i = node_match_block { i }
+  | i = node_restart_block { i }
   | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
@@ -945,6 +940,12 @@ bar_node_cond_case_colon:
 node_cond_case_colon:
   | e = expr; COLON; l = nonempty_list(node_item)
     { (e, l) }
+
+
+(* The state of the items is reset at every step where the condition is true *)
+node_restart_block:
+  | RESTART; l = nonempty_list(node_item); EVERY; r = expr; END
+    { A.RestartBlock (mk_pos $startpos, l, r) }
 
 
 node_match_block:
@@ -1278,144 +1279,9 @@ pexpr(Q):
     { let pos = mk_pos $startpos in
       fail_at_position pos "Recursive node calls are not supported" }
 
-  (* when operator on qexpression  *)
-  | e1 = pexpr(Q); WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
-
-  (* current operator on qexpression *)
-  | CURRENT; pexpr(Q) {
-    let pos = mk_pos $startpos in
-    fail_at_position pos "Unsupported operator: current"
-   }
-
-  (* condact call with defaults *)
-  | CONDACT 
-    LPAREN; 
-    e1 = pexpr(Q); 
-    COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    COMMA; 
-    d = pexpr_list(Q)
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, A.Const (pos, A.False), NodeId.mk_node_id s, a, d) } 
-
-  (* condact call may have no return values and therefore no defaults *)
-  | CONDACT 
-    LPAREN; 
-    c = pexpr(Q); 
-    COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), NodeId.mk_node_id s, a, []) } 
-
-  (* condact call with defaults and restart *)
-  | CONDACT LPAREN;
-    c = pexpr(Q); 
-    COMMA;
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    COMMA; 
-    d = pexpr_list(Q);
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) } 
-
-  (* condact call with no return values and restart *)
-  | CONDACT ; LPAREN;
-    c = pexpr(Q); 
-    COMMA; 
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, []) } 
-
-  (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
-     is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
-    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), NodeId.mk_node_id s, a, d) }
-    
-  (* activate operator without initial defaults
-
-     Only supported inside a merge *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, NodeId.mk_node_id s, c, A.Const (pos, A.False), a) }
-
-  (* activate restart *)
-  | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
-    EVERY; c = pexpr(Q); 
-    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) }
-    
-  (* alternative syntax for activate restart *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
-    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q));
-    RESTART EVERY; r = pexpr(Q); RPAREN;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) }
-    
-  (* activate operator without initial defaults and restart
-
-     Only supported inside a merge *)
-  | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
-    EVERY; c = pexpr(Q); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, NodeId.mk_node_id s, c, r, a) }
-    
-  (* alternative syntax of previous construct  *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q);
-    RESTART EVERY; r = pexpr(Q); RPAREN;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, NodeId.mk_node_id s, c, r, a) }
-
-    
-  (* restart node call *)
-  (*| RESTART; s = ident;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN;
-    EVERY; c = clock_expr
-
-    { A.RestartEvery (mk_pos $startpos, s, a, c) }
-   *)
-    
-  (* alternative syntax for restart node call *)
-  | LPAREN; RESTART; s = ident; EVERY; c = pexpr(Q); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { A.RestartEvery (mk_pos $startpos, NodeId.mk_node_id s, a, c) }
-    
-        
-  (* Binary merge operator *)
-  | MERGE; LPAREN;
-    c = ident; SEMICOLON;
-    pos = pexpr(Q); SEMICOLON;
-    neg = pexpr(Q); RPAREN 
-    { A.Merge (mk_pos $startpos, c, [HString.mk_hstring "true", pos; HString.mk_hstring "false", neg]) }
-
-  (* N-way merge operator *)
-  | MERGE; 
-    c = ident;
-    l = nonempty_list(merge_case);
-    { A.Merge (mk_pos $startpos, c, l) }
+  (* Restart: the state of e is reset at every step where r is true *)
+  | RESTART; e = pexpr(Q); EVERY; r = pexpr(Q)
+    { A.Restart (mk_pos $startpos, e, r) }
 
   (* Type ascription *) 
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
@@ -1480,15 +1346,6 @@ clock_expr:
   | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (cs, c) } 
   | TRUE { A.ClockTrue }
 
-merge_case_id:
-  | TRUE { HString.mk_hstring "true" }
-  | FALSE { HString.mk_hstring "false" }
-  | c = ident { c }
-
-merge_case :
-  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { c, e }
-
-    
 (* ********************************************************************** *)
 
 (* An identifier *)

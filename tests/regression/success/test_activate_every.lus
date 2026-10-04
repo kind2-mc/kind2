@@ -5,14 +5,10 @@ let
   out = sum >= 10 ;
 tel
 
-node merge_when_activate (i: int) returns (safe_tmp: bool) ;
+node clocked_call (i: int) returns (safe_tmp: bool) ;
 var i_pos, pre_tmp: bool;
 let
   i_pos = i >= 0 ;
   pre_tmp = false -> pre safe_tmp  ;
-  safe_tmp = merge(
-    i_pos ;
-    (activate sum_ge_10 every i_pos)(i) ;
-    pre_tmp when not i_pos
-  ) ;
+  safe_tmp = when i_pos then sum_ge_10(i) else pre_tmp ;
 tel

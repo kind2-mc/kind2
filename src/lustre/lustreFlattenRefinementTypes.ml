@@ -143,6 +143,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   let rec_call = flatten_ref_types_expr ctx in  
   match e with
   (* Expressions with types *)
+  | Restart _ -> assert false (* desugared in lustreGenNodes *)
   | Quantifier (p, q, tis, e) ->
     let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
     Quantifier (p, q, tis, rec_call e)
@@ -171,20 +172,6 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | StructUpdate (p, e1, i, None) -> StructUpdate (p, rec_call e1, i, None) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, rec_call e1, rec_call e2, k)
-  | When (p, e, c) -> When (p, rec_call e, c) 
-  | Condact (p, e1, e2, i, es1, es2) ->
-    Condact (p, rec_call e1
-              , rec_call e2
-              , i
-              , List.map rec_call es1
-              , List.map rec_call es2)
-  | Activate (p, i, e1, e2, es) ->
-    Activate(p, i
-              , rec_call e1
-              , rec_call e2
-              , List.map rec_call es)
-  | Merge (p, i, es) ->
-    Merge (p, i, List.map (fun (i, e) -> i, rec_call e) es)
   | RestartEvery (p, i, es, e) ->
     RestartEvery (p, i, List.map rec_call es, rec_call e)
   | Pre (p, e) -> Pre(p, rec_call e)
@@ -204,6 +191,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
 
 let flatten_ref_types_item ctx item = 
   match item with 
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.AnnotProperty (p, id, expr, k) ->
     let k = match k with
       | A.Provided g -> A.Provided (flatten_ref_types_expr ctx g)

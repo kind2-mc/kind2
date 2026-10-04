@@ -192,6 +192,7 @@ let rec abstract_block_guards ctx wguard ni = match ni with
 let remove_mult_assign_from_ni ctx ni =
   let rec helper ctx wguard ni = (
     match ni with
+      | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body (Equation (_, lhs, expr)) ->
         let lhs_vars = AH.defined_vars_with_pos ni in
         (* If there is no multiple assignment, we don't alter the node item,

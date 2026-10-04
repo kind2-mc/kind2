@@ -1,0 +1,41 @@
+-- 'restart e every r' resets the state of e at every step at which r is true,
+-- and 'restart ... every r end' does the same for a block of equations. The
+-- reset is strong: at a step at which r is true, the restarted expression is
+-- computed from its initial state.
+
+node Cnt () returns (y: int);
+let y = 0 -> pre y + 1; tel
+
+node top (c, r: bool; a: int) returns ();
+var k, kc, c1, x, s1, s2, o1, o2: int;
+let
+  -- k counts the steps since the last one at which r held
+  k = if r then 0 else (0 -> pre k + 1);
+
+  -- A node call
+  c1 = restart Cnt() every r;
+  --%PROPERTY "expr_call" c1 = k;
+
+  -- An expression that refers to its own value
+  x = restart (0 -> pre x + 1) every r;
+  --%PROPERTY "expr_self" x = k;
+
+  -- A block of equations
+  restart
+    s1 = 0 -> pre s1 + a;
+    s2 = s1 + (0 -> pre s2);
+  every r end
+  --%PROPERTY "block" r => (s1 = 0 and s2 = 0);
+  --%PROPERTY "block_sum" (not r) => s1 = (0 -> pre s1 + a);
+
+  -- A restart around a when expression also resets the state of the branch
+  -- that is not selected: kc counts the steps at which c held since the last
+  -- one at which r held
+  kc = (if r then 0 else (0 -> pre kc)) + (if c then 1 else 0);
+  o1 = restart (when c then Cnt() else -1) every r;
+  --%PROPERTY "around_when" o1 = (if c then kc - 1 else -1);
+
+  -- A restart in a branch is sampled on the clock of the branch
+  o2 = when c then (restart Cnt() every r) else -1;
+  --%PROPERTY "in_when" (c and r) => o2 = 0;
+tel

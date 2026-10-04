@@ -151,12 +151,9 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
     if in_scc then (pos, callee_id, ty_args, args, safe_env) :: sub else sub
   in
   match expr with
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Call (pos, ty_args, callee_id, args) ->
     rec_call pos callee_id ty_args args (go_list args @ go_ty_list ty_args)
-  | LA.Condact (pos, e1, e2, callee_id, args, defaults) ->
-    rec_call pos callee_id [] args (go_list ([e1; e2] @ args @ defaults))
-  | LA.Activate (pos, callee_id, e1, e2, args) ->
-    rec_call pos callee_id [] args (go_list ([e1; e2] @ args))
   | LA.RestartEvery (pos, callee_id, args, e) ->
     rec_call pos callee_id [] args (go_list (e :: args))
   | LA.Match (_, scrut, arms, _) ->
@@ -189,7 +186,6 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
   | LA.EmptyMap (_, tys_opt) ->
     (match tys_opt with Some (kt, vt) -> go_ty_list [kt; vt] | None -> [])
   | LA.Pre (_, e) | LA.UnaryOp (_, _, e) | LA.ConvOp (_, _, e)
-  | LA.When (_, e, _)
   | LA.FieldProject (_, e, _, _) | LA.ADTTester (_, e, _)
   | LA.Extract (_, e, _, _) -> go e
   | LA.TypeAscription (_, e, ty) -> go e @ go_ty ty
@@ -223,7 +219,6 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
     in
     idx_calls @ rest
   | LA.IndexAccess (_, e1, e2, _) -> go_list [e1; e2]
-  | LA.Merge (_, _, cases) -> go_list (List.map snd cases)
 
 (* Calls in the types of a function's own declarations: an input's, output's
    or local's refinement predicate, or an array bound. *)
@@ -253,6 +248,7 @@ let rec collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_
   let go_items = collect_rec_calls_items scc_map caller_scc caller_measure shadowed safe_env in
   let go_expr = collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env in
   List.concat_map (fun item -> match item with
+    | LA.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
     | LA.Body (LA.Assert (_, e)) -> go_expr e
     | LA.Body (LA.Equation (_, _, e)) -> go_expr e
     | LA.AnnotProperty (_, _, e, kind) ->

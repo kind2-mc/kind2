@@ -203,7 +203,6 @@ let rec node_state_var_dependencies' init output_input_deps
                 (fun _ sv -> StateVar.equal_state_vars state_var sv)
                 call_outputs)
           calls
-          
         |>
         
         List.fold_left

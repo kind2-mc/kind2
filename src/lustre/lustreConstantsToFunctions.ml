@@ -94,6 +94,7 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
   R.ok (p, ceqs)
 
 let rec ni_constants_to_calls new_func_ids ni = match ni with 
+| A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
 | A.Body (A.Assert (p, e)) ->
   A.Body (A.Assert (p, AH.constants_to_calls new_func_ids e))
 | A.Body (A.Equation (p, lhs, e))  -> 
