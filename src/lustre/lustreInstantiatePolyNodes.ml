@@ -122,6 +122,40 @@ let instantiate_type_variables_ci
   ) ty_args in
   ContractCall (p, id, ty_args, exprs, ids)
 
+(* The generated identifiers of a node carry types and expressions of their own,
+   and are compiled alongside the node's. The fields substituted below are every
+   type- or expression-bearing one written before this pass (by
+   lustreRemoveMultAssign, lustreDesugarIfBlocks and lustreGenRefTypeImpNodes:
+   locals, ib_oracles and equations, whose source may carry a when-block guard),
+   plus node_args, free_constants, oracles, empty_sets and empty_maps, as in
+   [rewrite_gids] below. The others
+   (contract_calls, calls, qcalls, refinement_type_constraints,
+   selector_obligations, map_element_updates, map_subtractions, set_insertions,
+   set_binops, expr_source_map, prop_source_map, type_ascription_exprs) are only
+   written by lustreAstNormalizer, after this pass; a pass moved ahead of it
+   that writes one of them would have to be added here. *)
+let instantiate_type_variables_gids ctx node_id ty_args (gids : GI.t) =
+  let it pos ty = Chk.instantiate_type_variables ctx pos node_id ty ty_args |> unwrap in
+  let ie e = Chk.instantiate_type_variables_expr ctx node_id ty_args e |> unwrap in
+  let ise = function
+    | Some (GI.ClockedOutput guard) -> Some (GI.ClockedOutput (ie guard))
+    | src -> src
+  in
+  let dp = Lib.dummy_pos in
+  { gids with
+    GI.node_args = List.map (fun (id, c, ty, e) -> (id, c, it dp ty, ie e)) gids.GI.node_args;
+    GI.locals = GI.StringMap.map (it dp) gids.GI.locals;
+    GI.free_constants = List.map (fun (id, ty) -> (id, it dp ty)) gids.GI.free_constants;
+    GI.oracles = List.map (fun (id, ty, e) -> (id, it dp ty, ie e)) gids.GI.oracles;
+    GI.ib_oracles = List.map (fun (id, ty) -> (id, it dp ty)) gids.GI.ib_oracles;
+    GI.empty_sets = List.map (fun (id, ty) -> (id, it dp ty)) gids.GI.empty_sets;
+    GI.empty_maps = List.map (fun (id, kt, vt) -> (id, it dp kt, it dp vt)) gids.GI.empty_maps;
+    GI.equations =
+      List.map (fun (q_vars, sc, lhs, expr, source) ->
+        let q_vars = List.map (fun (pos, id, ty) -> (pos, id, it pos ty)) q_vars in
+        (q_vars, sc, lhs, ie expr, ise source)
+      ) gids.GI.equations }
+
 let build_node_fun_ty
 = fun pos args rets ->
   let ops = List.map snd (List.map LH.extract_op_ty rets) in
@@ -146,6 +180,15 @@ let is_self_call node_decls_map caller_nname node_id ty_args =
     | _ -> false
   )
   | _ -> false
+
+(* The generated identifiers of each polymorphic declaration, as they were
+   before this pass rewrote the calls they contain. An instantiation is
+   generated from the declaration as it was before this pass too (the one in
+   the node declarations map), so that a call occurring both in the body and in
+   the generated identifiers (e.g. in a when-block guard, also carried by the
+   equations pulled out of the when block) resolves to the same instantiation
+   in both. *)
+let poly_gids : GI.t NI.Hashtbl.t = NI.Hashtbl.create 20
 
 (* Given a context, a map of node names to existing polymorphic instantiations, a (polymorphic) node to call,
    and type arguments, return the associated generated polymorphic node name, a new declaration for the 
@@ -271,30 +314,18 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
         node_decls_map 
     in
 
-    let ctx, gids, decls, node_decls_map = match NI.Map.find_opt node_id gids with
+    let ctx, gids, decls, node_decls_map = match NI.Hashtbl.find_opt poly_gids node_id with
     | None -> 
       ctx, gids, [], node_decls_map 
     | Some polymorphic_gids -> 
 
       (* Create monomorphization of gids for this new generated declaration *)
-      let glocals = GI.StringMap.map (fun ty -> 
-        Chk.instantiate_type_variables ctx Lib.dummy_pos node_id ty ty_args |> unwrap 
-      ) polymorphic_gids.locals in 
-      let ib_oracles = List.map (fun (id, ty) -> 
-        let ty = Chk.instantiate_type_variables ctx Lib.dummy_pos node_id ty ty_args |> unwrap in 
-        (id, ty)
-      ) polymorphic_gids.ib_oracles in
-      let geqs = List.map (fun (q_vars, sc, lhs, expr, source) -> 
-        let q_vars = List.map (fun (pos, id, ty) -> 
-          let ty = Chk.instantiate_type_variables ctx pos node_id ty ty_args |> unwrap in 
-          pos, id, ty
-        ) q_vars in 
-        let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in
-        (q_vars, sc, lhs, expr, source)
-      ) polymorphic_gids.equations in
+      let monomorphized_gids =
+        instantiate_type_variables_gids ctx node_id ty_args polymorphic_gids
+      in
+      if ps <> [] then NI.Hashtbl.replace poly_gids pnname monomorphized_gids;
 
       (* Recursively create new polymorphic instantiations, e.g. if the gids contain call M<int> *)
-      let monomorphized_gids = { polymorphic_gids with locals = glocals; equations = geqs; ib_oracles = ib_oracles; } in
       gen_poly_decls_gids ctx monomorphized_gids gids pnname node_decls_map
     in
 
@@ -365,7 +396,16 @@ and gen_poly_decls_gids ctx gids gids_map node_id node_decls_map =
     ctx, gids_map, decls @ acc_decls, (id, ty) :: acc_ib_oracles, node_decls_map
   ) (ctx, gids_map, decls, [], node_decls_map) gids.GI.ib_oracles in 
   let ctx, gids_map, decls, geqs, node_decls_map = List.fold_left (fun (ctx, gids_map, acc_decls, acc_geqs, acc_node_decls_map) (q_vars, sc, lhs, expr, source) -> 
-    let ctx, gids_map, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids_map (Some node_id) acc_node_decls_map expr in 
+    let ctx, gids_map, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids_map (Some node_id) acc_node_decls_map expr in
+    (* The when-block guard an equation is activated on is compiled too *)
+    let ctx, gids_map, source, decls, node_decls_map = match source with
+      | Some (GI.ClockedOutput guard) ->
+        let ctx, gids_map, guard, decls', node_decls_map =
+          gen_poly_decls_expr ctx gids_map (Some node_id) node_decls_map guard
+        in
+        ctx, gids_map, Some (GI.ClockedOutput guard), decls' @ decls, node_decls_map
+      | _ -> ctx, gids_map, source, decls, node_decls_map
+    in
     ctx, gids_map, decls @ acc_decls, (q_vars, sc, lhs, expr, source) :: acc_geqs, node_decls_map
   ) (ctx, gids_map, decls, [], node_decls_map) gids.GI.equations in 
 
@@ -1159,6 +1199,10 @@ let rewrite_gids ctx record gids =
       GI.empty_maps = List.map (fun (id, kt, vt) -> (id, rt kt, rt vt)) gids.GI.empty_maps;
       GI.equations =
         List.map (fun (tis, scope, lhs, e, src) ->
+          let src = match src with
+            | Some (GI.ClockedOutput guard) -> Some (GI.ClockedOutput (re guard))
+            | _ -> src
+          in
           (List.map (fun (p, i, ty) -> (p, i, rt ty)) tis, scope, lhs, re e, src)
         ) gids.GI.equations }
   ) gids
@@ -1429,6 +1473,8 @@ let instantiate_polymorphic_nodes: Ctx.tc_context -> GI.t NI.Map.t -> A.declarat
   | TypeDecl _ | ConstDecl _ | NodeParamInst _ -> acc
   ) NI.Map.empty decls 
   in
+  NI.Hashtbl.reset poly_gids;
+  NI.Map.iter (NI.Hashtbl.replace poly_gids) gids;
 
   let ctx, gids, decls, gen_decls, _ = gen_poly_decls_decls ctx gids node_decls_map decls in
   let merged_decls = merge_decls decls gen_decls in
