@@ -3533,8 +3533,22 @@ module Global = struct
     (* `INVGENREAL ; *) `INVGENREALOS ;
   ]
   let enabled = ref enable_default_init
+  (* Replace the virtual module IC3 with the engines it stands for,
+     IC3QE and IC3IA, keeping the first occurrence of each module. *)
+  let expand_virtual_modules modules =
+    modules
+    |> List.concat_map (function
+      | `IC3 -> [`IC3QE; `IC3IA]
+      | mdl -> [mdl])
+    |> List.fold_left
+      (fun acc mdl -> if List.mem mdl acc then acc else mdl :: acc)
+      []
+    |> List.rev
   let disable modul3 =
-    enabled := (! enabled) |> List.filter (fun m -> m <> modul3)
+    let disabled = expand_virtual_modules [modul3] in
+    enabled := (! enabled) |> List.filter (
+      fun m -> List.mem m disabled |> not
+    )
   let disabled = ref disable_default_init
   let finalize_enabled () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -3545,8 +3559,9 @@ module Global = struct
       enabled := `MCS::enable_default_after
     ) ;
     (* Remove disabled modules. *)
-    enabled := !enabled |> List.filter (
-      fun mdl -> List.mem mdl !disabled |> not
+    let disabled = expand_virtual_modules !disabled in
+    enabled := expand_virtual_modules !enabled |> List.filter (
+      fun mdl -> List.mem mdl disabled |> not
     )
   let _ = add_spec
     "--enable"
@@ -3600,7 +3615,8 @@ module Global = struct
       Format.fprintf fmt
       "\
         @[<hov>where <string> can be %a@]@ \
-        Disable a Kind module\
+        Disable a Kind module, repeat option to disable several modules.@ \
+        IC3 is a virtual module that disables both IC3QE and IC3IA.\
       "
       (pp_print_list Format.pp_print_string ",@ ") enable_values
     )
