@@ -2382,9 +2382,13 @@ let eval_mod expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
 
-      Term.mk_num 
-        Numeral.(Symbol.numeral_of_symbol c1 mod 
-                 Symbol.numeral_of_symbol c2) 
+      let divisor = Symbol.numeral_of_symbol c2 in
+
+      if Numeral.(equal divisor zero) then
+        Term.mk_mod expr1 expr2
+      else
+        Term.mk_num 
+          Numeral.(Symbol.numeral_of_symbol c1 mod divisor) 
     
     | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvurem [expr1; expr2]
@@ -2399,7 +2403,8 @@ let eval_mod expr1 expr2 =
 (* Type of integer modulus 
 
    If j is bounded by [l, u], then the result of i mod j is bounded by
-   [0, (max(|l|, |u|) - 1)].
+   [0, (max(|l|, |u|) - 1)], unless j can only be zero: i mod 0 is an
+   arbitrary integer, so the result is then of type int (as for division).
 
    mod: int -> int -> int *)
 let type_of_mod = function 
@@ -2408,6 +2413,7 @@ let type_of_mod = function
       | t when Type.is_int t -> Type.t_int 
       | t when Type.is_int_range t -> (
         match Type.bounds_of_int_range t with 
+          | Some l, Some u when Numeral.(equal l zero && equal u zero) -> Type.t_int
           | Some l, Some u -> Type.mk_int_range (Some Numeral.zero) (Some Numeral.(pred (max (abs l) (abs u))))
           | _ -> Type.mk_int_range (Some Numeral.zero) None
         )
@@ -2698,7 +2704,7 @@ let eval_intdiv expr1 expr2 =
       let divisor = Symbol.numeral_of_symbol c2 in
 
       if Numeral.(equal divisor zero) then
-        Term.mk_div [expr1; expr2]
+        Term.mk_intdiv [expr1; expr2]
       else
         Term.mk_num
           Numeral.(Symbol.numeral_of_symbol c1 / divisor)

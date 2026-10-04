@@ -1196,6 +1196,53 @@ refutes them. Note that a lemma with an empty body (`let tel`), or a body
 holding only `auto;`, is not a lemma without a body: its guarantees are
 proved from its assumptions alone.
 
+## Integer division and modulo
+
+The integer division operator `div` and the modulo operator `mod` follow the
+Euclidean definition that SMT-LIB gives them: for a divisor `n` other than
+zero, `m div n` and `m mod n` are the unique integers `q` and `r` such that
+`m = n * q + r` and `0 <= r < |n|`. The remainder is thus never negative, and
+the quotient is rounded towards negative infinity when the divisor is positive
+and towards positive infinity when it is negative:
+
+| `m`  | `n`  | `m div n` | `m mod n` |
+|------|------|-----------|-----------|
+| `7`  | `2`  | `3`       | `1`       |
+| `-7` | `2`  | `-4`      | `1`       |
+| `7`  | `-2` | `-3`      | `1`       |
+| `-7` | `-2` | `4`       | `1`       |
+
+This is not the definition used by C, where the quotient is rounded towards
+zero and the remainder takes the sign of the dividend (`-7 / 2` is `-3` and
+`-7 % 2` is `-1`), nor, by extension, the one used by the Lustre compilers that
+generate C code. The two definitions agree when both operands are non-negative,
+or when the divisor divides the dividend exactly, but they differ otherwise.
+For instance, `(-1) div 100` is `-1` in Kind 2 and `(-1) / 100` is `0` in C,
+so the property below is valid for Kind 2 but does not hold of the compiled
+code:
+
+```lustre
+node div_example (i: int) returns (j: int);
+let
+  j = i div 100;
+  check i < 0 => j < 0;
+tel
+```
+
+A model whose verified properties must carry over to generated code should
+therefore either keep the operands of `div` and `mod` non-negative, or be
+compiled with an implementation of integer division that follows the Euclidean
+definition.
+
+Kind 2 evaluates `div` and `mod` the same way wherever they appear, whether
+their operands are constants folded by the frontend or symbolic values handled
+by the SMT solver. A division by zero is not an error: as in SMT-LIB, `m div 0`
+and `m mod 0` denote arbitrary integers, about which Kind 2 assumes nothing
+except that the same expression denotes the same value.
+
+Division and modulo on [machine integers]({{< relref "/inputs-and-outputs/machine-ints#arithmetic-operations" >}})
+follow the definition of C instead.
+
 ## The `fby` operator
 
 Kind 2 supports the binary *followed-by* operator of Lustre V6:

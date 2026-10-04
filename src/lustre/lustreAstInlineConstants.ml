@@ -43,6 +43,7 @@ type error_kind = Unknown of string
   | UnableToEvaluate of LA.expr
   | WidthOperatorUnsupported
   | OutOfBounds of string
+  | DivisionByZero of LA.expr
 
 type error = [
   | `LustreAstInlineConstantsError of Lib.position * error_kind
@@ -71,6 +72,8 @@ let error_message kind = match kind with
   | UnableToEvaluate e -> "Cannot evaluate expression '" ^ LA.string_of_expr e ^ "'"
   | WidthOperatorUnsupported -> "Width operator is not supported"
   | OutOfBounds s -> s
+  | DivisionByZero e -> "Cannot evaluate division by zero '"
+    ^ LA.string_of_expr e ^ "' to an int constant"
 
 
 let inline_error pos kind = Error (`LustreAstInlineConstantsError (pos, kind))
@@ -86,6 +89,21 @@ let bool_value_of_const: LA.expr -> (bool, [> error]) result =
   | LA.Const (_, LA.True) -> R.ok true
   | LA.Const (_, LA.False) -> R.ok false                             
   | e -> inline_error (LH.pos_of_expr e) (ConstantMustBeBool e)
+
+(* Euclidean division and remainder, the semantics of 'div' and 'mod' on
+   integers in SMT-LIB and hence in Kind 2: the remainder is always
+   non-negative, so the quotient is rounded towards negative infinity for a
+   positive divisor and towards positive infinity for a negative one. OCaml's
+   native operators round the quotient towards zero and give the remainder
+   the sign of the dividend, as C does; evaluating a constant with them would
+   disagree with what the SMT solver computes for the same expression. *)
+let euclidean_div a b =
+  let q = a / b in
+  if a mod b < 0 then (if b > 0 then q - 1 else q + 1) else q
+
+let euclidean_mod a b =
+  let r = a mod b in
+  if r < 0 then r + abs b else r
 
 let lift_bool: bool -> LA.constant = function
   | true -> LA.True
@@ -141,7 +159,10 @@ and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
   | Plus -> R.ok (v1 + v2)
   | Times -> R.ok (v1 * v2)
   | Minus -> R.ok (v1 - v2)
-  | IntDiv -> R.ok (v1 / v2)
+  | IntDiv | Mod when v2 = 0 ->
+    inline_error pos (DivisionByZero (LA.BinaryOp (pos, bop, e1, e2)))
+  | IntDiv -> R.ok (euclidean_div v1 v2)
+  | Mod -> R.ok (euclidean_mod v1 v2)
   | _ -> inline_error pos (BinaryMustBeInt (LA.BinaryOp (pos, bop, e1, e2)))
 (** try and evalutate binary op expression to int, return error otherwise *)
              

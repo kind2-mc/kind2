@@ -36,6 +36,7 @@ type error_kind = Unknown of string
   | UnableToEvaluate of LA.expr
   | WidthOperatorUnsupported
   | OutOfBounds of string
+  | DivisionByZero of LA.expr
 
 type error = [
   | `LustreAstInlineConstantsError of Lib.position * error_kind
