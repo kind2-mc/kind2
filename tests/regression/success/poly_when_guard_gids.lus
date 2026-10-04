@@ -1,0 +1,59 @@
+-- A multiple assignment in a when-block branch is pulled out into a generated
+-- equation that is activated on the when-block guard, which the generated
+-- equation carries along. Monomorphizing a polymorphic node must substitute
+-- its type arguments into that guard and instantiate the polymorphic calls in
+-- it, and it must instantiate them consistently with the same calls in the
+-- node body. Otherwise the call to the polymorphic function was left with the
+-- type parameter T in the generated equation (an SMT solver error), and, once
+-- instantiated, it resolved to an instance different from the one in the body,
+-- so that for an imported function the call in the branch could be activated
+-- on a guard other than the one selecting its outputs.
+
+function eq<T>(a, b: T) returns (r: bool);
+let
+  r = a = b;
+tel
+
+function imported p<T>(a, b: T) returns (r: bool);
+
+node Swap<T>(x1, x2: T) returns (y1, y2: T);
+let
+  y1 = x2;
+  y2 = x1;
+tel
+
+node N<T>(a, b: T) returns (y1, y2: T);
+let
+  when p@<T>(a, b) then
+    y1, y2 = Swap@<T>(a, b);
+  else
+    y1 = a;
+    y2 = b;
+  end
+tel
+
+node M<T>(a, b: T) returns (y1, y2: T);
+let
+  when eq@<T>(a, b) then
+    y1, y2 = Swap@<T>(a, b);
+  else
+    y1 = b;
+    y2 = a;
+  end
+tel
+
+-- The type parameter is forwarded to the node with the when block
+node K<U>(a, b: U) returns (y1, y2: U);
+let
+  y1, y2 = N@<U>(a, b);
+tel
+
+node main(a, b: int) returns (y1, y2, z1, z2, w1, w2: int);
+let
+  y1, y2 = N@<int>(a, b);
+  z1, z2 = K@<int>(a, b);
+  w1, w2 = M@<int>(a, b);
+  check (y1 = a and y2 = b) or (y1 = b and y2 = a);
+  check (z1 = a and z2 = b) or (z1 = b and z2 = a);
+  check w1 = b and w2 = a;
+tel
