@@ -4262,7 +4262,10 @@ let solver_dependent_actions solver =
       if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
         let actions = [] in
         let actions =
-          if List.mem `IC3 (Global.enabled ()) then
+          (* The virtual module IC3 has already been replaced with the
+             engines it stands for. *)
+          let enabled = Global.enabled () in
+          if List.mem `IC3QE enabled || List.mem `IC3IA enabled then
             (Global.disable `IC3; "disabling IC3" :: actions)
           else actions
         in
