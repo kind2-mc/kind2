@@ -2704,7 +2704,7 @@ let eval_intdiv expr1 expr2 =
       let divisor = Symbol.numeral_of_symbol c2 in
 
       if Numeral.(equal divisor zero) then
-        Term.mk_div [expr1; expr2]
+        Term.mk_intdiv [expr1; expr2]
       else
         Term.mk_num
           Numeral.(Symbol.numeral_of_symbol c1 / divisor)
