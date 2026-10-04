@@ -192,6 +192,11 @@ Lucent supports the Boolean operators `not`, `and`, `or`, `xor`, and `=>`
 (implies), as well as the arithmetic operators `+`, `-` (both unary and binary),
 `*`, `/`, `mod`, and `div` (integer division), all with the expected arity and
 (pointwise) semantics.
+Integer division and modulo follow the Euclidean definition, as in SMT-LIB:
+`m mod n` is never negative, and `m div n` is rounded accordingly (towards
+negative infinity when `n` is positive), so `(-7) div 2` is `-4` and
+`(-7) mod 2` is `1`, where C gives `-3` and `-1`
+(see [Integer division and modulo]({{< relref "/inputs-and-outputs/lustre#integer-division-and-modulo" >}})).
 The arithmetic operators (`+` and so on) are overloaded as they apply
 both to `int` and `real` terms.
 The binary operators, however, are applicable only to arguments of the same type

@@ -1762,7 +1762,13 @@ let integer_division args =
 let modulus = function
 
   (* Evaluate to a polynomial if both arguments are constant *)
-  | [Num (n, []); Num (m, [])] -> Num (Numeral.(n mod m), [])
+  | [Num (n, []); Num (m, [])] ->
+    if Numeral.(m = zero) then (
+      Domain.DLS.get division_by_zero := true ;
+      (* TODO: Compute a value consistent with the model, as for division *)
+      Num (Numeral.zero, [])
+    )
+    else Num (Numeral.(n mod m), [])
 
   (* Non-constant polynomial arguments *)
   | [a; b] ->
