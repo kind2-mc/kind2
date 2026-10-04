@@ -2134,10 +2134,12 @@ and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx csta
   (* When a node is called within a branch of a when block (i.e. it has a
      call context but no explicit activation condition), the activation of the
      node is driven by the when guard. Represent it as an activation condition
-     rather than a call context. *)
+     rather than a call context. A restart condition is then sampled on the
+     guard, as with an explicit activation condition. *)
   let cond_state_var, call_ctx =
     match call_ctx, cond_state_var with
     | Some id, [] when is_node -> [N.CActivate id], None
+    | Some id, [N.CRestart r] when is_node -> [N.CActivate id; N.CRestart r], None
     | _ -> cond_state_var, call_ctx
   in
   let call_id = !map.call_count in
