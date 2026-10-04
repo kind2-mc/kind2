@@ -1,0 +1,26 @@
+-- The components of an argument of a contract import with several
+-- components are given, in order, for the inputs of the contract
+-- (see #1665).
+
+contract C(a: int; b: int) returns (z: int);
+let
+  guarantee z = a - b;
+tel
+
+node D(x: int) returns (a, b: int);
+let
+  a = x;
+  b = x + 1;
+tel
+
+node Tuple(y: int) returns (z: int);
+(*@contract import C((y, y + 1)) returns (z); *)
+let
+  z = 1;
+tel
+
+node Call(y: int) returns (z: int);
+(*@contract import C(D(y)) returns (z); *)
+let
+  z = 1;
+tel
