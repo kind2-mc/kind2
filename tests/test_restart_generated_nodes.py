@@ -1,10 +1,14 @@
-"""A restart of an expression or a block without state needs no node.
+"""The nodes generated for restarts.
 
-A restart only resets state, so 'restart e every r' is 'e' when 'e' has no
-temporal operator and calls only functions, and the same for a block of
-equations. No node is generated for it, while a restart of an expression with
-state, such as a node call, is still turned into a call to a generated node,
-which a modular analysis reports as a system named after its position.
+A restart of an expression with state, such as a node call, is turned into a
+call to a generated node, which a modular analysis reports as a system named
+after its position. A restart only resets state, so 'restart e every r' is 'e'
+when 'e' has no temporal operator and calls only functions, and the same for a
+block of equations: no node is generated for it.
+
+The outputs of a generated node have the base types of the values they stand
+for, without the constraints of their refinement types: a constraint is
+checked on the variable it is declared for, not again in the generated node.
 """
 
 import subprocess
@@ -65,3 +69,20 @@ def test_stateful_restart_generates_a_node(tmp_path):
     out = run_modular(tmp_path, stateful)
     assert "reset: valid" in out, out
     assert ".restart_" in out, out
+
+
+refined = """
+node N(x: int; r: bool) returns (y: subtype { n: int | n >= 0 });
+let
+  restart
+    y = 0 -> pre y + (if x > 0 then x else 0);
+  every r end
+tel
+"""
+
+
+def test_refinement_type_checked_once(tmp_path):
+    out = run_modular(tmp_path, refined)
+    assert "SubType" in out, out
+    subtypes = [l for l in out.splitlines() if "SubType" in l and ": valid" in l]
+    assert subtypes and all(".restart_" not in l for l in subtypes), out

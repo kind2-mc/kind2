@@ -271,6 +271,7 @@ let pp_print_const_decl _ppf (svar, svar_value_path) =
       (StateVar.name_of_state_var svar) 
       Type.pp_print_type svar_type 
       (Model.pp_print_value ?as_type:(Some svar_type)) const_value
+  
   | _ -> 
     failwith (Format.asprintf 
       "Recieved unexpected model value. Unable to construct counterexample.\n

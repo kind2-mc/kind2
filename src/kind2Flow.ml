@@ -1380,6 +1380,7 @@ let run in_sys =
     (* Runs the next analysis, if any. *)
     let rec loop ac () =
       match ISys.next_analysis_of_strategy in_sys !all_results with
+      
       | Some param ->
         (* Format.printf "param: %a@.@." (Analysis.pp_print_param true) param ; *)
         (* Build trans sys and slicing info. *)

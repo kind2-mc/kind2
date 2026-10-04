@@ -1,0 +1,37 @@
+-- The node generated for a restart has the types of the values it reads and
+-- defines. They are desugared like any other type (here, a type ascription
+-- in a refinement predicate), and a call to a node whose signature holds an
+-- operator that is only desugared with the node (here, 'choose') can be
+-- restarted, or abstracted for a when branch, like any other call.
+
+node Acc (x: int) returns (y: subtype { n: int | n >= (0:int) });
+let
+  y = 0 -> pre y + (if x > 0 then x else 0);
+tel
+
+node One (x: int) returns (y: subtype { n: int | n = choose { k: int | k = 1 } });
+let
+  y = 1;
+tel
+
+node top (x: int; c, r: bool) returns ();
+var a, o, w, s: int; seen: bool;
+let
+  a = restart Acc(x) every r;
+  check "acc" r => a = 0;
+
+  o = restart (0 -> pre One(x) + 1) every r;
+  check "one" o = (if r then 0 else (0 -> 2));
+
+  -- The branch runs on the clock c: it holds 0 at the first step at which c
+  -- holds, and 2 afterwards
+  seen = false -> (pre seen or pre c);
+  w = when c then (0 -> pre One(x) + 1) else -1;
+  check "clocked" c => w = (if seen then 2 else 0);
+
+  -- The refinement type of s is checked on s, not again in the generated node
+  restart
+    s = 0 -> pre s + (if x > 0 then x else 0);
+  every r end
+  check "block" s >= 0;
+tel

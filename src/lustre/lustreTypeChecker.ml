@@ -1386,8 +1386,9 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let extn_ctx = add_ty (remove_const ctx i) i ty in
     let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
     R.ok (ty, LA.ChooseOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
-  (* LustreGenNodes leaves a restart in place when it cannot infer the type of
-     its body, so that the type error is reported here *)
+  (* LustreGenNodes leaves a restart in place only when it cannot infer the
+     type of its body, with the signatures of all the nodes at hand, that is,
+     when the body is ill typed: the type error is reported here *)
   | LA.Restart (pos, e, r) ->
     let* _ = check_type_expr ctx nname r (LA.Bool pos) in
     let* _ = infer_type_expr ctx nname e in
@@ -3314,6 +3315,7 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
       eq_lustre_type ctx (UserType (pos1, ty_args1, i1)) ty_alias
     )
     else R.ok false
+   
   | AbstractType (_, i1), AbstractType (_, i2) -> R.ok (i1 = i2)
   | TupleType (_, tys1), TupleType (_, tys2) ->
     if List.length tys1 = List.length tys2

@@ -436,10 +436,13 @@ let rec pp_print_var pvar ppf var =
 
 (* Pretty-print a term *)
 and pp_print_term_node ?as_type safe pvar ppf t = match Term.T.destruct t with
+    
   | Term.T.Var var -> pp_print_var pvar ppf var
+      
   | Term.T.Const s -> 
     
     pp_print_symbol_as_type as_type ppf (Symbol.node_of_symbol s)
+      
   | Term.T.App (s, l) -> 
 
     pp_print_app ?as_type safe pvar ppf (Symbol.node_of_symbol s) l
@@ -691,6 +694,7 @@ and pp_print_app ?as_type safe pvar ppf = function
           (pp_print_term_node safe pvar) p
           (pp_print_term_node ?as_type safe pvar) l
           (pp_print_term_node ?as_type safe pvar) r
+          
         | _ -> assert false)
         
     (* Binary symbols *)
@@ -703,6 +707,7 @@ and pp_print_app ?as_type safe pvar ppf = function
           (pp_print_term_node safe pvar) l
           pp_print_symbol s
           (pp_print_term_node safe pvar) r
+        
         | _ -> assert false)
         
     (* Divisibility *) 
@@ -720,6 +725,7 @@ and pp_print_app ?as_type safe pvar ppf = function
              (Symbol.mk_symbol `MOD) 
              [a; Term.T.mk_const (Symbol.mk_symbol (`NUMERAL n))];
            Term.T.mk_const (Symbol.mk_symbol (`NUMERAL Numeral.zero))]
+          
         | _ -> assert false)
 
     | `SELECT _ -> 
@@ -731,6 +737,7 @@ and pp_print_app ?as_type safe pvar ppf = function
             "@[<hv 2>%a[%a]@]" 
             (pp_print_term_node safe pvar) a
             (pp_print_term_node safe pvar) i
+            
         | _ -> assert false)
 
     | `CONST_ARRAY _ ->
@@ -754,7 +761,9 @@ and pp_print_app ?as_type safe pvar ppf = function
             (pp_print_term_node safe pvar) a
             (pp_print_term_node safe pvar) i
             (pp_print_term_node safe pvar) v
+            
         | _ -> assert false)
+        
     | `UF sym as s when Symbol.is_select (Symbol.mk_symbol s) ->
       pp_print_app ?as_type safe pvar ppf (`SELECT (UfSymbol.res_type_of_uf_symbol sym))
         
@@ -1340,6 +1349,7 @@ let type_of_real_real_real = function
     (function 
       | t when Type.is_real t -> Type.t_real
       | _ -> raise Type_mismatch)
+    
   | _ -> raise Type_mismatch
 *)
 
@@ -1438,11 +1448,13 @@ let numeral_opts_to_nums lo hi = match lo, hi with
 (* Best int subrange for some operator. *)
 let best_int_range is_div op t t' =
   match Type.bounds_of_int_range t' with
+  
   | Some lo', Some hi' when (
     is_div &&
     Numeral.(equal lo' zero) &&
     Numeral.(equal hi' zero)
   ) -> Type.t_int
+  
   | Some lo', _ when (
     is_div && Numeral.(equal lo' zero)
   ) -> Type.t_int
@@ -1486,6 +1498,7 @@ let best_int_range is_div op t t' =
       | t when Type.is_real t -> Type.t_real
       | _ -> raise Type_mismatch
     )
+      
     | _ -> raise Type_mismatch
   )
 *)
@@ -2372,12 +2385,14 @@ let eval_mod expr1 expr2 =
       Term.mk_num 
         Numeral.(Symbol.numeral_of_symbol c1 mod 
                  Symbol.numeral_of_symbol c2) 
+    
     | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvurem [expr1; expr2]
             else if Type.is_bitvector (Term.type_of_term expr1) then
               Term.mk_bvsrem [expr1; expr2]
             else 
               Term.mk_mod expr1 expr2)
+    
     | exception Invalid_argument _ -> Term.mk_mod expr1 expr2
 
 
@@ -2440,12 +2455,14 @@ let mk_mod expr1 expr2 = mk_binary eval_mod type_of_mod expr1 expr2
 let eval_minus expr1 expr2 = 
   
   match Term.destruct expr1, Term.destruct expr2 with
+    
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
       
       Term.mk_num 
         Numeral.(Symbol.numeral_of_symbol c1 -
                  Symbol.numeral_of_symbol c2) 
+        
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
       
@@ -2458,6 +2475,7 @@ let eval_minus expr1 expr2 =
               Term.mk_bvsub [expr1; expr2]
             else 
               Term.mk_minus [expr1; expr2])
+        
     | exception Invalid_argument _ -> Term.mk_minus [expr1; expr2]
 
 (* Type of subtraction 
@@ -2515,6 +2533,7 @@ let eval_plus expr1 expr2 =
       Term.mk_dec
         Decimal.(Symbol.decimal_of_symbol c1 +
                  Symbol.decimal_of_symbol c2) 
+  
     | _ -> (if (((Type.is_bitvector (Term.type_of_term expr1)) 
                   && (Type.is_bitvector (Term.type_of_term expr2)))
                   ||
@@ -2752,6 +2771,7 @@ let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2
 let eval_bvand expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with              
+    
   | _ -> Term.mk_bvand [expr1; expr2]
   | exception Invalid_argument _ -> Term.mk_bvand [expr1; expr2]
 
@@ -2763,12 +2783,14 @@ let eval_bvextract expr ub lb =
   | _ -> assert false    
   in
   match Term.destruct expr with              
+    
   | _ -> Term.mk_bvextract ub lb expr
   | exception Invalid_argument _ -> Term.mk_bvextract ub lb expr
 
 let eval_bvconcat expr1 expr2 = 
 
   match Term.destruct expr1, Term.destruct expr2 with              
+    
   | _ -> Term.mk_bvconcat expr1 expr2
   | exception Invalid_argument _ -> Term.mk_bvconcat expr1 expr2
 
@@ -2873,6 +2895,7 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
   | _ -> 
 
     match Term.destruct expr1, Term.destruct expr2 with
+      
       | Term.T.Const c1, Term.T.Const c2 when
           Symbol.is_numeral c1 && 
           Symbol.is_numeral c2 -> 
@@ -2899,7 +2922,9 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
 
           Term.t_false
 
+      
       | _ -> Term.mk_eq [expr1; expr2]
+               
       | exception Invalid_argument _ -> Term.mk_eq [expr1; expr2]
 
 
@@ -2961,6 +2986,7 @@ let eval_lte expr1 expr2 =
       else
 
         Term.t_false
+    
     | _ ->
         (* Bitvector comparisons are simplified in the simplify module *) 
         (if (Type.is_ubitvector (Term.type_of_term expr1)) then 

@@ -794,6 +794,7 @@ let rec has_unguarded_pre ung = function
     let u1 = has_unguarded_pre ung e1 in
     let u2 = has_unguarded_pre ung e2 in
     u1 || u2
+ 
   | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     let us = List.map (has_unguarded_pre ung) l in
     List.exists Lib.identity us
@@ -904,6 +905,7 @@ let rec has_unguarded_pre_no_warn ung = function
     let u1 = has_unguarded_pre_no_warn ung e1 in
     let u2 = has_unguarded_pre_no_warn ung e2 in
     u1 || u2
+ 
   | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     let us = List.map (has_unguarded_pre_no_warn ung) l in
     List.exists Lib.identity us
@@ -1021,6 +1023,7 @@ let rec has_pre_or_arrow = function
     )
 
   
+  
   | GroupExpr (_, _, l) | Call (_, _, _, l) ->
     List.map has_pre_or_arrow l
     |> some_of_list
@@ -1093,6 +1096,7 @@ let rec has_pre_or_arrow = function
 (** Returns identifiers under a last operator *)
 let rec lasts_of_expr acc = function
   | Const _ | Ident _ | ModeRef _ -> acc
+    
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) ->
@@ -1104,6 +1108,7 @@ let rec lasts_of_expr acc = function
 
   | TernaryOp (_, _, e1, e2, e3) | ArraySlice (_, e1, (e2, e3)) ->
     lasts_of_expr (lasts_of_expr (lasts_of_expr acc e1) e2) e3
+  
   | GroupExpr (_, _, l) | NArityOp (_, _, l)
   | Call (_, _, l) | CallParam (_, _, _, l) ->
     List.fold_left lasts_of_expr acc l
@@ -1123,10 +1128,12 @@ let rec lasts_of_expr acc = function
         | Label _ -> acc
         | Index (_, e) -> lasts_of_expr acc e
       ) acc li
+    
   | Fby (_, e1, _, e2) ->
     lasts_of_expr (lasts_of_expr acc e1) e2
 
   | Pre (pos, e) -> lasts_of_expr acc e
+                      
   | Last (pos, i) -> SI.add i acc
 
   | Arrow (pos, e1, e2) ->
@@ -1803,6 +1810,7 @@ let rec replace_idents locals1 locals2 expr =
     TypeAscription (p, r e, map_lustre_ty r ty)
   | Const _ as e -> e
   | ModeRef _ as e -> e
+    
   | FieldProject (p, e, idx, pk) -> FieldProject (p, r e, idx, pk)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | Extract (p, e, ub, lb) -> Extract (p, r e, ub, lb)
@@ -1812,6 +1820,7 @@ let rec replace_idents locals1 locals2 expr =
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
   | ArrayConstr (p, e1, e2)  -> ArrayConstr (p, r e1, r e2)
   | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, r e1, r e2, r e3)
+  
   | GroupExpr (p, ge, l) -> GroupExpr (p, ge, List.map r l)
   | Call (p, ty_args, id, l) -> 
     let ty_args = List.map (map_lustre_ty r) ty_args in
@@ -2495,6 +2504,7 @@ let rec constants_to_calls: ident list -> expr -> expr
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
   | ArrayConstr (p, e1, e2)  -> ArrayConstr (p, r e1, r e2)
   | TernaryOp (p, op, e1, e2, e3) -> TernaryOp (p, op, r e1, r e2, r e3)
+  
   | GroupExpr (p, ge, l) -> GroupExpr (p, ge, List.map r l)
   | Call (p, ty_args, id, l) -> 
     let ty_args = List.map (constants_to_calls_in_type new_func_ids) ty_args in

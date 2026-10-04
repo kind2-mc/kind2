@@ -132,6 +132,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, r e2, k)
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, r e2)
   | TernaryOp (p, b, e1, e2, e3) -> TernaryOp (p, b, r e1, r e2, r e3)
+  
   | GroupExpr (p, b, l) -> GroupExpr (p, b, List.map r l)
   | Call (p, b, c, l) -> Call (p, b, c, List.map r l)
 
@@ -139,6 +140,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
     List.combine
     (List.map fst l)
     (List.map r (List.map snd l)))
+  
   | RestartEvery (p, b, l, e) -> 
     RestartEvery (p, b, List.map r l, r e)
 

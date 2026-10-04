@@ -1965,6 +1965,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         union (union gids1 gids2) gids3, 
         warnings @ warnings2, 
         StringMap.empty
+      
       | AssumptionVars decl ->
         AssumptionVars decl, empty (), [], StringMap.empty
     in

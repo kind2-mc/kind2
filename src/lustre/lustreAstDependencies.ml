@@ -815,6 +815,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
           dep_args; *)
         let result = List.fold_left (fun acc idx ->
             match List.nth_opt arg_vars idx with
+            
             | Some v -> SI.union acc v
             (* If the provided file is not arity-correct then ignore those vars *)
             | None -> acc)

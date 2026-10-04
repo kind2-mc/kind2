@@ -2245,6 +2245,7 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           (* Conversion to signed bitvector is a monomial with polynomial
              subterms *)
           | `TO_BV n -> to_bv n args
+          
           | `BV2NAT
           | `UBV_TO_INT -> ubv_to_int args
 

@@ -24,7 +24,6 @@ module AH = LustreAstHelpers
 type error_kind =
   | RestartUnknownVariable of HString.t
   | RestartPolymorphic
-  | RestartModeReference
 
 let error_message = function
   | RestartUnknownVariable id ->
@@ -33,8 +32,6 @@ let error_message = function
        array definition)"
   | RestartPolymorphic ->
     "A restart cannot apply to values of a type parameter"
-  | RestartModeReference ->
-    "A restart block cannot refer to a mode"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
@@ -195,104 +192,64 @@ fun ctx decls ->
   ) ctx decls
 
 (* What abstracting an expression into a call to a fresh internal node gives:
-   the call and the declaration of the node, or why the expression could not be
-   abstracted *)
+   the call and the declarations of the node and of the nodes its types need,
+   or why the expression could not be abstracted *)
 type abstraction =
-  | Abstracted of A.expr * A.declaration
+  | Abstracted of A.expr * A.declaration list
   (* A free variable of the expression whose type is not known here *)
   | UnknownVariable of HString.t
   (* The type of the expression cannot be inferred here *)
   | Untyped
 
-(* Abstract an expression into a call to a fresh internal node of the given
-   kind, whose outputs equal the expression and whose arguments are the
-   variables used in the expression *)
-let abstract_into_node:
-  Ctx.tc_context -> NI.t -> NI.node_type -> A.declaration list -> A.expr -> abstraction =
-fun ctx node_name node_type gen_decls orig_e ->
-  (* The expression can call a node generated for one of its own
-     subexpressions, which the enclosing context does not know about yet *)
-  let ctx = add_node_sigs ctx gen_decls in
-  let pos = AH.pos_of_expr orig_e in
-  let span = { A.start_pos = pos; A.end_pos = pos } in
-  let node_id = mk_fresh_fn_name pos node_name node_type in
-  (* A generated node has no modes of its own, so a mode reference becomes a
-     boolean parameter and is passed as the reference itself, which resolves at
-     the call site *)
-  let e, mode_refs = AH.name_mode_refs orig_e in
-  (* The variables used in the expression become the node's arguments *)
-  let inputs = AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx in
-  let inputs_call = List.map (fun str ->
-    match List.find_opt (fun (i, _, _) -> HString.equal i str) mode_refs with
-    | Some (_, mpos, ids) -> A.ModeRef (mpos, ids)
-    | None -> A.Ident (pos, str)
-  ) inputs in
-  let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
-  (* The type of a free variable may not be known here (e.g. a match-arm
-     pattern variable that is only substituted by a later pass) *)
-  match List.find_opt (fun (_, ty) -> Option.is_none ty) (List.combine inputs input_tys) with
-  | Some (input, _) -> UnknownVariable input
-  | None ->
-  let input_decls = List.map2 (fun input ty ->
-    let ty = match ty with Some ty -> ty | None -> assert false in
-    let is_const = match Ctx.lookup_const ctx input with Some _ -> true | None -> false in
-    (pos, input, ty, A.ClockTrue, is_const)
-  ) inputs input_tys in
-  (* The output type is the type of the expression. A failed assertion means
-     inference was handed something a pass it precedes does not expect, which
-     this pass is in no position to repair either; any other exception is left
-     to propagate. *)
-  match Chk.infer_type_expr ctx (Some node_name) e with
-  | Error _ | exception Assert_failure _ -> Untyped
-  | Ok (out_ty, _, _) ->
-  (* Choose an output name that does not clash with any of the argument names *)
-  let rec fresh_output name =
-    if List.exists (fun i -> HString.equal i name) inputs
-    then fresh_output (HString.concat2 name (HString.mk_hstring "_"))
-    else name
+(* Map the expressions of a node item, including the guards of its blocks, with
+   the variables the item binds around each one: the index variables of an
+   array definition, and the variables of a match pattern *)
+let rec map_node_item_exprs f ni =
+  let r = map_node_item_exprs f in
+  let f_eq = function
+    | A.Equation (pos, (A.StructDef (_, lhs) as l), e) ->
+      let bound = List.concat_map (function
+        | A.ArrayDef (_, _, inds) -> inds
+        | _ -> []) lhs
+      in
+      A.Equation (pos, l, f (Ctx.SI.of_list bound) e)
+    | A.Assert (pos, e) -> A.Assert (pos, f Ctx.SI.empty e)
   in
-  (* An expression of a group type defines one output per component, so that
-     the call standing in for it keeps the expression's width. Groups nest
-     whenever a component is itself a group expression, and contribute their
-     own width. *)
-  let rec flatten_group_ty = function
-    | A.GroupType (_, tys) -> List.concat_map flatten_group_ty tys
-    | ty -> [ty]
-  in
-  let out_tys = flatten_group_ty out_ty in
-  let op_ids = List.mapi (fun i ty ->
-    let name = Lib.StringValues.type_ascription_output_name in
-    let name = if i = 0 then name else name ^ string_of_int i in
-    (fresh_output (HString.mk_hstring name), ty)
-  ) out_tys in
-  let ops = List.map (fun (id, ty) -> (pos, id, ty, A.ClockTrue)) op_ids in
-  let lhs =
-    A.StructDef (pos, List.map (fun (id, _) -> A.SingleIdent (pos, id)) op_ids)
-  in
-  let eq = A.Body (A.Equation (pos, lhs, e)) in
-  (* The generated node might be polymorphic, so find all the needed type variables *)
-  let ty_params = Ctx.ty_vars_of_expr ctx node_name e |> Ctx.SI.elements in
-  let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
-  let decl =
-    A.NodeDecl (span,
-      (node_id, false, A.Transparent, ty_params, input_decls, ops, [], [eq], None))
-  in
-  Abstracted (A.Call (pos, ty_args, node_id, inputs_call), decl)
+  match ni with
+  | A.Body eq -> A.Body (f_eq eq)
+  | A.IfBlock (pos, c, l1, l2) ->
+    A.IfBlock (pos, f Ctx.SI.empty c, List.map r l1, List.map r l2)
+  | A.WhenBlock (pos, c, l1, l2) ->
+    A.WhenBlock (pos, f Ctx.SI.empty c, List.map r l1, List.map r l2)
+  | A.MatchBlock (pos, e, arms, ty) ->
+    let arms = List.map (fun (pat, items) ->
+      let bound = AH.pat_bound_vars_with_pos pat |> List.map fst |> Ctx.SI.of_list in
+      let f' b e = f (Ctx.SI.union b bound) e in
+      (pat, List.map (map_node_item_exprs f') items)) arms
+    in
+    A.MatchBlock (pos, f Ctx.SI.empty e, arms, ty)
+  | A.RestartBlock (pos, l, c) -> A.RestartBlock (pos, List.map r l, f Ctx.SI.empty c)
+  | A.FrameBlock (pos, vars, nes, nis) ->
+    A.FrameBlock (pos, vars, List.map f_eq nes, List.map r nis)
+  | A.AnnotProperty (pos, name, e, k) ->
+    let k = match k with A.Provided g -> A.Provided (f Ctx.SI.empty g) | k -> k in
+    A.AnnotProperty (pos, name, f Ctx.SI.empty e, k)
+  | A.AnnotMain _ | A.Auto _ -> ni
 
-(* When a branch of a when-then-else expression is temporal (it uses '->' or
-   'pre'), abstract it into a call to a fresh internal node, so that its
-   temporal behavior is driven by the guard. If the branch cannot be abstracted
-   here, it is returned as it came in, and the later type-checking pass reports
-   the error, if any. *)
-let abstract_temporal_branch:
-  Ctx.tc_context -> NI.t -> A.declaration list -> A.expr -> A.expr * A.declaration list =
-fun ctx node_name gen_decls orig_e ->
-  match AH.has_pre_or_arrow orig_e with
-  | None -> orig_e, []
-  | Some _ ->
-    match abstract_into_node ctx node_name ClockedExpr gen_decls orig_e with
-    | Abstracted (call, decl) -> call, [decl]
-    | UnknownVariable _ | Untyped -> orig_e, []
+(* The expressions of node items, with the variables bound around each one *)
+let exprs_of_node_items items =
+  let found = ref [] in
+  List.iter (fun ni ->
+    ignore (map_node_item_exprs (fun bound e -> found := (e, bound) :: !found; e) ni)
+  ) items;
+  List.rev !found
+
+(* The variables whose values the node items use, other than the ones they
+   bind themselves *)
+let used_vars_of_node_items items =
+  List.fold_left (fun acc (e, bound) ->
+    Ctx.SI.union acc (Ctx.SI.diff (AH.vars_without_node_call_ids e) bound)
+  ) Ctx.SI.empty (exprs_of_node_items items)
 
 (* A restart only resets state. An expression has none when it has no temporal
    operator and calls only functions and constructors: a call to anything else,
@@ -316,114 +273,13 @@ let droppable_condition ctx node_name r =
         (match Ctx.expand_type_syn ctx ty with A.Bool _ -> true | _ -> false)
       | Error _ | exception _ -> false)
 
-(* The expressions of node items, including the guards of their blocks *)
-let rec exprs_of_node_item = function
-  | A.Body (A.Equation (_, _, e)) | A.Body (A.Assert (_, e)) -> [e]
-  | A.IfBlock (_, c, l1, l2) | A.WhenBlock (_, c, l1, l2) ->
-    c :: exprs_of_node_items (l1 @ l2)
-  | A.MatchBlock (_, e, arms, _) -> e :: exprs_of_node_items (List.concat_map snd arms)
-  | A.RestartBlock (_, l, r) -> r :: exprs_of_node_items l
-  | A.FrameBlock (_, _, nes, nis) ->
-    exprs_of_node_items (List.map (fun ne -> A.Body ne) nes @ nis)
-  | A.AnnotProperty (_, _, e, A.Provided g) -> [e; g]
-  | A.AnnotProperty (_, _, e, _) -> [e]
-  | A.AnnotMain _ | A.Auto _ -> []
-
-and exprs_of_node_items items = List.concat_map exprs_of_node_item items
-
-(* 'restart e every r': abstract [e] into a call to a fresh internal node, and
-   restart the call every time [r] is true. An [e] without state is not
-   affected by a restart, and is kept as it is. If the type of [e] cannot be
-   inferred here, the expression is left for the later type-checking pass to
-   report the error. *)
-let abstract_restart:
-  Ctx.tc_context -> NI.t -> A.declaration list -> Lib.position -> A.expr -> A.expr
-  -> A.expr * A.declaration list =
-fun ctx node_name gen_decls pos e r ->
-  let sig_ctx = add_node_sigs ctx gen_decls in
-  if not (has_state sig_ctx e) && droppable_condition sig_ctx node_name r then e, []
-  else
-  match abstract_into_node ctx node_name Restarted gen_decls e with
-  | Abstracted (A.Call (_, [], node_id, args), decl) ->
-    A.RestartEvery (pos, node_id, args, r), [decl]
-  | Abstracted _ -> raise (Restart_error (pos, RestartPolymorphic))
-  | UnknownVariable id -> raise (Restart_error (pos, RestartUnknownVariable id))
-  | Untyped -> A.Restart (pos, e, r), []
-
-(* The variables whose values the node items use, other than the ones they
-   bind themselves (the index variables of an array definition, and the
-   variables of a match pattern) *)
-let rec used_vars_of_node_item = function
-  | A.Body (A.Equation (_, A.StructDef (_, lhs), e)) ->
-    let bound = List.concat_map (function
-      | A.ArrayDef (_, _, inds) -> inds
-      | _ -> []) lhs
-    in
-    Ctx.SI.diff (AH.vars_without_node_call_ids e) (Ctx.SI.of_list bound)
-  | A.Body (A.Assert (_, e)) -> AH.vars_without_node_call_ids e
-  | A.IfBlock (_, c, l1, l2) | A.WhenBlock (_, c, l1, l2) ->
-    Ctx.SI.union (AH.vars_without_node_call_ids c) (used_vars_of_node_items (l1 @ l2))
-  | A.MatchBlock (_, e, arms, _) ->
-    List.fold_left (fun acc (pat, items) ->
-      let bound = AH.pat_bound_vars_with_pos pat |> List.map fst |> Ctx.SI.of_list in
-      Ctx.SI.union acc (Ctx.SI.diff (used_vars_of_node_items items) bound)
-    ) (AH.vars_without_node_call_ids e) arms
-  | A.RestartBlock (_, l, r) ->
-    Ctx.SI.union (AH.vars_without_node_call_ids r) (used_vars_of_node_items l)
-  | A.FrameBlock (_, _, nes, nis) ->
-    used_vars_of_node_items (List.map (fun ne -> A.Body ne) nes @ nis)
-  | A.AnnotProperty (_, _, e, k) ->
-    let g = match k with A.Provided g -> AH.vars_without_node_call_ids g | _ -> Ctx.SI.empty in
-    Ctx.SI.union (AH.vars_without_node_call_ids e) g
-  | A.AnnotMain _ | A.Auto _ -> Ctx.SI.empty
-
-and used_vars_of_node_items items =
-  List.fold_left (fun acc ni -> Ctx.SI.union acc (used_vars_of_node_item ni))
-    Ctx.SI.empty items
-
-(* 'restart items every r end': abstract the items into a fresh internal node,
-   whose outputs are the variables the items define and whose inputs are the
-   other variables they use, and define the variables with a call to the node
-   that is restarted every time [r] is true *)
-let abstract_restart_block:
-  Ctx.tc_context -> NI.t -> Lib.position -> A.node_item list -> A.expr
-  -> A.node_item * A.declaration =
-fun ctx node_name pos items r ->
-  let span = { A.start_pos = pos; A.end_pos = pos } in
-  let node_id = mk_fresh_fn_name pos node_name Restarted in
-  let outputs =
-    List.concat_map AH.defined_vars_with_pos items
-    |> List.map snd
-    |> List.filter (fun i -> not (HString.equal i (HString.mk_hstring "_")))
-    |> List.fold_left (fun acc i ->
-         if List.exists (HString.equal i) acc then acc else acc @ [i]) []
-  in
-  let inputs =
-    Ctx.SI.diff (used_vars_of_node_items items) (Ctx.SI.of_list outputs)
-    |> Ctx.SI.elements |> node_arguments ctx
-  in
-  let lookup_ty i = match Ctx.lookup_ty ctx i with
-    | Some ty -> ty
-    | None -> raise (Restart_error (pos, RestartUnknownVariable i))
-  in
-  let input_decls = List.map (fun i ->
-    let is_const = Option.is_some (Ctx.lookup_const ctx i) in
-    (pos, i, lookup_ty i, A.ClockTrue, is_const)) inputs
-  in
-  let output_decls = List.map (fun i -> (pos, i, lookup_ty i, A.ClockTrue)) outputs in
-  let tys =
-    List.map (fun (_, _, ty, _, _) -> ty) input_decls
-    @ List.map (fun (_, _, ty, _) -> ty) output_decls
-  in
-  if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
-  then raise (Restart_error (pos, RestartPolymorphic));
-  let decl =
-    A.NodeDecl (span,
-      (node_id, false, A.Transparent, [], input_decls, output_decls, [], items, None))
-  in
-  let lhs = A.StructDef (pos, List.map (fun i -> A.SingleIdent (pos, i)) outputs) in
-  let call = A.RestartEvery (pos, node_id, List.map (fun i -> A.Ident (pos, i)) inputs, r) in
-  A.Body (A.Equation (pos, lhs, call)), decl
+(* The type of an output of a generated node is the base type of the value it
+   stands for, without the constraint of a refinement type: the constraint is
+   already checked where the value is defined, or on the variable it defines *)
+let base_type ctx ty =
+  match Chk.expand_type_syn_reftype_history ctx ty with
+  | Ok ty -> ty
+  | Error _ -> ty
 
 let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
 fun ctx node_name fun_ids ty -> 
@@ -590,7 +446,7 @@ fun ctx node_name fun_ids expr ->
        branch of a when-then-else expression (see below) *)
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name gen_nodes2 e2 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids gen_nodes2 e2 in
     BinaryOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2 @ gen_nodes2'
   | BinaryOp (pos, op, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -604,8 +460,8 @@ fun ctx node_name fun_ids expr ->
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
     let e3, gen_nodes3 = rec_call e3 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name gen_nodes2 e2 in
-    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name gen_nodes3 e3 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids gen_nodes2 e2 in
+    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name fun_ids gen_nodes3 e3 in
     TernaryOp (pos, LazyIte, e1, e2, e3),
     gen_nodes1 @ gen_nodes2 @ gen_nodes2' @ gen_nodes3 @ gen_nodes3'
   | TernaryOp (pos, op, e1, e2, e3) ->
@@ -666,7 +522,7 @@ fun ctx node_name fun_ids expr ->
   | Restart (pos, e, r) ->
     let e, gen_nodes1 = rec_call e in
     let r, gen_nodes2 = rec_call r in
-    let e, gen_nodes3 = abstract_restart ctx node_name gen_nodes1 pos e r in
+    let e, gen_nodes3 = abstract_restart ctx node_name fun_ids gen_nodes1 pos e r in
     e, gen_nodes1 @ gen_nodes2 @ gen_nodes3
   | RestartEvery _ -> assert false (* only generated by this pass *)
   | Pre (pos, e) -> 
@@ -701,7 +557,7 @@ fun ctx node_name fun_ids expr ->
     let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
       let arm_e = AH.apply_subst_in_expr subst arm_e in
       let arm_e, gen_nodes = desugar_expr arm_ctx node_name fun_ids arm_e in
-      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name gen_nodes arm_e in
+      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
     Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
@@ -728,6 +584,165 @@ and desugar_indices ctx node_name fun_ids idx =
   ) idx
   |> List.split
   |> fun (idx, gen_nodes) -> idx, List.flatten gen_nodes
+
+(* Abstract an expression into a call to a fresh internal node of the given
+   kind, whose outputs equal the expression and whose arguments are the
+   variables used in the expression *)
+and abstract_into_node:
+  Ctx.tc_context -> NI.t -> NI.t list -> NI.node_type -> A.declaration list -> A.expr
+  -> abstraction =
+fun ctx node_name fun_ids node_type gen_decls orig_e ->
+  (* The expression can call a node generated for one of its own
+     subexpressions, which the enclosing context does not know about yet *)
+  let ctx = add_node_sigs ctx gen_decls in
+  let pos = AH.pos_of_expr orig_e in
+  let span = { A.start_pos = pos; A.end_pos = pos } in
+  let node_id = mk_fresh_fn_name pos node_name node_type in
+  (* A generated node has no modes of its own, so a mode reference becomes a
+     boolean parameter and is passed as the reference itself, which resolves at
+     the call site *)
+  let e, mode_refs = AH.name_mode_refs orig_e in
+  (* The variables used in the expression become the node's arguments *)
+  let inputs = AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx in
+  let inputs_call = List.map (fun str ->
+    match List.find_opt (fun (i, _, _) -> HString.equal i str) mode_refs with
+    | Some (_, mpos, ids) -> A.ModeRef (mpos, ids)
+    | None -> A.Ident (pos, str)
+  ) inputs in
+  let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
+  (* The type of a free variable may not be known here (e.g. a match-arm
+     pattern variable that is only substituted by a later pass) *)
+  match List.find_opt (fun (_, ty) -> Option.is_none ty) (List.combine inputs input_tys) with
+  | Some (input, _) -> UnknownVariable input
+  | None ->
+  let input_decls, gen_nodes1 = List.map2 (fun input ty ->
+    let ty = match ty with Some ty -> ty | None -> assert false in
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+    let is_const = match Ctx.lookup_const ctx input with Some _ -> true | None -> false in
+    (pos, input, ty, A.ClockTrue, is_const), gen_nodes
+  ) inputs input_tys |> List.split in
+  (* The output type is the type of the expression. A failed assertion means
+     inference was handed something a pass it precedes does not expect, which
+     this pass is in no position to repair either; any other exception is left
+     to propagate. *)
+  match Chk.infer_type_expr ctx (Some node_name) e with
+  | Error _ | exception Assert_failure _ -> Untyped
+  | Ok (out_ty, _, _) ->
+  (* Choose an output name that does not clash with any of the argument names *)
+  let rec fresh_output name =
+    if List.exists (fun i -> HString.equal i name) inputs
+    then fresh_output (HString.concat2 name (HString.mk_hstring "_"))
+    else name
+  in
+  (* An expression of a group type defines one output per component, so that
+     the call standing in for it keeps the expression's width. Groups nest
+     whenever a component is itself a group expression, and contribute their
+     own width. *)
+  let rec flatten_group_ty = function
+    | A.GroupType (_, tys) -> List.concat_map flatten_group_ty tys
+    | ty -> [ty]
+  in
+  let out_tys = flatten_group_ty out_ty in
+  let op_ids, gen_nodes2 = List.mapi (fun i ty ->
+    let name = Lib.StringValues.type_ascription_output_name in
+    let name = if i = 0 then name else name ^ string_of_int i in
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids (base_type ctx ty) in
+    (fresh_output (HString.mk_hstring name), ty), gen_nodes
+  ) out_tys |> List.split in
+  let ops = List.map (fun (id, ty) -> (pos, id, ty, A.ClockTrue)) op_ids in
+  let lhs =
+    A.StructDef (pos, List.map (fun (id, _) -> A.SingleIdent (pos, id)) op_ids)
+  in
+  let eq = A.Body (A.Equation (pos, lhs, e)) in
+  (* The generated node might be polymorphic, so find all the needed type variables *)
+  let ty_params = Ctx.ty_vars_of_expr ctx node_name e |> Ctx.SI.elements in
+  let ty_args = List.map (fun id -> A.UserType (pos, [], id)) ty_params in
+  let decl =
+    A.NodeDecl (span,
+      (node_id, false, A.Transparent, ty_params, input_decls, ops, [], [eq], None))
+  in
+  Abstracted (A.Call (pos, ty_args, node_id, inputs_call),
+    List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ [decl])
+
+(* When a branch of a when-then-else expression is temporal (it uses '->' or
+   'pre'), abstract it into a call to a fresh internal node, so that its
+   temporal behavior is driven by the guard. If the branch cannot be abstracted
+   here, it is returned as it came in, and the later type-checking pass reports
+   the error, if any. *)
+and abstract_temporal_branch:
+  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> A.expr
+  -> A.expr * A.declaration list =
+fun ctx node_name fun_ids gen_decls orig_e ->
+  match AH.has_pre_or_arrow orig_e with
+  | None -> orig_e, []
+  | Some _ ->
+    match abstract_into_node ctx node_name fun_ids ClockedExpr gen_decls orig_e with
+    | Abstracted (call, decls) -> call, decls
+    | UnknownVariable _ | Untyped -> orig_e, []
+
+(* 'restart e every r': abstract [e] into a call to a fresh internal node, and
+   restart the call every time [r] is true. An [e] without state is not
+   affected by a restart, and is kept as it is. If the type of [e] cannot be
+   inferred here, the expression is left for the later type-checking pass to
+   report the error. *)
+and abstract_restart:
+  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> Lib.position
+  -> A.expr -> A.expr -> A.expr * A.declaration list =
+fun ctx node_name fun_ids gen_decls pos e r ->
+  let sig_ctx = add_node_sigs ctx gen_decls in
+  if not (has_state sig_ctx e) && droppable_condition sig_ctx node_name r then e, []
+  else
+  match abstract_into_node ctx node_name fun_ids Restarted gen_decls e with
+  | Abstracted (A.Call (_, [], node_id, args), decls) ->
+    A.RestartEvery (pos, node_id, args, r), decls
+  | Abstracted _ -> raise (Restart_error (pos, RestartPolymorphic))
+  | UnknownVariable id -> raise (Restart_error (pos, RestartUnknownVariable id))
+  | Untyped -> A.Restart (pos, e, r), []
+
+(* 'restart items every r end': abstract the items into a fresh internal node,
+   whose outputs are the variables the items define and whose inputs are the
+   other variables they use, and define the variables with a call to the node
+   that is restarted every time [r] is true *)
+and abstract_restart_block:
+  Ctx.tc_context -> NI.t -> NI.t list -> Lib.position -> A.node_item list -> A.expr
+  -> A.node_item * A.declaration list =
+fun ctx node_name fun_ids pos items r ->
+  let span = { A.start_pos = pos; A.end_pos = pos } in
+  let node_id = mk_fresh_fn_name pos node_name Restarted in
+  let outputs =
+    List.concat_map AH.defined_vars_with_pos items
+    |> List.map snd
+    |> List.fold_left (fun acc i ->
+         if List.exists (HString.equal i) acc then acc else acc @ [i]) []
+  in
+  let inputs =
+    Ctx.SI.diff (used_vars_of_node_items items) (Ctx.SI.of_list outputs)
+    |> Ctx.SI.elements |> node_arguments ctx
+  in
+  let lookup_ty i = match Ctx.lookup_ty ctx i with
+    | Some ty -> ty
+    | None -> raise (Restart_error (pos, RestartUnknownVariable i))
+  in
+  let tys = List.map lookup_ty (inputs @ outputs) in
+  if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
+  then raise (Restart_error (pos, RestartPolymorphic));
+  let input_decls, gen_nodes1 = List.map (fun i ->
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids (lookup_ty i) in
+    let is_const = Option.is_some (Ctx.lookup_const ctx i) in
+    (pos, i, ty, A.ClockTrue, is_const), gen_nodes) inputs |> List.split
+  in
+  let output_decls, gen_nodes2 = List.map (fun i ->
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids (base_type ctx (lookup_ty i)) in
+    (pos, i, ty, A.ClockTrue), gen_nodes) outputs |> List.split
+  in
+  let decl =
+    A.NodeDecl (span,
+      (node_id, false, A.Transparent, [], input_decls, output_decls, [], items, None))
+  in
+  let lhs = A.StructDef (pos, List.map (fun i -> A.SingleIdent (pos, i)) outputs) in
+  let call = A.RestartEvery (pos, node_id, List.map (fun i -> A.Ident (pos, i)) inputs, r) in
+  A.Body (A.Equation (pos, lhs, call)),
+  List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ [decl]
 
 let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->
@@ -845,7 +860,7 @@ fun ctx node_name fun_ids ni ->
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
-        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name gen_nodes1 rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
     in
@@ -864,7 +879,7 @@ fun ctx node_name fun_ids ni ->
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
-        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name gen_nodes1 rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
       | A.RestartBlock _ | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _
@@ -886,12 +901,12 @@ fun ctx node_name fun_ids ni ->
     let nis, gen_nodes1 = rec_calls nis in
     let r, gen_nodes2 = desugar_expr ctx node_name fun_ids r in
     let ctx = add_node_sigs ctx gen_nodes1 in
-    if not (List.exists (has_state ctx) (exprs_of_node_items nis))
+    if not (List.exists (fun (e, _) -> has_state ctx e) (exprs_of_node_items nis))
       && droppable_condition ctx node_name r
     then nis, gen_nodes1 @ gen_nodes2
     else
-      let ni, decl = abstract_restart_block ctx node_name pos nis r in
-      [ni], gen_nodes1 @ gen_nodes2 @ [decl]
+      let ni, decls = abstract_restart_block ctx node_name fun_ids pos nis r in
+      [ni], gen_nodes1 @ gen_nodes2 @ decls
   | FrameBlock (pos, vars, nes, nis) -> 
     let nes = List.map (fun x -> A.Body x) nes in
     let nes, gen_nodes1 = rec_calls nes in
@@ -908,96 +923,107 @@ fun ctx node_name fun_ids ni ->
   | Auto _ -> [ni], []
     
 
+let desugar_inputs ctx id fun_ids inputs =
+  let inputs, gen_nodes = List.map (fun (p, id', ty, c, b) ->
+    let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+    (p, id', ty, c, b), gen_nodes
+  ) inputs |> List.split in
+  inputs, List.flatten gen_nodes
+
+let desugar_outputs ctx id fun_ids outputs =
+  let outputs, gen_nodes = List.map (fun (p, id', ty, c) ->
+    let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+    (p, id', ty, c), gen_nodes
+  ) outputs |> List.split in
+  outputs, List.flatten gen_nodes
+
+let desugar_locals ctx id fun_ids locals =
+  let locals, gen_nodes = List.map (function
+    | A.NodeVarDecl (pos, (p, id', ty, c)) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        A.NodeVarDecl (pos, (p, id', ty, c)), gen_nodes
+    | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        A.NodeConstDecl (pos, A.FreeConst (pos, id', ty)), gen_nodes
+    | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
+        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
+        A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty)), gen_nodes
+    | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
+        A.NodeConstDecl (pos, cd), []
+  ) locals |> List.split in
+  locals, List.flatten gen_nodes
+
+(* The declaration with the types of its inputs and outputs desugared, and the
+   declarations generated for them *)
+let desugar_signature ctx fun_ids decl =
+  match decl with
+  | A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
+    let inputs', gen_nodes1 = desugar_inputs ctx id fun_ids inputs in
+    let outputs', gen_nodes2 = desugar_outputs ctx id fun_ids outputs in
+    A.NodeDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract)),
+    gen_nodes1 @ gen_nodes2
+  | A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract), is_rec) ->
+    let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
+    let inputs', gen_nodes1 = desugar_inputs ctx id fun_ids inputs in
+    let outputs', gen_nodes2 = desugar_outputs ctx id fun_ids outputs in
+    A.FuncDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract), is_rec),
+    gen_nodes1 @ gen_nodes2
+  | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
+    let ctx = Chk.add_io_node_ctx ctx id params inputs outputs in
+    let inputs', gen_nodes1 = desugar_inputs ctx id fun_ids inputs in
+    let outputs', gen_nodes2 = desugar_outputs ctx id fun_ids outputs in
+    A.ContractNodeDecl (span, (id, params, inputs', outputs', contract)),
+    gen_nodes1 @ gen_nodes2
+  | A.TypeDecl _ | A.ConstDecl _ | A.NodeParamInst _ -> decl, []
+
 let gen_nodes_of_decls: Ctx.tc_context -> A.declaration list -> A.declaration list =
 fun ctx decls ->
   let fun_ids = List.filter_map
     (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
     decls
   in
-  (* Pre-populate the context with the signatures of all nodes and functions so
-     that the types of node calls appearing in abstracted when branches can be
-     inferred (node/contract type checking happens later in the pipeline) *)
-  let ctx = add_node_sigs ctx decls in
+  (* The signatures of all nodes and functions are desugared first, and added to
+     the context, so that the types of the node calls in an expression that is
+     abstracted into a node (a when branch, or a restart) can be inferred: a
+     signature that holds an operator this pass desugars cannot be added to the
+     context as it is (node/contract type checking happens later in the
+     pipeline) *)
+  let sigs = List.map (desugar_signature (add_node_sigs ctx decls) fun_ids) decls in
+  let ctx = add_node_sigs ctx (List.concat_map (fun (decl, gen_nodes) -> gen_nodes @ [decl]) sigs) in
   let decls =
-  List.fold_left (fun decls decl ->
-    match decl with
-    | A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+  List.fold_left2 (fun decls decl (sig_decl, sig_gen_nodes) ->
+    match decl, sig_decl with
+    | A.NodeDecl (_, (id, _, _, params, inputs, outputs, locals, items, contract)),
+      A.NodeDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
-      let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        (p, id', ty, c, b), gen_nodes
-      ) inputs |> List.split in
-      let outputs, gen_nodes1 = List.map (fun (p, id', ty, c) ->
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        (p, id', ty, c), gen_nodes
-      ) outputs |> List.split in
-      let locals, gen_nodes_loc = List.map (function
-        | A.NodeVarDecl (pos, (p, id', ty, c)) ->
-            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeVarDecl (pos, (p, id', ty, c)), gen_nodes
-        | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
-            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty)), gen_nodes
-        | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
-            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty)), gen_nodes
-        | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
-            A.NodeConstDecl (pos, cd), []
-      ) locals |> List.split in
+      let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
       let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
       let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
-      let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes1 @ List.flatten gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
-      decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract))] 
-    | A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract), is_rec) ->
+      let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
+      decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract))] 
+    | A.FuncDecl (_, (id, _, _, params, inputs, outputs, locals, items, contract), _),
+      A.FuncDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _), is_rec) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
-      let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        (p, id', ty, c, b), gen_nodes
-      ) inputs |> List.split in
-      let outputs, gen_nodes_out = List.map (fun (p, id', ty, c) ->
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        (p, id', ty, c), gen_nodes
-      ) outputs |> List.split in
-      let locals, gen_nodes_loc = List.map (function
-        | A.NodeVarDecl (pos, (p, id', ty, c)) ->
-            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeVarDecl (pos, (p, id', ty, c)), gen_nodes
-        | A.NodeConstDecl (pos, A.FreeConst (_, id', ty)) ->
-            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.FreeConst (pos, id', ty)), gen_nodes
-        | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
-            let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-            A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty)), gen_nodes
-        | A.NodeConstDecl (pos, (A.UntypedConst _ as cd)) ->
-            A.NodeConstDecl (pos, cd), []
-      ) locals |> List.split in
+      let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
       let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
-      let gen_nodes = 
-        List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ List.flatten gen_nodes_loc @ List.flatten gen_nodes 
-      in
+      let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @
-      [A.FuncDecl (span, (id, ext, opac, params, inputs, outputs, locals, items, contract), is_rec)]
-    | A.ContractNodeDecl (span, (id, params, inputs, outputs, contract)) ->
+      [A.FuncDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract), is_rec)]
+    | A.ContractNodeDecl (_, (id, params, inputs, outputs, contract)),
+      A.ContractNodeDecl (span, (_, _, inputs', outputs', _)) ->
       let ctx = Chk.add_io_node_ctx ctx id params inputs outputs in
-      let inputs, gen_nodes_in = List.map (fun (p, id', ty, c, b) ->
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        (p, id', ty, c, b), gen_nodes
-      ) inputs |> List.split in
-      let outputs, gen_nodes_out = List.map (fun (p, id', ty, c) ->
-        let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        (p, id', ty, c), gen_nodes
-      ) outputs |> List.split in
       let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract
       | None -> assert false in (* Must have a contract *)
-      let gen_nodes = List.flatten gen_nodes_in @ List.flatten gen_nodes_out @ gen_nodes in
-      decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs, outputs, contract))] 
-    | decl -> decl :: decls
-  ) [] decls in 
+      let gen_nodes = sig_gen_nodes @ gen_nodes in
+      decls @ gen_nodes @ [A.ContractNodeDecl (span, (id, params, inputs', outputs', contract))] 
+    | decl, _ -> decl :: decls
+  ) [] decls sigs in 
   decls
 
 let gen_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list, [> error]) result =

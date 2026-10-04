@@ -4713,14 +4713,17 @@ let trans_sys_of_nodes
       |> List.iter (function
         | _, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
           ()
+        
         | name, (P.PropKTrue _ as status) -> (* K-true is still k-true. *)
           TransSys.set_prop_status trans_sys name status
+        
         | name, P.PropInvariant cert -> (* Invariant is still invariant. *)
           TransSys.set_prop_invariant trans_sys name cert;
           (* Adding to invariants of the system. *)
           let t = TransSys.get_prop_term trans_sys name in
           TransSys.add_invariant trans_sys t cert false
           |> ignore
+        
         | name, P.PropFalse cex -> (
           match P.length_of_cex cex with
           | l when l > 1 -> (* False at k>0 is now (k-1)-true. *)
