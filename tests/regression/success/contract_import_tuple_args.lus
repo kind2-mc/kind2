@@ -53,3 +53,47 @@ node M(a: int; b: int) returns (z: int);
 let
   z = a - b;
 tel
+
+-- Components that are arrays or records
+
+type R = struct { f: int; g: int };
+
+contract CA(a: int^2; b: int) returns (z: int);
+let
+  guarantee z = a[0] + a[1] - b;
+tel
+
+contract CR(a: R; b: int) returns (z: int);
+let
+  guarantee z = a.f - a.g + b;
+tel
+
+node DA(x: int) returns (a: int^2; b: int);
+let
+  a = [x, x];
+  b = x;
+tel
+
+node DR(x: int) returns (a: R; b: int);
+let
+  a = R { f = x + 1; g = x };
+  b = x;
+tel
+
+node CallArray(y: int) returns (z: int);
+(*@contract import CA(DA(y)) returns (z); *)
+let
+  z = y;
+tel
+
+node IteArray(y: int) returns (z: int);
+(*@contract import CA(if y > 0 then DA(y) else DA(y + 1)) returns (z); *)
+let
+  z = if y > 0 then y else y + 1;
+tel
+
+node CallRecord(y: int) returns (z: int);
+(*@contract import CR(DR(y)) returns (z); *)
+let
+  z = y + 1;
+tel

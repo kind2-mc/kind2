@@ -1191,8 +1191,8 @@ and compile_ast_expr
         let id_str = HString.mk_hstring (id ^ "_" ^ name) in
         let ident = mk_ident id_str in
         let e = H.find !map.expr ident in
-        let e = X.find [X.ListIndex proj] e in
-        X.singleton X.empty_index e
+        (* The component may itself be indexed, e.g. an array or a record *)
+        X.find_prefix [X.ListIndex proj] e
         with _ -> H.find !map.expr ident)
       | _ -> H.find !map.expr ident)
     with Not_found ->
