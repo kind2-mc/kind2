@@ -15,8 +15,10 @@ node test (e: int; cl: t) returns
 let 
   s = integr(e);
   
-  t1 = when cl = A then s
-       else when cl = C then integr(e)
-       else s - 1;
+  cond
+    | cl = A: t1 = s;
+    | cl = C: t1 = integr(e);
+    otherwise: t1 = s - 1;
+  end
   --%PROPERTY t1 <= s;
 tel

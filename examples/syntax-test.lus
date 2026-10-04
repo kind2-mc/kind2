@@ -273,9 +273,13 @@ tel
 
 type ABC = enum { V_A, V_B, V_C };
 
-node n_when(x,w:int; c: ABC) returns (y:int);
+node n_cond(x,w:int; c: ABC) returns (y:int);
 let
-  y = when c = V_A then x else when c = V_B then w + 1 else x + w;
+  cond
+    | c = V_A: y = x;
+    | c = V_B: y = w + 1;
+    otherwise: y = x + w;
+  end
 tel
 
 -- Node with a type parameter 
