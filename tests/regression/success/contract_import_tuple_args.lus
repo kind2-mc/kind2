@@ -1,0 +1,99 @@
+-- An argument of a contract import with several components, such as a
+-- tuple or a call to a node with several outputs, is given for as many
+-- inputs of the contract, as for a node call. Kind 2 used to fail with
+-- Invalid_argument("List.combine") on such an argument (see #1665).
+
+contract C(a: int; b: int) returns (z: int);
+let
+  guarantee z = a - b;
+tel
+
+contract C3(a: int; b: int; c: int) returns (z: int);
+let
+  guarantee z = a - b + c;
+tel
+
+node D(x: int) returns (a, b: int);
+let
+  a = x + 1;
+  b = x;
+tel
+
+node Tuple(y: int) returns (z: int);
+(*@contract import C((y + 1, y)) returns (z); *)
+let
+  z = 1;
+tel
+
+node Mixed(y: int) returns (z: int);
+(*@contract import C3(y + 1, (y, y)) returns (z); *)
+let
+  z = y + 1;
+tel
+
+node Call(y: int) returns (z: int);
+(*@contract import C(D(y)) returns (z); *)
+let
+  z = 1;
+tel
+
+node Ite(y: int) returns (z: int);
+(*@contract import C(if y > 0 then (y + 1, y) else D(y)) returns (z); *)
+let
+  z = 1;
+tel
+
+node Same(y: int) returns (z: int);
+(*@contract import C(D(y)) returns (z); *)
+let
+  z = M(D(y));
+tel
+
+node M(a: int; b: int) returns (z: int);
+let
+  z = a - b;
+tel
+
+-- Components that are arrays or records
+
+type R = struct { f: int; g: int };
+
+contract CA(a: int^2; b: int) returns (z: int);
+let
+  guarantee z = a[0] + a[1] - b;
+tel
+
+contract CR(a: R; b: int) returns (z: int);
+let
+  guarantee z = a.f - a.g + b;
+tel
+
+node DA(x: int) returns (a: int^2; b: int);
+let
+  a = [x, x];
+  b = x;
+tel
+
+node DR(x: int) returns (a: R; b: int);
+let
+  a = R { f = x + 1; g = x };
+  b = x;
+tel
+
+node CallArray(y: int) returns (z: int);
+(*@contract import CA(DA(y)) returns (z); *)
+let
+  z = y;
+tel
+
+node IteArray(y: int) returns (z: int);
+(*@contract import CA(if y > 0 then DA(y) else DA(y + 1)) returns (z); *)
+let
+  z = if y > 0 then y else y + 1;
+tel
+
+node CallRecord(y: int) returns (z: int);
+(*@contract import CR(DR(y)) returns (z); *)
+let
+  z = y + 1;
+tel

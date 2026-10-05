@@ -1807,11 +1807,45 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         Mode (pos, name, nrequires, nensures), union gids1 gids2, warnings1 @ warnings2, StringMap.empty
       | ContractCall (pos, name, ty_args, inputs, outputs) ->
         (* The inputs of the imported contract are interpreted as the
-           arguments, so a ghost constant must be abstracted, as for a call *)
-        let ninputs, gids1, warnings1 = normalize_list
-          (fun e -> abstract_expr (is_ghost_const info e) info (Some node_id) map e)
-          inputs
+           arguments, so a ghost constant must be abstracted, as for a call.
+           An argument with several components, such as a tuple or a call
+           to a node with several outputs, is given for as many inputs: a
+           tuple is split into its components, and any other argument is
+           abstracted to a variable, whose components are referred to as
+           those of the outputs of a call are (see #1665) *)
+        let rec abstract_input e =
+          match e with
+          | A.GroupExpr (_, A.ExprList, es) ->
+            let es, gids, warnings = normalize_list abstract_input es in
+            List.flatten es, gids, warnings
+          | _ -> (
+            let ty =
+              Chk.infer_type_expr info.context (Some node_id) e
+              |> unwrap |> fun (ty, _, _) -> ty
+            in
+            match ty with
+            | A.GroupType (_, tys) when List.length tys > 1 ->
+              let ne, gids, warnings =
+                abstract_expr ~ty false info (Some node_id) map e
+              in
+              let pos, id = match ne with
+                | A.Ident (pos, id) -> pos, id
+                | _ -> assert false
+              in
+              let es = List.mapi (fun i _ ->
+                  let proj = HString.mk_hstring (string_of_int i ^ "proj_") in
+                  A.Ident (pos, HString.concat2 proj id))
+                tys
+              in
+              es, gids, warnings
+            | _ ->
+              let ne, gids, warnings =
+                abstract_expr (is_ghost_const info e) info (Some node_id) map e
+              in
+              [ne], gids, warnings)
         in
+        let ninputs, gids1, warnings1 = normalize_list abstract_input inputs in
+        let ninputs = List.flatten ninputs in
         let noutputs = List.map
           (fun id ->
             let ty =
