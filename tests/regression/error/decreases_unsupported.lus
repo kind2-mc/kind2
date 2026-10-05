@@ -1,0 +1,9 @@
+-- A decreases measure with an array literal indexed by a non-constant
+-- expression. Its normalization introduces a local variable for the literal,
+-- but the measure must be a term over the inputs of the function (issue
+-- #1606).
+function rec F(a: int^2; n: int) returns (r: int);
+con decreases [n, 1][a[0]]; noc
+let
+  r = when n <= 0 then 0 else F(a, n - 1);
+tel

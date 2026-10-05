@@ -1435,10 +1435,15 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       | Some nname -> not (node_id_is_node ctx nname)
       in 
       let called_node_ty = lookup_node_ty ctx node_id in 
-      let input_type = match called_node_ty with 
+      (* The node generated for a type ascription is not in the context yet
+         where the ascription is in a type that a generated node is declared
+         with, such as an array size in the type of a 'choose' operator: report
+         it as any other unbound node, which the caller may know better *)
+      let* input_type = match called_node_ty with 
       | Some (LA.TArr (_, ty, _)) -> 
-        expand_type_syn ctx ty
-      | _ -> assert false 
+        R.ok (expand_type_syn ctx ty)
+      | Some _ -> assert false
+      | None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
       in
       if is_function then 
         let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in

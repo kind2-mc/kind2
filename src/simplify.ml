@@ -1185,6 +1185,40 @@ let const_array ty_array = function
 
 let select simplify_term_node model fterm = function
 
+  (* Select from a store: the stored value if the indexes are equal, a select
+     from the array stored into otherwise *)
+  | [a; i] when Term.is_store (term_of_nf a) -> (
+    match Term.destruct (term_of_nf a) with
+    | Term.T.App (_, [a'; j; v]) ->
+      let i = term_of_nf i in
+      Term.eval_t
+        simplify_term_node
+        (Term.mk_ite (Term.mk_eq [i; j]) v (Term.mk_select a' i))
+    | _ -> assert false
+  )
+
+  (* Select from an array that is chosen by a condition the model does not
+     decide, e.g. an element of an array of arrays read from a store: the
+     select from either array under the condition *)
+  | [a; i] when Term.is_ite (term_of_nf a) -> (
+    match Term.destruct (term_of_nf a) with
+    | Term.T.App (_, [c; t; e]) ->
+      let i = term_of_nf i in
+      Term.eval_t
+        simplify_term_node
+        (Term.mk_ite c (Term.mk_select t i) (Term.mk_select e i))
+    | _ -> assert false
+  )
+
+  (* Without the theory of arrays, a select from a multi-dimensional array is
+     encoded as an application of its select symbol to all of its indexes
+     (see [Term.convert_select]): evaluate it as the nested selects it
+     stands for *)
+  | a :: (_ :: _ :: _ as indexes) ->
+    Term.eval_t
+      simplify_term_node
+      (List.fold_left Term.mk_select (term_of_nf a) (List.map term_of_nf indexes))
+
   (* Arguments are array and index *)
   | [a; i] ->
 

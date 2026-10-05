@@ -88,6 +88,14 @@ type error = [
    callee (see [normalize_expr]) *)
 exception Quantified_call_not_callable of Lib.position * HString.t * NI.t
 
+(* A call in the measure of a decreases clause to a function that cannot be
+   inlined (see [normalize_expr]) *)
+exception Call_in_measure_not_supported of Lib.position * NI.t
+
+(* A measure of a decreases clause whose normalization introduces a variable
+   other than an input of the function (see [normalize_contract]) *)
+exception Measure_not_supported of Lib.position
+
 type warning_kind = 
   | UnguardedPreWarning of A.expr
   | UseOfAssertionWarning
@@ -258,6 +266,10 @@ type info = {
      inlined call retains, whose obligations the inlined expansion already emitted *)
   emit_selector_obligations : bool;
   inlined_expr_ctx : bool;
+  (* Whether the expression being normalized is (part of) the measure of a
+     decreases clause, which must be an expression of the inputs of the
+     function alone (see [normalize_contract]) *)
+  in_measure : bool;
   adt_map : LDAT.adt_map;
 }
 
@@ -517,20 +529,24 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   in
   eq_lhs, nexpr
 
+(* The output of an inlinable function applied to [args]: the right-hand side
+   of the equation of the output, with each local variable replaced by its own
+   definition and each input by its argument. The equations may be in any
+   order, and cannot depend on each other cyclically (see
+   LustreAstDependencies). *)
 let get_inline_func_expr inlinable_funcs name args =
-  let (_, _, _, _, inputs, _, _, items, _) : A.node_decl =
+  let (_, _, _, _, inputs, outputs, _, items, _) : A.node_decl =
     match NI.Map.find_opt name inlinable_funcs with
     | Some nd -> nd
     | None -> assert false
   in
-  let var_map =
+  let defs =
     items |> List.fold_left (fun acc item ->
       match item with
       | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body (Equation (_, StructDef (_, [lhs]), rhs)) -> (
         match lhs with
-        | A.SingleIdent (_, v) ->
-          (v, AH.apply_subst_in_expr acc rhs) :: acc
+        | A.SingleIdent (_, v) -> StringMap.add v rhs acc
         | ArrayDef _ ->
           assert false (* rejected earlier in pipeline *)
         | TupleStructItem _ | TupleSelection _ | FieldSelection _
@@ -538,19 +554,42 @@ let get_inline_func_expr inlinable_funcs name args =
       )
       | IfBlock _ | WhenBlock _ | FrameBlock _ | MatchBlock _ ->
         assert false (* desugared earlier in pipeline *)
-      | Body (Assert _) | AnnotMain _ | AnnotProperty _ | Auto _ ->
+      (* A property of the function is checked in the instance an inlined
+         call retains *)
+      | AnnotProperty _ | Auto _ -> acc
+      | Body (Assert _) | AnnotMain _ ->
         assert false (* rejected earlier in pipeline *)
       | A.Body (Equation (_, StructDef (_, _), _)) ->
         assert false (* rejected earlier in pipeline, should we support it? *)
     )
-    []
+    StringMap.empty
+  in
+  (* The definition of a variable in terms of the inputs, memoized *)
+  let resolved = Hashtbl.create 7 in
+  let rec resolve v =
+    match Hashtbl.find_opt resolved v with
+    | Some e -> e
+    | None ->
+      let rhs = StringMap.find v defs in
+      let subst =
+        AH.vars_without_node_call_ids rhs
+        |> A.SI.elements
+        |> List.filter (fun v' -> StringMap.mem v' defs)
+        |> List.map (fun v' -> (v', resolve v'))
+      in
+      let e = AH.apply_subst_in_expr subst rhs in
+      Hashtbl.add resolved v e;
+      e
+  in
+  let output =
+    match outputs with
+    | [(_, id, _, _)] -> id
+    | _ -> assert false (* inlinable functions have a single output *)
   in
   let input_map =
     List.map2 (fun (_, id, _, _, _) e -> (id, e)) inputs args
   in
-  match var_map with
-  | (_, e) :: _ -> AH.apply_subst_in_expr input_map e
-  | _ -> assert false
+  AH.apply_subst_in_expr input_map (resolve output)
 
 let mk_fresh_node_arg_local info pos is_const expr_type expr =
   match NodeArgCache.find_opt node_arg_cache expr with
@@ -1219,6 +1258,7 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     pre_depth = 0;
     emit_selector_obligations = true;
     inlined_expr_ctx = false;
+    in_measure = false;
     adt_map; }
   in
   let over_declarations (nitems, accum, warnings_accum) item =
@@ -1238,6 +1278,20 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
          (pos,
           LustreSyntaxChecks.QuantifiedVariableInNodeArgument
             (q, NI.get_user_name id)))
+  | exception Call_in_measure_not_supported (pos, id) ->
+    (* A 'choose' or 'any' operator is a call to a node generated for it (see
+       LustreGenNodes), whose name the user did not write *)
+    let kind =
+      match NI.get_node_type id with
+      | NI.Choose -> LustreSyntaxChecks.OperatorInDecreasesMeasure "choose"
+      | NI.Any -> LustreSyntaxChecks.OperatorInDecreasesMeasure "any"
+      | _ -> LustreSyntaxChecks.CallInDecreasesMeasure (NI.get_user_name id)
+    in
+    Error (`LustreSyntaxChecksError (pos, kind))
+  | exception Measure_not_supported pos ->
+    Error
+      (`LustreSyntaxChecksError
+         (pos, LustreSyntaxChecks.UnsupportedDecreasesMeasure))
   | ast, map, warnings ->
   let ast = List.rev ast in
   
@@ -1790,8 +1844,32 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         let gids = record_source_expr gids nexpr expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
-      | Decreases (pos, expr) -> 
-        Decreases (pos, expr), empty (), [], StringMap.empty
+      | Decreases (pos, expr) ->
+        (* The measure is compiled to a term over the inputs of the function,
+           which the measure of a callee is lifted from to the arguments of a
+           recursive call (see [LustreNodeGen]): it can mention no other
+           variable, not even one introduced by its normalization. A call in
+           it is inlined (see [normalize_expr]). The measure as written is
+           recorded, which the decrease checks are rendered with *)
+        let nexpr, gids, warnings =
+          normalize_expr { info with in_measure = true } (Some node_id) map expr
+        in
+        (* The instance an inlined call retains introduces variables of its
+           own, which the measure does not mention *)
+        let generated =
+          List.fold_left (fun acc v -> A.SI.add v acc)
+            (StringMap.fold (fun v _ acc -> A.SI.add v acc) gids.locals A.SI.empty)
+            (List.map (fun (v, _, _) -> v) gids.oracles
+             @ List.map fst gids.ib_oracles
+             @ List.map fst gids.free_constants
+             @ List.map (fun (v, _, _, _) -> v) gids.node_args)
+        in
+        let introduced =
+          not (A.SI.disjoint (AH.vars_without_node_call_ids nexpr) generated)
+        in
+        if introduced then raise (Measure_not_supported pos);
+        Decreases (pos, nexpr), record_source_expr gids nexpr expr,
+        warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in
@@ -2717,6 +2795,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         if vmap = [] then info
         else { info with emit_selector_obligations = false }
       in
+      (* The instance a call in a decreases measure retains is an instance
+         like any other, whose arguments are not part of the measure *)
+      let info = { info with in_measure = false } in
       let nargs, gids1, warnings = normalize_list
         (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
         (combine_args_with_const info args flags)
@@ -2741,9 +2822,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let call_context_has_quantified_vars =
       call_context_depends_on_quant_vars info
     in
+    (* A call in a decreases measure must be inlined, since the measure is a
+       term over the inputs of the function (see [normalize_contract]).
+       Compiling it to an application of the functional symbol of the callee,
+       as a call applied to quantified variables is, would put the application
+       in the termination checks, which are evaluated in models where it has
+       no value *)
+    if info.in_measure && not is_inlinable then
+      raise (Call_in_measure_not_supported (pos, id));
     let should_inline =
       is_inlinable &&
-      (vmap <> [] || info.inlined_expr_ctx || call_context_has_quantified_vars)
+      (vmap <> [] || info.inlined_expr_ctx || info.in_measure
+       || call_context_has_quantified_vars)
     in
     if should_inline
     then (

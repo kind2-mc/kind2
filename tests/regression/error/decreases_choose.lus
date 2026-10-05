@@ -1,0 +1,8 @@
+-- A decreases measure with a 'choose' operator, which is a call to a
+-- generated node that cannot be inlined. The error names the operator rather
+-- than the generated node.
+function rec F(n: int) returns (r: int);
+con decreases n + (choose { x: int | x >= 0 }); noc
+let
+  r = when n <= 0 then 0 else F(n - 1);
+tel

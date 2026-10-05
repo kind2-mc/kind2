@@ -1,0 +1,19 @@
+-- A decreases measure that reads an element the update leaves unchanged:
+-- the measure is (a[0 := n])[1], that is, a[1], which does not decrease
+-- across the recursive call, so the decrease check is falsifiable. The
+-- update is compiled as the array it stands for (issue #1606). The measure is
+-- bounded below where the recursive call is made.
+function rec F(a: int^2; n: int) returns (r: int);
+con decreases (a[0 := n])[1]; noc
+let
+  r = when n <= 0 or a[1] < 0 then 0 else F(a, n - 1);
+tel
+
+-- The same on a multi-dimensional array, whose selects are encoded with a
+-- single select symbol taking all indexes: evaluating the decrease check in
+-- the counterexample failed an assertion
+function rec M(a: int^2^2; n: int) returns (r: int);
+con decreases a[0][1]; noc
+let
+  r = when n <= 0 or a[0][1] < 0 then 0 else M(a, n - 1);
+tel

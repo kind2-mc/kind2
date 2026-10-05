@@ -433,6 +433,7 @@ let bounded_check call_pos call_instance caller_rf =
   let prop_term =
     List.map (E.base_term_of_expr TransSys.prop_base) caller_rf
     |> LustreFunDefs.bounded_below
+    |> Term.convert_select
   in
   let prop_expr =
     List.map (fun e -> Format.asprintf "(0 <= %a)" (E.pp_print_expr false) e) caller_rf
@@ -463,7 +464,9 @@ let decrease_check call_pos call_instance svar_map src_expr caller_rf callee_rf 
   in
   (* The measure strictly decreases in the lexicographic order (see
      [LustreFunDefs.lex_lt]) *)
-  let prop_term = LustreFunDefs.lex_lt callee_rf_terms caller_rf_terms in
+  let prop_term =
+    LustreFunDefs.lex_lt callee_rf_terms caller_rf_terms |> Term.convert_select
+  in
   (* Prefer the source-level rendering reconstructed during node generation
      (e.g. "n - 1 < n"); fall back to the normalized term otherwise. *)
   let prop_expr =

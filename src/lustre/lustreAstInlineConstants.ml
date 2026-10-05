@@ -611,8 +611,11 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation
                , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) rs
                , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) es))
       :: inline_constants_of_contract ctx others
+  | (LA.Decreases (pos, e)) :: others ->
+     (LA.Decreases (pos, simplify_expr ctx e))
+     :: inline_constants_of_contract ctx others
    (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
-  | e -> e 
+  | item :: others -> item :: inline_constants_of_contract ctx others
 
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function
