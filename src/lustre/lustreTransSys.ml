@@ -195,6 +195,29 @@ let lift_term state_var_map term =
               variable at the same offset *)
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 
+         (* A constant input of the called node, such as the size of an
+            array, appears in the termination checks of a recursive
+            function. Global constants are shared and not in the map.
+
+            The actual argument need not be a constant state variable: the
+            abstraction of an argument such as [n + 1] is shared with the
+            other occurrences of the expression, also those passed to a
+            non-constant input. Such a variable is taken at the offset of the
+            lifted terms, which are all stated at [TransSys.prop_base];
+            [Var.mk_state_var_instance] returns a constant state variable
+            for a constant one. *)
+         else if Var.is_const_state_var var then (
+
+           let state_var = Var.state_var_of_state_var_instance var in
+
+           match SVM.find_opt state_var state_var_map with
+           | Some state_var' ->
+             Term.mk_var
+               (Var.mk_state_var_instance state_var' TransSys.prop_base)
+           | None -> term
+
+         )
+
          else
 
            (* No change if free variable is not an instance of a state
