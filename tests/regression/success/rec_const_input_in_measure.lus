@@ -1,0 +1,25 @@
+-- The termination checks of a recursive function whose measure mentions one
+-- of its constant inputs, such as the size of an array. The checks of the
+-- recursive calls lifted to the caller used to keep the constant input of the
+-- callee rather than the actual argument of the call, which was undeclared in
+-- the solver.
+
+function rec Fill (const n: int; a: int^n; k: int; b0: int^n)
+returns (b: int^n);
+con decreases n - k; noc
+let
+  b = when k < 0 or k >= n then b0 else Fill(n, a, k + 1, b0[k := a[k] + 1]);
+tel
+
+function rec Sum (const n: int; a: int^n; k: int) returns (s: int);
+con decreases n - k; noc
+let
+  s = when k < 0 or k >= n then 0 else a[k] + Sum(n, a, k + 1);
+tel
+
+node N (const n: int; a: int^n) returns ();
+let
+  check "fill_done" Fill(n, a, n, a) = a;
+  check "sum_done" Sum(n, a, n) = 0;
+  check "fill_one" n = 1 => Fill(n, a, 0, a)[0] = a[0] + 1;
+tel
