@@ -2449,6 +2449,12 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
       let warnings = List.flatten warnings1 @ List.flatten warnings2 in
       R.ok (LA.Mode (pos, id, reqs, ensures), warnings)
     | ContractCall (pos, c_id, ty_args, args, rets) ->
+      (* Type arguments are types in their own right: the expressions they embed
+         are checked nowhere else *)
+      let* ty_args, warnings0 =
+        R.seq (List.map (check_type_well_formed ctx Local (Some nname) false) ty_args)
+        |> R.map List.split
+      in
       let* ret_tys, rets, warnings1 = R.seq (List.map (infer_type_expr ctx (Some nname))
         (List.map (fun i -> LA.Ident (pos, i)) rets)) |> R.map Lib.split3  
       in
@@ -2471,7 +2477,7 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
           let* inf_ty = instantiate_type_variables ctx pos c_id inf_ty ty_args in
           let eqn = LA.ContractCall (pos, c_id, ty_args, args, rets) in
           R.ifM (eq_lustre_type ctx inf_ty exp_ty)
-            (R.ok (eqn, List.flatten warnings1 @ List.flatten warnings2))
+            (R.ok (eqn, List.flatten warnings0 @ List.flatten warnings1 @ List.flatten warnings2))
             (type_error pos (MismatchedNodeType (NI.get_user_name c_id, inf_ty, exp_ty)))
       | None -> type_error pos (Impossible ("Undefined or not in scope contract name "
         ^ (HString.string_of_hstring (NI.get_user_name c_id)))))

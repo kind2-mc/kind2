@@ -1,0 +1,20 @@
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+contract C<T>(a: T) returns (r: bool);
+let
+  guarantee true;
+tel
+
+node N<S>(x: L<S>) returns (y: bool);
+(*@contract
+    import C@<L<S>>(x) returns (y);
+*)
+let
+  y = true;
+tel
+
+node main(a: int) returns (b: bool);
+let
+  b = N@<int>(Cons(a, Nil@<int>));
+  check b;
+tel

@@ -1165,6 +1165,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ite_guarantee_wrong_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
     | _ -> false);
+  mk_test "test unbound identifier in contract import type argument" (fun () ->
+    match load_file "./lustreTypeChecker/contract_import_type_arg_unbound_id.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test undeclared type in contract import type argument" (fun () ->
+    match load_file "./lustreTypeChecker/contract_import_type_arg_undeclared_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test unbound identifier in contract import type argument within a contract" (fun () ->
+    match load_file "./lustreTypeChecker/nested_contract_import_type_arg_unbound_id.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1296,6 +1308,14 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
   mk_test "test non-exhaustive match in global constant declaration" (fun () ->
     match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_global_const.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in contract import type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_contract_import_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant match in contract import type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_contract_import_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
 ])
 

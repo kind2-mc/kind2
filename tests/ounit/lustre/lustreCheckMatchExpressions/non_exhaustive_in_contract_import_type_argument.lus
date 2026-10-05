@@ -1,0 +1,6 @@
+datatype L = Nil | One (v: int);
+contract C<T>(a: T) returns (r: bool);
+let guarantee true; tel
+node N(x: L) returns (y: bool);
+(*@contract import C@<subtype { w: int | w >= (match x with | One(v) : v end) }>(0) returns (y); *)
+let y = true; tel
