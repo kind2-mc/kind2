@@ -131,8 +131,7 @@ let instantiate_type_variables_ci
    [rewrite_gids] below. The others
    (contract_calls, calls, qcalls, refinement_type_constraints,
    selector_obligations, map_element_updates, map_subtractions, set_insertions,
-   set_binops, expr_source_map, prop_source_map, type_ascription_exprs,
-   decreases_measure) are only
+   set_binops, expr_source_map, prop_source_map, type_ascription_exprs) are only
    written by lustreAstNormalizer, after this pass; a pass moved ahead of it
    that writes one of them would have to be added here. *)
 let instantiate_type_variables_gids ctx node_id ty_args (gids : GI.t) =

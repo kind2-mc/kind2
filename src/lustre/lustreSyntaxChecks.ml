@@ -85,6 +85,7 @@ type error_kind = Unknown of string
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
   | CallInDecreasesMeasure of HString.t
+  | OperatorInDecreasesMeasure of string
   | UnsupportedDecreasesMeasure
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
@@ -180,6 +181,9 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
     ^ "call non-recursive functions that can be inlined"
+  | OperatorInDecreasesMeasure op -> "A '" ^ op ^ "' operator cannot occur "
+    ^ "in a decreases clause; a decreases measure must be a function of the "
+    ^ "input parameters of the function"
   | UnsupportedDecreasesMeasure -> "Unsupported decreases measure: it needs "
     ^ "auxiliary variables (e.g., for an array literal indexed by a "
     ^ "non-constant expression), but a decreases measure must be a term over "

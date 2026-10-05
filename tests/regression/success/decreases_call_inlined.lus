@@ -9,12 +9,13 @@ let
   y = if x >= 0 then x else -x;
 tel
 
--- A function with a local variable that calls another one
+-- A function with a local variable that calls another one, whose output is
+-- not defined by its last equation
 function Dist(x, y: int) returns (d: int);
 var diff: int;
 let
-  diff = x - y;
   d = Abs(diff);
+  diff = x - y;
 tel
 
 function rec Down(n: int) returns (r: int);

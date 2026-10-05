@@ -529,20 +529,24 @@ let generalize_to_array_expr name ind_vars expr nexpr =
   in
   eq_lhs, nexpr
 
+(* The output of an inlinable function applied to [args]: the right-hand side
+   of the equation of the output, with each local variable replaced by its own
+   definition and each input by its argument. The equations may be in any
+   order, and cannot depend on each other cyclically (see
+   LustreAstDependencies). *)
 let get_inline_func_expr inlinable_funcs name args =
-  let (_, _, _, _, inputs, _, _, items, _) : A.node_decl =
+  let (_, _, _, _, inputs, outputs, _, items, _) : A.node_decl =
     match NI.Map.find_opt name inlinable_funcs with
     | Some nd -> nd
     | None -> assert false
   in
-  let var_map =
+  let defs =
     items |> List.fold_left (fun acc item ->
       match item with
       | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body (Equation (_, StructDef (_, [lhs]), rhs)) -> (
         match lhs with
-        | A.SingleIdent (_, v) ->
-          (v, AH.apply_subst_in_expr acc rhs) :: acc
+        | A.SingleIdent (_, v) -> StringMap.add v rhs acc
         | ArrayDef _ ->
           assert false (* rejected earlier in pipeline *)
         | TupleStructItem _ | TupleSelection _ | FieldSelection _
@@ -550,19 +554,42 @@ let get_inline_func_expr inlinable_funcs name args =
       )
       | IfBlock _ | WhenBlock _ | FrameBlock _ | MatchBlock _ ->
         assert false (* desugared earlier in pipeline *)
-      | Body (Assert _) | AnnotMain _ | AnnotProperty _ | Auto _ ->
+      (* A property of the function is checked in the instance an inlined
+         call retains *)
+      | AnnotProperty _ | Auto _ -> acc
+      | Body (Assert _) | AnnotMain _ ->
         assert false (* rejected earlier in pipeline *)
       | A.Body (Equation (_, StructDef (_, _), _)) ->
         assert false (* rejected earlier in pipeline, should we support it? *)
     )
-    []
+    StringMap.empty
+  in
+  (* The definition of a variable in terms of the inputs, memoized *)
+  let resolved = Hashtbl.create 7 in
+  let rec resolve v =
+    match Hashtbl.find_opt resolved v with
+    | Some e -> e
+    | None ->
+      let rhs = StringMap.find v defs in
+      let subst =
+        AH.vars_without_node_call_ids rhs
+        |> A.SI.elements
+        |> List.filter (fun v' -> StringMap.mem v' defs)
+        |> List.map (fun v' -> (v', resolve v'))
+      in
+      let e = AH.apply_subst_in_expr subst rhs in
+      Hashtbl.add resolved v e;
+      e
+  in
+  let output =
+    match outputs with
+    | [(_, id, _, _)] -> id
+    | _ -> assert false (* inlinable functions have a single output *)
   in
   let input_map =
     List.map2 (fun (_, id, _, _, _) e -> (id, e)) inputs args
   in
-  match var_map with
-  | (_, e) :: _ -> AH.apply_subst_in_expr input_map e
-  | _ -> assert false
+  AH.apply_subst_in_expr input_map (resolve output)
 
 let mk_fresh_node_arg_local info pos is_const expr_type expr =
   match NodeArgCache.find_opt node_arg_cache expr with
@@ -1252,10 +1279,15 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
           LustreSyntaxChecks.QuantifiedVariableInNodeArgument
             (q, NI.get_user_name id)))
   | exception Call_in_measure_not_supported (pos, id) ->
-    Error
-      (`LustreSyntaxChecksError
-         (pos,
-          LustreSyntaxChecks.CallInDecreasesMeasure (NI.get_user_name id)))
+    (* A 'choose' or 'any' operator is a call to a node generated for it (see
+       LustreGenNodes), whose name the user did not write *)
+    let kind =
+      match NI.get_node_type id with
+      | NI.Choose -> LustreSyntaxChecks.OperatorInDecreasesMeasure "choose"
+      | NI.Any -> LustreSyntaxChecks.OperatorInDecreasesMeasure "any"
+      | _ -> LustreSyntaxChecks.CallInDecreasesMeasure (NI.get_user_name id)
+    in
+    Error (`LustreSyntaxChecksError (pos, kind))
   | exception Measure_not_supported pos ->
     Error
       (`LustreSyntaxChecksError
@@ -1817,17 +1849,26 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
            which the measure of a callee is lifted from to the arguments of a
            recursive call (see [LustreNodeGen]): it can mention no other
            variable, not even one introduced by its normalization. A call in
-           it is inlined (see [normalize_expr]). The clause keeps the measure
-           as written, which the decrease checks are rendered with *)
+           it is inlined (see [normalize_expr]). The measure as written is
+           recorded, which the decrease checks are rendered with *)
         let nexpr, gids, warnings =
           normalize_expr { info with in_measure = true } (Some node_id) map expr
         in
+        (* The instance an inlined call retains introduces variables of its
+           own, which the measure does not mention *)
+        let generated =
+          List.fold_left (fun acc v -> A.SI.add v acc)
+            (StringMap.fold (fun v _ acc -> A.SI.add v acc) gids.locals A.SI.empty)
+            (List.map (fun (v, _, _) -> v) gids.oracles
+             @ List.map fst gids.ib_oracles
+             @ List.map fst gids.free_constants
+             @ List.map (fun (v, _, _, _) -> v) gids.node_args)
+        in
         let introduced =
-          AH.vars_without_node_call_ids nexpr
-          |> A.SI.exists (fun v -> StringMap.mem v gids.locals)
+          not (A.SI.disjoint (AH.vars_without_node_call_ids nexpr) generated)
         in
         if introduced then raise (Measure_not_supported pos);
-        Decreases (pos, expr), { gids with decreases_measure = Some nexpr },
+        Decreases (pos, nexpr), record_source_expr gids nexpr expr,
         warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in

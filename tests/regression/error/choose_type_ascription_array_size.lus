@@ -1,0 +1,7 @@
+-- A type ascription in the size of an array type given to a 'choose'
+-- operator. The type ascription is a call to a generated node, which an array
+-- size cannot contain; this failed an assertion in the type checker.
+function F(n: int) returns (r: int);
+let
+  r = n + (choose @<int^(1 : int)>)[0];
+tel

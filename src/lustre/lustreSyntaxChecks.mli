@@ -65,6 +65,7 @@ type error_kind = Unknown of string
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
   | CallInDecreasesMeasure of HString.t
+  | OperatorInDecreasesMeasure of string
   | UnsupportedDecreasesMeasure
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t

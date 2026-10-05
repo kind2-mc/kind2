@@ -149,11 +149,6 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
-  (* The measure of the decreases clause of a recursive function, normalized
-     as an expression of the inputs of the function alone, in which a call is
-     inlined. The clause in the contract keeps the measure as it was written,
-     which the decrease checks are rendered with. *)
-  decreases_measure: LustreAst.expr option;
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -257,11 +252,7 @@ let union ids1 ids2 = {
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
     prop_source_map = StringMap.union (fun _ src _ -> Some src) ids1.prop_source_map ids2.prop_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
-    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars;
-    decreases_measure =
-      (match ids1.decreases_measure with
-       | Some _ as m -> m
-       | None -> ids2.decreases_measure);
+    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -298,5 +289,4 @@ let empty () = {
   prop_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
-  decreases_measure = None;
 }

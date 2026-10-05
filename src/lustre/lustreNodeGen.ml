@@ -921,7 +921,7 @@ let rec compile ctx gids adt_map scc_map decls =
       match decl with
       | A.FuncDecl (_, (i, _, _, _, inputs, _, _, _, contract), attrs)
         when attrs.A.is_rec -> (
-        match get_decreases_expr contract with
+        match source_decreases_expr (NI.Map.find_opt i gids) contract with
         | Some decreases ->
           let formals =
             List.map (fun ip -> LustreAstHelpers.extract_ip_ty ip |> fst) inputs
@@ -2413,7 +2413,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   let ast_locals = locals in
   (* Source decreases measure of this node, used as the right-hand side of the
      decrease constraint rendered for recursive calls. *)
-  let node_decreases = get_decreases_expr contract in
+  let node_decreases = source_decreases_expr (Some gids) contract in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
@@ -2457,9 +2457,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           match StringMap.find_opt internal_node_name_hstring scc_map with
           | Some scc_id -> (
             let decreases_expr =
-              (* The measure as normalized, in which a call is inlined (see
-                 LustreAstNormalizer) *)
-              match gids.GI.decreases_measure with
+              match get_decreases_expr contract with
               | Some expr -> (
                 (* A tuple of measures compiles to several indexed bindings,
                    one per lexicographic component, in declaration order. *)
@@ -3857,6 +3855,16 @@ and get_decreases_expr contract =
     List.fold_left over_decrease_clause None contract
   )
   | None -> None
+
+(* The measure of a decreases clause as written, rather than as normalized
+   (see [LustreAstNormalizer.normalize_contract]) *)
+and source_decreases_expr gids contract =
+  match get_decreases_expr contract, gids with
+  | Some expr, Some gids ->
+    let key = HString.mk_hstring (A.string_of_expr expr) in
+    Some
+      (try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr)
+  | expr, _ -> expr
 
 (* The individual components of a decrease measure. A tuple of measures is
    represented as an expression list; a single measure is its own component. *)

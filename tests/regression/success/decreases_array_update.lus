@@ -21,3 +21,11 @@ con decreases (a[1 := n])[1], a[0]; noc
 let
   r = when n <= 0 or a[0] < 0 then 0 else H(a, n - 1);
 tel
+
+-- A multi-dimensional array, whose selects are encoded with a single select
+-- symbol taking all indexes
+function rec M(a: int^2^2; n: int) returns (r: int);
+con decreases n, a[0][1]; noc
+let
+  r = when n <= 0 or a[0][1] < 0 then 0 else M(a, n - 1);
+tel

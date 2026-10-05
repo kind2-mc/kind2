@@ -1,0 +1,19 @@
+-- An inlined function whose output is not defined by its last equation. The
+-- output used to be taken from the last equation, here the definition of the
+-- local variable, so that the property was reported falsifiable.
+function Abs(x: int) returns (y: int);
+let
+  y = if x >= 0 then x else -x;
+tel
+
+function Dist(x, y: int) returns (d: int);
+var diff: int;
+let
+  d = Abs(diff);
+  diff = x - y;
+tel
+
+node main() returns ();
+let
+  check forall (x, y: int) Dist(x, y) >= 0;
+tel
