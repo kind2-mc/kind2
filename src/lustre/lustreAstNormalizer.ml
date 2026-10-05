@@ -88,6 +88,14 @@ type error = [
    callee (see [normalize_expr]) *)
 exception Quantified_call_not_callable of Lib.position * HString.t * NI.t
 
+(* A call in the measure of a decreases clause to a function that cannot be
+   inlined (see [normalize_expr]) *)
+exception Call_in_measure_not_supported of Lib.position * NI.t
+
+(* A measure of a decreases clause whose normalization introduces a variable
+   other than an input of the function (see [normalize_contract]) *)
+exception Measure_not_supported of Lib.position
+
 type warning_kind = 
   | UnguardedPreWarning of A.expr
   | UseOfAssertionWarning
@@ -258,6 +266,10 @@ type info = {
      inlined call retains, whose obligations the inlined expansion already emitted *)
   emit_selector_obligations : bool;
   inlined_expr_ctx : bool;
+  (* Whether the expression being normalized is (part of) the measure of a
+     decreases clause, which must be an expression of the inputs of the
+     function alone (see [normalize_contract]) *)
+  in_measure : bool;
   adt_map : LDAT.adt_map;
 }
 
@@ -1219,6 +1231,7 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     pre_depth = 0;
     emit_selector_obligations = true;
     inlined_expr_ctx = false;
+    in_measure = false;
     adt_map; }
   in
   let over_declarations (nitems, accum, warnings_accum) item =
@@ -1238,6 +1251,15 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
          (pos,
           LustreSyntaxChecks.QuantifiedVariableInNodeArgument
             (q, NI.get_user_name id)))
+  | exception Call_in_measure_not_supported (pos, id) ->
+    Error
+      (`LustreSyntaxChecksError
+         (pos,
+          LustreSyntaxChecks.CallInDecreasesMeasure (NI.get_user_name id)))
+  | exception Measure_not_supported pos ->
+    Error
+      (`LustreSyntaxChecksError
+         (pos, LustreSyntaxChecks.UnsupportedDecreasesMeasure))
   | ast, map, warnings ->
   let ast = List.rev ast in
   
@@ -1790,8 +1812,23 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nexpr, gids, warnings = abstract_expr force_fresh info (Some node_id) map expr in
         let gids = record_source_expr gids nexpr expr in
         Guarantee (pos, name, soft, nexpr), union h_gids gids, warnings, StringMap.empty
-      | Decreases (pos, expr) -> 
-        Decreases (pos, expr), empty (), [], StringMap.empty
+      | Decreases (pos, expr) ->
+        (* The measure is compiled to a term over the inputs of the function,
+           which the measure of a callee is lifted from to the arguments of a
+           recursive call (see [LustreNodeGen]): it can mention no other
+           variable, not even one introduced by its normalization. A call in
+           it is inlined (see [normalize_expr]). The clause keeps the measure
+           as written, which the decrease checks are rendered with *)
+        let nexpr, gids, warnings =
+          normalize_expr { info with in_measure = true } (Some node_id) map expr
+        in
+        let introduced =
+          AH.vars_without_node_call_ids nexpr
+          |> A.SI.exists (fun v -> StringMap.mem v gids.locals)
+        in
+        if introduced then raise (Measure_not_supported pos);
+        Decreases (pos, expr), { gids with decreases_measure = Some nexpr },
+        warnings, StringMap.empty
       | Mode (pos, name, requires, ensures) ->
 (*         let new_name = info.contract_ref ^ "_contract_" ^ name in
         let interpretation = StringMap.singleton name new_name in
@@ -2683,6 +2720,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         if vmap = [] then info
         else { info with emit_selector_obligations = false }
       in
+      (* The instance a call in a decreases measure retains is an instance
+         like any other, whose arguments are not part of the measure *)
+      let info = { info with in_measure = false } in
       let nargs, gids1, warnings = normalize_list
         (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
         (combine_args_with_const info args flags)
@@ -2707,9 +2747,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let call_context_has_quantified_vars =
       call_context_depends_on_quant_vars info
     in
+    (* A call in a decreases measure must be inlined, since the measure is a
+       term over the inputs of the function (see [normalize_contract]).
+       Compiling it to an application of the functional symbol of the callee,
+       as a call applied to quantified variables is, would put the application
+       in the termination checks, which are evaluated in models where it has
+       no value *)
+    if info.in_measure && not is_inlinable then
+      raise (Call_in_measure_not_supported (pos, id));
     let should_inline =
       is_inlinable &&
-      (vmap <> [] || info.inlined_expr_ctx || call_context_has_quantified_vars)
+      (vmap <> [] || info.inlined_expr_ctx || info.in_measure
+       || call_context_has_quantified_vars)
     in
     if should_inline
     then (

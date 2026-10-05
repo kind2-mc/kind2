@@ -141,6 +141,9 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
+  decreases_measure: LustreAst.expr option;
+  (** The measure of the decreases clause of a recursive function, normalized
+      as an expression of the inputs of the function alone *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml

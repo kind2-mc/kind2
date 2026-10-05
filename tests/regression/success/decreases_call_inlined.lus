@@ -1,0 +1,40 @@
+-- Decreases measures that call functions that can be inlined. A call in a
+-- measure is inlined, since the measure must be a term over the inputs of the
+-- function; this used to raise an assertion failure in LustreNodeGen
+-- (issue #1600), and was then rejected (issue #1606).
+type Nat = subrange [0,*] of int;
+
+function Abs(x: int) returns (y: int);
+let
+  y = if x >= 0 then x else -x;
+tel
+
+-- A function with a local variable that calls another one
+function Dist(x, y: int) returns (d: int);
+var diff: int;
+let
+  diff = x - y;
+  d = Abs(diff);
+tel
+
+function rec Down(n: int) returns (r: int);
+con decreases Abs(n); noc
+let
+  r = when n = 0 then 0 else when n > 0 then Down(n - 1) else Down(n + 1);
+tel
+
+function rec Toward(n, t: int) returns (r: int);
+con decreases Dist(n, t); noc
+let
+  r =
+    when n = t then 0
+    else when n > t then Toward(n - 1, t)
+    else Toward(n + 1, t);
+tel
+
+-- A type ascription is a call to a generated function, inlined as well
+function rec Asc(x: int) returns (r: int);
+con decreases (x : int) + 0; noc
+let
+  r = when x <= 0 then 0 else Asc(x - 1);
+tel

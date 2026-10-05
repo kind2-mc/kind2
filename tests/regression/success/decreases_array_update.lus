@@ -1,0 +1,23 @@
+-- Decreases measures with array updates and accesses. The measure is
+-- normalized before it is compiled, which resolves an update with a generic
+-- index into an array update, and the kind of an index access; they used to
+-- raise an assertion failure in LustreNodeGen (issue #1606).
+function rec F(a: int^1; n: int) returns (r: int);
+con decreases (a[0 := n])[0]; noc
+let
+  r = when n <= 0 then 0 else F(a, n - 1);
+tel
+
+-- A type ascription in the index of the update (issue #1600)
+function rec G(a: int^1; n: int) returns (r: int);
+con decreases (a[(0 : int) := n])[0]; noc
+let
+  r = when n <= 0 then 0 else G(a, n - 1);
+tel
+
+-- A tuple of measures, the second one reading an input array
+function rec H(a: int^2; n: int) returns (r: int);
+con decreases (a[1 := n])[1], a[0]; noc
+let
+  r = when n <= 0 or a[0] < 0 then 0 else H(a, n - 1);
+tel

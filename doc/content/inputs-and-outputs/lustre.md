@@ -739,10 +739,18 @@ function or of a lemma, and exactly one clause is allowed there. Declaring
 one anywhere else is an error.
 
 A `decreases` clause takes one of two forms. In either form, the measure may
-only mention the input parameters of the function and constants; in
-particular, it cannot call a node or a function, or contain a type
-ascription. A measure that needs a value computed by a function can take that
-value as an additional input parameter.
+only mention the input parameters of the function and constants. It may call
+a non-recursive function that can be inlined: one with no contract with
+guarantees, modes or a refinement type on an output (or declared
+`transparent`), with a single output, whose body is made of equations that
+define its output and local variables one at a time, without assertions or
+variables of an array type, and which calls only functions that can be
+inlined in turn. The call is replaced by the body of the function, and the
+obligations of the call, such as the assumptions of the function, are checked
+as for any other call. A type ascription is allowed as well. A measure cannot call a node, a recursive or
+imported function, or a function with a contract that abstracts it; a measure
+that needs a value computed by such a function can take that value as an
+additional input parameter.
 
 **Integer measure.** A single integer expression, or a comma-separated tuple of
 integer expressions read lexicographically:

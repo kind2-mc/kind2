@@ -1,0 +1,16 @@
+-- A decreases measure with a constant of a refinement type, which is turned
+-- into a function whose calls are inlined with the other constants. The
+-- constants of a decreases clause, and of the contract items after it, were
+-- not inlined (issue #1606).
+type Nat = subrange [0,*] of int;
+
+const D: Nat = 3;
+
+opaque function rec F(n: int) returns (r: int);
+(*@contract
+  decreases n + D;
+  guarantee r >= D;
+*)
+let
+  r = when n <= 0 then D else F(n - 1);
+tel

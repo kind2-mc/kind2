@@ -1185,6 +1185,18 @@ let const_array ty_array = function
 
 let select simplify_term_node model fterm = function
 
+  (* Select from a store: the stored value if the indexes are equal, a select
+     from the array stored into otherwise *)
+  | [a; i] when Term.is_store (term_of_nf a) -> (
+    match Term.destruct (term_of_nf a) with
+    | Term.T.App (_, [a'; j; v]) ->
+      let i = term_of_nf i in
+      Term.eval_t
+        simplify_term_node
+        (Term.mk_ite (Term.mk_eq [i; j]) v (Term.mk_select a' i))
+    | _ -> assert false
+  )
+
   (* Arguments are array and index *)
   | [a; i] ->
 

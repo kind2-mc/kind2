@@ -1,0 +1,14 @@
+-- A decreases measure that calls a function with a guarantee. The contract
+-- abstracts the function, which therefore cannot be inlined in the measure
+-- (issue #1606).
+function S(x: int) returns (r: int);
+(*@contract guarantee r = x; *)
+let
+  r = x;
+tel
+
+function rec F(x: int) returns (r: int);
+con decreases S(x); noc
+let
+  r = when x <= 0 then 0 else F(x - 1);
+tel

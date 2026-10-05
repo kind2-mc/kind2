@@ -2457,7 +2457,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           match StringMap.find_opt internal_node_name_hstring scc_map with
           | Some scc_id -> (
             let decreases_expr =
-              match get_decreases_expr contract with
+              (* The measure as normalized, in which a call is inlined (see
+                 LustreAstNormalizer) *)
+              match gids.GI.decreases_measure with
               | Some expr -> (
                 (* A tuple of measures compiles to several indexed bindings,
                    one per lexicographic component, in declaration order. *)

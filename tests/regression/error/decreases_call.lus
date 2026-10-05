@@ -1,19 +1,14 @@
--- A decreases measure that calls a function. The measure is compiled to a term
--- over the state variables of the function, which has no instance of the
--- callee; this used to raise an assertion failure in LustreNodeGen instead of
--- being reported (issue #1600).
-function S(x: int) returns (r: int);
+-- A decreases measure that calls a recursive function. A call in a measure
+-- must be inlined, since the measure is a term over the inputs of the
+-- function, and a recursive function cannot be (issues #1600 and #1606).
+function rec Len(x: int) returns (r: int);
+con decreases x; noc
 let
-  r = x;
+  r = when x <= 0 then 0 else 1 + Len(x - 1);
 tel
 
 function rec F(x: int) returns (r: int);
-con decreases S(x) + 0; noc
+con decreases Len(x); noc
 let
   r = when x <= 0 then 0 else F(x - 1);
-tel
-
-node main() returns ();
-let
-  check "ok" F(3) >= 0;
 tel
