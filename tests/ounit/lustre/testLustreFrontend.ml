@@ -1184,6 +1184,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/refinement_type_arg_const_param_activate.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
     | _ -> false);
+  mk_test "refinement type argument in constant parameter argument within a tuple" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument within an if-then-else" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_ite_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
   mk_test "if-then-else constant of the wrong type" (fun () ->
     match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed (Int _, Real _))) -> true

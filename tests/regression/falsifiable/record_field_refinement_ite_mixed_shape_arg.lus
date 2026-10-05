@@ -1,0 +1,5 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+const B: bool;
+function two(a: int) returns (p: int; q: int); let p = a; q = a; tel
+node M(a: int; b: int; x: int) returns (z: int); let z = a + b + x; tel
+node N(y: int) returns (z: int); let z = M(if B then two(y) else (y, (R { f = y }).f), y); check z = 3 * y; tel

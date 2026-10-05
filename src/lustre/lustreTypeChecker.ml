@@ -812,27 +812,58 @@ let check_constant_args ctx i arg_exprs =
   )
 
 (* Reject a refinement type argument in an argument for a constant parameter,
-   unless the argument is a record expression of exactly the parameter's type *)
+   unless it is a record expression of exactly that parameter's type *)
 let check_const_args_refinement_type_args ctx node_id param_tys args checked_args =
   let param_tys = match param_tys with
     | LA.GroupType (_, tys) -> tys
     | ty -> [ty]
   in
-  match lookup_node_param_attr ctx node_id with
-  | Some attrs when List.length attrs = List.length args
-                 && List.length param_tys = List.length args
-                 && List.length checked_args = List.length args ->
-    (* The types of parameters may mention the constant parameters *)
-    let sigma =
-      List.combine attrs checked_args
-      |> List.filter_map (fun ((id, is_const), e) -> if is_const then Some (id, e) else None)
-    in
-    let checks = List.map2 (fun ((_, is_const), ty) (e, checked) ->
-      let ty = LH.subst_in_type_exprs sigma ty in
-      if is_const then check_no_refinement_type_arg ctx (Some ty) e checked else R.ok ()
-    ) (List.combine attrs param_tys) (List.combine args checked_args) in
-    R.seq_ checks
-  | Some _ | None -> R.ok ()
+  (* Arguments that cannot be matched with the parameters are not checked *)
+  let params = match lookup_node_param_attr ctx node_id with
+    | Some attrs when List.length attrs = List.length param_tys -> List.combine attrs param_tys
+    | Some _ | None -> []
+  in
+  let split es params = match split_by_arity ctx es params with
+    | Some slices -> slices
+    | None -> List.map (fun _ -> []) es
+  in
+  (* The types of parameters may mention the constant parameters, whose values
+     are known when given by a whole component of the arguments *)
+  let rec sigma_of checked params = match checked, params with
+    | LA.GroupExpr (_, ExprList, cs), _ -> List.concat (List.map2 sigma_of cs (split cs params))
+    | _, [((id, true), _)] -> [(id, checked)]
+    | _, ([((_, false), _)] | [] | _ :: _ :: _) -> []
+  in
+  let sigma = List.concat (List.map2 sigma_of checked_args (split checked_args params)) in
+  let shared e checked params =
+    if List.exists (fun ((_, is_const), _) -> is_const) params then
+      check_no_refinement_type_arg ctx None e checked
+    else R.ok ()
+  in
+  (* Each position is checked on the sub-expression giving its value, and a
+     sub-expression shared by several positions if any of them is constant *)
+  let rec check e checked params = match e, checked with
+    | LA.GroupExpr (_, ExprList, es), LA.GroupExpr (_, ExprList, cs)
+      when List.length es = List.length cs ->
+      R.seq_ (List.map2 (fun (e, c) ps -> check e c ps) (List.combine es cs) (split cs params))
+    | TernaryOp (_, _, e1, e2, e3), TernaryOp (_, _, c1, c2, c3) ->
+      shared e1 c1 params >> check e2 c2 params >> check e3 c3 params
+    | Arrow (_, e1, e2), Arrow (_, c1, c2) -> check e1 c1 params >> check e2 c2 params
+    | Pre (_, e1), Pre (_, c1) | When (_, e1, _), When (_, c1, _) -> check e1 c1 params
+    | Merge (_, _, arms), Merge (_, _, c_arms) when List.length arms = List.length c_arms ->
+      R.seq_ (List.map2 (fun (_, e) (_, c) -> check e c params) arms c_arms)
+    | Match (_, e1, arms, _), Match (_, c1, c_arms, _) when List.length arms = List.length c_arms ->
+      shared e1 c1 params >>
+      R.seq_ (List.map2 (fun (_, e) (_, c) -> check e c params) arms c_arms)
+    | _, _ -> (
+      match params with
+      | [((_, true), ty)] ->
+        check_no_refinement_type_arg ctx (Some (LH.subst_in_type_exprs sigma ty)) e checked
+      | [((_, false), _)] | [] | _ :: _ :: _ -> shared e checked params
+    )
+  in
+  R.seq_ (List.map2 (fun (e, c) ps -> check e c ps)
+    (List.combine args checked_args) (split checked_args params))
 
 let rec type_extract_array_lens ctx ty = match ty with 
   | LA.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens ctx ty
