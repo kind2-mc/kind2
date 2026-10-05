@@ -1,0 +1,23 @@
+-- Same as when_clocked_call_hold.lus, with the value held by the off-branch
+-- of the when block written with 'fby' rather than with '->' and 'pre'.
+-- The candidate invariants for the activated call are generated in both
+-- cases; without them, the property below is not k-inductive for any k.
+
+type K = int;
+
+node Collect(k: K) returns (m: map<K,int>);
+let
+  m = map[]@<K,int> -> (pre m)[k := 0];
+tel
+
+node Main(c: bool; k: K) returns (m: map<K,int>);
+var held: map<K,int>;
+let
+  held = map[]@<K,int> fby m;
+  when c then
+    m = Collect(k);
+  else
+    m = held;
+  end
+  check "P" forall (i: K) i in m => m[i] = 0;
+tel

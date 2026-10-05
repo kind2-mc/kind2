@@ -1,0 +1,18 @@
+-- A 'div' or 'mod' between constants with a zero divisor is not evaluated
+-- by the frontend: like a division by zero with symbolic operands, it is
+-- left to the solver, which gives it an arbitrary value. Kind 2 used to
+-- fail with an uncaught Division_by_zero exception on the former, and
+-- 'mod' by a literal zero, with any dividend, used to fail an assertion
+-- when the type of the result was inferred from the divisor's range [0, 0].
+
+const C: int = 7 div 0;
+
+node top (x: int) returns (j, k, l, m: int);
+let
+  j = 7 div 0;
+  k = 7 mod 0;
+  l = C;
+  m = x mod 0;
+  check "same_value" j = l;
+  check "unconstrained" x = x;
+tel

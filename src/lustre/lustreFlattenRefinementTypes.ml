@@ -47,65 +47,55 @@ let rec flatten_ref_type ctx ty = match ty with
     ArrayType (pos, (ty, expr))
   | RefinementType (pos, (pos2, id, ty), expr) -> 
     let ty = flatten_ref_type ctx ty in
-    let rec chase_refinements ty = match ty with 
+    (* Constraints of the nested refinements on the value denoted by acc *)
+    let rec chase_refinements acc ty = match ty with 
     | A.RefinementType (_, (_, id2, ty2), expr2) -> 
-      let cons = chase_refinements ty2 in
-      (AH.substitute_naive id2 (Ident(pos, id)) expr2) :: cons
+      AH.substitute_naive id2 acc expr2 :: chase_refinements acc ty2
     | RecordType (_, _, tis) ->
       List.map (fun (_, id2, ty) -> 
-        let exprs = chase_refinements ty in 
-        List.map (AH.substitute_naive id (A.FieldProject(pos, Ident(pos, id), id2, A.RecordField))) exprs
+        chase_refinements (A.FieldProject (pos, acc, id2, A.RecordField)) ty
       ) tis |> List.flatten
     | TupleType (pos, tys) | GroupType (pos, tys) -> 
       List.mapi (fun i ty ->
-        let exprs = chase_refinements ty in
         let i = i |> string_of_int |> HString.mk_hstring in
-        List.map (AH.substitute_naive id (A.IndexAccess (pos, Ident(pos, id), A.Const (pos, A.Num i), A.Tuple))) exprs
+        chase_refinements (A.IndexAccess (pos, acc, A.Const (pos, A.Num i), A.Tuple)) ty
       ) tys |> List.flatten
     | Set (pos, ty) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
-      let exprs = chase_refinements ty in
+      let exprs = chase_refinements (A.Ident (pos, dummy_index)) ty in
       List.map (fun expr ->
-        let idx = A.Ident(pos, dummy_index) in
-        let expr = AH.substitute_naive id idx expr in
         let expr = 
-          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Set, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Set, Ident(pos, dummy_index), acc), expr) 
         in
         let ty = LustreTypeChecker.expand_type_syn_reftype_history ctx ty |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty], expr)
       ) exprs
     | Map (pos, ty1, ty2) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
-      let exprs1 = chase_refinements ty1 in
+      let exprs1 = chase_refinements (A.Ident (pos, dummy_index)) ty1 in
       let exprs1 = List.map (fun expr ->
-        let idx = A.Ident(pos, dummy_index) in
-        let expr = AH.substitute_naive id idx expr in
         let expr = 
-          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), acc), expr) 
         in
         let ty1 = LustreTypeChecker.expand_type_syn_reftype_history ctx ty1 |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
       ) exprs1 in 
-      let exprs2 = chase_refinements ty2 in
+      let exprs2 =
+        chase_refinements (A.IndexAccess (pos, acc, Ident(pos, dummy_index), Map)) ty2
+      in
       let exprs2 = List.map (fun expr ->
-        let idx =
-          A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Map)
-        in
-        let expr = AH.substitute_naive id idx expr in
         let expr = 
-          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), Ident(pos, id)), expr) 
+          A.BinaryOp(pos, A.Impl, A.BinaryOp(pos, In Map, Ident(pos, dummy_index), acc), expr) 
         in
         A.Quantifier(pos, Forall, [pos, dummy_index, ty1], expr)
       ) exprs2 in 
       exprs1 @ exprs2
     | ArrayType (pos, (ty, len)) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
-      let exprs = chase_refinements ty in
+      let exprs =
+        chase_refinements (A.IndexAccess (pos, acc, Ident(pos, dummy_index), Array)) ty
+      in
       List.map (fun expr ->
-        let idx =
-          A.IndexAccess(pos, Ident(pos, id), Ident(pos, dummy_index), Array)
-        in
-        let expr = AH.substitute_naive id idx expr in
         let bound1 = 
           A.CompOp(pos, Lte, A.Const(pos, Num (HString.mk_hstring "0")), A.Ident(pos, dummy_index)) 
         in 
@@ -117,7 +107,17 @@ let rec flatten_ref_type ctx ty = match ty with
     | History _ | TArr _ | UserType _ | SBitVector _ | UBitVector _ -> []
     | ADT _ -> [] (* TODO *) 
     in
-    let constraints = chase_refinements ty in 
+    (* The constraints are collected on a fresh name so that they capture nothing *)
+    let fresh = AN.mk_fresh_dummy_index () in
+    let constraints = chase_refinements (A.Ident (pos, fresh)) ty in
+    (* The bound variable keeps its name unless it would capture a variable of
+       the same name in a nested constraint *)
+    let id, expr, constraints =
+      if List.exists (AH.expr_contains_id id) constraints then
+        fresh, AH.substitute_naive id (A.Ident (pos2, fresh)) expr, constraints
+      else
+        id, expr, List.map (AH.substitute_naive fresh (A.Ident (pos2, id))) constraints
+    in
     let expr = List.fold_left (fun acc expr ->
       A.BinaryOp(pos, And, acc, expr)
     ) expr constraints in
@@ -143,6 +143,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   let rec_call = flatten_ref_types_expr ctx in  
   match e with
   (* Expressions with types *)
+  | Restart _ -> assert false (* desugared in lustreGenNodes *)
   | Quantifier (p, q, tis, e) ->
     let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
     Quantifier (p, q, tis, rec_call e)
@@ -171,24 +172,11 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   | StructUpdate (p, e1, i, None) -> StructUpdate (p, rec_call e1, i, None) 
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, rec_call e1, rec_call e2) 
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, rec_call e1, rec_call e2, k)
-  | When (p, e, c) -> When (p, rec_call e, c) 
-  | Condact (p, e1, e2, i, es1, es2) ->
-    Condact (p, rec_call e1
-              , rec_call e2
-              , i
-              , List.map rec_call es1
-              , List.map rec_call es2)
-  | Activate (p, i, e1, e2, es) ->
-    Activate(p, i
-              , rec_call e1
-              , rec_call e2
-              , List.map rec_call es)
-  | Merge (p, i, es) ->
-    Merge (p, i, List.map (fun (i, e) -> i, rec_call e) es)
   | RestartEvery (p, i, es, e) ->
     RestartEvery (p, i, List.map rec_call es, rec_call e)
   | Pre (p, e) -> Pre(p, rec_call e)
   | Arrow (p, e1, e2) ->  Arrow (p, rec_call e1, rec_call e2)
+  | Fby (p, e1, e2) ->  Fby (p, rec_call e1, rec_call e2)
   | TypeAscription (p, e, ty) ->
     TypeAscription (p, rec_call e, flatten_ref_type ctx ty)
   | Call (p, ty_args, i, es) -> Call (p, ty_args, i, List.map rec_call es)
@@ -203,7 +191,13 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
 
 let flatten_ref_types_item ctx item = 
   match item with 
-  | A.AnnotProperty (p, id, expr, k) -> A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
+  | A.AnnotProperty (p, id, expr, k) ->
+    let k = match k with
+      | A.Provided g -> A.Provided (flatten_ref_types_expr ctx g)
+      | A.Invariant | A.Reachable _ -> k
+    in
+    A.AnnotProperty (p, id, flatten_ref_types_expr ctx expr, k)
   | MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | Body _ | FrameBlock _ | IfBlock _ | WhenBlock _ | AnnotMain _ | Auto _ -> item
 

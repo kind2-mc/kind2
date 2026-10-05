@@ -15,10 +15,11 @@ node test (e: int; cl: t) returns
 let 
   s = integr(e);
   
-  t1 = merge cl
-        (A -> s when A(cl))
-        (C -> s when C(cl))
-        (B -> s - 1 when B(cl));
+  cond
+    | cl = A: t1 = s;
+    | cl = C: t1 = s;
+    otherwise: t1 = s - 1;
+  end
   
   --%PROPERTY t1 <= s;
 tel

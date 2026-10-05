@@ -24,9 +24,6 @@ open TypeCheckerContext
 
 type error_kind = Unknown of string
   | Impossible of string
-  | MergeCaseExtraneous of HString.t * tc_type
-  | MergeCaseMissing of HString.t
-  | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
   | UnboundNodeName of HString.t
@@ -54,10 +51,8 @@ type error_kind = Unknown of string
   | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
-  | IlltypedDefaults
-  | IlltypedMerge of tc_type
-  | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
+  | IlltypedFby of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
   | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type
@@ -95,8 +90,6 @@ type error_kind = Unknown of string
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
   | ExpectedMapSetType of tc_type
-  | ClockMismatchInMerge
-  | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NodeId.t 
   | TempOperatorInFuncTypeAscription 

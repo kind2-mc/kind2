@@ -1,6 +1,8 @@
 -- A decreases measure with a type ascription in a type it carries, here the
--- size of an array type. It is rejected like any other type ascription in a
--- measure (issue #1600).
+-- size of an array type. The type ascription is a call to a generated node,
+-- which an array size cannot contain; this was rejected while type ascriptions
+-- were not allowed in a measure (issue #1600), then failed an assertion in
+-- the type checker (issue #1606).
 function rec F(n: int) returns (r: int);
 con decreases n + (choose @<int^(1 : int)>)[0]; noc
 let

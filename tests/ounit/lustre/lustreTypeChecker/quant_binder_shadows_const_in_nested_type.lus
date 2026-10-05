@@ -1,0 +1,6 @@
+const k: int;
+
+node main (x: int) returns ();
+let
+  check forall (k: int) forall (j: subtype { y: int | y >= k }) j >= k;
+tel

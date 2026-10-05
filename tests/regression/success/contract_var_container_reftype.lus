@@ -1,0 +1,25 @@
+-- Contract variables whose type is a map, set, array or tuple of a
+-- subrange or refinement type (issue #1608)
+
+type Nat = subrange [0,*] of int;
+type PosR = subtype { x: int | x > 0 };
+
+node G() returns (r: bool);
+(*@contract
+  var y: map<int, Nat> = map[]@<int, Nat>;
+  guarantee r;
+*)
+let r = true; tel
+
+function F(a: Nat) returns (r: bool);
+(*@contract
+  var m1: map<int, Nat> = map[]@<int, Nat>[0 := a];
+  var m2: map<Nat, int> = map[]@<Nat, int>[a := 1];
+  var m3: map<int, PosR> = map[]@<int, PosR>[0 := a + 1];
+  var s: set<Nat> = { a, 1 };
+  var ar: Nat^3 = [0, a, 2];
+  var t: [Nat, PosR] = '(a, a + 1);
+  guarantee r = (ar[1] = a);
+  guarantee 0 <= m1[0];
+*)
+let r = true; tel

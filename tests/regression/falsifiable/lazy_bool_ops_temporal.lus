@@ -1,0 +1,9 @@
+-- 'pre' in the right operand of 'and then' refers to the last step at which
+-- the operand was evaluated, unlike in the right operand of 'and'.
+
+node Main(c: bool) returns (a, e: bool);
+let
+  a = c and then (true -> not pre a);
+  e = c and (true -> not pre e);
+  check a = e;
+tel

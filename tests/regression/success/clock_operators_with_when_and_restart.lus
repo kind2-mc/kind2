@@ -1,0 +1,87 @@
+-- The clock operators 'merge', 'e when c', 'activate', 'condact', the restart
+-- of a node call '(restart N every r)(args)', and 'current' are not part of
+-- Kind 2's input language. This file shows how each of them is expressed with
+-- 'when' expressions and 'restart', and checks every implementation against a
+-- reference written with 'pre', '->' and an eager 'if' only.
+
+-- The running sum of its input, over the steps at which it is evaluated
+node Acc (a: int) returns (y: int);
+let
+  y = a -> pre y + a;
+tel
+
+type Level = enum { Lo, Mid, Hi };
+
+node top (c, r: bool; k: Level; a, d: int) returns ();
+var
+  s, s_hi, s_r, t, v: int;
+  m1, m2, act, cnd, cnd_held, cnd_r, cnd_r_held, rst, cur, cur_held: int;
+let
+  -- The reference sums: of 'a' over the steps at which c holds, over the
+  -- steps at which k = Hi, and over the steps at which c holds since the last
+  -- one at which r also held
+  s = (0 -> pre s) + (if c then a else 0);
+  s_hi = (0 -> pre s_hi) + (if k = Hi then a else 0);
+  s_r = if c then (if r then a else (0 -> pre s_r) + a) else (0 -> pre s_r);
+
+  -- merge c (true -> e1 when c) (false -> e2 when not c)
+  --
+  -- The sampled expressions are evaluated at every step, and only their
+  -- values are selected, so an expression with state is defined outside the
+  -- branches: in a branch, its state would only advance when the branch is
+  -- selected.
+  t = 0 -> pre t + 1;
+  m1 = when c then t else -1;
+  --%PROPERTY "merge" m1 = (if c then t else -1);
+
+  -- merge k (Lo -> 0 when Lo(k)) (Mid -> a when Mid(k))
+  --         (Hi -> (activate Acc every Hi(k))(a))
+  cond
+    | k = Lo: m2 = 0;
+    | k = Mid: m2 = a;
+    otherwise: m2 = Acc(a);
+  end
+  --%PROPERTY "merge_enum" m2 = (if k = Lo then 0 else if k = Mid then a else s_hi);
+
+  -- merge c (true -> (activate Acc every c)(a)) (false -> d when not c)
+  --
+  -- A node called in a branch runs on the clock of the branch: its state only
+  -- advances at the steps at which the branch is selected.
+  act = when c then Acc(a) else d;
+  --%PROPERTY "activate" act = (if c then s else d);
+
+  -- condact(c, Acc(a), d), or (activate Acc every c initial default d)(a)
+  --
+  -- The output keeps its previous value while c is false, and is d before c
+  -- first holds. The previous value is taken outside the branch: in the
+  -- branch, 'fby' would run on the clock 'not c'.
+  cnd_held = d fby cnd;
+  cnd = when c then Acc(a) else cnd_held;
+  --%PROPERTY "condact" cnd = (if c then s else (d -> pre cnd));
+
+  -- condact(c, (restart Acc every r)(a), d), or
+  -- (activate (restart Acc every r) every c initial default d)(a)
+  --
+  -- A restart in a branch is sampled on the clock of the branch: it only
+  -- takes effect at the steps at which both c and r hold.
+  cnd_r_held = d fby cnd_r;
+  cnd_r = when c then (restart Acc(a) every r) else cnd_r_held;
+  --%PROPERTY "condact_restart" cnd_r = (if c then s_r else (d -> pre cnd_r));
+
+  -- (restart Acc every r)(0 -> pre a)
+  --
+  -- 'restart' resets the state of the whole expression, including the
+  -- arguments of a call, so an argument with state of its own is defined
+  -- outside the restart.
+  v = 0 -> pre a;
+  rst = restart Acc(v) every r;
+  --%PROPERTY "restart" rst = (if r then v else (v -> pre rst + v));
+
+  -- current (a when c), with the value d before c first holds
+  --
+  -- The value of a at the last step at which c held. As for condact, the
+  -- previous value is taken outside the branch.
+  cur_held = d fby cur;
+  cur = when c then a else cur_held;
+  --%PROPERTY "current" cur = (if c then a else (d -> pre cur));
+tel

@@ -3,6 +3,6 @@ type R = struct { a: Nat };
 node M(const r: R; x: int) returns (y: int) let y = r.a + x; tel
 node N(c: bool; x: int) returns (y: int)
 let
-  y = (restart M every c)(R { a = 1 }, x);
+  y = restart M(R { a = 1 }, x) every c;
   check y = 1 + x;
 tel

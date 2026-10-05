@@ -152,6 +152,15 @@ val vars_of_type: lustre_type -> SI.t
 (** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
     while excluding node call identifiers and refinement type bound variables *)
 
+val rename_self_referencing_binders :
+  ?expand:(lustre_type -> lustre_type) ->
+  (Lib.position * ident * lustre_type) list -> expr ->
+  (Lib.position * ident * lustre_type) list * expr
+(** [rename_self_referencing_binders ~expand tis e] alpha-renames, in the
+    quantifier binders [tis] and body [e], each variable whose name occurs in a
+    binder type, after expansion by [expand], where it does not denote the
+    quantified variable *)
+
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)
 
@@ -249,6 +258,10 @@ val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
 val constants_to_calls: ident list -> expr -> expr
 (** `constants_to_calls const_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
      provided that `C` is in `const_func_ids` *)
+
+val constants_to_calls_in_type: ident list -> lustre_type -> lustre_type
+(** `constants_to_calls_in_type const_func_ids ty` applies {!constants_to_calls} to the
+     expressions of `ty`, except where a refinement type's bound variable shadows a constant *)
 
 val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 (** `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)

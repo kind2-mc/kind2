@@ -21,6 +21,7 @@
 
 type error_kind =
   | MisplacedLastError of HString.t
+  | LastUnderRestart of HString.t
   | LastOnInputError of HString.t
   | UnknownIdentifier of HString.t
 

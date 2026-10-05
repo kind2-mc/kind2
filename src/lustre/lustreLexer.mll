@@ -315,14 +315,8 @@ let keyword_table = mk_hashtbl [
   "choose", CHOOSE ;
   
   (* Clock operators *)
-  "current", CURRENT ;
-  "condact", CONDACT ;
-  "activate", ACTIVATE ;
-  "initial", INITIAL ;
-  "default", DEFAULT ;
   "every", EVERY ;
   "restart", RESTART ;
-  "merge", MERGE ;
 
   (* Temporal operators *)
   "pre", PRE ;

@@ -223,18 +223,34 @@ let rand_node name ts =
   |> List.map2 (fun t out -> dpos,HString.mk_hstring out,t,A.ClockTrue) ts
   in
   A.NodeDecl (dspan,
-    (name, true, Opaque, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
+    (name, true, Default, [], [dpos,HString.mk_hstring "id",A.Int dpos,A.ClockTrue, false],
     outs, [], [], None)
   )
 
+(* The positions of the model elements of an IVC, and among them the
+   positions of its node calls *)
+type kept_positions = {
+  positions: Lib.position list ;
+  calls: PosSet.t ;
+}
+
+let kept_positions_of_elements elts =
+  let positions_of elts =
+    List.map get_positions_of_model_element elts |> List.flatten
+  in
+  let calls =
+    List.filter (fun elt -> is_model_element_in_categories elt false [`NODE_CALL]) elts
+  in
+  { positions = positions_of elts ; calls = PosSet.of_list (positions_of calls) }
+
 let nodes_input_types = Hashtbl.create 10
-let rec minimize_node_call_args ue lst expr =
+let rec minimize_node_call_args ue keep expr =
   let minimize_arg ident i arg =
     match arg with
     | A.Ident _ | A.ModeRef _ | A.FieldProject _ -> arg
     | _ ->
       let t = Hashtbl.find nodes_input_types ident |> (fun lst -> List.nth lst i) in
-      let (_, expr) = minimize_expr ue lst [t] arg in
+      let (_, expr) = minimize_expr ue keep [t] arg in
       expr
   in
   let rec aux expr =
@@ -242,6 +258,9 @@ let rec minimize_node_call_args ue lst expr =
     | A.Const _ | A.Ident _ | A.Last _ | A.ModeRef _ | A.EmptyMap _| A.EmptySet _
     | A.AbstractSymConst _
     -> expr
+    | A.Call (pos, ty_args, ident, args) when PosSet.mem pos keep.calls ->
+      (* The call is in the IVC, so are its arguments *)
+      A.Call (pos, ty_args, ident, List.map aux args)
     | A.Call (pos, ty_args, ident, args) ->
       A.Call (pos, ty_args, ident, List.mapi (minimize_arg ident) args)
     | A.FieldProject (p,e,i,ty_opt) -> A.FieldProject (p,aux e,i,ty_opt)
@@ -260,16 +279,11 @@ let rec minimize_node_call_args ue lst expr =
     | A.ChooseOp (p,ti,e) -> A.ChooseOp (p,ti,aux e)
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
     | A.CompOp (p,op,e1,e2) -> A.CompOp (p,op,aux e1,aux e2)
-    | A.When (p,e,c) -> A.When (p,aux e,c)
-    | A.Condact (p,e1,e2,id,es1,es2) ->
-      A.Condact (p,aux e1,aux e2,id,List.map aux es1,List.map aux es2)
-    | A.Activate (p,id,e1,e2,es) ->
-      A.Activate (p,id,aux e1,aux e2,List.map aux es)
-    | A.Merge (p,id,lst) ->
-      A.Merge (p,id,List.map (fun (i,e) -> (i, aux e)) lst)
+    | A.Restart (p,e1,e2) -> A.Restart (p,aux e1,aux e2)
     | A.RestartEvery (p,id,es,e) -> A.RestartEvery (p,id,List.map aux es,aux e)
     | A.Pre (p,e) -> A.Pre (p,aux e)
     | A.Arrow (p,e1,e2) -> A.Arrow (p,aux e1,aux e2)
+    | A.Fby (p,e1,e2) -> A.Fby (p,aux e1,aux e2)
     | A.Extract (p, e, idx1, idx2) -> A.Extract(p, aux e, idx1, idx2)
     | A.TypeAscription (p, e, ty) -> A.TypeAscription (p, aux e, ty)
     | A.Match (p, e, arms, ty_opt) ->
@@ -291,27 +305,21 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.FieldProject (_,e,_,_)
       | A.Quantifier (_,_,_,e)
-      | A.When (_,e,_) | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
+      | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
       | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
     | A.StructUpdate (_,e1,_,Some e2) | A.ArrayConstr (_,e1,e2)
     | A.IndexAccess (_,e1,e2,_) 
     | A.BinaryOp (_,_,e1,e2) | A.CompOp (_,_,e1,e2)
-    | A.Arrow (_,e1,e2) -> aux e1 || aux e2
+    | A.Arrow (_,e1,e2) | A.Fby (_,e1,e2) | A.Restart (_,e1,e2) -> aux e1 || aux e2
     | A.TypeAscription (_, e, _) -> aux e
     | A.GroupExpr (_,_,es) ->
       List.map aux es
       |> List.exists (fun x -> x)
     | A.TernaryOp (_,_,e1,e2,e3) ->
       aux e1 || aux e2 || aux e3
-    | A.RecordExpr (_,_,_,lst) | A.Merge (_,_,lst) ->
+    | A.RecordExpr (_,_,_,lst) ->
       List.map (fun (_,e) -> aux e) lst
-      |> List.exists (fun x -> x)
-    | A.Condact (_,e1,e2,_,es1,es2) ->
-      List.map aux (e1::e2::(es1@es2))
-      |> List.exists (fun x -> x)
-    | A.Activate (_,_,e1,e2,es) ->
-      List.map aux (e1::e2::es)
       |> List.exists (fun x -> x)
     | A.RestartEvery (_,_,es,e) ->
       List.map aux (e::es)
@@ -324,13 +332,13 @@ and ast_contains p ast =
   in
   aux ast
 
-and minimize_expr ue lst typ expr =
-  let all_pos = PosSet.of_list lst in
+and minimize_expr ue keep typ expr =
+  let all_pos = PosSet.of_list keep.positions in
   let keep_expr expr =
     PosSet.mem (H.pos_of_expr expr) all_pos
   in
   if ast_contains keep_expr expr
-  then (false, minimize_node_call_args ue lst expr)
+  then (false, minimize_node_call_args ue keep expr)
   else (true, ue typ expr)
 
 let tyof_lhs id_typ_map lhs =
@@ -344,44 +352,46 @@ let tyof_lhs id_typ_map lhs =
   let (items,typ) = List.map aux items |> List.flatten |> List.split in
   (A.StructDef (pos, items), typ)
 
-let minimize_node_eq id_typ_map ue lst = function
+let minimize_node_eq id_typ_map ue keep = function
   | A.Assert (pos, expr) when
-    List.exists (fun p -> Lib.equal_pos p pos) lst ->
+    List.exists (fun p -> Lib.equal_pos p pos) keep.positions ->
     Some (A.Assert (pos, expr))
   | A.Assert _ -> None
   | A.Equation (pos, lhs, expr) ->
     let (novarindex_lhs, typ) = tyof_lhs id_typ_map lhs in
-    let (b, expr) = minimize_expr (ue false) lst typ expr in
+    let (b, expr) = minimize_expr (ue false) keep typ expr in
     let lhs = if b then novarindex_lhs else lhs in
     Some (A.Equation (pos, lhs, expr))
 
-let rec minimize_item id_typ_map ue lst = function
+let rec minimize_item id_typ_map ue keep = function
   | A.AnnotMain (p, b) -> [A.AnnotMain (p, b)]
   | A.Auto p -> [A.Auto p]
   | A.AnnotProperty (p, str, e, k) -> [A.AnnotProperty (p, str, e, k)]
   | A.Body eq -> (
-    match minimize_node_eq id_typ_map ue lst eq with
+    match minimize_node_eq id_typ_map ue keep eq with
       | None -> []
       | Some eq -> [A.Body eq]
   )
   | A.IfBlock (pos, e, l1, l2) -> 
-    [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten, 
-                        List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+    [A.IfBlock (pos, e, List.map (minimize_item id_typ_map ue keep) l1 |> List.flatten, 
+                        List.map (minimize_item id_typ_map ue keep) l2 |> List.flatten)]
   | A.WhenBlock (pos, e, l1, l2) ->
-    [A.WhenBlock (pos, e, List.map (minimize_item id_typ_map ue lst) l1 |> List.flatten,
-                         List.map (minimize_item id_typ_map ue lst) l2 |> List.flatten)]
+    [A.WhenBlock (pos, e, List.map (minimize_item id_typ_map ue keep) l1 |> List.flatten,
+                         List.map (minimize_item id_typ_map ue keep) l2 |> List.flatten)]
   | A.MatchBlock (pos, e, arms, ty) ->
     [A.MatchBlock (pos, e,
                    List.map (fun (p, items) ->
-                     (p, List.map (minimize_item id_typ_map ue lst) items |> List.flatten))
+                     (p, List.map (minimize_item id_typ_map ue keep) items |> List.flatten))
                      arms,
                    ty)]
+  | A.RestartBlock (pos, l, e) ->
+    [A.RestartBlock (pos, List.map (minimize_item id_typ_map ue keep) l |> List.flatten, e)]
   | A.FrameBlock (pos, vars, nes, nis) -> 
-    [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue lst eq) 
+    [A.FrameBlock(pos, vars, List.map (fun eq -> match (minimize_node_eq id_typ_map ue keep eq) 
                                          with | None -> [] | Some eq -> [eq]) 
                                       nes 
                                       |> List.flatten, 
-                       List.map (minimize_item id_typ_map ue lst) nis |> List.flatten)]
+                       List.map (minimize_item id_typ_map ue keep) nis |> List.flatten)]
 
 let minimize_const_decl _ue _lst = function
   | A.UntypedConst (p,id,e) -> A.UntypedConst (p,id,e)
@@ -392,9 +402,9 @@ let minimize_const_decl _ue _lst = function
     (*let (_,e) = minimize_expr (ue true) lst [t] e in*)
     A.TypedConst (p,id,e,t)
 
-let minimize_node_local_decl ue lst = function
+let minimize_node_local_decl ue keep = function
   | A.NodeConstDecl (p,d) ->
-    A.NodeConstDecl (p,minimize_const_decl ue lst d)
+    A.NodeConstDecl (p,minimize_const_decl ue keep d)
   | A.NodeVarDecl (p,d) -> A.NodeVarDecl (p,d)
 
 let build_id_typ_map input output local =
@@ -416,21 +426,21 @@ let build_id_typ_map input output local =
   let acc = List.fold_left add_output acc output in
   List.fold_left add_local acc local
 
-let minimize_contract_node_eq ue lst cne =
+let minimize_contract_node_eq ue keep cne =
   match cne with
   | A.ContractCall _ -> [cne]
-  | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue lst d)]
+  | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue keep d)]
   | A.GhostVars (pos, (GhostVarDec(_, til) as lhs), expr) ->
     let typ = List.map (fun (_, _, t) -> t) til in
-    let (_, expr) = minimize_expr (ue false) lst typ expr in
+    let (_, expr) = minimize_expr (ue false) keep typ expr in
     [A.GhostVars (pos, lhs, expr)]
   | A.Assume (pos,_,_,_)
   | A.Guarantee (pos,_,_,_) ->
-    if List.exists (fun p -> Lib.equal_pos p pos) lst
+    if List.exists (fun p -> Lib.equal_pos p pos) keep.positions
     then [cne] else []
   | A.Mode (pos,id,req,ens) ->
     let ens = ens |> List.filter
-      (fun (pos,_,_) -> List.exists (fun p -> Lib.equal_pos p pos) lst)
+      (fun (pos,_,_) -> List.exists (fun p -> Lib.equal_pos p pos) keep.positions)
     in
     [A.Mode (pos,id,req,ens)]
   | A.AssumptionVars _ -> [cne]
@@ -442,16 +452,16 @@ let minimize_node_decl ue loc_core
   let id' = NI.get_internal_name node_id |> HString.string_of_hstring in
   let id_typ_map = build_id_typ_map inputs outputs locals in
 
-  let minimize_with_lst lst =
-    let items = List.map (minimize_item id_typ_map ue lst) items |> List.flatten in
+  let minimize_with keep =
+    let items = List.map (minimize_item id_typ_map ue keep) items |> List.flatten in
     let spec = 
     begin match spec with
       | None -> None
-      | Some (p, spec) -> List.map (minimize_contract_node_eq ue lst) spec 
+      | Some (p, spec) -> List.map (minimize_contract_node_eq ue keep) spec 
       |> List.flatten |> (fun s -> if s = [] then None else Some (p, s))
     end
     in
-    let locals = List.map (minimize_node_local_decl ue lst) locals in
+    let locals = List.map (minimize_node_local_decl ue keep) locals in
     (node_id, extern, opac, tparams, inputs, outputs, locals, items, spec)
   in
   
@@ -459,24 +469,22 @@ let minimize_node_decl ue loc_core
   if List.exists (fun sc -> Scope.equal sc scope) (scopes_of_loc_core loc_core)
   then (
     get_model_elements_of_scope loc_core scope
-    |> List.map get_positions_of_model_element
-    |> List.flatten |> minimize_with_lst
+    |> kept_positions_of_elements |> minimize_with
   )
   else (
     if Flags.IVC.ivc_only_main_node ()
     then ndecl
-    else minimize_with_lst []
+    else minimize_with (kept_positions_of_elements [])
   )
 
 let minimize_contract_decl ue loc_core (id, tparams, inputs, outputs, (p, body)) =
-  let lst = scopes_of_loc_core loc_core
+  let keep = scopes_of_loc_core loc_core
     |> List.map (get_model_elements_of_scope loc_core)
     |> List.flatten
-    |> List.map get_positions_of_model_element
-    |> List.flatten
+    |> kept_positions_of_elements
   in
   let body = body
-    |> List.map (minimize_contract_node_eq ue lst)
+    |> List.map (minimize_contract_node_eq ue keep)
     |> List.flatten
   in
   let body = if body = []

@@ -1,0 +1,11 @@
+const k: int = 7;
+
+function F (const n: int) returns (y: bool);
+let
+  y = n > 5;
+tel
+
+node main (x: int) returns ();
+let
+  check forall (k: int) F(k);
+tel

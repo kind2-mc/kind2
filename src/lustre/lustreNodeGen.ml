@@ -921,7 +921,7 @@ let rec compile ctx gids adt_map scc_map decls =
       match decl with
       | A.FuncDecl (_, (i, _, _, _, inputs, _, _, _, contract), attrs)
         when attrs.A.is_rec -> (
-        match get_decreases_expr contract with
+        match source_decreases_expr (NI.Map.find_opt i gids) contract with
         | Some decreases ->
           let formals =
             List.map (fun ip -> LustreAstHelpers.extract_ip_ty ip |> fst) inputs
@@ -1002,7 +1002,8 @@ and compile_ast_type
       let compiled_type = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_type a
     in 
-    List.fold_left over_types (0, X.empty) types |> snd
+    (* Flatten nested group types, as is done for group expressions *)
+    List.fold_left over_types (0, X.empty) types |> snd |> flatten_list_indexes
   | A.Set (_, ty1) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
@@ -1190,8 +1191,8 @@ and compile_ast_expr
         let id_str = HString.mk_hstring (id ^ "_" ^ name) in
         let ident = mk_ident id_str in
         let e = H.find !map.expr ident in
-        let e = X.find [X.ListIndex proj] e in
-        X.singleton X.empty_index e
+        (* The component may itself be indexed, e.g. an array or a record *)
+        X.find_prefix [X.ListIndex proj] e
         with _ -> H.find !map.expr ident)
       | _ -> H.find !map.expr ident)
     with Not_found ->
@@ -1430,35 +1431,6 @@ and compile_ast_expr
         | None -> ());
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
-
-  and compile_merge bounds clock_ident merge_cases =
-    let merge_cases = List.map (fun (s, e) -> HString.string_of_hstring s, e) merge_cases in
-    let clock_expr = compile_id_string bounds clock_ident |> X.values |> List.hd in
-    let clock_type = E.type_of_lustre_expr clock_expr in
-    let cond_expr_clock_value clock_value = match clock_value with
-      | "true" -> clock_expr
-      | "false" -> E.mk_not clock_expr
-      | _ -> E.mk_eq clock_expr (E.mk_constr clock_value clock_type)
-    in
-    let compile_merge_case = function
-      | A.When (_, expr, _) ->
-        compile_ast_expr cstate ctx bounds map expr
-      | expr -> compile_ast_expr cstate ctx bounds map expr
-    in
-    let merge_cases_r =
-      let over_cases = fun acc (case_value, e) ->
-        let e = compile_merge_case e in
-        (cond_expr_clock_value case_value, e) :: acc
-      in List.fold_left over_cases [] merge_cases
-    in
-    let default_case, other_cases_r = match merge_cases_r with
-      | (_, d) :: l -> d, l
-      | _ -> assert false
-    in
-    let over_other_cases = fun acc (cond, e) ->
-      X.map2 (fun _ -> E.mk_ite cond) e acc
-    in
-    List.fold_left over_other_cases default_case other_cases_r
 
   (* A selector applied where its constructor is not known to be the active
      one (see [LustreDesugarADTs]): the payload when it is, and otherwise an
@@ -1874,11 +1846,10 @@ and compile_ast_expr
   | A.TernaryOp (_, A.LazyIte, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
-  | A.Merge (_, clock_ident, merge_cases) ->
-    compile_merge bounds clock_ident merge_cases
   | A.Extract (_, expr, ub, lb) -> 
     compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
+  | A.Fby _ -> assert false (* already lowered in lustreAstNormalizer *)
   | A.ChooseOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
   | A.TypeAscription _ -> assert false (* already desugared in lustreDesugarTypeAscriptions *)
   (* ****************************************************************** *)
@@ -1923,7 +1894,11 @@ and compile_ast_expr
         flatten_expr_list accum (expr_list @ tl)
       | expr :: tl -> flatten_expr_list (expr :: accum) tl
     in let expr_list = flatten_expr_list [] expr_list in
+    (* An element may itself compile to a list (e.g. an abstracted multi-output
+       node call), so flatten the result to give every group of the same width
+       the same shape *)
     compile_group_expr bounds (fun j i -> X.ListIndex i :: j) expr_list
+    |> flatten_list_indexes
   | A.GroupExpr (_, A.TupleExpr, expr_list) ->
     compile_group_expr bounds (fun j i -> X.TupleIndex (i, None) :: j) expr_list
   | A.RecordExpr (_, _, _, expr_list) ->
@@ -1938,9 +1913,9 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Node calls are abstracted to identifiers or group expressions by 
     the normalizer, making these expressions impossible at this stage *)
-  | A.Condact _ -> assert false
   | A.Call _ -> assert false
   | A.RestartEvery _ -> assert false
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   (* ****************************************************************** *)
   (* Array Operators                                                    *)
   (* ****************************************************************** *)
@@ -1965,8 +1940,6 @@ and compile_ast_expr
     X.map (default_of_type cstate.abstract_type_defaults) ty
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
-  | A.When _ -> assert false
-  | A.Activate _ -> assert false
   | A.ADTTerm (_, _, ctor, arg_exprs) ->
     (* A constructor names the ADT it belongs to, which for a polymorphic ADT is
        the instantiation whose value it builds, so it carries no type arguments *)
@@ -2128,10 +2101,12 @@ and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx csta
   (* When a node is called within a branch of a when block (i.e. it has a
      call context but no explicit activation condition), the activation of the
      node is driven by the when guard. Represent it as an activation condition
-     rather than a call context. *)
+     rather than a call context. A restart condition is then sampled on the
+     guard, as with an explicit activation condition. *)
   let cond_state_var, call_ctx =
     match call_ctx, cond_state_var with
     | Some id, [] when is_node -> [N.CActivate id], None
+    | Some id, [N.CRestart r] when is_node -> [N.CActivate id; N.CRestart r], None
     | _ -> cond_state_var, call_ctx
   in
   let call_id = !map.call_count in
@@ -2438,7 +2413,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   let ast_locals = locals in
   (* Source decreases measure of this node, used as the right-hand side of the
      decrease constraint rendered for recursive calls. *)
-  let node_decreases = get_decreases_expr contract in
+  let node_decreases = source_decreases_expr (Some gids) contract in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
@@ -2958,6 +2933,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in let (node_props, node_eqs, node_asserts, is_main) = 
     let over_items = fun (props, eqs, asserts, is_main) (item) ->
       match item with
+      | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body e -> (match e with
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
@@ -3879,6 +3855,16 @@ and get_decreases_expr contract =
     List.fold_left over_decrease_clause None contract
   )
   | None -> None
+
+(* The measure of a decreases clause as written, rather than as normalized
+   (see [LustreAstNormalizer.normalize_contract]) *)
+and source_decreases_expr gids contract =
+  match get_decreases_expr contract, gids with
+  | Some expr, Some gids ->
+    let key = HString.mk_hstring (A.string_of_expr expr) in
+    Some
+      (try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr)
+  | expr, _ -> expr
 
 (* The individual components of a decrease measure. A tuple of measures is
    represented as an expression list; a single measure is its own component. *)

@@ -1,0 +1,30 @@
+-- The value a call to a function that is not recursive is evaluated to is
+-- what its body computes, whether its contract abstracts it or not: a check
+-- that holds of it is proved, and one that does not is falsified, in the
+-- first analysis of main.
+--
+-- The run is falsifiable, as "wrong" is, so test_rec_evaluation.py checks
+-- the answers of the first analysis of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+function Double(n: int) returns (m: int);
+(*@contract
+  assume n >= 0;
+  guarantee m >= n;
+*)
+let
+  m = 2 * n;
+tel
+
+node main() returns (y: int);
+let
+  y = Fact(Double(2));
+  check "right" y = 24;
+  check "wrong" y = 25;
+tel

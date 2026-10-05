@@ -38,6 +38,7 @@ let valid_locals ctx locals =
 
 let valid_items set items =
   items |> List.for_all (function
+    | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
     | A.Body (Equation (_, StructDef (_, [A.SingleIdent _]), rhs)) ->
       NI.Set.subset (AH.calls_of_expr rhs) set
     | AnnotProperty _ -> true
@@ -228,7 +229,7 @@ let defines_all_vars outputs locals items =
           (Some acc) lhs
       | Some acc, (AnnotProperty _ | AnnotMain _ | Auto _) -> Some acc
       | Some _, (Body (Assert _) | FrameBlock _ | IfBlock _ | WhenBlock _
-                | MatchBlock _) -> None)
+                | MatchBlock _ | RestartBlock _) -> None)
       (Some A.SI.empty) items
   in
   match defined with

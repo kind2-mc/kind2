@@ -31,7 +31,7 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
-  | QuantifiedVariableInPre of HString.t
+  | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
@@ -47,8 +47,8 @@ type error_kind = Unknown of string
   | UnsupportedClockedInputOrOutput
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
-  | UnsupportedOutsideMerge of LustreAst.expr
-  | UnsupportedWhen of LustreAst.expr
+  | IllegalInRestartBlock of string
+  | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MultAssignArrayDef
@@ -65,7 +65,8 @@ type error_kind = Unknown of string
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
   | CallInDecreasesMeasure of HString.t
-  | TypeAscriptionInDecreasesMeasure
+  | OperatorInDecreasesMeasure of string
+  | UnsupportedDecreasesMeasure
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t

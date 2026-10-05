@@ -192,7 +192,12 @@ end
    A datatype selector is left out as well: applied to a value built with
    another constructor, its value is not determined by the model (the
    solver picks one), so a candidate containing it cannot be evaluated
-   during graph stabilization. *)
+   during graph stabilization.
+
+   An uninterpreted function is left out whether it has arguments or not:
+   the models only give values to variables, so a constant such as the
+   __function_of_inputs of an abstracted function without inputs cannot be
+   evaluated either. *)
 let filter_terms_with_unsupported_symbols candidates =
   let rec includes_unsupported_symbol term =
     match Term.destruct term with
@@ -204,6 +209,11 @@ let filter_terms_with_unsupported_symbols candidates =
       | `INTDIV
       | `Selector _ -> true
       | _ -> List.exists includes_unsupported_symbol l
+    )
+    | Term.T.Const s -> (
+      match Symbol.node_of_symbol s with
+      | `UF _ -> true
+      | _ -> false
     )
     | _ -> false
   in

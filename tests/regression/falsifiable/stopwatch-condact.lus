@@ -17,14 +17,15 @@ returns
 var 
   running, freezed : bool;
   cpt_ena, tim_ena : bool;
-  cpt:int;
+  cpt, cpt_held: int;
   time_is_positive: bool;
 let
   running = Switch(on_off, on_off);
   freezed = Switch(freeze and running,
                    freeze or on_off);
   cpt_ena = true -> reset or running;
-  cpt = condact(cpt_ena, Count(not running, true), 0);
+  cpt_held = 0 fby cpt;
+  cpt = when cpt_ena then Count(not running, true) else cpt_held;
   tim_ena = true -> not freezed;
   time = cpt;
 

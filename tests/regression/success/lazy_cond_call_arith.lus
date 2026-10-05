@@ -1,0 +1,32 @@
+-- Issue #1607: a lazy operator whose condition uses a call as an arithmetic
+-- operand, and one of whose branches contains another call
+
+function G(n: int) returns (r: int);
+let
+  r = n;
+tel
+
+node H(n: int) returns (r: int);
+let
+  r = n;
+tel
+
+node N(i: int) returns (o1, o2, o3, o4, o5, o6: int; b1, b2: bool);
+let
+  o1 = when G(i) + 1 > 0 then G(0) else 0;
+  o2 = when G(i) + 1 > 0 then 0 else G(0);
+  o3 = when G(3) - i > 0 then G(3 - i) else 0;
+  o4 = when G(3) - i > 0 then G(G(3) - i) else 0;
+  o5 = when H(i) + 1 > 0 then H(0) else 0;
+  when G(i) + 1 > 0 then o6 = G(0); else o6 = 0; end
+  b1 = G(i) + 1 > 0 and then G(0) > 0;
+  b2 = G(i) + 1 > 0 ==> G(0) > 0;
+  check o1 = 0;
+  check o2 = (if i + 1 > 0 then 0 else 0);
+  check o3 = (if 3 - i > 0 then 3 - i else 0);
+  check o4 = o3;
+  check o5 = 0;
+  check o6 = 0;
+  check not b1;
+  check b2 = (i + 1 <= 0);
+tel

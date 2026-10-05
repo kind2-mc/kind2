@@ -49,7 +49,7 @@ let ty_constants_to_calls_safe new_func_ids ty =
   | Some func_id -> 
     mk_error (AH.pos_of_type ty) (GenCallInArrayLength func_id)   
   | None -> 
-    Ok (AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty)
+    Ok (AH.constants_to_calls_in_type new_func_ids ty)
 
 let const_decl_constants_to_calls new_func_ids const_decl = match const_decl with
 | A.FreeConst (pos, id, ty) -> 
@@ -94,6 +94,7 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
   R.ok (p, ceqs)
 
 let rec ni_constants_to_calls new_func_ids ni = match ni with 
+| A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
 | A.Body (A.Assert (p, e)) ->
   A.Body (A.Assert (p, AH.constants_to_calls new_func_ids e))
 | A.Body (A.Equation (p, lhs, e))  -> 

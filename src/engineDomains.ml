@@ -140,25 +140,49 @@ let reserve_minor_heaps () =
 
 (* Spawn [f] in a new domain as the engine [mdl] with identifier [id].
    [f] handles its own cleanup and returns the unexpected exception it
-   terminated on, if any. *)
+   terminated on, if any.
+
+   The signals are blocked in the supervisor while it spawns the domain,
+   so that the domain starts with them blocked: its thread inherits the
+   signal mask of the thread that creates it. Blocking them from inside
+   the domain left a window, from its start to that call, in which the
+   handler of a signal could run there. A [TimeoutWall] raised in that
+   window ended the domain before it ran [f], so the supervisor never
+   learnt of the timeout and the run went on past it (#1580); and when
+   it was raised before the domain-local state of the domain was set
+   up, ending the domain read that state and crashed the process.
+
+   A signal arriving while the supervisor has them blocked stays
+   pending, and its handler runs in the supervisor once the mask is
+   restored. That is the last thing done here, after the engine is in
+   the registry, so that a [TimeoutWall] raised at that point leaves no
+   engine the teardown does not know about. *)
 let spawn mdl id ~disconnect f =
   let outcome = Atomic.make Running in
+  (* No signal masks on Windows; the signals of the list do not exist
+     there anyway *)
+  let old_mask =
+    if Sys.win32 then None
+    else Some (Thread.sigmask Unix.SIG_BLOCK signals_to_block)
+  in
+  let restore_mask () =
+    Option.iter (fun m -> ignore (Thread.sigmask Unix.SIG_SETMASK m)) old_mask
+  in
   let domain =
-    Domain.spawn (fun () ->
-      Gc.set { (Gc.get ()) with Gc.minor_heap_size = engine_minor_heap_size } ;
-      (* Number the names this engine invents apart from the names of
-         the others, and independently of them. Before anything it
-         builds. *)
-      Lib.set_naming_range id ;
-      (* No signal masks on Windows; the signals of the list do not
-         exist there anyway *)
-      if not Sys.win32 then
-        ignore (Thread.sigmask Unix.SIG_BLOCK signals_to_block) ;
-      let r = try f () with e -> Some e in
-      Atomic.set outcome (Done r))
+    try
+      Domain.spawn (fun () ->
+        Gc.set { (Gc.get ()) with Gc.minor_heap_size = engine_minor_heap_size } ;
+        (* Number the names this engine invents apart from the names of
+           the others, and independently of them. Before anything it
+           builds. *)
+        Lib.set_naming_range id ;
+        let r = try f () with e -> Some e in
+        Atomic.set outcome (Done r))
+    with e -> restore_mask () ; raise e
   in
   let child = { id ; mdl ; domain ; outcome ; disconnect } in
   Mutex.protect lock (fun () -> running := child :: !running) ;
+  restore_mask () ;
   child
 
 (* Return the engines that have terminated since the last call, joined

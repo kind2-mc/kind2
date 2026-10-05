@@ -94,10 +94,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/undefined_local.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedLocal _)) -> true
     | _ -> false);
-  mk_test "test unsupported when expr" (fun () ->
-    match load_file "./lustreSyntaxChecks/unsupported_when.lus" with
-    | Error (`LustreSyntaxChecksError (_, UnsupportedWhen _)) -> true
-    | _ -> false);
   mk_test "test undefined node" (fun () ->
     match load_file "./lustreSyntaxChecks/dangling_call_in_ghost_var.lus" with
     | Error (`LustreSyntaxChecksError (_, UndefinedNode _)) -> true
@@ -145,10 +141,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "test dangling identifier 2" (fun () ->
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
-    | _ -> false);
-  mk_test "test unsupported outside merge 2" (fun () ->
-    match load_file "./lustreSyntaxChecks/test_merge.lus" with
-    | Error (`LustreSyntaxChecksError (_, UnsupportedOutsideMerge _)) -> true
     | _ -> false);
   mk_test "test symbolic array index in not call" (fun () ->
     match load_file "./lustreSyntaxChecks/test_node_call_with_inductive_array_index.lus" with
@@ -479,7 +471,7 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | Error (`LustreAstDependenciesError (_, EquationWidthsUnequal)) -> true
     | _ -> false);
   mk_test "test width lenghts unequal" (fun () ->
-    match load_file "./lustreAstDependencies/test_merge_width_lengths_unequal.lus" with
+    match load_file "./lustreAstDependencies/test_width_lengths_unequal.lus" with
     | Error (`LustreAstDependenciesError (_,  WidthLengthsUnequal _)) -> true
     | _ -> false);
   mk_test "test output in contract assume" (fun () ->
@@ -532,13 +524,18 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     | Error (`LustreAstDependenciesError (_, IdentifierRedeclared _)) -> true
     | _ -> false);
 
-  mk_test "test circular merge" (fun () ->
-    match load_file "./lustreAstDependencies/test_circular_merge.lus" with
+  mk_test "test circular when" (fun () ->
+    match load_file "./lustreAstDependencies/test_circular_when.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
 
-  mk_test "test activate" (fun () ->
-    match load_file "./lustreAstDependencies/test_activate.lus" with
+  mk_test "test call in when branch" (fun () ->
+    match load_file "./lustreAstDependencies/test_call_in_when_branch.lus" with
+    | Error _ -> false
+    | _ -> true);
+
+  mk_test "test restart" (fun () ->
+    match load_file "./lustreAstDependencies/test_restart.lus" with
     | Error _ -> false
     | _ -> true);
 
@@ -707,14 +704,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/machine_integer_05.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedBitShiftMachineIntegerType _)) -> true
     | _ -> false);
-  mk_test "test merge case missing" (fun () ->
-    match load_file "./lustreTypeChecker/merge_enum.lus" with
-    | Error (`LustreTypeCheckerError (_, MergeCaseMissing _)) -> true
-    | _ -> false);
-  mk_test "test merge cases unique" (fun () ->
-    match load_file "./lustreTypeChecker/merge_enum1.lus" with
-    | Error (`LustreTypeCheckerError (_, MergeCaseNotUnique _)) -> true
-    | _ -> false);
   mk_test "test shadowed mode def" (fun () ->
     match load_file "./lustreTypeChecker/mode_reqs_by_idents_shadowing.lus" with
     | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
@@ -879,6 +868,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/const_param_3.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
+  mk_test "test refinement type bound variable in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_param.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test refinement type bound variable shadowing a constant inside any" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_any.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable shadowing a constant in a nested binder type" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_shadows_const_in_nested_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable shadowing a constant in argument for constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_shadows_const_param_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
   mk_test "test match pattern variable in quantifier binder type" (fun () ->
     match load_file "./lustreTypeChecker/quant_binder_type_shadowed_const.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
@@ -946,14 +951,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test type argument landing under a nested type" (fun () ->
     match load_file "./lustreTypeChecker/nested_type_arg_temporal.lus" with
     | Error (`LustreTypeCheckerError (_, NestedTypeTemporal _)) -> true
-    | _ -> false);
-  mk_test "test merge clock mismatch" (fun () ->
-    match load_file "./lustreSyntaxChecks/merge_enum2.lus" with
-    | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
-    | _ -> false);
-  mk_test "test activate clock mismatch" (fun () ->
-    match load_file "./lustreSyntaxChecks/test_activate_clock_mismatch.lus" with
-    | Error (`LustreTypeCheckerError (_, ClockMismatchInMerge)) -> true
     | _ -> false);
   mk_test "test unbound ADT constructor in match pattern" (fun () ->
     match load_file "./lustreTypeChecker/adt_unbound_constructor.lus" with
@@ -1180,8 +1177,8 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/refinement_type_arg_const_param_restart.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
     | _ -> false);
-  mk_test "refinement type argument in constant parameter argument under activate" (fun () ->
-    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_activate.lus" with
+  mk_test "refinement type argument in constant parameter argument in a when branch" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_when.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
     | _ -> false);
   mk_test "refinement type argument in constant parameter argument within a tuple" (fun () ->
@@ -1191,6 +1188,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "refinement type argument in constant parameter argument within an if-then-else" (fun () ->
     match load_file "./lustreTypeChecker/refinement_type_arg_const_param_ite_tuple.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "checked record field in a restart spread over a constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/restart_tuple_const_param_inserted_check.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
   mk_test "if-then-else constant of the wrong type" (fun () ->
     match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with
@@ -1460,21 +1461,6 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
   mk_test "test pattern variable shadowing a node output" (fun () ->
     match load_file "./lustreDesugarMatchBlocks/pattern_variable_shadows_output.lus" with
     | Error (`LustreDesugarMatchBlocksError (_, ShadowingPatternVariable _)) -> true
-    | _ -> false);
-])
-
-let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
-  mk_test "test constant input read by a clocked temporal expression" (fun () ->
-    match load_file "./lustreGenNodes/const_input_in_temporal_branch.lus" with
-    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
-    | _ -> false);
-  mk_test "test ghost constant read by a clocked temporal expression" (fun () ->
-    match load_file "./lustreGenNodes/ghost_const_in_temporal_branch.lus" with
-    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
-    | _ -> false);
-  mk_test "test mode reference in a clocked temporal expression reading a constant" (fun () ->
-    match load_file "./lustreGenNodes/mode_ref_in_temporal_branch_with_const.lus" with
-    | Error (`LustreGenNodesError (_, ConstInClockedTemporalExpr _)) -> true
     | _ -> false);
 ])
 

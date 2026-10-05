@@ -243,16 +243,13 @@ let
   out = sum >= 10 ;
 tel
 
-node merge_when_activate (inp: int) returns (safe_tmp: bool) ;
+-- sum_ge_10 only advances at the steps at which inp is positive
+node when_branch_call (inp: int) returns (safe_tmp: bool) ;
 var in_pos, pre_tmp: bool;
 let
   in_pos = inp >= 0 ;
   pre_tmp = false -> pre safe_tmp  ;
-  safe_tmp = merge(
-    in_pos ;
-    (activate sum_ge_10 every in_pos)(inp) ;
-    pre_tmp when not in_pos
-  ) ;
+  safe_tmp = when in_pos then sum_ge_10(inp) else pre_tmp ;
 tel
 
 node bounded_counter (const max: int) returns (t: int);
@@ -262,18 +259,27 @@ tel
 
 node mod3_counter (reset: bool) returns (c: int);
 let
-  c = (restart bounded_counter every reset)(3);
+  c = restart bounded_counter(3) every reset;
+tel
+
+-- Restart block
+node running_max (i: int; reset: bool) returns (s, m: int);
+let
+  restart
+    s = 0 -> pre s + i;
+    m = 0 -> if s > pre m then s else pre m;
+  every reset end
 tel
 
 type ABC = enum { V_A, V_B, V_C };
 
-node n_merge(x,w:int; c: ABC) returns (y:int);
+node n_cond(x,w:int; c: ABC) returns (y:int);
 let
-  y =
-    merge c
-    (V_A -> x when V_A(c))
-    (V_B -> w + 1 when V_B(c))
-    (V_C -> x + w when V_C(c));
+  cond
+    | c = V_A: y = x;
+    | c = V_B: y = w + 1;
+    otherwise: y = x + w;
+  end
 tel
 
 -- Node with a type parameter 
@@ -384,9 +390,18 @@ let y = false -> x and not pre x; tel;
 node Count() returns (y: int);
 let y = 0 -> pre y + 1; tel;
 
--- Node counting number of rising edges with a condact 
+-- Counter node with fby ('0 fby y' is '0 -> pre y')
+node CountFby() returns (y: int);
+let y = 0 fby y + 1; tel;
+
+-- Node counting number of rising edges: Count only advances at rising edges,
+-- and y keeps its previous value in between
 node CountRise(x: bool) returns (y: int);
-let y = condact(Rise(x), Count(), 0); tel;
+var held: int;
+let
+  held = 0 fby y;
+  y = when Rise(x) then Count() else held;
+tel;
 
 -- Array inductive definitions
 node sum (const n: int; A: int ^ n) returns (s: int);

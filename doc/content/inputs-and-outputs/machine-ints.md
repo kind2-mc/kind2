@@ -97,6 +97,13 @@ e = (sint@<8> -5) + (- (sint@<8> 10));
 f = (sint@<8> 10) - (sint@<8> -5);
 ```
 
+Division and modulo on signed machine integers round the quotient towards zero
+and give the remainder the sign of the dividend, as C does: `(sint@<8> -7) div
+(sint@<8> 2)` is `-3` and `(sint@<8> -7) mod (sint@<8> 2)` is `-1`. Note that
+this differs from the [Euclidean definition]({{< relref "/inputs-and-outputs/lustre#integer-division-and-modulo" >}})
+used by `div` and `mod` on the unbounded `int` type, where the same quotient
+is `-4` and the same remainder is `1`.
+
 ### Logical Operations
 
 Conjunction (`&&`), disjunction (`||`), and negation (`!`) are performed in a bitwise fashion over the binary equivalent of their machine integer inputs. Conjunction and disjunction are binary, while negation is unary. All 3 operations return a machine integer that has the same sign and same width as its input(s).

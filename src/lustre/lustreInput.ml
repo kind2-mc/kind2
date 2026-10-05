@@ -179,7 +179,8 @@ let type_check declarations =
     (* Step 5: Inline type toplevel decls *)
     let* (inlined_ctx, const_inlined_type_and_consts) = IC.inline_constants ctx sorted_const_type_decls in
 
-    (* Step 6. Desugar nondeterministic choice operators *)
+    (* Step 6. Generate nodes for nondeterministic choice operators, type
+       ascriptions, temporal expressions in a clocked position, and restarts *)
     let* node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)

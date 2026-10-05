@@ -1,0 +1,26 @@
+-- A restart block is a temporal construct: the equations in it start again
+-- from their initial state. A function has no state, so a restart block is
+-- rejected in the body of a function, as pre, -> and restart expressions are.
+
+function rec G (a: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then a else G(a, n - 1);
+tel
+
+function rec F (a: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  when n <= 0 then
+    restart
+      r = G(a, 0);
+    every a > 0 end
+  else
+    r = F(a, n - 1);
+  end
+tel
+
+node Test (a: int) returns ();
+let
+  check F(a, 0) = a;
+tel

@@ -1,4 +1,0 @@
-type R<T> = struct { f: T };
-node M(const r: R<int>; x: int) returns (y: int) let y = r.f + x; tel
-node N(c: bool; x: int) returns (y: int);
-let y = (activate M every c initial default 0)(R@<subtype { w: int | w >= 0 }> { f = -1 }, x); tel

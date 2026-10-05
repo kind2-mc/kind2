@@ -51,7 +51,7 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
-  | QuantifiedVariableInPre of HString.t
+  | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
@@ -67,8 +67,8 @@ type error_kind = Unknown of string
   | UnsupportedClockedInputOrOutput
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
-  | UnsupportedOutsideMerge of LustreAst.expr
-  | UnsupportedWhen of LustreAst.expr
+  | IllegalInRestartBlock of string
+  | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MultAssignArrayDef
@@ -85,7 +85,8 @@ type error_kind = Unknown of string
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
   | CallInDecreasesMeasure of HString.t
-  | TypeAscriptionInDecreasesMeasure
+  | OperatorInDecreasesMeasure of string
+  | UnsupportedDecreasesMeasure
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t
@@ -121,8 +122,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring id ^ "' is undefined"
   | DanglingIdentifier id -> "Unknown identifier '"
     ^ HString.string_of_hstring id ^ "'"
-  | QuantifiedVariableInPre var -> "Quantified variable '"
-    ^ HString.string_of_hstring var ^ "' is not allowed in an argument to pre operator"
+  | QuantifiedVariableInPre (op, var) -> "Quantified variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed in an argument to " ^ op ^ " operator"
   | QuantifiedVariableInNodeArgument (var, node) -> "Quantified variable or refinement type bound variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
@@ -143,7 +144,7 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
   | IllegalAnyOp variant -> "Illegal `any` operator; "
     ^ variant ^ " cannot contain `any` operators. Maybe you meant to use `choose`?"
-  | NodeCallInConstant id -> "Illegal node call, 'any'/'choose' operator, or type ascription in definition of constant '" ^ HString.string_of_hstring id ^ "'"
+  | NodeCallInConstant id -> "Illegal node call, restart, 'any'/'choose' operator, or type ascription in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call, 'any'/'choose' operator, or type ascription in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in expression, " ^ variant ^ " cannot have state"
   | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
@@ -151,8 +152,8 @@ let error_message kind = match kind with
   | UnsupportedClockedInputOrOutput -> "Clocked inputs or outputs are not supported"
   | UnsupportedClockedLocal id -> "Clocked node local variable not supported for '" ^ HString.string_of_hstring id ^ "'"
   | UnsupportedExpression e -> "The expression '" ^ LA.string_of_expr e ^ "' is not supported"
-  | UnsupportedOutsideMerge e -> "The expression '" ^ LA.string_of_expr e ^ "' is only supported inside a merge"
-  | UnsupportedWhen e -> "The `when` expression '" ^ LA.string_of_expr e ^ "' can only be the top most expression of a merge case"
+  | IllegalInRestartBlock what -> what ^ " are not allowed in a restart block"
+  | IllegalRestartBlock variant -> "Illegal restart block, " ^ variant ^ " cannot have state"
   | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
   | UnsupportedAssignment -> "Assignment not supported"
   | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
@@ -179,10 +180,14 @@ let error_message kind = match kind with
   | CallInDecreasesMeasure id -> "Call to '"
     ^ HString.string_of_hstring id
     ^ "' cannot occur in a decreases clause; a decreases measure may only "
-    ^ "mention the input parameters of the function and constants"
-  | TypeAscriptionInDecreasesMeasure -> "A type ascription cannot occur in "
-    ^ "a decreases clause; a decreases measure may only mention the input "
-    ^ "parameters of the function and constants"
+    ^ "call non-recursive functions that can be inlined"
+  | OperatorInDecreasesMeasure op -> "A '" ^ op ^ "' operator cannot occur "
+    ^ "in a decreases clause; a decreases measure must be a function of the "
+    ^ "input parameters of the function"
+  | UnsupportedDecreasesMeasure -> "Unsupported decreases measure: it needs "
+    ^ "auxiliary variables (e.g., for an array literal indexed by a "
+    ^ "non-constant expression), but a decreases measure must be a term over "
+    ^ "the input parameters of the function"
   | MultipleDecreasesClauses id -> "Recursive function '"
     ^ HString.string_of_hstring id
     ^ "' has more than one decreases clause in its contract; combine them "
@@ -354,32 +359,12 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
 (* Expression contains a pre, an arrow, or a call to a node *)
 let rec has_stateful_op ctx =
 function
-| LA.Pre _ | Arrow _ -> true
+| LA.Pre _ | Arrow _ | Fby _ -> true
 | Last _ -> true
 
-| RestartEvery _
+| Restart _ | RestartEvery _
 | AnyOp _ -> true
 | ChooseOp _ -> false  
-
-| Condact (_, e, r, i, l1, l2) ->
-  StringMap.mem (NI.get_internal_name i) ctx.nodes ||
-  has_stateful_op ctx e ||
-  has_stateful_op ctx r ||
-  List.fold_left
-    (fun acc e -> acc || has_stateful_op ctx e)
-    false l1
-  ||
-  List.fold_left
-    (fun acc e -> acc || has_stateful_op ctx e)
-    false l2
-
-| Activate (_, i, e, r, l) ->
-  StringMap.mem (NI.get_internal_name i) ctx.nodes ||
-  has_stateful_op ctx e ||
-  has_stateful_op ctx r ||
-  List.fold_left
-    (fun acc e -> acc || has_stateful_op ctx e)
-    false l
 
 | Call (_, _, node_id, l) ->
   StringMap.mem (NI.get_internal_name node_id) ctx.nodes ||
@@ -390,7 +375,7 @@ function
 | Const _ | Ident _ | ModeRef _  | EmptyMap _ | EmptySet _ -> false
 
 | FieldProject (_, e, _, _) | ConvOp (_, _, e)
-| UnaryOp (_, _, e) | When (_, e, _)
+| UnaryOp (_, _, e) 
 | Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
 
@@ -408,7 +393,7 @@ function
     (fun acc e -> acc || has_stateful_op ctx e)
     false l
 
-| Merge (_, _, l)
+
 | RecordExpr (_, _, _, l) ->
   List.fold_left
     (fun acc (_, e) -> acc || has_stateful_op ctx e)
@@ -611,6 +596,8 @@ let rec find_var_def_count id = function
     else if (len2 = 1) then x2
     (* Local isn't defined in this if block *)
     else []
+  | LA.RestartBlock (_, l, _) ->
+    List.map (find_var_def_count id) l |> List.flatten
   | LA.MatchBlock (_, _, arms, _) ->
     (* Definitions in different arms are alternatives, like the branches of an
        if block; only a repeat within one arm is a duplicate *)
@@ -676,9 +663,7 @@ let outputs_exactly_one_definition outputs items =
   Res.seq (List.map over_outputs outputs)
 
 let no_dangling_calls ctx = function
-  | LA.Condact (pos, _, _, node_id, _, _)
-  | Activate (pos, node_id, _, _, _) 
-  | Call (pos, _, node_id, _) ->
+  | LA.Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     let check_funcs = StringMap.mem (NI.get_internal_name node_id) ctx.functions in
     let check_ctors = StringSet.mem (NI.get_name node_id) ctx.constructors in
@@ -729,7 +714,7 @@ let no_node_calls_in_constant ctx i = function
     if StringSet.mem (NI.get_name node_id) ctx.constructors
     then Ok ()
     else syntax_error pos (NodeCallInConstant i)
-  | LA.Condact (pos, _, _, _, _, _)
+  | LA.Restart (pos, _, _)
   | LA.RestartEvery (pos, _, _, _)
   | LA.AnyOp (pos, _, _)
   | LA.ChooseOp (pos, _, _)
@@ -761,7 +746,9 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     in
     let check = List.map over_vars (LA.SI.elements vars) in
     List.fold_left (>>) (Ok ()) check*)
-  | LA.Pre (pos, e) ->
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | LA.Pre (pos, e) | LA.Fby (pos, _, e) as expr ->
+    let op = match expr with LA.Fby _ -> "fby" | _ -> "pre" in
     (* The normalizer rewrites 'pre (a[i])' to '(pre a)[i]' when the index is
        time-invariant, so a quantified variable may appear in such an index *)
     let index_is_time_invariant =
@@ -781,7 +768,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
         let vars = LAH.vars_without_node_call_ids e in
         let over_vars j =
           let found_quant = StringMap.mem j ctx.quant_vars in
-          if found_quant then syntax_error pos (QuantifiedVariableInPre j)
+          if found_quant then syntax_error pos (QuantifiedVariableInPre (op, j))
           else Ok ()
         in
         let check = List.map over_vars (LA.SI.elements vars) in
@@ -791,9 +778,7 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
   | _ -> Ok ()
 
 let no_calls_to_node scope ctx = function
-  | LA.Condact (pos, _, _, node_id, _, _)
-  | Activate (pos, node_id, _, _, _)
-  | RestartEvery (pos, node_id, _, _) 
+  | LA.RestartEvery (pos, node_id, _, _)
   | Call (pos, _, node_id, _) ->
     let check_nodes = StringMap.mem (NI.get_internal_name node_id) ctx.nodes in
     if check_nodes then
@@ -801,24 +786,21 @@ let no_calls_to_node scope ctx = function
         (IllegalNodeCall (NI.get_user_name node_id, scope))
     else Ok ()
   | AnyOp (pos, _, _) -> syntax_error pos (IllegalAnyOp scope)
+  | Restart (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("restart", scope))
   | _ -> Ok ()
 
 let no_temporal_operator decl_ctx expr =
   match expr with
   | LA.Pre (pos, _) -> syntax_error pos (IllegalTemporalOperator ("pre", decl_ctx))
   | Arrow (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("arrow", decl_ctx))
+  | Fby (pos, _, _) -> syntax_error pos (IllegalTemporalOperator ("fby", decl_ctx))
   | _ -> Ok []
 
-(* An activation condition or a restart makes a call depend on the previous
-   states of the caller: the call holds its previous value while its clock is
-   false, or its callee starts again from its initial state. A function has no
-   state, so neither has a meaning in it *)
-let no_activation_condition decl_ctx expr =
+(* A restart resets the state of an expression to its initial state. A
+   function has no state, so a restart has no meaning in it *)
+let no_restart decl_ctx expr =
   match expr with
-  | LA.Condact (pos, _, _, _, _, _)
-  | Activate (pos, _, _, _, _) ->
-    syntax_error pos (IllegalTemporalOperator ("activate", decl_ctx))
-  | RestartEvery (pos, _, _, _) ->
+  | LA.Restart (pos, _, _) | RestartEvery (pos, _, _, _) ->
     syntax_error pos (IllegalTemporalOperator ("restart", decl_ctx))
   | _ -> Ok []
   
@@ -930,104 +912,6 @@ let check_quantified_vars ctx vars =
     | _ -> Ok ()
   ) vars)
 
-let rec expr_only_supported_in_merge observer expr =
-  let r = expr_only_supported_in_merge in
-  let r_list obs e = Res.seqM (fun x _ -> x) () (List.map (r obs) e) in
-  match expr with
-  | LA.When (pos, _, _) as e -> syntax_error pos (UnsupportedWhen e)
-  | Merge (_, _, e) -> 
-    Res.seq_ (List.map (fun (_, e) -> match e with
-      | LA.When (_, e, _) | e -> r true e)
-      e)
-  | Ident _ | Last _ | Const _ | ModeRef _ | EmptyMap _ | EmptySet _ -> Ok ()
-  | FieldProject (_, e, _, _)
-  | UnaryOp (_, _, e)
-  | ConvOp (_, _, e)
-  | Pre (_, e)
-  | Extract (_, e, _, _)
-  | Quantifier (_, _, _, e) 
-  | StructUpdate (_, e, _, None) -> r observer e
-  | AnyOp (_, _, e)  
-  | ChooseOp (_, _, e) -> r observer e 
-  | BinaryOp (_, _, e1, e2) 
-  | StructUpdate (_, e1, _, Some e2)
-  | CompOp (_, _, e1, e2)
-  | Arrow (_, e1, e2)
-  | IndexAccess (_, e1, e2, _)
-  | ArrayConstr (_, e1, e2) -> r observer e1 >> r observer e2
-  | TypeAscription (_, e, _) -> r observer e
-  | TernaryOp (_, _, e1, e2, e3)
-    -> r observer e1 >> r observer e2 >> r observer e3
-  | GroupExpr (_, _, e)
-  | Call (_, _, _, e) -> r_list observer e
-  | RecordExpr (_, _, _, e) -> r_list observer (List.map (fun (_, x) -> x) e)
-  | Condact (_, e1, e2, _, e3, e4 )
-    -> r observer e1 >> r observer e2 >> r_list observer e3 >> r_list observer e4
-  | Activate (pos, _, _, _, _) as e ->
-    if observer then Ok ()
-    else syntax_error pos (UnsupportedOutsideMerge e)
-  | RestartEvery (_, _, e1, e2) -> r_list observer e1 >> r observer e2
-  | Match (_, e, arms, _) ->
-    r observer e >>
-    Res.seq_ (List.map (fun (_, body) -> r observer body) arms)
-  | ADTTerm (_, _, _, args) -> r_list observer args
-  | AbstractSymConst _ -> assert false
-  | ADTTester (_, e, _) -> r observer e
-
-(* The position of the first type ascription in an expression, if any,
-   including the index expressions of a structural update and the expressions
-   within the types the expression carries *)
-let rec type_ascription_pos expr =
-  let r = type_ascription_pos in
-  let r_list es = List.find_map r es in
-  let first a b = match a with Some _ -> a | None -> b () in
-  let r_ty ty =
-    LAH.fold_lustre_ty ~into_ty_args:true r None
-      (fun a b -> first a (fun () -> b)) ty
-  in
-  let r_tys tys = List.find_map r_ty tys in
-  let r_idx idx =
-    LAH.fold_label_or_index None (fun a b -> first a (fun () -> b)) r idx
-  in
-  match expr with
-  | LA.TypeAscription (pos, _, _) -> Some pos
-  | Ident _ | Last _ | Const _ | ModeRef _
-  | EmptyMap (_, None) | EmptySet (_, None) -> None
-  | EmptyMap (_, Some (kt, vt)) -> r_tys [kt; vt]
-  | EmptySet (_, Some ty)
-  | AbstractSymConst (_, ty) -> r_ty ty
-  | FieldProject (_, e, _, _)
-  | UnaryOp (_, _, e)
-  | ConvOp (_, _, e)
-  | Pre (_, e)
-  | Extract (_, e, _, _)
-  | When (_, e, _)
-  | ADTTester (_, e, _) -> r e
-  | Quantifier (_, _, vars, e) ->
-    first (r_tys (List.map (fun (_, _, ty) -> ty) vars)) (fun () -> r e)
-  | AnyOp (_, (_, _, ty), e)
-  | ChooseOp (_, (_, _, ty), e) -> first (r_ty ty) (fun () -> r e)
-  | StructUpdate (_, e1, idx, e2) ->
-    first (r e1) (fun () ->
-      first (r_idx idx) (fun () -> Option.bind e2 r))
-  | BinaryOp (_, _, e1, e2)
-  | CompOp (_, _, e1, e2)
-  | Arrow (_, e1, e2)
-  | IndexAccess (_, e1, e2, _)
-  | ArrayConstr (_, e1, e2) -> r_list [e1; e2]
-  | TernaryOp (_, _, e1, e2, e3) -> r_list [e1; e2; e3]
-  | GroupExpr (_, _, es) -> r_list es
-  | Call (_, tys, _, es)
-  | ADTTerm (_, tys, _, es) -> first (r_tys tys) (fun () -> r_list es)
-  | RecordExpr (_, _, tys, fields) ->
-    first (r_tys tys) (fun () -> r_list (List.map snd fields))
-  | Merge (_, _, cases) -> r_list (List.map snd cases)
-  | Condact (_, e1, e2, _, es1, es2) -> r_list (e1 :: e2 :: es1 @ es2)
-  | Activate (_, _, e1, e2, es) -> r_list (e1 :: e2 :: es)
-  | RestartEvery (_, _, es, e) -> r_list (e :: es)
-  | Match (_, e, arms, ty) ->
-    first (r_list (e :: List.map snd arms)) (fun () -> Option.bind ty r_ty)
-
 let check_opacity pos node_id contract is_ext = function
   | LA.Opaque when contract = None -> syntax_error pos (OpaqueWithoutContract node_id)
   | Transparent when is_ext -> syntax_error pos (TransparentWithoutBody node_id)
@@ -1130,12 +1014,9 @@ and no_reachability_modifiers item = match item with
    contract is, so they are not in scope yet and reaching one raises an
    assertion failure in LustreNodeGen.
 
-   A call is not a legal measure either: the measure is compiled to a term over
-   the state variables of the function, which has no instance of the callee to
-   stand for the call. A constructor application is not a call. Neither is a
-   type ascription a legal measure, since it is turned into a call to a
-   generated function (see LustreGenNodes). *)
-and check_decreases_measures ctx inputs outputs contract =
+   Whether a call is legal in a measure depends on the callee, which is only
+   checked once the measure is normalized (see LustreAstNormalizer). *)
+and check_decreases_measures inputs outputs contract =
   let contract_items = match contract with
     | Some (_, items) -> items
     | None -> []
@@ -1159,18 +1040,9 @@ and check_decreases_measures ctx inputs outputs contract =
   in
   let check_measure (pos, e) =
     let used = LAH.vars_without_node_call_ids e in
-    let calls =
-      LAH.calls_of_expr e
-      |> NI.Set.filter (fun i ->
-        not (StringSet.mem (NI.get_name i) ctx.constructors))
-    in
-    match LA.SI.elements (LA.SI.inter used illegal_ids), NI.Set.elements calls with
-    | id :: _, _ -> syntax_error pos (IllegalDecreasesMeasure id)
-    | [], i :: _ -> syntax_error pos (CallInDecreasesMeasure (NI.get_user_name i))
-    | [], [] -> (
-      match type_ascription_pos e with
-      | Some pos -> syntax_error pos TypeAscriptionInDecreasesMeasure
-      | None -> Ok ())
+    match LA.SI.elements (LA.SI.inter used illegal_ids) with
+    | [] -> Ok ()
+    | id :: _ -> syntax_error pos (IllegalDecreasesMeasure id)
   in
   contract_items
   |> List.filter_map (function LA.Decreases d -> Some d | _ -> None)
@@ -1249,14 +1121,14 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   let composed_items_checks ctx e =
     (no_calls_to_node "functions" ctx e)
     >> (no_temporal_operator "functions" e)
-    >> (no_activation_condition "functions" e)
+    >> (no_restart "functions" e)
     >> (common_node_equations_checks ctx e)
   in
   let function_contract_checks ctx e =
     (no_calls_to_node "function contracts" ctx e) >> 
     let* warnings1 =  (common_contract_checks ctx e) in
     let* warnings2 = (no_temporal_operator "function contracts" e) in 
-    let* warnings3 = (no_activation_condition "function contracts" e) in
+    let* warnings3 = (no_restart "function contracts" e) in
     Ok (warnings1 @ warnings2 @ warnings3)
   in
   let* () =
@@ -1270,7 +1142,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
       | [] ->
         syntax_error span.start_pos
           (MissingDecreasesClause (NI.get_user_name node_id))
-      | [_] -> check_decreases_measures ctx inputs outputs contract
+      | [_] -> check_decreases_measures inputs outputs contract
       | _ :: _ :: _ ->
         (* Downstream passes each pick "the" clause independently and can
            disagree, each then trusting some other pass to check the rest. *)
@@ -1287,6 +1159,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
    else Ok ())
   >> check_opacity span.start_pos (NI.get_internal_name node_id) contract ext opac
   >> (Res.seq_ (List.map no_reachability_modifiers items))
+  >> (Res.seq_ (List.map (no_restart_block "functions") items))
   >> (Res.seq_ (List.map check_input_items inputs))
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
@@ -1343,11 +1216,9 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
           else syntax_error cpos
             (CallStatementCallsNonLemma (NI.get_user_name node_id)))
          >> check_struct_items ctx struct_items
-         >> (expr_only_supported_in_merge false e)
          >> check_expr_list ctx' f args
        | _ ->
          check_struct_items ctx struct_items
-           >> (expr_only_supported_in_merge false e)
            >> check_expr ctx' f e)
     | LA.IfBlock (_, e, l1, l2) ->
       let* warnings1 = check_expr ctx f e in
@@ -1392,6 +1263,11 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
           Ok ws) arms)
       in
       Ok (warnings1 @ List.flatten warnings2)
+    | LA.RestartBlock (_, l, e) ->
+      let* () = Res.seq_ (List.map no_item_illegal_in_restart_block l) in
+      let* warnings1 = check_expr ctx f e in
+      let* (warnings2, _) = check_items ctx ~tc_ctx ~in_lemma f l props in
+      Ok (warnings1 @ warnings2)
     | LA.FrameBlock (pos, vars, nes, nis) ->
       let var_ids = List.map snd vars in
       let nes = List.map (fun x -> LA.Body x) nes in
@@ -1445,6 +1321,31 @@ and check_frame_vars pos vars ni =
   match H.HStringSet.choose_opt unlisted with
   | None -> Res.ok ()
   | Some var -> syntax_error pos (MisplacedVarInFrameBlock var)
+
+(* The items of a restart block become the body of a node of their own, which
+   has no properties, main annotation or frame blocks *)
+and no_item_illegal_in_restart_block = function
+  | LA.AnnotProperty (pos, _, _, _) -> syntax_error pos (IllegalInRestartBlock "Properties")
+  | LA.AnnotMain (pos, _) -> syntax_error pos (IllegalInRestartBlock "Main annotations")
+  | LA.FrameBlock (pos, _, _, _) -> syntax_error pos (IllegalInRestartBlock "Frame blocks")
+  | LA.IfBlock (_, _, l1, l2) | LA.WhenBlock (_, _, l1, l2) ->
+    Res.seq_ (List.map no_item_illegal_in_restart_block (l1 @ l2))
+  | LA.MatchBlock (_, _, arms, _) ->
+    Res.seq_ (List.map no_item_illegal_in_restart_block (List.concat_map snd arms))
+  | LA.RestartBlock (_, l, _) -> Res.seq_ (List.map no_item_illegal_in_restart_block l)
+  | LA.Body _ | LA.Auto _ -> Res.ok ()
+
+(* A restart resets the state of the items of a restart block. A function has
+   no state, so a restart block has no meaning in it *)
+and no_restart_block decl_ctx = function
+  | LA.RestartBlock (pos, _, _) ->
+    syntax_error pos (IllegalRestartBlock decl_ctx)
+  | LA.IfBlock (_, _, l1, l2) | LA.WhenBlock (_, _, l1, l2) ->
+    Res.seq_ (List.map (no_restart_block decl_ctx) (l1 @ l2))
+  | LA.MatchBlock (_, _, arms, _) ->
+    Res.seq_ (List.map (no_restart_block decl_ctx) (List.concat_map snd arms))
+  | LA.FrameBlock (_, _, _, nis) -> Res.seq_ (List.map (no_restart_block decl_ctx) nis)
+  | LA.Body _ | LA.AnnotProperty _ | LA.AnnotMain _ | LA.Auto _ -> Res.ok ()
 
 and no_assert_in_frame_init pos = function
   | LA.Body (Assert _) -> syntax_error pos MisplacedAssertInFrameBlock
@@ -1567,17 +1468,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
   let lazy_match ctx e =
     (f ctx e)
   in
-  let lazy_bool_op op ctx e =
-    (no_calls_to_node ("the argument of " ^ op)  ctx e)
-    >> (no_temporal_operator ("arguments of " ^ op) e)
-    >> (f ctx e)
-  in
   let res = f ctx expr in
   let check = function
     | LA.FieldProject (_, e, _, _)
     | UnaryOp (_, _, e)
     | ConvOp (_, _, e)
-    | When (_, e, _)
     | Extract (_, e, _, _)
     | Pre (_, e) -> 
       check_expr ctx f e 
@@ -1594,25 +1489,19 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* _ = check_quantified_vars ctx vars in
       let* warnings2 = check_expr ctx f e in 
       Res.ok (warnings @ warnings2)
-    | BinaryOp (_, AndThen, e1, e2) ->
+    | BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
+      (* The right operand is evaluated lazily, like a branch of a
+         when-then-else expression, so the left operand plays the role of
+         the guard *)
       let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
-      let* warnings1 = (check_expr ctx (lazy_bool_op "'and then'") e1) in 
-      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "'and then'") e2) in 
-      Ok (warnings1 @ warnings2)
-    | BinaryOp (_, OrElse, e1, e2) ->
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
-      let* warnings1 = (check_expr ctx (lazy_bool_op "'or else'") e1) in 
-      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "'or else'") e2) in 
-      Ok (warnings1 @ warnings2)
-    | BinaryOp (_, LazyImpl, e1, e2) ->
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
-      let* warnings1 = (check_expr ctx (lazy_bool_op "==>") e1) in 
-      let* warnings2 = (check_expr ctx_lazy (lazy_bool_op "==>") e2) in 
+      let* warnings1 = (check_expr ctx f e1) in 
+      let* warnings2 = (check_expr ctx_lazy lazy_ite e2) in 
       Ok (warnings1 @ warnings2)
     | BinaryOp (_, _, e1, e2)
     | CompOp (_, _, e1, e2)
     | IndexAccess (_, e1, e2, _)
-    | Arrow (_, e1, e2) ->
+    | Arrow (_, e1, e2)
+    | Fby (_, e1, e2) ->
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in 
       Ok (warnings1 @ warnings2)
@@ -1646,19 +1535,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Call (_, _, _, e)
       -> check_expr_list ctx f e
     | RecordExpr (_, _, _, e)
-    | Merge (_, _, e)
       -> let e = List.map (fun (_, e) -> e) e in check_expr_list ctx f e
-    | Condact (_, e1, e2, _, e3, e4) -> 
-      let* warnings1 = (check_expr ctx f e1) in 
+    | Restart (_, e1, e2) ->
+      let* warnings1 = (check_expr ctx f e1) in
       let* warnings2 = (check_expr ctx f e2) in
-      let* warnings3 = (check_expr_list ctx f e3) in
-      let* warnings4 = (check_expr_list ctx f e4) in 
-      Ok (warnings1 @ warnings2 @ warnings3 @ warnings4)
-    | Activate (_, _, e1, e2, e3) ->
-      let* warnings1 = (check_expr ctx f e1) in 
-      let* warnings2 = (check_expr ctx f e2) in 
-      let* warnings3 = (check_expr_list ctx f e3) in 
-      Ok (warnings1 @ warnings2 @ warnings3)
+      Ok (warnings1 @ warnings2)
     | RestartEvery (_, _, e1, e2) -> 
       let* warnings1 = (check_expr_list ctx f e1) in 
       let* warnings2 = (check_expr ctx f e2) in
@@ -1848,7 +1729,8 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
       if is_nested then ctx_add_quant_var ctx i (Some inner_ty) else ctx
     in
     let* warnings1 = check_expr ctx_here ovq e in
-    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs is_nested ctx_here inner_ty in
+    (* The bound variable is not in scope in its own type *)
+    let* warnings2 = oqv_check_type tc_ctx inlinable_funcs is_nested ctx inner_ty in
     Ok (warnings1 @ warnings2)
   | LA.ArrayType (_, (b_ty, sz)) ->
     let* warnings1 = check_expr ctx ovq sz in

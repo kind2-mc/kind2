@@ -762,7 +762,12 @@ let spawn_process in_sys param
     (* Keep identifier of engine and return. *)
     child_pids := (id, kind_module) :: !child_pids
 
-  with e ->
+  with
+  (* A signal that arrived while the domain was spawned, for the
+     supervisor to act on. The domain, if it was spawned, is in the
+     registry of engines, which is what the teardown goes by. *)
+  | (TimeoutWall | Signal _) as e -> raise e
+  | e ->
     (* The domain could not be spawned: unregister the mailbox. *)
     KEvent.unregister_worker messaging_worker ;
     KEvent.log L_fatal "Could not spawn a domain for %a: %s"

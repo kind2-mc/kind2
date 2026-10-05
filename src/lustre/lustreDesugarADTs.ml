@@ -616,6 +616,7 @@ and desugar_expr ctx adt_map expr =
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)
   in
   match expr with
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
     let args' = rlist args in
     let adt_info =
@@ -713,16 +714,12 @@ and desugar_expr ctx adt_map expr =
     LA.StructUpdate (p, r e, List.map rloi idx, None)
   | LA.ArrayConstr (p, e1, e2) -> LA.ArrayConstr (p, r e1, r e2)
   | LA.IndexAccess (p, e1, e2, k) -> LA.IndexAccess (p, r e1, r e2, k)
-  | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
+  | LA.Fby (p, e1, e2) -> LA.Fby (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, desugar_type p ctx adt_map ty)
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map (desugar_type p ctx adt_map) ty_args, id, rlist es)
-  | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
-  | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
-  | LA.Condact (p, e1, e2, id, es1, es2) ->
-    LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
   | LA.Quantifier (p, k, idents, e) ->
     (* A bound variable of a type involving an ADT ranges over the canonical
@@ -761,6 +758,7 @@ let desugar_contract_item ctx adt_map item =
 let rec desugar_node_item ctx adt_map item =
   let r = desugar_expr ctx adt_map in
   match item with
+  | LA.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Auto _ -> item
   | LA.Body (LA.Equation (p, lhs, e)) -> LA.Body (LA.Equation (p, lhs, r e))
   | LA.Body (LA.Assert (p, e)) -> LA.Body (LA.Assert (p, r e))
@@ -985,6 +983,7 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     | LA.AbstractType _ | LA.History _ | LA.ADT _ -> ty
   in
   match expr with
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.RecordExpr (pos, type_name, [], fields) when HStringMap.mem type_name adt_map ->
     let info = HStringMap.find type_name adt_map in
     (match List.assoc_opt info.disc_field fields with
@@ -1044,16 +1043,12 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     LA.StructUpdate (p, r e1, List.map rloi idx, Option.map r e2_opt)
   | LA.ArrayConstr (p, e1, e2) -> LA.ArrayConstr (p, r e1, r e2)
   | LA.IndexAccess (p, e1, e2, k) -> LA.IndexAccess (p, r e1, r e2, k)
-  | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
+  | LA.Fby (p, e1, e2) -> LA.Fby (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, rewrite_type ty)
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map rewrite_type ty_args, id, rlist es)
-  | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
-  | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
-  | LA.Condact (p, e1, e2, id, es1, es2) ->
-    LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
   | LA.Quantifier (p, k, idents, e) ->
     (* Rename generated bound variables to "$n", substituting the new name for the

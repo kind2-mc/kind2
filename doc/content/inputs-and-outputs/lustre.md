@@ -469,169 +469,26 @@ guarantee true -> ( -- `m1`, `m2` and `m3` are exclusive.
 ) ;
 ```
 
-### Merge, When, Activate and Restart
+### Restart
 
-> **Note**: the first few examples of this section illustrating (unsafe)
-> uses of `when` and `activate` are **not legal** in Kind 2. They aim at
-> introducing the semantics of lustre clocks. As discussed below, they are only
-> legal when used inside a `merge`, hence making them safe clock-wise.
->
-> Also, `activate` and `restart` are actually not a legal Lustre v6
-> operator. They are however legal in Scade 6.
-
-A `merge` is an operator combining several streams defined on **complementary**
-clocks. There is two ways to define a stream on a clock. First, by wrapping its
-definition inside a `when`.
+Kind 2 supports resetting the internal state of an expression to its initial
+state with the construct restart/every. Writing
 
 ```lustre
-node example (i: int) returns (out: int) ;
-var i_pos: bool ; x: int ;
-let
-  ...
-  i_pos = i >= 0 ;
-  x = i when i_pos ;
-  ...
-tel
+restart e every r
 ```
 
-Here, `x` is only defined when `in_pos`, its clock, is `true`.
-That is, a trace of execution of `example` sliced to `x` could be
+evaluates the expression `e`, and every time the Boolean stream `r` is true,
+the internal state of `e` is reset to its initial state: every `->`, `pre` and
+`fby` operator in `e`, and every node called in `e`, starts again as at the
+first step. The reset happens at the very step at which `r` is true, so the
+value of `e` at that step is computed from its initial state. The condition `r`
+itself is not reset, and neither are the streams `e` reads from outside: only
+the state that `e` holds is.
 
-| step | i   | i_pos | x  |
-| ---- | --- | ----- | -- |
-| 0    | 3   | true  | 3  |
-| 1    | -2  | false | // |
-| 2    | -1  | false | // |
-| 3    | 7   | true  | 7  |
-| 4    | -42 | true  | // |
-
-where // indicates that `x` undefined.
-
-The second way to define a stream on a clock is to wrap a node call with the
-`activate` keyword. The syntax for this is
-
-```lustre
-(activate <node_name> every <clock>)(<input_1>, <input_2>, ...)
-```
-
-For example, consider the following node:
-
-```lustre
-node sum_ge_10 (i: int) returns (out: bool) ;
-var sum: int ;
-let
-  sum = i + (0 -> pre sum) ;
-  out = sum >= 10 ;
-tel
-```
-
-Say now we call this node as follows:
-
-```lustre
-node example (i: int) returns (...) ;
-var tmp, i_pos: bool ;
-let
-  ...
-  i_pos = i >= 0 ;
-  tmp = (activate sum_ge_10 every i_pos)(i) ;
-  ...
-tel
-```
-
-That is, we want `sum_ge_10(i)` to tick iff `i` is positive. Here is an
-example trace of `example` sliced to `tmp`; notice how the internal state of
-`sum_ge_10` (*i.e.* `pre sum_ge_10.sum`) is maintained so that it does refer to the value
-of `sum_ge_10.sum` *at the last clock tick of the* `activate`:
-
-| step | i  | i_pos | tmp   | sum_ge_10.i | pre sum_ge_10.sum | sum_ge_10.sum |
-| ---- | -- | ----- | ----- | ----------- | ----------------- | ------------- |
-| 0    | 3  | true  | false | 3           | nil               | 3             |
-| 1    | 2  | true  | false | 2           | 3                 | 5             |
-| 2    | -1 | false | nil   | nil         | 5                 | nil           |
-| 3    | 2  | true  | false | 2           | 5                 | 7             |
-| 4    | -7 | false | nil   | nil         | 7                 | nil           |
-| 5    | 35 | true  | true  | 35          | 7                 | 42            |
-| 6    | -2 | false | nil   | nil         | 42                | nil           |
-
-Now, as mentioned above the `merge` operator combines two streams defined on
-**complimentary** clocks. The syntax of `merge` is:
-
-```lustre
-merge( <clock> ; <e_1> ; <e_2> )
-```
-
-where `e_1` and `e_2` are streams defined on `<clock>` and `not <clock>`
-respectively, or on `not <clock>` and `<clock>` respectively.
-
-Building on the previous example, say add two new streams `pre_tmp` and
-`safe_tmp`:
-
-```lustre
-node example (i: int) returns (...) ;
-var tmp, i_pos, pre_tmp, safe_tmp: bool ;
-let
-  ...
-  i_pos = i >= 0 ;
-  tmp = (activate sum_ge_10 every i_pos)(i) ;
-  pre_tmp = false -> pre safe_tmp  ;
-  safe_tmp = merge( i_pos ; tmp ; pre_tmp when not i_pos ) ;
-  ...
-tel
-```
-
-That is, `safe_tmp` is the value of `tmp` whenever it is defined, otherwise it
-is the previous value of `safe_tmp` if any, and `false` otherwise.
-The execution trace given above becomes
-
-| step | i  | i_pos | tmp   | pre_tmp | safe_tmp |
-| ---- | -- | ----- | ----- | ------- | -------- |
-| 0    | 3  | true  | false | false   | false    |
-| 1    | 2  | true  | false | false   | false    |
-| 2    | -1 | false | nil   | false   | false    |
-| 3    | 2  | true  | false | false   | false    |
-| 4    | -7 | false | nil   | false   | false    |
-| 5    | 35 | true  | true  | false   | true     |
-| 6    | -2 | false | nil   | true    | true     |
-
-Just like with uninitialized `pre`s, if not careful one can easily end up
-manipulating undefined streams. Kind 2 forces good practice by allowing
-`when` and `activate ... every` expressions only inside a `merge`. All the
-examples of this section above this point are thus invalid from Kind 2's point
-of view.
-
-Rewriting them as valid Kind 2 input is not difficult however. Here is a legal
-version of the last example:
-
-```lustre
-node example (i: int) returns (...) ;
-var i_pos, pre_tmp, safe_tmp: bool ;
-let
-  ...
-  i_pos = i >= 0 ;
-  pre_tmp = false -> pre safe_tmp  ;
-  safe_tmp = merge(
-    i_pos ;
-    (activate sum_ge_10 every i_pos)(i) ;
-    pre_tmp when not i_pos
-  ) ;
-  ...
-tel
-```
-
-Kind 2 supports resetting the internal state of a node to its initial state by
-using the construct restart/every. Writing
-
-```lustre
-(restart n every c)(x1, ..., xn)
-```
-
-makes a call to the node `n` with arguments `x1`, ..., `xn` and every time the
-Boolean stream `c` is true, the internal state of the node is reset to its
-initial value.
-
-In the example below, the node `top` makes a call to `counter` (which is an
-integer counter *modulo* a constant `max`) which is reset every time the input
-stream `reset` is true.
+In the example below, the node `top` calls `counter` (an integer counter
+*modulo* a constant `max`), which is reset every time the input stream `reset`
+is true.
 
 ```lustre
 node counter (const max: int) returns (t: int);
@@ -641,11 +498,11 @@ tel
 
 node top (reset: bool) returns (c: int);
 let
-  c = (restart counter every reset)(3);
+  c = restart counter(3) every reset;
 tel
 ```
 
-A trace of execution for the node top could be:
+A trace of execution for the node `top` could be:
 
 | step | reset | c |
 | ---- | ----- | - |
@@ -660,21 +517,94 @@ A trace of execution for the node top could be:
 | 8    | true  | 0 |
 | 9    | false | 1 |
 
+The restarted expression does not need to be a node call:
+`x = restart (0 -> pre x + 1) every reset;` defines the same counter, without
+the modulo. The arguments of a call are part of the restarted expression, so
+in `restart counter(n) every r` any state that `n` holds is reset as well. An
+argument whose state must not be reset is defined outside the restart, in a
+local variable.
+
+Like `if ... then ... else ...`, the condition `every r` extends as far to the
+right as possible: `restart e every r or s` is `restart e every (r or s)`.
+
+A group of equations can be restarted together with a restart block:
+
+```lustre
+restart
+  s = 0 -> pre s + i;
+  m = 0 -> if s > pre m then s else pre m;
+every reset end
+```
+
+All the streams defined in the block, and the state of the expressions that
+define them, are reset every time `reset` is true. A restart block may contain
+equations, assertions, and `if`, `when`, `match` and restart blocks, but no
+properties, main annotations or frame blocks.
+
 > **Note:** This construction can be encoded in traditional Lustre by having a
 > Boolean input for the reset stream for each node. However providing a
 > built-in way to do it facilitates the modeling of complex control systems.
 
-Restart and activate can also be combined in the following way:
+**Restart and clocks.** A restart inside a branch of a `when` expression or
+block (see [Conditional expressions](#conditional-expressions)) is evaluated on
+the clock of the branch: in
 
 ```lustre
-(activate (restart n every r) every c)(a1, ..., an)
-(activate n every c restart every r)(a1, ..., an)
+o = when c then (restart counter(3) every r) else -1;
 ```
 
-These two calls are the same (the second one is just syntactic sugar). The
-(instance of the) node `n` is restarted whenever `r` is true and the *resulting
-call* is activated when the clock `c` is true. Notice that the restart clock
-`r` is also sampled by `c` in this call.
+`counter` is only reset at the steps at which both `c` and `r` are true, and a
+step at which `r` is true while `c` is false has no effect. A restart around a
+`when` expression, on the other hand, also resets the state of the branches
+that are not selected: in
+
+```lustre
+o = restart (when c then counter(3) else -1) every r;
+```
+
+`counter` starts again from its initial state the next time `c` is true after
+any step at which `r` was true.
+
+**Restrictions.** A restart cannot appear in a function or in the definition of
+a constant, since neither has state. The `last` operator cannot be used under a
+restart, and a restart cannot apply to values whose type is a type parameter of
+a polymorphic node.
+
+**Clock operators.** Kind 2 does not support the clock operators `merge`,
+`when` (as a sampling operator, `e when c`), `current`, `activate` and
+`condact` of Lustre and Scade. Their behavior is obtained with `when`
+expressions, which evaluate only the selected branch, and with restart:
+
+| Clock operator | With `when` and `restart` |
+| -------------- | ------------------------- |
+| `merge c (true -> e1 when c) (false -> e2 when not c)` | `when c then e1 else e2` |
+| `merge k (A -> e1 when A(k)) (B -> e2 when B(k)) (C -> e3 when C(k))` | `when k = A then e1 else when k = B then e2 else e3` |
+| `merge c (true -> (activate N every c)(x)) (false -> e when not c)` | `when c then N(x) else e` |
+| `condact(c, N(x), d)` | `o = when c then N(x) else h; h = d fby o;` |
+| `condact(c, (restart N every r)(x), d)` | `o = when c then (restart N(x) every r) else h; h = d fby o;` |
+| `(restart N every r)(x)` | `restart N(x) every r` |
+
+A case analysis on more than two values, such as a `merge` on an enumerated
+clock, reads more naturally as a [cond block](#cond-blocks), which has the same
+meaning as the nested `when` expressions:
+
+```lustre
+cond
+  | k = A: o = e1;
+  | k = B: o = e2;
+  otherwise: o = e3;
+end
+```
+
+Temporal operators and node calls in a branch of a `when` expression run on the
+clock of the branch: their state only advances at the steps at which the branch
+is selected. A sampled expression `e when c` was evaluated at every step, and
+only its value was selected, so an `e` with state of its own is defined outside
+the branches. For the same reason, the previous value `h` that `condact` keeps
+while `c` is false is defined outside the `else` branch, where `fby` would run
+on the clock `not c`. The regression test
+[clock_operators_with_when_and_restart.lus](https://github.com/kind2-mc/kind2/blob/main/tests/regression/success/clock_operators_with_when_and_restart.lus)
+checks each of these implementations against a reference.
 
 ## Underspecified outputs
 
@@ -752,8 +682,7 @@ dependencies among inputs and outputs.
 Kind 2 supports the `function` keyword which is used just like the `node` one
 but has slightly different semantics. Like the name suggests, the output(s) of
 a `function` must be a *non-temporal* combination of its inputs. That is, a
-function cannot depend on the `->`, `pre`, `merge`, `when`,
-`condact`, `activate`, or `restart` operators.
+function cannot depend on the `->`, `pre`, `fby` or `restart` operators.
 A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
@@ -810,10 +739,19 @@ function or of a lemma, and exactly one clause is allowed there. Declaring
 one anywhere else is an error.
 
 A `decreases` clause takes one of two forms. In either form, the measure may
-only mention the input parameters of the function and constants; in
-particular, it cannot call a node or a function, or contain a type
-ascription. A measure that needs a value computed by a function can take that
-value as an additional input parameter.
+only mention the input parameters of the function and constants. It may call a
+non-recursive function that can be inlined: one with no contract with
+guarantees, modes or a refinement type on an output (or declared
+`transparent`), with a single output, whose body is made of equations that
+define its output and local variables one at a time, without assertions or
+variables of an array type, and which calls only functions that can be inlined
+in turn. The call is replaced by the body of the function, and the obligations
+of the call, such as the assumptions of the function, are checked as for any
+other call. A type ascription is allowed as well. A measure cannot contain a
+`choose` or `any` operator, or call a node, a recursive or imported function,
+or a function with a contract that abstracts it; a measure that needs a value
+computed by such a function can take that value as an additional input
+parameter.
 
 **Integer measure.** A single integer expression, or a comma-separated tuple of
 integer expressions read lexicographically:
@@ -904,10 +842,7 @@ argument computed through an intermediate local variable, an auxiliary call, or
 any other indirection is rejected even if it is semantically equal to a
 directly pattern-matched variable.
 
-The check applies to every form that names a callee (not just ordinary calls):
-`restart f every c`, `condact (c, f (...), d)` and `activate f every c` are all
-recursive calls when `f` is in the recursive group, and must decrease just the
-same. It also applies to calls written inside a type annotation — a refinement
+The check also applies to calls written inside a type annotation — a refinement
 predicate on an input, output or local, or an array bound. Such a call can
 never be decreasing, since only a match in the function's body can witness a
 decrease, so it is always rejected.
@@ -1282,6 +1217,72 @@ refutes them. Note that a lemma with an empty body (`let tel`), or a body
 holding only `auto;`, is not a lemma without a body: its guarantees are
 proved from its assumptions alone.
 
+## Integer division and modulo
+
+The integer division operator `div` and the modulo operator `mod` follow the
+Euclidean definition that SMT-LIB gives them: for a divisor `n` other than
+zero, `m div n` and `m mod n` are the unique integers `q` and `r` such that
+`m = n * q + r` and `0 <= r < |n|`. The remainder is thus never negative, and
+the quotient is rounded towards negative infinity when the divisor is positive
+and towards positive infinity when it is negative:
+
+| `m`  | `n`  | `m div n` | `m mod n` |
+|------|------|-----------|-----------|
+| `7`  | `2`  | `3`       | `1`       |
+| `-7` | `2`  | `-4`      | `1`       |
+| `7`  | `-2` | `-3`      | `1`       |
+| `-7` | `-2` | `4`       | `1`       |
+
+This is not the definition used by C, where the quotient is rounded towards
+zero and the remainder takes the sign of the dividend (`-7 / 2` is `-3` and
+`-7 % 2` is `-1`), nor, by extension, the one used by the Lustre compilers that
+generate C code. The two definitions agree when both operands are non-negative,
+or when the divisor divides the dividend exactly, but they differ otherwise.
+For instance, `(-1) div 100` is `-1` in Kind 2 and `(-1) / 100` is `0` in C,
+so the property below is valid for Kind 2 but does not hold of the compiled
+code:
+
+```lustre
+node div_example (i: int) returns (j: int);
+let
+  j = i div 100;
+  check i < 0 => j < 0;
+tel
+```
+
+A model whose verified properties must carry over to generated code should
+therefore either keep the operands of `div` and `mod` non-negative, or be
+compiled with an implementation of integer division that follows the Euclidean
+definition.
+
+Kind 2 evaluates `div` and `mod` the same way wherever they appear, whether
+their operands are constants folded by the frontend or symbolic values handled
+by the SMT solver. A division by zero is not an error: as in SMT-LIB, `m div 0`
+and `m mod 0` denote arbitrary integers, about which Kind 2 assumes nothing
+except that the same expression denotes the same value.
+
+Division and modulo on [machine integers]({{< relref "/inputs-and-outputs/machine-ints#arithmetic-operations" >}})
+follow the definition of C instead.
+
+## The `fby` operator
+
+Kind 2 supports the binary *followed-by* operator of Lustre V6:
+`e1 fby e2` is `e1` at the first step and the previous value of `e2`
+afterwards, that is, it is syntactic sugar for `e1 -> pre e2`.
+
+```lustre
+-- A two-deep shift register: 0, 0, a(0), a(1), ...
+b = 0 fby 0 fby a;
+-- A counter: 1, 2, 3, ...
+n = 0 fby n + 1;
+```
+
+The operator is right-associative, so `0 fby 0 fby a` is `0 fby (0 fby a)`.
+It binds tighter than the binary arithmetic, comparison and Boolean
+operators, so `0 fby n + 1` is `(0 fby n) + 1`, and looser than `pre`,
+`not` and other prefix operators except unary minus, so `not c fby c` is
+`(not c) fby c` and `- a fby b` is `- (a fby b)`.
+
 ## Conditional expressions
 
 Kind 2 provides two forms of conditional expression. Both select between two
@@ -1308,12 +1309,25 @@ that is not selected is not evaluated at all. The lazy form is useful when one
 branch is only meaningful (for instance, only satisfies the assumptions it
 relies on) when the condition selects it.
 
-The branches of a `when ... then ... else ...` expression are subject to the
-following restrictions (the `if ... then ... else ...` expression has no such
-restrictions):
+A branch of a `when ... then ... else ...` expression may contain temporal
+operators and node calls. Since the branch is evaluated only at the steps where
+it is selected, these are evaluated on the clock of the branch:
 
-- They cannot contain temporal operators (for example `pre` or `->`).
-- They cannot call Lustre nodes (calls to functions are allowed).
+- `pre e` refers to the value of `e` the last time the branch was selected,
+  which may be several steps earlier, and `e1 -> e2` is `e1` the first time
+  the branch is selected.
+- A node called in the branch is activated only at the steps where the branch
+  is selected: its internal state does not advance at the other steps.
+
+For example, in
+
+```lustre
+x = when c then (0 -> pre x + 1) else 0;
+```
+
+`x` counts the steps at which `c` holds (starting from 0), whereas with
+`if c then (0 -> pre x + 1) else 0`, the previous value of `x` would be 0
+whenever `c` was false at the previous step.
 
 Each form has a corresponding statement-level block, described in the next
 section: `if` statements desugar to `if ... then ... else ...` expressions,
@@ -1335,11 +1349,12 @@ that evaluate their right operand only when necessary:
 
 When the right operand *is* evaluated, these operators agree with their eager
 counterparts: `and then` with `and`, `or else` with `or`, and `==>`
-with the implication operator `=>`. As with the lazy `when ... then ... else ...` expression, the right operand is subject to the following
-restrictions:
-
-- It cannot contain temporal operators (for example `pre` or `->`).
-- It cannot call Lustre nodes (calls to functions are allowed).
+with the implication operator `=>`. The right operand is evaluated like a
+branch of a `when ... then ... else ...` expression: `e1 and then e2`
+behaves as `when e1 then e2 else false`, `e1 or else e2` as
+`when e1 then true else e2`, and `e1 ==> e2` as `when e1 then e2 else true`.
+In particular, temporal operators and node calls in the right operand are
+evaluated on the clock of the steps at which it is evaluated.
 
 These operators are convenient when the right operand is only well-defined, or
 only satisfies its assumptions, when the left operand has the appropriate value,
@@ -1463,11 +1478,12 @@ and node calls appearing in it are activated on the enclosing guards (their
 internal state only advances at timesteps where the enclosing branch is
 selected).
 
-Current restrictions for `when` blocks are:
+Branch expressions may contain temporal operators and node calls, which
+are evaluated on the clock of the branch, as for the
+`when ... then ... else ...` expression.
 
-- Branch expressions cannot contain temporal operators (for example `pre` or
-  `->`).
-- Branch expressions cannot call Lustre nodes (calls to functions are allowed).
+The current restriction for `when` blocks is:
+
 - `if` blocks cannot be nested inside `when` blocks, and `when` blocks
   cannot be nested inside `if` blocks.
 
@@ -1494,10 +1510,10 @@ The semantics of `cond` blocks is the same as for `when` blocks: at each
 step, only the selected branch is evaluated, and branch expressions that are
 not selected are not evaluated.
 
-Current restrictions for `cond` blocks are the same as for `when` blocks:
+As in `when` blocks, branch expressions may contain temporal operators and
+node calls. The current restriction for `cond` blocks is the same as for
+`when` blocks:
 
-- Branch expressions cannot contain temporal operators (for example `pre` or`->`).
-- Branch expressions cannot call Lustre nodes (calls to functions are allowed).
 - `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
   cannot be nested inside `if` blocks.
 

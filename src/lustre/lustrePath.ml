@@ -1294,7 +1294,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 
   (* Functions derived from constants are printed along with the global constants. 
      Type ascriptions not shown. *)
-  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then
+  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr || NI.get_node_type node_id = Restarted then
     pp_print_lustre_path_pt' false const_map const_funcs globals ppf tl
   else 
 
@@ -1313,6 +1313,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | FreeConstant -> "Global constant"
     | Choose -> "'Choose' operator"
     | ClockedExpr -> "clocked expression"
+    | Restarted -> "restart"
     | TypeAscription -> "Type ascription operator"
   in
   
@@ -1733,7 +1734,7 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
 
     (* Functions derived from constants are printed along with the global constants. 
        Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then 
+    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr || NI.get_node_type node_id = Restarted then 
       pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
 
@@ -2294,7 +2295,7 @@ let node_prints_json = function
   | (_, Node (node, _, _, _, _, _, _, _)) ->
     N.node_is_visible node &&
     (match NI.get_node_type node.N.node_id with
-     | NI.FreeConstant | NI.TypeAscription | NI.ClockedExpr -> false
+     | NI.FreeConstant | NI.TypeAscription | NI.ClockedExpr | NI.Restarted -> false
      | _ -> true)
 
 (* Output a list of node models. *)
@@ -2310,7 +2311,7 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = fu
 
     (* Functions derived from constants are printed along with the global constants. 
        Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr then
+    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr || NI.get_node_type node_id = Restarted then
       pp_print_lustre_path_json' false const_map const_funcs globals ppf tl
     else
 

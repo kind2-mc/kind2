@@ -193,6 +193,15 @@ val remove_ty: tc_context -> LA.ident -> tc_context
 val remove_const: tc_context -> LA.ident -> tc_context
 (** Removes a constant variable *)
 
+val shadow_const: tc_context -> LA.ident -> tc_context
+(** [shadow_const ctx i] marks the constant [i] as shadowed by a bound variable
+    of the same name, so that a plain reference to [i] in the bound variable's
+    scope is not a constant. The constant's value stays available to types
+    declared outside that scope. *)
+
+val is_shadowed_const: tc_context -> LA.ident -> bool
+(** Checks if the constant is shadowed by a bound variable in scope *)
+
 val remove_ty_ctx: tc_context -> tc_context
                   
 val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context

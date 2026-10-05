@@ -43,6 +43,7 @@ type error_kind = Unknown of string
   | UnableToEvaluate of LA.expr
   | WidthOperatorUnsupported
   | OutOfBounds of string
+  | DivisionByZero of LA.expr
 
 type error = [
   | `LustreAstInlineConstantsError of Lib.position * error_kind
@@ -71,6 +72,8 @@ let error_message kind = match kind with
   | UnableToEvaluate e -> "Cannot evaluate expression '" ^ LA.string_of_expr e ^ "'"
   | WidthOperatorUnsupported -> "Width operator is not supported"
   | OutOfBounds s -> s
+  | DivisionByZero e -> "Cannot evaluate division by zero '"
+    ^ LA.string_of_expr e ^ "' to an int constant"
 
 
 let inline_error pos kind = Error (`LustreAstInlineConstantsError (pos, kind))
@@ -86,6 +89,21 @@ let bool_value_of_const: LA.expr -> (bool, [> error]) result =
   | LA.Const (_, LA.True) -> R.ok true
   | LA.Const (_, LA.False) -> R.ok false                             
   | e -> inline_error (LH.pos_of_expr e) (ConstantMustBeBool e)
+
+(* Euclidean division and remainder, the semantics of 'div' and 'mod' on
+   integers in SMT-LIB and hence in Kind 2: the remainder is always
+   non-negative, so the quotient is rounded towards negative infinity for a
+   positive divisor and towards positive infinity for a negative one. OCaml's
+   native operators round the quotient towards zero and give the remainder
+   the sign of the dividend, as C does; evaluating a constant with them would
+   disagree with what the SMT solver computes for the same expression. *)
+let euclidean_div a b =
+  let q = a / b in
+  if a mod b < 0 then (if b > 0 then q - 1 else q + 1) else q
+
+let euclidean_mod a b =
+  let r = a mod b in
+  if r < 0 then r + abs b else r
 
 let lift_bool: bool -> LA.constant = function
   | true -> LA.True
@@ -141,7 +159,10 @@ and eval_int_binary_op: TC.tc_context -> Lib.position -> LA.binary_operator
   | Plus -> R.ok (v1 + v2)
   | Times -> R.ok (v1 * v2)
   | Minus -> R.ok (v1 - v2)
-  | IntDiv -> R.ok (v1 / v2)
+  | IntDiv | Mod when v2 = 0 ->
+    inline_error pos (DivisionByZero (LA.BinaryOp (pos, bop, e1, e2)))
+  | IntDiv -> R.ok (euclidean_div v1 v2)
+  | Mod -> R.ok (euclidean_mod v1 v2)
   | _ -> inline_error pos (BinaryMustBeInt (LA.BinaryOp (pos, bop, e1, e2)))
 (** try and evalutate binary op expression to int, return error otherwise *)
              
@@ -237,6 +258,7 @@ and simplify_index_access ctx ?(ind_vars = []) pos e1 idx kind =
 and push_pre is_guarded pos =
   let r e = push_pre is_guarded pos e in
   function
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Ident _ as e -> LA.Pre (pos, e)
   | Last _ as e -> LA.Pre (pos, e)
   | ModeRef _ as e -> LA.Pre (pos, e)
@@ -245,9 +267,14 @@ and push_pre is_guarded pos =
   | FieldProject (p, e, i, pk) -> FieldProject (p, r e, i, pk)
   | Const _ as e -> if is_guarded then e else Pre (pos, e)
   | UnaryOp (p, op, e) -> UnaryOp (p, op, r e)
+  (* The right operand of a lazy Boolean operator is not evaluated at every
+     step, so 'pre' is not pushed into it *)
+  | BinaryOp (_, (AndThen | OrElse | LazyImpl), _, _) as e -> LA.Pre (pos, e)
   | BinaryOp (p, op, e1, e2) -> BinaryOp (p, op, r e1, r e2)
   | TernaryOp (p, Ite, e1, e2, e3) -> TernaryOp (p, Ite, e1, r e2, r e3)
-  | TernaryOp (p, LazyIte, e1, e2, e3) -> TernaryOp (p, LazyIte, e1, e2, e3)
+  (* The branches of a lazy if-then-else are not evaluated at every step,
+     so 'pre' is not pushed into them *)
+  | TernaryOp (_, LazyIte, _, _, _) as e -> LA.Pre (pos, e)
   | ConvOp (p, op, e) -> ConvOp (p, op, r e)
   | CompOp (p, op, e1, e2) -> CompOp (p, op, r e1, r e2)
   | Extract (pos, e, idx1, idx2) -> LA.Extract (pos, r e, idx1, idx2)
@@ -280,13 +307,10 @@ and push_pre is_guarded pos =
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
-  | When _ as e -> LA.Pre (pos, e)
-  | Condact _ as e -> LA.Pre (pos, e)
-  | Activate _ as e -> LA.Pre (pos, e)
-  | Merge _ as e -> LA.Pre (pos, e)
   | RestartEvery _ as e -> LA.Pre (pos, e)
   | Pre _ as e -> LA.Pre (pos, e)
   | Arrow _ as e -> LA.Pre (pos, e)
+  | Fby _ as e -> LA.Pre (pos, e)
   | Call _ as e -> LA.Pre (pos, e)
   | TypeAscription (p, e, ty) -> TypeAscription (p, r e, ty)
   | Match (p, e, arms, ty_opt) ->
@@ -333,6 +357,13 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
     let e2' = simplify_expr ~ind_vars ~is_guarded:true ctx e2 in
     Arrow (pos, e1', e2')
+  (* 'e1 fby e2' is 'e1 -> pre e2', which is what 'pre' is pushed into *)
+  | Fby (pos, e1, e2) when Flags.lus_push_pre () ->
+    simplify_expr ~ind_vars ~is_guarded ctx (Arrow (pos, e1, Pre (pos, e2)))
+  | Fby (pos, e1, e2) ->
+    let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+    let e2' = simplify_expr ~ind_vars ~is_guarded:false ctx e2 in
+    Fby (pos, e1', e2')
   | LA.TypeAscription (pos, e, ty) ->
     let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
     let ty' = inline_constants_of_lustre_type ~ind_vars ctx ty in
@@ -383,11 +414,14 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     (* 1. Don't inline constants that are shadowed by quantified vars (by removing these constants from the ctx)
        2. Perform inlining within tis *)
     let ctx, tis = List.fold_left (fun (acc_ctx, acc_tis) (p, id, ty) -> 
-      let acc_ctx = TC.remove_const acc_ctx id in 
+      (* The quantified variable is not in scope in its own type *)
       let acc_ti  = (p, id, inline_constants_of_lustre_type ~ind_vars acc_ctx ty) in 
+      let acc_ctx = TC.remove_const acc_ctx id in 
       acc_ctx, acc_tis @ [acc_ti] 
     ) (ctx, []) tis in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
+    (* A free constant left in a binder's type must not resolve to the binder *)
+    let tis, e' = LH.rename_self_referencing_binders tis e' in
     Quantifier (pos, q, tis, e')
   | EmptySet (pos, Some ty) -> 
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
@@ -449,7 +483,8 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     TArr (pos, ty1', ty2')
   | RefinementType (pos, (pos2, id, ty), expr) ->
     let ty' = inline_constants_of_lustre_type ctx ty in 
-    let expr' = simplify_expr ~ind_vars ctx expr in
+    (* The bound variable shadows any constant of the same name *)
+    let expr' = simplify_expr ~ind_vars (TC.remove_const ctx id) expr in
     RefinementType (pos, (pos2, id, ty'), expr')
     
   | ADT (pos, name, cons) ->
@@ -535,7 +570,13 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     assert false
   | (MatchBlock _) :: _ ->
     assert false (* desugared in lustreDesugarMatchBlocks *)
+  | (RestartBlock _) :: _ ->
+    assert false (* desugared in lustreGenNodes *)
   | (AnnotProperty (pos, n, e, k)) :: items ->
+    let k = match k with
+      | LA.Provided g -> LA.Provided (simplify_expr ctx g)
+      | LA.Invariant | LA.Reachable _ -> k
+    in
     (AnnotProperty (pos, n, simplify_expr ctx e, k))
     :: inline_constants_of_node_items ctx items
   | (AnnotMain (pos, b)) :: items
@@ -570,8 +611,11 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation
                , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) rs
                , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) es))
       :: inline_constants_of_contract ctx others
+  | (LA.Decreases (pos, e)) :: others ->
+     (LA.Decreases (pos, simplify_expr ctx e))
+     :: inline_constants_of_contract ctx others
    (* | (LA.ContractCall) :: others -> () :: inline_constants_of_contract ctx others  *)
-  | e -> e 
+  | item :: others -> item :: inline_constants_of_contract ctx others
 
 let substitute: TC.tc_context -> LA.declaration -> (TC.tc_context * LA.declaration) = fun ctx ->
   function

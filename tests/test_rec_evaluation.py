@@ -91,3 +91,25 @@ def test_not_terminating_not_evaluated_in_non_compositional_analysis():
         "falsifiable/modular/rec_eval_not_terminating.lus", MODULAR
     )
     assert of_main == [{"f40": "unknown"}], of_main
+
+
+def test_calls_at_outputs_of_non_recursive_functions_are_evaluated():
+    for model, mode in [
+        ("success/compositional/modular/rec_eval_non_rec_args.lus", COMPOSITIONAL),
+        ("success/modular/rec_eval_non_rec_args.lus", MODULAR),
+        (
+            "success/compositional/modular/eval_non_rec_without_rec.lus",
+            COMPOSITIONAL,
+        ),
+    ]:
+        of_main = answers_of_main(model, mode)
+        assert len(of_main) == 1, (model, of_main)
+        assert set(of_main[0].values()) == {"valid"}, (model, of_main[0])
+
+
+def test_non_recursive_value_is_the_function_value():
+    of_main = answers_of_main(
+        "falsifiable/compositional/modular/rec_eval_non_rec_args.lus"
+    )
+    assert of_main[0]["right"] == "valid", of_main[0]
+    assert of_main[0]["wrong"] == "falsifiable", of_main[0]

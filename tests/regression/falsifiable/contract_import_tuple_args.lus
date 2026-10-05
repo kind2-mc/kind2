@@ -1,0 +1,64 @@
+-- The components of an argument of a contract import with several
+-- components are given, in order, for the inputs of the contract
+-- (see #1665).
+
+contract C(a: int; b: int) returns (z: int);
+let
+  guarantee z = a - b;
+tel
+
+node D(x: int) returns (a, b: int);
+let
+  a = x;
+  b = x + 1;
+tel
+
+node Tuple(y: int) returns (z: int);
+(*@contract import C((y, y + 1)) returns (z); *)
+let
+  z = 1;
+tel
+
+node Call(y: int) returns (z: int);
+(*@contract import C(D(y)) returns (z); *)
+let
+  z = 1;
+tel
+
+-- Components that are arrays or records
+
+type R = struct { f: int; g: int };
+
+contract CA(a: int^2; b: int) returns (z: int);
+let
+  guarantee z = a[0] - a[1] + b;
+tel
+
+contract CR(a: R; b: int) returns (z: int);
+let
+  guarantee z = a.f - a.g + b;
+tel
+
+node DA(x: int) returns (a: int^2; b: int);
+let
+  a = [x + 1, x];
+  b = x;
+tel
+
+node DR(x: int) returns (a: R; b: int);
+let
+  a = R { f = x; g = x + 1 };
+  b = x;
+tel
+
+node CallArray(y: int) returns (z: int);
+(*@contract import CA(DA(y)) returns (z); *)
+let
+  z = y;
+tel
+
+node CallRecord(y: int) returns (z: int);
+(*@contract import CR(DR(y)) returns (z); *)
+let
+  z = y + 1;
+tel

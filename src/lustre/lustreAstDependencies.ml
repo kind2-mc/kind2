@@ -401,7 +401,7 @@ and mk_graph_expr ?(only_modes = false)
       empty_dependency_analysis_data
       (List.map (mk_graph_expr ~only_modes) es)
   | LA.Pre (_, e) -> mk_graph_expr ~only_modes e
-  | LA.Arrow (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
+  | LA.Arrow (_, e1, e2) | LA.Fby (_, e1, e2) ->  union_dependency_analysis_data (mk_graph_expr ~only_modes e1) (mk_graph_expr ~only_modes e2)
   | LA.ModeRef (pos, ids) ->
     if List.length ids > 1 then
       singleton_dependency_analysis_data empty_hs (List.fold_left HString.concat2 contract_prefix (Lib.drop_last ids)) pos
@@ -488,23 +488,15 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
-  (* Clock operators *)
-  | LA.When (_, e, _) -> get_node_call_from_expr e
-  | LA.Condact (pos, e1, e2, i, e3, e4) -> (HString.concat2 node_prefix (NI.get_internal_name i), pos)
-    :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-    @ (List.flatten (List.map get_node_call_from_expr e3))
-    @ (List.flatten (List.map get_node_call_from_expr e4))
-  | LA.Activate (pos, i, e1, e2, e3) -> (HString.concat2 node_prefix (NI.get_internal_name i), pos)
-    :: (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
-    @ (List.flatten (List.map get_node_call_from_expr e3))
-  | LA.Merge (_, _, id_exprs) ->
-     List.flatten (List.map (fun (_, e) -> get_node_call_from_expr e) id_exprs)
+  (* A restart is left in place by LustreGenNodes only when the type of its
+     body cannot be inferred, which the type checker reports *)
+  | LA.Restart (_, e1, e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
   | LA.RestartEvery (pos, i, es, e1) ->
      (HString.concat2 node_prefix (NI.get_internal_name i), pos)
      :: (List.flatten (List.map get_node_call_from_expr es)) @ get_node_call_from_expr e1
   (* Temporal operators *)
   | LA.Pre (_, e) -> get_node_call_from_expr e
-  | LA.Arrow (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
+  | LA.Arrow (_, e1, e2) | LA.Fby (_, e1, e2) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   | LA.TypeAscription (_, e, ty) -> get_node_call_from_expr e @ extract_node_calls_type ty
   (* Node calls *)
   | LA.Call (pos, _, node_id, es) -> (HString.concat2 node_prefix (NI.get_internal_name node_id), pos) :: List.flatten (List.map get_node_call_from_expr es)
@@ -626,7 +618,9 @@ let rec extract_node_calls_item: LA.node_item -> (LA.ident * Lib.position) list
   | FrameBlock (_, _, nes, nis) ->
     extract_node_calls (List.map (fun x -> LA.Body x) nes) @
     extract_node_calls nis
-  | AnnotProperty (_, _, e, _) -> get_node_call_from_expr e
+  | AnnotProperty (_, _, e, Provided g) ->
+    get_node_call_from_expr e @ get_node_call_from_expr g
+  | AnnotProperty (_, _, e, (Invariant | Reachable _)) -> get_node_call_from_expr e
   | _ -> []
 (** Extracts all the node calls from a node item *)
 
@@ -792,22 +786,7 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   | AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
 
-  (* Clock operators *)
-  | When (_, e, _) -> r e
-  | Condact (pos, clk_exp, r_exp, node_id, es, ds) ->
-    let call_vars = r (Call (pos, [], node_id, es)) in
-    let default_vars =
-      match List.nth_opt ds proj with
-      | None -> SI.empty (* Ignore if arity is not correct *)
-      | Some e -> r e
-    in
-    SI.union default_vars (SI.union (SI.union (r clk_exp) (r r_exp)) call_vars)
-  | Activate (pos, node_id, clk_exp, r_exp, es) ->
-    let call_vars = r (Call (pos, [], node_id, es)) in
-    SI.union (SI.union (r clk_exp) (r r_exp)) call_vars
-  | Merge (_, i, es) ->
-    let result = es |> (List.map (fun (_, e) -> r e)) |> SI.flatten in
-    SI.add i result
+  | Restart (_, e1, e2) -> SI.union (r e1) (r e2)
   | RestartEvery (pos, node_id, es, clk_exp) ->
     let call_vars = r (Call (pos, [], node_id, es)) in
     SI.union (r clk_exp) call_vars
@@ -817,6 +796,8 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* 'last x' refers to the previous value of x: no instantaneous dependency *)
   | Last _ -> SI.empty
   | Arrow (_, e1, e2) -> SI.union (r e1) (r e2)
+  (* 'e1 fby e2' is 'e1 -> pre e2' *)
+  | Fby (_, e1, _) -> r e1
   | TypeAscription (_, e, ty) -> SI.union (r e) (LH.vars_of_type ty)
 
   (* Node calls *)
@@ -977,40 +958,11 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
 
   | LA.AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
   | LA.ChooseOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
-  | LA.When (_, e, _) -> mk_graph_expr2 m e
-  | LA.Condact (pos, _, _, n, e1s, e2s) ->
-     let node_call = LA.Call(pos, [], n, e1s) in
-     mk_graph_expr2 m node_call >>= fun gs ->
-     R.seq (List.map (mk_graph_expr2 m) e2s) >>= fun d_gs -> 
-     let default_gs = List.concat d_gs in
-     if List.length gs != List.length default_gs
-     then graph_error pos (WidthLengthsUnequal (node_call, LA.GroupExpr (Lib.dummy_pos, LA.ExprList, e2s)))
-     else R.ok (List.map2 union_dependency_analysis_data gs default_gs)
-  | LA.Activate (pos, n, _, _, es) ->
-     let node_call = LA.Call(pos, [], n, es) in
-     mk_graph_expr2 m node_call
-  | LA.Merge (pos, clk_id, cs) -> (
-     R.seq (List.map (fun (_, e) -> (mk_graph_expr2 m) e) cs) >>= fun gs ->
-     try
-      let gs' = 
-        List.tl gs |> List.fold_left (fun acc gs' ->
-          List.map2 union_dependency_analysis_data acc gs'
-        )
-        (List.hd gs)
-      in
-      let clk_g = singleton_dependency_analysis_data empty_hs clk_id pos in
-      R.ok (List.map (fun g -> union_dependency_analysis_data clk_g g) gs')
-     with Invalid_argument _ ->
-      let es = List.map snd cs in
-      let len = List.hd gs |> List.length in
-      let egs = List.combine (List.tl es) (List.tl gs) in
-      match List.find_opt (fun (_, l) -> List.length l <> len) egs with
-      | None -> assert false
-      | Some (e, _) -> (
-        let fst = List.hd es in
-        graph_error (LH.pos_of_expr fst) (WidthLengthsUnequal (fst, e))
-      )
-  )
+  | LA.Restart (_, e, clk_exp) ->
+     let* e_g = mk_graph_expr2 m e in
+     let* clk_g = mk_graph_expr2 m clk_exp in
+     let clk_g = List.fold_left union_dependency_analysis_data empty_dependency_analysis_data clk_g in
+     R.ok (List.map (fun g -> union_dependency_analysis_data clk_g g) e_g)
   | LA.RestartEvery (p, n, es, clk_exp) ->
      let node_call = LA.Call(p, [], n, es) in
      let* call_g = mk_graph_expr2 m node_call in
@@ -1020,6 +972,8 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
   | LA.Pre (_, e) ->
      mk_graph_expr2 m e >>= fun g ->
        R.ok (List.map (map_g_pos (fun v -> HString.concat2 v (HString.mk_hstring "$p"))) g) 
+  | LA.Fby (p, e1, e2) ->
+     mk_graph_expr2 m (LA.Arrow (p, e1, LA.Pre (p, e2)))
   | LA.Arrow (p, e1, e2) ->
      mk_graph_expr2 m e1 >>= fun g1 ->
      mk_graph_expr2 m e2 >>= fun g2 ->
@@ -1537,6 +1491,7 @@ let rec node_item_deps: node_summary -> SI.t -> LA.node_item -> (LA.ident * SI.t
   | FrameBlock (_, _, nes, nis) ->
     List.concat_map (node_item_deps s guard_vars)
       (List.map (fun ne -> LA.Body ne) nes @ nis)
+  | RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | AnnotMain _ | AnnotProperty _ | Auto _ -> []
 
 let mk_node_summary: bool -> node_summary -> LA.node_decl -> bool -> node_summary
@@ -1721,6 +1676,7 @@ let rec mk_graph_node_items: node_summary -> dependency_analysis_data -> LA.node
     let* gs2 = mk_graph_node_items m inherited nis in
     let* gs3 = mk_graph_node_items m inherited items in
     R.ok (union_dependency_analysis_data gs1 (union_dependency_analysis_data gs2 gs3))
+  | RestartBlock _ :: _ -> assert false (* desugared in lustreGenNodes *)
   | (AnnotMain _ | AnnotProperty _ | Auto _) :: items ->
     mk_graph_node_items m inherited items
 (** Traverse all the node items to make a dependency graph  *)

@@ -1,9 +1,0 @@
-node N(c: bool; x: int) returns (z: int);
-(*@contract
-  const g: int;
-  var y: int = when c then (0 -> pre x + g) else 0;
-  guarantee z >= y;
-*)
-let
-  z = 0;
-tel

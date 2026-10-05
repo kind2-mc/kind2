@@ -192,6 +192,11 @@ Lucent supports the Boolean operators `not`, `and`, `or`, `xor`, and `=>`
 (implies), as well as the arithmetic operators `+`, `-` (both unary and binary),
 `*`, `/`, `mod`, and `div` (integer division), all with the expected arity and
 (pointwise) semantics.
+Integer division and modulo follow the Euclidean definition, as in SMT-LIB:
+`m mod n` is never negative, and `m div n` is rounded accordingly (towards
+negative infinity when `n` is positive), so `(-7) div 2` is `-4` and
+`(-7) mod 2` is `1`, where C gives `-3` and `-1`
+(see [Integer division and modulo]({{< relref "/inputs-and-outputs/lustre#integer-division-and-modulo" >}})).
 The arithmetic operators (`+` and so on) are overloaded as they apply
 both to `int` and `real` terms.
 The binary operators, however, are applicable only to arguments of the same type
@@ -845,9 +850,8 @@ Besides `node`, the language provides the keyword `function`, used in exactly
 the same way but with stricter semantics: a function's outputs must be a
 *non-temporal* combination of its inputs
 (i.e., *combinational*). 
-A function may not use `->`, `pre`,
-`merge`, `when`, `condact`, or `activate`, and it may only call other
-functions (not nodes). Functions are, in other words, stateless.
+A function may not use `->`, `pre`, `fby` or
+`restart`, and it may only call other functions (not nodes). Functions are, in other words, stateless.
 
 ```lustre
 function Abs(x: real) returns (y: real);
@@ -1007,9 +1011,9 @@ end
 ```
 
 In both, only the selected branch is evaluated, with the consequences
-described above. The same restrictions apply: a branch may not contain temporal
-operators or calls to nodes, and `if` blocks and lazy blocks may not be nested
-inside one another.
+described above. A branch may contain temporal operators and calls to nodes
+(see below for what they mean there), but `if` blocks and lazy blocks may not
+be nested inside one another.
 
 A `match` block is the statement-level counterpart of the `match` expression of
 the [Algebraic Datatypes](#algebraic-datatypes) section, standing to it as the
@@ -1040,8 +1044,11 @@ block sits inside a [frame block](#frame-blocks), where a value matched by no
 arm leaves the variables to stutter.
 
 Laziness also changes what "the previous value" means. Inside a lazy branch,
+or in the right operand of a lazy Boolean operator,
 `pre x` refers to the value of `x` the last time *that branch was selected*,
-which may be several steps earlier. When a lazy block sits inside a
+which may be several steps earlier. Likewise, `->` selects its left operand
+the first time the branch is selected, and a node called in the branch only
+advances at the steps where the branch is selected. When a lazy block sits inside a
 [frame block](#frame-blocks), `last x` is the dependable way to say *the value
 at the immediately preceding timestep*.
 

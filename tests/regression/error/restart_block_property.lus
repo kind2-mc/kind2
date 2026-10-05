@@ -1,0 +1,10 @@
+-- The equations of a restart block become the body of a node of their own,
+-- which has no properties.
+
+node f (a: int; r: bool) returns (b: int);
+let
+  restart
+    b = 0 -> pre b + a;
+    check b >= 0 or a < 0;
+  every r end
+tel

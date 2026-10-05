@@ -1,0 +1,29 @@
+-- The right operand of a lazy Boolean operator ('and then', 'or else', '==>')
+-- is evaluated like a branch of a when-then-else expression: a node called in
+-- it is activated only when the operand is evaluated, and 'pre' and '->' in it
+-- refer to the steps at which it is evaluated.
+
+node Count(x: bool) returns (n: int);
+let
+  n = (if x then 1 else 0) -> pre n + (if x then 1 else 0);
+tel
+
+node Main(c, x: bool) returns (a1, b1, a2, b2, a3, b3, a4, b4: bool);
+let
+  a1 = c and then Count(x) > 2;
+  b1 = when c then Count(x) > 2 else false;
+
+  a2 = c and then (true -> not pre a2);
+  b2 = when c then (true -> not pre b2) else false;
+
+  a3 = c or else (false -> pre x);
+  b3 = when c then true else (false -> pre x);
+
+  a4 = c ==> (true -> pre x);
+  b4 = when not c then true else (true -> pre x);
+
+  check "and then" a1 = b1;
+  check "and then with pre" a2 = b2;
+  check "or else with pre" a3 = b3;
+  check "==> with pre" a4 = b4;
+tel
