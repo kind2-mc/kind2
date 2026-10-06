@@ -164,6 +164,12 @@ let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
       let (id, _, _, _, _) = contract_node_decl in
       set, NI.Map.add id contract_node_decl contracts
     )
+    (* A type ascription, generated as a function in a function or a
+       contract, and as a node elsewhere *)
+    | A.NodeDecl (_, (id, _, _, _, _, _, _, _, _))
+    | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _)
+      when NI.get_node_type id = NI.TypeAscription ->
+      NI.Set.add id set, contracts
     (* A non-imported non-recursive function *)
     | A.FuncDecl (_, (id, false, opac, [], _, outputs, locals, items, contract), { is_lemma = false; is_rec = false }) -> (
       if is_inlinable set contracts ctx opac contract outputs locals items then
@@ -171,12 +177,6 @@ let inlinable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
       else
         set, contracts
     )
-    (* A type ascription *) 
-    | A.NodeDecl (_, (id, _, _, _, _, _, _, _, _)) -> 
-      if NI.get_node_type id = NI.TypeAscription then
-        NI.Set.add id set, contracts 
-      else 
-        set, contracts
     | _ -> set, contracts
   )
   (NI.Set.empty, NI.Map.empty)

@@ -281,7 +281,7 @@ let base_type ctx ty =
   | Ok ty -> ty
   | Error _ -> ty
 
-let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
+let rec desugar_type: Ctx.tc_context -> NI.t -> NI.Set.t -> A.lustre_type -> A.lustre_type * A.declaration list =
 fun ctx node_name fun_ids ty -> 
   let r = desugar_type ctx node_name fun_ids in 
   match ty with 
@@ -330,25 +330,20 @@ fun ctx node_name fun_ids ty ->
     ) constructors |> List.split in
     ADT (p, name, constructors), List.flatten gen_nodes
 
-and desugar_expr: Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
+and desugar_expr: Ctx.tc_context -> NI.t -> NI.Set.t -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids expr -> 
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
   | TypeAscription (pos, e, ty) ->
-    (* In a function, the ascription is a function too, unless its type has a
-       temporal operator or a node call, which the type checker rejects in a
-       function (see [TempOperatorInFuncTypeAscription] in
+    (* In a function or a contract, the ascription is a function too, unless
+       its type has a temporal operator or a node call, which the type checker
+       rejects there (see [TempOperatorInFuncTypeAscription] in
        [LustreTypeChecker]). A call to a node would keep a recursive function
-       that the function belongs to, or calls, from being defined at the SMT
+       that the ascription belongs to, or calls, from being defined at the SMT
        level (see [LustreFunDefs]). *)
     let is_function =
-      List.exists (NI.equal node_name) fun_ids
-      &&
-      let ty = Ctx.expand_type_syn ctx ty in
-      not (AH.fold_lustre_ty
-             (fun e -> Option.is_some (AH.has_pre_or_arrow e)
-                       || Ctx.expr_contains_node_call ctx e)
-             false (||) ty)
+      NI.Set.mem node_name fun_ids
+      && not (Ctx.type_has_temporal_or_node_call ctx ty)
     in
     let e, gen_nodes1 = rec_call e in
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
@@ -607,7 +602,7 @@ and desugar_indices ctx node_name fun_ids idx =
    kind, whose outputs equal the expression and whose arguments are the
    variables used in the expression *)
 and abstract_into_node:
-  Ctx.tc_context -> NI.t -> NI.t list -> NI.node_type -> A.declaration list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.Set.t -> NI.node_type -> A.declaration list -> A.expr
   -> abstraction =
 fun ctx node_name fun_ids node_type gen_decls orig_e ->
   (* The expression can call a node generated for one of its own
@@ -688,7 +683,7 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
    here, it is returned as it came in, and the later type-checking pass reports
    the error, if any. *)
 and abstract_temporal_branch:
-  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.Set.t -> A.declaration list -> A.expr
   -> A.expr * A.declaration list =
 fun ctx node_name fun_ids gen_decls orig_e ->
   match AH.has_pre_or_arrow orig_e with
@@ -704,7 +699,7 @@ fun ctx node_name fun_ids gen_decls orig_e ->
    inferred here, the expression is left for the later type-checking pass to
    report the error. *)
 and abstract_restart:
-  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> Lib.position
+  Ctx.tc_context -> NI.t -> NI.Set.t -> A.declaration list -> Lib.position
   -> A.expr -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids gen_decls pos e r ->
   let sig_ctx = add_node_sigs ctx gen_decls in
@@ -722,7 +717,7 @@ fun ctx node_name fun_ids gen_decls pos e r ->
    other variables they use, and define the variables with a call to the node
    that is restarted every time [r] is true *)
 and abstract_restart_block:
-  Ctx.tc_context -> NI.t -> NI.t list -> Lib.position -> A.node_item list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.Set.t -> Lib.position -> A.node_item list -> A.expr
   -> A.node_item * A.declaration list =
 fun ctx node_name fun_ids pos items r ->
   let span = { A.start_pos = pos; A.end_pos = pos } in
@@ -762,7 +757,7 @@ fun ctx node_name fun_ids pos items r ->
   A.Body (A.Equation (pos, lhs, call)),
   List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ [decl]
 
-let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
+let desugar_contract_item: Ctx.tc_context -> NI.t -> NI.Set.t -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ctx node_name fun_ids ci ->
   let rec_call = desugar_expr ctx node_name fun_ids in
   match ci with
@@ -812,7 +807,7 @@ fun ctx node_name fun_ids ci ->
     A.GhostConst (A.UntypedConst (pos, id, e)), gen_nodes
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
+let desugar_contract: Ctx.tc_context -> NI.t -> NI.Set.t -> A.contract option -> A.contract option * A.declaration list =
 fun ctx node_name fun_ids contract ->
   match contract with
   | Some (pos, contract_items) ->
@@ -843,7 +838,7 @@ fun ctx node_name fun_ids contract ->
 
 (* A node item may become several: a restart block whose items have no state
    becomes its items *)
-let rec desugar_node_item: Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item list * A.declaration list =
+let rec desugar_node_item: Ctx.tc_context -> NI.t -> NI.Set.t -> A.node_item -> A.node_item list * A.declaration list =
 fun ctx node_name fun_ids ni ->
   let rec_call = desugar_node_item ctx node_name fun_ids in
   let rec_calls nis =
@@ -997,9 +992,14 @@ let desugar_signature ctx fun_ids decl =
 
 let gen_nodes_of_decls: Ctx.tc_context -> A.declaration list -> A.declaration list =
 fun ctx decls ->
-  let fun_ids = List.filter_map
-    (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
-    decls
+  (* The functions and the contracts, in which a type ascription is generated
+     as a function (see [desugar_expr]) *)
+  let fun_ids = List.fold_left
+    (fun acc decl -> match decl with
+      | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _)
+      | A.ContractNodeDecl (_, (id, _, _, _, _)) -> NI.Set.add id acc
+      | _ -> acc)
+    NI.Set.empty decls
   in
   (* The signatures of all nodes and functions are desugared first, and added to
      the context, so that the types of the node calls in an expression that is
