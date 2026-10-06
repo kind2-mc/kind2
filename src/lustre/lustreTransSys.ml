@@ -2792,6 +2792,13 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
   else
     let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
     let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
+    (* Without the theory of arrays, the definitions apply the select
+       symbols of the arrays, which the definitions do not declare (see
+       [TransSys.declare_selects]). They are taken now: the symbols are
+       private to the domain that made them. *)
+    let selects =
+      if Flags.Arrays.smt () then [] else StateVar.get_select_ufs ()
+    in
     let logic =
       let of_def (uf, formals, body) =
         TermLib.sup_logics
@@ -2816,6 +2823,7 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
       List.iter (fun ty -> match Type.node_of_type ty with
         | Type.Datatype _ -> declare_sort ty
         | _ -> ());
+      List.iter declare_fun selects ;
       List.iter declare_fun ufs ;
       List.iter define_rec blocks
     in
