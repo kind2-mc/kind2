@@ -144,6 +144,7 @@ let rec flatten_ref_types_expr: TypeCheckerContext.tc_context -> A.expr -> A.exp
   match e with
   (* Expressions with types *)
   | Restart _ -> assert false (* desugared in lustreGenNodes *)
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (p, q, tis, e) ->
     let tis = List.map (fun (p, id, ty) -> p, id, flatten_ref_type ctx ty) tis in
     Quantifier (p, q, tis, rec_call e)

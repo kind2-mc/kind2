@@ -498,6 +498,11 @@ let rec infer_const_attr ctx exp =
     let r1 = List.map (fun (_, _, ty) -> infer_const_attr_ty ctx ty) tis in 
     let r1 = List.fold_left combine [R.ok ()] r1 in
     combine r1 (infer_const_attr ctx e)
+  | ArrayComprehension (p, bs, e) ->
+    let ctx = List.fold_left (fun acc_ctx (_, id, _) ->
+      add_const acc_ctx id (LA.Ident (p, id)) (LA.Int p) Global
+    ) ctx bs in
+    combine [R.ok ()] (infer_const_attr ctx e)
   (* Clock operators *)
   (* Temporal operators *)
   | Pre (_, e) ->
@@ -568,6 +573,7 @@ let rec refinement_type_arg_in_expr ?(exempt_top = false) ctx e =
   | StructUpdate (_, e1, idx, e2) ->
     first [r e1; LH.fold_label_or_index None (fun a b -> first [a; b]) r idx; Option.bind e2 r]
   | Quantifier (_, _, tis, e) -> first (List.map (fun (_, _, ty) -> r_ty ty) tis @ [r e])
+  | ArrayComprehension (_, bs, e) -> first (List.map (fun (_, _, n) -> r n) bs @ [r e])
   | RestartEvery (_, _, es, e) -> first (List.map r es @ [r e])
   | Call (_, ty_args, _, es) | ADTTerm (_, ty_args, _, es) ->
     first (List.map r_ty ty_args @ List.map r es)
@@ -807,6 +813,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     ) tis) in 
     let* e = call e in 
     R.ok (LA.Quantifier (pos, q, tis, e))
+  | ArrayComprehension (pos, bs, e) ->
+    let* bs = R.seq (List.map (fun (p, id, n) ->
+      let* n = call n in
+      R.ok (p, id, n)
+    ) bs) in
+    let* e = call e in
+    R.ok (LA.ArrayComprehension (pos, bs, e))
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> R.ok expr
   | FieldProject (pos, e, idx, pk) ->
@@ -1486,6 +1499,27 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
+  (* An array comprehension '(e foreach i, j)^m^n' with 'e: T' has type
+     T^m^n. The index variables are integers in scope in the body only, where
+     they shadow the constants of the same name, and the sizes are checked as
+     the sizes of an array constructor *)
+  | LA.ArrayComprehension (p, bs, e) ->
+    let extn_ctx = List.fold_left (fun acc_ctx (ip, id, _) ->
+      add_ty (shadow_const acc_ctx id) id (LA.Int ip)
+    ) ctx bs in
+    let* ty, e, warnings1 = infer_type_expr extn_ctx nname e in
+    let* bs, warnings2 =
+      R.seq (List.map (fun (ip, id, n) ->
+        let* n, warnings = check_array_size_expr ctx nname ty n in
+        R.ok ((ip, id, n), warnings)
+      ) bs) |> R.map List.split
+    in
+    let arr_ty =
+      List.fold_right (fun (_, _, n) acc -> LA.ArrayType (p, (acc, n))) bs ty
+    in
+    R.ok (arr_ty, LA.ArrayComprehension (p, bs, e),
+          warnings1 @ List.flatten warnings2)
+
   (* An any/choose operator has the type its binder declares. These are turned
      into node calls before the main type-checking pass runs, so this case only
      serves the passes that infer types beforehand. *)
@@ -1805,6 +1839,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
+  | ArrayComprehension (pos, _, _)
   | Restart (pos, _, _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos, _, _)
@@ -2894,6 +2929,8 @@ and check_no_index_access ctx nname ty e =
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
+  | ArrayComprehension (_, bs, e) ->
+    Res.seq_ (List.map (fun (_, _, n) -> r n) bs) >> r e
   | AnyOp (_, (_, _, ty'), e) ->
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
   | ChooseOp (_, (_, _, ty'), e) ->
@@ -3045,8 +3082,13 @@ and expr_contains_set_binop ctx ni expr =
   | Quantifier (_, _, tis, e) -> 
     let ctx = List.fold_left (fun acc (_, id, ty) -> 
       add_ty acc id ty 
-    ) ctx tis in 
-    expr_contains_set_binop ctx ni e 
+    ) ctx tis in
+    expr_contains_set_binop ctx ni e
+  | ArrayComprehension (_, bs, e) ->
+    let ctx = List.fold_left (fun acc (p, id, _) ->
+      add_ty acc id (LA.Int p)
+    ) ctx bs in
+    expr_contains_set_binop ctx ni e
   | Ident _  -> false
   | Last _ -> false
   | EmptyMap (_, None) | EmptySet (_, None)

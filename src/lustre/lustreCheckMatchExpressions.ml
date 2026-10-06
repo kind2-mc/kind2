@@ -200,6 +200,7 @@ let rec matches_of_expr expr =
   | A.StructUpdate (_, e, idx, e_opt) ->
     r e @ LH.fold_label_or_index [] (@) r idx
     @ (match e_opt with Some e -> r e | None -> [])
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (_, _, tis, e) ->
     rtys (List.map (fun (_, _, ty) -> ty) tis) @ r e
   | A.AnyOp (_, (_, _, ty), e) | A.ChooseOp (_, (_, _, ty), e) ->

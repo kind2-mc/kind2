@@ -189,6 +189,7 @@ let rec collect_rec_calls scc_map caller_scc caller_measure shadowed safe_env ex
   | LA.FieldProject (_, e, _, _) | LA.ADTTester (_, e, _)
   | LA.Extract (_, e, _, _) -> go e
   | LA.TypeAscription (_, e, ty) -> go e @ go_ty ty
+  | LA.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | LA.Quantifier (_, _, qs, e) ->
     (* The quantifier's own bound names shadow any same-named outer
        binding, exactly as a match arm's pattern bindings do (see the

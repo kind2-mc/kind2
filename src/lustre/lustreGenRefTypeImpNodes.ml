@@ -70,6 +70,7 @@ let rec expr_contains_mode_ref expr =
   | Const (_, _)
   | EmptySet _
   | EmptyMap _ -> false
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | StructUpdate (_, e, _, None)

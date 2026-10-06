@@ -71,6 +71,7 @@ type error_kind = Unknown of string
   | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
+  | MissingComprehensionSize of HString.t
   | MultAssignArrayDef
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
@@ -156,6 +157,10 @@ let error_message kind = match kind with
   | IllegalRestartBlock variant -> "Illegal restart block, " ^ variant ^ " cannot have state"
   | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
   | UnsupportedAssignment -> "Assignment not supported"
+  | MissingComprehensionSize i -> "The index '" ^ HString.string_of_hstring i
+    ^ "' of an array comprehension has no size: an array comprehension is"
+    ^ " followed by one size per index, the innermost index first, as in"
+    ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m"
   | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
@@ -376,7 +381,7 @@ function
 
 | FieldProject (_, e, _, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) 
-| Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
+| Quantifier (_, _, _, e) | ArrayComprehension (_, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
@@ -1488,6 +1493,31 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
       let* _ = check_quantified_vars ctx vars in
       let* warnings2 = check_expr ctx f e in 
+      Res.ok (warnings @ warnings2)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (_, _, n) -> LA.is_missing_size n) bs ->
+      let (pos, i, _) = List.find (fun (_, _, n) -> LA.is_missing_size n) bs in
+      syntax_error pos (MissingComprehensionSize i)
+    | ArrayComprehension (_, bs, e) ->
+      (* The index variables are subject to the restrictions of the indices of
+         an array definition, which the comprehension is compiled to. An index
+         is symbolic when the size of its dimension mentions a free constant or
+         a local, such as a constant input. *)
+      let over_binders (warnings, ctx) (_, i, n) =
+        let* warnings2 = check_expr ctx f n in
+        let is_symbolic =
+          LA.SI.exists
+            (fun v -> StringMap.mem v ctx.free_consts || StringMap.mem v ctx.locals)
+            (LAH.vars_without_node_call_ids n)
+        in
+        let ctx =
+          if is_symbolic then ctx_add_symbolic_array_index ctx i None
+          else ctx_add_array_index ctx i None
+        in
+        Res.ok (warnings @ warnings2, ctx)
+      in
+      let* (warnings, ctx) = Res.seq_chain over_binders ([], ctx) bs in
+      let* warnings2 = check_expr ctx f e in
       Res.ok (warnings @ warnings2)
     | BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
       (* The right operand is evaluated lazily, like a branch of a

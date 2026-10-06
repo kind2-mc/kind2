@@ -556,6 +556,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, kt, decls1, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map kt in 
     let ctx, gids, vt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map vt in 
     ctx, gids, EmptyMap (p, Some (kt, vt)), decls1 @ decls2, node_decls_map
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (p, q, tis, expr) -> 
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 
@@ -1049,6 +1050,7 @@ and rewrite_expr ctx record params expr =
           A.ADTTerm (pos, [], mono_ctor_name mono_name ctor, args)
         | None -> unresolved ())
   | A.TypeAscription (pos, e, ty) -> A.TypeAscription (pos, r e, rt ty)
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (pos, q, tis, e) ->
     A.Quantifier (pos, q, List.map (fun (p, i, ty) -> (p, i, rt ty)) tis, r e)
   | A.AnyOp _ | A.ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)

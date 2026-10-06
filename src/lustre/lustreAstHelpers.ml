@@ -56,6 +56,7 @@ let pos_of_expr = function
   | RecordExpr (pos , _ , _, _) | UnaryOp (pos , _, _) | BinaryOp (pos , _, _ , _)
   | TernaryOp (pos , _, _ , _ , _) | CompOp (pos , _, _ , _)
   | Quantifier (pos, _, _, _)
+  | ArrayComprehension (pos, _, _)
   | Pre (pos , _)
   | Last (pos, _)
   | Restart (pos, _, _) | RestartEvery (pos, _, _, _)
@@ -219,7 +220,7 @@ let rec expr_is_droppable = function
      operators over them bring in a callee, the binders and pattern matching
      introduce bound variables, and the remaining forms are not worth
      recognizing here *)
-  | AnyOp _ | ChooseOp _ | Quantifier _ | Match _ | Call _ 
+  | AnyOp _ | ChooseOp _ | Quantifier _ | ArrayComprehension _ | Match _ | Call _ 
   | Restart _ | RestartEvery _ | TypeAscription _ | StructUpdate _
   | ArrayConstr _ | IndexAccess _ | EmptyMap (_, Some _)
   | EmptySet (_, Some _) -> false
@@ -237,6 +238,8 @@ let rec expr_contains_call = function
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | Extract (_, e, _, _)
     -> expr_contains_call e
+  | ArrayComprehension (_, bs, e) ->
+    List.exists (fun (_, _, n) -> expr_contains_call n) bs || expr_contains_call e
   | StructUpdate (_, e1, idx, None) ->
     expr_contains_call e1 || fold_label_or_index false (||) expr_contains_call idx
   | StructUpdate (_, e1, idx, Some e2) ->
@@ -276,6 +279,10 @@ let rec expr_contains_id id = function
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) | Pre (_, e)
   | Extract (_, e, _, _)
     -> expr_contains_id id e
+  | ArrayComprehension (_, bs, e) ->
+    List.exists (fun (_, _, n) -> expr_contains_id id n) bs ||
+    (not (List.exists (fun (_, i, _) -> HString.equal i id) bs) &&
+     expr_contains_id id e)
   | StructUpdate (_, e1, idx, None) ->
     expr_contains_id id e1
     || fold_label_or_index false (||) (expr_contains_id id) idx
@@ -379,6 +386,7 @@ let set_pos_of_expr p = function
   | TernaryOp (_, a, b, c, d) -> TernaryOp (p, a, b, c, d)
   | CompOp (_, a, b, c) -> CompOp (p, a, b, c)
   | Quantifier (_, a, b, c) -> Quantifier (p, a, b, c)
+  | ArrayComprehension (_, a, b) -> ArrayComprehension (p, a, b)
   | Pre (_, a) -> Pre (p, a)
   | Last (_, a) -> Last (p, a)
   | Restart (_, a, b) -> Restart (p, a, b)
@@ -458,6 +466,29 @@ let rec apply_subst_in_expr sigma = function
         ) (tis, e) tis
       in
       Quantifier (pos, q, tis, apply_subst_in_expr sigma e)
+  )
+  (* The index variables of an array comprehension are bound in its body, but
+     not in the sizes of its dimensions, which are constant expressions *)
+  | ArrayComprehension (pos, bs, e) -> (
+    let bs =
+      List.map (fun (ipos, i, n) -> (ipos, i, apply_subst_in_expr sigma n)) bs
+    in
+    let bound = List.fold_left (fun acc (_, i, _) -> SI.add i acc) SI.empty bs in
+    match List.filter (fun (v, _) -> not (SI.mem v bound)) sigma with
+    | [] -> ArrayComprehension (pos, bs, e)
+    | sigma ->
+      let bs, e =
+        List.fold_left (fun (bs, e) (ipos, i, _) ->
+          if subst_captures sigma i e then
+            let fresh = fresh_bound_ident i in
+            let bs =
+              List.map (fun (p, j, n) -> if j = i then (p, fresh, n) else (p, j, n)) bs
+            in
+            (bs, apply_subst_in_expr [(i, Ident (ipos, fresh))] e)
+          else (bs, e)
+        ) (bs, e) bs
+      in
+      ArrayComprehension (pos, bs, apply_subst_in_expr sigma e)
   )
   (* Match arms introduce bound variables, so substituting into an arm body
      must avoid capture *)
@@ -649,6 +680,9 @@ let rec apply_type_subst_in_expr
       p, id, apply_type_subst_in_type sigma ty
     ) tis in
     Quantifier (pos, q, tis, apply_type_subst_in_expr sigma expr)
+  | ArrayComprehension (pos, bs, expr) ->
+    let bs = List.map (fun (p, i, n) -> p, i, apply_type_subst_in_expr sigma n) bs in
+    ArrayComprehension (pos, bs, apply_type_subst_in_expr sigma expr)
   | AnyOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | ChooseOp _ -> assert false (* Not supported due to introduction of bound variables *)
   | Match (pos, e, arms, ty) ->
@@ -783,7 +817,7 @@ let rec has_unguarded_pre ung = function
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) 
-  | Quantifier (_, _, _, e) | Extract (_, e, _, _)
+  | Quantifier (_, _, _, e) | ArrayComprehension (_, _, e) | Extract (_, e, _, _)
     -> has_unguarded_pre ung e
   | TypeAscription (_, e, ty) ->
     fold_lustre_ty (has_unguarded_pre ung) false (||) ty || has_unguarded_pre ung e
@@ -897,7 +931,8 @@ let rec has_unguarded_pre_no_warn ung = function
     fold_lustre_ty (has_unguarded_pre_no_warn ung) false (||) ty
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) 
-  | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
+  | Quantifier (_, _, _, e) | ArrayComprehension (_, _, e)
+  | Extract (_, e, _, _) -> has_unguarded_pre_no_warn ung e
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | BinaryOp (_, _, e1, e2) | ArrayConstr (_, e1, e2) 
@@ -1012,7 +1047,7 @@ let rec has_pre_or_arrow = function
     fold_lustre_ty has_pre_or_arrow None (fun x1 x2 -> some_of_list [x1; x2]) ty
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) 
-  | Quantifier (_, _, _, e) 
+  | Quantifier (_, _, _, e) | ArrayComprehension (_, _, e)
   | AnyOp (_, _, e) | ChooseOp (_, _, e) | Extract (_, e, _, _) -> 
     has_pre_or_arrow e
 
@@ -1304,6 +1339,10 @@ let rec vars_of_node_calls_h obs =
   | IndexAccess (_, e1, e2, _) -> SI.union (vars obs e1) (vars obs e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars obs e) (SI.flatten (List.map vars_of_ty_ids qs)) 
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten
+      (SI.diff (vars obs e) (SI.of_list (List.map (fun (_, i, _) -> i) bs))
+       :: List.map (fun (_, _, n) -> vars obs n) bs)
   (* Clock operators *)
   | Restart (_, e, r) -> SI.union (vars obs e) (vars obs r)
   | RestartEvery (_, _, es, e) -> SI.flatten (vars obs e :: List.map (vars obs) es)
@@ -1362,6 +1401,10 @@ let rec vars_without_node_call_ids: expr -> iset =
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs))
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten
+      (SI.diff (vars e) (SI.of_list (List.map (fun (_, i, _) -> i) bs))
+       :: List.map (fun (_, _, n) -> vars n) bs)
   (* Clock operators *)
   (* A merge names its clock rather than holding it as an expression *)
   | Restart (_, e, r) -> SI.union (vars e) (vars r)
@@ -1423,6 +1466,9 @@ let rec calls_of_expr: expr -> NI.Set.t =
     fold_lustre_ty calls_of_expr NI.Set.empty NI.Set.union ty
   | IndexAccess (_, e1, e2, _) -> NI.Set.union (calls_of_expr e1) (calls_of_expr e2)
   | Quantifier (_, _, _, e) -> calls_of_expr e
+  | ArrayComprehension (_, bs, e) ->
+    List.fold_left (fun acc (_, _, n) -> NI.Set.union acc (calls_of_expr n))
+      (calls_of_expr e) bs
   | AnyOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | ChooseOp (_, (_, i, _), e) -> NI.Set.diff (calls_of_expr e) (NI.Set.singleton (NI.mk_node_id i))
   | Pre (_, e) -> calls_of_expr e
@@ -1474,6 +1520,10 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | IndexAccess (_, e1, e2, _) -> SI.union (vars e1) (vars e2)
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> SI.diff (vars e) (SI.flatten (List.map vars_of_ty_ids qs)) 
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten
+      (SI.diff (vars e) (SI.of_list (List.map (fun (_, i, _) -> i) bs))
+       :: List.map (fun (_, _, n) -> vars n) bs)
   (* Clock operators *)
   (* A merge names its clock rather than holding it as an expression, and the
      clock is never under a 'pre' *)
@@ -1682,6 +1732,8 @@ let rec replace_with_constants: expr -> expr =
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
      Quantifier (p, q, qs, replace_with_constants e)
+  | ArrayComprehension (p, bs, e) ->
+     ArrayComprehension (p, bs, replace_with_constants e)
 
    (* Clock operators *)
    | Restart (p, e, r) -> Restart (p, replace_with_constants e, replace_with_constants r)
@@ -1770,6 +1822,8 @@ let rec abstract_pre_subexpressions: expr -> expr = function
   (* Quantified expressions *)
   | Quantifier (p, q, qs, e) ->
      Quantifier (p, q, qs, abstract_pre_subexpressions e)
+  | ArrayComprehension (p, bs, e) ->
+     ArrayComprehension (p, bs, abstract_pre_subexpressions e)
 
    (* Clock operators *)
    | Restart (p, e, r) -> Restart (p, abstract_pre_subexpressions e, abstract_pre_subexpressions r)
@@ -1813,6 +1867,13 @@ let rec replace_idents locals1 locals2 expr =
     let is = List.map (fun (_, i, _) -> i) tis in
     let locals1, locals2 = List.filter (fun (i, _) -> not (List.mem i is)) locals |> List.split in
     Quantifier (a, b, tis, replace_idents locals1 locals2 e)
+  | ArrayComprehension (a, bs, e) ->
+    (* The index variables are bound in 'e', but not in the sizes *)
+    let bs = List.map (fun (p, i, n) -> (p, i, r n)) bs in
+    let locals = List.combine locals1 locals2 in 
+    let is = List.map (fun (_, i, _) -> i) bs in
+    let locals1, locals2 = List.filter (fun (i, _) -> not (List.mem i is)) locals |> List.split in
+    ArrayComprehension (a, bs, replace_idents locals1 locals2 e)
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)
@@ -2296,6 +2357,12 @@ let hash depth_limit expr =
         let e2_hash = r (depth + 1) e2 in
         let l_hash = List.map (fun (_, i, _) -> HString.hash i) l in
         Hashtbl.hash (16, e1, l_hash, e2_hash)
+      | ArrayComprehension (_, bs, e) ->
+        let e_hash = r (depth + 1) e in
+        let bs_hash =
+          List.map (fun (_, i, n) -> (HString.hash i, r (depth + 1) n)) bs
+        in
+        Hashtbl.hash (37, bs_hash, e_hash)
       | Restart (_, e, c) ->
         let e_hash = r (depth + 1) e in
         let c_hash = r (depth + 1) c in
@@ -2393,6 +2460,9 @@ let rec rename_contract_vars = function
     IndexAccess (pos, rename_contract_vars e1, rename_contract_vars e2, kind)
   | Quantifier (pos, kind, idents, e) ->
     Quantifier (pos, kind, idents, rename_contract_vars e)
+  | ArrayComprehension (pos, bs, e) ->
+    let bs = List.map (fun (p, i, n) -> (p, i, rename_contract_vars n)) bs in
+    ArrayComprehension (pos, bs, rename_contract_vars e)
   | Restart (pos, e, r) -> Restart (pos, rename_contract_vars e, rename_contract_vars r)
   | RestartEvery (pos, ident, expr_list, e) ->
     let expr_list = List.map (fun e -> rename_contract_vars e) expr_list in
@@ -2448,6 +2518,8 @@ let name_mode_refs e =
     | ArrayConstr (pos, e1, e2) -> ArrayConstr (pos, r e1, r e2)
     | IndexAccess (pos, e1, e2, k) -> IndexAccess (pos, r e1, r e2, k)
     | Quantifier (pos, k, tis, e) -> Quantifier (pos, k, tis, r e)
+    | ArrayComprehension (pos, bs, e) ->
+      ArrayComprehension (pos, List.map (fun (p, i, n) -> (p, i, r n)) bs, r e)
     | Restart (pos, e, c) -> Restart (pos, r e, r c)
     | RestartEvery (pos, i, es, e) -> RestartEvery (pos, i, List.map r es, r e)
     | Pre (pos, e) -> Pre (pos, r e)
@@ -2496,6 +2568,12 @@ let rec constants_to_calls: ident list -> expr -> expr
     let tis = List.map (fun (p, i, ty) -> p, i, constants_to_calls_in_type new_func_ids ty) tis in
     let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
     Quantifier (p, b, tis, constants_to_calls new_func_ids e)
+  | ArrayComprehension (p, bs, e) ->
+    (* The index variables are bound in 'e', but not in the sizes *)
+    let bs = List.map (fun (p, i, n) -> (p, i, constants_to_calls new_func_ids n)) bs in
+    let is = List.map (fun (_, i, _) -> i) bs in
+    let new_func_ids = List.filter (fun i -> not (List.mem i is)) new_func_ids in
+    ArrayComprehension (p, bs, constants_to_calls new_func_ids e)
   (* Everything else is just recursing to find Idents *)
   | Pre (p, e) -> Pre (p, r e)
   | Arrow (p, e1, e2) -> Arrow (p, r e1, r e2)

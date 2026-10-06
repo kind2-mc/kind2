@@ -1831,6 +1831,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Quantifiers                                                        *)
   (* ****************************************************************** *)
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (_, A.Forall, avars, expr) ->
     compile_quantifier bounds A.Forall avars expr
   | A.Quantifier (_, A.Exists, avars, expr) ->
@@ -2497,11 +2498,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
         and index_types = compile_ast_type cstate ctx map ast_type in
-        (* Locals introduced to desugar the 'last' operator are Kind 2
-           generated and therefore invisible (not shown in counterexamples). *)
+        (* Locals introduced to desugar the 'last' operator and array
+           comprehensions are Kind 2 generated and therefore invisible (not
+           shown in counterexamples). *)
         let over_indices = fun index index_type accum ->
           let source =
-            if GI.var_is_last_local i then N.Generated N.Plain
+            if GI.var_is_last_local i || GI.var_is_array_comprehension i
+            then N.Generated N.Plain
             else adt_source_for_index N.Local index
           in
           let possible_state_var = mk_state_var
@@ -2978,6 +2981,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
             let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
             try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
         in
+        let desugared = LustreDesugarArrayComprehensions.restore desugared in
         LDAT.string_of_expr_as_source
           ~ref_type_names:cstate.ref_type_names cstate.adt_map desugared
       in

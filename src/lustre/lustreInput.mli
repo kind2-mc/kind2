@@ -124,6 +124,7 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
+  | `LustreDesugarArrayComprehensionsError of Lib.position * LustreDesugarArrayComprehensions.error_kind
   | `LustreGenNodesError of Lib.position * LustreGenNodes.error_kind
 ]
 

@@ -41,6 +41,7 @@ module LS = LustreSyntaxChecks
 module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
 module LDL = LustreDesugarLast
+module LDAC = LustreDesugarArrayComprehensions
 module LNC = LustreNameCalls
 module RMA = LustreRemoveMultAssign
 module LAD = LustreArrayDependencies
@@ -72,6 +73,7 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
+  | `LustreDesugarArrayComprehensionsError of Lib.position * LustreDesugarArrayComprehensions.error_kind
   | `LustreGenNodesError of Lib.position * LustreGenNodes.error_kind
 ]
 
@@ -190,6 +192,14 @@ let type_check declarations =
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+
+    (* Step 8a. Replace array comprehensions with fresh locals defined by array
+       definitions, now that their types are known *)
+    let* sorted_node_contract_decls =
+      LDAC.desugar_array_comprehensions global_ctx sorted_node_contract_decls
+    in
+    (* Array comprehensions are rejected in global constants *)
+    let* _ = LDAC.desugar_array_comprehensions global_ctx const_inlined_type_and_consts in
 
     (* Provide lsp info if option is enabled *)
     if (Flags.log_format_json () || Flags.log_format_ijson ()) && Flags.Lsp.lsp () then

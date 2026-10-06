@@ -647,7 +647,7 @@ let rec arity_of_expr ty_ctx = function
   | EmptyMap _ | EmptySet _ | UnaryOp _ | BinaryOp _ | ConvOp _
   | CompOp _ | AnyOp _ | ChooseOp _ | Extract _ | RecordExpr _
   | StructUpdate _ | ArrayConstr _ | IndexAccess _ | Quantifier _
-  | ADTTerm _ | ADTTester _ -> 1
+  | ArrayComprehension _ | ADTTerm _ | ADTTester _ -> 1
 
 let split_by_arity ty_ctx es items =
   let rec split es items = match es with
@@ -960,6 +960,8 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
     SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten (call e :: List.map (fun (_, _, n) -> call n) bs)
   | Ident (_, id) | Last (_, id) -> (
     match lookup_ty ctx id with
     | None -> SI.empty (* e.g. any bound variable *)
@@ -1063,6 +1065,8 @@ let rec expr_contains_node_call ctx expr =
   | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
+  | ArrayComprehension (_, bs, e) ->
+    List.exists (fun (_, _, n) -> r n) bs || r e
   | TypeAscription (_, e, ty) ->
     LH.fold_lustre_ty r false (||) ty || r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)

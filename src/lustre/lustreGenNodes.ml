@@ -637,6 +637,18 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
     let bound = Ctx.SI.union bound (Ctx.SI.of_list (List.map (fun (_, id, _) -> id) tis)) in
     let e, gen_nodes = desugar_expr ~insert ~bound body_ctx node_name fun_ids e in
     Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
+  | ArrayComprehension (pos, bs, e) ->
+    let bs, gen_nodes_bs = List.map (fun (p, id, n) ->
+      let n, gen_nodes = desugar_expr ctx node_name fun_ids n in
+      (p, id, n), gen_nodes
+    ) bs |> List.split in
+    (* The index variables are integers in scope in the body *)
+    let body_ctx =
+      List.fold_left
+        (fun ctx (p, id, _) -> Ctx.add_ty (Ctx.remove_const ctx id) id (A.Int p)) ctx bs
+    in
+    let e, gen_nodes = desugar_expr body_ctx node_name fun_ids e in
+    ArrayComprehension (pos, bs, e), List.flatten gen_nodes_bs @ gen_nodes
   | Restart (pos, e, r) ->
     let e, gen_nodes1 = rec_split e in
     let r, gen_nodes2 = rec_call r in

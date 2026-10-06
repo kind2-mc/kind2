@@ -214,6 +214,7 @@ and process_expr def_ind_vars ind_vars ctx (ns:AD.node_summary) proj indices exp
       | None -> r e)
     else r e
   (* Quantified expressions *)
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (_, _, vars, e) ->
     let* graph = r e in
     let graph = List.fold_left

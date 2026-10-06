@@ -241,6 +241,7 @@ let keyword_table = mk_hashtbl [
   "of", OF ;
   "subtype", SUBTYPE ;
   (* "array", ARRAY) ; *)
+  "foreach", FOREACH ;
   "struct", STRUCT ;
   "enum", ENUM ;
   "history", HISTORY ;

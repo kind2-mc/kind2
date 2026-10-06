@@ -140,6 +140,10 @@ type expr =
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
+  (* '(e foreach i, j)^m^n': the array of size n (of arrays of size m) whose
+     element at index i (and j) is e. Each binder is the position and name of
+     an index variable, and the size of its dimension, outermost first. *)
+  | ArrayComprehension of position * (position * ident * expr) list * expr
   (* 'restart e every r': the state of e is reset to its initial state at
      every step where r is true (desugared by LustreGenNodes into a
      RestartEvery call to a node generated for e) *)
@@ -389,6 +393,15 @@ type declaration =
 (* A Lustre program *)
 type t = declaration list
 
+(* The size of a dimension of an array comprehension that no caret has given
+   yet, while parsing: an identifier with an empty name, which no source can
+   contain *)
+let missing_size pos = Ident (pos, HString.mk_hstring "")
+
+let is_missing_size = function
+  | Ident (_, i) -> HString.string_of_hstring i = ""
+  | _ -> false
+
 
 (* ********************************************************************** *)
 (* Pretty-printing functions                                              *)
@@ -587,6 +600,14 @@ and pp_print_expr ppf =
       Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
+    | ArrayComprehension (_, binders, e) ->
+      (* The sizes are given innermost first *)
+      Format.fprintf ppf "@[<hv 1>(%a@ foreach %a)%a@]"
+        pp_print_expr e
+        (pp_print_list (fun ppf (_, i, _) -> HString.pp_print_hstring ppf i) ", ")
+        binders
+        (pp_print_list (fun ppf (_, _, n) -> Format.fprintf ppf "^%a" pp_print_expr n) "")
+        (List.rev binders)
 
     | UnaryOp (p, Uminus, e) -> p1 p "-" e
     | BinaryOp (p, Mod, e1, e2) -> p2 p "mod" e1 e2 
