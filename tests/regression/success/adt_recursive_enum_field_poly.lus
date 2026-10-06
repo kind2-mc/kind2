@@ -1,0 +1,11 @@
+type E = enum { A, B };
+type F = enum { P, Q };
+datatype L<T> = LN | LC (h: T, t: L<T>);
+
+node main(x: L<E>; y: L<F>; z: L<int>) returns (ok: bool);
+let
+  ok = (LC?(x) ==> (x.h = A or x.h = B))
+       and (LC?(y) ==> (y.h = P or y.h = Q))
+       and (LC?(z) ==> (z.h = z.h));
+  check ok;
+tel

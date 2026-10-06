@@ -106,6 +106,13 @@ let width_val_of_map m =
     ) m 0
 
 
+(* Whether [ty] is the sort an enum-typed field of a recursive datatype has: a
+   datatype with one nullary constructor per enum value (see LustreNodeGen). A
+   value of it stands for an enum value and is printed as one. *)
+let is_enum_datatype ty =
+  Type.is_datatype ty
+  && List.for_all (fun (_, fs) -> fs = []) (Type.constructors_of_datatype ty)
+
 (* The source name of the constructor a datatype value is built with, and its
    arguments paired with the types the constructor declares for them *)
 let destruct_datatype_value ty t =
@@ -348,6 +355,14 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
       with Not_found -> "_"
     in
     Format.fprintf ppf "\"%s\"" (escape_json_string num_str)
+  )
+  (* An enum keeps the rendering of an enum wherever it is held, so that the
+     sort its field has inside a recursive datatype stays an encoding detail *)
+  | Some ty when is_enum_datatype ty -> (
+    match destruct_datatype_value ty t with
+    | None -> pp_print_term_as_json_value ppf t
+    | Some (ctor_name, _) ->
+      Format.fprintf ppf "\"%s\"" (escape_json_string ctor_name)
   )
   | Some ty when Type.is_datatype ty -> (
     match destruct_datatype_value ty t with
