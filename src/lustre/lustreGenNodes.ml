@@ -335,6 +335,21 @@ fun ctx node_name fun_ids expr ->
   let rec_call = desugar_expr ctx node_name fun_ids in
   match expr with
   | TypeAscription (pos, e, ty) ->
+    (* In a function, the ascription is a function too, unless its type has a
+       temporal operator or a node call, which the type checker rejects in a
+       function (see [TempOperatorInFuncTypeAscription] in
+       [LustreTypeChecker]). A call to a node would keep a recursive function
+       that the function belongs to, or calls, from being defined at the SMT
+       level (see [LustreFunDefs]). *)
+    let is_function =
+      List.exists (NI.equal node_name) fun_ids
+      &&
+      let ty = Ctx.expand_type_syn ctx ty in
+      not (AH.fold_lustre_ty
+             (fun e -> Option.is_some (AH.has_pre_or_arrow e)
+                       || Ctx.expr_contains_node_call ctx e)
+             false (||) ty)
+    in
     let e, gen_nodes1 = rec_call e in
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
     let span = { A.start_pos = pos; A.end_pos = pos; } in
@@ -363,9 +378,12 @@ fun ctx node_name fun_ids expr ->
       | None -> assert false
     ) inputs in
     let decl =
-        A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
-    in 
-    Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2 
+      let node = (node_id, false, A.Transparent, ty_params, ip :: inputs, [op], [], [eq], None) in
+      if is_function then
+        A.FuncDecl (span, node, { is_lemma = false; is_rec = false })
+      else A.NodeDecl (span, node)
+    in
+    Call (pos, ty_args, node_id, e :: inputs_call), decl :: gen_nodes1 @ gen_nodes2
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
     let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
