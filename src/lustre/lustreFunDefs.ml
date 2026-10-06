@@ -153,15 +153,43 @@ let contract_abstracts node =
    abstract it in the current analysis *)
 let eligible node = not (contract_abstracts node)
 
+(* The array an equation copies whole, if it is one: [y[i1]...[in] = x[i1]...[in]]
+   for all the indexes of [y], with [x] of the type of [y]. Such an equation
+   defines [y] as [x], which a definition can be built from. *)
+let whole_array_copy ((sv, bounds), e) =
+  let n = List.length bounds in
+  if n = 0 || not (List.for_all (function E.Bound _ -> true | _ -> false) bounds)
+  then None
+  else
+    let t = E.base_term_of_expr Numeral.zero (E.init_expr e) in
+    if not (Term.is_select t) then None
+    else
+      let v, idxs = Term.indexes_and_var_of_select t in
+      let is_index k t =
+        Term.is_free_var t
+        && (match E.int_of_index_var (E.mk_free_var (Term.free_var_of_term t)) with
+            | i -> i = k
+            | exception Invalid_argument _ -> false)
+      in
+      if List.length idxs = n
+         && List.for_all Fun.id (List.mapi is_index idxs)
+         && Type.equal_types (Var.type_of_var v) (StateVar.type_of_state_var sv)
+      then Some (Term.mk_var v)
+      else None
+
 (* The equations and calls of a node, by the state variable they define *)
 type svar_def =
   | Eq of E.t
+  | Copy of E.t * Term.t
   | Call of N.node_call
 
 let defs_of_node { N.equations; N.calls } =
   let defs =
     List.fold_left
-      (fun acc ((sv, _), e) -> SVM.add sv (Eq e) acc)
+      (fun acc (((sv, _), e) as eq) ->
+         match whole_array_copy eq with
+         | Some t -> SVM.add sv (Copy (e, t)) acc
+         | None -> SVM.add sv (Eq e) acc)
       SVM.empty
       equations
   in
@@ -173,7 +201,7 @@ let defs_of_node { N.equations; N.calls } =
 
 (* The state variables a definition depends on *)
 let deps_of_def = function
-  | Eq e -> E.state_vars_of_expr e
+  | Eq e | Copy (e, _) -> E.state_vars_of_expr e
   | Call { N.call_inputs; N.call_context } ->
     let deps = D.values call_inputs |> SVS.of_list in
     match call_context with
@@ -202,9 +230,6 @@ let rec definable nodes memo node =
     b
 
 and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node) =
-  let no_array sv =
-    not (Type.is_array (StateVar.type_of_state_var sv))
-  in
   let callee_ok { N.call_node_id } =
     match N.node_of_node_id call_node_id nodes with
     | exception Not_found -> false
@@ -243,8 +268,9 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node
   && not node.N.is_extern
   && node.N.oracles = []
   && node.N.asserts = []
-  && List.for_all (fun ((_, bounds), _) -> bounds = []) equations
-  && List.for_all no_array (defined_svars node)
+  && List.for_all
+    (fun (((_, bounds), _) as eq) -> bounds = [] || whole_array_copy eq <> None)
+    equations
   && List.for_all call_ok calls
   && (D.values outputs
       |> List.fold_left
@@ -333,6 +359,9 @@ let rec bindings_of_node ctx node acc =
         | Eq e ->
           SVS.add sv visited,
           (var_of_svar sv, term_of_expr (E.init_expr e)) :: acc
+        | Copy (_, t) ->
+          SVS.add sv visited,
+          (var_of_svar sv, t) :: acc
         | Call ({ N.call_outputs } as call) ->
           D.fold (fun _ sv -> SVS.add sv) call_outputs visited,
           bindings_of_call ctx call acc
@@ -451,14 +480,15 @@ let body_of_output bindings output =
       bindings
   in
   (* [kept] is in dependency order: nest the bindings from the innermost
-     (last) one. Without the theory of arrays, a select of an array input
-     is encoded as the application of its select symbol, as in the
-     transition relation *)
+     (last) one. Without the theory of arrays, a select of an array is
+     encoded as the application of its select symbol, as in the transition
+     relation. The selects are encoded in each binding before the bindings
+     are nested: once nested, a select of an array local would apply to a
+     bound variable, which the encoding does not take. *)
   List.fold_right
-    (fun binding body -> Term.mk_let [binding] body)
+    (fun (v, t) body -> Term.mk_let [v, Term.convert_select t] body)
     kept
     (Term.mk_var output_var)
-  |> Term.convert_select
 
 (* The block of definitions of a recursive group *)
 let block_of_scc nodes helpers scc_id members =
