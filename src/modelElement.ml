@@ -257,6 +257,7 @@ let pp_print_core_data in_sys param sys fmt cpd =
       | FreeConstant -> "Global constant"
       | ClockedExpr -> "clocked expression"
       | Restarted -> "restart"
+      | Matched -> "Match expression"
       | Choose -> "'Choose' operator")
     NI.pp_print_node_id_user_name node_id ;
     Format.fprintf fmt "  @[<v>" ;

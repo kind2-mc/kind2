@@ -208,6 +208,20 @@ let clocked_call_tie = "wbtie"
    nondeterministic call must be bound to a single local first. *)
 let block_guard = "bguard"
 
+(* String constant used in lustreGenNodes.ml as the suffix of the fresh locals a
+   match block binds its scrutinee to (e.g. '4_mscrut'). Desugaring copies the
+   scrutinee into every constructor tester and field projection, so one that
+   calls a node must name a single instance of it. *)
+let match_scrutinee = "mscrut"
+
+(* Checks if a variable name corresponds to a bound match block scrutinee. As
+   with [var_is_discarded_output], the leading numeric segment may have been
+   moved to the end, so we look for [match_scrutinee] as a '_'-separated
+   segment. *)
+let var_is_match_scrutinee var =
+  String.split_on_char '_' (HString.string_of_hstring var)
+  |> List.mem match_scrutinee
+
 (* Checks if a variable name corresponds to a 'last'-operator local. As with
    [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
    numeric segment to the end, so we look for [last_local] as a '_'-separated

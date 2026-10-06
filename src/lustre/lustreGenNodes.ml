@@ -20,6 +20,7 @@ module NI = NodeId
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
+module GI = GeneratedIdentifiers
 
 type error_kind =
   | RestartUnknownVariable of HString.t
@@ -49,10 +50,29 @@ fun pos node_name node_type ->
   | TypeAscription -> HString.mk_hstring ".type_ascription_"
   | ClockedExpr -> HString.mk_hstring ".clocked_expr_"
   | Restarted -> HString.mk_hstring ".restart_"
+  | Matched -> HString.mk_hstring ".match_"
   | _ -> assert false
   in
   let name = HString.concat2 name pos |> HString.concat2 (NI.get_name node_name)  in
   NI.mk_node_id ~node_type ~user_name:name name
+
+(* The name of the parameter a generated match node takes its scrutinee as. One
+   match per position, so the position makes the name unique. *)
+let mk_fresh_scrutinee_param: Lib.position -> HString.t =
+fun pos ->
+  let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
+  let pos = String.sub pos 1 (String.length pos - 2) in
+  HString.mk_hstring (".scrut_" ^ pos)
+
+(* [i] is module state used to guarantee newly created identifiers are unique *)
+let i = ref 0
+
+(* The name of the local a match block binds its scrutinee to. The leading
+   numeric segment guarantees it cannot clash with a user-written identifier. *)
+let mk_fresh_scrutinee_local: unit -> HString.t =
+fun () ->
+  i := !i + 1;
+  HString.mk_hstring (string_of_int !i ^ "_" ^ GI.match_scrutinee)
 
 (* Not every identifier occurring in an expression or a type denotes a variable
    that a generated node must take as an argument. Global constants are in
@@ -191,6 +211,18 @@ fun ctx decls ->
     | A.TypeDecl _ | A.ConstDecl _ | A.ContractNodeDecl _ | A.NodeParamInst _ -> ctx
   ) ctx decls
 
+(* The type a scrutinee that must be shared is bound at. A scrutinee this pass
+   rewrote is typed in its rewritten form when its original form has no type of
+   its own (a restart only has one once it is a call), with the signatures
+   generated for it at hand. *)
+let shared_scrutinee_type:
+  Ctx.tc_context -> NI.t -> A.declaration list -> scrutinee -> A.expr -> scrutinee =
+fun ctx node_name gen_decls scrut_ty desugared_scrut ->
+  match scrut_ty with
+  | Known _ -> scrut_ty
+  | Illtyped | Unknown ->
+    scrutinee_type (add_node_sigs ctx gen_decls) node_name desugared_scrut
+
 (* What abstracting an expression into a call to a fresh internal node gives:
    the call and the declarations of the node and of the nodes its types need,
    or why the expression could not be abstracted *)
@@ -261,6 +293,47 @@ let has_state ctx e =
        let is_constructor = Option.is_some (Ctx.lookup_constructor ctx (NI.get_name id)) in
        not (is_function || is_constructor))
      (AH.calls_of_expr e)
+
+(* Desugaring a match copies its scrutinee into every constructor tester and
+   field projection, and each copy of a node call is a separate instance of it:
+   the copies can then disagree on which constructor the value has. Such a
+   scrutinee must be evaluated once and shared. A call this pass generates is
+   classified by the kind of its identifier, since its signature may not have
+   reached the context yet; 'any' operators, type ascriptions and restarts all
+   become one. Function calls are deterministic (a single UF application) and
+   are safe to copy. *)
+let scrutinee_must_be_shared ctx e =
+  AH.calls_of_expr e |> NI.Set.exists (fun id ->
+    match NI.get_node_type id with
+    | Any | TypeAscription | ClockedExpr | Restarted | Matched -> true
+    | Choose | Contract | Environment | Type
+    | DefinedConstant | FreeConstant -> false
+    | Component -> Ctx.node_id_is_node ctx id)
+
+(* The index variables of the array definition whose right-hand side is being
+   desugared, with the position to report their type at. They are bound over
+   that side and are declared nowhere else, so a node generated from it must be
+   told their type; only [abstract_match] is given them, so that a restart that
+   reads one is still rejected rather than abstracted. *)
+let array_def_indices: (HString.t * Lib.position) list ref = ref []
+
+let indices_of_lhs (A.StructDef (_, items)) =
+  List.concat_map (fun item ->
+    match item with
+    | A.ArrayDef (pos, _, indices) -> List.map (fun i -> (i, pos)) indices
+    | A.SingleIdent _ | A.TupleStructItem _ | A.TupleSelection _
+    | A.FieldSelection _ | A.ArraySliceStructItem _ -> []
+  ) items
+
+(* Run [f] with the indices an equation's left-hand side binds. The previous
+   indices are restored, since the items of a block nested in an arm are
+   desugared within the enclosing equation's scope. *)
+let with_array_indices lhs f =
+  let saved = !array_def_indices in
+  array_def_indices := indices_of_lhs lhs;
+  let result = f () in
+  array_def_indices := saved;
+  result
 
 (* The condition of a restart whose body has no state can be dropped, provided
    it calls nothing, since the obligations of a call (the assumptions of its
@@ -560,7 +633,15 @@ fun ctx node_name fun_ids expr ->
       let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
-    Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
+    let gen_nodes = gen_nodes1 @ List.flatten gen_nodes2 in
+    if scrutinee_must_be_shared ctx e then
+      let scrut_ty = shared_scrutinee_type ctx node_name gen_nodes scrut_ty e in
+      let m, decls =
+        abstract_match ctx node_name fun_ids gen_nodes scrut_ty pos e arms ty_opt
+      in
+      m, gen_nodes @ decls
+    else
+      Match (pos, e, arms, ty_opt), gen_nodes
   | ADTTerm (pos, ty_args, ctor, args) ->
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let args, gen_nodes = List.map rec_call args |> List.split in
@@ -663,6 +744,42 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
   in
   Abstracted (A.Call (pos, ty_args, node_id, inputs_call),
     List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ [decl])
+
+(* Abstract a match whose scrutinee must be shared into a call to a fresh
+   internal node that takes the scrutinee as a parameter, so that the copies
+   the desugaring makes all name the one parameter. The call stands where the
+   match stood, so the scrutinee is evaluated under the same clock as before.
+
+   If the match cannot be abstracted here it is returned as it came in. *)
+and abstract_match:
+  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> scrutinee
+  -> Lib.position -> A.expr -> (A.pattern * A.expr) list -> A.lustre_type option
+  -> A.expr * A.declaration list =
+fun ctx node_name fun_ids gen_decls scrut_ty pos scrut arms ty_opt ->
+  let unchanged = A.Match (pos, scrut, arms, ty_opt), [] in
+  match scrut_ty with
+  | Illtyped | Unknown -> unchanged
+  | Known ty ->
+    let param = mk_fresh_scrutinee_param pos in
+    (* A refinement on the scrutinee is established where it is defined, so the
+       parameter only carries the type the arms match on *)
+    let ty = base_type ctx ty in
+    let ctx = Ctx.add_ty (Ctx.remove_const ctx param) param ty in
+    let ctx = List.fold_left (fun ctx (idx, ipos) ->
+      Ctx.add_ty (Ctx.remove_const ctx idx) idx (A.Int ipos)) ctx !array_def_indices
+    in
+    let m = A.Match (pos, A.Ident (pos, param), arms, ty_opt) in
+    match abstract_into_node ctx node_name fun_ids Matched gen_decls m with
+    | Abstracted (A.Call (cpos, ty_args, node_id, args), decls) ->
+      (* The parameter stands for the scrutinee in the generated node, so the
+         scrutinee itself is passed in its place *)
+      let args = List.map (function
+        | A.Ident (_, i) when HString.equal i param -> scrut
+        | arg -> arg) args
+      in
+      A.Call (cpos, ty_args, node_id, args), decls
+    | Abstracted _ -> unchanged (* [abstract_into_node] returns a call *)
+    | UnknownVariable _ | Untyped -> unchanged
 
 (* When a branch of a when-then-else expression is temporal (it uses '->' or
    'pre'), abstract it into a call to a fresh internal node, so that its
@@ -823,6 +940,11 @@ fun ctx node_name fun_ids contract ->
     Some (pos, items), List.flatten gen_nodes
   | None -> None, []
 
+(* The locals the items of the node being desugared need: a match block binds a
+   scrutinee that must be shared to one of these. Filled while the items are
+   desugared and collected by [gen_nodes_of_decls], which declares them. *)
+let item_locals: A.node_local_decl list ref = ref []
+
 (* A node item may become several: a restart block whose items have no state
    becomes its items *)
 let rec desugar_node_item: Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item list * A.declaration list =
@@ -834,7 +956,9 @@ fun ctx node_name fun_ids ni ->
   in
   match ni with
   | A.Body (Equation (pos, lhs, rhs)) -> 
-    let rhs, gen_nodes = desugar_expr ctx node_name fun_ids rhs in 
+    let rhs, gen_nodes = with_array_indices lhs (fun () ->
+      desugar_expr ctx node_name fun_ids rhs)
+    in
     [A.Body (Equation (pos, lhs, rhs))], gen_nodes
   | AnnotProperty (pos, name, e, k) -> 
     let e, gen_nodes = desugar_expr ctx node_name fun_ids e in
@@ -859,7 +983,9 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs, gen_nodes1 = with_array_indices lhs (fun () ->
+          desugar_expr ctx node_name fun_ids rhs)
+        in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
@@ -878,7 +1004,9 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ctx ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
+        let rhs, gen_nodes1 = with_array_indices lhs (fun () ->
+          desugar_expr ctx node_name fun_ids rhs)
+        in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
@@ -896,7 +1024,29 @@ fun ctx node_name fun_ids ni ->
       |> List.split
     in
     let scrut, gen_nodes2 = desugar_expr ctx node_name fun_ids scrut in
-    [A.MatchBlock (pos, scrut, arms, ty)], List.flatten gen_nodes1 @ gen_nodes2
+    (* A match block keeps its arms as items, so the scrutinee is bound by an
+       equation placed where the block stood: it is then clocked by the blocks
+       the match block is nested in, exactly as its copies were. *)
+    let gen_nodes = List.flatten gen_nodes1 @ gen_nodes2 in
+    let must_share = scrutinee_must_be_shared ctx scrut in
+    let scrut_ty =
+      if must_share
+      then shared_scrutinee_type ctx node_name gen_nodes scrut_ty scrut
+      else scrut_ty
+    in
+    let bind, scrut, gen_nodes_ty =
+      match scrut_ty with
+      | Known sty when must_share ->
+        let name = mk_fresh_scrutinee_local () in
+        let sty, gen_nodes_ty =
+          desugar_type ctx node_name fun_ids (base_type ctx sty)
+        in
+        item_locals := A.NodeVarDecl (pos, (pos, name, sty, A.ClockTrue)) :: !item_locals;
+        let lhs = A.StructDef (pos, [A.SingleIdent (pos, name)]) in
+        [A.Body (A.Equation (pos, lhs, scrut))], A.Ident (pos, name), gen_nodes_ty
+      | Known _ | Illtyped | Unknown -> [], scrut, []
+    in
+    bind @ [A.MatchBlock (pos, scrut, arms, ty)], gen_nodes @ gen_nodes_ty
   | RestartBlock (pos, nis, r) ->
     let nis, gen_nodes1 = rec_calls nis in
     let r, gen_nodes2 = desugar_expr ctx node_name fun_ids r in
@@ -998,8 +1148,10 @@ fun ctx decls ->
       A.NodeDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _)) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
       let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
+      item_locals := [];
       let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
+      let locals = locals @ List.rev !item_locals in
       let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
       decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract))] 
@@ -1007,8 +1159,10 @@ fun ctx decls ->
       A.FuncDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _), is_rec) ->
       let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
       let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
+      item_locals := [];
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
+      let locals = locals @ List.rev !item_locals in
       let contract, gen_nodes2 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @

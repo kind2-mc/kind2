@@ -1314,6 +1314,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | Choose -> "'Choose' operator"
     | ClockedExpr -> "clocked expression"
     | Restarted -> "restart"
+    | Matched -> "Match expression"
     | TypeAscription -> "Type ascription operator"
   in
   

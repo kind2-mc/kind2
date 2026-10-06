@@ -1,0 +1,10 @@
+datatype T = A (v: int) | B (w: int);
+
+node main () returns (y: int);
+let
+  match any { t: T | A?(t) } with
+  | A (v) : y = v;
+  | B (w) : y = w;
+  end
+  check "shared scrutinee" y = 0 or y <> 0;
+tel

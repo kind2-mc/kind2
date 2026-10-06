@@ -76,12 +76,17 @@ let mk_fresh_indices inds =
     (HString.mk_hstring new_name) :: acc
   ) [] inds
 
+(* The local a match block binds its scrutinee to is read only in the branch
+   that defines it, so its stuttering value is never observed and the warning
+   would be about a variable the user did not write. *)
 let warn_unguarded_pres nis pos = 
+  let warn id expr =
+    if AH.has_unguarded_pre_no_warn expr && not (GI.var_is_match_scrutinee id)
+    then [(mk_warning pos (UninitializedVariableWarning id))] else []
+  in
   List.map (fun ni -> match ni with
-    | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) -> 
-      if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
-    | A.Body (Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr)) -> 
-      if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
+    | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) -> warn id expr
+    | A.Body (Equation (_, StructDef(_, [ArrayDef(_, id, _)]), expr)) -> warn id expr
     | _ -> []
   ) nis
 
