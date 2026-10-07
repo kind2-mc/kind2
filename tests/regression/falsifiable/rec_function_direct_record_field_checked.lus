@@ -1,0 +1,6 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+function rec F(n: int) returns (y: int);
+(*@contract decreases n; *)
+let y = when n <= 0 then (R { f = n }).f else F(n - 1); tel
+node N(x: int) returns (y: bool);
+let y = (x <= 0 => F(x) = x); check y; tel

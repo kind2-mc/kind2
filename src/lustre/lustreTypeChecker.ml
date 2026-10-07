@@ -108,6 +108,7 @@ type error_kind = Unknown of string
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
   | TempOperatorInFuncTypeAscription 
+  | RefinementTypeArgInConstant of HString.t
   | NoIndexAccessInArrayLength of tc_type
   | NestedTypeTemporal of LustreAst.lustre_type
   | NestedTypeNodeCall of LustreAst.lustre_type
@@ -240,6 +241,9 @@ let error_message kind = match kind with
     Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
       NI.pp_print_node_id_user_name node_id
   | TempOperatorInFuncTypeAscription -> "Type ascription in the context of a function cannot have temporal operator or node call"
+  | RefinementTypeArgInConstant id ->
+    Format.asprintf "Record expression of type %a with a refinement type argument is not supported where a constant expression is expected"
+      HString.pp_print_hstring id
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
       LA.pp_print_lustre_type ty
@@ -529,6 +533,63 @@ let rec infer_const_attr ctx exp =
     combine r_args r_tys
   | LA.AbstractSymConst _ -> assert false 
 
+(* Whether the record type name instantiated with ty_args gets a refinement
+   type from type arguments, given directly or along a chain of type synonyms *)
+let rec refinement_in_type_args ctx name ty_args =
+  List.exists (type_contains_ref ctx) ty_args ||
+  match lookup_ty_syn_body ctx name ty_args with
+  | Some (LA.UserType (_, args, name')) when not (HString.equal name name') ->
+    refinement_in_type_args ctx name' args
+  | Some _ | None -> false
+
+(* A record expression in e with a type argument containing a refinement
+   type, whose refinement cannot be checked in a constant expression. The
+   record expression e itself is not reported if exempt_top holds. *)
+let rec refinement_type_arg_in_expr ?(exempt_top = false) ctx e =
+  let r = refinement_type_arg_in_expr ctx in
+  let first l = List.fold_left (fun acc x -> match acc with Some _ -> acc | None -> x) None l in
+  let r_ty ty = LH.fold_lustre_ty ~into_ty_args:true r None (fun a b -> first [a; b]) ty in
+  match e with
+  | LA.RecordExpr (pos, name, ty_args, flds) ->
+    if not exempt_top && refinement_in_type_args ctx name ty_args then Some (pos, name)
+    else first (List.map r_ty ty_args @ List.map (fun (_, e) -> r e) flds)
+  | Ident _ | ModeRef _ | Const _ | Last _ | EmptyMap (_, None) | EmptySet (_, None) -> None
+  | EmptyMap (_, Some (kt, vt)) -> first [r_ty kt; r_ty vt]
+  | EmptySet (_, Some ty) | AbstractSymConst (_, ty) -> r_ty ty
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e) | ConvOp (_, _, e)
+  | Extract (_, e, _, _) | Pre (_, e) | ADTTester (_, e, _) -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | Fby (_, e1, e2)
+  | Restart (_, e1, e2) | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) ->
+    first [r e1; r e2]
+  | TernaryOp (_, _, e1, e2, e3) -> first [r e1; r e2; r e3]
+  | AnyOp (_, (_, _, ty), e) | ChooseOp (_, (_, _, ty), e) | TypeAscription (_, e, ty) ->
+    first [r_ty ty; r e]
+  | GroupExpr (_, _, es) -> first (List.map r es)
+  | StructUpdate (_, e1, idx, e2) ->
+    first [r e1; LH.fold_label_or_index None (fun a b -> first [a; b]) r idx; Option.bind e2 r]
+  | Quantifier (_, _, tis, e) -> first (List.map (fun (_, _, ty) -> r_ty ty) tis @ [r e])
+  | RestartEvery (_, _, es, e) -> first (List.map r es @ [r e])
+  | Call (_, ty_args, _, es) | ADTTerm (_, ty_args, _, es) ->
+    first (List.map r_ty ty_args @ List.map r es)
+  | Match (_, e, arms, _) -> first (r e :: List.map (fun (_, e) -> r e) arms)
+
+(* Reject a refinement type argument in the constant expression e, unless e is
+   a record expression whose type is exactly the declared type, which then
+   yields the refinement check. checked is e after type checking, which carries
+   the inferred type arguments. *)
+let check_no_refinement_type_arg ctx declared e checked =
+  let exempt_top = match e, checked, declared with
+    | LA.RecordExpr _, LA.RecordExpr (pos, name, ty_args, _), Some ty ->
+      let rec_ty = expand_type_syn ctx (LA.UserType (pos, ty_args, name)) in
+      (match LH.syn_type_equal None rec_ty (expand_type_syn ctx ty) with
+      | Ok equal -> equal
+      | Error () -> false)
+    | _, _, _ -> false
+  in
+  match refinement_type_arg_in_expr ~exempt_top ctx e with
+  | Some (pos, name) -> type_error pos (RefinementTypeArgInConstant name)
+  | None -> R.ok ()
+
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
   | Ok _ -> R.ok ()
@@ -571,6 +632,59 @@ let check_constant_args ctx i arg_exprs =
     )
     else R.ok ()
   )
+
+(* Reject a refinement type argument in an argument for a constant parameter,
+   unless it is a record expression of exactly that parameter's type *)
+let check_const_args_refinement_type_args ctx node_id param_tys args checked_args =
+  let param_tys = match param_tys with
+    | LA.GroupType (_, tys) -> tys
+    | ty -> [ty]
+  in
+  (* Arguments that cannot be matched with the parameters are not checked *)
+  let params = match lookup_node_param_attr ctx node_id with
+    | Some attrs when List.length attrs = List.length param_tys -> List.combine attrs param_tys
+    | Some _ | None -> []
+  in
+  let split es params = match split_by_arity ctx es params with
+    | Some slices -> slices
+    | None -> List.map (fun _ -> []) es
+  in
+  (* The types of parameters may mention the constant parameters, whose values
+     are known when given by a whole component of the arguments *)
+  let rec sigma_of checked params = match checked, params with
+    | LA.GroupExpr (_, ExprList, cs), _ -> List.concat (List.map2 sigma_of cs (split cs params))
+    | _, [((id, true), _)] -> [(id, checked)]
+    | _, ([((_, false), _)] | [] | _ :: _ :: _) -> []
+  in
+  let sigma = List.concat (List.map2 sigma_of checked_args (split checked_args params)) in
+  let shared e checked params =
+    if List.exists (fun ((_, is_const), _) -> is_const) params then
+      check_no_refinement_type_arg ctx None e checked
+    else R.ok ()
+  in
+  (* Each position is checked on the sub-expression giving its value, and a
+     sub-expression shared by several positions if any of them is constant *)
+  let rec check e checked params = match e, checked with
+    | LA.GroupExpr (_, ExprList, es), LA.GroupExpr (_, ExprList, cs)
+      when List.length es = List.length cs ->
+      R.seq_ (List.map2 (fun (e, c) ps -> check e c ps) (List.combine es cs) (split cs params))
+    | TernaryOp (_, _, e1, e2, e3), TernaryOp (_, _, c1, c2, c3) ->
+      shared e1 c1 params >> check e2 c2 params >> check e3 c3 params
+    | Arrow (_, e1, e2), Arrow (_, c1, c2) | Fby (_, e1, e2), Fby (_, c1, c2) ->
+      check e1 c1 params >> check e2 c2 params
+    | Pre (_, e1), Pre (_, c1) -> check e1 c1 params
+    | Match (_, e1, arms, _), Match (_, c1, c_arms, _) when List.length arms = List.length c_arms ->
+      shared e1 c1 params >>
+      R.seq_ (List.map2 (fun (_, e) (_, c) -> check e c params) arms c_arms)
+    | _, _ -> (
+      match params with
+      | [((_, true), ty)] ->
+        check_no_refinement_type_arg ctx (Some (LH.subst_in_type_exprs sigma ty)) e checked
+      | [((_, false), _)] | [] | _ :: _ :: _ -> shared e checked params
+    )
+  in
+  R.seq_ (List.map2 (fun (e, c) ps -> check e c ps)
+    (List.combine args checked_args) (split checked_args params))
 
 let rec type_extract_array_lens ctx ty = match ty with 
   | LA.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens ctx ty
@@ -1498,6 +1612,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           expand_type_syn ctx exp_arg_tys, expand_type_syn ctx exp_ret_tys
         | _ -> assert false 
       in
+      let orig_arg_exprs = arg_exprs in
       let* given_arg_tys, arg_exprs, warnings3 = infer_type_node_args pos ctx arg_exprs nname in
       let given_arg_tys = expand_type_syn ctx given_arg_tys in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
@@ -1505,6 +1620,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       if are_equal then
         let call = LA.Call (pos, ty_args, node_id, arg_exprs) in  
         (check_constant_args ctx node_id arg_exprs >> 
+        check_const_args_refinement_type_args ctx node_id exp_arg_tys orig_arg_exprs arg_exprs >> 
         (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2 @ warnings3)))
       else (
         match NI.get_node_type node_id with 
@@ -2089,9 +2205,10 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
-            let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* checked, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* _ = check_no_refinement_type_arg local_ctx (Some ty) e checked in
             let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
-            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings1 @ warnings2)
+            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, checked, ty))), warnings1 @ warnings2)
           | LA.NodeVarDecl (p, (p2, id, ty, c)) -> 
             let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
             R.ok (LA.NodeVarDecl (p, (p2, id, ty, c)), warnings)
@@ -2507,18 +2624,20 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
-      let* ty, e, warnings = infer_type_expr ctx nname e in
-      let* ctx = check_and_add_constant_definition ctx i e ty src in 
-      R.ok (LA.UntypedConst (pos, i, e), ctx, warnings)
+      let* ty, checked, warnings = infer_type_expr ctx nname e in
+      let* _ = check_no_refinement_type_arg ctx None e checked in
+      let* ctx = check_and_add_constant_definition ctx i checked ty src in 
+      R.ok (LA.UntypedConst (pos, i, checked), ctx, warnings)
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
     let* exp_ty, warnings1 = check_type_well_formed ctx src nname true exp_ty in
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
-      let* e, warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
-      let* ctx = check_and_add_constant_definition ctx i e exp_ty src in 
-      R.ok (LA.TypedConst (pos, i, e, exp_ty), ctx, warnings1 @ warnings2)
+      let* checked, warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
+      let* _ = check_no_refinement_type_arg ctx (Some exp_ty) e checked in
+      let* ctx = check_and_add_constant_definition ctx i checked exp_ty src in 
+      R.ok (LA.TypedConst (pos, i, checked, exp_ty), ctx, warnings1 @ warnings2)
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> NI.t -> LA.contract_ghost_vars -> (LA.contract_ghost_vars * tc_context, [> error]) result 

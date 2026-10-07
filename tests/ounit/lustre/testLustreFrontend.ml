@@ -1153,6 +1153,46 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | Error (`LustreTypeCheckerError (_,
         MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
     | _ -> false);
+  mk_test "refinement type argument in global constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_global_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in node-local constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_local_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in ghost constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_ghost_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument through a synonym in constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_synonym_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument under restart" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_restart.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument in a when branch" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_when.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument within a tuple" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument within an if-then-else" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_ite_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "checked record field in a restart spread over a constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/restart_tuple_const_param_inserted_check.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
   mk_test "if-then-else constant of the wrong type" (fun () ->
     match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed (Int _, Real _))) -> true

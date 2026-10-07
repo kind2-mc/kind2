@@ -1,0 +1,3 @@
+type R<T> = struct { f: T };
+node M(const n: int; const r: R<subtype { w: int | w >= n }>; x: int) returns (y: int) let y = r.f + x; tel
+node N(x: int) returns (y: bool) let y = M(3, R@<subtype { w: int | w >= 3 }> { f = 2 }, x) = x + 2; check y; tel
