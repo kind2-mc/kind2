@@ -5,6 +5,9 @@ node dekker (const n: int;) returns (want, crit: bool^n; turn: int; ok: bool);
   -- turn: int;
   -- pwant, pcrit: bool^n;
 let
+want = any@<bool^n>;
+crit = any@<bool^n>;
+turn = any@<int>;
 -- pwant[i] = false -> pre want[i];
 -- pcrit[i] = false -> pre crit[i];
 

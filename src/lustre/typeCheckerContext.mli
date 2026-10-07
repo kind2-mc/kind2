@@ -340,5 +340,9 @@ val ty_vars_of_type: tc_context -> NI.t -> LA.lustre_type -> SI.t
 val expr_contains_node_call: tc_context -> LA.expr -> bool
 (** [expr_contains_node_call ctx expr] returns true iff `expr` contains a node (NOT a function) call *)
 
+val type_has_temporal_or_node_call: tc_context -> LA.lustre_type -> bool
+(** [type_has_temporal_or_node_call ctx ty] returns true iff [ty], its type
+    arguments included, has a temporal operator or a node call *)
+
 val node_id_is_node: tc_context -> NI.t -> bool
 (** [node_id_is_node ctx node_id] returns true iff `node_id` refers to a node (NOT a function) *)

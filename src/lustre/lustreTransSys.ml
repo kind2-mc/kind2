@@ -195,6 +195,29 @@ let lift_term state_var_map term =
               variable at the same offset *)
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 
+         (* A constant input of the called node, such as the size of an
+            array, appears in the termination checks of a recursive
+            function. Global constants are shared and not in the map.
+
+            The actual argument need not be a constant state variable: the
+            abstraction of an argument such as [n + 1] is shared with the
+            other occurrences of the expression, also those passed to a
+            non-constant input. Such a variable is taken at the offset of the
+            lifted terms, which are all stated at [TransSys.prop_base];
+            [Var.mk_state_var_instance] returns a constant state variable
+            for a constant one. *)
+         else if Var.is_const_state_var var then (
+
+           let state_var = Var.state_var_of_state_var_instance var in
+
+           match SVM.find_opt state_var state_var_map with
+           | Some state_var' ->
+             Term.mk_var
+               (Var.mk_state_var_instance state_var' TransSys.prop_base)
+           | None -> term
+
+         )
+
          else
 
            (* No change if free variable is not an instance of a state
@@ -2769,6 +2792,13 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
   else
     let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
     let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
+    (* Without the theory of arrays, the definitions apply the select
+       symbols of the arrays, which the definitions do not declare (see
+       [TransSys.declare_selects]). They are taken now: the symbols are
+       private to the domain that made them. *)
+    let selects =
+      if Flags.Arrays.smt () then [] else StateVar.get_select_ufs ()
+    in
     let logic =
       let of_def (uf, formals, body) =
         TermLib.sup_logics
@@ -2793,6 +2823,7 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
       List.iter (fun ty -> match Type.node_of_type ty with
         | Type.Datatype _ -> declare_sort ty
         | _ -> ());
+      List.iter declare_fun selects ;
       List.iter declare_fun ufs ;
       List.iter define_rec blocks
     in
