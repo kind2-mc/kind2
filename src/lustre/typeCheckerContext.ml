@@ -1074,11 +1074,3 @@ let rec expr_contains_node_call ctx expr =
   | LA.AbstractSymConst _ -> assert false (* never produced before type checking *)
   | LA.ADTTester (_, e, _) -> r e
 
-(* Whether a type, its type arguments included, has a temporal operator or a
-   node call. A type ascription to such a type is rejected in a function or a
-   contract (see [LustreTypeChecker]); elsewhere, it is generated as a node and
-   cannot be inlined (see [LustreGenNodes] and [LustreSyntaxChecks]). *)
-let type_has_temporal_or_node_call ctx ty =
-  LH.fold_lustre_ty ~into_ty_args:true
-    (fun e -> Option.is_some (LH.has_pre_or_arrow e) || expr_contains_node_call ctx e)
-    false (||) (expand_type_syn ctx ty)
