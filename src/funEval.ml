@@ -51,6 +51,34 @@ let set_per_query_timeout ~ms solver =
     true
   | None -> false
 
+(* The per-query resource limit options of Z3 and cvc5, with the resources
+   each spends in a millisecond of evaluating a recursive function, measured
+   on Ackermann's function *)
+let kind_takes_resource_limit = function
+  | `Z3_SMTLIB -> Some (":rlimit", 6000)
+  | `cvc5_SMTLIB -> Some (":rlimit-per", 400)
+  | _ -> None
+
+(* How much longer than the time it stands for the wall clock timeout of a
+   query under a resource limit is *)
+let backstop_factor = 10
+
+(* Limit each query of an evaluation to about [ms] milliseconds. The limit
+   is on the resources the solver spends where it has one: a timeout on the
+   wall clock runs out sooner on a loaded machine, and an evaluation would
+   then succeed or not, and a counterexample be found genuine or not, with
+   the load. The timeout is kept as a backstop, much longer, as resources
+   are not time. *)
+let set_per_query_limit ~ms solver =
+  match kind_takes_resource_limit (SMTSolver.kind solver) with
+  | Some (option, per_ms) ->
+    SMTSolver.execute_custom_command solver "set-option"
+      [ SMTExpr.ArgString option ; SMTExpr.ArgString (string_of_int (ms * per_ms)) ]
+      0
+    |> ignore ;
+    set_per_query_timeout ~ms:(ms * backstop_factor) solver |> ignore
+  | None -> set_per_query_timeout ~ms solver |> ignore
+
 exception Failed
 
 (* The solver of the evaluator, started with the definitions if it is not
@@ -67,7 +95,7 @@ let solver_of t =
     in
     t.solver <- Some solver ;
     ( try
-        set_per_query_timeout ~ms:t.timeout_ms solver |> ignore ;
+        set_per_query_limit ~ms:t.timeout_ms solver ;
         t.define solver
       with e -> t.failed <- true ; raise e ) ;
     solver

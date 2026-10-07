@@ -86,6 +86,31 @@ skipped_tests = {
     ),
 }
 
+# Arguments that regression tests need on top of those of their directory,
+# relative to the regression tree. A concrete computation with a recursive
+# function that is not evaluated, outside of a modular analysis, unrolls the
+# function as deep as the computation goes, and needs --rec_unrollings at
+# least as high: at the default, the run gives up early and exits 30.
+rec_unrollings_3 = {"--rec_unrollings": "3"}
+rec_unrollings_4 = {"--rec_unrollings": "4"}
+rec_unrollings_5 = {"--rec_unrollings": "5"}
+test_args = {
+    "success/compositional/rec_no_contract_unrolled.lus": rec_unrollings_5,
+    "success/match_block_rec_function.lus": rec_unrollings_3,
+    "success/poly_rec_function.lus": rec_unrollings_4,
+    "success/poly_rec_function_ground_arg.lus": rec_unrollings_3,
+    "success/poly_rec_function_refinement_arg.lus": rec_unrollings_3,
+    "success/rec_def_adt_sum.lus": rec_unrollings_4,
+    "success/rec_def_contract.lus": rec_unrollings_4,
+    "success/rec_def_even_odd_value.lus": rec_unrollings_4,
+    "success/rec_def_factorial_value.lus": rec_unrollings_5,
+    "success/rec_def_helper_calls_rec.lus": rec_unrollings_4,
+    "success/rec_def_helper_inlined.lus": rec_unrollings_4,
+    "success/rec_def_mutual_uninterpreted_callee.lus": rec_unrollings_3,
+    "success/rec_def_transparent_contract.lus": rec_unrollings_4,
+    "success/rec_shared_call.lus": {"--rec_unrollings": "8"},
+}
+
 # Extra files to test with a fixed expected result, as (path, expected) pairs
 extra_files = [
     (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
@@ -230,6 +255,12 @@ def pytest_collection_modifyitems(session, items):
 # the first comes in around the budget, the second only after the grace
 # those add to it. Both exit 30, and the output that would tell them apart
 # is printed only when a test fails.
+#
+# Kind 2 also exits 30 when it gives up on its own, with properties it could
+# not settle, such as at the limit of the unrollings of a recursive function.
+# That is no timeout: it happens the same way on every machine, however fast,
+# and the time it takes tells it apart, as Kind 2 cannot run out of time
+# before its budget. It is a failure.
 unfinished_runs = []
 
 
@@ -351,6 +382,8 @@ class LustreItem(pytest.Item):
         if modular_dir_name in self._regression_parts():
             args |= modular_args
 
+        args |= test_args.get(self._regression_name(), {})
+
         arg_list = list(itertools.chain.from_iterable(args.items()))
         # JSON, so that the output of every run is checked against the
         # schema (see `output_schema.py`)
@@ -364,6 +397,9 @@ class LustreItem(pytest.Item):
             return self.path.relative_to(regression_dir).parts
         except ValueError:
             return ()
+
+    def _regression_name(self):
+        return "/".join(self._regression_parts())
 
     def _is_ic3ia(self):
         return ic3ia_dir_name in self._regression_parts()
@@ -381,7 +417,7 @@ class LustreItem(pytest.Item):
         )
 
     def runtest(self):
-        skip_reason = skipped_tests.get("/".join(self._regression_parts()))
+        skip_reason = skipped_tests.get(self._regression_name())
         if skip_reason is not None:
             pytest.skip(skip_reason)
 
@@ -418,9 +454,15 @@ class LustreItem(pytest.Item):
                 raise LustreException
             return
 
-        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`
+        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`. A
+        # run that gave up before its budget did not time out: see
+        # `unfinished_runs`.
         result = code_to_expected.get(self.res.returncode)
-        if result == "timeout" and not self._is_ic3ia():
+        if (
+            result == "timeout"
+            and not self._is_ic3ia()
+            and self.elapsed >= float(common_args["--timeout"])
+        ):
           unfinished_runs.append((self.nodeid, self.elapsed))
           return
 
@@ -472,6 +514,12 @@ class LustreItem(pytest.Item):
                 return_code,
                 f"Unknown return code: {return_code}",
             )
+            if actual == "timeout":
+                actual = (
+                    f"exit 30 after {self.elapsed:.1f}s, before the "
+                    f"{common_args['--timeout']}s budget: Kind 2 gave up "
+                    "on some properties"
+                )
             return "\n".join(
                 [
                     f"Expected: {self.expected}, got {actual}",

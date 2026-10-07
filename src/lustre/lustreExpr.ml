@@ -2266,6 +2266,24 @@ let finite_domain_of_var v =
     in
     Some (values u [])
 
+(* The quantifiers that [expand_finite_quant] eliminated, by the term their
+   expansion produced: the function that builds the quantifier, its
+   variables and its body *)
+let expansions = Term.TermHashtbl.create 7
+
+(* [t] with the expansions in it put back as the quantifiers they
+   eliminated. [t] holds no quantifier, and nor do the expansions in it. *)
+let rec unexpand t =
+  match Term.TermHashtbl.find_opt expansions t with
+  | Some (mk_quant, vars, body) -> mk_quant vars (unexpand body)
+  | None ->
+    match Term.destruct t with
+    | Term.T.App (s, args) ->
+      let args' = List.map unexpand args in
+      if List.for_all2 ( == ) args args' then t
+      else Term.mk_app s args'
+    | Term.T.Var _ | Term.T.Const _ -> t
+
 (* Expand a quantifier binding [vars] into the finite conjunction (resp.
    disjunction) of its instances, combined with [mk_junct] ([Term.mk_and] for a
    universal quantifier, [Term.mk_or] for an existential one).
@@ -2280,8 +2298,11 @@ let finite_domain_of_var v =
    an integer one, and expanding the outer one alone is exactly the case
    above.
 
-   Returns [None] when the quantifier is left untouched. *)
-let expand_finite_quant mk_junct vars t =
+   Returns [None] when the quantifier is left untouched. A quantifier whose
+   expansion is over budget is built with [mk_quant] ([Term.mk_forall] or
+   [Term.mk_exists]) instead, around the quantifiers that its body had
+   expanded put back. *)
+let expand_finite_quant mk_quant mk_junct vars t =
   if not (Flags.Quant.inst_finite ()) || Term.has_quantifier t then None
   else
     let domains = List.map (fun v -> (v, finite_domain_of_var v)) vars in
@@ -2315,8 +2336,14 @@ let expand_finite_quant mk_junct vars t =
          body holds no quantifier and the one around it expands in turn,
          multiplying what the level below it already built. Counting copies
          cannot see that: every level makes few of them. Measuring the result
-         can, because each level is charged for the body it was handed. *)
-      if instances > budget / max 1 (term_size t) then None
+         can, because each level is charged for the body it was handed.
+
+         The levels below this one are then put back as they were: their
+         expansion, as large as the budget allows, would stay under this
+         quantifier, and the solver would be handed it at every instance of
+         the term, where the quantifiers it replaced are a few nodes. *)
+      if instances > budget / max 1 (term_size t) then
+        Some (mk_quant vars (unexpand t))
       else
         (* All the substitutions assigning a value to every finite variable *)
         let sigmas =
@@ -2327,12 +2354,14 @@ let expand_finite_quant mk_junct vars t =
                 sigmas)
             [[]] finite
         in
-        let t =
+        let expansion =
           mk_junct (List.map (fun sigma -> Term.apply_subst sigma t) sigmas)
+          (* Substituting constants for the bound variables turns the range
+             constraints guarding them into ground terms; fold them away. *)
+          |> fold_ground_term
         in
-        (* Substituting constants for the bound variables turns the range
-           constraints guarding them into ground terms; fold them away. *)
-        Some (fold_ground_term t)
+        Term.TermHashtbl.replace expansions expansion (mk_quant, vars, t) ;
+        Some expansion
 
 (* Evaluate universal quantification *)
 let eval_forall vars t = match vars, t with
@@ -2340,7 +2369,8 @@ let eval_forall vars t = match vars, t with
   | _, t when t == Term.t_true -> Term.t_true
   | _, t when t == Term.t_false -> Term.t_false
   | _ -> (
-    match expand_finite_quant Term.mk_and vars t with
+    let mk_forall vars t = Term.mk_forall vars t in
+    match expand_finite_quant mk_forall Term.mk_and vars t with
     | Some t -> t
     | None -> Term.mk_forall vars t
   )
@@ -2360,7 +2390,8 @@ let eval_exists vars t = match vars, t with
   | _, t when t == Term.t_true -> Term.t_true
   | _, t when t == Term.t_false -> Term.t_false
   | _ -> (
-    match expand_finite_quant Term.mk_or vars t with
+    let mk_exists vars t = Term.mk_exists vars t in
+    match expand_finite_quant mk_exists Term.mk_or vars t with
     | Some t -> t
     | None -> Term.mk_exists vars t
   )
