@@ -153,6 +153,25 @@ let contract_abstracts node =
    abstract it in the current analysis *)
 let eligible node = not (contract_abstracts node)
 
+(* Type ascriptions *)
+
+(* A type ascription (e : T) is a call to a generated node whose output is
+   its first input, of type T, and whose other inputs are the variables of T
+   (see [LustreGenNodes]). T only gives an obligation on e, which is an
+   assumption of the node, an obligation of its callers that the transition
+   system keeps at every call: in a definition, the call is the identity on
+   e (see [ascription_is_identity]). *)
+let is_type_ascription node_id =
+  NI.get_node_type node_id = NI.TypeAscription
+
+(* The state variables of the first input of a node. The inputs are always
+   indexed by their position; the output of a node with a single output is
+   not. *)
+let first_input inputs =
+  match D.find_prefix [D.ListIndex 0] inputs with
+  | svars -> svars
+  | exception Not_found -> D.empty
+
 (* The array an equation copies whole, if it is one: [y[i1]...[in] =
    x[i1]...[in]] for all the indexes of [y], with [x] a state variable or a
    constant of the type of [y]. Such an equation defines [y] as [x], which a
@@ -217,12 +236,40 @@ let defs_of_node { N.equations; N.calls } =
 let deps_of_def = function
   | Eq e -> E.state_vars_of_expr e
   | Copy v -> SVS.singleton (Var.state_var_of_state_var_instance v)
-  | Call { N.call_inputs; N.call_context } ->
-    let deps = D.values call_inputs |> SVS.of_list in
+  | Call { N.call_node_id; N.call_inputs; N.call_context } ->
+    (* A type ascription only reads its first input in a definition *)
+    let inputs =
+      if is_type_ascription call_node_id then first_input call_inputs
+      else call_inputs
+    in
+    let deps = D.values inputs |> SVS.of_list in
     (match call_context with
      | Some sv -> SVS.add sv deps
      | None -> deps)
   | Unsupported -> SVS.empty
+
+(* Whether a type ascription node outputs its first input: its output has
+   the indexes of the input, and each of its state variables is defined by a
+   single equation as the state variable of the input at the same index, or
+   as a whole-array copy of it *)
+let ascription_is_identity ({ N.inputs; N.outputs; N.asserts; N.oracles } as node) =
+  let input = first_input inputs in
+  let in_keys = D.keys input in
+  let out_keys = D.keys outputs in
+  asserts = [] && oracles = []
+  && List.length in_keys = List.length out_keys
+  && List.for_all2 D.equal_index in_keys out_keys
+  &&
+  let defs = defs_of_node node in
+  let is_input sv sv' = StateVar.equal_state_vars sv sv' in
+  D.fold2
+    (fun _ out_sv in_sv ok ->
+       ok
+       && match SVM.find_opt out_sv defs with
+       | Some (Eq e) -> E.is_var e && is_input (E.state_var_of_expr e) in_sv
+       | Some (Copy v) -> is_input (Var.state_var_of_state_var_instance v) in_sv
+       | Some (Call _ | Unsupported) | None -> false)
+    outputs input true
 
 (* Whether the body of a function is a total function of its inputs that a
    definition can be built from: no assertion or oracle; every state variable
@@ -246,6 +293,7 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.calls } as node) =
   let callee_ok { N.call_node_id } =
     match N.node_of_node_id call_node_id nodes with
     | exception Not_found -> false
+    | callee when is_type_ascription call_node_id -> ascription_is_identity callee
     | callee ->
       N.is_function callee
       && not (is_lemma callee)
@@ -256,8 +304,16 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.calls } as node) =
   (* A call may have a context (the branch of a conditional it is in):
      its constraints only hold under it, and the definition leaves its value
      undefined outside of it *)
-  let call_ok ({ N.call_cond; N.call_defaults; N.call_oracles } as call) =
-    call_cond = [] && call_defaults = None
+  let call_ok ({ N.call_node_id; N.call_cond; N.call_defaults; N.call_oracles } as call) =
+    (* An ascription in a lazy branch is a call that the guard of the branch
+       activates, with no defaults. Its output is only read where it is
+       active, where it is its input, so the activation does not change its
+       definition. *)
+    let lazy_branch_ascription =
+      is_type_ascription call_node_id
+      && List.for_all (function N.CActivate _ -> true | N.CRestart _ -> false) call_cond
+    in
+    (call_cond = [] || lazy_branch_ascription) && call_defaults = None
     && call_oracles = [] && callee_ok call
   in
   let defs = defs_of_node node in
@@ -386,6 +442,16 @@ let rec bindings_of_node ctx node acc =
 and bindings_of_call
     ctx ({ N.call_node_id; N.call_inputs; N.call_outputs; N.call_context }) acc =
   let callee = N.node_of_node_id call_node_id ctx.nodes in
+  if is_type_ascription call_node_id then
+    (* The output of a type ascription is its first input (checked by
+       [ascription_is_identity]) *)
+    D.fold2
+      (fun _ call_out call_in acc ->
+         (var_of_svar call_out, term_of_svar call_in) :: acc)
+      call_outputs
+      (first_input call_inputs)
+      acc
+  else
   let args = D.values call_inputs |> List.map term_of_svar in
   let uf_symbols =
     match func_info callee with
