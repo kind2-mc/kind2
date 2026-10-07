@@ -1,20 +1,20 @@
-"""A type ascription in a function or a contract is generated as a function.
+"""A type ascription does not keep a function from being defined.
 
-A type ascription (e : T) is desugared into a call to a generated component
-whose input is of type T, so that T yields a proof obligation on e. It was
-always generated as a node. A function that calls a node is not definable at
-the SMT level (see LustreFunDefs), and neither is a recursive function that
-calls it, directly or through other functions, or whose contract does. The
-supervisor then has no definition to check a counterexample that reaches a
-recursive call past the unrollings with, and the obligation of the ascription
-in the recursive calls was left unknown, even when it is violated.
+A type ascription (e : T) is desugared into a call to a generated node whose
+input is of type T, so that T yields a proof obligation on e. A function
+that calls a node was not definable at the SMT level (see LustreFunDefs), and
+neither was a recursive function that calls it, directly or through other
+functions, or whose contract does. The supervisor then had no definition to
+check a counterexample that reaches a recursive call past the unrollings
+with, and the obligation of the ascription in the recursive calls was left
+unknown, even when it is violated.
 
-In a function or a contract, the ascription is now generated as a function,
-and the recursive function stays definable. An ascription whose type has a
-temporal operator or a node call is still generated as a node, for the type
-checker to reject it as before. A generated function is inlinable, like a
-generated node, so that an ascription may still occur in a decreases
-measure.
+In a definition, a call to an ascription node is now the identity on e: the
+obligation is an assumption of the node, which the transition system keeps
+checking at every call. The ascription is still generated as a node, so that
+it is checked the same way in a function, in a node and in a contract,
+whatever imports the contract, and it is inlined as before, in a decreases
+measure for instance.
 """
 
 import json

@@ -294,21 +294,10 @@ let base_type ctx ty =
   | Ok ty -> ty
   | Error _ -> ty
 
-(* In a function or a contract, an ascription is generated as a function,
-   unless its type has a temporal operator or a node call, which the type
-   checker rejects there (see [TempOperatorInFuncTypeAscription] in
-   [LustreTypeChecker]). A call to a node would keep a recursive function
-   that the ascription belongs to, or calls, from being defined at the SMT
-   level (see [LustreFunDefs]). *)
-let ascription_is_function ctx node_name fun_ids ty =
-  NI.Set.mem node_name fun_ids
-  && not (Ctx.type_has_temporal_or_node_call ctx ty)
-
 (* Abstract the ascription (e : ty) into a call to a fresh node whose output
-   has type ty, so that ty yields proof obligations on e. The node is a
-   function if is_function holds (see [ascription_is_function]). *)
-let mk_type_ascription: ?inserted:bool -> is_function:bool -> Ctx.tc_context -> NI.t -> Lib.position -> A.expr -> A.lustre_type -> A.expr * A.declaration =
-fun ?(inserted = false) ~is_function ctx node_name pos e ty ->
+   has type ty, so that ty yields proof obligations on e *)
+let mk_type_ascription: ?inserted:bool -> Ctx.tc_context -> NI.t -> Lib.position -> A.expr -> A.lustre_type -> A.expr * A.declaration =
+fun ?(inserted = false) ctx node_name pos e ty ->
     let span = { A.start_pos = pos; A.end_pos = pos; } in
     let node_id = mk_fresh_fn_name ~inserted pos node_name TypeAscription in
     let ip_id = HString.mk_hstring Lib.StringValues.type_ascription_input_name in 
@@ -335,11 +324,8 @@ fun ?(inserted = false) ~is_function ctx node_name pos e ty ->
       | None -> assert false
     ) inputs in
     let decl =
-      let node = (node_id, false, A.Transparent, ty_params, ip :: inputs, [op], [], [eq], None) in
-      if is_function then
-        A.FuncDecl (span, node, { is_lemma = false; is_rec = false })
-      else A.NodeDecl (span, node)
-    in
+        A.NodeDecl (span, (node_id, false, Transparent, ty_params, ip :: inputs, [op], [], [eq], None)) 
+    in 
     A.Call (pos, ty_args, node_id, e :: inputs_call), decl
 
 (* The type of a record or constructor expression e of type name, when the
@@ -377,7 +363,7 @@ fun ctx node_name e name ty_args field_tys ->
    checked on the field values. The generated node takes the variables of the
    type as arguments, so a type mentioning a locally bound variable (or one
    whose type is unknown here) is left unchecked. *)
-let ascribe_construction ~insert ~bound ~fun_ids ctx node_name orig e name ty_args field_tys gen_nodes =
+let ascribe_construction ~insert ~bound ctx node_name orig e name ty_args field_tys gen_nodes =
   match refined_construction_type ctx node_name orig name ty_args field_tys with
   | Some ty when insert ->
     let ty_vars = AH.vars_of_type (Ctx.expand_type_syn ctx ty) in
@@ -387,13 +373,12 @@ let ascribe_construction ~insert ~bound ~fun_ids ctx node_name orig e name ty_ar
     if unknown then e, gen_nodes
     else
       let call, decl =
-        let is_function = ascription_is_function ctx node_name fun_ids ty in
-        mk_type_ascription ~inserted:true ~is_function ctx node_name (AH.pos_of_expr e) e ty
+        mk_type_ascription ~inserted:true ctx node_name (AH.pos_of_expr e) e ty
       in
       call, decl :: gen_nodes
   | Some _ | None -> e, gen_nodes
 
-let rec desugar_type: Ctx.tc_context -> NI.t -> NI.Set.t -> A.lustre_type -> A.lustre_type * A.declaration list =
+let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
 fun ctx node_name fun_ids ty -> 
   let r = desugar_type ctx node_name fun_ids in 
   match ty with 
@@ -445,7 +430,7 @@ fun ctx node_name fun_ids ty ->
 (* Ascriptions are inserted for record and constructor expressions only when
    insert holds, as they are not allowed where a constant expression is
    expected. bound holds the variables bound inside the expression. *)
-and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.Set.t -> A.expr -> A.expr * A.declaration list =
+and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
 fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids expr -> 
   (* const_pos flags the values of the expression that must be constant. Each
      is passed to the sub-expression giving it; shared ones are constant if any is. *)
@@ -481,10 +466,9 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
   in
   match expr with
   | TypeAscription (pos, e, ty) ->
-    let is_function = ascription_is_function ctx node_name fun_ids ty in
     let e, gen_nodes1 = rec_call e in
     let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
-    let call, decl = mk_type_ascription ~is_function ctx node_name pos e ty in
+    let call, decl = mk_type_ascription ctx node_name pos e ty in
     call, decl :: gen_nodes1 @ gen_nodes2
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
@@ -611,7 +595,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
       | Some (A.RecordType (_, _, fields)) -> List.map (fun (_, _, ty) -> ty) fields
       | Some _ | None -> []
     in
-    ascribe_construction ~insert ~bound ~fun_ids ctx node_name expr e ident ps field_tys gen_nodes
+    ascribe_construction ~insert ~bound ctx node_name expr e ident ps field_tys gen_nodes
   | GroupExpr (pos, ExprList, expr_list) ->
     let expr_list, gen_nodes = match const_pos with
       | Some flags -> desugar_split ~insert:split_insert expr_list flags
@@ -679,7 +663,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
     (match ty_args, Ctx.lookup_constructor ctx (NI.get_name id) with
     | [], Some (ty_name, field_tys) ->
       let orig = A.ADTTerm (pos, [], NI.get_name id, expr_list) in
-      ascribe_construction ~insert ~bound ~fun_ids ctx node_name orig e ty_name [] field_tys gen_nodes
+      ascribe_construction ~insert ~bound ctx node_name orig e ty_name [] field_tys gen_nodes
     | _ :: _, _ | [], None -> e, gen_nodes)
   | Match (pos, e, arms, ty_opt) ->
     (* Each match arm body is evaluated under the clock determined by the
@@ -711,7 +695,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
     let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
     (match Ctx.lookup_constructor ctx ctor with
     | Some (ty_name, field_tys) ->
-      ascribe_construction ~insert ~bound ~fun_ids ctx node_name expr e ty_name ty_args field_tys gen_nodes
+      ascribe_construction ~insert ~bound ctx node_name expr e ty_name ty_args field_tys gen_nodes
     | None -> e, gen_nodes)
   | AbstractSymConst _ -> assert false (* never produced before lustreGenNodes runs *)
   | ADTTester (pos, e, c) ->
@@ -737,7 +721,7 @@ and desugar_indices ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_i
    kind, whose outputs equal the expression and whose arguments are the
    variables used in the expression *)
 and abstract_into_node:
-  Ctx.tc_context -> NI.t -> NI.Set.t -> NI.node_type -> A.declaration list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.t list -> NI.node_type -> A.declaration list -> A.expr
   -> abstraction =
 fun ctx node_name fun_ids node_type gen_decls orig_e ->
   (* The expression can call a node generated for one of its own
@@ -818,7 +802,7 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
    here, it is returned as it came in, and the later type-checking pass reports
    the error, if any. *)
 and abstract_temporal_branch:
-  Ctx.tc_context -> NI.t -> NI.Set.t -> A.declaration list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> A.expr
   -> A.expr * A.declaration list =
 fun ctx node_name fun_ids gen_decls orig_e ->
   match AH.has_pre_or_arrow orig_e with
@@ -834,7 +818,7 @@ fun ctx node_name fun_ids gen_decls orig_e ->
    inferred here, the expression is left for the later type-checking pass to
    report the error. *)
 and abstract_restart:
-  Ctx.tc_context -> NI.t -> NI.Set.t -> A.declaration list -> Lib.position
+  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> Lib.position
   -> A.expr -> A.expr -> A.expr * A.declaration list =
 fun ctx node_name fun_ids gen_decls pos e r ->
   let sig_ctx = add_node_sigs ctx gen_decls in
@@ -852,7 +836,7 @@ fun ctx node_name fun_ids gen_decls pos e r ->
    other variables they use, and define the variables with a call to the node
    that is restarted every time [r] is true *)
 and abstract_restart_block:
-  Ctx.tc_context -> NI.t -> NI.Set.t -> Lib.position -> A.node_item list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.t list -> Lib.position -> A.node_item list -> A.expr
   -> A.node_item * A.declaration list =
 fun ctx node_name fun_ids pos items r ->
   let span = { A.start_pos = pos; A.end_pos = pos } in
@@ -892,7 +876,7 @@ fun ctx node_name fun_ids pos items r ->
   A.Body (A.Equation (pos, lhs, call)),
   List.flatten gen_nodes1 @ List.flatten gen_nodes2 @ [decl]
 
-let desugar_contract_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.Set.t -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
+let desugar_contract_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.contract_node_equation -> A.contract_node_equation * A.declaration list =
 fun ?(insert = true) ctx node_name fun_ids ci ->
   let rec_call = desugar_expr ~insert ctx node_name fun_ids in
   match ci with
@@ -942,7 +926,7 @@ fun ?(insert = true) ctx node_name fun_ids ci ->
     A.GhostConst (A.UntypedConst (pos, id, e)), gen_nodes
   | AssumptionVars _ as ci -> ci, []
 
-let desugar_contract: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.Set.t -> A.contract option -> A.contract option * A.declaration list =
+let desugar_contract: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.contract option -> A.contract option * A.declaration list =
 fun ?(insert = true) ctx node_name fun_ids contract ->
   match contract with
   | Some (pos, contract_items) ->
@@ -973,7 +957,7 @@ fun ?(insert = true) ctx node_name fun_ids contract ->
 
 (* A node item may become several: a restart block whose items have no state
    becomes its items *)
-let rec desugar_node_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.Set.t -> A.node_item -> A.node_item list * A.declaration list =
+let rec desugar_node_item: ?insert:bool -> Ctx.tc_context -> NI.t -> NI.t list -> A.node_item -> A.node_item list * A.declaration list =
 fun ?(insert = true) ctx node_name fun_ids ni ->
   let rec_call = desugar_node_item ~insert ctx node_name fun_ids in
   let rec_calls nis =
@@ -1253,14 +1237,9 @@ let functions_of_recursive_definitions decls =
 
 let gen_nodes_of_decls: Ctx.tc_context -> A.declaration list -> A.declaration list =
 fun ctx decls ->
-  (* The functions and the contracts, in which a type ascription is generated
-     as a function (see [ascription_is_function]) *)
-  let fun_ids = List.fold_left
-    (fun acc decl -> match decl with
-      | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _)
-      | A.ContractNodeDecl (_, (id, _, _, _, _)) -> NI.Set.add id acc
-      | _ -> acc)
-    NI.Set.empty decls
+  let fun_ids = List.filter_map
+    (fun decl -> match decl with | A.FuncDecl (_, (id, _, _, _, _, _, _, _, _), _) -> Some id | _ -> None)
+    decls
   in
   let rec_def_funs = functions_of_recursive_definitions decls in
   (* Which parameters are constant is read from the declarations, so that it
