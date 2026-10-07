@@ -56,7 +56,11 @@ tel
 
 node N(x: int; a: {ty}) returns ();
 let
-  check "p" F(a, x) = x;
+  -- Falsified at x = 1, within the unrollings. Any x >= 1 falsifies
+  -- F(a, x) = x, but a counterexample with a larger x reaches a call of F
+  -- past the unrollings, which is not evaluated with an array argument, and
+  -- would leave the property unknown
+  check "p" x = 1 => F(a, x) = x;
 tel
 """
 
