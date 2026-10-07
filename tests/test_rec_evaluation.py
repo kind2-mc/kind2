@@ -118,8 +118,9 @@ def test_non_recursive_value_is_the_function_value():
 @pytest.mark.parametrize("arrays", [{}, {"--smt_arrays": "true"}])
 def test_calls_reading_free_global_constants_are_evaluated(arrays):
     # The evaluator declares the free global constants the definitions read,
+    # with the constraints on them,
     # and, without the theory of arrays, the sort of an array constant
     of_main = answers_of_main(
         "success/modular/rec_eval_free_global_constants.lus", MODULAR | arrays
     )
-    assert of_main == [{"f": "valid", "h": "valid"}], of_main
+    assert of_main == [{"f": "valid", "h": "valid", "c": "valid"}], of_main

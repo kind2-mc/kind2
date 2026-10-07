@@ -1,12 +1,20 @@
 -- A call to a recursive function proved terminating is evaluated although
 -- the functions it calls read free global constants, which the evaluator
--- declares: the value of each call below does not depend on them, and is
--- the only one. Not evaluated, the calls of main reach past the unrollings
--- of F and H and their properties are unknown. test_rec_evaluation.py
--- checks this with and without the theory of arrays, whose select symbols
--- the array constant applies otherwise.
+-- declares, with the constraints of the system on them: the value of each
+-- call below is the only one under these constraints. Not evaluated, the
+-- calls of main reach past the unrollings of the functions, and their
+-- properties are unknown. test_rec_evaluation.py checks this with and
+-- without the theory of arrays, whose select symbols the array constants
+-- apply otherwise.
 const K: int;
 const A: int^1;
+
+-- Constrained constants: S by its subrange, and R by its refinement, which
+-- relates it to Q, which no function reads
+const S: subrange [1, 1] of int;
+const Q: subtype { q: int | q = 2 };
+const R: subtype { r: int | r = Q + 1 };
+const Z: subrange [0, 0] of int ^ 2;
 
 function G(n: int) returns (y: int);
 let
@@ -29,8 +37,17 @@ let
   r = when n <= 0 then 0 else H(n - 1) + 0 * A[0];
 tel
 
+function rec C(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else C(n - 1) + S + R + Z[1];
+tel
+
 node main() returns ();
 let
   check "f" F(3) = 0;
   check "h" H(3) = 0;
+  check "c" C(30) = 120;
 tel
