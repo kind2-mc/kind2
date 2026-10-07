@@ -30,10 +30,14 @@
 type t
 
 (** [create ~logic ~timeout_ms define] is an evaluator whose solver is
-    started with the logic [logic], gives every evaluation [timeout_ms]
-    milliseconds when it takes a timeout per query (Z3 and cvc5), and is
+    started with the logic [logic], gives every evaluation about
+    [timeout_ms] milliseconds when it takes a limit per query (Z3 and
+    cvc5), and is
     given the definitions of the functions, and the declarations of what
-    they apply, by [define] *)
+    they apply, by [define]. The limit is on the resources the solver
+    spends, which it spends in about that time on an idle machine, rather
+    than on the wall clock: the value of a call is then known or not
+    whatever the load of the machine. *)
 val create :
   logic:TermLib.logic -> timeout_ms:int -> (SMTSolver.t -> unit) -> t
 
