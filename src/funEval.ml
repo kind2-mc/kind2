@@ -149,4 +149,11 @@ let evaluate ?(assuming = []) t uf args =
   | SMTSolver.Timeout -> t.solver <- None ; `Unknown
   | SMTSolver.Unknown -> delete t ; `Unknown
   | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
-  | SMTSolver.Exiting -> delete t ; `Unknown
+  | SMTSolver.Exiting as e ->
+    (* An error of the solver, on the definitions or on the query, would
+       otherwise go unnoticed *)
+    KEvent.log L_debug
+      "Evaluation of %a failed%s: %s" UfSymbol.pp_print_uf_symbol uf
+      (if t.failed then " on the definitions" else "")
+      (Printexc.to_string e) ;
+    delete t ; `Unknown

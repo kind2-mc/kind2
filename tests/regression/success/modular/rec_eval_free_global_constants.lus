@@ -1,0 +1,36 @@
+-- A call to a recursive function proved terminating is evaluated although
+-- the functions it calls read free global constants, which the evaluator
+-- declares: the value of each call below does not depend on them, and is
+-- the only one. Not evaluated, the calls of main reach past the unrollings
+-- of F and H and their properties are unknown. test_rec_evaluation.py
+-- checks this with and without the theory of arrays, whose select symbols
+-- the array constant applies otherwise.
+const K: int;
+const A: int^1;
+
+function G(n: int) returns (y: int);
+let
+  y = n + K;
+tel
+
+function rec F(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F(n - 1) + 0 * G(n);
+tel
+
+function rec H(n: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else H(n - 1) + 0 * A[0];
+tel
+
+node main() returns ();
+let
+  check "f" F(3) = 0;
+  check "h" H(3) = 0;
+tel

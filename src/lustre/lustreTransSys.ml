@@ -2799,17 +2799,30 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
     let selects =
       if Flags.Arrays.smt () then [] else StateVar.get_select_ufs ()
     in
+    (* The free global constants, which the definitions may read. They are
+       free here as in the system: a value that depends on them is not
+       unique, and the call is then not evaluated. *)
+    let global_consts =
+      List.concat_map
+        (fun (_, vt, _) -> D.fold (fun _ v acc -> v :: acc) vt [])
+        globals.G.free_constants
+    in
+    (* The sorts of the constants count: without the theory of arrays, an
+       array constant is of the sort FArray, which the solver declares only
+       under a logic with arrays *)
     let logic =
+      let of_var v = TermLib.logic_of_sort (Var.type_of_var v) in
       let of_def (uf, formals, body) =
         TermLib.sup_logics
           (TermLib.logic_of_term [] body
            :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
-           :: List.map (fun v -> TermLib.logic_of_sort (Var.type_of_var v))
-             formals)
+           :: List.map of_var formals)
       in
       `Inferred
         TermLib.FeatureSet.(
-          TermLib.sup_logics (List.concat_map (List.map of_def) blocks)
+          TermLib.sup_logics
+            (List.map of_var global_consts
+             @ List.concat_map (List.map of_def) blocks)
           |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
     in
     (* The sorts, then the symbols the definitions apply, then the
@@ -2824,6 +2837,7 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
         | Type.Datatype _ -> declare_sort ty
         | _ -> ());
       List.iter declare_fun selects ;
+      Var.declare_constant_vars declare_fun global_consts ;
       List.iter declare_fun ufs ;
       List.iter define_rec blocks
     in
