@@ -35,8 +35,10 @@ tel
 def test_constant_uf_not_mined(tmp_path):
     path = tmp_path / "model.lus"
     path.write_text(model)
+    # The default timeout: the property is proved at once, but a shorter
+    # one was reached on a slow runner, where "Wallclock timeout." is logged
+    # as an error
     args = common_args | {
-        "--timeout": "10",
         "--modular": "true",
         "--compositional": "true",
     }
