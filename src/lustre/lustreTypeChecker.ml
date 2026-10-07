@@ -1445,14 +1445,16 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       | Some _ -> assert false
       | None -> type_error pos (UnboundNodeName (NI.get_user_name node_id))
       in
-      if is_function && type_has_temporal_or_node_call ctx input_type then
-        (* Reported at the temporal operator, if there is one *)
+      if is_function then 
         let combine o1 o2 = match o1, o2 with | Some x, _ | _, Some x -> Some x | None, None -> None in
-        let pos =
-          LH.fold_lustre_ty ~into_ty_args:true LH.has_pre_or_arrow None combine input_type
-          |> Option.value ~default:pos
-        in
-        type_error pos TempOperatorInFuncTypeAscription
+        match LH.fold_lustre_ty LH.has_pre_or_arrow None combine input_type with 
+        | Some pos -> type_error pos TempOperatorInFuncTypeAscription  
+        | None -> 
+          let contains_node_call = LH.fold_lustre_ty (expr_contains_node_call ctx) false (||) input_type in 
+          if contains_node_call then 
+            type_error pos TempOperatorInFuncTypeAscription 
+          else
+            R.ok ()
       else 
         R.ok ()
     else 
