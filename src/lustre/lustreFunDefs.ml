@@ -267,7 +267,12 @@ let ascription_is_identity ({ N.inputs; N.outputs; N.asserts; N.oracles } as nod
        ok
        && match SVM.find_opt out_sv defs with
        | Some (Eq e) -> E.is_var e && is_input (E.state_var_of_expr e) in_sv
-       | Some (Copy v) -> is_input (Var.state_var_of_state_var_instance v) in_sv
+       | Some (Copy v) ->
+         (* A copy of the input at the current instant, not of its previous
+            value or of a constant *)
+         Var.is_state_var_instance v
+         && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
+         && is_input (Var.state_var_of_state_var_instance v) in_sv
        | Some (Call _ | Unsupported) | None -> false)
     outputs input true
 
