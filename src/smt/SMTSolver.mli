@@ -35,8 +35,10 @@ exception Exiting
 
 (** Raised by a command to a solver instance whose process was killed from
     outside, by {!kill_solvers_of_domain} or {!destroy_all_of_process},
-    whatever error the command then met. The solver did not fail on what it
-    was given: its owner is being stopped. *)
+    when the command fails on the dead process: on a reply cut short or a
+    closed pipe, whatever exception that raised. The solver did not fail on
+    what it was given: its owner is being stopped. A reply the solver gave
+    before it was killed is reported as what it is, an error included. *)
 exception Killed
 
 (** {1 Creating and finalizing a solver instance} *)
