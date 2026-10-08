@@ -99,7 +99,9 @@ let solver_of t uf =
     ( try t.define solver with
       (* The solver rejected the definitions, which points to a flaw in
          their encoding rather than to a hard query: no call to these
-         functions is evaluated *)
+         functions is evaluated. A solver killed from outside, by the
+         supervisor stopping the engine that started it, raises
+         [SMTSolver.Killed] instead. *)
       | Failure msg ->
         KEvent.log L_warn
           "Calls to %a are not evaluated: the solver rejected the \
@@ -160,7 +162,7 @@ let evaluate ?(assuming = []) t uf args =
   | SMTSolver.Timeout -> t.solver <- None ; `Unknown
   | SMTSolver.Unknown -> delete t ; `Unknown
   | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
-  | SMTSolver.Exiting as e ->
+  | SMTSolver.Exiting | SMTSolver.Killed as e ->
     KEvent.log L_debug
       "Evaluation of %a failed: %s" UfSymbol.pp_print_uf_symbol uf
       (Printexc.to_string e) ;

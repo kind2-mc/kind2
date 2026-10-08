@@ -631,7 +631,7 @@ let outcome ?(abstracted = false) sys prop cex =
       `Undecided
     | SMTSolver.Unknown -> drop_round_solver () ; `Undecided
     | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
-    | SMTSolver.Exiting as e ->
+    | SMTSolver.Exiting | SMTSolver.Killed as e ->
       (* A solver that stops on its own timeout answers in its own way,
          which reads as a failure: the query is undecided, as well, and the
          solver is not to be trusted with the next one. Any other

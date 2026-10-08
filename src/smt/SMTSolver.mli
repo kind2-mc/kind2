@@ -33,6 +33,12 @@ exception Timeout
     been killed, and a new one would be left running. *)
 exception Exiting
 
+(** Raised by a command to a solver instance whose process was killed from
+    outside, by {!kill_solvers_of_domain} or {!destroy_all_of_process},
+    whatever error the command then met. The solver did not fail on what it
+    was given: its owner is being stopped. *)
+exception Killed
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
