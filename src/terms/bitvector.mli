@@ -183,12 +183,6 @@ val pp_smtlib_print_bitvector_b : Format.formatter -> t -> unit
 (** Pretty-print a bitvector in SMTLIB extended decimal format *)
 val pp_smtlib_print_bitvector_d : Format.formatter -> t -> unit
 
-(** Pretty-print a constant bitvector in Yices' binary format *)
-val pp_yices_print_bitvector_b : Format.formatter -> t -> unit
-
-(** Pretty-print a constant bitvector in Yices' binary format given the decimal value and size *)
-val pp_yices_print_bitvector_d : Format.formatter -> Numeral.t -> Numeral.t -> unit
-
 (** Pretty-print a constant unsigned bitvector as a Lustre machine integer *)
 val pp_print_unsigned_machine_integer : Format.formatter -> t -> unit
 

@@ -28,10 +28,12 @@ Improvements:
   - The schema knows the `adt` stream type, and the `ghost` and `constant` stream classes, all of which the output has been producing.
   - The schema accepts a machine integer of any width. The JSON output names every one of them in the general form, `uint<8>` and `sint<8>`, while the schema listed only `int8` through `uint64`. Note that the XML output names the four widths it knows as `uint8` and `int8` instead, and raises on any other; the two formats disagreeing is left for a separate change.
 - `--disable IC3` disables both IC3 engines, IC3QE and IC3IA, as `--enable IC3` enables both. Since IC3 was split into the two engines, it had disabled neither of them, and a disabled engine was also run when `IC3` was enabled, as in `--enable IC3 --disable IC3IA`. The check that disables IC3 with a version of Yices 2 older than 2.6 now fires whenever either engine is enabled, including in the default configuration, where it never did.
+- Kind 2 works with Yices 2.7.0, which failed every query. Kind 2 passed `--smt2-model-format` to every version of Yices 2 newer than 2.6.1, but from 2.7.0 on SMT-LIB models are the default and the option no longer exists, so `yices-smt2` exited at once. The option is now passed only to versions 2.6.2 up to 2.6.x (#1711).
 
 Breaking changes:
 - The clock operators `merge`, `when` as a sampling operator (`e when c`), `current`, `activate` and `condact`, and the restart of a node call `(restart N every r)(args)`, are no longer supported. `when` expressions and blocks, which evaluate only their selected branch, and restart expressions and blocks replace them; the [documentation](https://kind.cs.uiowa.edu/docs/main/user/inputs-and-outputs/lustre/#restart) shows the correspondence. `merge`, `activate`, `condact`, `current`, `initial` and `default` are no longer keywords.
 - A restart is rejected in the body and the contract of a function, as `pre` and `->` are: it resets the state of what it restarts, and a function has no state. It used to be accepted, and a recursive function that restarted another one made the analysis fail an assertion.
+- Yices 1, through its native input format, is no longer supported as an SMT solver: `--smt_solver Yices` and `--yices_bin` are removed. Yices 2 remains supported with `--smt_solver Yices2`.
 
 # Kind 2 v3.0.0
 

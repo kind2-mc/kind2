@@ -282,7 +282,6 @@ module Smt : sig
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
-    | `Yices_native
     | `Z3_SMTLIB
     | `detect
   ]
@@ -356,9 +355,6 @@ module Smt : sig
   val yices2_smt2models : unit -> bool
 
   val set_yices2_smt2models : bool -> unit
-
-  (** Executable of Yices solver *)
-  val yices_bin : unit -> string
 
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string

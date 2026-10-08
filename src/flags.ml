@@ -126,7 +126,6 @@ module Smt = struct
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
-    | `Yices_native
     | `Z3_SMTLIB
     | `detect
   ]
@@ -138,7 +137,8 @@ module Smt = struct
     | "opensmt" -> `OpenSMT_SMTLIB
     | "smtinterpol" -> `SMTInterpol_SMTLIB
     | "yices2" -> `Yices2_SMTLIB
-    | "yices" -> `Yices_native
+    | "yices" ->
+      Arg.Bad "Yices 1 is no longer supported; use --smt_solver Yices2" |> raise
     | "z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
@@ -148,12 +148,11 @@ module Smt = struct
     | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `Yices2_SMTLIB -> "Yices2"
-    | `Yices_native -> "Yices"
     | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, OpenSMT, Bitwuzla, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, OpenSMT, Bitwuzla"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -428,20 +427,6 @@ module Smt = struct
   let set_cvc5_bin str = cvc5_bin := str
   let cvc5_bin () = !cvc5_bin
 
-  (* Yices binary. *)
-  let yices_bin_default = "yices"
-  let yices_bin = ref yices_bin_default
-  let _ = add_spec
-    "--yices_bin"
-    (Arg.Set_string yices_bin)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Executable of Yices solver@ Default: \"%s\"@]"
-        yices_bin_default
-    )
-  let set_yices_bin str = yices_bin := str
-  let yices_bin () = !yices_bin
-
   (* Yices 2 binary. *)
   let yices2smt2_bin_default = "yices-smt2"
   let yices2smt2_bin = ref yices2smt2_bin_default
@@ -516,9 +501,6 @@ module Smt = struct
     (* User chose Yices2 *)
     | `Yices2_SMTLIB ->
       find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
-    (* User chose Yices *)
-    | `Yices_native ->
-      find_solver ~fail:true "Yices" (yices_bin ()) |> ignore
     (* User chose Z3 *)
     | `Z3_SMTLIB ->
       find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
@@ -558,11 +540,6 @@ module Smt = struct
         let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
         set_solver `Bitwuzla_SMTLIB;
         set_bitwuzla_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
-        set_solver `Yices_native;
-        set_yices_bin exec;
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
         raise SolverNotFound
@@ -4190,20 +4167,19 @@ let support_new_bv_cast_operators () = !support_new_bv_cast_operators'
 
 let solver_dependent_actions solver =
 
-  let get_version with_patch cmd =
+  let get_version cmd =
     let get_rev output idx =
       int_of_string (Str.matched_group idx output)
     in
     let version_re =
-      if with_patch then Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)\\.\\([0-9]+\\)"
-      else Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)"
+      Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)\\.\\([0-9]+\\)"
     in
     let output = syscall cmd in
     try
       let _ = Str.search_forward version_re output 0 in
       let major_rev = get_rev output 1 in
       let minor_rev = get_rev output 2 in
-      let patch_rev = if with_patch then get_rev output 3 else 0 in
+      let patch_rev = get_rev output 3 in
       Some (major_rev, minor_rev, patch_rev)
     with Not_found -> None
   in
@@ -4211,7 +4187,7 @@ let solver_dependent_actions solver =
   match solver with
   | `MathSAT_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.mathsat_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 5 || (major_rev = 5 && (minor_rev < 5 || (minor_rev = 5 && patch_rev < 4)))  then (
         if Smt.check_sat_assume () then (
@@ -4242,7 +4218,7 @@ let solver_dependent_actions solver =
   )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
@@ -4257,7 +4233,7 @@ let solver_dependent_actions solver =
   )
   | `Yices2_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
         let actions = [] in
@@ -4288,14 +4264,17 @@ let solver_dependent_actions solver =
             (pp_print_list Format.pp_print_string ",@ ") actions
         )
       )
-      else if (major_rev > 2 || minor_rev > 6 || patch_rev > 1) then (
+      (* Yices 2.6.2 up to 2.6.x print SMT-LIB models only with
+         --smt2-model-format. From 2.7.0 on, they are the default, and the
+         option no longer exists. *)
+      else if major_rev = 2 && minor_rev = 6 && patch_rev > 1 then (
         Smt.set_yices2_smt2models true
       )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
   )
   | `cvc5_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.cvc5_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | None ->
         Log.log L_warn "Couldn't determine cvc5 version";
         raise UnsupportedSolver
@@ -4322,16 +4301,6 @@ let solver_dependent_actions solver =
         if (major > 1) ||
            (major = 1 && (minor > 3 || (minor = 3 && patch >= 0)))
         then support_new_bv_cast_operators' := true;
-  )
-  | `Yices_native -> (
-    let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
-    match get_version false cmd with
-    | Some (major_rev, _, _) ->
-      if major_rev > 1 then (
-        Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
-        raise UnsupportedSolver
-      )
-    | None -> Log.log L_warn "Couldn't determine Yices version"
   )
   | _ -> ()
 
