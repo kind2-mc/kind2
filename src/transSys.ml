@@ -1202,6 +1202,19 @@ let define_fun_defs { fun_defs } defined define_rec =
     fun_defs
 
 
+(* Declare the uninterpreted sorts, then the algebraic datatypes
+   [datatypes], in dependency order: a datatype's fields may have an
+   uninterpreted sort *)
+let declare_sorts declare_sort datatypes =
+  Type.get_all_abstr_types () |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Abstr _ -> declare_sort ty
+      | _ -> ());
+  datatypes |>
+  List.iter (fun ty -> match Type.node_of_type ty with
+      | Type.Datatype _ -> declare_sort ty
+      | _ -> ())
+
 (* Declare other functions symbols *)
 let declare_selects declare sys =
   if TermLib.logic_allow_arrays (get_logic sys) then
@@ -1218,17 +1231,7 @@ let define_trans define { trans_uf_symbol; trans_formals; trans } =
 (* Declare the sorts, uninterpreted functions and const variables
    of this system and its subsystems. *)
 let declare_sorts_ufs_const trans_sys ~define_rec declare declare_sort =
-  (* declare uninterpreted sorts first: a datatype's fields may have one *)
-  Type.get_all_abstr_types () |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Abstr _ -> declare_sort ty
-      | _ -> ());
-
-  (* declare recursive algebraic datatypes, in dependency order *)
-  trans_sys.datatype_types |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Datatype _ -> declare_sort ty
-      | _ -> ());
+  declare_sorts declare_sort trans_sys.datatype_types;
 
   (* Declare monomorphized select symbols *)
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
@@ -1364,14 +1367,7 @@ let check_helper_symbols trans_sys =
 (* Declare the sorts and the global constants of the system and give the
    check definitions of its systems, and nothing else *)
 let define_check_defs trans_sys ~define_rec declare declare_sort =
-  trans_sys.datatype_types |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Datatype _ -> declare_sort ty
-      | _ -> ());
-  Type.get_all_abstr_types () |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Abstr _ -> declare_sort ty
-      | _ -> ());
+  declare_sorts declare_sort trans_sys.datatype_types;
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;
   (* The global constants, which the definitions may read; they are free,
      and a value that depends on them is not unique *)
@@ -1394,17 +1390,7 @@ let define_and_declare_of_bounds
     lbound
     ubound =
 
-  (* declare uninterpreted sorts first: a datatype's fields may have one *)
-  Type.get_all_abstr_types () |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Abstr _ -> declare_sort ty
-      | _ -> ());
-
-  (* declare recursive algebraic datatypes, in dependency order *)
-  trans_sys.datatype_types |>
-  List.iter (fun ty -> match Type.node_of_type ty with
-      | Type.Datatype _ -> declare_sort ty
-      | _ -> ());
+  declare_sorts declare_sort trans_sys.datatype_types;
 
     (* Declare monomorphized select symbols *)
   if not (Flags.Arrays.smt ()) then declare_selects declare trans_sys;

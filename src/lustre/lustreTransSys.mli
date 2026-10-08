@@ -249,12 +249,14 @@ type evaluator = {
 (** [mk ~logic ~timeout_ms define] makes an evaluator with a solver of its
     own, in the logic [logic], giving an evaluation [timeout_ms]
     milliseconds, and to which [define] gives the sorts, the uninterpreted
-    symbols and the recursive definitions of the functions evaluated *)
+    symbols and the recursive definitions of the functions evaluated, and
+    the constraints on the constants they read *)
 type mk_evaluator =
   logic:TermLib.logic -> timeout_ms:int ->
   (declare_sort:(Type.t -> unit) ->
    declare_fun:(UfSymbol.t -> unit) ->
-   define_rec:(LustreFunDefs.def list -> unit) -> unit) ->
+   define_rec:(LustreFunDefs.def list -> unit) ->
+   assert_term:(Term.t -> unit) -> unit) ->
   evaluator
 
 (** Install how evaluators are made. In a compositional and modular

@@ -84,7 +84,7 @@ exception Failed
 (* The solver of the evaluator, started with the definitions if it is not
    running. It is kept before it is given the definitions, so that [delete]
    stops it if they fail. *)
-let solver_of t =
+let solver_of t uf =
   match t.solver with
   | Some solver -> solver
   | None when t.failed -> raise Failed
@@ -94,15 +94,26 @@ let solver_of t =
         (Flags.Smt.solver ())
     in
     t.solver <- Some solver ;
-    ( try
-        set_per_query_limit ~ms:t.timeout_ms solver ;
-        t.define solver
+    ( try set_per_query_limit ~ms:t.timeout_ms solver
       with e -> t.failed <- true ; raise e ) ;
+    ( try t.define solver with
+      (* The solver rejected the definitions, which points to a flaw in
+         their encoding rather than to a hard query: no call to these
+         functions is evaluated *)
+      | Failure msg ->
+        KEvent.log L_warn
+          "Calls to %a are not evaluated: the solver rejected the \
+           definitions: %s"
+          UfSymbol.pp_print_uf_symbol uf msg ;
+        t.failed <- true ;
+        delete t ;
+        raise Failed
+      | e -> t.failed <- true ; raise e ) ;
     solver
 
 let evaluate ?(assuming = []) t uf args =
   try
-    let solver = solver_of t in
+    let solver = solver_of t uf in
     SMTSolver.push solver ;
     List.iter (SMTSolver.assert_term solver) assuming ;
     let result = UfSymbol.mk_fresh_uf_symbol [] (UfSymbol.res_type_of_uf_symbol uf) in
@@ -149,4 +160,8 @@ let evaluate ?(assuming = []) t uf args =
   | SMTSolver.Timeout -> t.solver <- None ; `Unknown
   | SMTSolver.Unknown -> delete t ; `Unknown
   | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
-  | SMTSolver.Exiting -> delete t ; `Unknown
+  | SMTSolver.Exiting as e ->
+    KEvent.log L_debug
+      "Evaluation of %a failed: %s" UfSymbol.pp_print_uf_symbol uf
+      (Printexc.to_string e) ;
+    delete t ; `Unknown

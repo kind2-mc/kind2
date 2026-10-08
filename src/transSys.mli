@@ -527,6 +527,12 @@ val declare_const_vars : t -> (UfSymbol.t -> unit) -> unit
 *)
 val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
+(** [declare_sorts declare_sort datatypes] declares the uninterpreted sorts,
+    then the algebraic datatypes [datatypes], which are in dependency order,
+    with [declare_sort]: a datatype's fields may have an uninterpreted
+    sort *)
+val declare_sorts : (Type.t -> unit) -> Type.t list -> unit
+
 (** Declare the sorts, uninterpreted functions and const variables
     of this system and its subsystems, and define their recursive
     functions with [define_rec], whose signature is that of

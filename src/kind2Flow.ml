@@ -1080,7 +1080,8 @@ let mk_evaluator ~logic ~timeout_ms define =
       define
         ~declare_sort:(SMTSolver.declare_sort solver)
         ~declare_fun:(SMTSolver.declare_fun solver)
-        ~define_rec:(SMTSolver.define_funs_rec solver))
+        ~define_rec:(SMTSolver.define_funs_rec solver)
+        ~assert_term:(SMTSolver.assert_term solver))
   in
   { LustreTransSys.evaluate =
       (fun uf args ->

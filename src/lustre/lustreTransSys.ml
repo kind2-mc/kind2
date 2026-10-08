@@ -693,7 +693,34 @@ let add_constraints_of_type init terms state_var =
       :: terms 
     | None, None -> Term.mk_bool true :: terms
   )
-                 
+
+
+(* The variables of the free constants, in the order of their
+   declarations *)
+let vars_of_free_constants globals =
+  List.concat_map
+    (fun (_, vt, _) -> D.fold (fun _ v acc -> v :: acc) vt [] |> List.rev)
+    globals.G.free_constants
+
+(* The constraints on the free constants: their refinements and subranges,
+   the canonical forms [adt_constraints] of those of a type with an ADT, and
+   the ranges of those of an enumerated type *)
+let constraints_of_free_constants globals adt_constraints =
+  let enum_consts =
+    vars_of_free_constants globals
+    |> List.map Var.state_var_of_state_var_instance
+    |> List.filter (fun state_var ->
+      let ty = StateVar.type_of_state_var state_var in
+      Type.is_enum
+        (if Type.is_array ty then Type.last_elem_type_of_array ty else ty))
+  in
+  List.fold_left
+    (add_constraints_of_type true)
+    (List.map
+       (E.base_term_of_t TransSys.init_base)
+       (globals.G.global_constraints @ adt_constraints))
+    enum_consts
+
 
 
 (* ********************************************************************** *)
@@ -2532,11 +2559,9 @@ let function_congruence_group globals inputs uf_symbols
        also refer to global free constants; any other state variable makes it
        unusable. *)
     let global_consts =
-      List.fold_left (fun acc (_, vt, _) ->
-        D.fold (fun _ v acc ->
-          SVS.add (Var.state_var_of_state_var_instance v) acc
-        ) vt acc
-      ) SVS.empty globals.G.free_constants
+      vars_of_free_constants globals
+      |> List.map Var.state_var_of_state_var_instance
+      |> SVS.of_list
     in
     let input_vars =
       List.fold_left (fun acc (_, sv, _, a, _) -> SVM.add sv a acc)
@@ -2720,7 +2745,8 @@ type mk_evaluator =
   logic:TermLib.logic -> timeout_ms:int ->
   (declare_sort:(Type.t -> unit) ->
    declare_fun:(UfSymbol.t -> unit) ->
-   define_rec:(LustreFunDefs.def list -> unit) -> unit) ->
+   define_rec:(LustreFunDefs.def list -> unit) ->
+   assert_term:(Term.t -> unit) -> unit) ->
   evaluator
 
 (* Evaluating takes a solver, which this module cannot start: the solver
@@ -2792,40 +2818,113 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
   else
     let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
     let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
-    (* Without the theory of arrays, the definitions apply the select
-       symbols of the arrays, which the definitions do not declare (see
-       [TransSys.declare_selects]). They are taken now: the symbols are
-       private to the domain that made them. *)
+    let constraints =
+      constraints_of_free_constants globals globals.G.adt_global_constraints
+      |> List.map Term.convert_select
+    in
+    (* Without the theory of arrays, the definitions and the constraints
+       apply the select symbols of the arrays, which the definitions do not
+       declare (see [TransSys.declare_selects]). They are taken now, after
+       the constraints made those they apply: the symbols are private to the
+       domain that made them. Only those applied are declared below. *)
     let selects =
       if Flags.Arrays.smt () then [] else StateVar.get_select_ufs ()
     in
+    (* The constraints of the system on the free constants, but those that
+       apply symbols the solver is not given *)
+    let constraints =
+      let given =
+        List.concat_map (List.map (fun (uf, _, _) -> uf)) blocks
+        @ selects @ ufs
+      in
+      constraints
+      |> List.filter (fun c ->
+        Term.uf_symbols_of_term c
+        |> UfSymbol.UfSymbolSet.for_all (fun uf ->
+          List.exists (UfSymbol.equal_uf_symbols uf) given))
+      |> List.map (fun c ->
+        c, SVS.filter StateVar.is_const (Term.state_vars_of_term c))
+    in
+    (* The free constants the definitions read, and those the constraints
+       on them relate them to, with these constraints. The others cannot
+       change a value, and would only weigh on a solver that starts again
+       after each evaluation it gives up on. *)
+    let read, constraints =
+      let rec close read taken = function
+        | [] -> read, List.rev taken
+        | constraints ->
+          match
+            List.partition
+              (fun (_, svs) -> not (SVS.disjoint svs read)) constraints
+          with
+          | [], _ -> read, List.rev taken
+          | relating, others ->
+            close
+              (List.fold_left (fun acc (_, svs) -> SVS.union acc svs)
+                 read relating)
+              (List.rev_append (List.map fst relating) taken)
+              others
+      in
+      let read =
+        List.fold_left
+          (List.fold_left (fun acc (_, _, body) ->
+             SVS.union acc (Term.state_vars_of_term body)))
+          SVS.empty blocks
+      in
+      close read [] constraints
+    in
+    let global_consts =
+      vars_of_free_constants globals
+      |> List.filter (fun v ->
+        SVS.mem (Var.state_var_of_state_var_instance v) read)
+    in
+    (* The selects applied, whose array arguments are of the sort FArray *)
+    let selects =
+      let applied =
+        List.fold_left
+          (fun acc c ->
+             UfSymbol.UfSymbolSet.union acc (Term.uf_symbols_of_term c))
+          UfSymbol.UfSymbolSet.empty
+          (constraints
+           @ List.concat_map (List.map (fun (_, _, body) -> body)) blocks)
+      in
+      List.filter (fun uf -> UfSymbol.UfSymbolSet.mem uf applied) selects
+    in
+    (* The sorts of the constants and of the arguments of the selects
+       count: without the theory of arrays, an array is of the sort FArray,
+       which the solver declares only under a logic with arrays *)
     let logic =
+      let of_var v = TermLib.logic_of_sort (Var.type_of_var v) in
       let of_def (uf, formals, body) =
         TermLib.sup_logics
           (TermLib.logic_of_term [] body
            :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
-           :: List.map (fun v -> TermLib.logic_of_sort (Var.type_of_var v))
-             formals)
+           :: List.map of_var formals)
       in
       `Inferred
         TermLib.FeatureSet.(
-          TermLib.sup_logics (List.concat_map (List.map of_def) blocks)
+          TermLib.sup_logics
+            (List.map of_var global_consts
+             @ List.concat_map
+               (fun uf ->
+                  List.map TermLib.logic_of_sort
+                    (UfSymbol.arg_type_of_uf_symbol uf))
+               selects
+             @ List.map (TermLib.logic_of_term []) constraints
+             @ List.concat_map (List.map of_def) blocks)
           |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
     in
     (* The sorts, then the symbols the definitions apply, then the
-       definitions, which are in dependency order *)
-    let define ~declare_sort ~declare_fun ~define_rec =
-      Type.get_all_abstr_types () |>
-      List.iter (fun ty -> match Type.node_of_type ty with
-        | Type.Abstr _ -> declare_sort ty
-        | _ -> ());
-      globals.G.recursive_datatypes |>
-      List.iter (fun ty -> match Type.node_of_type ty with
-        | Type.Datatype _ -> declare_sort ty
-        | _ -> ());
+       definitions, which are in dependency order, and the constraints.
+       The constants are free but for these, as in the system: a value that
+       depends on them is not unique, and the call is then not evaluated. *)
+    let define ~declare_sort ~declare_fun ~define_rec ~assert_term =
+      TransSys.declare_sorts declare_sort globals.G.recursive_datatypes ;
       List.iter declare_fun selects ;
+      Var.declare_constant_vars declare_fun global_consts ;
       List.iter declare_fun ufs ;
-      List.iter define_rec blocks
+      List.iter define_rec blocks ;
+      List.iter assert_term constraints
     in
     Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
 
@@ -4049,16 +4148,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               trans_terms
           in
 
-          let global_consts =
-            (* Format.eprintf "Global constants: %d@." *)
-            (*   (List.length globals.G.free_constants); *)
-            List.fold_left (fun acc (_, vt, _) ->
-                D.fold (fun _ v acc ->
-                    (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
-                    v :: acc) vt acc
-              ) [] globals.G.free_constants
-            |> List.rev
-          in
+          let global_consts = vars_of_free_constants globals in
           
           let global_const_svars =
             List.map Var.state_var_of_state_var_instance global_consts
@@ -4091,17 +4181,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
           in
 
           let global_constraints =
-            List.map
-              (E.base_term_of_t TransSys.init_base)
-              (globals.G.global_constraints @ adt_global_constraints)
-          in
-
-          let global_constraints =
-            let enum_consts = filter_enum_svars global_const_svars in
-            List.fold_left
-              (add_constraints_of_type true)
-              global_constraints
-              enum_consts
+            constraints_of_free_constants globals adt_global_constraints
           in
 
           let stateful_vars =
