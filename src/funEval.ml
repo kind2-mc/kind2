@@ -99,8 +99,11 @@ let solver_of t uf =
     ( try t.define solver with
       (* The solver rejected the definitions, which points to a flaw in
          their encoding rather than to a hard query: no call to these
-         functions is evaluated *)
-      | Failure msg ->
+         functions is evaluated. A solver that is no longer live was killed
+         from outside, by the supervisor stopping the engine that started
+         it, and the definitions are not at fault: its reply ends early,
+         which fails as well. *)
+      | Failure msg when SMTSolver.is_live solver ->
         KEvent.log L_warn
           "Calls to %a are not evaluated: the solver rejected the \
            definitions: %s"

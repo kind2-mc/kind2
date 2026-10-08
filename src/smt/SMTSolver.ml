@@ -240,12 +240,15 @@ let create_instance
 
   solver
 
+(* Whether the solver instance is registered: it is not once deleted, or
+   killed from outside (see [kill_entries]), which forgets it before killing
+   it *)
+let is_live s =
+  Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
+
 (* Delete a solver instance *)
 let delete_instance s =
-  let live =
-    Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
-  in
-  if live then (
+  if is_live s then (
     drop_solver s ;
     destroy s
   )

@@ -60,6 +60,13 @@ val set_shutting_down : bool -> unit
 (** Delete an instance of an SMT solver *)
 val delete_instance : t -> unit
 
+(** Whether the solver instance is live: [false] once it was deleted or
+    destroyed, or its process killed by {!kill_solvers_of_domain} or
+    {!destroy_all_of_process}, which forget it before killing it. An error
+    on a solver that is not live comes from its process being gone, not
+    from what it was given. *)
+val is_live : t -> bool
+
 (** Destroys all live solver instances owned by the calling domain. *)
 val destroy_all : unit -> unit
 
