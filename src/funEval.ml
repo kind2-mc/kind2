@@ -22,7 +22,9 @@ type t = {
   define : SMTSolver.t -> unit ;
   mutable solver : SMTSolver.t option ;
   (* Whether the solver failed on the definitions, which it would fail on
-     again: no solver is started anymore *)
+     again: no solver is started anymore. A solver process that is gone,
+     killed from outside or dead on its own, did not fail on them, and
+     does not set it. *)
   mutable failed : bool ;
 }
 
@@ -83,7 +85,13 @@ exception Failed
 
 (* The solver of the evaluator, started with the definitions if it is not
    running. It is kept before it is given the definitions, so that [delete]
-   stops it if they fail. *)
+   stops it if they fail.
+
+   A solver process that is gone -- killed from outside, by the supervisor
+   stopping the engine that started it, or dead on its own, crashed or
+   killed for lack of memory -- raises [SMTSolver.Killed] or
+   [SMTSolver.Died]. It failed on nothing it was given: the instance is
+   dropped, and the next evaluation starts a new one. *)
 let solver_of t uf =
   match t.solver with
   | Some solver -> solver
@@ -94,22 +102,23 @@ let solver_of t uf =
         (Flags.Smt.solver ())
     in
     t.solver <- Some solver ;
-    ( try set_per_query_limit ~ms:t.timeout_ms solver
-      with e -> t.failed <- true ; raise e ) ;
-    ( try t.define solver with
-      (* The solver rejected the definitions, which points to a flaw in
-         their encoding rather than to a hard query: no call to these
-         functions is evaluated. A solver killed from outside, by the
-         supervisor stopping the engine that started it, raises
-         [SMTSolver.Killed] instead. *)
-      | Failure msg ->
-        KEvent.log L_warn
-          "Calls to %a are not evaluated: the solver rejected the \
-           definitions: %s"
-          UfSymbol.pp_print_uf_symbol uf msg ;
-        t.failed <- true ;
-        delete t ;
-        raise Failed
+    ( try
+        set_per_query_limit ~ms:t.timeout_ms solver ;
+        ( try t.define solver with
+          (* The solver rejected the definitions, which points to a flaw
+             in their encoding rather than to a hard query: no call to
+             these functions is evaluated *)
+          | Failure msg ->
+            KEvent.log L_warn
+              "Calls to %a are not evaluated: the solver rejected the \
+               definitions: %s"
+              UfSymbol.pp_print_uf_symbol uf msg ;
+            t.failed <- true ;
+            delete t ;
+            raise Failed )
+      with
+      | Failed -> raise Failed
+      | SMTSolver.Killed | SMTSolver.Died _ as e -> delete t ; raise e
       | e -> t.failed <- true ; raise e ) ;
     solver
 
@@ -162,7 +171,7 @@ let evaluate ?(assuming = []) t uf args =
   | SMTSolver.Timeout -> t.solver <- None ; `Unknown
   | SMTSolver.Unknown -> delete t ; `Unknown
   | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
-  | SMTSolver.Exiting | SMTSolver.Killed as e ->
+  | SMTSolver.Exiting | SMTSolver.Killed | SMTSolver.Died _ as e ->
     KEvent.log L_debug
       "Evaluation of %a failed: %s" UfSymbol.pp_print_uf_symbol uf
       (Printexc.to_string e) ;

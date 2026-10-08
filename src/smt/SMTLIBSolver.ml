@@ -61,6 +61,13 @@ module type SMTLIBSolverDriver = sig
 end
 
 
+exception Died of string
+
+let () =
+  Printexc.register_printer (function
+    | Died msg -> Some ("SMT solver died: " ^ msg)
+    | _ -> None)
+
 module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   
   open Driver
@@ -79,6 +86,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     { solver_config : config;           (* Configuration of the solver
                                            instance *)
       solver_pid : int;                 (* PID of the solver process *)
+      solver_exit : string option Atomic.t;
+      (* How the process ended, set once it has been found dead and
+         reaped: its PID may be another process's now *)
       solver_stdin : Unix.file_descr;   (* File descriptor of solver's stdin *)
       solver_lexbuf : Lexing.lexbuf;    (* Lexing buffer on solver's
                                            stdout *)
@@ -425,6 +435,44 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       | CustomCmd num_res -> get_custom_command_response num_res solver timeout
 
 
+  let string_of_process_status = function
+    | Unix.WEXITED c -> Printf.sprintf "exited with code %d" c
+    | Unix.WSIGNALED s -> Printf.sprintf "was killed by %s" (string_of_signal s)
+    | Unix.WSTOPPED s -> Printf.sprintf "was stopped by %s" (string_of_signal s)
+
+  (* How the solver process ended, if it has, after reaping it. It is
+     polled up to [polls] more times, [interval] seconds apart.
+
+     The first to reap the process, in whatever domain, records how it
+     ended in [solver_exit], and the PID is not waited for again: it may
+     be another process's from then on. A process reaped by someone else
+     regardless is gone as well. *)
+  let reap ~polls ~interval ({ solver_pid ; solver_exit } as solver) =
+    let record how =
+      Atomic.compare_and_set solver_exit None
+        (Some (solver.solver_config.solver_cmd.(0) ^ " " ^ how))
+      |> ignore ;
+      Atomic.get solver_exit
+    in
+    let rec poll polls =
+      match Atomic.get solver_exit with
+      | Some _ as exited -> exited
+      | None ->
+        match Unix.waitpid [Unix.WNOHANG] solver_pid with
+        | 0, _ when polls > 0 -> minisleep interval ; poll (polls - 1)
+        | 0, _ -> None
+        | _, status -> record (string_of_process_status status)
+        | exception Unix.Unix_error (Unix.ECHILD, _, _) ->
+          record "was reaped already"
+        | exception Unix.Unix_error _ -> None
+    in
+    poll polls
+
+  (* How the solver process ended, if it has. A process that dies closes
+     its pipes before it can be waited for, so a command that fails on
+     them may find it still there: it is polled for a short while. *)
+  let exit_status solver = reap ~polls:50 ~interval:0.001 solver
+
   (* Send the command to the solver instance *)
   let send_command
       cmd_type
@@ -459,11 +507,30 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     with e ->
       let err_p2 = Unix.((fstat solver_stderr).st_size) in
       let len = err_p2 - err_p1 in
-      (* Was something written to stderr? *)
-      if len <> 0 then begin
+      let err_msg () =
         let buf = Bytes.create err_p2 in
         Unix.read solver_stderr buf 0 err_p2 |> ignore;
-        let err_msg = Bytes.sub_string buf err_p1 len in
+        Bytes.sub_string buf err_p1 len
+      in
+      (* A command that fails on the pipes, on a reply cut short or a
+         write to a closed pipe, may have failed because the process is
+         gone: it crashed, or was killed by the out-of-memory killer or
+         from outside. It did not fail on what it was given. An error
+         reply does not get here: it is returned as a response. *)
+      let exited =
+        match e with
+        | Failure _ | End_of_file | Sys_error _ | Unix.Unix_error _ ->
+          exit_status solver
+        | _ -> None
+      in
+      match exited with
+      | Some exited ->
+        raise
+          (Died (if len <> 0 then exited ^ ": " ^ err_msg () else exited))
+      | None ->
+      (* Was something written to stderr? *)
+      if len <> 0 then begin
+        let err_msg = err_msg () in
         (* Show solver error message *)
         (* KEvent.log L_fatal "@[<v>Solver error message:@ %s@]" err_msg; *)
         failwith ("Solver error: "^err_msg)
@@ -1017,6 +1084,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let solver =
       { solver_config = config;
         solver_pid = solver_pid;
+        solver_exit = Atomic.make None;
         solver_stdin = solver_stdin_out; 
         solver_lexbuf = solver_lexbuf; 
         solver_stdout = solver_stdout_in; 
@@ -1089,7 +1157,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
   (* Delete the solver instance by sending the exit command and wait for
      the solver process to exit *)
-  let delete_instance ({ solver_pid } as solver) =
+  let exit_and_reap ({ solver_pid } as solver) =
 
     (* Execute exit command, do not parse response
 
@@ -1113,79 +1181,45 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
           "[Warning] Got broken pipe when trying to exit %s instance PID %d.\
           It may be due to a timeout."
           solver.solver_config.solver_cmd.(0) solver_pid
+      (* The process died after its last reply, and was reaped on the
+         write failing: there is nothing left to stop *)
+      | Died _ -> ()
     end;
 
-    (* Check if solver instance has exited, wait 10ms, count down and
-       kill process eventually *)
-    let rec wait_and_kill time_to_kill = 
+    (* Wait 10*10ms for the process to terminate, then kill it.
 
-      (* Have we waited long enough? *)
-      if time_to_kill <= 0 then
-
-        (
-
-          (* Send SIGKILL to process.
-
-             The process may be gone already: the supervisor kills the
-             solvers of an engine that will not stop on its own, from
-             another domain. Unix leaves a child that has exited as a
-             zombie, which can still be signalled and waited for;
-             Windows keeps nothing of it, and both calls fail. Nothing
-             is left to kill or reap either way. *)
-          ( try Unix.kill solver_pid Sys.sigkill with
-            | Unix.Unix_error (Unix.ESRCH, _, _) -> () ) ;
-
-          (* Return exit code *)
-          ( try Unix.waitpid [] solver_pid |> snd with
-            | Unix.Unix_error (Unix.ECHILD, _, _) -> Unix.WEXITED 0 )
-
-        )
-
-      else
-
-        (
-
-          (* Wait 10ms *)
-          minisleep 0.01;
-
-          (* Check return status. Reaped from elsewhere counts as
-             exited: there is nothing left to wait for. *)
-          match ( try Unix.waitpid [Unix.WNOHANG] solver_pid with
-                  | Unix.Unix_error (Unix.ECHILD, _, _) ->
-                    (solver_pid, Unix.WEXITED 0) ) with
-
-          (* Process has not exited yet? Wait one more time *)
-          | 0, _ -> wait_and_kill (pred time_to_kill)
-
-          (* Return exit code *)
-          | _, process_status -> process_status
-
-        )
+       The process may be gone already: the supervisor kills the solvers
+       of an engine that will not stop on its own, from another domain,
+       and reaps them. It is not signalled then, as its PID may be
+       another process's. *)
+    let exited =
+      match reap ~polls:10 ~interval:0.01 solver with
+      | Some _ as exited -> exited
+      | None ->
+        (* Unix leaves a child that has exited as a zombie, which can
+           still be signalled and waited for; Windows keeps nothing of
+           it, and the kill fails. *)
+        ( try Unix.kill solver_pid Sys.sigkill with
+          | Unix.Unix_error (Unix.ESRCH, _, _) -> () ) ;
+        ( match Unix.waitpid [] solver_pid with
+          | _, status ->
+            Atomic.compare_and_set solver.solver_exit None
+              (Some
+                 (solver.solver_config.solver_cmd.(0) ^ " "
+                  ^ string_of_process_status status))
+            |> ignore
+          | exception Unix.Unix_error (Unix.ECHILD, _, _) -> () ) ;
+        Atomic.get solver.solver_exit
     in
-        
-    (* Wait 10*10ms for process to terminate *)
-    let process_status = wait_and_kill 10 in
-
-    (
-
-      (* Check termination status of solver *)
-      match process_status with
-
-      (* Exit with code *)
-      | Unix.WEXITED c -> 
-        Debug.smt "Solver exited with code %d" c;
-
-      (* Killed by signal *)
-      | Unix.WSIGNALED s -> 
-        Debug.smt "Solver killed with signal %d" s;
-
-      (* Stopped by signal *)
-      | Unix.WSTOPPED s -> 
-        Debug.smt "Solver stopped by signal %d" s;
-
-    );
+    Option.iter (Debug.smt "Solver %s") exited ;
 
     close_channels solver
+
+  (* A process found dead has been reaped already, and its PID is not to
+     be waited for or signalled: there is only the pipes to close *)
+  let delete_instance solver =
+    if Atomic.get solver.solver_exit <> None then close_channels solver
+    else exit_and_reap solver
 
 
   (* Kill the solver process without interacting with it. Does not touch
@@ -1193,29 +1227,22 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
      than the one interacting with the solver: the owner's blocked read
      fails and the engine unwinds. Death on SIGKILL is prompt, so the
      process is reaped right away. *)
-  let kill_instance { solver_pid } =
-    ( try Unix.kill solver_pid Sys.sigkill with _ -> () ) ;
-    (* Reap without blocking: this runs while an analysis is being torn
-       down, possibly from a domain other than the one that owns the
-       solver, and must never be the reason the supervisor waits. A
-       process killed with SIGKILL dies at its next scheduling, within a
-       millisecond or so, but not before the kill returns: polled once,
-       it was found still alive more often than not, and every solver
-       killed this way stayed a zombie until Kind 2 exited: several per
-       analysis, hundreds in a modular run over many nodes, enough to
-       exhaust the processes a user may have on a machine running several
-       Kind 2 at once. So the process is polled for a short while, and a
-       process killed with SIGKILL that is still not reaped after that is
-       reaped by the operating system when Kind 2 exits. *)
-    let rec reap polls =
-      match
-        ( try Unix.waitpid [Unix.WNOHANG] solver_pid
-          with _ -> (solver_pid, Unix.WEXITED 0) )
-      with
-      | 0, _ when polls > 0 -> minisleep 0.001 ; reap (polls - 1)
-      | _ -> ()
-    in
-    reap 20
+  let kill_instance ({ solver_pid ; solver_exit } as solver) =
+    if Atomic.get solver_exit = None then (
+      ( try Unix.kill solver_pid Sys.sigkill with _ -> () ) ;
+      (* Reap without blocking: this runs while an analysis is being torn
+         down, possibly from a domain other than the one that owns the
+         solver, and must never be the reason the supervisor waits. A
+         process killed with SIGKILL dies at its next scheduling, within a
+         millisecond or so, but not before the kill returns: polled once,
+         it was found still alive more often than not, and every solver
+         killed this way stayed a zombie until Kind 2 exited: several per
+         analysis, hundreds in a modular run over many nodes, enough to
+         exhaust the processes a user may have on a machine running
+         several Kind 2 at once. So the process is polled for a short
+         while, and a process killed with SIGKILL that is still not reaped
+         after that is reaped by the operating system when Kind 2 exits. *)
+      reap ~polls:20 ~interval:0.001 solver |> ignore )
 
 
   (* Output a comment into the trace *)

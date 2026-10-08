@@ -23,6 +23,7 @@ exception Unknown
 exception Timeout
 exception Exiting
 exception Killed
+exception Died = SMTLIBSolver.Died
 
 
 module IntMap = Map.Make(
@@ -235,7 +236,8 @@ let bool_of_int_option = function
 (* The instance [I] of a solver, whose commands raise [Killed] instead of
    failing once [killed] is set. A solver killed from outside fails in the
    middle of a command, on a reply that ends early or a pipe that is closed,
-   as it would on an error of its own: only the flag tells the two apart.
+   with [Died] if the process is found gone by then, or as it would on an
+   error of its own: only the flag tells a kill from outside apart.
    A reply that parsed is not covered, on purpose: the solver gave it
    before it died, and it is reported as what it is (see
    [fail_on_smt_error]). *)
@@ -248,7 +250,7 @@ struct
   (* The exceptions of a solver process that is gone *)
   let guard f =
     try f () with
-    | Failure _ | End_of_file | Sys_error _ | Unix.Unix_error _
+    | Failure _ | End_of_file | Sys_error _ | Unix.Unix_error _ | Died _
       when Atomic.get K.killed -> raise Killed
 
   let delete_instance = I.delete_instance
