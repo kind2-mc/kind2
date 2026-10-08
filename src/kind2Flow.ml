@@ -249,6 +249,10 @@ let status_of_exn process status = function
   | KEvent.Terminate ->
     KEvent.log L_debug "Received termination message" ;
     status
+  (* The supervisor killed the solvers of the engine to stop it *)
+  | SMTSolver.Killed ->
+    KEvent.log L_debug "Solvers killed to stop the engine" ;
+    status
   (* Catch wallclock timeout. *)
   | TimeoutWall -> (
     InvarManager.print_stats !latest_trans_sys ;
@@ -322,6 +326,7 @@ let keeps_the_given_status = function
   | Exit
   | SMTSolver.Unknown
   | KEvent.Terminate
+  | SMTSolver.Killed
   | TimeoutWall
   | TimeoutVirtual
   | IC3.UnsupportedFeature _

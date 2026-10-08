@@ -33,6 +33,12 @@ exception Timeout
     been killed, and a new one would be left running. *)
 exception Exiting
 
+(** Raised by a command to a solver instance whose process was killed from
+    outside, by {!kill_solvers_of_domain} or {!destroy_all_of_process},
+    whatever error the command then met. The solver did not fail on what it
+    was given: its owner is being stopped. *)
+exception Killed
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
@@ -59,13 +65,6 @@ val set_shutting_down : bool -> unit
 
 (** Delete an instance of an SMT solver *)
 val delete_instance : t -> unit
-
-(** Whether the solver instance is live: [false] once it was deleted or
-    destroyed, or its process killed by {!kill_solvers_of_domain} or
-    {!destroy_all_of_process}, which forget it before killing it. An error
-    on a solver that is not live comes from its process being gone, not
-    from what it was given. *)
-val is_live : t -> bool
 
 (** Destroys all live solver instances owned by the calling domain. *)
 val destroy_all : unit -> unit

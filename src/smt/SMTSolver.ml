@@ -22,6 +22,7 @@ open Lib
 exception Unknown
 exception Timeout
 exception Exiting
+exception Killed
 
 
 module IntMap = Map.Make(
@@ -59,6 +60,9 @@ type t = {
   term_names : (int, expr) Hashtbl.t ;
   (* Unique identifier for solver instance *)
   id : int ;
+  (* Set when the process of the solver is killed from outside (see
+     [kill_entries]) *)
+  killed : bool Atomic.t ;
   mutable next_assumption_id : int ;
   mutable last_assumptions : Term.t array ;
 }
@@ -129,6 +133,10 @@ let destroy s =
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error s = function
 
+  (* A killed solver answers with whatever its pipe holds when it dies *)
+  | `Error _ | `Unsupported | `NoResponse when Atomic.get s.killed ->
+    raise Killed
+
   | `Timeout -> drop_solver s ; destroy s ; raise Timeout
 
   | `Error e -> 
@@ -147,6 +155,8 @@ let fail_on_smt_error s = function
   | _ -> ()
 
 let smt_error s = function
+
+  | `Error _ when Atomic.get s.killed -> raise Killed
 
   | `Timeout -> drop_solver s ; destroy s ; raise Timeout
 
@@ -170,6 +180,46 @@ let bool_of_bool_option = function
 let bool_of_int_option = function
   | None -> 0
   | Some i -> i
+
+(* The instance [I] of a solver, whose commands raise [Killed] instead of
+   failing once [killed] is set. A solver killed from outside fails in the
+   middle of a command, on a reply that ends early or a pipe that is closed,
+   as it would on an error of its own: only the flag tells the two apart. *)
+module Guard
+    (I : SolverSig.Inst) (K : sig val killed : bool Atomic.t end) :
+  SolverSig.Inst =
+struct
+  module Conv = I.Conv
+
+  (* The exceptions of a solver process that is gone *)
+  let guard f =
+    try f () with
+    | Failure _ | End_of_file | Sys_error _ | Unix.Unix_error _
+      when Atomic.get K.killed -> raise Killed
+
+  let delete_instance = I.delete_instance
+  let kill_instance = I.kill_instance
+  let declare_sort s = guard (fun () -> I.declare_sort s)
+  let declare_fun f a r = guard (fun () -> I.declare_fun f a r)
+  let define_fun f v r t = guard (fun () -> I.define_fun f v r t)
+  let define_funs_rec d = guard (fun () -> I.define_funs_rec d)
+  let assert_expr e = guard (fun () -> I.assert_expr e)
+  let assert_soft_expr e w = guard (fun () -> I.assert_soft_expr e w)
+  let push n = guard (fun () -> I.push n)
+  let pop n = guard (fun () -> I.pop n)
+  let check_sat ?timeout () = guard (fun () -> I.check_sat ?timeout ())
+  let check_sat_assuming e = guard (fun () -> I.check_sat_assuming e)
+  let check_sat_assuming_supported = I.check_sat_assuming_supported
+  let get_value e = guard (fun () -> I.get_value e)
+  let get_model () = guard I.get_model
+  let get_unsat_core () = guard I.get_unsat_core
+  let get_unsat_assumptions () = guard I.get_unsat_assumptions
+  let execute_custom_command c a n =
+    guard (fun () -> I.execute_custom_command c a n)
+  let execute_custom_check_sat_command c =
+    guard (fun () -> I.execute_custom_check_sat_command c)
+  let trace_comment = I.trace_comment
+end
 
 (* Create a new instance of an SMT solver, declare all currently created
    uninterpreted function symbols *)
@@ -216,12 +266,18 @@ let create_instance
     | `detect -> assert false
   in
 
+  let killed = Atomic.make false in
+
   (* Return solver instance *)
   let solver =
     { solver_kind = kind;
-      solver_inst = fomodule;
+      solver_inst =
+        (let module I = (val fomodule) in
+         (module Guard (I) (struct let killed = killed end)
+           : SolverSig.Inst));
       term_names = Hashtbl.create 19;
       id = id;
+      killed;
       next_assumption_id = 0;
       last_assumptions = [| |]; }
   in
@@ -240,15 +296,12 @@ let create_instance
 
   solver
 
-(* Whether the solver instance is registered: it is not once deleted, or
-   killed from outside (see [kill_entries]), which forgets it before killing
-   it *)
-let is_live s =
-  Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
-
 (* Delete a solver instance *)
 let delete_instance s =
-  if is_live s then (
+  let live =
+    Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
+  in
+  if live then (
     drop_solver s ;
     destroy s
   )
@@ -267,10 +320,12 @@ let destroy_all () =
   IntMap.iter (fun _ (_, s) -> destroy s) mine
 
 (* Kills the solver processes of the given registry entries, without
-   interacting with them. *)
+   interacting with them. The instances are marked first, so that the
+   command their owner is in raises [Killed]. *)
 let kill_entries entries =
   IntMap.iter
     (fun _ (_, s) ->
+      Atomic.set s.killed true ;
       let module S = (val s.solver_inst) in
       S.kill_instance ())
     entries

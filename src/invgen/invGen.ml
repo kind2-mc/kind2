@@ -732,6 +732,8 @@ module Make (Graph : GraphSig) : Out = struct
     (* [quit] itself unwinds with [Exit], e.g. when there is no
        candidate to run on: normal termination, not an error *)
     | Exit -> quit ()
+    (* The supervisor killed the solvers to stop the engine *)
+    | SMTSolver.Killed -> quit ()
     | Failure msg -> (
       (* During coordinated termination, failures are a consequence of
          solvers being killed under the engine: quit silently. *)

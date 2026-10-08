@@ -22,7 +22,8 @@ open OUnit2
    did. When the analysis ends, the supervisor kills the solvers of the
    engines still running, among them that of an evaluator an engine is
    giving the definitions to; its reply then ends early, which fails as a
-   rejection would, and was reported as one. *)
+   rejection would, and was reported as one. [SMTSolver] now raises
+   [Killed] for a command to a solver killed from outside. *)
 
 open TestSolverCommon
 
@@ -59,27 +60,37 @@ let contains s sub =
   in
   at 0
 
-(* The solver is killed from another domain while the definitions wait for
-   its reply, as the supervisor kills it: Z3 answers [get-info] with one
-   S-expression, and the second one asked for never comes *)
-let test_killed_solver_is_not_a_rejection _ =
-  skip_if (solver_missing ()) "no Z3 on PATH" ;
+(* Wait on [solver] until it is killed from another domain, as the
+   supervisor kills it: Z3 answers [get-info] with one S-expression, and the
+   second one asked for never comes *)
+let wait_until_killed solver =
   (* As Kind 2 does: if the kill comes before the request is written, the
      write fails instead of the whole test being killed by SIGPIPE *)
   TermLib.Signals.ignore_sigpipe () ;
   let owner = (Domain.self () :> int) in
-  let define solver =
-    let killer =
-      Domain.spawn (fun () ->
-        Unix.sleepf 0.2 ;
-        SMTSolver.kill_solvers_of_domain owner)
-    in
-    Fun.protect ~finally:(fun () -> Domain.join killer) (fun () ->
-      SMTSolver.execute_custom_command solver "get-info"
-        [ SMTExpr.ArgString ":name" ] 2
-      |> ignore)
+  let killer =
+    Domain.spawn (fun () ->
+      Unix.sleepf 0.2 ;
+      SMTSolver.kill_solvers_of_domain owner)
   in
-  let value, warnings = evaluate define in
+  Fun.protect ~finally:(fun () -> Domain.join killer) (fun () ->
+    SMTSolver.execute_custom_command solver "get-info"
+      [ SMTExpr.ArgString ":name" ] 2
+    |> ignore)
+
+(* A command cut short by the kill raises [Killed], whichever way it
+   failed *)
+let test_killed_command_raises_killed _ =
+  skip_if (solver_missing ()) "no Z3 on PATH" ;
+  let solver = new_solver () in
+  assert_raises SMTSolver.Killed (fun () -> wait_until_killed solver) ;
+  (* The process is gone: the next command fails on the closed pipe *)
+  assert_raises SMTSolver.Killed (fun () -> SMTSolver.push solver)
+
+(* The definitions are cut short by the kill *)
+let test_killed_solver_is_not_a_rejection _ =
+  skip_if (solver_missing ()) "no Z3 on PATH" ;
+  let value, warnings = evaluate wait_until_killed in
   assert_bool "the call was evaluated" (value = `Unknown) ;
   assert_equal ~printer:Fun.id "" warnings
 
@@ -97,6 +108,7 @@ let test_rejection_is_reported _ =
     (contains warnings "rejected the definitions")
 
 let tests = "FunEvalKilled" >::: [
+  "a killed command raises Killed" >:: test_killed_command_raises_killed ;
   "a killed solver is not a rejection" >:: test_killed_solver_is_not_a_rejection ;
   "a rejection is reported" >:: test_rejection_is_reported ;
 ]
