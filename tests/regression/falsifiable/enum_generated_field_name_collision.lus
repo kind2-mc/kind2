@@ -1,0 +1,8 @@
+type color = enum { Red, Green };
+type r = struct { color_tag: int };
+
+node main (c: color; x: r) returns (ok: bool);
+let
+  ok = c = Red and x.color_tag = 0;
+  check ok;
+tel

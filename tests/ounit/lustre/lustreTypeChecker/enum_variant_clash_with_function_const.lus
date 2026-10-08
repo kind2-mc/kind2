@@ -1,0 +1,7 @@
+type E = enum { A, B };
+
+function f (e: E) returns (r: bool);
+const A: E = B;
+let
+  r = (A = B);
+tel

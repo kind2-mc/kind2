@@ -1,0 +1,7 @@
+type E = enum { A, B };
+
+node main (e: E) returns (ok: bool);
+const A: E = B;
+let
+  ok = (match e with | A : 1 | B : 2 end) = 1;
+tel

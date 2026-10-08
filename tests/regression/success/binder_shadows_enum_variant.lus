@@ -1,0 +1,18 @@
+type E = enum { A, B };
+
+node q () returns (ok: bool);
+let
+  ok = true;
+  check forall (A: int) (A * A >= 0);
+tel
+
+node r (x: subtype { A: int | A > 0 }) returns (ok: bool);
+let
+  ok = x > 0;
+tel
+
+node main (x: subtype { A: int | A > 0 }) returns (ok: bool);
+let
+  ok = q() and r(x);
+  check ok;
+tel

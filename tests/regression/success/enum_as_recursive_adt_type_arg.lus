@@ -1,0 +1,11 @@
+type color = enum { Red, Green };
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node main () returns (ok: bool);
+let
+  ok = match Cons(Red, Nil@<color>) with
+       | Nil : false
+       | Cons (h, t) : h = Red and Nil?(t)
+       end;
+  check ok;
+tel

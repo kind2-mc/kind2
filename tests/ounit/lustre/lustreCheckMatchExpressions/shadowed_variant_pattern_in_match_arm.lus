@@ -1,0 +1,10 @@
+type E = enum { A, B };
+datatype P = Q | MkP (c: int);
+
+node top (e: E; p: P) returns (ok: bool);
+let
+  ok = match p with
+       | Q : true
+       | MkP(A) : ((match e with | A : 1 | B : 2 end) = 1) = (e = B)
+       end;
+tel

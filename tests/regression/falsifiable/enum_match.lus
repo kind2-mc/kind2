@@ -1,0 +1,9 @@
+type color = enum { Red, Green, Blue };
+
+node main (c: color) returns (ok: bool);
+var y: int;
+let
+  y = match c with | Red : 0 | Green : 1 | Blue : 2 end;
+  ok = y <= 1;
+  check ok;
+tel

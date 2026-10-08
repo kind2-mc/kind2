@@ -1,0 +1,19 @@
+type color = enum { Red, Green, Blue };
+
+node top (c: color) returns (y: int);
+let
+  match c with
+  | Red :
+    y = 0;
+  | Green :
+    y = 1;
+  | Blue :
+    y = 2;
+  end
+tel
+
+node main (c: color) returns (ok: bool);
+let
+  ok = (c = Blue => top(c) = 2);
+  check ok;
+tel

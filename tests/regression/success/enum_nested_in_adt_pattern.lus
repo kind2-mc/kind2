@@ -1,0 +1,17 @@
+type color = enum { Red, Green };
+datatype P = Q | MkP (c: color);
+
+node arm (x: P) returns (y: int);
+let
+  y = match x with
+      | MkP(Red) : 0
+      | MkP(Green) : 1
+      | Q : 2
+      end;
+tel
+
+node main () returns (ok: bool);
+let
+  ok = arm(MkP(Red)) = 0 and arm(MkP(Green)) = 1 and arm(Q) = 2;
+  check ok;
+tel

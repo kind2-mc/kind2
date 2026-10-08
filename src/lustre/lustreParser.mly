@@ -382,11 +382,13 @@ type_decl:
      { List.map (fun e -> 
                  A.AliasType (mk_pos $startpos, e, p, t)) l }
 
-  (* Definition of an enum type*)
+  (* Definition of an enum type: surface sugar for an all-nullary datatype,
+     which LustreDesugarADTs collapses back to an enum *)
   | TYPE; l = ident_list; EQUALS; t = enum_type; SEMICOLON
      { List.map (fun e ->
            A.AliasType (mk_pos $startpos, e, [],
-                        A.EnumType (mk_pos $startpos, e, t))) l }
+                        A.ADT (mk_pos $startpos, e,
+                               List.map (fun c -> (c, [])) t))) l }
 
   (* Definition of an algebraic datatype *)
   | DATATYPE; l = ident_list; p = option(decl_static_params); EQUALS; option(BAR); cs = separated_nonempty_list(BAR, adt_constructor); SEMICOLON

@@ -1,0 +1,6 @@
+type E = enum { A, B };
+
+node top (e: E; z: subtype { A: int | ((match e with | A : 1 | B : 2 end) = 1) = (e = B) }) returns (ok: bool);
+let
+  ok = z >= 0;
+tel

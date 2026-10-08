@@ -1,0 +1,8 @@
+type E = enum { A, B };
+
+node top (e: E) returns (ok: bool);
+var v: int^3;
+let
+  v[A] = if ((match e with | A : 1 | B : 2 end) = 1) = (e = B) then 1 else 0;
+  ok = v[0] = 0;
+tel

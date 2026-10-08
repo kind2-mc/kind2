@@ -26,7 +26,10 @@
                  C2_0: t2_0 }
     where the enum tag field encodes the active constructor and the
     payload fields for non-selected constructors carry the default value of
-    their type.  Every ADT value is kept in this canonical form: constructor
+    their type.  An ADT whose every constructor is nullary has no payload to
+    store, so it collapses to the discriminant enum alone; this is how an
+    'enum' declaration, parsed as an all-nullary ADT, reaches the rest of the
+    pipeline.  Every ADT value is kept in this canonical form: constructor
     applications fill the inactive payload slots with defaults, and free
     values (inputs, oracles, undefined outputs, free constants, quantified
     variables) are constrained with [mk_canonical_exprs].  Equality and
@@ -87,13 +90,18 @@ type adt_info = {
 
 type adt_map = adt_info HStringMap.t
 
+(* Generated names carry the "." prefix every Kind 2-generated name does: a
+   source identifier cannot start with one, so they cannot collide with a
+   user-written record field. *)
+let generated_name s = HString.mk_hstring ("." ^ s)
+
 let disc_field_name type_name =
-  HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
+  generated_name (HString.string_of_hstring type_name ^ "_tag")
 
 (* The internal record field names of the payload fields of an ADT, as
    (constructor, user-written name, internal name, type): the constructor's
    name and the field's joined by "_", made unique when two such names
-   coincide (A_B(x) and A(B_x) both give "A_B_x") by a numeric suffix that
+   coincide (A_B(x) and A(B_x) both give ".A_B_x") by a numeric suffix that
    no other field's name carries. *)
 let payload_field_names ctors =
   let naive ctor fld =
@@ -115,7 +123,7 @@ let payload_field_names ctors =
     in
     let name = unique 0 in
     Hashtbl.add taken name ();
-    (ctor, fld, HString.mk_hstring name, ty)
+    (ctor, fld, generated_name name, ty)
   ) fields
 
 (* Internal record field name of the payload field [user_fname] of [ctor] *)
@@ -174,7 +182,24 @@ let build_adt_map decls =
     | _ -> m
   ) HStringMap.empty decls
 
-let record_type_of_adt pos ?(ty_args = []) info =
+(* A non-recursive, unparameterized datatype whose every constructor is
+   nullary needs no record wrapper: it is its own discriminant enum, which is
+   also how an 'enum' declaration reaches the rest of the pipeline. *)
+let is_enum_like info =
+  not info.is_recursive && info.all_payload_fields = [] && info.type_params = []
+
+(* The name of the enum a non-recursive datatype's constructors are variants
+   of: the type itself when it collapses to an enum, else the generated
+   discriminant type of its record encoding. *)
+let enum_name_of info =
+  if is_enum_like info then info.type_name else info.disc_enum
+
+(* The type a non-recursive ADT is encoded as: an enum when every constructor
+   is nullary, otherwise a record of the discriminant and the payload fields. *)
+let type_of_adt pos ?(ty_args = []) info =
+  if is_enum_like info then
+    LA.EnumType (pos, info.type_name, info.ctor_variants)
+  else
   let subst =
     if List.length info.type_params = List.length ty_args
     then List.combine info.type_params ty_args
@@ -188,9 +213,11 @@ let record_type_of_adt pos ?(ty_args = []) info =
   in
   LA.RecordType (pos, info.type_name, disc_fld :: payload_flds)
 
-(* Build a FieldProject accessing the tag field of an expression. *)
+(* The discriminant of an expression: the tag field of the record encoding, or
+   the value itself when the ADT collapses to an enum. *)
 let tag_of pos info scrut =
-  LA.FieldProject (pos, scrut, info.disc_field, LA.RecordField)
+  if is_enum_like info then scrut
+  else LA.FieldProject (pos, scrut, info.disc_field, LA.RecordField)
 
 (* Direct lookup: only matches types that are themselves an ADT name.
    Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
@@ -289,23 +316,33 @@ let rec build_ite pos arms =
   | (Some cond, body) :: rest ->
     LA.TernaryOp (pos, LA.LazyIte, cond, body, build_ite pos rest)
 
+(* Register an enum type and its variants in the context, as the type checker
+   does for an enum declaration: each variant is both a value of the enum type
+   and a global constant. *)
+let add_enum_to_context ctx pos name variants =
+  let enum_user_ty = LA.UserType (pos, [], name) in
+  let enum_ty = LA.EnumType (pos, name, variants) in
+  let ctx = Ctx.add_enum_variants ctx name variants in
+  let ctx = Ctx.add_ty_syn ctx name enum_ty in
+  let ctx = Ctx.add_ty_decl ctx name in
+  let bindings =
+    List.concat_map (fun v ->
+      [ Ctx.singleton_ty v enum_user_ty;
+        Ctx.singleton_const v (LA.Ident (pos, v)) enum_user_ty Global ]
+    ) variants
+  in
+  List.fold_left Ctx.union ctx bindings
+
 let update_context adt_map ctx =
   HStringMap.fold (fun type_name info acc_ctx ->
     if info.is_recursive then acc_ctx
     else
     let pos = Lib.dummy_pos in
-    let enum_user_ty = LA.UserType (pos, [], info.disc_enum) in
-    let enum_ty = LA.EnumType (pos, info.disc_enum, info.ctor_variants) in
-    let acc_ctx = Ctx.add_enum_variants acc_ctx info.disc_enum info.ctor_variants in
-    let acc_ctx = Ctx.add_ty_syn acc_ctx info.disc_enum enum_ty in
-    let acc_ctx = Ctx.add_ty_decl acc_ctx info.disc_enum in
-    let type_bindings = List.map (fun v -> Ctx.singleton_ty v enum_user_ty) info.ctor_variants in
-    let const_bindings = List.map (fun v ->
-      Ctx.singleton_const v (LA.Ident (pos, v)) enum_user_ty Global
-    ) info.ctor_variants in
-    let acc_ctx = List.fold_left Ctx.union acc_ctx (type_bindings @ const_bindings) in
-    let record_ty = record_type_of_adt pos info in
-    let acc_ctx = Ctx.add_ty_syn acc_ctx type_name record_ty in
+    let acc_ctx = add_enum_to_context acc_ctx pos (enum_name_of info) info.ctor_variants in
+    let acc_ctx =
+      if is_enum_like info then acc_ctx
+      else Ctx.add_ty_syn acc_ctx type_name (type_of_adt pos info)
+    in
     List.fold_left Ctx.remove_adt_ctor acc_ctx info.ctor_variants
   ) adt_map ctx
 
@@ -437,7 +474,7 @@ and desugar_type pos ctx adt_map ty =
       ty 
     else 
       let info = build_adt_info name [] cons ~is_recursive:false in
-      record_type_of_adt pos info
+      type_of_adt pos info
   | LA.RefinementType (p, (p2, id, t), e) ->
     LA.RefinementType (p, (p2, id, desugar_type pos ctx adt_map t), desugar_expr ctx adt_map e)
   | _ ->
@@ -448,7 +485,7 @@ and desugar_type pos ctx adt_map ty =
       | LA.UserType (_, args, _) -> List.map (desugar_type pos ctx adt_map) args
       | _ -> []
     in
-    record_type_of_adt pos ~ty_args adt_info
+    type_of_adt pos ~ty_args adt_info
   | None ->
     let ds = desugar_type pos ctx adt_map in
     match ty with
@@ -628,6 +665,9 @@ and desugar_expr ctx adt_map expr =
     in
     if adt_info.is_recursive then
       LA.ADTTerm (pos, ty_args, ctor, args')
+    (* A constructor of an ADT that collapses to an enum is an enum variant *)
+    else if is_enum_like adt_info then
+      LA.Ident (pos, ctor)
     else
     let ty_args' = List.map (desugar_type pos ctx adt_map) ty_args in
     let subst =
@@ -675,7 +715,10 @@ and desugar_expr ctx adt_map expr =
       ) adt_map None
       |> (function Some i -> i | None -> assert false)
     in
-    if adt_info.is_recursive then
+    (* A tester on a type that is not encoded as a record stays a tester, so
+       that it keeps printing as the user wrote it; LustreNodeGen compiles one
+       on an enum to an equality with the constructor. *)
+    if adt_info.is_recursive || is_enum_like adt_info then
       LA.ADTTester (pos, r e, c)
     else
       LA.CompOp (pos, LA.Eq,
@@ -821,10 +864,14 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
       | LA.TypeDecl (sp, LA.AliasType (_, name, ty_params, LA.ADT (pos, _, _))) ->
         (match HStringMap.find_opt name adt_map with
         | Some info when info.is_recursive -> [decl]
+        (* An all-nullary datatype is the enum itself, so no separate
+           discriminant type is declared for it *)
+        | Some info when is_enum_like info ->
+          [LA.TypeDecl (sp, LA.AliasType (pos, name, ty_params, type_of_adt pos info))]
         | Some info ->
           let enum_ty = LA.EnumType (pos, info.disc_enum, info.ctor_variants) in
           let enum_decl = LA.TypeDecl (sp, LA.AliasType (pos, info.disc_enum, [], enum_ty)) in
-          let record_ty = record_type_of_adt pos info in
+          let record_ty = type_of_adt pos info in
           let record_decl = LA.TypeDecl (sp, LA.AliasType (pos, name, ty_params, record_ty)) in
           [enum_decl; record_decl]
         | None -> assert false)
@@ -890,7 +937,8 @@ let is_disc_field_proj adt_map = function
 
 (* Recognize a tag equality "e.<Type>_tag = Ctor" (in either argument order) and
    return the scrutinee and constructor, so it can be rendered as a tester
-   "Ctor?(e)". *)
+   "Ctor?(e)".  A tester on an enum-like ADT is never desugared to an equality,
+   so it needs no rewriting back. *)
 let tag_equality_as_tester adt_map e1 e2 =
   let check proj ctor_e =
     match proj, ctor_e with
@@ -1000,7 +1048,12 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
       ) ctor_field_names in
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
-  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
+  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.Last _ -> expr
+  (* The element type an empty container is annotated with is a type like any
+     other, so it prints by its declared name rather than its encoding *)
+  | LA.EmptySet (p, ty) -> LA.EmptySet (p, Option.map rewrite_type ty)
+  | LA.EmptyMap (p, kvty) ->
+    LA.EmptyMap (p, Option.map (fun (kt, vt) -> (rewrite_type kt, rewrite_type vt)) kvty)
   | LA.FieldProject (p, e, id, pk) ->
     let pk = match pk with
       | LA.Unresolved -> LA.Unresolved

@@ -801,12 +801,14 @@ let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
     { G.disc_field = info.LDAT.disc_field;
       G.ctor_fields = StringMap.map (fun fields ->
         List.map (fun (fname, ftype) ->
-          (* A recursive ADT is a single datatype-sorted state variable, not
-             a record with a tag of its own *)
+          (* Only a record-encoded ADT field has a tag of its own: a recursive
+             one is a single datatype-sorted state variable, and an enum-like
+             one a single enum-sorted state variable *)
           let field_info = match ftype with
             | A.UserType (_, _, tname)
               when (match StringMap.find_opt tname ldat_map with
-                    | Some nested -> not nested.LDAT.is_recursive
+                    | Some nested ->
+                      not nested.LDAT.is_recursive && not (LDAT.is_enum_like nested)
                     | None -> false) ->
               G.AdtFieldNested tname
             | _ -> G.AdtFieldPlain
@@ -887,20 +889,27 @@ let find_recursive_selector adt_map ty_name field =
   | Some (info : LDAT.adt_info) ->
     if not info.is_recursive then None
     else
-      let field_str = HString.string_of_hstring field in
+      (* The internal name of a payload field is generated, so it is looked
+         up rather than rebuilt *)
       StringMap.fold (fun ctor_hs fields acc ->
         match acc with
         | Some _ -> acc
         | None ->
-          let ctor_str = HString.string_of_hstring ctor_hs in
-          let target = ctor_str ^ "_" ^ field_str in
-          let rec find_idx i = function
-            | [] -> None
-            | (fname, _) :: rest ->
-              if HString.string_of_hstring fname = target then Some (ctor_hs, i)
-              else find_idx (i + 1) rest
+          let internal =
+            List.find_opt (fun (c, user, _) ->
+              HString.equal c ctor_hs && HString.equal user field
+            ) info.LDAT.field_names
           in
-          find_idx 0 fields
+          match internal with
+          | None -> None
+          | Some (_, _, internal) ->
+            let rec find_idx i = function
+              | [] -> None
+              | (fname, _) :: rest ->
+                if HString.equal fname internal then Some (ctor_hs, i)
+                else find_idx (i + 1) rest
+            in
+            find_idx 0 fields
       ) info.ctor_fields None
 
 (* The type a datatype's field has, with a self-reference resolved to the
@@ -1966,8 +1975,15 @@ and compile_ast_expr
   | A.Match _ -> assert false
   | A.ADTTester (_, expr, ctor) ->
     let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
-    let ctor_str = compiled_ctor_sym (E.type_of_lustre_expr e') ctor in
-    X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
+    let ty = E.type_of_lustre_expr e' in
+    (* An ADT that collapsed to an enum has one value per constructor, so
+       testing its constructor is comparing it with that value *)
+    if Type.is_enum ty then
+      let ctor_str = HString.string_of_hstring ctor in
+      X.singleton X.empty_index (E.mk_eq e' (E.mk_constr ctor_str ty))
+    else
+      let ctor_str = compiled_ctor_sym ty ctor in
+      X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
 and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx cstate map mk_outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in

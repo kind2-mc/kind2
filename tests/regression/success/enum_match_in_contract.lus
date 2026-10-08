@@ -1,0 +1,23 @@
+type color = enum { Red, Green };
+
+contract spec (c: color) returns (y: int);
+let
+  var rank: int = match c with | Red : 0 | Green : 1 end;
+  guarantee y = rank;
+  mode red (
+    require match c with | Red : true | Green : false end;
+    ensure y = 0;
+  );
+tel
+
+node top (c: color) returns (y: int);
+(*@contract import spec(c) returns (y); *)
+let
+  y = match c with | Red : 0 | Green : 1 end;
+tel
+
+node main (c: color) returns (ok: bool);
+let
+  ok = (c = Red => top(c) = 0);
+  check ok;
+tel

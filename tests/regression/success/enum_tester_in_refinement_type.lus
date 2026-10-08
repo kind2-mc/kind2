@@ -1,0 +1,10 @@
+type T = enum { A, B };
+type ta = subtype { x: T | A?(x) };
+
+node main () returns (ok: bool);
+var v: ta;
+let
+  v = A;
+  ok = A?(v);
+  check ok;
+tel

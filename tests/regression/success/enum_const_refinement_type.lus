@@ -1,0 +1,8 @@
+type my_enum = enum { A, B, C };
+
+node main () returns (ok: bool);
+const k: subtype { x: my_enum | x <> A } = B;
+let
+  ok = k <> A;
+  check ok;
+tel

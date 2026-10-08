@@ -22,6 +22,9 @@
 module LA = LustreAst
 open TypeCheckerContext
 
+(* The kind of declaration a datatype constructor name was found to clash with *)
+type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter | ClashBinder
+
 type error_kind = Unknown of string
   | Impossible of string
   | UnboundIdentifier of HString.t
@@ -103,6 +106,7 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | DuplicateConstructorInType of HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
+  | ConstructorNameClashWithNode of HString.t * HString.t * clashing_decl
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
   | ADTInLexicographicDecreases of tc_type

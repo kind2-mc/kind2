@@ -1,0 +1,13 @@
+datatype Opt<T> = NoneA | NoneB;
+
+node f (o: Opt<int>) returns (y: int);
+let
+  y = match o with | NoneA : 0 | NoneB : 1 end;
+tel
+
+node main (i: int) returns (ok: bool);
+let
+  ok = f(NoneA@<int>) = 0 and f(NoneB@<int>) = 1
+       and (NoneA@<int> in {NoneA@<int>});
+  check ok;
+tel
