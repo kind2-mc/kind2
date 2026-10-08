@@ -157,42 +157,21 @@ module AttrMap = Map.Make (OrderedAttr)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
-module type Printer =
-  sig
-    val pp_print_attr : Format.formatter -> t -> unit
-                                                   
-    val print_attr : t -> unit
-                            
-    val string_of_attr : t -> string 
+(* Pretty-print an attribute *)
+let pp_print_attr_node ppf = function 
+  | Named (s, n) -> Format.fprintf ppf ":named@ %s%d" s n
+  | FunDef -> Format.fprintf ppf ":fun-def"
+  | InterpGroup s ->
+    Format.fprintf ppf ":interpolation-group@ %s" s
 
-  end
+(* Pretty-print a hashconsed attribute *)
+let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
 
-module SMTLIBPrinter : Printer =
-  struct
+(* Pretty-print a hashconsed attribute to the standard formatter *)
+let print_attr = pp_print_attr Format.std_formatter 
 
-    (* Pretty-print an attribute *)
-    let pp_print_attr_node ppf = function 
-      | Named (s, n) -> Format.fprintf ppf ":named@ %s%d" s n
-      | FunDef -> Format.fprintf ppf ":fun-def"
-      | InterpGroup s ->
-        Format.fprintf ppf ":interpolation-group@ %s" s
-
-    (*
-    (* Pretty-print an attribute to the standard formatter *)
-    let print_attr_node = pp_print_attr_node Format.std_formatter 
-    *)
-    
-    (* Pretty-print a hashconsed attribute *)
-    let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
-
-    (* Pretty-print a hashconsed attribute to the standard formatter *)
-    let print_attr = pp_print_attr Format.std_formatter 
-
-    (* Return a string representation of a hashconsed attribute *)
-    let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
-  end
-
-include SMTLIBPrinter
+(* Return a string representation of a hashconsed attribute *)
+let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
 
 
 (* ********************************************************************* *)

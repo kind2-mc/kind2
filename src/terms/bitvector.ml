@@ -571,15 +571,10 @@ let bv_arsh (bv1 : t) (bv2 : t) : t =
 
 (* Binary *)
 
-(* Pretty-print a bitvector in binary format without #b prefix *)
-let rec pp_print_bitvector_b' ppf = function 
-  | [] -> ()
-  | true :: tl -> pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
-  | false :: tl -> pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
-
 (* Pretty-print a bitvector in SMTLIB binary format *)
 let pp_smtlib_print_bitvector_b ppf b = 
-  fprintf ppf "#b%a" pp_print_bitvector_b' b
+  fprintf ppf "#b";
+  List.iter (fun d -> pp_print_int ppf (if d then 1 else 0)) b
 
 
 (* Decimal *) 

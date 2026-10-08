@@ -137,6 +137,8 @@ module Smt = struct
     | "opensmt" -> `OpenSMT_SMTLIB
     | "smtinterpol" -> `SMTInterpol_SMTLIB
     | "yices2" -> `Yices2_SMTLIB
+    | "yices" ->
+      Arg.Bad "Yices 1 is no longer supported; use --smt_solver Yices2" |> raise
     | "z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function

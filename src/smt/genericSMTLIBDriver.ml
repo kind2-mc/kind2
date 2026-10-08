@@ -56,54 +56,31 @@ let comment_delims = ";;", ""
 let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 
 
 
+(* SMTLIB keywords and operators recognized in S-expressions *)
+let s_let = HString.mk_hstring "let"
+let s_forall = HString.mk_hstring "forall"
+let s_exists = HString.mk_hstring "exists"
+let s_div = HString.mk_hstring "/"
+let s_minus = HString.mk_hstring "-"
+let s_index = HString.mk_hstring "_"
+let s_as = HString.mk_hstring "as"
+let s_int_to_bv = HString.mk_hstring "int_to_bv"
+let s_extract = HString.mk_hstring "extract"
+let s_signext = HString.mk_hstring "sign_extend"
+let s_zeroext = HString.mk_hstring "zero_extend"
+let s_define_fun = HString.mk_hstring "define-fun"
+let s_declare_fun = HString.mk_hstring "declare-fun"
+
+
 (* Conversions for gen_expr_of_string_sexpr
 
-   Defaults constants and functions for vanilla SMTLIB format are
-   below, override in specific driver.
+   Defaults for vanilla SMTLIB format are below, override in specific
+   input formats.
 *)
 type expr_of_string_sexpr_conv =
 
-  { (* String constant for let keyword *) 
-    s_let : HString.t;
-
-    (* String constant for forall keyword *) 
-    s_forall : HString.t;
-
-    (* String constant for exists keyword *) 
-    s_exists : HString.t;
-
-    (* String constant for division operator *) 
-    s_div : HString.t;
-
-    (* String constant for unary minus operator *) 
-    s_minus : HString.t;
-
-    (* String constant for indexed (underscore) operator *)
-    s_index : HString.t;
-
-    (* String constant for as operator *)
-    s_as : HString.t;
-
-    (* String constant for int_to_bv operator *)
-    s_int_to_bv : HString.t;
-
-    (* String constant for bvextract operator *)
-    s_extract : HString.t;
-
-    (* String constant for bitvector sign_extend operator *)
-    s_signext : HString.t;
-
-    (* String constant for bitvector zero_extend operator *)
-    s_zeroext : HString.t;
-
-    (* String constant for prime symbol if there is one *) 
+  { (* String constant for prime symbol if there is one *) 
     prime_symbol : HString.t option;
-
-    (* String constant for define-fun keyword *) 
-    s_define_fun : HString.t;
-
-    (* String constant for define-fun keyword *) 
-    s_declare_fun : HString.t;
 
     (* Conversion of an S-expression atom to a term *)
     const_of_atom : (HString.t * Var.t) list -> HString.t -> Term.t;
@@ -215,18 +192,7 @@ let normalize_abstract_const_name type_name smt_name =
 
 (* Convert a string S-expression to an expression *)
 let gen_expr_of_string_sexpr' 
-    ({ s_let; 
-       s_forall; 
-       s_exists; 
-       s_div; 
-       s_minus;
-       s_index;
-       s_as;
-       s_int_to_bv;
-       s_extract;
-       s_signext;
-       s_zeroext;
-       prime_symbol;
+    ({ prime_symbol;
        const_of_atom; 
        symbol_of_atom;
        expr_of_string_sexpr } as conv)
@@ -516,7 +482,7 @@ let gen_expr_of_string_sexpr'
 
 (* Convert a string S-expression to a lambda abstraction *)
 let gen_expr_or_lambda_of_string_sexpr'
-    ({ s_define_fun; s_declare_fun } as conv) bound_vars = 
+    conv bound_vars = 
 
   function 
 
@@ -1052,20 +1018,7 @@ let rec type_of_smtlib_sexpr = function
 (* Conversions for SMTLIB *)
 let smtlib_string_sexpr_conv = 
 
-  { s_let = HString.mk_hstring "let";
-    s_forall = HString.mk_hstring "forall";
-    s_exists = HString.mk_hstring "exists";
-    s_div = HString.mk_hstring "/";
-    s_minus = HString.mk_hstring "-";
-    s_index = HString.mk_hstring "_";
-    s_as = HString.mk_hstring "as";
-    s_int_to_bv = HString.mk_hstring "int_to_bv";
-    s_extract = HString.mk_hstring "extract";
-    s_signext = HString.mk_hstring "sign_extend";
-    s_zeroext = HString.mk_hstring "zero_extend";
-    s_define_fun = HString.mk_hstring "define-fun";
-    s_declare_fun = HString.mk_hstring "declare-fun";
-    prime_symbol = None;
+  { prime_symbol = None;
     const_of_atom = const_of_smtlib_atom;
     symbol_of_atom = symbol_of_smtlib_atom;
     type_of_sexpr = type_of_smtlib_sexpr;
@@ -1081,4 +1034,3 @@ let expr_of_string_sexpr =
 let expr_or_lambda_of_string_sexpr = 
   gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
 
-let s_define_fun = smtlib_string_sexpr_conv.s_define_fun
