@@ -47,7 +47,7 @@ given enough time and resources).
 
 `--timeout <int>` (default `0` = none) -- Run for the given number of seconds of wall clock time
 
-`--smt_solver {Bitwuzla|cvc5|MathSAT|OpenSMT|SMTInterpol|Yices|Yices2|Z3}` (default `Z3`) -- Select SMT solver
+`--smt_solver {Bitwuzla|cvc5|MathSAT|OpenSMT|SMTInterpol|Yices2|Z3}` (default `Z3`) -- Select SMT solver
 
 `--bitwuzla_bin <file>` -- Executable for Bitwuzla
 
@@ -58,8 +58,6 @@ given enough time and resources).
 `--opensmt_bin <file>` -- Executable for OpenSMT
 
 `--smtinterpol_jar <file>` -- JAR of SMTInterpol
-
-`--yices_bin <file>` -- Executable for Yices 1 (native input)
 
 `--yices2_bin <file>` -- Executable for Yices 2 (SMT input)
 
@@ -92,8 +90,7 @@ To run Kind 2 the following software must be installed on your computer:
   - [MathSAT 5](http://mathsat.fbk.eu/index.html),
   - [OpenSMT](https://verify.inf.usi.ch/opensmt) (v2.8.0),
   - [SMTInterpol](https://ultimate.informatik.uni-freiburg.de/smtinterpol/),
-  - [Yices 2](http://yices.csl.sri.com/),
-  - [Yices 1](https://yices.csl.sri.com/old/download-yices1.html), or
+  - [Yices 2](http://yices.csl.sri.com/), or
   - [Z3](https://github.com/Z3Prover/z3)
 
 Z3 is the presently recommended SMT solver and the default option.

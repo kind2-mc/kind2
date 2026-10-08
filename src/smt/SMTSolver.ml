@@ -311,7 +311,6 @@ let create_instance
     | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
     | `OpenSMT_SMTLIB -> (module OpenSMTSMTLIB.Create(Params) : SolverSig.Inst)
     | `SMTInterpol_SMTLIB -> (module SMTInterpolSMTLIB.Create(Params) : SolverSig.Inst)
-    | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
     | `Yices2_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
     | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
     | `detect -> assert false

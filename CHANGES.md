@@ -32,6 +32,7 @@ Improvements:
 Breaking changes:
 - The clock operators `merge`, `when` as a sampling operator (`e when c`), `current`, `activate` and `condact`, and the restart of a node call `(restart N every r)(args)`, are no longer supported. `when` expressions and blocks, which evaluate only their selected branch, and restart expressions and blocks replace them; the [documentation](https://kind.cs.uiowa.edu/docs/main/user/inputs-and-outputs/lustre/#restart) shows the correspondence. `merge`, `activate`, `condact`, `current`, `initial` and `default` are no longer keywords.
 - A restart is rejected in the body and the contract of a function, as `pre` and `->` are: it resets the state of what it restarts, and a function has no state. It used to be accepted, and a recursive function that restarted another one made the analysis fail an assertion.
+- Yices 1, through its native input format, is no longer supported as an SMT solver: `--smt_solver Yices` and `--yices_bin` are removed. Yices 2 remains supported with `--smt_solver Yices2`.
 
 # Kind 2 v3.0.0
 
