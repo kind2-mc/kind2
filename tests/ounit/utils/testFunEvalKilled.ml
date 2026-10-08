@@ -30,13 +30,15 @@ open TestSolverCommon
 let warnings_of f =
   let buffer = Buffer.create 256 in
   let ppf = !Lib.log_ppf in
+  let level = Lib.get_log_level () in
   Lib.log_ppf := Format.formatter_of_buffer buffer ;
   Lib.set_log_level L_warn ;
   let result =
     Fun.protect
       ~finally:(fun () ->
         Format.pp_print_flush !Lib.log_ppf () ;
-        Lib.log_ppf := ppf)
+        Lib.log_ppf := ppf ;
+        Lib.set_log_level level)
       f
   in
   result, Buffer.contents buffer
@@ -62,6 +64,9 @@ let contains s sub =
    S-expression, and the second one asked for never comes *)
 let test_killed_solver_is_not_a_rejection _ =
   skip_if (solver_missing ()) "no Z3 on PATH" ;
+  (* As Kind 2 does: if the kill comes before the request is written, the
+     write fails instead of the whole test being killed by SIGPIPE *)
+  TermLib.Signals.ignore_sigpipe () ;
   let owner = (Domain.self () :> int) in
   let define solver =
     let killer =
