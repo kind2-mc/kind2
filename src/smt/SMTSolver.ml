@@ -111,10 +111,17 @@ let add_solver ( { id } as solver ) =
     if !no_new_solvers then raise Exiting ;
     all_solvers := IntMap.add id (owner, solver) !all_solvers)
 
-(** Forgets a solver. *)
+(** Forgets a solver. Returns whether it was still registered: the
+    one that takes a solver out of the map is the one that disposes of
+    its process. Tested and removed in one go, under the lock, since
+    the supervisor may take it out concurrently, by
+    [kill_solvers_of_domain], and kill a process that the owner then
+    must not touch again. *)
 let drop_solver { id } =
   Mutex.protect all_solvers_lock (fun () ->
-    all_solvers := IntMap.remove id !all_solvers)
+    let live = IntMap.mem id !all_solvers in
+    if live then all_solvers := IntMap.remove id !all_solvers ;
+    live)
 
 (* Set while the supervisor is terminating the engines of an analysis.
    Solver instances are then killed outright instead of shut down
@@ -137,7 +144,7 @@ let fail_on_smt_error s = function
   | `Error _ | `Unsupported | `NoResponse when Atomic.get s.killed ->
     raise Killed
 
-  | `Timeout -> drop_solver s ; destroy s ; raise Timeout
+  | `Timeout -> if drop_solver s then destroy s ; raise Timeout
 
   | `Error e -> 
     raise (Failure ("SMT solver failed: " ^ e))
@@ -158,7 +165,7 @@ let smt_error s = function
 
   | `Error _ when Atomic.get s.killed -> raise Killed
 
-  | `Timeout -> drop_solver s ; destroy s ; raise Timeout
+  | `Timeout -> if drop_solver s then destroy s ; raise Timeout
 
   | `Error e -> 
     raise (Failure ("SMT solver failed: " ^ e))
@@ -296,15 +303,10 @@ let create_instance
 
   solver
 
-(* Delete a solver instance *)
+(* Delete a solver instance. Nothing is done for a solver that is no
+   longer registered: it was killed from outside, or deleted already. *)
 let delete_instance s =
-  let live =
-    Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
-  in
-  if live then (
-    drop_solver s ;
-    destroy s
-  )
+  if drop_solver s then destroy s
 
 (* Destroys all live solvers owned by the calling domain. *)
 let destroy_all () =

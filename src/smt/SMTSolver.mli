@@ -63,7 +63,10 @@ val create_instance :
     shut down gracefully. *)
 val set_shutting_down : bool -> unit
 
-(** Delete an instance of an SMT solver *)
+(** Delete an instance of an SMT solver. Does nothing for a solver
+    that was killed from outside, by {!kill_solvers_of_domain} or
+    {!destroy_all_of_process}, or deleted already: whoever takes a
+    solver out of the registry first is the one to dispose of it. *)
 val delete_instance : t -> unit
 
 (** Destroys all live solver instances owned by the calling domain. *)
