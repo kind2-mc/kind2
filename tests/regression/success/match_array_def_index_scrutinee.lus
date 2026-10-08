@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd () returns (t: T);
+(*@contract guarantee t = A (1) or t = B (2); *)
+
+node main () returns (ok: bool);
+var r: int^4;
+let
+  r[i] = match nd () with
+         | A (v) : v + i
+         | B (w) : w + i
+         end;
+  ok = true;
+  check "ok" r[0] >= 1;
+tel

@@ -1,0 +1,13 @@
+datatype T = A (v: int) | B (w: int);
+
+node main (u: T) returns (ok: bool);
+(*@contract assume u = A (1) or u = B (2); *)
+var r: int;
+let
+  r = match (u : T) with
+      | A (v) : v
+      | B (w) : w
+      end;
+  ok = true;
+  check "ok" r = 1 or r = 2;
+tel

@@ -1,0 +1,10 @@
+datatype T = A (k: int) | B;
+
+node main (n: int) returns (y: int);
+let
+  y = match (any { t: T | t = A(n) }) with
+      | A (m) : any { v: int | v = m }
+      | B : 0
+      end;
+  --%PROPERTY y = n;
+tel

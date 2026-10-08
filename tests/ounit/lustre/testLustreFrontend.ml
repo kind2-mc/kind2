@@ -246,14 +246,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/match_block_assign_pattern_var.lus" with
     | Error (`LustreSyntaxChecksError (_, AssignmentToPatternVariable _)) -> true
     | _ -> false);
-  mk_test "Node call in a match block scrutinee" (fun () ->
-    match load_file "./lustreSyntaxChecks/match_block_node_call_scrutinee.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
-    | _ -> false);
-  mk_test "'any' operator in a match block scrutinee" (fun () ->
-    match load_file "./lustreSyntaxChecks/match_block_any_scrutinee.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
-    | _ -> false);
 ])
 
 (* *************************************************************************** *)

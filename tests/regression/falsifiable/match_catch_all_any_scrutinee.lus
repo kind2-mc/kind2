@@ -1,0 +1,8 @@
+datatype T = A (v: int) | B;
+const k: T = A(5);
+
+node main (n: int) returns (y: int);
+let
+  y = n;
+  --%PROPERTY (match ((any { t: T | any { b: bool | b = (n > 0) } }) : T) with | k : any { z: int | z = k.v } end) = 5;
+tel

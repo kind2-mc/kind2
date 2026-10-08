@@ -2932,7 +2932,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | Some guard -> guard, empty (), [], true
       | None ->
         let guard, _, gids = mk_fresh_oracle ty nexpr in
-        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
+        (* The local a match block binds its scrutinee to is read only in the
+           branch that defines it, so the value it stutters with in a frame
+           block is never observed *)
+        let warnings = match expr with
+          | A.Ident (_, id) when var_is_match_scrutinee id -> []
+          | _ -> [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))]
+        in
         guard, gids, warnings, false
     in
     let gids = union gids1 gids2 in
