@@ -4264,7 +4264,10 @@ let solver_dependent_actions solver =
             (pp_print_list Format.pp_print_string ",@ ") actions
         )
       )
-      else if (major_rev > 2 || minor_rev > 6 || patch_rev > 1) then (
+      (* Yices 2.6.2 up to 2.6.x print SMT-LIB models only with
+         --smt2-model-format. From 2.7.0 on, they are the default, and the
+         option no longer exists. *)
+      else if major_rev = 2 && minor_rev = 6 && patch_rev > 1 then (
         Smt.set_yices2_smt2models true
       )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
