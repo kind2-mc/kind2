@@ -61,11 +61,8 @@ type t = {
   (* Unique identifier for solver instance *)
   id : int ;
   (* Set when the solver is taken out of the registry to be killed from
-     outside (see [mark_killed]) *)
+     outside (see [set_aside]) *)
   killed : bool Atomic.t ;
-  (* Set when the owner has closed the pipes to a solver killed from
-     outside. Only the owner reads or writes it. *)
-  mutable closed : bool ;
   mutable next_assumption_id : int ;
   mutable last_assumptions : Term.t array ;
 }
@@ -83,6 +80,21 @@ concurrently by all engine domains.
 See [destroy_all]. *)
 let all_solvers = ref IntMap.empty
 let all_solvers_lock = Mutex.create ()
+
+(* The solvers killed from outside, by [kill_solvers_of_domain] or
+   [destroy_all_of_process], whose pipes are still open, in the same form
+   as [all_solvers].
+
+   The killer leaves the pipes alone: the domain that owns the solver may
+   be reading them at that moment. That domain closes them, when it
+   deletes the solver or when it exits through [destroy_all], whichever
+   comes first. An engine stopped by having its solvers killed does not
+   delete them, it exits.
+
+   Guarded by [all_solvers_lock], like [all_solvers]: a solver moves from
+   one to the other in a single acquisition, so that its owner always
+   finds it in one of them until it disposes of it. *)
+let killed_solvers = ref IntMap.empty
 
 (* Latched by [destroy_all_of_process]: no solver may be created from
    then on.
@@ -114,17 +126,24 @@ let add_solver ( { id } as solver ) =
     if !no_new_solvers then raise Exiting ;
     all_solvers := IntMap.add id (owner, solver) !all_solvers)
 
-(** Forgets a solver. Returns whether it was still registered: the
-    one that takes a solver out of the map is the one that disposes of
-    its process. Tested and removed in one go, under the lock, since
-    the supervisor may take it out concurrently, by
-    [kill_solvers_of_domain], and kill a process that the owner then
-    must not touch again. *)
+(** Forgets a solver, and says what is left for its owner to do.
+    [`Live] if it was still registered: the process is the owner's to
+    dispose of. [`Killed] if it was killed from outside: the process is
+    gone, but the pipes to it are left to close. [`Gone] if it was
+    disposed of already.
+
+    Tested and removed in one go, under the lock, since the supervisor
+    may take the solver out of the registry concurrently and kill a
+    process that the owner then must not touch again. *)
 let drop_solver { id } =
   Mutex.protect all_solvers_lock (fun () ->
-    let live = IntMap.mem id !all_solvers in
-    if live then all_solvers := IntMap.remove id !all_solvers ;
-    live)
+    if IntMap.mem id !all_solvers then (
+      all_solvers := IntMap.remove id !all_solvers ;
+      `Live
+    ) else if IntMap.mem id !killed_solvers then (
+      killed_solvers := IntMap.remove id !killed_solvers ;
+      `Killed
+    ) else `Gone)
 
 (* Set while the supervisor is terminating the engines of an analysis.
    Solver instances are then killed outright instead of shut down
@@ -134,28 +153,32 @@ let drop_solver { id } =
 let shutting_down = Atomic.make false
 let set_shutting_down b = Atomic.set shutting_down b
 
-(* Destroys a solver instance. *)
+(* Destroys a solver instance, from the domain that owns it. A solver
+   killed outright still has its pipes open, and nothing else will close
+   them. *)
 let destroy s =
   let module S = (val s.solver_inst) in
-  if Atomic.get shutting_down then S.kill_instance ()
+  if Atomic.get shutting_down then (
+    S.kill_instance () ;
+    S.close_channels ()
+  )
   else S.delete_instance ()
+
+(* Closes the pipes to a solver killed from outside *)
+let close_channels s =
+  let module S = (val s.solver_inst) in
+  S.close_channels ()
 
 (* Disposes of a solver instance, from the domain that owns it.
 
-   Whoever takes a solver out of the registry disposes of its process.
-   If it is still registered, that is the owner, here. Otherwise it was
-   killed from outside, by [kill_entries], or disposed of already.
-   The two are told apart by the mark, set when the killer took it. A
-   solver killed from outside still has its pipes open: the killer
-   leaves them alone, since the owner may be reading them at that
-   moment. The owner closes them now, once. *)
+   Whoever takes a solver out of the registry disposes of its process:
+   the owner here, if it is still registered. A solver killed from
+   outside has only its pipes left to close (see [killed_solvers]). *)
 let dispose s =
-  if drop_solver s then destroy s
-  else if Atomic.get s.killed && not s.closed then (
-    s.closed <- true ;
-    let module S = (val s.solver_inst) in
-    S.close_channels ()
-  )
+  match drop_solver s with
+  | `Live -> destroy s
+  | `Killed -> close_channels s
+  | `Gone -> ()
 
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error s = function
@@ -306,7 +329,6 @@ let create_instance
       term_names = Hashtbl.create 19;
       id = id;
       killed;
-      closed = false;
       next_assumption_id = 0;
       last_assumptions = [| |]; }
   in
@@ -328,28 +350,35 @@ let create_instance
 (* Delete a solver instance *)
 let delete_instance = dispose
 
-(* Destroys all live solvers owned by the calling domain. *)
+(* Destroys all live solvers owned by the calling domain, and closes
+   the pipes to those of its solvers that were killed from outside. *)
 let destroy_all () =
   let self = (Domain.self () :> int) in
-  let mine =
-    Mutex.protect all_solvers_lock (fun () ->
-      let mine, others =
-        IntMap.partition (fun _ (owner, _) -> owner = self) !all_solvers
-      in
-      all_solvers := others ;
-      mine)
+  let mine map =
+    let mine, others =
+      IntMap.partition (fun _ (owner, _) -> owner = self) !map
+    in
+    map := others ;
+    mine
   in
-  IntMap.iter (fun _ (_, s) -> destroy s) mine
+  let live, killed =
+    Mutex.protect all_solvers_lock (fun () ->
+      let live = mine all_solvers in
+      live, mine killed_solvers)
+  in
+  IntMap.iter (fun _ (_, s) -> destroy s) live ;
+  IntMap.iter (fun _ (_, s) -> close_channels s) killed
 
-(* Marks the given registry entries as killed from outside, so that the
-   command their owner is in raises [Killed].
+(* Sets aside the given entries, just taken out of the registry to be
+   killed from outside. They are marked, so that the command their owner
+   is in raises [Killed], and their pipes are left for the owner to close
+   (see [killed_solvers]).
 
    Called under [all_solvers_lock], in the same acquisition that takes
-   the entries out of the map: an owner that finds its solver gone then
-   also finds it marked, and knows the pipes to it are its to close (see
-   [dispose]). *)
-let mark_killed entries =
+   the entries out of the registry. *)
+let set_aside entries =
   IntMap.iter (fun _ (_, s) -> Atomic.set s.killed true) entries ;
+  killed_solvers := IntMap.union (fun _ e _ -> Some e) entries !killed_solvers ;
   entries
 
 (* Kills the solver processes of the given registry entries, without
@@ -378,7 +407,7 @@ let destroy_all_of_process () =
       no_new_solvers := true ;
       let entries = !all_solvers in
       all_solvers := IntMap.empty ;
-      mark_killed entries)
+      set_aside entries)
   in
   kill_entries entries
 
@@ -393,7 +422,7 @@ let kill_solvers_of_domain owner =
         IntMap.partition (fun _ (owner', _) -> owner' = owner) !all_solvers
       in
       all_solvers := others ;
-      mark_killed mine)
+      set_aside mine)
   in
   kill_entries entries
 

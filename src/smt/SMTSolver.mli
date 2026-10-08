@@ -69,7 +69,9 @@ val set_shutting_down : bool -> unit
     does nothing. *)
 val delete_instance : t -> unit
 
-(** Destroys all live solver instances owned by the calling domain. *)
+(** Destroys all live solver instances owned by the calling domain, and
+    closes the pipes to those of its solvers that were killed from
+    outside. *)
 val destroy_all : unit -> unit
 
 (** Destroys every live solver instance of the whole process and bars

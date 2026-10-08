@@ -31,8 +31,12 @@ open OUnit2
 
    The killer leaves the pipes of the solvers it kills open, since their
    owner may be reading them. The owner closes them when it deletes the
-   solver. It used to leave them open, three descriptors for every
-   solver killed from outside.
+   solver, or when it exits through [SMTSolver.destroy_all], as an engine
+   stopped this way does. It used to leave them open, three descriptors
+   for every solver killed from outside, for every engine of every
+   analysis. So did an engine that disposed of its own solvers while the
+   analysis was shutting down: they are killed outright then, rather
+   than asked to exit, and the pipes to them were left open too.
 
    A killer that spins on the registry takes about half the solvers
    here, a few of them inside the window. The drivers tolerate most of
@@ -46,12 +50,23 @@ open TestSolverCommon
    solver process started and stopped, which bounds the count. *)
 let rounds = 200
 
-(* The number of descriptors this process has open, where the kernel
-   lists them *)
+(* The number of descriptors this process has open, where the system
+   lists them: [/proc/self/fd] on Linux, [/dev/fd] on macOS, where the
+   default limit on open files is the lowest. Listing a directory takes
+   a descriptor, counted the same way every time. *)
 let open_descriptors () =
-  match Sys.readdir "/proc/self/fd" with
-  | fds -> Some (Array.length fds)
-  | exception Sys_error _ -> None
+  List.find_map
+    (fun dir ->
+      match Sys.readdir dir with
+      | fds -> Some (Array.length fds)
+      | exception Sys_error _ -> None)
+    [ "/proc/self/fd" ; "/dev/fd" ]
+
+let assert_none_left_open before =
+  match before, open_descriptors () with
+  | Some before, Some after ->
+    assert_equal ~printer:string_of_int ~msg:"open descriptors" before after
+  | _ -> ()
 
 let test_delete_and_kill_do_not_both_dispose _ =
   skip_if (solver_missing ()) "no Z3 on PATH" ;
@@ -80,13 +95,49 @@ let test_delete_and_kill_do_not_both_dispose _ =
   in
   assert_equal ~printer:Fun.id "" warnings ;
   (* The killer is joined: nothing else opens or closes descriptors *)
-  match before, open_descriptors () with
-  | Some before, Some after ->
-    assert_equal ~printer:string_of_int ~msg:"open descriptors" before after
-  | _ -> ()
+  assert_none_left_open before
+
+(* An engine that the supervisor stops by killing its solvers does not
+   delete them: it exits, through [SMTSolver.destroy_all]. The pipes to
+   them are closed then. *)
+let test_killed_solvers_are_closed_on_exit _ =
+  skip_if (solver_missing ()) "no Z3 on PATH" ;
+  let before = open_descriptors () in
+  let started = Atomic.make false in
+  let stopped = Atomic.make false in
+  let engine =
+    Domain.spawn (fun () ->
+      for _ = 1 to 5 do ignore (new_solver ()) done ;
+      Atomic.set started true ;
+      while not (Atomic.get stopped) do Domain.cpu_relax () done ;
+      SMTSolver.destroy_all ())
+  in
+  while not (Atomic.get started) do Domain.cpu_relax () done ;
+  (* The supervisor, as at the end of an analysis *)
+  SMTSolver.kill_solvers_of_domain (Domain.get_id engine :> int) ;
+  Atomic.set stopped true ;
+  Domain.join engine ;
+  assert_none_left_open before
+
+(* While the analysis is shutting down, an engine kills its own solvers
+   outright instead of asking them to exit. The pipes to them are
+   closed all the same. *)
+let test_solvers_killed_at_shutdown_are_closed _ =
+  skip_if (solver_missing ()) "no Z3 on PATH" ;
+  let before = open_descriptors () in
+  let deleted = new_solver () in
+  for _ = 1 to 4 do ignore (new_solver ()) done ;
+  SMTSolver.set_shutting_down true ;
+  Fun.protect ~finally:(fun () -> SMTSolver.set_shutting_down false)
+    (fun () ->
+      SMTSolver.delete_instance deleted ;
+      SMTSolver.destroy_all ()) ;
+  assert_none_left_open before
 
 let tests = "SolverDeleteRace" >::: [
   "delete and kill do not both dispose" >:: test_delete_and_kill_do_not_both_dispose ;
+  "killed solvers are closed on exit" >:: test_killed_solvers_are_closed_on_exit ;
+  "solvers killed at shutdown are closed" >:: test_solvers_killed_at_shutdown_are_closed ;
 ]
 
 let () = run_test_tt_main tests
