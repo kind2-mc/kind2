@@ -239,12 +239,37 @@ let test_crashed_command_raises_died _ =
     let died f =
       match f () with
       | () -> false
-      | exception SMTSolver.Died _ -> true
+      | exception SMTSolver.Died msg ->
+        (* How it died, by the name of the signal *)
+        assert_bool ("no SIGKILL in: " ^ msg) (contains msg "SIGKILL") ;
+        true
     in
     assert_bool "the declaration did not raise Died"
       (died (fun () -> SMTSolver.declare_fun solver uf)) ;
     assert_bool "the next command did not raise Died"
       (died (fun () -> SMTSolver.push solver)) ;
+    SMTSolver.delete_instance solver)
+
+(* A solver that dies after its last reply, on a declaration it accepted,
+   is found dead only when it is deleted: the [(exit)] sent to it fails.
+   Deleting it still closes its pipes, and raises nothing. *)
+let dying_source = {|#!/bin/sh
+while IFS= read -r line; do
+  echo success
+  case "$line" in
+    *declare-fun*) kill -9 $$ ;;
+  esac
+done
+|}
+
+let test_solver_dead_after_reply_is_deleted _ =
+  skip_without_shell () ;
+  TermLib.Signals.ignore_sigpipe () ;
+  with_stand_in_solver ~source:dying_source (fun ~got:_ ~go:_ ->
+    let solver = new_solver () in
+    SMTSolver.declare_fun solver uf ;
+    (* Let it die before the deletion *)
+    Unix.sleepf 0.1 ;
     SMTSolver.delete_instance solver)
 
 (* Through [FunEval]: no warning of a rejection, and the evaluator is not
@@ -283,6 +308,8 @@ let tests = "FunEvalKilled" >::: [
   "a crashed command raises Died" >:: test_crashed_command_raises_died ;
   "a crashed solver is not a rejection"
   >:: test_crashed_solver_is_not_a_rejection ;
+  "a solver dead after its reply is deleted"
+  >:: test_solver_dead_after_reply_is_deleted ;
 ]
 
 let () = run_test_tt_main tests
