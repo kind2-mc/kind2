@@ -61,6 +61,13 @@ module type SMTLIBSolverDriver = sig
 end
 
 
+exception Died of string
+
+let () =
+  Printexc.register_printer (function
+    | Died msg -> Some ("SMT solver died: " ^ msg)
+    | _ -> None)
+
 module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
   
   open Driver
@@ -79,6 +86,9 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     { solver_config : config;           (* Configuration of the solver
                                            instance *)
       solver_pid : int;                 (* PID of the solver process *)
+      solver_exit : string option Atomic.t;
+      (* How the process ended, set once it has been found dead and
+         reaped: its PID may be another process's now *)
       solver_stdin : Unix.file_descr;   (* File descriptor of solver's stdin *)
       solver_lexbuf : Lexing.lexbuf;    (* Lexing buffer on solver's
                                            stdout *)
@@ -425,6 +435,37 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       | CustomCmd num_res -> get_custom_command_response num_res solver timeout
 
 
+  let string_of_process_status = function
+    | Unix.WEXITED c -> Printf.sprintf "exited with code %d" c
+    | Unix.WSIGNALED s -> Printf.sprintf "was killed by signal %d" s
+    | Unix.WSTOPPED s -> Printf.sprintf "was stopped by signal %d" s
+
+  (* How the solver process ended, if it has, after reaping it. A process
+     that dies closes its pipes before it can be waited for, so a command
+     that fails on them may find it still there: it is polled for a short
+     while. Reaped from elsewhere, by [kill_instance], it is gone as
+     well. *)
+  let exit_status ({ solver_pid ; solver_exit } as solver) =
+    let rec poll polls =
+      match Unix.waitpid [Unix.WNOHANG] solver_pid with
+      | 0, _ when polls > 0 -> minisleep 0.001 ; poll (polls - 1)
+      | 0, _ -> None
+      | _, status -> Some (string_of_process_status status)
+      | exception Unix.Unix_error (Unix.ECHILD, _, _) ->
+        Some "was reaped already"
+      | exception Unix.Unix_error _ -> None
+    in
+    match Atomic.get solver_exit with
+    | Some _ as exited -> exited
+    | None ->
+      let exited =
+        Option.map
+          (Printf.sprintf "%s %s" solver.solver_config.solver_cmd.(0))
+          (poll 50)
+      in
+      if exited <> None then Atomic.set solver_exit exited ;
+      exited
+
   (* Send the command to the solver instance *)
   let send_command
       cmd_type
@@ -459,11 +500,30 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     with e ->
       let err_p2 = Unix.((fstat solver_stderr).st_size) in
       let len = err_p2 - err_p1 in
-      (* Was something written to stderr? *)
-      if len <> 0 then begin
+      let err_msg () =
         let buf = Bytes.create err_p2 in
         Unix.read solver_stderr buf 0 err_p2 |> ignore;
-        let err_msg = Bytes.sub_string buf err_p1 len in
+        Bytes.sub_string buf err_p1 len
+      in
+      (* A command that fails on the pipes, on a reply cut short or a
+         write to a closed pipe, may have failed because the process is
+         gone: it crashed, or was killed by the out-of-memory killer or
+         from outside. It did not fail on what it was given. An error
+         reply does not get here: it is returned as a response. *)
+      let exited =
+        match e with
+        | Failure _ | End_of_file | Sys_error _ | Unix.Unix_error _ ->
+          exit_status solver
+        | _ -> None
+      in
+      match exited with
+      | Some exited ->
+        raise
+          (Died (if len <> 0 then exited ^ ": " ^ err_msg () else exited))
+      | None ->
+      (* Was something written to stderr? *)
+      if len <> 0 then begin
+        let err_msg = err_msg () in
         (* Show solver error message *)
         (* KEvent.log L_fatal "@[<v>Solver error message:@ %s@]" err_msg; *)
         failwith ("Solver error: "^err_msg)
@@ -1017,6 +1077,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     let solver =
       { solver_config = config;
         solver_pid = solver_pid;
+        solver_exit = Atomic.make None;
         solver_stdin = solver_stdin_out; 
         solver_lexbuf = solver_lexbuf; 
         solver_stdout = solver_stdout_in; 
@@ -1089,7 +1150,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
   (* Delete the solver instance by sending the exit command and wait for
      the solver process to exit *)
-  let delete_instance ({ solver_pid } as solver) =
+  let exit_and_reap ({ solver_pid } as solver) =
 
     (* Execute exit command, do not parse response
 
@@ -1187,13 +1248,20 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     close_channels solver
 
+  (* A process found dead has been reaped already, and its PID is not to
+     be waited for or signalled: there is only the pipes to close *)
+  let delete_instance solver =
+    if Atomic.get solver.solver_exit <> None then close_channels solver
+    else exit_and_reap solver
+
 
   (* Kill the solver process without interacting with it. Does not touch
      the solver's channels, so it is safe to call from a different domain
      than the one interacting with the solver: the owner's blocked read
      fails and the engine unwinds. Death on SIGKILL is prompt, so the
      process is reaped right away. *)
-  let kill_instance { solver_pid } =
+  let kill_instance { solver_pid ; solver_exit } =
+    if Atomic.get solver_exit = None then (
     ( try Unix.kill solver_pid Sys.sigkill with _ -> () ) ;
     (* Reap without blocking: this runs while an analysis is being torn
        down, possibly from a domain other than the one that owns the
@@ -1215,7 +1283,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       | 0, _ when polls > 0 -> minisleep 0.001 ; reap (polls - 1)
       | _ -> ()
     in
-    reap 20
+    reap 20 )
 
 
   (* Output a comment into the trace *)

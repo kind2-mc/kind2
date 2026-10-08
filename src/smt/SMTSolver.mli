@@ -41,6 +41,14 @@ exception Exiting
     before it was killed is reported as what it is, an error included. *)
 exception Killed
 
+(** Raised by a command to a solver instance whose process is gone
+    although it was not killed from outside -- it crashed, or the
+    out-of-memory killer killed it -- when the command fails on the dead
+    process: on a reply cut short or a closed pipe. As for {!Killed}, the
+    solver did not fail on what it was given. The message says how the
+    process ended, with what it wrote to its standard error. *)
+exception Died of string
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with

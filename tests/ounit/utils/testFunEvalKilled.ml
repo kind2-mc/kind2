@@ -121,13 +121,13 @@ while IFS= read -r line; do
 done
 |}
 
-(* Runs [f] with the stand-in as the [z3] on PATH, first on it, and
-   with the paths of its two files *)
-let with_stand_in_solver f =
+(* Runs [f] with the stand-in [source] as the [z3] on PATH, first on
+   it, and with the paths of its two files *)
+let with_stand_in_solver ?(source = stand_in_source) f =
   let dir = Filename.temp_dir "stand-in-solver" "" in
   let script = Filename.concat dir "z3" in
   let oc = open_out script in
-  output_string oc stand_in_source ;
+  output_string oc source ;
   close_out oc ;
   Unix.chmod script 0o700 ;
   let path = Unix.getenv "PATH" in
@@ -187,6 +187,89 @@ let test_rejection_before_kill_is_warned _ =
       (contains warnings
          "rejected the definitions: SMT solver failed: \"rejected\""))
 
+(* An evaluator whose solver is killed from outside is not disabled: the
+   next evaluation starts a solver of its own. Only the first one is
+   killed; with [f] declared and nothing more, the second finds [f] has
+   more than one value. *)
+let test_killed_solver_does_not_disable _ =
+  skip_if (solver_missing ()) "no Z3 on PATH" ;
+  Flags.Smt.set_solver `Z3_SMTLIB ;
+  let first = ref true in
+  let define solver =
+    SMTSolver.declare_fun solver uf ;
+    if !first then (first := false ; wait_until_killed solver)
+  in
+  let evaluator = FunEval.create ~logic:`None ~timeout_ms:60000 define in
+  let value, warnings =
+    warnings_of (fun () -> FunEval.evaluate evaluator uf [])
+  in
+  assert_bool "the call was evaluated" (value = `Unknown) ;
+  assert_equal ~printer:Fun.id "" warnings ;
+  let value = FunEval.evaluate evaluator uf [] in
+  assert_bool "no solver was started after the kill" (value = `Not_unique)
+
+(* A solver that dies on its own -- a crash, or the out-of-memory killer
+   -- did not reject the definitions either. Its reply ends early, as on
+   a kill from outside, but no kill was made through the registry: only
+   the process having exited tells it from a rejection. The stand-in
+   kills itself with SIGKILL on a declaration, and counts its starts in
+   [z3.got]. *)
+let crashing_source = {|#!/bin/sh
+echo start >> "$0.got"
+while IFS= read -r line; do
+  case "$line" in
+    *declare-fun*) kill -9 $$ ;;
+    *) echo success ;;
+  esac
+done
+|}
+
+let starts got =
+  if Sys.file_exists got then
+    In_channel.with_open_text got In_channel.input_lines |> List.length
+  else 0
+
+(* A command to a solver that has died raises [Died], not [Failure], and
+   so does the next one *)
+let test_crashed_command_raises_died _ =
+  skip_without_shell () ;
+  TermLib.Signals.ignore_sigpipe () ;
+  with_stand_in_solver ~source:crashing_source (fun ~got:_ ~go:_ ->
+    let solver = new_solver () in
+    let died f =
+      match f () with
+      | () -> false
+      | exception SMTSolver.Died _ -> true
+    in
+    assert_bool "the declaration did not raise Died"
+      (died (fun () -> SMTSolver.declare_fun solver uf)) ;
+    assert_bool "the next command did not raise Died"
+      (died (fun () -> SMTSolver.push solver)) ;
+    SMTSolver.delete_instance solver)
+
+(* Through [FunEval]: no warning of a rejection, and the evaluator is not
+   disabled, the next evaluation starts a new solver *)
+let test_crashed_solver_is_not_a_rejection _ =
+  skip_without_shell () ;
+  TermLib.Signals.ignore_sigpipe () ;
+  with_stand_in_solver ~source:crashing_source (fun ~got ~go:_ ->
+    Flags.Smt.set_solver `Z3_SMTLIB ;
+    let evaluator =
+      FunEval.create ~logic:`None ~timeout_ms:60000
+        (fun solver -> SMTSolver.declare_fun solver uf)
+    in
+    let value, warnings =
+      warnings_of (fun () -> FunEval.evaluate evaluator uf [])
+    in
+    assert_bool "the call was evaluated" (value = `Unknown) ;
+    assert_equal ~printer:Fun.id "" warnings ;
+    assert_equal ~printer:string_of_int 1 (starts got) ;
+    let value = FunEval.evaluate evaluator uf [] in
+    assert_bool "the call was evaluated" (value = `Unknown) ;
+    assert_equal ~msg:"no solver was started after the crash"
+      ~printer:string_of_int 2 (starts got) ;
+    FunEval.delete evaluator)
+
 let tests = "FunEvalKilled" >::: [
   "a killed command raises Killed" >:: test_killed_command_raises_killed ;
   "a killed solver is not a rejection" >:: test_killed_solver_is_not_a_rejection ;
@@ -195,6 +278,11 @@ let tests = "FunEvalKilled" >::: [
   >:: test_rejection_before_kill_is_reported ;
   "a rejection before the kill is warned about"
   >:: test_rejection_before_kill_is_warned ;
+  "a killed solver does not disable the evaluator"
+  >:: test_killed_solver_does_not_disable ;
+  "a crashed command raises Died" >:: test_crashed_command_raises_died ;
+  "a crashed solver is not a rejection"
+  >:: test_crashed_solver_is_not_a_rejection ;
 ]
 
 let () = run_test_tt_main tests
