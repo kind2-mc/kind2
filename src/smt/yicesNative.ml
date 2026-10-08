@@ -1318,13 +1318,15 @@ let create_instance
 
     
 
+(* Close the file descriptors of the pipes to the solver *)
+let close_channels { solver_stdin ; solver_stdout ; solver_stderr } =
+  Unix.close solver_stdin ;
+  Unix.close solver_stdout ;
+  Unix.close solver_stderr
+
 (* Delete the solver instance by sending the exit command and wait for
    the solver process to exit *)
-let delete_instance 
-    ({ solver_pid = solver_pid ;
-       solver_stdin = solver_stdin ;
-       solver_stdout = solver_stdout;
-       solver_stderr = solver_stderr } as solver) =
+let delete_instance ({ solver_pid } as solver) =
 
   (* Execute exit command, do not parse response
 
@@ -1378,10 +1380,7 @@ let delete_instance
 
   );
 
-  (* Close file descriptors of solver *)
-  Unix.close solver_stdin;
-  Unix.close solver_stdout;
-  Unix.close solver_stderr
+  close_channels solver
 
 
 (* Kill the solver process without interacting with it. Safe to call
@@ -1417,6 +1416,8 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let delete_instance () = delete_instance solver
 
   let kill_instance () = kill_instance solver
+
+  let close_channels () = close_channels solver
 
 
   let declare_sort = declare_sort solver

@@ -60,9 +60,12 @@ type t = {
   term_names : (int, expr) Hashtbl.t ;
   (* Unique identifier for solver instance *)
   id : int ;
-  (* Set when the process of the solver is killed from outside (see
-     [kill_entries]) *)
+  (* Set when the solver is taken out of the registry to be killed from
+     outside (see [mark_killed]) *)
   killed : bool Atomic.t ;
+  (* Set when the owner has closed the pipes to a solver killed from
+     outside. Only the owner reads or writes it. *)
+  mutable closed : bool ;
   mutable next_assumption_id : int ;
   mutable last_assumptions : Term.t array ;
 }
@@ -137,6 +140,23 @@ let destroy s =
   if Atomic.get shutting_down then S.kill_instance ()
   else S.delete_instance ()
 
+(* Disposes of a solver instance, from the domain that owns it.
+
+   Whoever takes a solver out of the registry disposes of its process.
+   If it is still registered, that is the owner, here. Otherwise it was
+   killed from outside, by [kill_entries], or disposed of already.
+   The two are told apart by the mark, set when the killer took it. A
+   solver killed from outside still has its pipes open: the killer
+   leaves them alone, since the owner may be reading them at that
+   moment. The owner closes them now, once. *)
+let dispose s =
+  if drop_solver s then destroy s
+  else if Atomic.get s.killed && not s.closed then (
+    s.closed <- true ;
+    let module S = (val s.solver_inst) in
+    S.close_channels ()
+  )
+
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error s = function
 
@@ -144,7 +164,7 @@ let fail_on_smt_error s = function
   | `Error _ | `Unsupported | `NoResponse when Atomic.get s.killed ->
     raise Killed
 
-  | `Timeout -> if drop_solver s then destroy s ; raise Timeout
+  | `Timeout -> dispose s ; raise Timeout
 
   | `Error e -> 
     raise (Failure ("SMT solver failed: " ^ e))
@@ -165,7 +185,7 @@ let smt_error s = function
 
   | `Error _ when Atomic.get s.killed -> raise Killed
 
-  | `Timeout -> if drop_solver s then destroy s ; raise Timeout
+  | `Timeout -> dispose s ; raise Timeout
 
   | `Error e -> 
     raise (Failure ("SMT solver failed: " ^ e))
@@ -206,6 +226,7 @@ struct
 
   let delete_instance = I.delete_instance
   let kill_instance = I.kill_instance
+  let close_channels = I.close_channels
   let declare_sort s = guard (fun () -> I.declare_sort s)
   let declare_fun f a r = guard (fun () -> I.declare_fun f a r)
   let define_fun f v r t = guard (fun () -> I.define_fun f v r t)
@@ -285,6 +306,7 @@ let create_instance
       term_names = Hashtbl.create 19;
       id = id;
       killed;
+      closed = false;
       next_assumption_id = 0;
       last_assumptions = [| |]; }
   in
@@ -303,10 +325,8 @@ let create_instance
 
   solver
 
-(* Delete a solver instance. Nothing is done for a solver that is no
-   longer registered: it was killed from outside, or deleted already. *)
-let delete_instance s =
-  if drop_solver s then destroy s
+(* Delete a solver instance *)
+let delete_instance = dispose
 
 (* Destroys all live solvers owned by the calling domain. *)
 let destroy_all () =
@@ -321,13 +341,22 @@ let destroy_all () =
   in
   IntMap.iter (fun _ (_, s) -> destroy s) mine
 
+(* Marks the given registry entries as killed from outside, so that the
+   command their owner is in raises [Killed].
+
+   Called under [all_solvers_lock], in the same acquisition that takes
+   the entries out of the map: an owner that finds its solver gone then
+   also finds it marked, and knows the pipes to it are its to close (see
+   [dispose]). *)
+let mark_killed entries =
+  IntMap.iter (fun _ (_, s) -> Atomic.set s.killed true) entries ;
+  entries
+
 (* Kills the solver processes of the given registry entries, without
-   interacting with them. The instances are marked first, so that the
-   command their owner is in raises [Killed]. *)
+   interacting with them. *)
 let kill_entries entries =
   IntMap.iter
     (fun _ (_, s) ->
-      Atomic.set s.killed true ;
       let module S = (val s.solver_inst) in
       S.kill_instance ())
     entries
@@ -349,7 +378,7 @@ let destroy_all_of_process () =
       no_new_solvers := true ;
       let entries = !all_solvers in
       all_solvers := IntMap.empty ;
-      entries)
+      mark_killed entries)
   in
   kill_entries entries
 
@@ -364,7 +393,7 @@ let kill_solvers_of_domain owner =
         IntMap.partition (fun _ (owner', _) -> owner' = owner) !all_solvers
       in
       all_solvers := others ;
-      mine)
+      mark_killed mine)
   in
   kill_entries entries
 
