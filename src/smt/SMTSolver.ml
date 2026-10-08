@@ -130,12 +130,15 @@ let destroy s =
   if Atomic.get shutting_down then S.kill_instance ()
   else S.delete_instance ()
 
-(* Raise an exception on error responses from the SMT solver *)
-let fail_on_smt_error s = function
+(* Raise an exception on error responses from the SMT solver.
 
-  (* A killed solver answers with whatever its pipe holds when it dies *)
-  | `Error _ | `Unsupported | `NoResponse when Atomic.get s.killed ->
-    raise Killed
+   A response that parsed came from the solver, kill or no kill: a
+   solver killed from outside does not answer, it fails the command, on
+   a reply cut short or a closed pipe, and [Guard] turns that into
+   [Killed]. Looking at [s.killed] here would take a genuine error for
+   the kill when the kill lands between the reply being read and this
+   check, and the error would go unreported. *)
+let fail_on_smt_error s = function
 
   | `Timeout -> drop_solver s ; destroy s ; raise Timeout
 
@@ -155,8 +158,6 @@ let fail_on_smt_error s = function
   | _ -> ()
 
 let smt_error s = function
-
-  | `Error _ when Atomic.get s.killed -> raise Killed
 
   | `Timeout -> drop_solver s ; destroy s ; raise Timeout
 
@@ -184,7 +185,10 @@ let bool_of_int_option = function
 (* The instance [I] of a solver, whose commands raise [Killed] instead of
    failing once [killed] is set. A solver killed from outside fails in the
    middle of a command, on a reply that ends early or a pipe that is closed,
-   as it would on an error of its own: only the flag tells the two apart. *)
+   as it would on an error of its own: only the flag tells the two apart.
+   A reply that parsed is not covered, on purpose: the solver gave it
+   before it died, and it is reported as what it is (see
+   [fail_on_smt_error]). *)
 module Guard
     (I : SolverSig.Inst) (K : sig val killed : bool Atomic.t end) :
   SolverSig.Inst =
