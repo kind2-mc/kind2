@@ -192,39 +192,7 @@ module SMTLIBPrinter : Printer =
     let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
   end
 
-module YicesPrinter : Printer =
-  struct
-
-    (* Pretty-print an attribute *)
-    let pp_print_attr_node _ = function 
-      (* Ignore attributes for yices *)
-      | Named _ | FunDef | InterpGroup _ -> ()
-    
-    (*
-    (* Pretty-print an attribute to the standard formatter *)
-    let print_attr_node = pp_print_attr_node Format.std_formatter 
-     *)
-     
-    (* Pretty-print a hashconsed attribute *)
-    let pp_print_attr ppf { Hashcons.node = v } = pp_print_attr_node ppf v
-
-    (* Pretty-print a hashconsed attribute to the standard formatter *)
-    let print_attr = pp_print_attr Format.std_formatter 
-
-    (* Return a string representation of a hashconsed attribute *)
-    let string_of_attr { Hashcons.node = v } = string_of_t pp_print_attr_node v 
-  end
-        
-
-(* Select apropriate printer based on solver *)
-let select_printer () =
-  match Flags.Smt.solver () with
-  | `Yices_native -> (module YicesPrinter : Printer)
-  | _ -> (module SMTLIBPrinter : Printer)
-
-module SelectedPrinter : Printer = (val (select_printer ()))
-  
-include SelectedPrinter
+include SMTLIBPrinter
 
 
 (* ********************************************************************* *)

@@ -581,19 +581,8 @@ let rec pp_print_bitvector_b' ppf = function
 let pp_smtlib_print_bitvector_b ppf b = 
   fprintf ppf "#b%a" pp_print_bitvector_b' b
 
-(* Pretty-print a bitvector in Yices' binary format *)
-let pp_yices_print_bitvector_b ppf b = 
-  fprintf ppf "0b%a" pp_print_bitvector_b' b
-
 
 (* Decimal *) 
-
-(* Pretty-print a bitvector in Yices' binary format given the decimal value and size *)
-let pp_yices_print_bitvector_d ppf i s = 
-  let size = (Numeral.to_int s) in
-  let b = num_to_ubv (Numeral.of_int size) i
-  in
-    fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 (* Pretty-print a bitvector in SMTLIB extended decimal format *)
 let pp_smtlib_print_bitvector_d ppf b =

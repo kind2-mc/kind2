@@ -87,7 +87,7 @@ struct
   (* Conversions from terms to SMT expressions                             *)
   (* ********************************************************************* *)
 
-  (* Convert a type to an SMT sort : no conversion for yices *)
+  (* Convert a type to an SMT sort *)
   let smtsort_of_type t = Driver.interpr_type t
 
 

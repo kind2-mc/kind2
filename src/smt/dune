@@ -1,6 +1,0 @@
-(ocamllex yicesLexer)
-
-(menhir
- (infer true)
- (flags --explain)
- (modules yicesParser))

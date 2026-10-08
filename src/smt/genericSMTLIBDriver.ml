@@ -213,9 +213,7 @@ let normalize_abstract_const_name type_name smt_name =
   HString.mk_hstring (type_name ^ "." ^ string_of_int num)
 
 
-(* Convert a string S-expression to an expression 
-
-   This function is generic, and also used from {!YicesDriver} *)
+(* Convert a string S-expression to an expression *)
 let gen_expr_of_string_sexpr' 
     ({ s_let; 
        s_forall; 
@@ -516,9 +514,7 @@ let gen_expr_of_string_sexpr'
       failwith "Invalid S-expression"
 
 
-(* Convert a string S-expression to a lambda abstraction 
-
-   This function is generic, and also used from {!YicesDriver} *)
+(* Convert a string S-expression to a lambda abstraction *)
 let gen_expr_or_lambda_of_string_sexpr'
     ({ s_define_fun; s_declare_fun } as conv) bound_vars = 
 
