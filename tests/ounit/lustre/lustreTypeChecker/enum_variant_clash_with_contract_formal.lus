@@ -1,0 +1,6 @@
+type E = enum { A, B };
+
+contract spec (A: int) returns (y: int);
+let
+  guarantee y >= A;
+tel

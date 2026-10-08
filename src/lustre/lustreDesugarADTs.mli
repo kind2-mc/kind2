@@ -24,7 +24,10 @@
     [type T_tag = C0 | C1 | C2;]
     [type T = \{ T_tag: T_tag; C1_0: t1; C2_0: t2_0; C2_1: t2_1 \}]
   where the tag field encodes the active constructor and payload fields
-  for non-selected constructors carry default values.
+  for non-selected constructors carry default values.  An ADT whose every
+  constructor is nullary collapses to the discriminant enum alone; this is how
+  an [enum] declaration, parsed as an all-nullary ADT, reaches the rest of the
+  pipeline.
 
   [desugar_adts] is the main pipeline entry point: it desugars both
   TypeDecls and all [ADTTerm]/[Match] expressions in one pass.
@@ -47,6 +50,13 @@ type adt_info = {
 }
 
 type adt_map = adt_info HStringMap.t
+
+(** Whether a non-recursive datatype collapses to a bare enum of its
+    constructors, which it does when every constructor is nullary and the
+    declaration takes no type parameters. Such a type is compiled to a single
+    enum-sorted state variable rather than to a record of a discriminant and
+    payload fields. *)
+val is_enum_like : adt_info -> bool
 
 (** Whether a bound variable was introduced by [mk_canonical_exprs]. Its
     quantifier characterizes the non-canonical positions of a container and

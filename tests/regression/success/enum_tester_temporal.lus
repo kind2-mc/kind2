@@ -1,0 +1,7 @@
+type T = enum { A, B };
+
+node main (x: T) returns (ok: bool);
+let
+  ok = true -> (pre A?(x) or pre B?(x));
+  check ok;
+tel

@@ -1,5 +1,3 @@
--- A function named identically to a 0-arg constructor: calling it with an
--- argument is parsed as a constructor application, giving ConstructorArityMismatch.
 datatype Color = Red | Green | Blue;
 
 function Red(c: Color) returns (r: bool);

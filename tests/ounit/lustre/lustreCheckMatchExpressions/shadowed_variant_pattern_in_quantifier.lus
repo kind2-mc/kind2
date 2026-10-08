@@ -1,0 +1,7 @@
+type E = enum { A, B };
+
+node top (e: E) returns (ok: bool);
+let
+  ok = true;
+  check forall (A: int) (((match e with | A : 1 | B : 2 end) = 1) = (e = B));
+tel

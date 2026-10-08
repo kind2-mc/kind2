@@ -1,0 +1,9 @@
+type E = enum { A, B };
+
+node main () returns (ok: bool);
+var v: int^3;
+let
+  v[A] = A;
+  ok = v[0] = 0 and v[1] = 1 and v[2] = 2;
+  check ok;
+tel
