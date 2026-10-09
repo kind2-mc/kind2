@@ -1,7 +1,14 @@
-(* A history quantifier in the refinement type of a local: l is never a
-   past value of x plus one *)
+(* A history quantifier in the refinement type of a local: at the first
+   step, l is not a past value of x plus one *)
 node L(x: int) returns ();
 var l: subtype { v: int | exists (z: history(x)) v = z + 1 };
 let
   l = x;
+tel
+
+node K(x: int) returns ();
+var m: int; l: subtype { v: int | exists (z: history(m)) v = z + 1 };
+let
+  m = x;
+  l = m;
 tel

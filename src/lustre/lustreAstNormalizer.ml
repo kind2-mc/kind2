@@ -1562,7 +1562,11 @@ and normalize_node info map
   let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
+  (* The refinement type of a local may refer to another local, e.g. in the
+     history quantifier of its predicate *)
+  let locals_info = { info with context = Chk.add_local_node_ctx ctx locals } in
   let locals, gids3, warnings3 = List.map (fun decl -> 
+    let info = locals_info in
     match decl with 
     | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
       let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
