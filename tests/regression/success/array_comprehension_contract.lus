@@ -1,0 +1,37 @@
+-- Array comprehensions in contracts. A comprehension in a contract is
+-- compiled to a fresh ghost variable defined element-wise.
+
+-- In a guarantee, over an array of symbolic size
+node Or (const n: int; A, B: bool^n) returns (C: bool^n);
+(*@contract
+  guarantee "or" C = (A[i] or B[i] foreach i)^n;
+*)
+let
+  C = (A[i] or B[i] foreach i)^n;
+tel
+
+-- In an assumption and in the definition of a ghost variable
+node Inc (A: int^3) returns (B: int^3);
+(*@contract
+  assume "nonneg" (A[i] >= 0 foreach i)^3 = true^3;
+  var D: int^3 = (A[i] + 1 foreach i)^3;
+  guarantee "inc" B = D;
+  guarantee "pos" B[2] > 0;
+*)
+let
+  B = (A[i] + 1 foreach i)^3;
+tel
+
+-- In an imported contract node, with two dimensions, and in modes
+contract TransposeSpec (M: int^2^3) returns (T: int^3^2);
+let
+  guarantee "transpose" T = (M[j][i] foreach i, j)^3^2;
+  mode zero (require (M[i][0] foreach i)^3 = [0, 0, 0]; ensure T[0] = [0, 0, 0];);
+  mode nonzero (require (M[i][0] foreach i)^3 <> [0, 0, 0];);
+tel
+
+node Transpose (M: int^2^3) returns (T: int^3^2);
+(*@contract import TransposeSpec (M) returns (T); *)
+let
+  T = (M[j][i] foreach i, j)^3^2;
+tel

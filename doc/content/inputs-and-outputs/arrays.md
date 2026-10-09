@@ -199,10 +199,11 @@ elements: `((i * i foreach i) ^ 4)[2]` is `4`.
 A comprehension is a value, not a definition: its body cannot refer to the
 current value of the array being defined, which would be a cyclic
 definition. Comprehensions are supported in the body of nodes and functions,
-including assertions and properties, but not in contracts, in constant
-declarations and in types (such as the predicate of a refinement type), and
-they cannot mention a variable bound by an enclosing quantifier or match
-arm.
+including assertions and properties, and in contracts, including ghost
+variables, assumptions, guarantees and modes. They are not supported in
+constant declarations, `decreases` clauses and types (such as the predicate
+of a refinement type), and they cannot mention a variable bound by an
+enclosing quantifier or match arm.
 
 ### Structural equality
 

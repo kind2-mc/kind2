@@ -43,4 +43,5 @@ val restore : LustreAst.expr -> LustreAst.expr
     constant declaration, and for one that mentions a variable bound around
     it. Must run after type checking. *)
 val desugar_array_comprehensions :
-  TypeCheckerContext.tc_context -> LustreAst.t -> (LustreAst.t, [> error]) result
+  TypeCheckerContext.tc_context -> LustreAst.t ->
+  (TypeCheckerContext.tc_context * LustreAst.t, [> error]) result

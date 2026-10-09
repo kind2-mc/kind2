@@ -432,6 +432,7 @@ let minimize_contract_node_eq ue keep cne =
   match cne with
   | A.ContractCall _ -> [cne]
   | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue keep d)]
+  | A.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
   | A.GhostVars (pos, (GhostVarDec(_, til) as lhs), expr) ->
     let typ = List.map (fun (_, _, t) -> t) til in
     let (_, expr) = minimize_expr (ue false) keep typ expr in

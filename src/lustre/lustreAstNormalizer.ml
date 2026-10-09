@@ -1846,6 +1846,12 @@ and rename_ghost_variables info contract =
     let info = add_ty_to_info info new_id ty in
     let tail, info = rename_ghost_variables info (A.GhostVars (pos1, A.GhostVarDec(pos2, tis), e) :: t) in
     (StringMap.singleton id new_id) :: tail, info
+  | GhostVars (_, A.GhostArrayDef (_, (_, id, ty), _), _) :: t ->
+    let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+    let new_id = HString.concat sep [info.contract_ref;id] in
+    let info = add_ty_to_info info new_id ty in
+    let tail, info = rename_ghost_variables info t in
+    (StringMap.singleton id new_id) :: tail, info
   | _ :: t -> rename_ghost_variables info t
 
 and normalize_contract info node_id map is_extern ivars ovars (p, items) =
@@ -2002,8 +2008,30 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
       | GhostConst decl ->
         let ndecl, map, warnings = normalize_ghost_declaration Ghost info node_id map decl in
         GhostConst ndecl, map, warnings, StringMap.empty
-      | GhostVars (pos, ((GhostVarDec (pos2, tis)) as lhs), expr) ->
-        let items = match lhs with | A.GhostVarDec (_, items) -> items in
+      (* An element-wise definition of an array, as an array definition in a
+         node (see [LustreDesugarArrayComprehensions]) *)
+      | GhostVars (pos, GhostArrayDef (pos2, (p, id, ty), is), expr) ->
+        let ety = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+        let info = add_array_def_indices info pos2 ety is in
+        let nexpr, gids1, warnings1 =
+          normalize_expr ?guard:None info (Some node_id) map expr
+        in
+        let nty, gids2, warnings2 =
+          normalize_ty ~id:(Some id) info (Some node_id) map ty
+        in
+        let gids3, warnings3 =
+          if Ctx.type_contains_ref info.context ty then
+            mk_fresh_refinement_type_constraint
+              Ghost info map p (Some node_id) (A.Ident (p, id)) ty
+          else empty (), []
+        in
+        let id' = StringMap.find id info.interpretation in
+        GhostVars (pos, GhostArrayDef (pos2, (p, id', nty), is), nexpr),
+        union (union gids1 gids2) gids3,
+        warnings1 @ warnings2 @ warnings3,
+        StringMap.empty
+      | GhostVars (pos, (GhostVarDec (pos2, tis)), expr) ->
+        let items = tis in
         let lhs_arity = List.length items in
         let rhs_arity = match expr with
           | A.GroupExpr(_, A.ExprList, expr_list) -> List.length expr_list
@@ -2067,7 +2095,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         expanded_call_instances := [];
         let gids2 = (
           if expanded then
-          let items = match lhs with | GhostVarDec (_, items) -> items in
+          let items = tis in
           let ids = List.map (function (_, i, _) -> i) items
           in
           { (empty ()) with  expanded_variables = StringSet.of_list ids }
@@ -2119,6 +2147,25 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
   (p, !result), !gids, !interpretation, !warnings
 
 
+(* The index variables [is] of an array definition of a variable of type
+   [ty], in scope in the right-hand side of the definition *)
+and add_array_def_indices info pos ty is =
+  let index_types = index_types_of_array_type pos ty in
+  let info = List.fold_left2
+    (fun info i (_, _, index_ty) ->
+      { info with context = Ctx.add_ty info.context i index_ty })
+    info
+    is
+    index_types 
+  in
+  let ivars = List.fold_left2
+    (fun m i (size_opt, size, index_ty) ->
+      StringMap.add i (size_opt, size, index_ty, ty) m)
+    StringMap.empty
+    is
+    index_types
+  in { info with inductive_variables = ivars}
+
 and normalize_equation info node_id map = function
   | A.Assert (pos, expr) ->
     let info, h_gids, expr = desugar_history info expr in
@@ -2133,21 +2180,7 @@ and normalize_equation info node_id map = function
         let ty = match Ctx.lookup_ty info.context v with
           | Some t -> t | None -> assert false
         in
-        let index_types = index_types_of_array_type pos ty in
-        let info = List.fold_left2
-          (fun info i (_, _, index_ty) ->
-            { info with context = Ctx.add_ty info.context i index_ty })
-          info
-          is
-          index_types 
-        in
-        let ivars = List.fold_left2
-          (fun m i (size_opt, size, index_ty) ->
-            StringMap.add i (size_opt, size, index_ty, ty) m)
-          StringMap.empty
-          is
-          index_types
-        in { info with inductive_variables = ivars}
+        add_array_def_indices info pos ty is
       | _ -> info)
       info
       items

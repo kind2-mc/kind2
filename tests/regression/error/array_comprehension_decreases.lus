@@ -1,0 +1,8 @@
+-- Array comprehensions are not supported in decreases clauses
+function rec F (A: int^3; n: int) returns (r: int);
+(*@contract
+  decreases ((A[i] foreach i)^3)[0] + n;
+*)
+let
+  r = when n <= 0 then 0 else F(A, n - 1);
+tel

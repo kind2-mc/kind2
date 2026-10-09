@@ -898,6 +898,7 @@ fun ctx node_name fun_ids ci ->
   match ci with
   | A.GhostVars (pos, lhs, e) ->
     let lhs, gen_nodes_ty = match lhs with
+      | A.GhostArrayDef _ -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
       | A.GhostVarDec (p, tis) ->
           let tis, gen_nodes_ty = List.map (fun (p, id, ty) ->
             let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in

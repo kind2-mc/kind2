@@ -754,6 +754,8 @@ let desugar_contract_item ctx adt_map item =
   | LA.GhostVars (p, LA.GhostVarDec (p2, tis), e) ->
     let tis' = List.map (fun (p, id, ty) -> (p, id, dt p ty)) tis in
     LA.GhostVars (p, LA.GhostVarDec (p2, tis'), r e)
+  | LA.GhostVars (p, LA.GhostArrayDef (p2, (p3, id, ty), is), e) ->
+    LA.GhostVars (p, LA.GhostArrayDef (p2, (p3, id, dt p3 ty), is), r e)
   | LA.AssumptionVars _ as a -> a
 
 let rec desugar_node_item ctx adt_map item =

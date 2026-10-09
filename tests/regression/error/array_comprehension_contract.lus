@@ -1,8 +1,0 @@
--- Array comprehensions are not supported in contracts
-node N (A: int^3) returns (B: int^3);
-(*@contract
-  guarantee B = (A[i] foreach i)^3;
-*)
-let
-  B = A;
-tel

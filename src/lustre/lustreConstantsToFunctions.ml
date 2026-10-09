@@ -75,6 +75,10 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
     ) tis) in 
     let rhs = AH.constants_to_calls new_func_ids rhs in 
     R.ok (A.GhostVars (p, (GhostVarDec (p2, tis)), rhs))
+  | GhostVars (p, (GhostArrayDef (p2, (p3, id, ty), is)), rhs) ->
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in
+    let rhs = AH.constants_to_calls new_func_ids rhs in
+    R.ok (A.GhostVars (p, (GhostArrayDef (p2, (p3, id, ty), is)), rhs))
   | Assume (p, id, b, e) -> 
     R.ok (A.Assume (p, id, b, AH.constants_to_calls new_func_ids e))
   | Guarantee (p, id, b, e) -> 

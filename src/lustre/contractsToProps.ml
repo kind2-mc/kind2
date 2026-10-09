@@ -55,6 +55,7 @@ let rec collect_contracts (equations, locals, asserts, props) = function
     
     (* Add all identifers in typed ident list to "locals", but only add the full equation
        to "equations" once *)
+    | Ast.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
     | Ast.GhostVars (pos, (GhostVarDec (_, tis) as lhs), expr) ->
       (blah "Contract variable definition" pos, (lhs, expr)) :: equations, 
       List.fold_left (fun acc (_, id, typ) -> (blah "Contract variable declaration" pos, (id, expr, typ)) :: acc)

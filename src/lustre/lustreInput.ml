@@ -195,7 +195,7 @@ let type_check declarations =
 
     (* Step 8a. Replace array comprehensions with fresh locals defined by array
        definitions, now that their types are known *)
-    let* sorted_node_contract_decls =
+    let* global_ctx, sorted_node_contract_decls =
       LDAC.desugar_array_comprehensions global_ctx sorted_node_contract_decls
     in
     (* Array comprehensions are rejected in global constants *)

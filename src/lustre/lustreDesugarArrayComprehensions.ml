@@ -85,14 +85,25 @@ let mk_fresh_var () =
   let prefix = HString.mk_hstring (string_of_int !i) in
   HString.concat2 prefix (HString.mk_hstring ("_" ^ GI.array_comprehension))
 
-(** What to do with the comprehensions of a node: lower them, accumulating the
-    declarations and equations of their fresh locals, or reject them *)
+(** An index variable of the element-wise definition of a ghost variable *)
+let mk_fresh_index () =
+  i := !i + 1;
+  HString.mk_hstring (string_of_int !i ^ "_gidx")
+
+(** What to do with the comprehensions of a node or a contract: lower them,
+    accumulating the declarations and equations of their fresh locals, or the
+    definitions of their fresh ghost variables, or reject them *)
 type mode =
   | Lower of {
       node_id : NodeId.t;
       mutable ctx : Ctx.tc_context;
       mutable decls : A.node_local_decl list;
       mutable eqs : A.node_item list;
+    }
+  | LowerContract of {
+      contract_id : NodeId.t;
+      mutable contract_ctx : Ctx.tc_context;
+      mutable ghosts : A.contract_node_equation list;
     }
   | Reject of string
 
@@ -181,7 +192,7 @@ let rec lower_expr mode bound e =
   | ArrayComprehension (p, bs, body) as source -> (
     match mode with
     | Reject where -> mk_error p (UnsupportedComprehensionPosition where)
-    | Lower st ->
+    | Lower { node_id; ctx; _ } | LowerContract { contract_id = node_id; contract_ctx = ctx; _ } ->
       let ids = List.map (fun (_, id, _) -> id) bs in
       let* body = lower_expr mode (A.SI.union bound (A.SI.of_list ids)) body in
       let comp = A.ArrayComprehension (p, bs, body) in
@@ -194,7 +205,7 @@ let rec lower_expr mode bound e =
         | v :: _ -> mk_error p (BoundVariableInComprehension v)
         | [] -> R.ok ()
       in
-      let* ty, _, _ = Chk.infer_type_expr st.ctx (Some st.node_id) comp in
+      let* ty, _, _ = Chk.infer_type_expr ctx (Some node_id) comp in
       (* An array definition takes an index for every dimension of the array,
          so the elements of an array type (such as the value of an inner
          comprehension) are defined element-wise with fresh index variables *)
@@ -205,7 +216,7 @@ let rec lower_expr mode bound e =
         ) ty bs
       in
       let rec extra_dims ty =
-        let* ty = Chk.expand_type_syn_reftype_history st.ctx ty in
+        let* ty = Chk.expand_type_syn_reftype_history ctx ty in
         match ty with
         | A.ArrayType (_, (ty, _)) ->
           let* n = extra_dims ty in R.ok (n + 1)
@@ -213,16 +224,31 @@ let rec lower_expr mode bound e =
       in
       let* k = extra_dims elem_ty in
       let extra_ids = List.init k (fun _ -> mk_fresh_var ()) in
-      let body =
+      let index body ids =
         List.fold_left (fun e j -> A.IndexAccess (p, e, A.Ident (p, j), A.Array))
-          body extra_ids
+          body ids
       in
       let x = mk_fresh_var () in
       Hashtbl.replace sources x source;
-      let lhs = A.StructDef (p, [A.ArrayDef (p, x, ids @ extra_ids)]) in
-      st.ctx <- Ctx.add_ty st.ctx x ty;
-      st.decls <- A.NodeVarDecl (p, (p, x, ty, A.ClockTrue)) :: st.decls;
-      st.eqs <- A.Body (A.Equation (p, lhs, body)) :: st.eqs;
+      (match mode with
+       | Lower st ->
+         let lhs = A.StructDef (p, [A.ArrayDef (p, x, ids @ extra_ids)]) in
+         st.ctx <- Ctx.add_ty st.ctx x ty;
+         st.decls <- A.NodeVarDecl (p, (p, x, ty, A.ClockTrue)) :: st.decls;
+         st.eqs <- A.Body (A.Equation (p, lhs, index body extra_ids)) :: st.eqs
+       | LowerContract st ->
+         (* The index variables are renamed apart, since the passes that
+            follow do not see them bound in the right-hand side of a ghost
+            variable, as they do in an array definition of a node *)
+         let ids' = List.map (fun _ -> mk_fresh_index ()) ids in
+         let body =
+           List.fold_left2 (fun e i i' -> AH.substitute_naive i (A.Ident (p, i')) e)
+             body ids ids'
+         in
+         let lhs = A.GhostArrayDef (p, (p, x, ty), ids' @ extra_ids) in
+         st.contract_ctx <- Ctx.add_ty st.contract_ctx x ty;
+         st.ghosts <- A.GhostVars (p, lhs, index body extra_ids) :: st.ghosts
+       | Reject _ -> assert false);
       R.ok (A.Ident (p, x))
   )
 
@@ -302,30 +328,67 @@ let rec lower_node_item mode bound item =
 and lower_node_items mode bound items =
   seq_map (lower_node_item mode bound) items
 
-(** Reject the comprehensions of a contract *)
-let check_contract (_, eqs) =
-  let mode = Reject "contracts" in
-  let check e = let* _ = lower mode e in R.ok () in
-  let check_const = function
-    | A.FreeConst (_, _, ty) -> check_type ty
-    | A.UntypedConst (_, _, e) -> check e
-    | A.TypedConst (_, _, e, ty) -> let* () = check_type ty in check e
+(** The types of the ghost variables and constants of a contract, added to
+    [ctx] so that the comprehensions that mention them can be typed *)
+let add_ghost_types ctx contract_id eqs =
+  List.fold_left (fun ctx eq -> match eq with
+    | A.GhostVars (_, A.GhostVarDec (_, tis), _) ->
+      List.fold_left (fun ctx (_, id, ty) -> Ctx.add_ty ctx id ty) ctx tis
+    | A.GhostConst (A.FreeConst (_, id, ty) | A.TypedConst (_, id, _, ty)) ->
+      Ctx.add_ty ctx id ty
+    | A.GhostConst (A.UntypedConst (_, id, e)) -> (
+      match Chk.infer_type_expr ctx (Some contract_id) e with
+      | Ok (ty, _, _) -> Ctx.add_ty ctx id ty
+      | Error _ -> ctx)
+    | _ -> ctx
+  ) ctx eqs
+
+(** Lower the comprehensions of a contract to fresh ghost variables, each
+    defined just before the item it is lowered from *)
+let lower_contract ctx contract_id (p, eqs) =
+  let contract_ctx = add_ghost_types ctx contract_id eqs in
+  let st = LowerContract { contract_id; contract_ctx; ghosts = [] } in
+  let low e = lower st e in
+  let reject where e = let* _ = lower (Reject where) e in R.ok () in
+  let lower_item = function
+    | A.GhostConst (A.FreeConst (_, _, ty)) as eq -> let* () = check_type ty in R.ok eq
+    | A.GhostConst (A.UntypedConst (_, _, e)) as eq ->
+      let* () = reject "constant declarations" e in R.ok eq
+    | A.GhostConst (A.TypedConst (_, _, e, ty)) as eq ->
+      let* () = check_type ty in
+      let* () = reject "constant declarations" e in R.ok eq
+    | A.GhostVars (p, lhs, e) ->
+      let* () = match lhs with
+        | A.GhostVarDec (_, tis) -> check_types (List.map (fun (_, _, ty) -> ty) tis)
+        | A.GhostArrayDef _ -> R.ok ()
+      in
+      let* e = low e in R.ok (A.GhostVars (p, lhs, e))
+    | A.Assume (p, n, s, e) -> let* e = low e in R.ok (A.Assume (p, n, s, e))
+    | A.Guarantee (p, n, s, e) -> let* e = low e in R.ok (A.Guarantee (p, n, s, e))
+    | A.Decreases (_, e) as eq -> let* () = reject "decreases clauses" e in R.ok eq
+    | A.Mode (p, id, reqs, enss) ->
+      let low_item (p, n, e) = let* e = low e in R.ok (p, n, e) in
+      let* reqs = seq_map low_item reqs in
+      let* enss = seq_map low_item enss in
+      R.ok (A.Mode (p, id, reqs, enss))
+    | A.ContractCall (p, id, tys, es, outs) ->
+      let* es = seq_map low es in R.ok (A.ContractCall (p, id, tys, es, outs))
+    | A.AssumptionVars _ as eq -> R.ok eq
   in
-  R.seq_ (List.map (function
-    | A.GhostConst c -> check_const c
-    | A.GhostVars (_, A.GhostVarDec (_, tis), e) ->
-      let* () = check_types (List.map (fun (_, _, ty) -> ty) tis) in check e
-    | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e)
-    | A.Decreases (_, e) -> check e
-    | A.Mode (_, _, reqs, enss) ->
-      let* () = R.seq_ (List.map (fun (_, _, e) -> check e) reqs) in
-      R.seq_ (List.map (fun (_, _, e) -> check e) enss)
-    | A.ContractCall (_, _, _, es, _) -> R.seq_ (List.map check es)
-    | A.AssumptionVars _ -> R.ok ()
-  ) eqs)
+  let* eqs =
+    seq_map (fun eq ->
+      let* eq = lower_item eq in
+      match st with
+      | LowerContract st ->
+        let ghosts = List.rev st.ghosts in
+        st.ghosts <- [];
+        R.ok (ghosts @ [eq])
+      | Lower _ | Reject _ -> assert false
+    ) eqs
+  in
+  R.ok (p, List.flatten eqs)
 
 let lower_node ctx (node_id, ext, opac, nps, cctds, ctds, nlds, nis, co) =
-  let* () = match co with Some c -> check_contract c | None -> R.ok () in
   let* () =
     check_types
       (List.map (fun (_, _, ty, _, _) -> ty) cctds @ List.map (fun (_, _, ty, _) -> ty) ctds)
@@ -342,35 +405,63 @@ let lower_node ctx (node_id, ext, opac, nps, cctds, ctds, nlds, nis, co) =
     ) nlds)
   in
   let ctx = Chk.add_full_node_ctx ctx node_id nps cctds ctds nlds in
+  let* co = match co with
+    | Some c -> let* c = lower_contract ctx node_id c in R.ok (Some c)
+    | None -> R.ok None
+  in
   let st = Lower { node_id; ctx; decls = []; eqs = [] } in
   let* nis = lower_node_items st A.SI.empty nis in
   match st with
   | Lower { decls; eqs; _ } ->
     R.ok (node_id, ext, opac, nps, cctds, ctds,
           nlds @ List.rev decls, nis @ List.rev eqs, co)
-  | Reject _ -> assert false
+  | LowerContract _ | Reject _ -> assert false
 
+(** The declaration with its comprehensions lowered, and [ctx] with the types
+    of the ghost variables introduced in a contract node among its exports, as
+    they are looked up when the contract is imported *)
 let lower_decl ctx = function
   | A.NodeDecl (s, decl) ->
-    let* decl = lower_node ctx decl in R.ok (A.NodeDecl (s, decl))
+    let* decl = lower_node ctx decl in R.ok (ctx, A.NodeDecl (s, decl))
   | A.FuncDecl (s, decl, attrs) ->
-    let* decl = lower_node ctx decl in R.ok (A.FuncDecl (s, decl, attrs))
-  | A.ContractNodeDecl (_, (_, _, ins, outs, c)) as decl ->
+    let* decl = lower_node ctx decl in R.ok (ctx, A.FuncDecl (s, decl, attrs))
+  | A.ContractNodeDecl (s, (id, ps, ins, outs, c)) ->
     let* () =
       check_types
         (List.map (fun (_, _, ty, _, _) -> ty) ins @ List.map (fun (_, _, ty, _) -> ty) outs)
     in
-    let* () = check_contract c in R.ok decl
+    let node_ctx = Chk.add_full_node_ctx ctx id ps ins outs [] in
+    let* ((_, eqs) as c) = lower_contract node_ctx id c in
+    let ctx =
+      match Ctx.lookup_contract_exports ctx id with
+      | None -> ctx
+      | Some exports ->
+        let exports =
+          List.fold_left (fun exports eq -> match eq with
+            | A.GhostVars (_, A.GhostArrayDef (_, (_, x, ty), _), _) ->
+              Ctx.IMap.add x ty exports
+            | _ -> exports
+          ) exports eqs
+        in
+        Ctx.add_contract_exports ctx id exports
+    in
+    R.ok (ctx, A.ContractNodeDecl (s, (id, ps, ins, outs, c)))
   | A.ConstDecl (_, A.UntypedConst (_, _, e)) as decl ->
-    let* _ = lower (Reject "constant declarations") e in R.ok decl
+    let* _ = lower (Reject "constant declarations") e in R.ok (ctx, decl)
   | A.ConstDecl (_, A.TypedConst (_, _, e, ty)) as decl ->
     let* () = check_type ty in
-    let* _ = lower (Reject "constant declarations") e in R.ok decl
+    let* _ = lower (Reject "constant declarations") e in R.ok (ctx, decl)
   | A.ConstDecl (_, A.FreeConst (_, _, ty)) as decl ->
-    let* () = check_type ty in R.ok decl
+    let* () = check_type ty in R.ok (ctx, decl)
   | A.TypeDecl (_, A.AliasType (_, _, _, ty)) as decl ->
-    let* () = check_type ty in R.ok decl
-  | A.TypeDecl (_, A.FreeType _) | A.NodeParamInst _ as decl -> R.ok decl
+    let* () = check_type ty in R.ok (ctx, decl)
+  | A.TypeDecl (_, A.FreeType _) | A.NodeParamInst _ as decl -> R.ok (ctx, decl)
 
 let desugar_array_comprehensions ctx decls =
-  seq_map (lower_decl ctx) decls
+  let* ctx, decls =
+    R.seq_chain (fun (ctx, acc) decl ->
+      let* ctx, decl = lower_decl ctx decl in
+      R.ok (ctx, decl :: acc)
+    ) (ctx, []) decls
+  in
+  R.ok (ctx, List.rev decls)
