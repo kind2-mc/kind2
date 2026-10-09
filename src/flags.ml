@@ -4458,11 +4458,13 @@ let post_argv_parse_actions () =
     let old_log_level = get_log_level () in
     set_log_level L_info ;
     Log.log L_info "%a" pp_print_banner () ;
-    if Global.log_format_json () then Format.fprintf !log_ppf ",@.";
+    if Global.log_format_json () || Global.log_format_ijson () then
+      Log.print_json_sep !log_ppf ;
     (* Reset log level. *)
     set_log_level old_log_level ;
   );
-  if Global.log_format_json () then print_json_options ()
+  if Global.log_format_json () || Global.log_format_ijson () then
+    print_json_options ()
 
 
 let parse_argv () =
