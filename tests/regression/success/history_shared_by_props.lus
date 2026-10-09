@@ -1,0 +1,14 @@
+(* Several properties and guarantees quantify over the history of the same
+   variable: they share one history variable *)
+node N(x: int) returns (y: int);
+con
+  guarantee "G1" exists (z: history(x)) y = z + 1;
+  guarantee "G2" forall (z: history(y)) z >= 1 or z <= 0;
+  guarantee "G3" exists (z: history(y)) z = y;
+noc
+let
+  y = x + 1 -> if any@<bool> then x + 1 else pre y;
+  check "P1" exists (z: history(x)) y = z + 1;
+  check "P2" exists (z: history(x)) x = z;
+  check "P3" forall (z1: history(x)) exists (z2: history(x)) z1 = z2;
+tel

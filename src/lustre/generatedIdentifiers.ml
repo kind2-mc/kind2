@@ -23,6 +23,8 @@ module StringMap = HString.HStringMap
 
 module StringSet = HString.HStringSet
 
+module AH = LustreAstHelpers
+
 type source =
   | Local
   | Input
@@ -32,6 +34,14 @@ type source =
   (* Output of an equation pulled out of a when-block branch; the expression is
      the (polarity-adjusted) conjunction of the enclosing when-block guards.
      Node calls in such an equation must be activated on that clock. *)
+
+(* A generated equation *)
+type equation =
+  LustreAst.typed_ident list (* quantified variables *)
+  * (Lib.position * NodeId.t) list (* contract scope  *)
+  * LustreAst.eq_lhs
+  * LustreAst.expr
+  * source option (* Record the source of the equation if generated before normalization step *)
 
 type t = {
   node_args : (HString.t (* abstracted variable name *)
@@ -119,13 +129,7 @@ type t = {
     LustreAst.binary_operator * 
     LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr
-    * source option) (* Record the source of the equation if generated before normalization step *)
-    list;
+  equations : equation list;
   nonvacuity_props: StringSet.t;
   clocked_call_ties:
     (HString.t * HString.t option * HString.t * HString.t) list;
@@ -149,6 +153,13 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
+  history_defs: (LustreAst.lustre_type * equation) StringMap.t;
+  (* The type and the equation of each history variable, by name. A history
+     variable is named after the variable it records, as renamed in the scope
+     of its quantifier, so every property quantifying over the history of the
+     same variable yields the same definition. They are kept apart from
+     [locals] and [equations], and are declared once per node (see
+     [LustreAstNormalizer.normalize_node]). *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -224,6 +235,30 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, (Some _), (Some _) -> assert false
 
 
+(* Two definitions of the same history variable record the same variable, so
+   they must be equal up to positions. The contract scope is not compared: it
+   only resolves mode references, which a history equation has none of. *)
+let union_history_defs _ ((ty1, (qv1, _, lhs1, rhs1, src1)) as def) (ty2, (qv2, _, lhs2, rhs2, src2)) =
+  let equal = function Ok b -> b | Error () -> false in
+  let typed_ident_equal (_, id1, ty1) (_, id2, ty2) =
+    HString.equal id1 id2 && equal (AH.syn_type_equal None ty1 ty2)
+  in
+  let lhs_equal lhs1 lhs2 =
+    match lhs1, lhs2 with
+    | LustreAst.StructDef (_, [LustreAst.ArrayDef (_, id1, is1)]),
+      LustreAst.StructDef (_, [LustreAst.ArrayDef (_, id2, is2)]) ->
+      HString.equal id1 id2 && List.equal HString.equal is1 is2
+    | _ -> false
+  in
+  assert (
+    equal (AH.syn_type_equal None ty1 ty2)
+    && List.equal typed_ident_equal qv1 qv2
+    && lhs_equal lhs1 lhs2
+    && equal (AH.syn_expr_equal None rhs1 rhs2)
+    && src1 = None && src2 = None
+  );
+  Some def
+
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
     free_constants = ids1.free_constants @ ids2.free_constants;
@@ -252,7 +287,8 @@ let union ids1 ids2 = {
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
     prop_source_map = StringMap.union (fun _ src _ -> Some src) ids1.prop_source_map ids2.prop_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
-    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
+    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars;
+    history_defs = StringMap.union union_history_defs ids1.history_defs ids2.history_defs
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -289,4 +325,5 @@ let empty () = {
   prop_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
+  history_defs = StringMap.empty;
 }

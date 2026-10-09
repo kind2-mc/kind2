@@ -945,10 +945,27 @@ let rename_id_expr info = function
   | A.Ident (pos, id) -> A.Ident (pos, rename_id info id)
   | _ -> assert false
 
-let add_history_var_and_equation info id h_id =
-  let ty = get_history_type info.context id in
-  let locals = StringMap.singleton h_id ty in
-  let equations =
+(* The history variable of [id] is named after [id] as renamed in the current
+   scope, e.g. the argument an input of an imported contract is bound to. A
+   name thus always denotes the history of the same variable, whichever
+   scope it is introduced in *)
+let history_var_name info id =
+  HString.mk_hstring
+    (Format.asprintf "_history_%a" HString.pp_print_hstring (rename_id info id))
+
+(* The type of the history variable of [id]: an array of the type of [id] as
+   renamed, if it is in the context, so that it is the same in every scope *)
+let history_var_type info id =
+  let id' = rename_id info id in
+  match Ctx.lookup_ty info.context id' with
+  | Some _ -> get_history_type info.context id'
+  | None -> get_history_type info.context id
+
+(* Records the type of the history variable [h_id] of [id] and the equation
+   defining it, to be declared by [declare_history_vars] *)
+let record_history_def info id h_id =
+  let ty = history_var_type info id in
+  let equation =
     let index = HString.mk_hstring "i" in
     let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
     let eq_rhs =
@@ -964,9 +981,21 @@ let add_history_var_and_equation info id h_id =
       in
       A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
     in
-    [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)]
+    (info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)
   in
-  { (empty ()) with locals; equations }
+  { (empty ()) with history_defs = StringMap.singleton h_id (ty, equation) }
+
+(* Declares the history variables recorded in [gids], once each, however
+   many properties quantify over the history of the same variable *)
+let declare_history_vars gids =
+  let locals, equations =
+    StringMap.fold
+      (fun h_id (ty, equation) (locals, equations) ->
+        StringMap.add h_id ty locals, equation :: equations)
+      gids.history_defs
+      (gids.locals, gids.equations)
+  in
+  { gids with locals; equations; history_defs = StringMap.empty }
 
 let get_expr_ty info map node_id expr =
   let ty =
@@ -998,13 +1027,14 @@ let normalize_list f list =
   in let list, gids, warnings = List.fold_left over_list ([], empty (), []) list in
   List.rev list, gids, warnings
 
-(** [desugar_history_in_expr c p e] desugars type constructors of
+(** [desugar_history_in_expr info c e] desugars type constructors of
     the form history(x) occurring in [e] using [c] for the name of
-    the counter variable and [p] as a prefix for the name of
+    the counter variable and [history_var_name] for the names of
     the history variables. It returns the set of variables passed as
     argument to the type constructors history and an expression that is
     the result of desugaring the type constructors ocurring in [e] *)
-let desugar_history_in_expr ctx ctr_id prefix expr =
+let desugar_history_in_expr info ctr_id expr =
+  let ctx = info.context in
   let mk_range pos idx_id =
     A.BinaryOp (pos, And,
       CompOp (pos, Lte,
@@ -1023,10 +1053,7 @@ let desugar_history_in_expr ctx ctr_id prefix expr =
         (fun (vars, map, idents, constrs) (pos, bv, ty) ->
           match ty with
           | A.History (_, i) -> (
-            let hist_varid =
-              HString.mk_hstring
-                (Format.asprintf "%s_%a" prefix HString.pp_print_hstring i)
-            in
+            let hist_varid = history_var_name info i in
             match kind with
             | Exists -> (
               let rng = mk_range pos bv in
@@ -1329,7 +1356,9 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
       let name = HString.concat2 prefix (HString.mk_hstring "_reftype") in
       let nexpr = A.Ident (pos, name) in
       let (eq_lhs, _) = generalize_to_array_expr name StringMap.empty ref_type_expr nexpr in
-      let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_expr in 
+      let info, h_gids, ref_type_hexpr = desugar_history info ref_type_expr in
+      let ref_type_nexpr, gids1, warnings = normalize_expr info node_id map ref_type_hexpr in
+      let gids1 = union h_gids gids1 in
       let gids2 = { (empty ()) with
         refinement_type_constraints = [(source, pos, name, output_expr, node_id)];
         equations = [(info.quantified_variables, info.contract_scope, eq_lhs, ref_type_nexpr, None)]; }
@@ -1533,7 +1562,11 @@ and normalize_node info map
   let ctx = Chk.add_io_node_ctx info.context node_id params inputs outputs in
   let ctx = Ctx.add_ty ctx ctr_id (A.Int dpos) in
   let info = { info with context = ctx } in
+  (* The refinement type of a local may refer to another local, e.g. in the
+     history quantifier of its predicate *)
+  let locals_info = { info with context = Chk.add_local_node_ctx ctx locals } in
   let locals, gids3, warnings3 = List.map (fun decl -> 
+    let info = locals_info in
     match decl with 
     | A.NodeConstDecl (p1, FreeConst (p2, id, ty)) ->
       let ty, gids, warnings = normalize_ty ~id:(Some id) info (Some node_id) map ty in 
@@ -1580,6 +1613,14 @@ and normalize_node info map
   in
   let ctx = Chk.add_local_node_ctx ctx locals in
   let info = { info with context = ctx } in
+  (* The refinement types of the locals are normalized, so the history
+     variables they refer to must be in the context *)
+  let info =
+    StringMap.fold
+      (fun h_id (ty, _) info -> add_ty_to_info info h_id ty)
+      (union_list gids3).history_defs
+      info
+  in
   (* Record constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
@@ -1631,16 +1672,19 @@ and normalize_node info map
   (* Normalize equations and the contract *)
   let nitems, gids8, warnings8 = normalize_list (normalize_item info node_id map) items in
   let gids6_8 = union gids6 gids8 in
+  let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
+                             gids4; gids5; gids7; gids6_8] in
+  (* A history quantifier may also occur in the refinement type of an input,
+     an output or a local *)
   let gids9 =
     if exists_reachability_prop_with_bounds ||
-       not (StringMap.is_empty gids6_8.history_vars) then (
+       not (StringMap.is_empty new_gids.history_vars) then (
       add_step_counter info
     )
     else
       empty ()
   in
-  let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
-                             gids4; gids5; gids7; gids6_8; gids9] in
+  let new_gids = union new_gids gids9 |> declare_history_vars in
   let old_gids, warnings9 = normalize_gid_equations { info with interpretation = interpretation; } map (Some node_id) in
   let map = NI.Map.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
@@ -1650,33 +1694,18 @@ and normalize_node info map
 
 
 and desugar_history info expr =
-  let prefix = "_history" in
-  let history_arg_vars, expr =
-    desugar_history_in_expr info.context ctr_id prefix expr
-  in
-  let info, h_gids =
-    StringSet.fold
-      (fun id (info, gids) ->
-        let name = HString.mk_hstring
-          (Format.asprintf "%s_%a" prefix HString.pp_print_hstring id)
-        in
-        let ty = get_history_type info.context id in
-        let history_vars = StringMap.singleton id name in
-        add_ty_to_info info name ty,
-        union gids { (empty ()) with history_vars }
-      )
-      history_arg_vars
-      (info, empty ())
-  in
-  let gids =
-    StringMap.fold
-      (fun id h_id acc ->
-        union acc (add_history_var_and_equation info id h_id)
-      )
-      h_gids.history_vars
-      h_gids
-  in
-  info, gids, expr
+  let history_arg_vars, expr = desugar_history_in_expr info ctr_id expr in
+  StringSet.fold
+    (fun id (info, gids, expr) ->
+      let name = history_var_name info id in
+      let history_vars = StringMap.singleton (rename_id info id) name in
+      add_ty_to_info info name (history_var_type info id),
+      union gids
+        (union { (empty ()) with history_vars } (record_history_def info id name)),
+      expr
+    )
+    history_arg_vars
+    (info, empty (), expr)
 
 and normalize_item info node_id map = function
   | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)

@@ -3661,7 +3661,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (fun acc (id, h_id) ->
         let id = mk_ident id in
         let h_id = mk_ident h_id in
-        let svars = H.find !map.usr_state_var id in
+        (* [id] is the variable as renamed in the scope of the quantifier,
+           e.g. the abstracted argument of an imported contract, which is not
+           a user variable, or a ghost variable, which is a user variable
+           under its name as written *)
+        let svars =
+          try H.find !map.usr_state_var id with Not_found ->
+          try H.find !map.res_state_var id with Not_found ->
+          H.find !map.expr id |> X.map state_var_of_expr
+        in
         let h_svars = H.find !map.res_state_var h_id in
         List.fold_left2
           (fun acc (_, sv) (_, h_sv) ->
