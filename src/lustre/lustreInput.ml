@@ -195,11 +195,13 @@ let type_check declarations =
 
     (* Step 8a. Replace array comprehensions with fresh locals defined by array
        definitions, now that their types are known *)
+    let* const_inlined_type_and_consts, sorted_node_contract_decls =
+      LDAC.inline_comprehension_constants
+        const_inlined_type_and_consts sorted_node_contract_decls
+    in
     let* global_ctx, sorted_node_contract_decls =
       LDAC.desugar_array_comprehensions global_ctx sorted_node_contract_decls
     in
-    (* Array comprehensions are rejected in global constants *)
-    let* _ = LDAC.desugar_array_comprehensions global_ctx const_inlined_type_and_consts in
 
     (* Provide lsp info if option is enabled *)
     if (Flags.log_format_json () || Flags.log_format_ijson ()) && Flags.Lsp.lsp () then

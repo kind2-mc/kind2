@@ -605,8 +605,9 @@ and pp_print_expr ppf =
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
     | ArrayComprehension (_, binders, e) ->
-      (* The sizes are given innermost first *)
-      Format.fprintf ppf "@[<hv 1>(%a@ foreach %a)%a@]"
+      (* The sizes are given innermost first. Parenthesized as a whole, as an
+         array constructor, since a selection binds more tightly than them *)
+      Format.fprintf ppf "@[<hv 1>((%a@ foreach %a)%a)@]"
         pp_print_expr e
         (pp_print_list (fun ppf (_, i, _) -> HString.pp_print_hstring ppf i) ", ")
         binders

@@ -23,6 +23,7 @@
 type error_kind =
   | BoundVariableInComprehension of HString.t
   | UnsupportedComprehensionPosition of string
+  | ComprehensionConstantInType of HString.t
 
 val error_message : error_kind -> string
 
@@ -45,3 +46,13 @@ val restore : LustreAst.expr -> LustreAst.expr
 val desugar_array_comprehensions :
   TypeCheckerContext.tc_context -> LustreAst.t ->
   (TypeCheckerContext.tc_context * LustreAst.t, [> error]) result
+
+(** [inline_comprehension_constants consts decls] replaces in the nodes,
+    functions and contracts of [decls] the constants whose definition
+    contains an array comprehension, possibly through another such constant,
+    with their definitions, and removes their declarations from the global
+    constant declarations [consts] and from the local constants of the
+    nodes. Returns an error if such a constant is used in a type. Must run
+    before [desugar_array_comprehensions]. *)
+val inline_comprehension_constants :
+  LustreAst.t -> LustreAst.t -> (LustreAst.t * LustreAst.t, [> error]) result
