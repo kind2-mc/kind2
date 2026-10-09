@@ -1036,6 +1036,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
+  mk_test "test recursive ADT with a polymorphic datatype field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_poly_datatype_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedDatatypeInRecursiveAdtField)) -> true
+    | _ -> false);
   mk_test "test non-uniform polymorphic recursion is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_polymorphic_recursion.lus" with
     | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true

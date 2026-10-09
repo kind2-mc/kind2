@@ -910,6 +910,61 @@ let resolve_datatype_ref dt ft =
      && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
   then dt else ft
 
+(* An enum is an integer everywhere else, but a datatype field of integer sort
+   lets a model read a value outside the enum out of a free datatype value: a
+   field is pinned by its constructor, so no range constraint can be put on one
+   after the fact. An enum-typed field of a recursive datatype is given a sort
+   of its own instead, a datatype with one nullary constructor per enum value,
+   which holds nothing else; the integer encoding is restored where a field is
+   read ([decode_enum_field]) and where one is built ([encode_enum_field]). *)
+let enum_field_ctor_sym sort_name ctor = sort_name ^ "$" ^ ctor
+
+let enum_field_sort ty =
+  let name =
+    Type.enum_field_sort_name (smt_name_of_adt_name (Type.name_of_enum ty))
+  in
+  let ctors = Type.constructors_of_enum ty in
+  let sort =
+    Type.mk_datatype name
+      (List.map (fun c -> (enum_field_ctor_sym name c, [])) ctors)
+  in
+  (* A model may mention any of them, so declare every one *)
+  List.iter (fun c ->
+    ignore (UfSymbol.mk_uf_symbol (enum_field_ctor_sym name c) [] sort)
+  ) ctors;
+  sort
+
+(* The enum type, in its integer encoding, that the sort [sort] stands for *)
+let enum_of_field_sort sort =
+  match Type.constructors_of_datatype sort with
+  | (c, _) :: _ -> Type.enum_of_constr (Type.source_ctor_name c)
+  | [] -> assert false
+
+(* The integer-encoded enum value the field [e] of sort [sort] holds *)
+let decode_enum_field sort e =
+  let ety = enum_of_field_sort sort in
+  let value c = E.mk_constr (Type.source_ctor_name c) ety in
+  let rec build = function
+    | [] -> assert false
+    | [(c, _)] -> value c
+    | (c, _) :: rest -> E.mk_ite (E.mk_is_constructor c e) (value c) (build rest)
+  in
+  build (Type.constructors_of_datatype sort)
+
+(* The value of sort [sort] the integer-encoded enum expression [e] denotes *)
+let encode_enum_field sort e =
+  let ety = enum_of_field_sort sort in
+  let ctor c = E.mk_uf (UfSymbol.mk_uf_symbol c [] sort) sort [] in
+  let rec build = function
+    | [] -> assert false
+    | [(c, _)] -> ctor c
+    | (c, _) :: rest ->
+      E.mk_ite
+        (E.mk_eq e (E.mk_constr (Type.source_ctor_name c) ety))
+        (ctor c) (build rest)
+  in
+  build (Type.constructors_of_datatype sort)
+
 let rec compile ctx gids adt_map scc_map decls =
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
   let output = List.fold_left over_decls_1 ({ (empty_compiler_state ()) with adt_map }) decls in
@@ -1100,7 +1155,8 @@ and compile_ast_type
         Type.mk_datatype_ref smt_name
       else
         match X.bindings (compile_ast_type cstate ctx map ty) with
-        | [(idx, t)] when idx = X.empty_index -> t
+        | [(idx, t)] when idx = X.empty_index ->
+          if Type.is_enum t then enum_field_sort t else t
         | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
     in
     let ctors' = List.map (fun (c, fields) ->
@@ -1869,7 +1925,12 @@ and compile_ast_expr
       let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
       let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
       let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
-      X.singleton X.empty_index (E.mk_selector selector_name result_type e')
+      let sel = E.mk_selector selector_name result_type e' in
+      let sel =
+        if Type.is_enum_field_sort result_type then decode_enum_field result_type sel
+        else sel
+      in
+      X.singleton X.empty_index sel
     | None ->
       let unguarded_adt = match pk with
         | A.Selector (_, A.UserType (_, _, ty_name), _) ->
@@ -1955,13 +2016,24 @@ and compile_ast_expr
       (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
       arg_exprs
     in
-    let arg_types = List.map
-      (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
-      field_tys
+    let ctor_name = compiled_ctor_sym adt_type ctor in
+    (* The sorts the datatype declares, which for an enum-typed field is not
+       the compiled type of the field's source type (see [enum_field_sort]) *)
+    let arg_types =
+      if Type.is_datatype adt_type then
+        List.assoc ctor_name (Type.constructors_of_datatype adt_type)
+        |> List.map (resolve_datatype_ref adt_type)
+      else
+        List.map
+          (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
+          field_tys
     in
-    let ctor_sym =
-      UfSymbol.mk_uf_symbol (compiled_ctor_sym adt_type ctor) arg_types adt_type
+    let compiled_args =
+      List.map2 (fun at e ->
+        if Type.is_enum_field_sort at then encode_enum_field at e else e
+      ) arg_types compiled_args
     in
+    let ctor_sym = UfSymbol.mk_uf_symbol ctor_name arg_types adt_type in
     X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
   | A.Match _ -> assert false
   | A.ADTTester (_, expr, ctor) ->
@@ -3820,7 +3892,18 @@ and compile_type_decl pos ctx cstate = function
       | [], [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty
                              && not (List.exists (Type.equal_types ty)
                                        cstate.recursive_datatypes) ->
-        cstate.recursive_datatypes @ [ty]
+        (* The sort of an enum-typed field is a datatype of its own, declared
+           before the datatype whose field has it *)
+        let enum_sorts =
+          Type.constructors_of_datatype ty
+          |> List.concat_map snd
+          |> List.filter Type.is_enum_field_sort
+          |> List.fold_left (fun acc s ->
+               if List.exists (Type.equal_types s) (acc @ cstate.recursive_datatypes)
+               then acc else acc @ [s])
+               []
+        in
+        cstate.recursive_datatypes @ enum_sorts @ [ty]
       | _ -> cstate.recursive_datatypes
     in
     { cstate with

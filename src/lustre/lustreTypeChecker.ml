@@ -125,6 +125,7 @@ type error_kind = Unknown of string
   | NonRecursiveADTDecreases of tc_type
   | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
+  | UnsupportedDatatypeInRecursiveAdtField
   | NonUniformRecursiveDatatype of HString.t * HString.t
   | MutuallyRecursiveDatatypes of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
@@ -306,6 +307,8 @@ let error_message kind = match kind with
     ^ "' with a non-scalar type (array, tuple, record, set, or map); a recursive datatype's \
        fields must each be either a scalar type or a direct self-reference, so this is not yet \
        supported"
+  | UnsupportedDatatypeInRecursiveAdtField ->
+    "non-scalar field types not yet supported"
   | NonUniformRecursiveDatatype (ty_name, field) ->
     "Datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
     ^ HString.string_of_hstring field
@@ -3342,6 +3345,37 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           ) ctors with
           | fn :: _ -> type_error pos (UnsupportedRefinementInRecursiveAdtField (new_ty_name, fn))
           | [] -> R.ok ()
+      in
+      (* A non-recursive datatype is encoded as a record unless it takes no type
+         parameters and every constructor is argument-free, in which case it is
+         an enum; a record is not a legal field type of a recursive datatype. *)
+      let rec is_record_encoded_adt ty = match ty with
+        | LA.ADT (_, id, adt_ctors) ->
+          not (LH.is_directly_recursive_adt id adt_ctors)
+          && (List.exists (fun (_, fields) -> fields <> []) adt_ctors
+              || (match lookup_ty_ty_vars ctx id with
+                  | Some (_ :: _) -> true
+                  | Some [] | None -> false))
+        | LA.UserType (_, ty_args, id) ->
+          (match lookup_ty_syn ctx id ty_args with
+           (* A synonym that resolves to itself is returned as it is *)
+           | Some (LA.UserType (_, _, id')) when HString.equal id' id -> false
+           | Some ty' -> is_record_encoded_adt ty'
+           | None -> false)
+        | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+        | LA.EnumType _ | LA.AbstractType _ | LA.RefinementType _
+        | LA.TupleType _ | LA.GroupType _ | LA.RecordType _ | LA.ArrayType _
+        | LA.Set _ | LA.Map _ | LA.TArr _ | LA.History _ -> false
+      in
+      let* () =
+        if is_recursive_adt
+           && List.exists (fun (_, fields) ->
+                List.exists (fun (_, ty) ->
+                  not (is_recursive_field ty) && is_record_encoded_adt ty
+                ) fields
+              ) ctors
+        then type_error pos UnsupportedDatatypeInRecursiveAdtField
+        else R.ok ()
       in
       (* Well-foundedness: at least one constructor must have no directly
          self-recursive field, otherwise no finite value of the type exists. *)

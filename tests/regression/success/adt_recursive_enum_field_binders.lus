@@ -1,0 +1,10 @@
+type E = enum { A, B };
+type F = enum { P, Q, R };
+datatype L = LN | LC (h: E, g: F, t: L) | LD (k: F);
+
+node main(s: set<L>; a: L^3; m: map<int, L>) returns ();
+let
+  check forall (l: L) ((l in s and LC?(l)) ==> (l.h = A or l.h = B));
+  check forall (i: int) ((0 <= i and i < 3 and LD?(a[i])) ==> (a[i].k = P or a[i].k = Q or a[i].k = R));
+  check forall (k: int) ((k in m and LC?(m[k])) ==> (m[k].g = P or m[k].g = Q or m[k].g = R));
+tel
