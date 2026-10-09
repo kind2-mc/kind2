@@ -1,0 +1,7 @@
+(* Several properties quantify over the history of the same variable: they
+   share one history variable, which still holds every value of it *)
+node N(x: int) returns ();
+let
+  check "Valid" exists (z: history(x)) z = x;
+  check "Invalid" forall (z: history(x)) z = x;
+tel

@@ -149,6 +149,18 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
+  history_defs:
+    (LustreAst.lustre_type
+    * (LustreAst.typed_ident list
+      * (Lib.position * NodeId.t) list
+      * LustreAst.eq_lhs
+      * LustreAst.expr
+      * source option))
+    StringMap.t;
+  (* The type and the equation of each history variable, by name. Every
+     property with a history(x) quantifier yields the variable for x, so
+     they are kept apart from [locals] and [equations], and are declared
+     once per node (see [LustreAstNormalizer.normalize_node]). *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -252,7 +264,8 @@ let union ids1 ids2 = {
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
     prop_source_map = StringMap.union (fun _ src _ -> Some src) ids1.prop_source_map ids2.prop_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
-    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
+    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars;
+    history_defs = StringMap.union (fun _ def _ -> Some def) ids1.history_defs ids2.history_defs
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -289,4 +302,5 @@ let empty () = {
   prop_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
+  history_defs = StringMap.empty;
 }

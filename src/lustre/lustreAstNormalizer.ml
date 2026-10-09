@@ -947,8 +947,7 @@ let rename_id_expr info = function
 
 let add_history_var_and_equation info id h_id =
   let ty = get_history_type info.context id in
-  let locals = StringMap.singleton h_id ty in
-  let equations =
+  let equation =
     let index = HString.mk_hstring "i" in
     let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
     let eq_rhs =
@@ -964,9 +963,20 @@ let add_history_var_and_equation info id h_id =
       in
       A.TernaryOp (dpos, A.Ite, cond, A.Ident(dpos, id), prev_hist)
     in
-    [(info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)]
+    (info.quantified_variables, info.contract_scope, eq_lhs, eq_rhs, None)
   in
-  { (empty ()) with locals; equations }
+  { (empty ()) with history_defs = StringMap.singleton h_id (ty, equation) }
+
+(* Declares the history variables recorded in [gids], once each, however
+   many properties quantify over the history of the same variable *)
+let declare_history_vars gids =
+  StringMap.fold
+    (fun h_id (ty, equation) acc ->
+      union acc
+        { (empty ()) with
+          locals = StringMap.singleton h_id ty; equations = [equation] })
+    gids.history_defs
+    { gids with history_defs = StringMap.empty }
 
 let get_expr_ty info map node_id expr =
   let ty =
@@ -1640,7 +1650,9 @@ and normalize_node info map
       empty ()
   in
   let new_gids = union_list [union_list gids1; union_list gids2; union_list gids3; 
-                             gids4; gids5; gids7; gids6_8; gids9] in
+                             gids4; gids5; gids7; gids6_8; gids9]
+    |> declare_history_vars
+  in
   let old_gids, warnings9 = normalize_gid_equations { info with interpretation = interpretation; } map (Some node_id) in
   let map = NI.Map.add node_id (union old_gids new_gids) map in
   (node_id, is_extern, opac, params, inputs, outputs, locals, List.flatten nitems, ncontracts),
