@@ -1,0 +1,4 @@
+datatype Opt<T> = N | S (val: T);
+node main() returns (ok: bool);
+var s: set<Opt<Opt<set<int>>>>;
+let s = {}@<Opt<Opt<set<int>>>>; ok = true; check ok; tel

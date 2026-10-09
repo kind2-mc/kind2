@@ -1,0 +1,4 @@
+datatype Opt<T> = N | S (val: T);
+node main() returns (ok: bool);
+var m: map<Opt<Opt<set<int>>>, int>;
+let m = map[]@<Opt<Opt<set<int>>>, int>; ok = true; check ok; tel

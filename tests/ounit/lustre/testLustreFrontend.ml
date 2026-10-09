@@ -924,6 +924,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/set_adt_set_payload.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
     | _ -> false);
+  mk_test "test set with a set payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_poly_adt_nested_set_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with an array payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_poly_adt_nested_array_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test map key with a set payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/map_poly_adt_nested_set_key.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
   mk_test "test map with illtyped access" (fun () ->
     match load_file "./lustreTypeChecker/map_incorrect_access.lus" with
     | Error (`LustreTypeCheckerError (_, IlltypedMapIndex _)) -> true

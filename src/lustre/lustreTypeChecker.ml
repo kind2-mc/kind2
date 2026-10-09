@@ -3000,8 +3000,11 @@ and check_map_set_key_expr_type ctx pos ty =
   | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty =
-  (* Guard against infinite recursion on recursive ADTs: expand each type
-     name at most once per traversal path. *)
+  (* Guard against infinite recursion on recursive ADTs: expand each named type
+     at most once per traversal path, keyed on the instantiation so that the same
+     polymorphic datatype at different type arguments is not taken for a cycle.
+     This terminates because a self-reference must be at the declaration's own
+     type parameters (see check_uniform_recursion). *)
   let rec aux seen ty = let r = aux seen in match ty with
   | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _
   | TArr _ -> type_error pos (UnsupportedMapType ty)
@@ -3014,11 +3017,14 @@ and check_map_set_type pos ctx ty =
   | UserType (_, ty_args, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then
-      if HString.HStringSet.mem i seen then R.ok ()
+      let k =
+        Format.asprintf "%a" LA.pp_print_lustre_type ty |> HString.mk_hstring
+      in
+      if HString.HStringSet.mem k seen then R.ok ()
       else
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
         let ty = expand_type_syn ctx ty in
-        aux (HString.HStringSet.add i seen) ty
+        aux (HString.HStringSet.add k seen) ty
     (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because
        this will be caught by `check_type_well_formed`, which recursively checks
        the map key and value types for wellformedness. *)
