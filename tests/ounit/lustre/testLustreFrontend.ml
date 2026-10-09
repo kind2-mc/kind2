@@ -1046,6 +1046,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/enum_variant_clash_with_contract_formal.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
     | _ -> false);
+  mk_test "test standalone contract mode name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_contract_mode.lus" with
+    | Error (`LustreTypeCheckerError (_, Redeclaration i)) ->
+      HString.string_of_hstring i = "Red"
+    | _ -> false);
   mk_test "test node declared before the enum it clashes with" (fun () ->
     match load_file "./lustreTypeChecker/node_before_enum_clash.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
@@ -1319,10 +1324,6 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     | _ -> false);
   mk_test "test variant shadowed by a refinement binder is a pattern binder" (fun () ->
     match load_file "./lustreCheckMatchExpressions/shadowed_variant_pattern_in_refinement.lus" with
-    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
-    | _ -> false);
-  mk_test "test variant shadowed by a pattern binder is a pattern binder" (fun () ->
-    match load_file "./lustreCheckMatchExpressions/shadowed_variant_pattern_in_match_arm.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
   mk_test "test variant shadowed by an array index is a pattern binder" (fun () ->

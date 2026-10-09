@@ -2749,7 +2749,9 @@ and extract_exports: NI.t -> tc_context -> LA.contract -> (tc_context * [> warni
       | LA.GhostVars (_, (GhostVarDec (_, tis)), _) ->
         R.ok (List.map (fun (_, i, ty) -> (i, ty)) tis, [])
       | LA.Mode (pos, mname, _, _) ->
-        if (member_ty ctx mname)
+        (* A constructor is no longer in the typing context, so the clash with
+           one is checked for separately, as on the inline-contract path *)
+        if member_ty ctx mname || Option.is_some (lookup_constructor ctx mname)
         then type_error pos (Redeclaration mname)
         else R.ok ([(mname, (LA.Bool pos))], []) 
       | LA.ContractCall (p, cc, _, _, _) ->

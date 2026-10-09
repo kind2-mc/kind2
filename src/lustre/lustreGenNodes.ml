@@ -72,9 +72,10 @@ fun ctx ids ->
 
    The arm's variables are bound to the types of the constructor fields they
    stand for, as they are when the arm is type checked later; a variable that
-   shadows a global constant is also renamed apart.  Without this a variable
-   whose name is a constant's would be taken for that constant, and a node
-   generated from the arm body would read the constant instead of the field. *)
+   shadows a globally scoped name is also renamed apart.  Without this a
+   variable whose name is a global constant's or a constructor's would be taken
+   for that value, and a node generated from the arm body would read it instead
+   of the field. *)
 (* What this pass could learn about a match scrutinee's type. [Illtyped] means
    the scrutinee has a type error, so the later pass rejects the program;
    [Unknown] means only that the type could not be determined here. *)
@@ -83,29 +84,60 @@ type scrutinee = Known of A.lustre_type | Illtyped | Unknown
 let resolve_arm: Ctx.tc_context -> scrutinee -> A.pattern
   -> Ctx.tc_context * A.pattern * (HString.t * A.expr) list =
 fun ctx scrut pat ->
-  (* Only a global constant (an enum variant among them) is renamed away: it is
-     in scope everywhere, so it is the one thing a generated node cannot take a
-     parameter for.  A variable of the enclosing node keeps its name, which a
-     match block's own shadowing check still reports. *)
-  let shadows_global id =
+  let is_global_const id =
     match Ctx.lookup_const ctx id with
     | Some (_, _, Ctx.Global) -> true
     | Some (_, _, (Ctx.Input | Ctx.Output | Ctx.Local | Ctx.Ghost)) | None -> false
   in
-  (* Type checking has not run yet, so a variable pattern naming a nullary
-     constructor is not a binder *)
-  let binders =
-    AH.pat_bound_vars_with_pos pat
-    |> List.filter (fun (id, _) ->
-         Ctx.lookup_constructor ctx id |> Option.is_none && shadows_global id)
-    |> List.sort_uniq (fun (i, _) (j, _) -> HString.compare i j)
+  (* Only a globally scoped name is renamed away: it is in scope everywhere, so
+     it is the one thing a generated node cannot take a parameter for.  A
+     variable of the enclosing node keeps its name, which a match block's own
+     shadowing check still reports. *)
+  let shadows_global id =
+    is_global_const id || Ctx.lookup_constructor ctx id |> Option.is_some
+  in
+  (* Which variable patterns are binders is type-directed: a bare name is a
+     constructor pattern only when it names a constructor of its own position's
+     type, which is the judgement [Chk.bind_pattern_ty] makes.  The variable
+     patterns of the pattern it returns are therefore exactly the binders.
+     With no type to go on, fall back on the type-blind rule that a name of any
+     constructor is not a binder. *)
+  let blind_rule id =
+    Ctx.lookup_constructor ctx id |> Option.is_none && is_global_const id
+  in
+  let resolved, is_binder =
+    match scrut with
+    | Known scrut_ty ->
+      (match Chk.bind_pattern_ty ctx scrut_ty pat with
+      | Ok (_, resolved) -> resolved, shadows_global
+      | Error _ -> pat, blind_rule)
+    | Illtyped | Unknown -> pat, blind_rule
   in
   let renamed =
-    List.map (fun (id, ipos) -> (id, ipos, AH.fresh_bound_ident id)) binders
+    AH.pat_bound_vars_with_pos resolved
+    |> List.filter (fun (id, _) -> is_binder id)
+    |> List.sort_uniq (fun (i, _) (j, _) -> HString.compare i j)
+    |> List.map (fun (id, ipos) -> (id, ipos, AH.fresh_bound_ident id))
   in
+  (* Rename alongside the resolved pattern rather than by name, so that a name
+     occurring both as a binder and as a constructor of another position's type
+     is renamed only where it binds *)
   let pat =
-    List.fold_left (fun pat (id, _, fresh) -> AH.rename_pat_var id fresh pat)
-      pat renamed
+    let renaming = List.map (fun (id, _, fresh) -> (id, fresh)) renamed in
+    let rec rename pat resolved =
+      match pat, resolved with
+      | A.VarPat (pos, id), A.VarPat _ ->
+        (match List.assoc_opt id renaming with
+         | Some fresh -> A.VarPat (pos, fresh)
+         | None -> pat)
+      (* Resolved to a nullary constructor pattern, so it binds nothing *)
+      | A.VarPat _, A.Pat _ -> pat
+      | A.Pat (pos, ctor, sub_pats), A.Pat (_, _, sub_resolved) ->
+        A.Pat (pos, ctor, List.map2 rename sub_pats sub_resolved)
+      (* Resolution never turns a constructor pattern into a variable pattern *)
+      | A.Pat _, A.VarPat _ -> pat
+    in
+    rename pat resolved
   in
   (* Fall back on the constructors the pattern itself names when the scrutinee
      cannot supply the field types. The types are then the ones the datatype

@@ -1,0 +1,11 @@
+type color = enum { Red, Green };
+type shape = enum { Square, Circle };
+datatype P = Q | MkP (a: color, b: color);
+
+node main (p: P) returns ();
+let
+  check reachable "binders win" match p with
+    | Q : false
+    | MkP(Square, Circle) : true -> (Square = Circle)
+  end;
+tel
