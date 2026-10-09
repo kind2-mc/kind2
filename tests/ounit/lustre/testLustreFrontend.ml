@@ -1177,6 +1177,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/nested_contract_import_type_arg_unbound_id.lus" with
     | Error (`LustreTypeCheckerError (_, UnboundIdentifier _)) -> true
     | _ -> false);
+  mk_test "test polymorphic datatype at the wrong arity in contract import type argument" (fun () ->
+    match load_file "./lustreTypeChecker/contract_import_type_arg_wrong_arity.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidPolymorphicCall _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)

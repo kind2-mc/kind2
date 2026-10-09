@@ -1,0 +1,15 @@
+datatype L = Nil | One (v: int);
+const k: L = One (3);
+
+contract C<T>(a: int) returns (r: T);
+let
+  guarantee true;
+tel
+
+node main(x: int) returns (y: int);
+(*@contract
+    import C@<subtype { w: int | w >= (match k with | Nil : 0 | One (v) : v end) }>(x) returns (y);
+*)
+let
+  y = 5;
+tel
