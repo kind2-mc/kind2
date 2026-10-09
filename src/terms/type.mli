@@ -114,6 +114,11 @@ val qualified_ctor_name : string -> string -> string
 (** The source name of a constructor symbol built by {!qualified_ctor_name}. *)
 val source_ctor_name : string -> string
 
+(** [enum_field_sort_name enum] is the name of the datatype that stands for the
+    enum named [enum] where it is a field of a recursive datatype -- see
+    {!is_enum_field_sort}. *)
+val enum_field_sort_name : string -> string
+
 (** Return a placeholder for a direct self-reference to the named datatype,
     for use as a field type within that datatype's own constructor list. *)
 val mk_datatype_ref : string -> t
@@ -214,6 +219,11 @@ val constructors_of_datatype : t -> (string * t list) list
 
 (** Return the name of a datatype, fail if not a datatype *)
 val name_of_datatype : t -> string
+
+(** Return [true] if the type is the datatype an enum-typed field of a recursive
+    datatype has, i.e. one named by [enum_field_sort_name]. A value of such a
+    datatype stands for a value of that enum. *)
+val is_enum_field_sort : t -> bool
 
 (** Return [true] if the type is a self-reference placeholder (see [mk_datatype_ref]) *)
 val is_datatype_ref : t -> bool

@@ -2960,15 +2960,13 @@ let facts_of_calls
       CallTbl.replace values (uf, args) value ;
       value
   in
-  (* The constructors of the datatypes are the only uninterpreted symbols
-     of a value *)
+  (* The constructors of the datatypes are the only uninterpreted symbols of a
+     value, and are stored under the names their symbols are declared with *)
   let is_constructor uf =
     let ty = UfSymbol.res_type_of_uf_symbol uf in
     Type.is_datatype ty
     && Type.constructors_of_datatype ty |> List.exists (fun (ctor, _) ->
-      Type.qualified_ctor_name (Type.name_of_datatype ty)
-        (Type.source_ctor_name ctor)
-      = UfSymbol.name_of_uf_symbol uf)
+      String.equal ctor (UfSymbol.name_of_uf_symbol uf))
   in
   (* A term without variables or uninterpreted symbols, such as a free
      constant of the system, other than constructors *)

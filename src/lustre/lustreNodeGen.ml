@@ -920,7 +920,9 @@ let resolve_datatype_ref dt ft =
 let enum_field_ctor_sym sort_name ctor = sort_name ^ "$" ^ ctor
 
 let enum_field_sort ty =
-  let name = "enum$" ^ smt_name_of_adt_name (Type.name_of_enum ty) in
+  let name =
+    Type.enum_field_sort_name (smt_name_of_adt_name (Type.name_of_enum ty))
+  in
   let ctors = Type.constructors_of_enum ty in
   let sort =
     Type.mk_datatype name
@@ -931,13 +933,6 @@ let enum_field_sort ty =
     ignore (UfSymbol.mk_uf_symbol (enum_field_ctor_sym name c) [] sort)
   ) ctors;
   sort
-
-(* Whether [t] is the sort of an enum-typed field: a datatype all of whose
-   constructors are nullary. A recursive datatype references itself in a
-   field, so it always has a constructor that is not. *)
-let is_enum_field_sort t =
-  Type.is_datatype t
-  && List.for_all (fun (_, fs) -> fs = []) (Type.constructors_of_datatype t)
 
 (* The enum type, in its integer encoding, that the sort [sort] stands for *)
 let enum_of_field_sort sort =
@@ -1932,7 +1927,7 @@ and compile_ast_expr
       let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
       let sel = E.mk_selector selector_name result_type e' in
       let sel =
-        if is_enum_field_sort result_type then decode_enum_field result_type sel
+        if Type.is_enum_field_sort result_type then decode_enum_field result_type sel
         else sel
       in
       X.singleton X.empty_index sel
@@ -2035,7 +2030,7 @@ and compile_ast_expr
     in
     let compiled_args =
       List.map2 (fun at e ->
-        if is_enum_field_sort at then encode_enum_field at e else e
+        if Type.is_enum_field_sort at then encode_enum_field at e else e
       ) arg_types compiled_args
     in
     let ctor_sym = UfSymbol.mk_uf_symbol ctor_name arg_types adt_type in
@@ -3894,7 +3889,7 @@ and compile_type_decl pos ctx cstate = function
         let enum_sorts =
           Type.constructors_of_datatype ty
           |> List.concat_map snd
-          |> List.filter is_enum_field_sort
+          |> List.filter Type.is_enum_field_sort
           |> List.fold_left (fun acc s ->
                if List.exists (Type.equal_types s) (acc @ cstate.recursive_datatypes)
                then acc else acc @ [s])

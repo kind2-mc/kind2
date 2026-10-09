@@ -370,6 +370,12 @@ let source_ctor_name ctor =
   | None -> ctor
   | Some i -> String.sub ctor (i + 1) (String.length ctor - i - 1)
 
+(* A source identifier never contains '$', so a sort of this name can only be
+   one the compiler introduced for an enum-typed field *)
+let enum_field_sort_prefix = "enum$"
+
+let enum_field_sort_name enum_name = enum_field_sort_prefix ^ enum_name
+
 let mk_datatype name ctors = Hkindtype.hashcons (ht ()) (Datatype (name, ctors)) ()
 
 let mk_datatype_ref name = Hkindtype.hashcons (ht ()) (DatatypeRef name) ()
@@ -590,6 +596,10 @@ let constructors_of_datatype = function
 let name_of_datatype = function
   | { Hashcons.node = Datatype (name, _) } -> name
   | _ -> raise (Invalid_argument "name_of_datatype")
+
+let is_enum_field_sort { Hashcons.node = t } = match t with
+  | Datatype (name, _) -> String.starts_with ~prefix:enum_field_sort_prefix name
+  | _ -> false
 
 let is_datatype_ref { Hashcons.node = t } = match t with
   | DatatypeRef _ -> true
