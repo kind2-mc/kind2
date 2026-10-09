@@ -1609,6 +1609,14 @@ and normalize_node info map
   in
   let ctx = Chk.add_local_node_ctx ctx locals in
   let info = { info with context = ctx } in
+  (* The refinement types of the locals are normalized, so the history
+     variables they refer to must be in the context *)
+  let info =
+    StringMap.fold
+      (fun h_id (ty, _) info -> add_ty_to_info info h_id ty)
+      (union_list gids3).history_defs
+      info
+  in
   (* Record constraints on locals *)
   let gids7, warnings7 = locals
     |> List.filter (function
