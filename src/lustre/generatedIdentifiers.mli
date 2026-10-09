@@ -33,6 +33,14 @@ type source =
       the (polarity-adjusted) conjunction of the enclosing when-block guards.
       Node calls in such an equation must be activated on that clock. *)
 
+(* A generated equation *)
+type equation =
+  LustreAst.typed_ident list (* quantified variables *)
+  * (Lib.position * NodeId.t) list (* contract scope  *)
+  * LustreAst.eq_lhs
+  * LustreAst.expr
+  * source option (* Record the source of the equation if generated before normalization step *)
+
 type t = {
   node_args : (HString.t (* abstracted variable name *)
     * bool (* whether the variable is constant *)
@@ -119,13 +127,7 @@ type t = {
     LustreAst.binary_operator * 
     LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr
-    * source option) (* Record the source of the equation if generated before normalization step *)
-    list;
+  equations : equation list;
   nonvacuity_props: StringSet.t;
   clocked_call_ties:
     (HString.t * HString.t option * HString.t * HString.t) list;
@@ -141,18 +143,13 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
-  history_defs:
-    (LustreAst.lustre_type
-    * (LustreAst.typed_ident list
-      * (Lib.position * NodeId.t) list
-      * LustreAst.eq_lhs
-      * LustreAst.expr
-      * source option))
-    StringMap.t;
-  (* The type and the equation of each history variable, by name. Every
-     property with a history(x) quantifier yields the variable for x, so
-     they are kept apart from [locals] and [equations], and are declared
-     once per node (see [LustreAstNormalizer.normalize_node]). *)
+  history_defs: (LustreAst.lustre_type * equation) StringMap.t;
+  (* The type and the equation of each history variable, by name. A history
+     variable is named after the variable it records, as renamed in the scope
+     of its quantifier, so every property quantifying over the history of the
+     same variable yields the same definition. They are kept apart from
+     [locals] and [equations], and are declared once per node (see
+     [LustreAstNormalizer.normalize_node]). *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
