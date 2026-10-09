@@ -1,0 +1,22 @@
+const K: int = 3;
+
+contract C<T>(a: T) returns (r: bool);
+let
+  guarantee true;
+tel
+
+contract D<U>(a: U) returns (r: bool);
+let
+  import C@<U>(a) returns (r);
+  guarantee true;
+tel
+
+node main(x: int^3; z: set<int>) returns (ok: bool);
+(*@contract
+    import D@<int^K>(x) returns (ok);
+    import C@<set<subtype { w: int | w >= K }>>(z) returns (ok);
+*)
+let
+  ok = true;
+  check ok;
+tel
