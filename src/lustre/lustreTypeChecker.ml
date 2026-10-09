@@ -898,8 +898,9 @@ let unify_types pos ctx is_type_ascription ty1 ty2 =
     | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
       R.ok StringMap.empty
     | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
-      (* Guard against infinite recursion on recursive ADTs: expand each ADT
-         name at most once per unification path. *)
+      (* Expand each ADT at most once per unification path. Keyed on the name,
+         not the instantiation, so a nested second occurrence of the same
+         datatype is taken for a cycle and contributes no bindings. *)
       if HString.HStringSet.mem id1 seen then R.ok StringMap.empty
       else
         let seen' = HString.HStringSet.add id1 seen in
@@ -2881,11 +2882,9 @@ and check_map_set_key_expr_type ctx pos ty =
   | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty =
-  (* Guard against infinite recursion on recursive ADTs: expand each named type
-     at most once per traversal path, keyed on the instantiation so that the same
-     polymorphic datatype at different type arguments is not taken for a cycle.
-     This terminates because a self-reference must be at the declaration's own
-     type parameters (see check_uniform_recursion). *)
+  (* Expand each named type at most once per traversal path, keyed on the
+     instantiation so a datatype at different type arguments is not taken for a
+     cycle. Finite because the type-declaration dependency graph is acyclic. *)
   let rec aux seen ty = let r = aux seen in match ty with
   | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _
   | TArr _ -> type_error pos (UnsupportedMapType ty)
@@ -3359,9 +3358,10 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
     else
       R.ok false
   | ADT (_, n1, cons1), ADT (_, n2, cons2) ->
-    (* Two instantiations of a polymorphic datatype share their name, and differ
-       only in the field types their constructors carry. Each name is entered
-       once per comparison path, so that a self-reference terminates. *)
+    (* Two instantiations of a polymorphic datatype share their name and differ
+       only in their constructors' field types. The guard is keyed on the name,
+       not the instantiation, so a nested second occurrence of the same datatype
+       is taken for a cycle and compared equal even at different arguments. *)
     if not (HString.equal n1 n2) then R.ok false
     else if HString.HStringSet.mem n1 seen then R.ok true
     else
