@@ -7,4 +7,5 @@ let
        | Q : true
        | MkP(A) : ((match e with | A : 1 | B : 2 end) = 1) = (e = B)
        end;
+  check ok = Q?(p);
 tel

@@ -1,0 +1,8 @@
+type color = enum { Red, Green };
+datatype P = Q | MkP (c: int);
+
+node main (p: P) returns (ok: bool);
+let
+  ok = match p with | Q : true | MkP(Red) : true -> (Red > 0) end;
+  check ok;
+tel
