@@ -170,13 +170,6 @@ let iboracle =  "iboracle"
    of reachability queries with timestep bounds. *)
 let ctr_id = HString.mk_hstring "*counter"
 
-(* Checks if a variable name corresponds to an iboracle *)
-let var_is_iboracle var =
-  let
-    var = String.split_on_char '_' (HString.string_of_hstring var) |>
-    List.rev |> List.hd
-  in
-  (var = iboracle)
 
 (* String constant used in lustreNameCalls.ml as the suffix of the fresh local
    variables introduced to capture the discarded results of a call statement
@@ -184,17 +177,48 @@ let var_is_iboracle var =
    abstract calls appearing inside larger expressions. *)
 let discarded_output = "discard"
 
-(* Checks if a variable name corresponds to a discarded call-statement result.
+(* Whether a segment of a name is a numeral: the leading segment of the AST
+   names of generated variables, which no identifier in the source can have *)
+let is_numeral s = s <> "" && String.for_all (fun c -> '0' <= c && c <= '9') s
 
-   At the AST level the fresh variables are named with [discarded_output] as a
-   suffix (e.g. '1_discard'), but [LustreNodeGen.mk_ident] turns a leading
-   numeric segment into a trailing index, so the corresponding state variable is
-   named with [discarded_output] as a prefix instead (e.g. 'discard_1'). We
-   therefore look for [discarded_output] as a '_'-separated segment, which
-   matches both forms. *)
-let var_is_discarded_output var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem discarded_output
+(* Checks if a variable name is the AST name '<n>_<suffix>' of a generated
+   variable. The leading numeric segment, which no identifier in the source can
+   have, keeps it apart from user names such as 'my_<suffix>'. *)
+let is_generated_ast_name suffix var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [n; s] -> s = suffix && is_numeral n
+  | _ -> false
+
+(* Checks if a state variable name is the one of a generated variable
+   '<n>_<suffix>' with no further index: [LustreNodeGen.mk_ident] turns the
+   leading numeric segment into a trailing index, '<suffix>_<n>'.
+
+   This form is not unique: a user variable named exactly '<suffix>_<n>' gets
+   the same name. That collision is in [LustreNodeGen.mk_ident] itself and
+   affects every generated name, not just this check (see issue #1734). *)
+let is_generated_svar_name suffix var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [s; n] -> s = suffix && is_numeral n
+  | _ -> false
+
+(* Checks if a variable name is the AST name of an iboracle, '<n>_iboracle'
+   (see lustreDesugarIfBlocks.ml), as opposed to a user name such as
+   'my_iboracle', which a frame block must not replace with its stuttering
+   value. *)
+let var_is_iboracle = is_generated_ast_name iboracle
+
+(* Checks if a variable name is the AST name of a discarded call-statement
+   result, '<n>_discard' (see lustreNameCalls.ml), as opposed to a user name
+   such as 'my_discard', which must be defined in every branch of an if
+   block. *)
+let var_is_discarded_output = is_generated_ast_name discarded_output
+
+(* Checks if a state variable name is the one of a discarded call-statement
+   result, 'discard_<n>'. Only lemmas are invoked in call statements, and the
+   result of a lemma is a single value, so the name has no further index.
+   See [is_generated_svar_name] for the collision with a user variable named
+   exactly so. *)
+let svar_is_discarded_output = is_generated_svar_name discarded_output
 
 (* String constant used in lustreDesugarLast.ml as a segment of the fresh local
    variables introduced to desugar the 'last' operator (e.g. '0_glast_o'). The
@@ -224,19 +248,11 @@ let block_guard = "bguard"
    (e.g. '4_gcomp'). *)
 let array_comprehension = "gcomp"
 
-(* Whether a segment of a name is a numeral: the leading segment of the AST
-   names of generated variables, which no identifier in the source can have *)
-let is_numeral s = s <> "" && String.for_all (fun c -> '0' <= c && c <= '9') s
-
 (* Checks if a variable name is the AST name of the local of an array
-   comprehension, '<n>_gcomp': the leading numeric segment keeps it apart from
-   user names such as 'my_gcomp'. The name of its state variable, where
+   comprehension, '<n>_gcomp'. The name of its state variable, where
    [LustreNodeGen.mk_ident] has moved the number to an index ('gcomp_<n>'),
    does not match. *)
-let var_is_array_comprehension var =
-  match String.split_on_char '_' (HString.string_of_hstring var) with
-  | [n; suffix] -> suffix = array_comprehension && is_numeral n
-  | _ -> false
+let var_is_array_comprehension = is_generated_ast_name array_comprehension
 
 (* Checks if a variable name is the AST name of a 'last'-operator local,
    '<n>_glast_<x>' or '<n>_glast_init_<x>' (see lustreDesugarLast.ml). The
