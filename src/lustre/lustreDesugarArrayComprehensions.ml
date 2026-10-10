@@ -256,6 +256,12 @@ let rec lower_expr mode bound e =
           List.fold_left (fun e j -> A.IndexAccess (p, e, A.Ident (p, j), A.Array))
             body extra_ids
         in
+        (* The fresh variable has the base type of the comprehension, without
+           its refinement types (such as the subrange types of the values of
+           its body): their constraints are not obligations of the user, and
+           the ones of the variables the comprehension is assigned to are
+           checked on those variables *)
+        let* ty = Chk.expand_type_syn_reftype_history st.ctx ty in
         let x = mk_fresh_var () in
         Hashtbl.replace sources x source;
         st.ctx <- Ctx.add_ty st.ctx x ty;
