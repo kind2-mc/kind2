@@ -33,7 +33,7 @@ tel
 
 (* Instances of a call of a node whose own calls expand. The indices of an
    instance follow the order of the index variables of the comprehension,
-   [m][k], whatever the order they are first met in the body (k before m).
+   [m][k], whatever the order they were first created in (k before m).
    The assumption is violated for the instance 0 of Sub in the instances
    [2][_] of Mid only. *)
 node Mid (b: int^2) returns (r: int^2)
