@@ -1,0 +1,10 @@
+-- A user variable whose name has the segment 'discard' of the variables of
+-- discarded call results ('<n>_discard') must be defined in every branch
+node N (c: bool) returns (y: int);
+var my_discard: int;
+let
+  if c then
+    my_discard = 1;
+  fi
+  y = my_discard;
+tel

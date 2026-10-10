@@ -742,7 +742,7 @@ let roots_of_inlined_calls prop calls =
    discarded) result of a call statement, e.g. a lemma application like
    'double(n-1);' (see lustreNameCalls.ml). *)
 let is_discarded_output_svar sv =
-  GI.var_is_discarded_output
+  GI.svar_is_discarded_output
     (StateVar.name_of_state_var sv |> HString.mk_hstring)
 
 (* Add discarded call-statement results as roots so that the corresponding

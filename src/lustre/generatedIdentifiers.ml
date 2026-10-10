@@ -170,13 +170,6 @@ let iboracle =  "iboracle"
    of reachability queries with timestep bounds. *)
 let ctr_id = HString.mk_hstring "*counter"
 
-(* Checks if a variable name corresponds to an iboracle *)
-let var_is_iboracle var =
-  let
-    var = String.split_on_char '_' (HString.string_of_hstring var) |>
-    List.rev |> List.hd
-  in
-  (var = iboracle)
 
 (* String constant used in lustreNameCalls.ml as the suffix of the fresh local
    variables introduced to capture the discarded results of a call statement
@@ -184,17 +177,38 @@ let var_is_iboracle var =
    abstract calls appearing inside larger expressions. *)
 let discarded_output = "discard"
 
-(* Checks if a variable name corresponds to a discarded call-statement result.
+let is_numeral s = s <> "" && String.for_all (fun c -> '0' <= c && c <= '9') s
 
-   At the AST level the fresh variables are named with [discarded_output] as a
-   suffix (e.g. '1_discard'), but [LustreNodeGen.mk_ident] turns a leading
-   numeric segment into a trailing index, so the corresponding state variable is
-   named with [discarded_output] as a prefix instead (e.g. 'discard_1'). We
-   therefore look for [discarded_output] as a '_'-separated segment, which
-   matches both forms. *)
+(* Checks if a variable name is the AST name of an iboracle, '<n>_iboracle'
+   (see lustreDesugarIfBlocks.ml). The leading numeric segment, which no
+   identifier in the source can have, keeps it apart from user names such as
+   'my_iboracle', which a frame block must not replace with its stuttering
+   value. *)
+let var_is_iboracle var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [n; suffix] -> suffix = iboracle && is_numeral n
+  | _ -> false
+
+(* Checks if a variable name is the AST name of a discarded call-statement
+   result, '<n>_discard' (see lustreNameCalls.ml). The leading numeric
+   segment, which no identifier in the source can have, keeps it apart from
+   user names such as 'my_discard', which must be defined in every branch of
+   an if block. *)
 let var_is_discarded_output var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem discarded_output
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [n; suffix] -> suffix = discarded_output && is_numeral n
+  | _ -> false
+
+(* Checks if a state variable name is the one of a discarded call-statement
+   result: [LustreNodeGen.mk_ident] turns the leading numeric segment of
+   '<n>_discard' into a trailing index, 'discard_<n>'. Only lemmas are invoked
+   in call statements, and the result of a lemma is a single value, so the name
+   has no further index. A user variable named exactly so is taken for one,
+   which only keeps it from being sliced away. *)
+let svar_is_discarded_output var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [prefix; n] -> prefix = discarded_output && is_numeral n
+  | _ -> false
 
 (* String constant used in lustreDesugarLast.ml as a segment of the fresh local
    variables introduced to desugar the 'last' operator (e.g. '0_glast_o'). The

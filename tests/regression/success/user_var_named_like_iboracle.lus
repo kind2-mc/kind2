@@ -1,0 +1,13 @@
+-- A user variable whose name ends with the segment 'iboracle' of the oracles
+-- of if blocks ('<n>_iboracle') is not one of them: a frame block does not
+-- replace it with the stuttering value of the frame. It used to, which
+-- falsified this property.
+node N (my_iboracle: int) returns (y: int);
+let
+  frame (y)
+    y = 0;
+  let
+    y = my_iboracle;
+  tel
+  check "p" y = my_iboracle;
+tel

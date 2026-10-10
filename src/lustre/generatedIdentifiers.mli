@@ -160,7 +160,7 @@ val iboracle : string
 of reachability queries with timestep bounds. *)
 val ctr_id : HString.t
 
-(** Checks if a variable name corresponds to an iboracle *)
+(** Checks if a variable name is the AST name of an iboracle, ['<n>_iboracle'] *)
 val var_is_iboracle: HString.t -> bool
 
 (* String constant used as the suffix of fresh locals capturing the discarded
@@ -174,8 +174,13 @@ val array_comprehension : string
     comprehension, ['<n>_gcomp'] *)
 val var_is_array_comprehension: HString.t -> bool
 
-(** Checks if a variable name corresponds to a discarded call-statement result *)
+(** Checks if a variable name is the AST name of a discarded call-statement
+    result, ['<n>_discard'] *)
 val var_is_discarded_output: HString.t -> bool
+
+(** Checks if a state variable name is the one of a discarded call-statement
+    result, ['discard_<n>'] *)
+val svar_is_discarded_output: HString.t -> bool
 
 (* String constant used as a segment of fresh locals introduced to desugar the
    'last' operator (see lustreDesugarLast.ml). *)
