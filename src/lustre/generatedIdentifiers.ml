@@ -235,13 +235,17 @@ let var_is_array_comprehension var =
     && String.for_all (fun c -> '0' <= c && c <= '9') n
   | _ -> false
 
-(* Checks if a variable name corresponds to a 'last'-operator local. As with
-   [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
-   numeric segment to the end, so we look for [last_local] as a '_'-separated
-   segment, which matches both forms. *)
+(* Checks if a variable name is the AST name of a 'last'-operator local,
+   '<n>_glast_<x>' or '<n>_glast_init_<x>' (see lustreDesugarLast.ml). The
+   leading numeric segment, which no identifier in the source can have, keeps
+   it apart from user names such as 'my_glast': such a variable must keep its
+   refinement-type obligations and be shown in counterexamples. *)
 let var_is_last_local var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem last_local
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | n :: segment :: _ :: _ ->
+    segment = last_local && n <> ""
+    && String.for_all (fun c -> '0' <= c && c <= '9') n
+  | _ -> false
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None

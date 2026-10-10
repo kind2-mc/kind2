@@ -1,0 +1,11 @@
+-- A user variable whose name has the segment 'glast' of the locals that
+-- desugar the 'last' operator ('<n>_glast_<x>') is not one of them: its
+-- refinement type is checked. Its subrange used to be dropped, which left
+-- this program with no falsified property.
+node N (x: int) returns (y: int);
+var my_glast: subrange [0, 5] of int;
+let
+  my_glast = 10;
+  y = my_glast + x;
+  check true;
+tel
