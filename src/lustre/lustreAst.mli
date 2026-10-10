@@ -271,6 +271,10 @@ type eq_lhs =
 (* The left-hand side of an equation in a contract *)
 type contract_eq_lhs =
 | GhostVarDec of position * typed_ident list
+(* A ghost variable of an array type defined element-wise by the equation
+   'x[i][j] = e' (only introduced by LustreDesugarArrayComprehensions, for an
+   array comprehension in a contract) *)
+| GhostArrayDef of position * typed_ident * ident list
 
 (** An equation or assertion in the node body *)
 type node_equation =

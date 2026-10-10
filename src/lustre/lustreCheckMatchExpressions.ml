@@ -265,6 +265,8 @@ let matches_of_contract_item = function
   | A.GhostVars (_, A.GhostVarDec (_, tis), e) ->
     List.concat_map (fun (_, _, ty) -> matches_of_type ty) tis
     @ matches_of_expr e
+  | A.GhostVars (_, A.GhostArrayDef (_, (_, _, ty), _), e) ->
+    matches_of_type ty @ matches_of_expr e
   | A.AssumptionVars _ -> []
 
 let matches_of_contract (_, items) = List.concat_map matches_of_contract_item items

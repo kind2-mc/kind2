@@ -578,6 +578,7 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
                             (singleton_dependency_analysis_data node_prefix nr p) node_name pos))
         ad node_refs
     )
+    | LA.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
     | LA.GhostVars (_, GhostVarDec(_, tis), e) ->
       let handle_one_lhs (pos, _, ty) = (
         let node_refs = extract_node_calls_type ty in
@@ -878,6 +879,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contr
             let* m'' = (check_and_add m' pos empty_hs i None) in
             add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m''
           | LA.GhostVarDec(_, []) -> R.ok m'
+          | LA.GhostArrayDef _ -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
       in 
       let* m'' = add_identifiers_to_map (GhostVarDec(pos2, tail)) m' in
       mk_contract_eqn_map m'' eqns
@@ -1197,6 +1199,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
     )
+  | LA.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
     let union g v = 
       union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)

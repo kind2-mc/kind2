@@ -760,6 +760,7 @@ let compile_contract_item cstate gids map count scope kind pos name expr =
       let source =
         try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
       in
+      let source = LustreDesugarArrayComprehensions.restore source in
       LDAT.string_of_expr_as_source
         ~ref_type_names:cstate.ref_type_names cstate.adt_map source
     in
@@ -2168,7 +2169,16 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         (id |> HString.mk_hstring |> mk_ident, [prefix; ref])
       | _ -> assert false
     in
-    let over_vars (gvar_accum, eq_accum) = fun (pos, (A.GhostVarDec (_, tis)), expr) ->
+    let over_vars (gvar_accum, eq_accum) = fun (pos, lhs, expr) ->
+        (* The variables, and the items of the left-hand side of their
+           equation: an indexed ghost variable is defined element-wise, as by
+           an array definition in a node *)
+        let tis, struct_items = match lhs with
+          | A.GhostVarDec (_, tis) ->
+            tis, List.map (fun (pos, id, _) -> A.SingleIdent (pos, id)) tis
+          | A.GhostArrayDef (p, ((_, id, _) as ti), is) ->
+            [ti], [A.ArrayDef (p, id, is)]
+        in
         let extract_local ((_, id, ty)) = (
           let expr_ident = mk_ident id in
           let (ident, contract_namespace) = extract_namespace id in
@@ -2183,7 +2193,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
                 ident
                 index
                 index_type
-                (Some N.Ghost)
+                (* The ghost variables of array comprehensions, the only ones
+                   defined element-wise, are Kind 2 generated and therefore
+                   invisible *)
+                (Some (match lhs with
+                  | A.GhostArrayDef _ -> N.Generated N.Plain
+                  | A.GhostVarDec _ -> N.Ghost))
               )
             in
             match possible_state_var with
@@ -2199,7 +2214,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         ) in
         
         (* Patch up eq_rhs and ghost_local *)
-        let struct_items = List.map (fun (pos, id, _) -> A.SingleIdent(pos, id)) tis in
         let eq_lhs = A.StructDef (pos, struct_items) in
         let eq_rhs = expr in
         (List.map extract_local tis) @ gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum

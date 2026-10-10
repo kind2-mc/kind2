@@ -1,0 +1,11 @@
+-- A constant defined by an array comprehension cannot be used in a ghost
+-- constant of a contract, where comprehensions are not supported
+const Sq: int^3 = (i * i foreach i)^3;
+node N (A: int) returns (B: int);
+(*@contract
+  const C: int = Sq[1];
+  guarantee B = A + C;
+*)
+let
+  B = A + 1;
+tel

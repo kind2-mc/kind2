@@ -350,6 +350,8 @@ let contract_item_calls item =
   | LA.GhostConst (LA.TypedConst (pos, _, e, ty)) -> at pos e @ at_ty pos ty
   | LA.GhostVars (pos, LA.GhostVarDec (_, tis), e) ->
     at pos e @ List.concat_map (fun (p, _, ty) -> at_ty p ty) tis
+  | LA.GhostVars (pos, LA.GhostArrayDef (_, (p, _, ty), _), e) ->
+    at pos e @ at_ty p ty
   | LA.Assume (pos, _, _, e)
   | LA.Guarantee (pos, _, _, e)
   | LA.Decreases (pos, e) -> at pos e

@@ -93,6 +93,10 @@ let instantiate_type_variables_ci
     (p, id, Chk.instantiate_type_variables ctx p node_id ty ty_args |> unwrap)
   ) tis in
   GhostVars (p, GhostVarDec (p2, tis), expr)
+| GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr) ->
+  let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in
+  let ty = Chk.instantiate_type_variables ctx p3 node_id ty ty_args |> unwrap in
+  GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr)
 | Assume (p, name, b, expr) -> 
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in  
   Assume (p, name, b, expr)
@@ -716,6 +720,10 @@ and gen_poly_decls_ci
     ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
   ) (ctx, gids, [], decls, node_decls_map) tis in 
   ctx, gids, GhostVars (p, GhostVarDec (p2, tis), expr), decls, node_decls_map
+| GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr) ->
+  let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in
+  let ctx, gids, ty, decls', node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in
+  ctx, gids, GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr), decls' @ decls, node_decls_map
 | Mode (p, id, creqs, cens) -> 
   let ctx, gids, creqs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_creqs, acc_decls, acc_node_decls_map) (p, id, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id acc_node_decls_map expr in 
@@ -1140,6 +1148,8 @@ let rewrite_contract_item ctx record params ci =
   | A.GhostConst cd -> A.GhostConst (rewrite_const_decl ctx record params cd)
   | A.GhostVars (pos, A.GhostVarDec (p, tis), e) ->
     A.GhostVars (pos, A.GhostVarDec (p, List.map (fun (p, i, ty) -> (p, i, rt ty)) tis), re e)
+  | A.GhostVars (pos, A.GhostArrayDef (p, (p2, i, ty), is), e) ->
+    A.GhostVars (pos, A.GhostArrayDef (p, (p2, i, rt ty), is), re e)
   | A.Assume (pos, id, s, e) -> A.Assume (pos, id, s, re e)
   | A.Guarantee (pos, id, s, e) -> A.Guarantee (pos, id, s, re e)
   | A.Decreases (pos, e) -> A.Decreases (pos, re e)

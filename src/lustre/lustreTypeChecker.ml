@@ -2629,7 +2629,10 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
         ^ (HString.string_of_hstring (NI.get_user_name c_id)))))
 
 and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
-  = fun (pos1, GhostVarDec(pos2, tis), expr) ->
+  = function
+  | (pos1, GhostArrayDef (pos2, (_, i, _), is), expr) ->
+    Equation (pos1, LA.StructDef (pos2, [LA.ArrayDef (pos2, i, is)]), expr)
+  | (pos1, GhostVarDec(pos2, tis), expr) ->
     let lhs = LA.StructDef(pos2, 
     List.map (fun (pos, i, _) -> LA.SingleIdent(pos, i)) tis
     ) in
@@ -2676,7 +2679,12 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> NI.t -> LA.contract_ghost_vars -> (LA.contract_ghost_vars * tc_context, [> error]) result 
-  = fun ctx cname (p, GhostVarDec (p2, tis), e) ->
+  = fun ctx cname -> function
+  | (p, GhostArrayDef (p2, (pos, i, ty), is), e) ->
+    let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in
+    if member_ty ctx i then type_error pos (Redeclaration i)
+    else R.ok ((p, LA.GhostArrayDef (p2, (pos, i, ty), is), e), add_ty ctx i ty)
+  | (p, GhostVarDec (p2, tis), e) ->
     let* tis, ctx = R.seq_chain
       (fun (tis, ctx) (pos, i, ty) ->
         let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in 

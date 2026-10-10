@@ -261,6 +261,10 @@ type eq_lhs =
 (* The left-hand side of an equation in a contract *)
 type contract_eq_lhs =
   | GhostVarDec of position * typed_ident list
+(* A ghost variable of an array type defined element-wise by the equation
+   'x[i][j] = e' (only introduced by LustreDesugarArrayComprehensions, for an
+   array comprehension in a contract) *)
+| GhostArrayDef of position * typed_ident * ident list
 
 (* An equation or assertion in the node body *)
 type node_equation =
@@ -601,8 +605,9 @@ and pp_print_expr ppf =
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
     | ArrayComprehension (_, binders, e) ->
-      (* The sizes are given innermost first *)
-      Format.fprintf ppf "@[<hv 1>(%a@ foreach %a)%a@]"
+      (* The sizes are given innermost first. Parenthesized as a whole, as an
+         array constructor, since a selection binds more tightly than them *)
+      Format.fprintf ppf "@[<hv 1>((%a@ foreach %a)%a)@]"
         pp_print_expr e
         (pp_print_list (fun ppf (_, i, _) -> HString.pp_print_hstring ppf i) ", ")
         binders
@@ -1052,10 +1057,15 @@ let pp_print_contract_eq_lhs ppf = function
     Format.fprintf ppf "(%a)"
       (pp_print_list pp_print_ident ", ") (List.map (fun (_, i, _) -> i) l)
 
+  | GhostArrayDef (_, (_, x, _), is) ->
+    Format.fprintf ppf "%a%a" pp_print_ident x
+      (pp_print_list (fun ppf i -> Format.fprintf ppf "[%a]" pp_print_ident i) "") is
+
 let pp_print_typed_contract_eq_lhs ppf = function
   | GhostVarDec (_, l) ->
     Format.fprintf ppf "%a"
       (pp_print_list pp_print_typed_ident ", ") l
+  | GhostArrayDef (_, ti, _) -> pp_print_typed_ident ppf ti
 
 
 let rec pp_print_node_body ppf = function

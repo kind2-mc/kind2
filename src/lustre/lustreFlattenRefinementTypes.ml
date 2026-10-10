@@ -219,6 +219,8 @@ let flatten_ref_types_contract_eq ctx eq =
       List.map (fun (p, id, ty) -> (p, id, flatten_ref_type ctx ty)) tids
     in
     A.GhostVars (p1, GhostVarDec (p2, tids), expr)
+  | A.GhostVars (p1, GhostArrayDef (p2, (p, id, ty), is), expr) ->
+    A.GhostVars (p1, GhostArrayDef (p2, (p, id, flatten_ref_type ctx ty), is), expr)
   | A.Assume (p, id, s, expr) ->
     A.Assume (p, id, s, flatten_ref_types_expr ctx expr)
   | A.Guarantee (p, id, s, expr) ->

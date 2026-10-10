@@ -1372,6 +1372,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       let* warnings1 = check_list rs in
       let* warnings2 = check_list gs in 
       Ok (List.flatten warnings1 @ List.flatten warnings2)
+    | GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
     | GhostVars (_, GhostVarDec (_, l), e) ->
       let* warnings1 = Res.seq (List.map (fun (p, id, ty) -> 
         no_invalid_underscore id p >>
