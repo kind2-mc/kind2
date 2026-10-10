@@ -1,0 +1,20 @@
+-- A restart in the body of an array comprehension may mention the index
+-- variable, in the restarted expression or in the condition: the restarted
+-- call is then expanded into one instance per element.
+
+-- Each element is restarted on its own condition
+node PerElement (a: int^3; r: bool^3) returns (b: int^3);
+let
+  b = (restart (0 -> pre a[i]) every r[i] foreach i)^3;
+  check "reset" r[1] => b[1] = 0;
+  check "follow" (false -> not r[2]) => b[2] = pre a[2];
+tel
+
+-- The same condition for every element
+node SameCondition (a: int^3; r: bool) returns (b: int^3);
+let
+  b = (restart (0 -> pre a[i]) every r foreach i)^3;
+  check "reset_all" r => b = (0 foreach i)^3;
+  check "follow_all" (false -> not r) => b[0] = pre a[0];
+  check "wrong" b[0] = 0;
+tel
