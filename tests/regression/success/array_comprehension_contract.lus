@@ -35,3 +35,20 @@ node Transpose (M: int^2^3) returns (T: int^3^2);
 let
   T = (M[j][i] foreach i, j)^3^2;
 tel
+
+-- A node call with state, expanded into one instance per index as in a node
+-- body
+node Counter (x: int) returns (c: int);
+let
+  c = x -> pre c + x;
+tel
+
+node Counters (A: int^3) returns (B: int^3);
+(*@contract
+  var G: int^3 = (Counter(A[i]) foreach i)^3;
+  guarantee "counters" B = (Counter(A[i]) foreach i)^3;
+  guarantee "ghost counters" B = G;
+*)
+let
+  B = (Counter(A[i]) foreach i)^3;
+tel

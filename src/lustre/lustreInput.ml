@@ -202,6 +202,12 @@ let type_check declarations =
     let* global_ctx, sorted_node_contract_decls =
       LDAC.desugar_array_comprehensions global_ctx sorted_node_contract_decls
     in
+    (* The remaining global constant and type declarations have no
+       comprehension to lower, but a comprehension in one of their types is
+       rejected *)
+    let* _ =
+      LDAC.desugar_array_comprehensions global_ctx const_inlined_type_and_consts
+    in
 
     (* Provide lsp info if option is enabled *)
     if (Flags.log_format_json () || Flags.log_format_ijson ()) && Flags.Lsp.lsp () then

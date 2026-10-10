@@ -2013,8 +2013,37 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
       | GhostVars (pos, GhostArrayDef (pos2, (p, id, ty), is), expr) ->
         let ety = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
         let info = add_array_def_indices info pos2 ety is in
+        (* As for an array definition in a node, the node calls that take
+           index variables are expanded into one instance per index, when the
+           sizes are known *)
+        let vars_of_calls = AH.vars_of_node_calls expr in
+        let sizes =
+          List.filter_map (fun i ->
+            if A.SI.mem i vars_of_calls then
+              let (size_opt, _, _, _) = StringMap.find i info.inductive_variables in
+              Some (i, size_opt)
+            else None
+          ) is
+        in
+        let expanded =
+          sizes <> [] && List.for_all (fun (_, sz) -> Option.is_some sz) sizes
+        in
+        let expr =
+          if expanded then
+            List.fold_left (fun acc i ->
+              let (size_opt, _, _, _) = StringMap.find i info.inductive_variables in
+              expand_node_calls_in_place info node_id i (Option.get size_opt) acc
+            ) expr is
+          else expr
+        in
         let nexpr, gids1, warnings1 =
           normalize_expr ?guard:None info (Some node_id) map expr
+        in
+        expanded_call_instances := [];
+        let gids1 =
+          if expanded then
+            union gids1 { (empty ()) with expanded_variables = StringSet.singleton id }
+          else gids1
         in
         let nty, gids2, warnings2 =
           normalize_ty ~id:(Some id) info (Some node_id) map ty
