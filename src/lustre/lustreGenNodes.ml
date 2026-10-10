@@ -23,6 +23,7 @@ module AH = LustreAstHelpers
 
 type error_kind =
   | RestartUnknownVariable of HString.t
+  | RestartQuantifiedVariable of HString.t
   | RestartPolymorphic
 
 let error_message = function
@@ -30,6 +31,9 @@ let error_message = function
     "The variable '" ^ HString.string_of_hstring id
     ^ "' cannot be used under a restart (for instance, the index variable of an \
        array definition)"
+  | RestartQuantifiedVariable id ->
+    "Quantified variable '" ^ HString.string_of_hstring id
+    ^ "' is not allowed under a restart"
   | RestartPolymorphic ->
     "A restart cannot apply to values of a type parameter"
 
@@ -429,18 +433,19 @@ fun ctx node_name fun_ids ty ->
 
 (* Ascriptions are inserted for record and constructor expressions only when
    insert holds, as they are not allowed where a constant expression is
-   expected. bound holds the variables bound inside the expression. *)
-and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
-fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids expr -> 
+   expected. bound holds the variables bound inside the expression, and quant
+   those of them bound by a quantifier and not shadowed by an inner binder. *)
+and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?quant:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
+fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos ctx node_name fun_ids expr -> 
   (* const_pos flags the values of the expression that must be constant. Each
      is passed to the sub-expression giving it; shared ones are constant if any is. *)
   let split_insert = insert in
-  let rec_split = desugar_expr ~insert:split_insert ~bound ?const_pos ctx node_name fun_ids in
+  let rec_split = desugar_expr ~insert:split_insert ~bound ~quant ?const_pos ctx node_name fun_ids in
   let insert = match const_pos with
     | Some flags -> insert && not (List.exists Fun.id flags)
     | None -> insert
   in
-  let rec_call = desugar_expr ~insert ~bound ctx node_name fun_ids in
+  let rec_call = desugar_expr ~insert ~bound ~quant ctx node_name fun_ids in
   (* Expressions whose arities do not match the flags (as in an ill-typed
      program, rejected later) are treated as constant *)
   let desugar_split ~insert es flags =
@@ -449,7 +454,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
       | None -> List.map (fun _ -> [true]) es
     in
     List.map2 (fun const_pos e ->
-      desugar_expr ~insert ~bound ~const_pos ctx node_name fun_ids e
+      desugar_expr ~insert ~bound ~quant ~const_pos ctx node_name fun_ids e
     ) slices es |> List.split
   in
   (* Arguments for constant parameters of node id must be constant expressions *)
@@ -476,7 +481,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
     (* The binder is in scope in the predicate, so the nodes the predicate needs
        are generated in a context that holds it *)
     let expr1, gen_nodes =
-      desugar_expr ~insert ~bound:(Ctx.SI.add id bound)
+      desugar_expr ~insert ~bound:(Ctx.SI.add id bound) ~quant:(Ctx.SI.remove id quant)
         (Ctx.add_ty (Ctx.remove_const ctx id) id ty) node_name fun_ids expr1
     in
     let span = { A.start_pos = pos; A.end_pos = pos } in
@@ -607,17 +612,17 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
   | StructUpdate (pos, e1, idx, Some e2) ->
     let e1, gen_nodes1 = rec_call e1 in
-    let idx, gen_nodes_idx = desugar_indices ~insert ~bound ctx node_name fun_ids idx in
+    let idx, gen_nodes_idx = desugar_indices ~insert ~bound ~quant ctx node_name fun_ids idx in
     let e2, gen_nodes2 = rec_call e2 in
     StructUpdate (pos, e1, idx, Some e2), gen_nodes1 @ gen_nodes_idx @ gen_nodes2
   | StructUpdate (pos, e, idx, None) ->
     let e, gen_nodes1 = rec_call e in
-    let idx, gen_nodes2 = desugar_indices ~insert ~bound ctx node_name fun_ids idx in
+    let idx, gen_nodes2 = desugar_indices ~insert ~bound ~quant ctx node_name fun_ids idx in
     StructUpdate (pos, e, idx, None), gen_nodes1 @ gen_nodes2
   | ArrayConstr (pos, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
     (* The size must be a constant expression *)
-    let e2, gen_nodes2 = desugar_expr ~insert:false ~bound ctx node_name fun_ids e2 in
+    let e2, gen_nodes2 = desugar_expr ~insert:false ~bound ~quant ctx node_name fun_ids e2 in
     ArrayConstr (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | IndexAccess (pos, e1, e2, kind) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -634,14 +639,16 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
       List.fold_left
         (fun ctx (_, id, ty) -> Ctx.add_ty (Ctx.remove_const ctx id) id ty) ctx tis
     in
-    let bound = Ctx.SI.union bound (Ctx.SI.of_list (List.map (fun (_, id, _) -> id) tis)) in
-    let e, gen_nodes = desugar_expr ~insert ~bound body_ctx node_name fun_ids e in
+    let ids = Ctx.SI.of_list (List.map (fun (_, id, _) -> id) tis) in
+    let bound = Ctx.SI.union bound ids in
+    let quant = Ctx.SI.union quant ids in
+    let e, gen_nodes = desugar_expr ~insert ~bound ~quant body_ctx node_name fun_ids e in
     Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
   | ArrayComprehension (pos, bs, e) ->
     (* The sizes must be constant expressions, as the size of an array
        constructor *)
     let bs, gen_nodes_bs = List.map (fun (p, id, n) ->
-      let n, gen_nodes = desugar_expr ~insert:false ~bound ctx node_name fun_ids n in
+      let n, gen_nodes = desugar_expr ~insert:false ~bound ~quant ctx node_name fun_ids n in
       (p, id, n), gen_nodes
     ) bs |> List.split in
     (* The index variables are integers bound in the body, as the binders of a
@@ -650,13 +657,15 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
       List.fold_left
         (fun ctx (p, id, _) -> Ctx.add_ty (Ctx.remove_const ctx id) id (A.Int p)) ctx bs
     in
-    let bound = Ctx.SI.union bound (Ctx.SI.of_list (List.map (fun (_, id, _) -> id) bs)) in
-    let e, gen_nodes = desugar_expr ~insert ~bound body_ctx node_name fun_ids e in
+    let ids = Ctx.SI.of_list (List.map (fun (_, id, _) -> id) bs) in
+    let bound = Ctx.SI.union bound ids in
+    let quant = Ctx.SI.diff quant ids in
+    let e, gen_nodes = desugar_expr ~insert ~bound ~quant body_ctx node_name fun_ids e in
     ArrayComprehension (pos, bs, e), List.flatten gen_nodes_bs @ gen_nodes
   | Restart (pos, e, r) ->
     let e, gen_nodes1 = rec_split e in
     let r, gen_nodes2 = rec_call r in
-    let e, gen_nodes3 = abstract_restart ctx node_name fun_ids gen_nodes1 pos e r in
+    let e, gen_nodes3 = abstract_restart ctx node_name fun_ids quant gen_nodes1 pos e r in
     e, gen_nodes1 @ gen_nodes2 @ gen_nodes3
   | RestartEvery _ -> assert false (* only generated by this pass *)
   | Pre (pos, e) -> 
@@ -697,8 +706,13 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
       let arm_e = AH.apply_subst_in_expr subst arm_e in
+      (* A pattern variable shadows a quantified variable of the same name *)
+      let quant =
+        Ctx.SI.diff quant
+          (AH.pat_bound_vars_with_pos pat |> List.map fst |> Ctx.SI.of_list)
+      in
       let arm_e, gen_nodes =
-        desugar_expr ~insert:split_insert ~bound ?const_pos arm_ctx node_name fun_ids arm_e
+        desugar_expr ~insert:split_insert ~bound ~quant ?const_pos arm_ctx node_name fun_ids arm_e
       in
       let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
@@ -720,8 +734,8 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?const_pos ctx node_name fun_ids ex
 
 (* The indices of a structure update hold expressions of their own: the
    element of a set literal and the key of a map literal are indices *)
-and desugar_indices ?(insert = true) ?(bound = Ctx.SI.empty) ctx node_name fun_ids idx =
-  let r = desugar_expr ~insert ~bound ctx node_name fun_ids in
+and desugar_indices ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ctx node_name fun_ids idx =
+  let r = desugar_expr ~insert ~bound ~quant ctx node_name fun_ids in
   List.map (function
     | A.Label _ as l -> l, []
     | A.Index (p, e, k) -> let e, gen_nodes = r e in A.Index (p, e, k), gen_nodes
@@ -832,14 +846,19 @@ fun ctx node_name fun_ids gen_decls orig_e ->
    restart the call every time [r] is true. An [e] without state is not
    affected by a restart, and is kept as it is. If the type of [e] cannot be
    inferred here, the expression is left for the later type-checking pass to
-   report the error. *)
+   report the error. The call lies outside the scope of any quantifier around
+   the restart, so neither [e] nor [r] can mention a variable in [quant]. *)
 and abstract_restart:
-  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> Lib.position
+  Ctx.tc_context -> NI.t -> NI.t list -> Ctx.SI.t -> A.declaration list -> Lib.position
   -> A.expr -> A.expr -> A.expr * A.declaration list =
-fun ctx node_name fun_ids gen_decls pos e r ->
+fun ctx node_name fun_ids quant gen_decls pos e r ->
   let sig_ctx = add_node_sigs ctx gen_decls in
   if not (has_state sig_ctx e) && droppable_condition sig_ctx node_name r then e, []
   else
+  let vars = Ctx.SI.union (AH.vars_without_node_call_ids e) (AH.vars_without_node_call_ids r) in
+  match Ctx.SI.min_elt_opt (Ctx.SI.inter vars quant) with
+  | Some id -> raise (Restart_error (pos, RestartQuantifiedVariable id))
+  | None ->
   match abstract_into_node ctx node_name fun_ids Restarted gen_decls e with
   | Abstracted (A.Call (_, [], node_id, args), decls) ->
     A.RestartEvery (pos, node_id, args, r), decls

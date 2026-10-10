@@ -19,6 +19,7 @@
 
 type error_kind =
   | RestartUnknownVariable of HString.t
+  | RestartQuantifiedVariable of HString.t
   | RestartPolymorphic
 
 val error_message : error_kind -> string

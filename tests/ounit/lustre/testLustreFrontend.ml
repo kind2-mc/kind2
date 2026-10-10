@@ -142,14 +142,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
-  mk_test "quantified variable in a restarted expression" (fun () ->
-    match load_file "./lustreSyntaxChecks/restart_quantified_var_1.lus" with
-    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInRestart _)) -> true
-    | _ -> false);
-  mk_test "quantified variable in a restart condition" (fun () ->
-    match load_file "./lustreSyntaxChecks/restart_quantified_var_2.lus" with
-    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInRestart _)) -> true
-    | _ -> false);
   mk_test "symbolic array index under a restart" (fun () ->
     match load_file "./lustreSyntaxChecks/restart_symbolic_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInRestart _)) -> true

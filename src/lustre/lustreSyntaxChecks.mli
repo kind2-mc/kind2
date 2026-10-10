@@ -34,7 +34,6 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
-  | QuantifiedVariableInRestart of HString.t
   | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
