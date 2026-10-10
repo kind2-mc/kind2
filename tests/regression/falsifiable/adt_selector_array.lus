@@ -2,6 +2,6 @@ datatype IntOpt = None | Some (val: int);
 
 node main(a: IntOpt^3) returns (o: int^3);
 let
-  o[i] = a[i].val;
+  o = (a[i].val foreach i)^3;
   check true;
 tel

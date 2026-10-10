@@ -7,6 +7,6 @@ type R = struct {
 
 node N(A: R^N; e: R) returns (out: R^N);
 let
-  out[i] = if i = 0 then e else A[i];
+  out = (if i = 0 then e else A[i] foreach i)^N;
   check out[0]=e;
 tel

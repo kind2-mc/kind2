@@ -7,5 +7,5 @@ tel
 node Bus( const n : int; Request: bool^n; Turn : int )
 returns ( Accepted : bool^n ) ;
 let
-  Accepted[i] = Turn = i or Array_CountTrue(n, Request) = 1;
+  Accepted = (Turn = i or Array_CountTrue(n, Request) = 1 foreach i)^n;
 tel

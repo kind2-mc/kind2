@@ -1,12 +1,12 @@
 node AtIndexVar(x: int^3; v: int) returns (y: int^3);
 let
-  y[i] = (x[i := v])[i];
+  y = ((x[i := v])[i] foreach i)^3;
   check forall (k: int) ((k >= 0 and k < 3) => (y[k] = v));
 tel
 
 node FrameAtOtherIndex(x: int^3; v: int) returns (y: int^3^3);
 let
-  y[i][j] = (x[i := v])[j];
+  y = ((x[i := v])[j] foreach i, j)^3^3;
   check "updated" forall (k: int) ((k >= 0 and k < 3) => (y[k][k] = v));
   check "unchanged" forall (k: int; l: int)
     ((k >= 0 and k < 3 and l >= 0 and l < 3 and k <> l) => (y[k][l] = x[l]));
@@ -14,7 +14,7 @@ tel
 
 node NestedAtIndexVar(x: int^3; v: int; w: int) returns (y: int^3);
 let
-  y[i] = ((x[i := v])[i := w])[i];
+  y = (((x[i := v])[i := w])[i] foreach i)^3;
   check forall (k: int) ((k >= 0 and k < 3) => (y[k] = w));
 tel
 
