@@ -1,0 +1,20 @@
+-- An element defined from the previous value of the array and from the
+-- current value of another element, formerly
+--   y[i] = 0 -> (if i=0 then pre y[i]+1 else y[(i - 1)]);
+-- The recursive function computes an element of the next value of the array
+-- from its previous value, which it takes as an argument.
+
+function rec Next (p: int^3; k: int) returns (v: int)
+(*@contract
+  decreases k;
+*)
+let
+  v = when k <= 0 then p[0] + 1 else Next(p, k - 1);
+tel
+
+node test() returns(y: int^3);
+let
+  y = (0 -> Next(pre y, i) foreach i)^3;
+
+  check y[1]=0 -> y[1]>0;
+tel

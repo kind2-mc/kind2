@@ -1747,21 +1747,6 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
-and check_array_dimensions ctx base_e idxs =
-  let ty = lookup_ty ctx base_e |> Option.get in
-  let* ty = expand_type_syn_reftype_history ctx ty in
-  let rec calc_number_of_array_dimensions ty = 
-    match ty with 
-    | LustreAst.ArrayType (_, (ty, _)) -> 
-      1 + calc_number_of_array_dimensions ty
-    | _ -> 0
-  in 
-  let num_dimensions = calc_number_of_array_dimensions ty in 
-  (* Element-wise definitions are only introduced by
-     LustreDesugarArrayComprehensions, with an index for every dimension *)
-  assert (List.length idxs = num_dimensions);
-  R.ok ()
-
 and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr * [> warning] list, [> error]) result
   = fun ctx nname expr exp_ty ->
   match expr with
@@ -2280,24 +2265,12 @@ and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [
     R.ok (LA.Assert (pos, e), warnings)
   | LA.Equation (p, lhs, e)  as eqn ->
     Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn;
-    (* The index variables of an element-wise array definition 'x[i] = e'
-       (introduced by LustreDesugarArrayComprehensions) are bound in [e] *)
-    let get_array_def_context: LA.struct_item -> tc_context = 
-      function
-      | ArrayDef (pos, _, is) ->
-        List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
-      | _ -> empty_tc_context
-    in
-    let ctx_from_lhs ctx (LA.StructDef (_, items)) =
-      List.fold_left union ctx (List.map get_array_def_context items)
-    in
-    let new_ctx = ctx_from_lhs ctx lhs in
     Debug.parse "Checking node equation lhs=%a; rhs=%a"
       LA.pp_print_eq_lhs lhs
       LA.pp_print_expr e;
-    let* ty, e, warnings1 = infer_type_expr new_ctx (Some nname) e in
+    let* ty, e, warnings1 = infer_type_expr ctx (Some nname) e in
     Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs;
-    let* lhs, warnings2 = check_type_struct_def new_ctx nname lhs ty in 
+    let* lhs, warnings2 = check_type_struct_def ctx lhs ty in 
     R.ok (LA.Equation (p, lhs, e), warnings1 @ warnings2)
 
 and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] list, [> error]) result = fun ctx nname ->
@@ -2379,8 +2352,8 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
     let* e, warnings = check_type_expr ctx (Some nname) e (Bool (LH.pos_of_expr e)) in 
     R.ok (LA.AnnotProperty (p, id, e, k), warnings)
   
-and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (LA.struct_item * [> warning] list, [> error]) result
-  = fun ctx nname st exp_ty ->
+and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> (LA.struct_item * [> warning] list, [> error]) result
+  = fun ctx st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
     let* inf_ty = (match (lookup_ty ctx i) with
@@ -2409,36 +2382,17 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         ^ " cannot be re-defined"))
       else R.ok ())
       (type_error pos (ExpectedType (exp_ty, inf_ty))) *)
-  | ArrayDef (pos, base_e, idxs) ->
-    check_array_dimensions ctx base_e idxs >>
-    let array_idx_expr =
-      List.fold_left (fun e i -> LA.IndexAccess (pos, e, i, Array))
-        (LA.Ident (pos, base_e))
-        (List.map (fun i -> LA.Ident (pos, i)) idxs)
-    in
-    (* Not `check_type_expr`, which would report the type of the right-hand
-       side as the expected one *)
-    let* elem_ty, array_idx_expr, warnings = infer_type_expr ctx (Some nname) array_idx_expr in
-    let* _ = R.ifM (eq_lustre_type ctx elem_ty exp_ty)
-      (R.ok ())
-      (type_error pos (ExpectedType (elem_ty, exp_ty)))
-    in
-    let rec extract_base_e e = match e with 
-    | LA.IndexAccess (_, e, _, _) -> extract_base_e e
-    | e -> e 
-    in  
-    let base_e = match extract_base_e array_idx_expr with 
-    | LA.Ident (_, base_e) -> base_e 
-    | _ -> assert false 
-    in
-    R.ok (LA.ArrayDef (pos, base_e, idxs), warnings)
+  (* Element-wise array definitions are rejected in the source by
+     LustreSyntaxChecks, and only introduced by
+     LustreDesugarArrayComprehensions after type checking *)
+  | ArrayDef _ -> assert false
   | TupleStructItem _ -> Lib.todo __LOC__
   | TupleSelection _ -> Lib.todo __LOC__
   | FieldSelection _ -> Lib.todo __LOC__
   | ArraySliceStructItem _ -> Lib.todo __LOC__
 
-and check_type_struct_def: tc_context -> NI.t -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [> warning] list, [> error]) result
-  = fun ctx nname (StructDef (pos, lhss)) exp_ty ->
+and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [> warning] list, [> error]) result
+  = fun ctx (StructDef (pos, lhss)) exp_ty ->
   (* An empty left-hand side denotes a call statement whose results are
      discarded (e.g. 'double(n-1);'). The right-hand side has already been
      type checked, so there is nothing more to verify here. *)
@@ -2460,19 +2414,19 @@ and check_type_struct_def: tc_context -> NI.t -> LA.eq_lhs -> tc_type -> (LA.eq_
         (* Case 1. the LHS is just one identifier 
           * so we have to check if the exp_type is the same as LHS *)
         then 
-          let* lhs, warnings = check_type_struct_item ctx nname (List.hd lhss) exp_ty in 
+          let* lhs, warnings = check_type_struct_item ctx (List.hd lhss) exp_ty in 
           R.ok (LA.StructDef (pos, [lhs]), warnings)
         else (* Case 2. LHS is a compound statment *)
           if List.length lhss = List.length exp_ty_lst
           then 
-            let* lhss, warnings = R.seq (List.map2 (check_type_struct_item ctx nname) lhss exp_ty_lst) |> R.map List.split in 
+            let* lhss, warnings = R.seq (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst) |> R.map List.split in 
             R.ok (LA.StructDef (pos, lhss), List.flatten warnings)
           else type_error pos (MismatchOfEquationType (Some lhss, exp_ty))
     (* We are dealing with simple types, so lhs has to be a singleton list *)
     | _ -> if (List.length lhss != 1)
           then type_error pos (MismatchOfEquationType (None, exp_ty))
           else let lhs = List.hd lhss in
-          let* lhs, warnings = check_type_struct_item ctx nname lhs exp_ty in 
+          let* lhs, warnings = check_type_struct_item ctx lhs exp_ty in 
           R.ok (LA.StructDef (pos, [lhs]), warnings))
   else type_error pos (DisallowedReassignment (SI.filter (fun e -> (member_val ctx e)) lhs_vars)))
 (** The structure of the left hand side of the equation 
@@ -2629,8 +2583,9 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
 
 and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
   = function
-  | (pos1, GhostArrayDef (pos2, (_, i, _), is), expr) ->
-    Equation (pos1, LA.StructDef (pos2, [LA.ArrayDef (pos2, i, is)]), expr)
+  (* Only introduced by LustreDesugarArrayComprehensions, after type
+     checking *)
+  | (_, GhostArrayDef _, _) -> assert false
   | (pos1, GhostVarDec(pos2, tis), expr) ->
     let lhs = LA.StructDef(pos2, 
     List.map (fun (pos, i, _) -> LA.SingleIdent(pos, i)) tis

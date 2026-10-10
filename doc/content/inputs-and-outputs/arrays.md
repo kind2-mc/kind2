@@ -268,6 +268,33 @@ defines the array instead.
   by a comprehension, whose body cannot refer to the current value of the
   array being defined. A recursive function computes such elements instead, as
   in the sum below.
+- When an element is defined both from previous values of `A` and from other
+  elements of its current value, the recursive function takes the previous
+  value of `A` as an argument, since a function cannot use `pre` itself. For
+  instance, `A[i] = 0 -> (if i = 0 then pre A[i] + 1 else A[i-1]);` becomes
+
+  ```lustre
+  function rec next (p: int^3; k: int) returns (v: int)
+  (*@contract
+    decreases k;
+  *)
+  let
+    v = when k <= 0 then p[0] + 1 else next(p, k - 1);
+  tel
+  ```
+
+  and `A = (0 -> next(pre A, i) foreach i) ^ 3;`.
+- A comprehension cannot mention a variable bound by a match arm. An array
+  defined in the arms of a match block from such variables is defined outside
+  the block instead, from a local variable that the arms define:
+
+  ```lustre
+  match t with
+  | A (v): x = v;
+  | B (w): x = w;
+  end
+  a = (x + i foreach i) ^ 3;
+  ```
 
 #### Examples
 
