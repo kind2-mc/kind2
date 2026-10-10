@@ -16,7 +16,7 @@ node Top(b: bool) returns (r: int);
 var arr: int^2; cnt: int;
 let
   cnt = 0 -> pre cnt + 1;
-  arr[i] = if (cnt mod 2 = 0) then i else 5;
+  arr = (if (cnt mod 2 = 0) then i else 5 foreach i)^2;
   r = F(arr);
   check "fn of a recurring array" (cnt >= 2) => (r = pre (pre r));
 tel

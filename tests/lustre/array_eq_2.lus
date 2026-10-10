@@ -10,12 +10,12 @@ tel;
 
 node sum(s: int;A, B: int^s) returns (R: int^s);
 let
-  R[k] = A[k] + B[k];
+  R = (A[k] + B[k] foreach k)^s;
 tel;
 
 node diff(s: int; A, B: int^s) returns (R: int^s);
 let
-  R[k] = A[k] - B[k];
+  R = (A[k] - B[k] foreach k)^s;
 tel;
 
 node main(A, B: int^ss) returns (ok: bool);

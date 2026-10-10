@@ -9,8 +9,8 @@ function imported F(a: int^2) returns (out: int);
 node Top(b: bool) returns (r, q: int);
 var arr, brr: int^2;
 let
-  arr[i] = i;
-  brr[i] = if i >= 1 then 1 else 0;
+  arr = (i foreach i)^2;
+  brr = (if i >= 1 then 1 else 0 foreach i)^2;
 
   r = F(arr);
   q = F(brr);

@@ -18,12 +18,13 @@ const EmptySet: MsgSet = false^2^N;
 
 function AddMsgToSet(svm_in: bool^2^N; vote_msg: Message) returns (svm_out: bool^2^N);
 let
-  svm_out[i][j] =
-    if i=vote_msg.sender then
+  svm_out =
+    (if i=vote_msg.sender then
       if j=0 and vote_msg.vote=No then true
       else if j=1 and vote_msg.vote=Yes then true
       else svm_in[i][j]
-    else svm_in[i][j];
+    else svm_in[i][j]
+    foreach i, j)^2^N;
 tel
 
 function IsMsgInSet(m: Message; s_in: MsgSet) returns (r: bool);

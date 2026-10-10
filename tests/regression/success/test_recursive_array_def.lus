@@ -1,18 +1,25 @@
 
-node sum (const n: int; A: int ^ n) returns (s: int);
-var cumul: int ^ n;
+-- The sum of the first k elements of A
+function rec sum_upto (const n: int; A: int ^ n; k: int) returns (s: int);
+(*@contract
+  decreases k;
+*)
 let
-  cumul[i] = if i = 0 then A[0] else A[i] + cumul[i-1];
-  s = cumul[n-1];
+  s = when k <= 0 or k > n then 0 else sum_upto(n, A, k - 1) + A[k - 1];
+tel
+
+node sum (const n: int; A: int ^ n) returns (s: int);
+let
+  s = sum_upto(n, A, n);
 tel
 
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
-  B[i] = A[low + i];
+  B = (A[low + i] foreach i)^(up-low);
 tel
 
 node a(A: int^5) returns (B: int^5)
 let
-  B[i] = A[i] + 1;
+  B = (A[i] + 1 foreach i)^5;
 tel

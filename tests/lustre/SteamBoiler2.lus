@@ -28,6 +28,130 @@ const
   signalled:int = 1;
   acked:int = 2;
 
+
+---------------------Array functions--------------------------------
+
+-- The sum of the first k elements of a
+function rec sum_upto(const n:int; a:int^n; k:int) returns (sum:int);
+(*@contract
+  decreases k;
+*)
+let
+  sum = when k <= 0 or k > n then 0 else sum_upto(n, a, k - 1) + a[k-1];
+tel;
+
+-- The number of true elements among the first k elements of a
+function rec count_upto(const n:int; a:bool^n; k:int) returns (n_true:int);
+(*@contract
+  decreases k;
+*)
+let
+  n_true = when k <= 0 or k > n then 0
+           else count_upto(n, a, k - 1) + (if a[k-1] then 1 else 0);
+tel;
+
+-- The disjunction of the first k elements of a
+function rec or_upto(const n:int; a:bool^n; k:int) returns (lin_or:bool);
+(*@contract
+  decreases k;
+*)
+let
+  lin_or = when k <= 0 or k > n then false else or_upto(n, a, k - 1) or a[k-1];
+tel;
+
+-- The conjunction of the first k elements of a
+function rec and_upto(const n:int; a:bool^n; k:int) returns (lin_and:bool);
+(*@contract
+  decreases k;
+*)
+let
+  lin_and = when k <= 0 or k > n then true else and_upto(n, a, k - 1) and a[k-1];
+tel;
+
+-- The number of pumps left to open (or to close, if negative) after
+-- considering the pumps up to index k
+function rec pumps_to_open_at(const n:int; n_pumps_to_open:int;
+                              pump_status, pump_defect:int^n;
+                              flow:bool^n; k:int)
+returns (pumps_to_open:int);
+(*@contract
+  decreases k;
+*)
+let
+  pumps_to_open =
+    when k <= 0 or k >= n then n_pumps_to_open
+    else
+      if ((n_pumps_to_open>0) and
+          not(flow[k]) and
+          not(pump_defect[k] <> ok) and
+          (pump_status[k]=off)) then
+        pumps_to_open_at(n, n_pumps_to_open, pump_status, pump_defect, flow, k-1) - 1
+      else
+        if ((n_pumps_to_open<0) and
+            flow[k] and
+            not(pump_defect[k] <> ok) and
+            (pump_status[k]=on)) then
+          pumps_to_open_at(n, n_pumps_to_open, pump_status, pump_defect, flow, k-1) + 1
+        else
+          pumps_to_open_at(n, n_pumps_to_open, pump_status, pump_defect, flow, k-1);
+tel;
+
+-- The command of pump k, given the number of pumps left to open
+function operate_pump(pumps_to_open:int; flow:bool;
+                      pump_status, pump_defect, pre_pump_defect:int)
+returns (operate_pump:int);
+let
+  operate_pump =
+    if ((pumps_to_open>0) and
+        not(flow) and
+        not(pump_defect <> ok) and
+        (pump_status=off)) then
+      switched_on
+    else
+      if ((pumps_to_open<0) and
+          flow and
+          not(pump_defect <> ok) and
+          (pump_status=on)) then
+        off
+      else
+        if (pump_status=switched_on) then
+          on
+        else
+          if (pre_pump_defect=acked and
+              pump_defect=ok) then
+            if pump_status=on then
+              off
+            else --necessarily off
+              on
+          else
+            pump_status;
+tel;
+
+-- R[i] is the command of pump i for k <= i < n
+opaque function rec operate_pumps_from(const n:int; n_pumps_to_open:int;
+                                       pump_status, pump_defect, pre_pump_defect:int^n;
+                                       flow:bool^n; k:int)
+returns (R:int^n);
+(*@contract
+  assume 0 <= k;
+  guarantee forall (i:int) k <= i and i < n =>
+    R[i] = operate_pump(pumps_to_open_at(n, n_pumps_to_open, pump_status,
+                                         pump_defect, flow, i),
+                        flow[i], pump_status[i], pump_defect[i],
+                        pre_pump_defect[i]);
+  decreases n - k;
+*)
+let
+  R = when k >= n then pump_status
+      else operate_pumps_from(n, n_pumps_to_open, pump_status, pump_defect,
+                              pre_pump_defect, flow, k + 1)
+           [k := operate_pump(pumps_to_open_at(n, n_pumps_to_open, pump_status,
+                                               pump_defect, flow, k),
+                              flow[k], pump_status[k], pump_defect[k],
+                              pre_pump_defect[k])];
+tel;
+
+
 ----------------------Operator----------------------------------------
 
 node Operator(stop:bool) returns (stop_request:bool);
@@ -162,15 +286,18 @@ let
 		(pre(q)-q)/Dt + sum(N_pump,p) *Dt 
 	    else 
 		steam;
-	p[k] = 0 -> if (not(flow[k])) then 0 else P; 
+	p = (0 -> if (not(flow[k])) then 0 else P foreach k)^N_pump; 
 tel; 
 
 
-node sum(const n:int;a:int^n) returns (sum:int);
-var aux: int^n;
+-- The calls to the recursive functions under a quantifier define them at the
+-- SMT level, so that their value is known whatever the number of unrollings
+opaque function sum(const n:int;a:int^n) returns (sum:int);
+(*@contract
+  guarantee forall (m:int) m = n => sum = sum_upto(n, a, m);
+*)
 let
-  aux[k] = if k = 0 then a[k] else aux[k-1] + a[k];
-  sum = aux[n-1];
+  sum = sum_upto(n, a, n);
 tel;
 
 
@@ -199,27 +326,22 @@ var
 let 
 	n_pumps_flow = count(N_pump,flow); 
 	n_pumps_to_open = n_pumps - n_pumps_flow; 
-	pump_status[k] = off -> (operate_pumps (N_pump,
-                                        n_pumps_to_open, 
-                                        pre(pump_status),
-                                        pump_defect,
-                                        flow))[k]; 
+	pump_status = off^N_pump -> operate_pumps (N_pump,
+                                             n_pumps_to_open, 
+                                             pre(pump_status),
+                                             pump_defect,
+                                             flow); 
 tel; 
 
 
 ----------------------Count------------------------------------
 
-node count(const n:int;a:bool^n) returns (n_true:int); 
-var aux: int^n;
+opaque function count(const n:int;a:bool^n) returns (n_true:int); 
+(*@contract
+  guarantee forall (m:int) m = n => n_true = count_upto(n, a, m);
+*)
 let 
-  aux[k] = if k = 0 then 
-             if a[0] then 1 else 0
-           else
-             if a[k] then 1 + aux[k-1]
-             else aux[k-1];
-
-  n_true = aux[n-1];
-
+  n_true = count_upto(n, a, n);
 tel; 
 
 
@@ -229,49 +351,9 @@ node operate_pumps(const n:int; n_pumps_to_open:int;
                    pump_status, pump_defect:int^n; 
                    flow:bool^n) 
 returns (operate_pumps:int^n);
-var pumps_to_open: int^n;
 let 
-  pumps_to_open[k] =
-    if k = 0 then n_pumps_to_open
-    else
-      if ((n_pumps_to_open>0) and 
-          not(flow[k]) and 
-          not(pump_defect[k] <> ok) and 
-          (pump_status[k]=off)) then 
-        pumps_to_open[k-1] - 1
-      else 
-        if ((n_pumps_to_open<0) and 
-            flow[k] and 
-            not(pump_defect[k] <> ok) and 
-            (pump_status[k]=on)) then
-          pumps_to_open[k-1] + 1
-        else 
-          pumps_to_open[k];
-
-  operate_pumps[k] =
-    if ((pumps_to_open[k]>0) and 
-        not(flow[k]) and
-        not(pump_defect[k] <> ok) and 
-        (pump_status[k]=off)) then 
-      switched_on 
-    else 
-      if ((pumps_to_open[k]<0) and 
-          flow[k] and 
-          not(pump_defect[k] <> ok) and 
-          (pump_status[k]=on)) then 
-        off 
-      else 
-        if (pump_status[k]=switched_on) then 
-          on 
-        else 
-          if (pre(pump_defect[k])=acked and 
-              pump_defect[k]=ok) then 
-            if pump_status[k]=on then
-              off 
-            else --necessarily off 
-              on 
-          else
-            pump_status[k];
+  operate_pumps = operate_pumps_from(n, n_pumps_to_open, pump_status,
+                                     pump_defect, pre(pump_defect), flow, 0);
 tel;
 
 
@@ -326,7 +408,7 @@ node critical_failure(op_mode,steam,level_defect,steam_defect:int;
 var failures_defect: bool^N_pump; 
 let
 
-  failures_defect[k] = pump_defect[k] <> ok;
+  failures_defect = (pump_defect[k] <> ok foreach k)^N_pump;
  
 	critical_failure = transmission_failure(pump_state) or 
 
@@ -356,16 +438,17 @@ node transmission_failure(pump_state:int^N_pump)
      returns (transmission_failure:bool); 
 var aux: bool^N_pump;
 let
-  aux[k] = pump_state[k]=none;
+  aux = (pump_state[k]=none foreach k)^N_pump;
   transmission_failure = OR(N_pump, aux); 
 tel; 
 
 
-node OR(const n:int;a:bool^n) returns (lin_or:bool);
-var aux: bool^n;
+opaque function OR(const n:int;a:bool^n) returns (lin_or:bool);
+(*@contract
+  guarantee forall (m:int) m = n => lin_or = or_upto(n, a, m);
+*)
 let
-  aux[k] = if k = 0 then a[0] else a[k] or aux[k-1];
-  lin_or = aux[n-1];
+  lin_or = or_upto(n, a, n);
 tel;
 
 ------------------------failure----------------------
@@ -375,8 +458,8 @@ node failure (level_defect,steam_defect:int;
      returns (failure:bool);
 var failures_defect, failures_control_defect: bool^N_pump; 
 let
-  failures_defect[k] = pump_defect[k] <> ok;
-  failures_control_defect[k] = pump_control_defect[k] <> ok;
+  failures_defect = (pump_defect[k] <> ok foreach k)^N_pump;
+  failures_control_defect = (pump_control_defect[k] <> ok foreach k)^N_pump;
 
   failure =
     level_failure(level_defect) or 
@@ -514,32 +597,32 @@ node PumpsOutput(op_mode:int; pump_status,pump_defect,pump_control_defect:int^N_
      returns (open_pump,close_pump,pump_failure_detection,pump_repaired_acknowledgement,pump_control_failure_detection,
               pump_control_repaired_acknowledgement:bool^N_pump); 
 let 
-  open_pump[k] = ((op_mode<>emergency) and 
-                  (op_mode<>startup) and 
-                  pump_status[k]=switched_on); 
+  open_pump = ((op_mode<>emergency) and 
+               (op_mode<>startup) and 
+               pump_status[k]=switched_on foreach k)^N_pump; 
 
-  close_pump[k] = ((op_mode<>emergency) and 
-                   (op_mode<>startup) and 
-                   pump_status[k]=off and 
-                   pre(pump_status[k])<>off) and 
-                     pump_defect[k]=ok and 
-                       pre(pump_defect[k])=ok; 
+  close_pump = (((op_mode<>emergency) and 
+                 (op_mode<>startup) and 
+                 pump_status[k]=off and 
+                 pre(pump_status[k])<>off) and 
+                   pump_defect[k]=ok and 
+                     pre(pump_defect[k])=ok foreach k)^N_pump; 
   
-  pump_failure_detection[k] = ((op_mode<>emergency) and 
-                               (op_mode<>startup) and 
-                               pump_defect[k]=signalled); 
+  pump_failure_detection = ((op_mode<>emergency) and 
+                            (op_mode<>startup) and 
+                            pump_defect[k]=signalled foreach k)^N_pump; 
 	
-  pump_repaired_acknowledgement[k] = ((op_mode<>emergency) and 
-                                      (op_mode<>startup) and 
-                                      pump_repaired[k]); 
+  pump_repaired_acknowledgement = ((op_mode<>emergency) and 
+                                   (op_mode<>startup) and 
+                                   pump_repaired[k] foreach k)^N_pump; 
 			 
-  pump_control_failure_detection[k] = ((op_mode<>emergency) and 
-                                       (op_mode<>startup) and 
-                                       (pump_control_defect[k]=signalled)); 
+  pump_control_failure_detection = ((op_mode<>emergency) and 
+                                    (op_mode<>startup) and 
+                                    (pump_control_defect[k]=signalled) foreach k)^N_pump; 
 			 
-  pump_control_repaired_acknowledgement[k] = ((op_mode<>emergency) and 
-                                              (op_mode<>startup) and 
-                                              pump_control_repaired[k]); 
+  pump_control_repaired_acknowledgement = ((op_mode<>emergency) and 
+                                           (op_mode<>startup) and 
+                                           pump_control_repaired[k] foreach k)^N_pump; 
 tel; 
 
 
@@ -619,55 +702,53 @@ let
 	steam_defect = ok-> SteamDefect (steam_failure_acknowledgement,	steam_repaired,	steam) ;
 	
 
-	pump_failure_d[k] = ((pre(pump_status[k])=off) and 
-			       (pump_state[k]=on)) 
-			      or 
-			      (((pre(pump_status[k])=on) or 
-			       (pre(pump_status[k])=switched_on)) and 
-			       (pump_state[k]=off));
+	pump_failure_d = (((pre(pump_status[k])=off) and 
+			      (pump_state[k]=on)) 
+			     or 
+			     (((pre(pump_status[k])=on) or 
+			      (pre(pump_status[k])=switched_on)) and 
+			      (pump_state[k]=off)) foreach k)^N_pump;
 							 
-	pump_control_failure_d[k] = (((pre(pump_status[k])=off) or 
-					(pre(pump_status[k])=switched_on)) and 
-					(pump_state[k]=off) and 
-					(pump_control_state[k]))
-				      or
-				      ((pre(pump_status[k])=on) and 
-				        (pump_state[k]=on) and 
-					not(pump_control_state[k])) 
-				      or
-				      ((pre(pump_status[k])=switched_on) and 
-				       (pump_state[k]=on) and 
-				       (pump_control_state[k]));
+	pump_control_failure_d = ((((pre(pump_status[k])=off) or 
+				     (pre(pump_status[k])=switched_on)) and 
+				     (pump_state[k]=off) and 
+				     (pump_control_state[k]))
+				   or
+				   ((pre(pump_status[k])=on) and 
+				     (pump_state[k]=on) and 
+				     not(pump_control_state[k])) 
+				   or
+				   ((pre(pump_status[k])=switched_on) and 
+				    (pump_state[k]=on) and 
+				    (pump_control_state[k])) foreach k)^N_pump;
 									  
-	flow[k] 	             = false ->
-                                       ((pre(pump_status[k])=off) and 
-				       (pump_state[k]=on) and 
-				       (pump_control_state[k]))
-		 		      or
-		 		      ((pre(pump_status[k])=on) and 
-				       (pump_state[k]=off) and 
-				       (pump_control_state[k]))
-		 		      or
-		 		      ((pre(pump_status[k])=on) and 
-				       (pump_state[k]=on));
+	flow = (false ->
+                ((pre(pump_status[k])=off) and 
+		 (pump_state[k]=on) and 
+		 (pump_control_state[k]))
+		 or
+		 ((pre(pump_status[k])=on) and 
+		  (pump_state[k]=off) and 
+		  (pump_control_state[k]))
+		 or
+		 ((pre(pump_status[k])=on) and 
+		  (pump_state[k]=on)) foreach k)^N_pump;
 
+  pump_defect = (ok -> if (pre(pump_defect[k])=ok) then
+                         if pump_failure_d[k] then signalled else ok
+                       else
+                         if (pre(pump_defect[k])=signalled) then
+                           if pump_failure_acknowledgement[k] then acked else signalled
+                         else -- pre(pump_defect[k])=acked
+                           if pump_repaired[k] then ok else acked foreach k)^N_pump;
 
-
-  pump_defect[k]             = ok -> if (pre(pump_defect[k])=ok) then
-                                       if pump_failure_d[k] then signalled else ok
-                                     else
-                                       if (pre(pump_defect[k])=signalled) then
-                                         if pump_failure_acknowledgement[k] then acked else signalled
-                                       else -- pre(pump_defect[k])=acked
-                                         if pump_repaired[k] then ok else acked;
-
-  pump_control_defect[k]     = ok -> if (pre(pump_control_defect[k])=ok) then
-                                       if pump_control_failure_d[k] then signalled else ok
-                                     else
-                                       if (pre(pump_control_defect[k])=signalled) then
-                                         if pump_control_failure_acknowledgement[k] then acked else signalled
-                                       else -- pre(pump_control_defect[k])=acked
-                                         if pump_control_repaired[k] then ok else acked;
+  pump_control_defect = (ok -> if (pre(pump_control_defect[k])=ok) then
+                                 if pump_control_failure_d[k] then signalled else ok
+                               else
+                                 if (pre(pump_control_defect[k])=signalled) then
+                                   if pump_control_failure_acknowledgement[k] then acked else signalled
+                                 else -- pre(pump_control_defect[k])=acked
+                                   if pump_control_repaired[k] then ok else acked foreach k)^N_pump;
 
   -- (pump_defect[k],
   --  pump_control_defect[k],
@@ -753,7 +834,7 @@ let
 	SUF_ok = implies(steam_outcome_failure_detection and not(steam_repaired), mode=degraded);
 	WUF_ok = implies(level_failure_detection and not(level_repaired), mode=rescue);
 	
-        pump_state_on[k] = pump_state[k] = on;
+        pump_state_on = (pump_state[k] = on foreach k)^N_pump;
 
 	NVP_ok = implies(OR(N_pump, pump_state_on), not valve);
 	NVW_ok = implies(level<=N2, not(valve));
@@ -793,11 +874,12 @@ let
 tel;
 
 
-node AND(const n:int;a:bool^n) returns (lin_and:bool);
-var aux: bool^n;
+opaque function AND(const n:int;a:bool^n) returns (lin_and:bool);
+(*@contract
+  guarantee forall (m:int) m = n => lin_and = and_upto(n, a, m);
+*)
 let
-  aux[k] = if k = 0 then a[0] else a[k] and aux[k-1];
-  lin_and = aux[n-1];
+  lin_and = and_upto(n, a, n);
 tel;
 
 
@@ -810,14 +892,14 @@ tel;
 
 node implies_ext(const n: int; A,B:bool^n) returns (implies:bool^n);
 let
-	implies[k] = not(A[k]) or B[k];
+	implies = (not(A[k]) or B[k] foreach k)^n;
 tel;
 
 node dont_use_pump_in_failure(const n: int; pump_failure_detection,  pump_repaired_acknowledgement, open_pump, close_pump: bool^n)
 returns (okok: bool^n);
 var not_ack, nor_open_close: bool^n;
 let
-  not_ack[k] = pump_failure_detection[k] and not(pump_repaired_acknowledgement[k]);
-  nor_open_close[k] = not(open_pump[k] or close_pump[k]);
+  not_ack = (pump_failure_detection[k] and not(pump_repaired_acknowledgement[k]) foreach k)^n;
+  nor_open_close = (not(open_pump[k] or close_pump[k]) foreach k)^n;
   okok = implies_ext(n, not_ack, nor_open_close);
 tel;

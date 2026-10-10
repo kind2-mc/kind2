@@ -6,6 +6,6 @@
 -- leaving it to the other engines) is the expected outcome here.
 node Top() returns (c: int^10);
 let
-  c[k] = 0 -> pre c[k] + 1;
+  c = (0 -> pre c[k] + 1 foreach k)^10;
   check forall (j: subrange [0, 9] of int) c[j] >= 0;
 tel

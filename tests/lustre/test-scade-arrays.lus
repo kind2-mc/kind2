@@ -5,6 +5,27 @@ const C2: int^3  = 1^3;
 -- const C3[i] : int^3 = i;
 const array_size: int;
 
+-- B[i] = C[i-1] and C[i] = A[i-1] + B[i] with A[i] = B[i+1], for 0 <= i < k,
+-- where B[0] = C[-1] = cm1 and A[-1] = am1 are out of bounds: B[1] = am1 + cm1
+-- and B[i] = B[i-1] + B[i-1] for i > 1
+opaque function rec b_upto(am1, cm1: int; k: int) returns (B: int^array_size);
+(*@contract
+  assume 0 <= k and k <= array_size;
+  guarantee k > 0 => B[0] = cm1;
+  guarantee k > 1 => B[1] = am1 + cm1;
+  guarantee forall (i: int) 1 < i and i < k => B[i] = B[i-1] + B[i-1];
+  decreases k;
+*)
+var P: int^array_size;
+let
+  P = when k <= 0 then cm1^array_size else b_upto(am1, cm1, k - 1);
+  B = when k <= 0 then P
+      else P[k-1 := if k = 1 then cm1
+                    else if k = 2 then am1 + cm1
+                    else P[k-2] + P[k-2]];
+tel
+
+
 node X(s: int; -- const array_size: int;
        r: real;) returns (A8: int^2);
 const array_default: int = 0;
@@ -23,6 +44,7 @@ var
   j: bool;
   x:  int;
   M: int^2^4;
+  am1, cm1, bn: int;
 
 let
   assert(array_size > 3);
@@ -36,12 +58,18 @@ let
   -- A0[k] = A1[k];
   A0 = A1;
 
-  A[k] = B[k+1];
-  B[k] = C[k-1];
-  C[k] = A[k-1] + B[k];
+  -- A[k] = B[k+1]; B[k] = C[k-1]; C[k] = A[k-1] + B[k], which is recursive:
+  -- B is computed by a recursive function, with A[-1] = am1, C[-1] = cm1 and
+  -- B[array_size] = bn out of bounds
+  am1 = any@<int>;
+  cm1 = any@<int>;
+  bn = any@<int>;
+  B = b_upto(am1, cm1, array_size);
+  A = (if k = array_size - 1 then bn else B[k+1] foreach k)^array_size;
+  C = ((if k = 0 then am1 else A[k-1]) + B[k] foreach k)^array_size;
 
   -- A sliding window over input stream s
-  A2[k] = if k = 0 then s else (k -> pre A1[k-1]); -- A2[k], A2[0] will fail but A2[k-1] is allowed
+  A2 = (if k = 0 then s else (k -> pre A1[k-1]) foreach k)^array_size; -- A2[k], A2[0] will fail but A2[k-1] is allowed
 
   A11 = A0[2 := 3 * A0[1]];
 
@@ -49,35 +77,35 @@ let
   -- A1[i] = array_default;
 
   -- -- A multi-dimensional array
-  A3[i][j] = s;
+  A3 = (s foreach i, j)^array_size^array_size;
   
-  -- -- A multi-dimensional array, the second i masks the first 
-  A4[i][i] = i;
+  -- -- A multi-dimensional array whose element depends on the second index only
+  A4 = (i2 foreach i1, i2)^array_size^array_size;
   
   -- -- Structural assignment involving recursive array definition
   -- (x, A1[i]) = (0, s); -- TODO
 
   -- -- Array of tuples 
-  A5[i] = '(i, i mod 2 = 0 );
+  A5 = ('(i, i mod 2 = 0 ) foreach i)^array_size;
 
   -- -- Array of records
-  A6[i] = rational { n=i; d=i+1 };
+  A6 = (rational { n=i; d=i+1 } foreach i)^array_size;
 
   i =((r * 0.0) / 2.0);
   
   -- -- Temporal operator applied to running variable: legal?
-  A7[i] = 0 -> pre i;
+  A7 = (0 -> pre i foreach i)^array_size;
 
   -- -- Return an array from a node call
-  A8[k] = pre(A1[k-1]);
+  A8 = (pre(A1[k-1]) foreach k)^2;
 
-  A9[i] = C1[i] -> pre A9[i] + 1;
+  A9 = (C1[i] -> pre A9[i] + 1 foreach i)^3;
 
-  A10[i] = C2[i] -> pre A10[i] + 1;
+  A10 = (C2[i] -> pre A10[i] + 1 foreach i)^3;
 
   -- Ab[i] = Aca[i]; -- should fail
 
-  M[i][j] = i+j; 
+  M = (i+j foreach i, j)^2^4;
 
   --%PROPERTY A2[0] = 0;
   --%PROPERTY A1[3] = s;
