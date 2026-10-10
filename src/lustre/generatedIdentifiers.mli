@@ -181,7 +181,9 @@ val var_is_discarded_output: HString.t -> bool
    'last' operator (see lustreDesugarLast.ml). *)
 val last_local : string
 
-(** Checks if a variable name corresponds to a 'last'-operator local *)
+(** Checks if a variable name is the AST name of a 'last'-operator local,
+    ['<n>_glast_<x>'] or ['<n>_glast_init_<x>']. A state variable name, where
+    the number is moved to an index, does not match. *)
 val var_is_last_local: HString.t -> bool
 
 (* String constant used as the suffix of fresh locals capturing the output of
