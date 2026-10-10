@@ -224,11 +224,16 @@ let block_guard = "bguard"
    (e.g. '4_gcomp'). *)
 let array_comprehension = "gcomp"
 
-(* Checks if a variable name corresponds to the local of an array
-   comprehension, as [var_is_last_local] does for 'last' locals *)
+(* Checks if a variable name is the AST name of the local of an array
+   comprehension, '<n>_gcomp': the leading numeric segment, which no
+   identifier in the source can have, keeps it apart from user names such as
+   'my_gcomp' *)
 let var_is_array_comprehension var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem array_comprehension
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [n; suffix] ->
+    suffix = array_comprehension && n <> ""
+    && String.for_all (fun c -> '0' <= c && c <= '9') n
+  | _ -> false
 
 (* Checks if a variable name corresponds to a 'last'-operator local. As with
    [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading

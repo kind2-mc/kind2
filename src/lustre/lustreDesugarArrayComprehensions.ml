@@ -72,9 +72,13 @@ let i = ref 0
 let sources : (HString.t, A.expr) Hashtbl.t = Hashtbl.create 7
 
 let restore e =
-  Hashtbl.fold (fun x src e ->
-    if AH.expr_contains_id x e then AH.substitute_naive x src e else e
-  ) sources e
+  let sigma =
+    A.SI.fold (fun x sigma -> match Hashtbl.find_opt sources x with
+      | Some src -> (x, src) :: sigma
+      | None -> sigma
+    ) (AH.vars_without_node_call_ids e) []
+  in
+  if sigma = [] then e else AH.apply_subst_in_expr sigma e
 
 let mk_fresh_var () =
   i := !i + 1;
@@ -99,13 +103,17 @@ let rec lower_expr mode bound e =
   let rl = seq_map r in
   match e with
   | A.Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
-  | EmptyMap _ | EmptySet _ -> R.ok e
+  | EmptyMap (_, None) | EmptySet (_, None) -> R.ok e
+  | EmptyMap (_, Some (kt, vt)) ->
+    let* () = check_type kt in let* () = check_type vt in R.ok e
+  | EmptySet (_, Some ty) -> let* () = check_type ty in R.ok e
   | FieldProject (p, e, i, k) -> let* e = r e in R.ok (A.FieldProject (p, e, i, k))
   | UnaryOp (p, op, e) -> let* e = r e in R.ok (A.UnaryOp (p, op, e))
   | ConvOp (p, op, e) -> let* e = r e in R.ok (A.ConvOp (p, op, e))
   | Extract (p, e, i, j) -> let* e = r e in R.ok (A.Extract (p, e, i, j))
   | Pre (p, e) -> let* e = r e in R.ok (A.Pre (p, e))
-  | TypeAscription (p, e, ty) -> let* e = r e in R.ok (A.TypeAscription (p, e, ty))
+  | TypeAscription (p, e, ty) ->
+    let* () = check_type ty in let* e = r e in R.ok (A.TypeAscription (p, e, ty))
   | ADTTester (p, e, c) -> let* e = r e in R.ok (A.ADTTester (p, e, c))
   | BinaryOp (p, op, e1, e2) ->
     let* e1 = r e1 in let* e2 = r e2 in R.ok (A.BinaryOp (p, op, e1, e2))
@@ -125,11 +133,14 @@ let rec lower_expr mode bound e =
     let* e1 = r e1 in let* e2 = r e2 in let* e3 = r e3 in
     R.ok (A.TernaryOp (p, op, e1, e2, e3))
   | RecordExpr (p, id, tys, flds) ->
+    let* () = check_types tys in
     let* flds = seq_map (fun (f, e) -> let* e = r e in R.ok (f, e)) flds in
     R.ok (A.RecordExpr (p, id, tys, flds))
   | GroupExpr (p, k, es) -> let* es = rl es in R.ok (A.GroupExpr (p, k, es))
-  | Call (p, tys, id, es) -> let* es = rl es in R.ok (A.Call (p, tys, id, es))
-  | ADTTerm (p, tys, c, es) -> let* es = rl es in R.ok (A.ADTTerm (p, tys, c, es))
+  | Call (p, tys, id, es) ->
+    let* () = check_types tys in let* es = rl es in R.ok (A.Call (p, tys, id, es))
+  | ADTTerm (p, tys, c, es) ->
+    let* () = check_types tys in let* es = rl es in R.ok (A.ADTTerm (p, tys, c, es))
   | RestartEvery (p, id, es, e) ->
     let* es = rl es in let* e = r e in R.ok (A.RestartEvery (p, id, es, e))
   | StructUpdate (p, e1, idxs, e2) ->
@@ -145,10 +156,12 @@ let rec lower_expr mode bound e =
   | ChooseOp (p, ((_, id, _) as ti), e) ->
     let* e = lower_expr mode (A.SI.add id bound) e in R.ok (A.ChooseOp (p, ti, e))
   | Quantifier (p, q, tis, e) ->
+    let* () = check_types (List.map (fun (_, _, ty) -> ty) tis) in
     let bound = List.fold_left (fun acc (_, id, _) -> A.SI.add id acc) bound tis in
     let* e = lower_expr mode bound e in
     R.ok (A.Quantifier (p, q, tis, e))
   | Match (p, e, arms, ty) ->
+    let* () = match ty with Some ty -> check_type ty | None -> R.ok () in
     let* e = r e in
     let* arms = seq_map (fun (pat, arm) ->
       let bound = A.SI.union bound (AH.pat_bound_vars pat) in
@@ -213,6 +226,22 @@ let rec lower_expr mode bound e =
       R.ok (A.Ident (p, x))
   )
 
+(* Comprehensions are not supported in types: the expressions of a type, such
+   as the predicate of a refinement type, are not lowered *)
+and check_type ty =
+  let first a b = match a with Some _ -> a | None -> b in
+  let find e =
+    match lower_expr (Reject "") A.SI.empty e with
+    | Ok _ -> None
+    | Error (`LustreDesugarArrayComprehensionsError (pos, _)) -> Some pos
+    | Error _ -> None
+  in
+  match AH.fold_lustre_ty ~into_ty_args:true find None first ty with
+  | Some pos -> mk_error pos (UnsupportedComprehensionPosition "types")
+  | None -> R.ok ()
+
+and check_types tys = R.seq_ (List.map check_type tys)
+
 and lower_label_or_index mode bound = function
   | A.Label _ as l -> R.ok l
   | Index (p, e, k) -> let* e = lower_expr mode bound e in R.ok (A.Index (p, e, k))
@@ -223,59 +252,70 @@ and lower_label_or_index mode bound = function
 
 let lower mode e = lower_expr mode A.SI.empty e
 
-let lower_node_equation mode = function
-  | A.Assert (p, e) -> let* e = lower mode e in R.ok (A.Assert (p, e))
-  | A.Equation (p, lhs, e) -> let* e = lower mode e in R.ok (A.Equation (p, lhs, e))
+let lower_node_equation mode bound = function
+  | A.Assert (p, e) -> let* e = lower_expr mode bound e in R.ok (A.Assert (p, e))
+  | A.Equation (p, lhs, e) ->
+    let* e = lower_expr mode bound e in R.ok (A.Equation (p, lhs, e))
 
-let rec lower_node_item mode = function
-  | A.Body eq -> let* eq = lower_node_equation mode eq in R.ok (A.Body eq)
+(** Lower the comprehensions of a node item. [bound] holds the variables bound
+    around the item, by the arms of the match blocks it is in. *)
+let rec lower_node_item mode bound item =
+  let low = lower_expr mode bound in
+  match item with
+  | A.Body eq -> let* eq = lower_node_equation mode bound eq in R.ok (A.Body eq)
   | IfBlock (p, e, l1, l2) ->
-    let* e = lower mode e in
-    let* l1 = lower_node_items mode l1 in
-    let* l2 = lower_node_items mode l2 in
+    let* e = low e in
+    let* l1 = lower_node_items mode bound l1 in
+    let* l2 = lower_node_items mode bound l2 in
     R.ok (A.IfBlock (p, e, l1, l2))
   | WhenBlock (p, e, l1, l2) ->
-    let* e = lower mode e in
-    let* l1 = lower_node_items mode l1 in
-    let* l2 = lower_node_items mode l2 in
+    let* e = low e in
+    let* l1 = lower_node_items mode bound l1 in
+    let* l2 = lower_node_items mode bound l2 in
     R.ok (A.WhenBlock (p, e, l1, l2))
   | MatchBlock (p, e, arms, ty) ->
-    let* e = lower mode e in
+    let* () = match ty with Some ty -> check_type ty | None -> R.ok () in
+    let* e = low e in
     let* arms = seq_map (fun (pat, items) ->
-      let* items = lower_node_items mode items in
+      let bound = A.SI.union bound (AH.pat_bound_vars pat) in
+      let* items = lower_node_items mode bound items in
       R.ok (pat, items)
     ) arms in
     R.ok (A.MatchBlock (p, e, arms, ty))
   | RestartBlock (p, items, e) ->
-    let* items = lower_node_items mode items in
-    let* e = lower mode e in
+    let* items = lower_node_items mode bound items in
+    let* e = low e in
     R.ok (A.RestartBlock (p, items, e))
   | FrameBlock (p, vars, nes, nis) ->
-    let* nes = seq_map (lower_node_equation mode) nes in
-    let* nis = lower_node_items mode nis in
+    let* nes = seq_map (lower_node_equation mode bound) nes in
+    let* nis = lower_node_items mode bound nis in
     R.ok (A.FrameBlock (p, vars, nes, nis))
   | AnnotProperty (p, name, e, kind) ->
-    let* e = lower mode e in
+    let* e = low e in
     let* kind = match kind with
-      | A.Provided c -> let* c = lower mode c in R.ok (A.Provided c)
+      | A.Provided c -> let* c = low c in R.ok (A.Provided c)
       | A.Invariant | A.Reachable _ -> R.ok kind
     in
     R.ok (A.AnnotProperty (p, name, e, kind))
   | AnnotMain _ | Auto _ as item -> R.ok item
 
-and lower_node_items mode items = seq_map (lower_node_item mode) items
+and lower_node_items mode bound items =
+  seq_map (lower_node_item mode bound) items
 
 (** Reject the comprehensions of a contract *)
 let check_contract (_, eqs) =
   let mode = Reject "contracts" in
   let check e = let* _ = lower mode e in R.ok () in
   let check_const = function
-    | A.FreeConst _ -> R.ok ()
-    | A.UntypedConst (_, _, e) | A.TypedConst (_, _, e, _) -> check e
+    | A.FreeConst (_, _, ty) -> check_type ty
+    | A.UntypedConst (_, _, e) -> check e
+    | A.TypedConst (_, _, e, ty) -> let* () = check_type ty in check e
   in
   R.seq_ (List.map (function
     | A.GhostConst c -> check_const c
-    | A.GhostVars (_, _, e) | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e)
+    | A.GhostVars (_, A.GhostVarDec (_, tis), e) ->
+      let* () = check_types (List.map (fun (_, _, ty) -> ty) tis) in check e
+    | A.Assume (_, _, _, e) | A.Guarantee (_, _, _, e)
     | A.Decreases (_, e) -> check e
     | A.Mode (_, _, reqs, enss) ->
       let* () = R.seq_ (List.map (fun (_, _, e) -> check e) reqs) in
@@ -287,15 +327,23 @@ let check_contract (_, eqs) =
 let lower_node ctx (node_id, ext, opac, nps, cctds, ctds, nlds, nis, co) =
   let* () = match co with Some c -> check_contract c | None -> R.ok () in
   let* () =
+    check_types
+      (List.map (fun (_, _, ty, _, _) -> ty) cctds @ List.map (fun (_, _, ty, _) -> ty) ctds)
+  in
+  let* () =
     R.seq_ (List.map (function
-      | A.NodeConstDecl (_, (A.UntypedConst (_, _, e) | A.TypedConst (_, _, e, _))) ->
+      | A.NodeConstDecl (_, A.UntypedConst (_, _, e)) ->
         let* _ = lower (Reject "constant declarations") e in R.ok ()
-      | A.NodeConstDecl (_, A.FreeConst _) | A.NodeVarDecl _ -> R.ok ()
+      | A.NodeConstDecl (_, A.TypedConst (_, _, e, ty)) ->
+        let* () = check_type ty in
+        let* _ = lower (Reject "constant declarations") e in R.ok ()
+      | A.NodeConstDecl (_, A.FreeConst (_, _, ty)) | A.NodeVarDecl (_, (_, _, ty, _)) ->
+        check_type ty
     ) nlds)
   in
   let ctx = Chk.add_full_node_ctx ctx node_id nps cctds ctds nlds in
   let st = Lower { node_id; ctx; decls = []; eqs = [] } in
-  let* nis = lower_node_items st nis in
+  let* nis = lower_node_items st A.SI.empty nis in
   match st with
   | Lower { decls; eqs; _ } ->
     R.ok (node_id, ext, opac, nps, cctds, ctds,
@@ -307,12 +355,22 @@ let lower_decl ctx = function
     let* decl = lower_node ctx decl in R.ok (A.NodeDecl (s, decl))
   | A.FuncDecl (s, decl, attrs) ->
     let* decl = lower_node ctx decl in R.ok (A.FuncDecl (s, decl, attrs))
-  | A.ContractNodeDecl (_, (_, _, _, _, c)) as decl ->
+  | A.ContractNodeDecl (_, (_, _, ins, outs, c)) as decl ->
+    let* () =
+      check_types
+        (List.map (fun (_, _, ty, _, _) -> ty) ins @ List.map (fun (_, _, ty, _) -> ty) outs)
+    in
     let* () = check_contract c in R.ok decl
-  | A.ConstDecl (_, (A.UntypedConst (_, _, e) | A.TypedConst (_, _, e, _))) as decl ->
+  | A.ConstDecl (_, A.UntypedConst (_, _, e)) as decl ->
     let* _ = lower (Reject "constant declarations") e in R.ok decl
-  | A.ConstDecl (_, A.FreeConst _) | A.TypeDecl _ | A.NodeParamInst _ as decl ->
-    R.ok decl
+  | A.ConstDecl (_, A.TypedConst (_, _, e, ty)) as decl ->
+    let* () = check_type ty in
+    let* _ = lower (Reject "constant declarations") e in R.ok decl
+  | A.ConstDecl (_, A.FreeConst (_, _, ty)) as decl ->
+    let* () = check_type ty in R.ok decl
+  | A.TypeDecl (_, A.AliasType (_, _, _, ty)) as decl ->
+    let* () = check_type ty in R.ok decl
+  | A.TypeDecl (_, A.FreeType _) | A.NodeParamInst _ as decl -> R.ok decl
 
 let desugar_array_comprehensions ctx decls =
   seq_map (lower_decl ctx) decls

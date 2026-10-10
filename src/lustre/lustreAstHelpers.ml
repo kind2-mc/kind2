@@ -2133,6 +2133,18 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       in
       l |> join >>= fun l ->
       Ok (e && l && xq = yq)
+    (* As for quantifiers, the index variables must have the same names *)
+    | ArrayComprehension (_, xbs, xe), ArrayComprehension (_, ybs, ye) ->
+      r (depth + 1) xe ye >>= fun e ->
+      let l = if List.length xbs = List.length ybs then
+          List.map2 (fun (_, xi, xn) (_, yi, yn) ->
+            r (depth + 1) xn yn >>= fun n ->
+              Ok (n && HString.equal xi yi))
+          xbs ybs
+        else [Ok (false)]
+      in
+      l |> join >>= fun l ->
+      Ok (e && l)
     | Restart (_, xe, xr), Restart (_, ye, yr) ->
       r (depth + 1) xe ye >>= fun e ->
       r (depth + 1) xr yr >>= fun c ->

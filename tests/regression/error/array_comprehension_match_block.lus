@@ -1,0 +1,10 @@
+-- An array comprehension cannot mention a variable bound by the arm of a
+-- match block
+datatype Opt = None | Some (v: int);
+node N (o: Opt; A: int^3) returns (B: int^3);
+let
+  match o with
+  | Some (v): B = (v + A[i] foreach i)^3;
+  | None: B = A;
+  end
+tel
