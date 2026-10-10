@@ -1,4 +1,4 @@
 node a(A: int^5) returns (B: int^5)
 let
-  B[i] = A[i] + 1;
+  B = (A[i] + 1 foreach i)^5;
 tel

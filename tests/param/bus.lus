@@ -29,13 +29,13 @@ tel
 
 node Array_Since(const n: int; X: bool^n; Y : bool ) returns ( SinceXY : bool^n );
 let
-  SinceXY[i] = X[i] or (Y and (false -> pre SinceXY[i]));
+  SinceXY = (X[i] or (Y and (false -> pre SinceXY[i])) foreach i)^n;
 tel
 
 
 node Array_Last(const n: int; A: bool^n; V : int^n ; d: int) returns ( L : int^n );
 let
-  L[i] = if A[i] then V[i] else (d -> pre L[i]) ;
+  L = (if A[i] then V[i] else (d -> pre L[i]) foreach i)^n ;
 tel
 
 -- SinceIncl(X,Y) is true iff X has been true at some point, 
@@ -51,14 +51,28 @@ let
   Y = X or (false -> pre Y) ;
 tel
 
+
+-- Array_FirstTrueFrom(n, X, k) returns the smallest index i >= k such as X[i]
+-- is true, if any; otherwise, it returns -1
+opaque function rec Array_FirstTrueFrom( const n: int; X: bool^n; k: int ) returns ( index: int ) ;
+(*@contract
+  assume 0 <= k;
+  guarantee (index = -1 and forall (i: int) k <= i and i < n => not X[i]) or
+            (k <= index and index < n and X[index] and
+             forall (i: int) k <= i and i < index => not X[i]);
+  decreases n - k;
+*)
+let
+  index = when k >= n then -1
+          else when X[k] then k
+          else Array_FirstTrueFrom(n, X, k + 1) ;
+tel
+
 -- Array_FirstTrue(n, X) returns the smallest index i such as X[i] is true,
 -- if any; otherwise, it returns -1
 node Array_FirstTrue( const n: int; X: bool^n ) returns ( index: int ) ;
-  var A : int^n ;
 let
-  A[i] = if i > 0 and A[i-1] <> -1 then A[i-1]
-         else if X[i] then i else -1 ;
-  index = A[n-1] ;
+  index = Array_FirstTrueFrom(n, X, 0) ;
 tel
 
 node BoolToInt( B : bool ) returns ( N : int );
@@ -68,15 +82,31 @@ tel
 
 node Array_BoolToInt( const n: int; B : bool^n ) returns ( N : int^n );
 let
-  N[i] = if B[i] then 1 else 0 ;
+  N = (if B[i] then 1 else 0 foreach i)^n ;
+tel
+
+
+-- Array_CountTrueUpTo(n, B, k) returns the number of true elements among the
+-- first k elements of B
+opaque function rec Array_CountTrueUpTo( const n : int ; B : bool^n ; k : int ) returns ( C : int ) ;
+(*@contract
+  guarantee 0 <= C ;
+  guarantee 0 <= k and k <= n =>
+    (C = 0) = (forall (i: int) 0 <= i and i < k => not B[i]) ;
+  guarantee 0 <= k and k <= n =>
+    (C <= 1) = (forall (i, j: int) 0 <= i and i < k and 0 <= j and j < k and
+                                    i <> j => not (B[i] and B[j])) ;
+  decreases k ;
+*)
+let
+  C = when k <= 0 or k > n then 0
+      else Array_CountTrueUpTo(n, B, k - 1) + (if B[k-1] then 1 else 0) ;
 tel
 
 -- Array_CountTrue(n, B) returns the number of true elements of B
 node Array_CountTrue( const n : int ; B : bool^n ) returns ( C : int ) ;
-  var A : int^n ;
 let
-  A[i] = (if i = 0 then 0 else A[i-1]) + (if B[i] then 1 else 0) ;
-  C = A[n-1] ;
+  C = Array_CountTrueUpTo(n, B, n) ;
 tel
 
 -- Duration(B) counts the number of times B has been 
@@ -211,7 +241,7 @@ returns ( Accepted : bool^n; BusValue : busVal ) ;
 
 var k : int ;
 let
-  Accepted[i] = Request[i] and (Turn = i or Array_CountTrue(n, Request) = 1) ;
+  Accepted = (Request[i] and (Turn = i or Array_CountTrue(n, Request) = 1) foreach i)^n ;
 
   k = Array_FirstTrue(n, Accepted) ;
 

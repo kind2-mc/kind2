@@ -1,5 +1,5 @@
-const c=2;
-const ss=4;
+const c: int = 2;
+const ss: int = 4;
 
 node N(x, y: int) returns (a, b: int);
 let
@@ -8,14 +8,14 @@ let
 tel;
 
 
-node sum(s: int;A, B: int^s) returns (R: int^s);
+node sum(const s: int;A, B: int^s) returns (R: int^s);
 let
-  R[k] = A[k] + B[k];
+  R = (A[k] + B[k] foreach k)^s;
 tel;
 
-node diff(s: int; A, B: int^s) returns (R: int^s);
+node diff(const s: int; A, B: int^s) returns (R: int^s);
 let
-  R[k] = A[k] - B[k];
+  R = (A[k] - B[k] foreach k)^s;
 tel;
 
 node main(A, B: int^ss) returns (ok: bool);

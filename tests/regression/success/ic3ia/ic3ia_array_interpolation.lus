@@ -3,7 +3,7 @@
 -- contain the array encoding, not just the initial abstraction.
 node Top() returns (c: int^3);
 let
-  c[k] = 0 -> (if pre c[k] < 5 then pre c[k] + 1 else pre c[k]);
+  c = (0 -> (if pre c[k] < 5 then pre c[k] + 1 else pre c[k]) foreach k)^3;
   check c[1] <= 5;
   check c[1] >= 0;
 tel

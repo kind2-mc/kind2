@@ -18,7 +18,7 @@ let
   // Should all fail
   z = choose { x: int | (x: Neg) + 2 = 3 };
   z3 = (0: Neg);
-  A[i] = (i: Neg);
+  A = ((i: Neg) foreach i)^N;
   z4 = M(inp);
 
   // Should all succeed

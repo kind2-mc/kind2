@@ -42,7 +42,7 @@ tel;
 
 node N5 (i : t1^4) returns (o:int^4);
 let
-   o[k] = i[k];
+   o = (i[k] foreach k)^4;
    --%PROPERTY 0 <= o[2] and o[2] <= 1 ;
    --%MAIN ;
 tel;

@@ -1,0 +1,27 @@
+-- The examples of arrays of the documentation: a sum, computed by a recursive
+-- function, and arrays defined element-wise by comprehensions
+
+-- The sum of the first k elements of A
+function rec sum_upto (const n: int; A: int ^ n; k: int) returns (s: int);
+(*@contract
+  decreases k;
+*)
+let
+  s = when k <= 0 or k > n then 0 else sum_upto(n, A, k - 1) + A[k - 1];
+tel
+
+node sum (const n: int; A: int ^ n) returns (s: int);
+let
+  s = sum_upto(n, A, n);
+tel
+
+node slice (const n: int; A: int ^ n; const low: int; const up: int)
+returns (B : int ^ (up-low));
+let
+  B = (A[low + i] foreach i)^(up-low);
+tel
+
+node a(A: int^5) returns (B: int^5)
+let
+  B = (A[i] + 1 foreach i)^5;
+tel

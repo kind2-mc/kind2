@@ -15,12 +15,13 @@ returns (operate_pumps:int^n);
 let
   assert(n>0);
 
-  operate_pumps[k] =
-      if (not(pump_defect[k] <> 1) and 
+  operate_pumps =
+      (if (not(pump_defect[k] <> 1) and 
           pre(pump_defect[k])=2) then 
               1 
           else
-            pump_status[k];
+            pump_status[k]
+      foreach k)^n;
 
   --%PROPERTY operate_pumps[0]=0;
 
