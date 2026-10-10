@@ -53,7 +53,7 @@ type error_kind = Unknown of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MissingComprehensionSize of HString.t
-  | MultAssignArrayDef
+  | ArrayDefinition of HString.t
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock

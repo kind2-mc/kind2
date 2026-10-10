@@ -100,7 +100,6 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
-  | InvalidNumberOfIndices of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
@@ -229,7 +228,6 @@ let error_message kind = match kind with
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
-  | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs whose payloads are also valid set element / map key types are supported"
@@ -1749,7 +1747,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
-and check_array_dimensions pos ctx base_e idxs =
+and check_array_dimensions ctx base_e idxs =
   let ty = lookup_ty ctx base_e |> Option.get in
   let* ty = expand_type_syn_reftype_history ctx ty in
   let rec calc_number_of_array_dimensions ty = 
@@ -1759,9 +1757,10 @@ and check_array_dimensions pos ctx base_e idxs =
     | _ -> 0
   in 
   let num_dimensions = calc_number_of_array_dimensions ty in 
-  if List.length idxs != num_dimensions then 
-    (type_error pos (InvalidNumberOfIndices base_e))
-  else R.ok ()
+  (* Element-wise definitions are only introduced by
+     LustreDesugarArrayComprehensions, with an index for every dimension *)
+  assert (List.length idxs = num_dimensions);
+  R.ok ()
 
 and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr * [> warning] list, [> error]) result
   = fun ctx nname expr exp_ty ->
@@ -2281,8 +2280,8 @@ and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [
     R.ok (LA.Assert (pos, e), warnings)
   | LA.Equation (p, lhs, e)  as eqn ->
     Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn;
-    (* This is a special case where we have undeclared identifiers 
-       as short hands for assigning values to arrays aka recursive technique *)
+    (* The index variables of an element-wise array definition 'x[i] = e'
+       (introduced by LustreDesugarArrayComprehensions) are bound in [e] *)
     let get_array_def_context: LA.struct_item -> tc_context = 
       function
       | ArrayDef (pos, _, is) ->
@@ -2411,7 +2410,7 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
       else R.ok ())
       (type_error pos (ExpectedType (exp_ty, inf_ty))) *)
   | ArrayDef (pos, base_e, idxs) ->
-    check_array_dimensions pos ctx base_e idxs >>
+    check_array_dimensions ctx base_e idxs >>
     let array_idx_expr =
       List.fold_left (fun e i -> LA.IndexAccess (pos, e, i, Array))
         (LA.Ident (pos, base_e))

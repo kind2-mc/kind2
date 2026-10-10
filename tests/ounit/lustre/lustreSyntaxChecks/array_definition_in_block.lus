@@ -1,0 +1,8 @@
+function F (c: bool; x: int^3) returns (y: int^3);
+let
+  if c then
+    y[i] = x[i];
+  else
+    y = x;
+  fi
+tel

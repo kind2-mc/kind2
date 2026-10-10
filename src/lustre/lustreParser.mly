@@ -1006,7 +1006,8 @@ struct_item:
   | s = ident
       { A.SingleIdent (mk_pos $startpos, s) }
           
-  (* Recursive array definition *)
+  (* Element-wise array definition, no longer supported: LustreSyntaxChecks
+     reports it and suggests an array comprehension *)
   | s = ident; l = nonempty_list(index_var)
      { A.ArrayDef (mk_pos $startpos, s, l) }
 

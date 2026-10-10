@@ -28,8 +28,7 @@ type error_kind =
 let error_message = function
   | RestartUnknownVariable id ->
     "The variable '" ^ HString.string_of_hstring id
-    ^ "' cannot be used under a restart (for instance, the index variable of an \
-       array definition)"
+    ^ "' cannot be used under a restart"
   | RestartPolymorphic ->
     "A restart cannot apply to values of a type parameter"
 
@@ -215,17 +214,12 @@ type abstraction =
   | Untyped
 
 (* Map the expressions of a node item, including the guards of its blocks, with
-   the variables the item binds around each one: the index variables of an
-   array definition, and the variables of a match pattern *)
+   the variables the item binds around each one: the variables of a match
+   pattern *)
 let rec map_node_item_exprs f ni =
   let r = map_node_item_exprs f in
   let f_eq = function
-    | A.Equation (pos, (A.StructDef (_, lhs) as l), e) ->
-      let bound = List.concat_map (function
-        | A.ArrayDef (_, _, inds) -> inds
-        | _ -> []) lhs
-      in
-      A.Equation (pos, l, f (Ctx.SI.of_list bound) e)
+    | A.Equation (pos, l, e) -> A.Equation (pos, l, f Ctx.SI.empty e)
     | A.Assert (pos, e) -> A.Assert (pos, f Ctx.SI.empty e)
   in
   match ni with

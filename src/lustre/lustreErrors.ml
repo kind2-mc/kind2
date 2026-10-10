@@ -19,7 +19,6 @@
 module LA = LustreAst
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
@@ -40,7 +39,6 @@ type error = [
 ]
 
 let error_position error = match error with
-  | `LustreArrayDependencies (pos, _) -> pos
   | `LustreAstDependenciesError (pos, _) -> pos
   | `LustreAstInlineConstantsError (pos, _) -> pos
   | `LustreAstNormalizerError -> assert false
@@ -60,7 +58,6 @@ let error_position error = match error with
   | `LustreGenNodesError (pos, _) -> pos
 
 let error_message error = match error with
-  | `LustreArrayDependencies (_, kind) -> LustreArrayDependencies.error_message kind
   | `LustreAstDependenciesError (_, kind) -> LustreAstDependencies.error_message kind
   | `LustreAstInlineConstantsError (_, kind) -> LustreAstInlineConstants.error_message kind
   | `LustreAstNormalizerError -> assert false

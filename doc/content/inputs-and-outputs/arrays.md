@@ -242,178 +242,64 @@ V5](http://www.di.ens.fr/~pouzet/cours/mpri/manual_lustre.ps):
 
 ## Extension to unbounded arrays
 
-Kind 2 provides an extension of Lustre to express equational constraints
-between unbounded arrays. This syntax extension allows users to inductively
-define arrays, give whole array definitions and allows to encode most of the
-other unsupported array features. This extension was originally suggested by
-[Esterel](http://www.esterel-technologies.com).
+Kind 2 extends Lustre to arrays whose size is an *unbounded* constant, that
+is, a constant whose value is not given. [Array
+comprehensions](#array-comprehensions) define such arrays element-wise, and
+quantifiers in specifications express properties of all their elements. This
+allows one to model *parameterized* systems: contrary to the Lustre compilers,
+Kind 2 does not require the constants used as array sizes to be instantiated
+with actual values, and checks the properties *for any* array sizes.
 
-> **Remark**
->
-> Here, by *unbounded* we mean whose size is an unbounded constant.
+### Element-wise definitions
 
-In addition, we also enriched the specification language of Kind 2 to support
-(universal and existential) quantifiers, allowing one to effectively model
-*parameterized* system.
+Earlier versions of Kind 2 defined arrays element-wise with equations of the
+form `A[i] = <term(i)>;`. These equations are no longer supported: Kind 2
+rejects them, and an array comprehension or a [recursive
+function]({{< relref "/inputs-and-outputs/lustre#recursive-functions" >}})
+defines the array instead.
 
-### Whole array definitions
-
-Equations in the body of nodes can now take the following forms
-
-- `A = <term> ;` This equation defines the values of the array `A` to be the same
-  as the values of the array expression `<term>`.
-- `A[i] = <term(i)> ;` This equation defines the values of all elements in the
-  array `A`. The index `i` has to be a symbol, it is bound locally to the
-  equation and shadows all other mentions of `i`. Index variables that appear
-  on the left hand side of equations are **implicitly universally
-  quantified**. The right hand side of the equation, `<term(i)>` can depend on
-  this index. The meaning of the equation is that, for any integer `i` between
-  0 and the size of `A`, the value at position `i` is defined as the term
-  `<term(i)>`.
-
-Semantically, a whole array equation is equivalent to a quantified
-equation. Let `A` be an array of size an integer constant `n`, then following
-equation is legal.
-
-```lustre
-A[i] = if i = 0 then 2 else B[i - 1] ;
-```
-
-It is equivalent to the formula
-*∀ i ∈ \[0; n\]. ( i = 0 ⇒ A\[i\] = 2 ) ⋀ ( i ≠ 0 ⇒ A\[i\] = B\[i-1\] )*.
-
-Multidimensional arrays can also be redefined the same way. For instance the
-equation
-
-```lustre
-M[i][j] = if i = j then 1 else 0 ;
-```
-
-defines `M` as the identity matrix
-
-```lustre
-[[ 1 , 0 , 0 ,..., 0 ],
- [ 0 , 1 , 0 ,..., 0 ],
- [ 0 , 0 , 1 ,..., 0 ],
- .................... ,
- [ 1 , 0 , 0 ,..., 1 ]]
-```
-
-It is possible to write an equation of the form
-
-```lustre
-M[i][i] = i;
-```
-
-but in this case the second index `i` shadows the first one, hence the
-definition is equivalent to the following one where the indexes have been
-renamed.
-
-```lustre
-M[j][i] = i;
-```
-
-### Inductive definitions
-
-One interesting feature of these equations is that we allow definitions of
-arrays *inductively*. For instance it is possible to write an equation
-
-```lustre
-A[i] = if i = 0 then 0 else A[i-1] ;
-```
-
-This is however not very exciting because this is the same as saying that `A`
-will contain only zeros, but notice we allow the use of `A` in the right hand
-side.
-
-#### Dependency analysis
-
-Inductive definitions are allowed under the restriction that they should be
-*well founded*. For instance, the equation
-
-```lustre
-A[i] = A[i];
-```
-
-is not and will be rejected by Kind 2 the same way the equation `x = x;` is
-rejected. Of course this restriction does not apply for array variables under a
-`pre`, so the equation `A[i] = pre A[i];` is allowed.
-
-In practice, Kind 2 will try to prove statically that the definitions are
-well-founded to ensure the absence of dependency cycles. We only attempt to
-prove that definitions for an array `A` at a given index `i` depends on on
-values of `A` at indexes strictly smaller than `i`.
-
-For instance the following set of definitions is rejected because *e.g.* `A[k]`
-depends on `A[k]`.
-
-```lustre
-A[k] = B[k+1] + y;
-B[k] = C[k-1] - 2;
-C[k] = A[k] + k;
-```
-
-On the other hand this one will be accepted.
-
-```lustre
-A[k] = B[k+1] + y;
-B[k] = C[k-1] - 2;
-C[k] = ( A[k-1] + B[k] ) * k ;
-```
-
-Because the order is fixed and that the checks are simple, it is possible that
-Kind 2 rejects programs that are well defined (with respect to our semantic for
-whole array updates). It will not, however, accept programs that are
-ill-defined.
-
-For instance each of the following equations will be rejected.
-
-```lustre
-A[i] = if i = 0 then 0 else if i = 1 then A[0] else A[i-1];
-```
-
-```lustre
-A[i] = if i = n then 0 else A[i+1];
-```
-
-```lustre
-A[i] = if i = 0 then 0 else A[0];
-```
+- When `<term(i)>` does not refer to `A`, or only to previous values of `A`
+  (under a `pre`), the equation becomes `A = (<term(i)> foreach i) ^ n;`, where
+  `n` is the size of `A`. An array with several dimensions takes one index
+  variable per dimension: `M = (if i = j then 1 else 0 foreach i, j) ^ n ^ n;`
+  defines the identity matrix of size `n`.
+- When an element is defined from other elements of the current value of `A`,
+  as in `A[i] = if i = 0 then 0 else A[i-1] + 1;`, the array cannot be defined
+  by a comprehension, whose body cannot refer to the current value of the
+  array being defined. A recursive function computes such elements instead, as
+  in the sum below.
 
 #### Examples
 
-This section gives some examples of usage for inductive definitions and whole
-array updates as a way to encode unsupported features and as way to encode
-complicated functions succinctly.
-
 ##### Sum of the elements in an array
 
-The following node returns the sum of all elements in an array.
+The following node returns the sum of all elements in an array, computed by a
+recursive function that adds the first `k` elements of the array.
 
 ```lustre
-node sum (const n: int; A: int ^ n) returns (s: int);
-var cumul: int ^ n;
+function rec sum_upto (const n: int; A: int^n; k: int) returns (s: int)
+(*@contract
+  decreases k;
+*)
 let
-  cumul[i] = if i = 0 then A[0] else A[i] + cumul[i-1];
-  s = cumul[n-1];
+  s = when k <= 0 or k > n then 0 else sum_upto(n, A, k - 1) + A[k - 1];
+tel
+
+node sum (const n: int; A: int^n) returns (s: int);
+let
+  s = sum_upto(n, A, n);
 tel
 ```
-
-We declare a local array `cumul` to store the cumulative sum (*i.e.* `cumul[i]`
-contains the sum of elements in `A` up to index `i`) and the returned value of
-the node is the element stored in the last position of `cumul`.
 
 Note that this node is parametric in the size of the array.
 
 ##### Array slices
 
-Array slices can be trivially implemented with the features presented above.
-
 ```lustre
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
-  B[i] = A[low + i];
+  B = (A[low + i] foreach i) ^ (up - low);
 tel
 ```
 
@@ -424,7 +310,7 @@ Encoding an homomorphic `or` on Boolean arrays is even simpler.
 ```lustre
 node or_array (const n: int; A, B : bool^n) returns (C: bool^n);
 let
-  C[i] = A[i] or B[i];
+  C = (A[i] or B[i] foreach i) ^ n;
 tel
 ```
 
@@ -433,15 +319,10 @@ nodes are not first order objects in Lustre.
 
 ##### Parameterized systems
 
-It is possible to describe and check properties of parameterized
-systems. Contrary to the Lustre compilers, Kind 2 does not require the
-constants used as array sizes to be instantiated with actual values. In this
-case the properties are checked *for any* array sizes.
-
 ```lustre
 node slide (const n:int; s: int) returns(A: int^n);
 let
-  A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
 
   --%PROPERTY n > 1 => (true -> A[1] = pre s);
 tel
@@ -514,8 +395,8 @@ the property that `A` contains in each of its cells, an uninitialized value
 node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
 let
-  A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
-  ok[i] = A[i] = -1 or A[i] = s or (false -> pre ok[i]);
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+  ok = (A[i] = -1 or A[i] = s or (false -> pre ok[i]) foreach i) ^ n;
 
   --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
 tel
@@ -524,8 +405,8 @@ tel
 ### Limitations
 
 One major limitation that is present in the arrays of Kind 2 is that one cannot
-have node calls in inductive array definitions whose parameters contain unbounded
-array indices.
+have node calls in array comprehensions of unbounded size whose arguments
+contain the index variables of the comprehension.
 
 For instance, it is currently not possible to write the following in Kind 2
 where `A` and `B` are arrays, `n` is a symbolic constant,
@@ -538,7 +419,7 @@ node some_node (x: int) returns (y: int);
 A, B: int^n;
 ...
 
-A[i] = some_node(B[i]);
+A = (some_node(B[i]) foreach i) ^ n;
 ```
 
 Another limitation is that quantified variables cannot appear in the parameters
@@ -549,7 +430,9 @@ is currently defined as a function that meets all the following criteria:
 - It has a single output, and the output is defined by an equation.
 - Either there is no proof obligation on its output (via a contract or a refinement type),
   or the function is annotated as transparent.
-- It does not include `assert` statements or array definitions.
+- It does not include `assert` statements, and none of its outputs and local
+  variables has an array type. An array comprehension in its body counts as a
+  local variable of an array type.
 
 A quantified variable may also appear in the arguments of a call to a
 [recursive function]({{< relref "/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
@@ -566,7 +449,7 @@ appear in the arguments of a call that is not inlined.
 
 ### Command line options
 
-We provide different encodings of inductive array definitions in our internal
+We provide different encodings of array comprehensions in our internal
 representation of the transition system. The command line interface exposes
 different options to control which encoding is used. This is particularly
 relevant for SMT solvers that have built-in features, whether it is support for
@@ -582,15 +465,14 @@ in the rest of this section.
 | --inline_arrays | Instantiate quantifiers over array bounds in case they are statically known |
 | --arrays_rec    | Define recursive functions for arrays (for cvc5)                            |
 
-The default encoding will use quantified formulas for inductive definitions and
-whole array updates.
+The default encoding will use quantified formulas for array comprehensions.
 
 For example if we have
 
 ```lustre
 A : int^6;
 ...
-A[k] = x;
+A = (x foreach k) ^ 6;
 ```
 
 we will generate internally the constraint
@@ -621,7 +503,7 @@ The previous example
 ```lustre
 A : int^6;
 ...
-A[k] = x;
+A = (x foreach k) ^ 6;
 ```
 
 will now be encoded by the constraint

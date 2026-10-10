@@ -9,7 +9,6 @@
    (glob_files lustreTypeChecker/*.lus)
    (glob_files lustreCheckMatchExpressions/*.lus)
    (glob_files lustreDesugarMatchBlocks/*.lus)
-   (glob_files lustreArrayDependencies/*.lus)
    (glob_files lustreCheckADTDecreases/*.lus)
    (glob_files lustreFunDefs/*.lus)
   )

@@ -1,0 +1,7 @@
+-- The element-wise definition of an array is not supported: an array
+-- comprehension defines the array instead, as in 'y = (x[i] + 1 foreach i)^3'
+
+node N (x: int^3) returns (y: int^3);
+let
+  y[i] = x[i] + 1;
+tel

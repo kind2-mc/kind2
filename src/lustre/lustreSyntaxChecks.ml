@@ -73,7 +73,7 @@ type error_kind = Unknown of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MissingComprehensionSize of HString.t
-  | MultAssignArrayDef
+  | ArrayDefinition of HString.t
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
@@ -164,7 +164,10 @@ let error_message kind = match kind with
     ^ "' of an array comprehension has no size: an array comprehension is"
     ^ " followed by one size per index, the innermost index first, as in"
     ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m"
-  | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
+  | ArrayDefinition id -> "The element-wise definition of the array '"
+    ^ HString.string_of_hstring id ^ "' is not supported: define the array with"
+    ^ " an array comprehension instead, as in '"
+    ^ HString.string_of_hstring id ^ " = (e foreach i)^n'"
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
   | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
@@ -172,7 +175,7 @@ let error_message kind = match kind with
   | LemmaWithoutContract n -> "Lemma '" ^ HString.string_of_hstring n ^ "' has no contract to state a fact with"
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
-  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional array comprehension"
   | DuplicatePatternVariable id -> "Variable '"
     ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
   | AssignmentToPatternVariable id -> "Cannot reassign value to a match block "
@@ -705,6 +708,25 @@ let no_assignment_to_pattern_var ctx pos i =
   then syntax_error pos (AssignmentToPatternVariable i)
   else Ok ()
 
+(* Array comprehensions replace the element-wise definitions of arrays
+   'x[i] = e', which the parser still recognizes to report them. Only the
+   source is checked here: the element-wise definitions that
+   LustreDesugarArrayComprehensions introduces for comprehensions go through
+   [check_items] later, with the other equations. *)
+let no_array_definitions items =
+  let rec over_struct_item = function
+    | LA.ArrayDef (pos, id, _) -> syntax_error pos (ArrayDefinition id)
+    | TupleStructItem (_, items) -> over_struct_items items
+    | SingleIdent _ | TupleSelection _ | FieldSelection _
+    | ArraySliceStructItem _ -> Ok ()
+  and over_struct_items items =
+    List.fold_left (fun acc item -> acc >> over_struct_item item) (Ok ()) items
+  in
+  List.concat_map LAH.extract_node_equation items
+  |> List.fold_left
+    (fun acc (LA.StructDef (_, items), _) -> acc >> over_struct_items items)
+    (Ok ())
+
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
     no_a_dangling_identifier ctx pos i
@@ -1089,6 +1111,7 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
+  no_array_definitions items >>
   let props = StringSet.empty in
   let decl = LA.NodeDecl
     (span, (node_id, ext, opac, params, inputs, outputs, locals, items, contract))
@@ -1118,6 +1141,7 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
 
 and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) is_rec =
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
+  no_array_definitions items >>
   let props = StringSet.empty in
   let ctx =
     (* Locals are not visible in contracts *)
@@ -1308,8 +1332,6 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | LA.ArrayDef (pos, _, _) :: _ :: _ 
-  | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
   | (SingleIdent (pos, id)) :: tail ->
     no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
   | (ArrayDef (pos, id, _)) :: tail ->
