@@ -7,8 +7,9 @@ no definition was built from, and no function with an output or local
 variable of an array type was defined. A function whose body called such a
 function was not defined either. A copy of a whole array is now defined as
 the array it copies, and an array-typed local variable defined by a call no
-longer stands in the way. Any other equation for every index, or for some
-indexes only, still leaves the function without a definition.
+longer stands in the way. Any other equation for every index, such as
+the one an array comprehension is compiled to, still leaves the function
+without a definition.
 
 Without the theory of arrays (--smt_arrays false), the selects of a
 definition are encoded as applications of select symbols. They were encoded
@@ -144,10 +145,10 @@ def test_whole_array_copy_is_defined(tmp_path, arrays, ty, select):
 @pytest.mark.parametrize(
     "ty, body, select",
     [
-        ("int^2^2", "y[i][j] = x[j][i]", "[0][1]"),
-        ("int^2", "y[i] = x[0]", "[1]"),
-        ("int^2", "y[i] = x[1 - i]", "[1]"),
-        ("int^2", "y[i] = x[i] + 1", "[1]"),
+        ("int^2^2", "y = (x[j][i] foreach i, j)^2^2", "[0][1]"),
+        ("int^2", "y = (x[0] foreach i)^2", "[1]"),
+        ("int^2", "y = (x[1 - i] foreach i)^2", "[1]"),
+        ("int^2", "y = (x[i] + 1 foreach i)^2", "[1]"),
     ],
 )
 def test_other_array_equation_is_not_defined(tmp_path, arrays, ty, body, select):
