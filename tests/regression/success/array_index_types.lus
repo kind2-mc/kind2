@@ -11,5 +11,5 @@ tel
 
 node Obs() returns (A:int^N^M)
 let
-  A[i][j] = F(i, j);
+  A = (F(i, j) foreach i, j)^N^M;
 tel

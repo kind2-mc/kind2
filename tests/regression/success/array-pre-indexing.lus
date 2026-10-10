@@ -11,8 +11,8 @@ let
   -- Workaround for typechecker bug: (0.0^len -> pre prevs1)[i] fails.
   zeros = 0.0^len;
   -- These two definitions should be equivalent:
-  prevs1[i] = if i = 0 then ins else (zeros -> pre prevs1)[i - 1];
-  prevs2[i] = if i = 0 then ins else (0.0 -> pre (prevs2[i - 1]));
+  prevs1 = (if i = 0 then ins else (zeros -> pre prevs1)[i - 1] foreach i)^len;
+  prevs2 = (if i = 0 then ins else (0.0 -> pre (prevs2[i - 1])) foreach i)^len;
   --%PROPERTY prevs1[0] = prevs2[0];
   --%PROPERTY prevs1[1] = prevs2[1];
   --%PROPERTY prevs1[2] = prevs2[2];

@@ -1,13 +1,13 @@
 node N(c1, c2: bool; x: int; A: int^5) returns (y1, y2, y3: int^5) 
 let
   frame (y1, y2, y3)
-  y1[i] = 0; 
+  y1 = (0 foreach i)^5;
   y2 = 0^5;
   let
     if c1 then 
       if c2 then 
         y1 = pre A;
-        y2[i] = pre A[i];
+        y2 = (pre A[i] foreach i)^5;
       fi
     fi
   tel
