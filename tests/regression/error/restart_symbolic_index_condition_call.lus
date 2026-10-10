@@ -1,0 +1,13 @@
+-- A restart whose condition calls a node is kept even when the restarted
+-- expression has no state, so the index variable of an array comprehension
+-- whose size is not known cannot appear in it either.
+
+node F (x: bool) returns (y: bool);
+let
+  y = false -> pre x;
+tel
+
+node Sym (const n: int; a: int; r: bool) returns (b: int^n);
+let
+  b = (restart (a + i) every F(r) foreach i)^n;
+tel

@@ -1658,12 +1658,15 @@ and check_expr_list ctx f l =
   Ok(List.flatten warnings)
 
 and ovq_check_expr inlinable_funcs tc_ctx ctx = function
-(* A restarted expression with state is abstracted into a call to a node (see
-   LustreGenNodes), which is expanded into one instance per index when an
-   index variable appears in the expression or the restart condition. A
-   symbolic array index has no known number of values to expand over. *)
+(* A restart is abstracted into a call to a node (see LustreGenNodes), which
+   is expanded into one instance per index when an index variable appears in
+   the expression or the restart condition. A symbolic array index has no
+   known number of values to expand over. The restart is only dropped when
+   the expression has no state and the condition calls nothing (see
+   [LustreGenNodes.droppable_condition]). *)
 | LA.Restart (pos, e, r) when
-    Option.is_some (LAH.has_pre_or_arrow e) || Ctx.expr_contains_node_call tc_ctx e ->
+    Option.is_some (LAH.has_pre_or_arrow e) || Ctx.expr_contains_node_call tc_ctx e
+    || not (NI.Set.is_empty (LAH.calls_of_expr r)) ->
   let vars =
     LA.SI.union (LAH.vars_without_node_call_ids e) (LAH.vars_without_node_call_ids r)
   in
