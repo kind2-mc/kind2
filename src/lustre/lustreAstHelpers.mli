@@ -115,7 +115,8 @@ val node_item_has_pre_or_arrow : node_item -> Lib.position option
 
 val vars_of_node_calls: expr -> SI.t
 (** [vars_of_node_calls e] returns all variable identifiers within arguments of node calls that
-    appear in the expression [e] (while excluding node call identifiers) *)
+    appear in the expression [e] (while excluding node call identifiers), and
+    within the restart conditions of restarted node calls *)
 
 val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]

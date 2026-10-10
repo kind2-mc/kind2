@@ -1345,7 +1345,9 @@ let rec vars_of_node_calls_h obs =
        :: List.map (fun (_, _, n) -> vars obs n) bs)
   (* Clock operators *)
   | Restart (_, e, r) -> SI.union (vars obs e) (vars obs r)
-  | RestartEvery (_, _, es, e) -> SI.flatten (vars obs e :: List.map (vars obs) es)
+  (* A restarted node call, whose instance depends on its restart condition as
+     much as on its arguments *)
+  | RestartEvery (_, _, es, e) -> SI.flatten (vars true e :: List.map (vars true) es)
   (* Temporal operators *)
   | Pre (_, e) -> vars obs e
   | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
