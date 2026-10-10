@@ -1,12 +1,22 @@
 -- The number of true elements among the first k elements of B
-opaque function rec count( const n : int ; B : bool^n ; k : int ) returns ( C : int ) ;
+function rec count_upto( const n : int ; B : bool^n ; k : int ) returns ( C : int ) ;
 (*@contract
-  guarantee C >= 0;
   decreases k;
 *)
 let
   C = when k <= 0 or k > n then 0
-      else count(n, B, k-1) + (if B[k-1] then 1 else 0);
+      else count_upto(n, B, k-1) + (if B[k-1] then 1 else 0);
+tel
+
+-- The number of true elements of B. The call to the recursive function under
+-- a quantifier defines it at the SMT level, so that its value is known
+-- whatever the number of unrollings
+opaque function count( const n : int ; B : bool^n ) returns ( C : int ) ;
+(*@contract
+  guarantee forall (m: int) m = n => C = count_upto(n, B, m);
+*)
+let
+  C = count_upto(n, B, n);
 tel
 
 node Buffer( const n : int; Init : int ; Request: bool^n; Turn : bool^n; Value : int^n )
@@ -20,5 +30,5 @@ returns ( Accepted : bool^n ) ;
     pre Request[i] and not pre Accepted[i] => Accepted[i] ;
 *)
 let
-  Accepted = (Request[i] and (Turn[i] or count(n, Request, n) = 1) foreach i)^n ;
+  Accepted = (Request[i] and (Turn[i] or count(n, Request) = 1) foreach i)^n ;
 tel

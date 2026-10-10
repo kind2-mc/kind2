@@ -1,3 +1,5 @@
+-- The examples of arrays of the documentation: a sum, computed by a recursive
+-- function, and arrays defined element-wise by comprehensions
 
 -- The sum of the first k elements of A
 function rec sum_upto (const n: int; A: int ^ n; k: int) returns (s: int);

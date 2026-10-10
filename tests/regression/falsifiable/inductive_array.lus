@@ -11,26 +11,45 @@ let
 tel
 
 -- The first index i with k <= i < n such that X[i], or -1 if there is none
-opaque function rec min( const n: int; X: bool^n; k: int ) returns ( index: int ) ;
+function rec min_from( const n: int; X: bool^n; k: int ) returns ( index: int ) ;
 (*@contract
-  guarantee index = -1 or (k <= index and index < n and X[index]);
   decreases n - k;
 *)
 let
-  index = when k >= n then -1
+  index = when k < 0 or k >= n then -1
           else when X[k] then k
-          else min(n, X, k + 1) ;
+          else min_from(n, X, k + 1) ;
+tel
+
+-- The first index i such that X[i], or -1 if there is none, defined at the
+-- SMT level as count
+opaque function min( const n: int; X: bool^n ) returns ( index: int ) ;
+(*@contract
+  guarantee forall (m: int) m = 0 => index = min_from(n, X, m);
+*)
+let
+  index = min_from(n, X, 0) ;
 tel
 
 -- The number of true elements among the first k elements of B
-opaque function rec count( const n : int ; B : bool^n ; k : int ) returns ( C : int ) ;
+function rec count_upto( const n : int ; B : bool^n ; k : int ) returns ( C : int ) ;
 (*@contract
-  guarantee C >= 0;
   decreases k;
 *)
 let
   C = when k <= 0 or k > n then 0
-      else count(n, B, k-1) + (if B[k-1] then 1 else 0);
+      else count_upto(n, B, k-1) + (if B[k-1] then 1 else 0);
+tel
+
+-- The number of true elements of B. The call to the recursive function under
+-- a quantifier defines it at the SMT level, so that its value is known
+-- whatever the number of unrollings
+opaque function count( const n : int ; B : bool^n ) returns ( C : int ) ;
+(*@contract
+  guarantee forall (m: int) m = n => C = count_upto(n, B, m);
+*)
+let
+  C = count_upto(n, B, n);
 tel
 --------------------------------------------------------------------------------
 
@@ -41,7 +60,7 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
   assume n > 0 ;
   assume n <= 4 ;
 
-  var NoOtherRequests : bool^n = Since_array(n, Accepted, count(n,Request,n) = 0);
+  var NoOtherRequests : bool^n = Since_array(n, Accepted, count(n,Request) = 0);
   var LastWrite : int^n = Last_array(n, Accepted, Value, Init) ;
 
   guarantee "maintain" true ->
@@ -52,9 +71,9 @@ returns ( Accepted : bool^n; SharedValue : int ) ;
 var index : int ;
 let
 
-  Accepted = Since_array(n, pre Accepted, count(n,Request,n) = 0) ;
+  Accepted = Since_array(n, pre Accepted, count(n,Request) = 0) ;
 
-  index = min(n, Accepted, 0) ;
+  index = min(n, Accepted) ;
 
   SharedValue = if index >= 0 then Value[index]
                 else (Init -> pre SharedValue) ;

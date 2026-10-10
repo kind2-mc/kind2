@@ -53,8 +53,6 @@ let
 tel
 
 
--- min(n, X) returns the first index i such as X[i] is true,
--- if any; otherwise it returns -1
 -- min_from(n, X, k) returns the first index i >= k such as X[i] is true,
 -- if any; otherwise it returns -1
 opaque function rec min_from( const n: int; X: bool^n; k: int ) returns ( index: int ) ;
@@ -71,6 +69,8 @@ let
           else min_from(n, X, k + 1) ;
 tel
 
+-- min(n, X) returns the first index i such as X[i] is true,
+-- if any; otherwise it returns -1
 node min( const n: int; X: bool^n ) returns ( index: int ) ;
 let
   index = min_from(n, X, 0) ;

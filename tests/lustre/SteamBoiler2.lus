@@ -69,7 +69,8 @@ let
 tel;
 
 -- The number of pumps left to open (or to close, if negative) after
--- considering the pumps up to index k
+-- considering the pumps 1 to k: pump 0 is not considered, as in the original
+-- definition, whose base case is n_pumps_to_open
 function rec pumps_to_open_at(const n:int; n_pumps_to_open:int;
                               pump_status, pump_defect:int^n;
                               flow:bool^n; k:int)

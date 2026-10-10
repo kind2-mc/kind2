@@ -52,8 +52,6 @@ let
 tel
 
 
--- Array_FirstTrue(n, X) returns the smallest index i such as X[i] is true,
--- if any; otherwise, it returns -1
 -- Array_FirstTrueFrom(n, X, k) returns the smallest index i >= k such as X[i]
 -- is true, if any; otherwise, it returns -1
 opaque function rec Array_FirstTrueFrom( const n: int; X: bool^n; k: int ) returns ( index: int ) ;
@@ -70,6 +68,8 @@ let
           else Array_FirstTrueFrom(n, X, k + 1) ;
 tel
 
+-- Array_FirstTrue(n, X) returns the smallest index i such as X[i] is true,
+-- if any; otherwise, it returns -1
 node Array_FirstTrue( const n: int; X: bool^n ) returns ( index: int ) ;
 let
   index = Array_FirstTrueFrom(n, X, 0) ;

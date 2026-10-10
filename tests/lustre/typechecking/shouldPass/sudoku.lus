@@ -33,65 +33,47 @@ nv2_x280 : cval^3^3^3;
 v3_x281 : cval^3^3^3;
 nv3_x282 : cval^3^3^3;
 v_535 : bool^3;
-v_537 : bool^3;
 v_342_x541 : cval^3^9^9;
-v_348_x542 : bool^3^9;
 v_346_x543 : bool^3^9;
 v_256_x355_x544 : bool^3^9;
 v_312_x354_x545 : bool^3^9^9;
-v_314_x353_x546 : bool^3^9^9;
 v_309_x352_x547 : cval^3^9^9;
 full_range_x262_x548 : bool^3;
 valid_x261_x549 : bool^3;
 l_x260_x550 : cval^3^9;
-acc_x259_x551 : bool^3;
 v_575 : bool^3;
-v_577 : bool^3;
 v_342_x581 : cval^3^9^9;
-v_348_x582 : bool^3^9;
 v_346_x583 : bool^3^9;
 v_256_x355_x584 : bool^3^9;
 v_312_x354_x585 : bool^3^9^9;
-v_314_x353_x586 : bool^3^9^9;
 v_309_x352_x587 : cval^3^9^9;
 full_range_x262_x588 : bool^3;
 valid_x261_x589 : bool^3;
 l_x260_x590 : cval^3^9;
-acc_x259_x591 : bool^3;
 v_615 : bool^3;
-v_617 : bool^3;
 v_342_x621 : cval^3^9^9;
-v_348_x622 : bool^3^9;
 v_346_x623 : bool^3^9;
 v_256_x355_x624 : bool^3^9;
 v_312_x354_x625 : bool^3^9^9;
-v_314_x353_x626 : bool^3^9^9;
 v_309_x352_x627 : cval^3^9^9;
 full_range_x262_x628 : bool^3;
 valid_x261_x629 : bool^3;
 l_x260_x630 : cval^3^9;
-acc_x259_x631 : bool^3;
 v_655 : cval^3^9;
 v_659 : cval^3^9;
 v_663 : cval^3^9;
 v_667 : bool^9;
-v_669 : bool^9;
 v_318_x673 : cval^9^9^9;
-v_324_x674 : bool^9^9;
 v_322_x675 : bool^9^9;
 v_256_x331_x676 : bool^9^9;
 v_312_x330_x677 : bool^9^9^9;
-v_314_x329_x678 : bool^9^9^9;
 v_309_x328_x679 : cval^9^9^9;
 full_range_x680 : bool^9;
 v_700 : bool^9;
-v_702 : bool^9;
 v_318_x706 : cval^9^9^9;
-v_324_x707 : bool^9^9;
 v_322_x708 : bool^9^9;
 v_256_x331_x709 : bool^9^9;
 v_312_x330_x710 : bool^9^9^9;
-v_314_x329_x711 : bool^9^9^9;
 v_309_x328_x712 : cval^9^9^9;
 full_range_x713 : bool^9;
 
@@ -191,15 +173,9 @@ nv3_x282 =
 v_535 =
   (valid_x261_x549[i1]
   foreach i1)^3;
-v_537 =
-  (if i1 = 0 then acc2_x276 else v_535[i1 - 1]
-  foreach i1)^3;
 v_342_x541 =
   (l_x260_x550[i1][i3]
   foreach i1, i2, i3)^3^9^9;
-v_348_x542 =
-  (if i2 = 0 then true else v_346_x543[i1][i2 - 1]
-  foreach i1, i2)^3^9;
 v_346_x543 =
   (-- All the elements up to i2 of the row hold
     v_256_x355_x544[i1][0]
@@ -214,9 +190,6 @@ v_312_x354_x545 =
     (v_309_x352_x547[i1][i2][0] = v_342_x541[i1][i2][0])
     or (i3 >= 1 and v_309_x352_x547[i1][i2][1] = v_342_x541[i1][i2][1])
     or (i3 >= 2 and v_309_x352_x547[i1][i2][2] = v_342_x541[i1][i2][2])
-  foreach i1, i2, i3)^3^9^9;
-v_314_x353_x546 =
-  (if i3 = 0 then false else v_312_x354_x545[i1][i2][i3 - 1]
   foreach i1, i2, i3)^3^9^9;
 v_309_x352_x547 =
   (values[i2]
@@ -236,21 +209,12 @@ l_x260_x550 =
     then if i2 < 3 then nv3_x282[i1][0][i2] else nv3_x282[i1][1][i2 - 3]
     else nv3_x282[i1][2][i2 - 6]
   foreach i1, i2)^3^9;
-acc_x259_x551 =
-  (v_537[i1]
-  foreach i1)^3;
 v_575 =
   (valid_x261_x589[i1]
-  foreach i1)^3;
-v_577 =
-  (if i1 = 0 then acc1_x275 else v_575[i1 - 1]
   foreach i1)^3;
 v_342_x581 =
   (l_x260_x590[i1][i3]
   foreach i1, i2, i3)^3^9^9;
-v_348_x582 =
-  (if i2 = 0 then true else v_346_x583[i1][i2 - 1]
-  foreach i1, i2)^3^9;
 v_346_x583 =
   (-- All the elements up to i2 of the row hold
     v_256_x355_x584[i1][0]
@@ -265,9 +229,6 @@ v_312_x354_x585 =
     (v_309_x352_x587[i1][i2][0] = v_342_x581[i1][i2][0])
     or (i3 >= 1 and v_309_x352_x587[i1][i2][1] = v_342_x581[i1][i2][1])
     or (i3 >= 2 and v_309_x352_x587[i1][i2][2] = v_342_x581[i1][i2][2])
-  foreach i1, i2, i3)^3^9^9;
-v_314_x353_x586 =
-  (if i3 = 0 then false else v_312_x354_x585[i1][i2][i3 - 1]
   foreach i1, i2, i3)^3^9^9;
 v_309_x352_x587 =
   (values[i2]
@@ -287,21 +248,12 @@ l_x260_x590 =
     then if i2 < 3 then nv2_x280[i1][0][i2] else nv2_x280[i1][1][i2 - 3]
     else nv2_x280[i1][2][i2 - 6]
   foreach i1, i2)^3^9;
-acc_x259_x591 =
-  (v_577[i1]
-  foreach i1)^3;
 v_615 =
   (valid_x261_x629[i1]
-  foreach i1)^3;
-v_617 =
-  (if i1 = 0 then true else v_615[i1 - 1]
   foreach i1)^3;
 v_342_x621 =
   (l_x260_x630[i1][i3]
   foreach i1, i2, i3)^3^9^9;
-v_348_x622 =
-  (if i2 = 0 then true else v_346_x623[i1][i2 - 1]
-  foreach i1, i2)^3^9;
 v_346_x623 =
   (-- All the elements up to i2 of the row hold
     v_256_x355_x624[i1][0]
@@ -316,9 +268,6 @@ v_312_x354_x625 =
     (v_309_x352_x627[i1][i2][0] = v_342_x621[i1][i2][0])
     or (i3 >= 1 and v_309_x352_x627[i1][i2][1] = v_342_x621[i1][i2][1])
     or (i3 >= 2 and v_309_x352_x627[i1][i2][2] = v_342_x621[i1][i2][2])
-  foreach i1, i2, i3)^3^9^9;
-v_314_x353_x626 =
-  (if i3 = 0 then false else v_312_x354_x625[i1][i2][i3 - 1]
   foreach i1, i2, i3)^3^9^9;
 v_309_x352_x627 =
   (values[i2]
@@ -337,9 +286,6 @@ l_x260_x630 =
     then if i2 < 3 then nv1_x278[i1][0][i2] else nv1_x278[i1][1][i2 - 3]
     else nv1_x278[i1][2][i2 - 6]
   foreach i1, i2)^3^9;
-acc_x259_x631 =
-  (v_617[i1]
-  foreach i1)^3;
 v_655 =
   (g_x273[i1 + 6][i2]
   foreach i1, i2)^3^9;
@@ -361,15 +307,9 @@ v_667 =
     and (i1 < 7 or full_range_x680[7])
     and (i1 < 8 or full_range_x680[8])
   foreach i1)^9;
-v_669 =
-  (if i1 = 0 then true else v_667[i1 - 1]
-  foreach i1)^9;
 v_318_x673 =
   (g[i1][i3]
   foreach i1, i2, i3)^9^9^9;
-v_324_x674 =
-  (if i2 = 0 then true else v_322_x675[i1][i2 - 1]
-  foreach i1, i2)^9^9;
 v_322_x675 =
   (-- All the elements up to i2 of the row hold
     v_256_x331_x676[i1][0]
@@ -397,9 +337,6 @@ v_312_x330_x677 =
     or (i3 >= 7 and v_309_x328_x679[i1][i2][7] = v_318_x673[i1][i2][7])
     or (i3 >= 8 and v_309_x328_x679[i1][i2][8] = v_318_x673[i1][i2][8])
   foreach i1, i2, i3)^9^9^9;
-v_314_x329_x678 =
-  (if i3 = 0 then false else v_312_x330_x677[i1][i2][i3 - 1]
-  foreach i1, i2, i3)^9^9^9;
 v_309_x328_x679 =
   (values[i2]
   foreach i1, i2, i3)^9^9^9;
@@ -418,15 +355,9 @@ v_700 =
     and (i1 < 7 or full_range_x713[7])
     and (i1 < 8 or full_range_x713[8])
   foreach i1)^9;
-v_702 =
-  (if i1 = 0 then true else v_700[i1 - 1]
-  foreach i1)^9;
 v_318_x706 =
   (ng[i1][i3]
   foreach i1, i2, i3)^9^9^9;
-v_324_x707 =
-  (if i2 = 0 then true else v_322_x708[i1][i2 - 1]
-  foreach i1, i2)^9^9;
 v_322_x708 =
   (-- All the elements up to i2 of the row hold
     v_256_x331_x709[i1][0]
@@ -453,9 +384,6 @@ v_312_x330_x710 =
     or (i3 >= 6 and v_309_x328_x712[i1][i2][6] = v_318_x706[i1][i2][6])
     or (i3 >= 7 and v_309_x328_x712[i1][i2][7] = v_318_x706[i1][i2][7])
     or (i3 >= 8 and v_309_x328_x712[i1][i2][8] = v_318_x706[i1][i2][8])
-  foreach i1, i2, i3)^9^9^9;
-v_314_x329_x711 =
-  (if i3 = 0 then false else v_312_x330_x710[i1][i2][i3 - 1]
   foreach i1, i2, i3)^9^9^9;
 v_309_x328_x712 =
   (values[i2]
