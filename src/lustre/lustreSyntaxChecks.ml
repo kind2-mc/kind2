@@ -54,6 +54,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | QuantifiedVariableInRestart of HString.t
   | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
@@ -132,6 +133,8 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
+  | QuantifiedVariableInRestart var -> "Quantified variable or refinement type bound variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed under a restart"
   | SymbolicArrayIndexInRestart idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed under a restart"
   | QuantifiedVariableInLazyGuardedNodeCall (var, node) -> "Quantified variable or refinement type bound variable '"
@@ -1661,7 +1664,9 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 (* A restart is abstracted into a call to a node (see LustreGenNodes), which
    is expanded into one instance per index when an index variable appears in
    the expression or the restart condition. A symbolic array index has no
-   known number of values to expand over. The restart is only dropped when
+   known number of values to expand over, and a quantified variable cannot be
+   passed to a node instance, which lies outside the scope of the quantifier
+   (see [QuantifiedVariableInNodeArgument]). The restart is only dropped when
    the expression has no state and the condition calls nothing (see
    [LustreGenNodes.droppable_condition]). *)
 | LA.Restart (pos, e, r) when
@@ -1670,12 +1675,14 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   let vars =
     LA.SI.union (LAH.vars_without_node_call_ids e) (LAH.vars_without_node_call_ids r)
   in
-  (match
-    List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
-      (LA.SI.elements vars)
-  with
-  | Some v -> syntax_error pos (SymbolicArrayIndexInRestart v)
-  | None -> Ok [])
+  let vars = LA.SI.elements vars in
+  (match List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars with
+  | Some v -> syntax_error pos (QuantifiedVariableInRestart v)
+  | None -> (
+    match List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices) vars with
+    | Some v -> syntax_error pos (SymbolicArrayIndexInRestart v)
+    | None -> Ok []
+  ))
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
     ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 

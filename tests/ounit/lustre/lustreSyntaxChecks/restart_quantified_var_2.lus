@@ -1,0 +1,6 @@
+-- Neither can the restart condition (issue #1738).
+
+node f (r: bool; x: int) returns ();
+let
+  check exists (k: int) (restart (x -> x + 1) every (r and k > 0)) = x;
+tel
