@@ -1,0 +1,17 @@
+-- Restarts under a quantifier that are not abstracted into a call to a node, or
+-- that do not mention the quantified variable, are allowed (issue #1738).
+
+datatype O = C(v: int) | D;
+
+node main (a, b, r: bool; x: int; o: O) returns ();
+let
+  -- A stateless restart is dropped
+  check "stateless" forall (k: int) (restart (k + x) every r) = k + x;
+  -- So are both restarts of a nested stateless restart
+  check "nested" forall (k: int) (restart (restart k every a) every b) = k;
+  -- A restart that does not mention the quantified variable
+  check "not mentioned" forall (k: int) (restart (x -> x + 1) every r) + k >= x + k;
+  -- A pattern variable shadows the quantified variable
+  check "shadowed" forall (k: int)
+    (match o with | C(k) : (restart (0 -> k) every r) | D : 0 end) >= 0 or true;
+tel
