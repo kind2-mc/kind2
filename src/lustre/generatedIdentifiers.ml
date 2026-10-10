@@ -219,6 +219,22 @@ let clocked_call_tie = "wbtie"
    nondeterministic call must be bound to a single local first. *)
 let block_guard = "bguard"
 
+(* String constant used in lustreDesugarArrayComprehensions.ml as the suffix of
+   the fresh locals holding the value of an array comprehension
+   (e.g. '4_gcomp'). *)
+let array_comprehension = "gcomp"
+
+(* Checks if a variable name is the AST name of the local of an array
+   comprehension, '<n>_gcomp': the leading numeric segment, which no
+   identifier in the source can have, keeps it apart from user names such as
+   'my_gcomp' *)
+let var_is_array_comprehension var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [n; suffix] ->
+    suffix = array_comprehension && n <> ""
+    && String.for_all (fun c -> '0' <= c && c <= '9') n
+  | _ -> false
+
 (* Checks if a variable name corresponds to a 'last'-operator local. As with
    [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
    numeric segment to the end, so we look for [last_local] as a '_'-separated

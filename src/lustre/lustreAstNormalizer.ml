@@ -1047,6 +1047,7 @@ let desugar_history_in_expr info ctr_id expr =
   let rec r map expr =
   match expr with
   | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (pos, kind, idents, e) -> (
     let vars, map, idents, constrs =
       List.fold_left
@@ -3399,6 +3400,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | _ -> assert false
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (pos, kind, vars, expr) ->
     (* Binder types are only fully known here, after synonym expansion and
        instantiation of polymorphic types *)

@@ -51,6 +51,7 @@ type error_kind = Unknown of string
   | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
+  | MissingComprehensionSize of HString.t
   | MultAssignArrayDef
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident

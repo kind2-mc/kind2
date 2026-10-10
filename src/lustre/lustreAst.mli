@@ -182,6 +182,10 @@ and expr =
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
+  (* '(e foreach i, j)^m^n': the array of size n (of arrays of size m) whose
+     element at index i (and j) is e. Each binder is the position and name of
+     an index variable, and the size of its dimension, outermost first. *)
+  | ArrayComprehension of position * (position * ident * expr) list * expr
   (* 'restart e every r': the state of e is reset to its initial state at
      every step where r is true (desugared by LustreGenNodes into a
      RestartEvery call to a node generated for e) *)
@@ -420,6 +424,13 @@ type declaration =
 
 (** A Lustre program as a list of declarations *) 
 type t = declaration list
+
+(** The size of a dimension of an array comprehension that no caret has given
+    yet, while parsing *)
+val missing_size : position -> expr
+
+(** Whether an expression is [missing_size] *)
+val is_missing_size : expr -> bool
 
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit

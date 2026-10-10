@@ -90,6 +90,7 @@ let mk_span start_pos end_pos =
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
+%token FOREACH
 %token CARET
 %token DOTDOT
 %token BAR
@@ -1139,7 +1140,20 @@ pexpr(Q):
   | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
 
   (* An array constructor (not quantified) *)
-  | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); CARET; e2 = expr
+    { match e1 with
+      (* The innermost index of a comprehension without a size gets it *)
+      | A.ArrayComprehension (p, bs, e)
+        when List.exists (fun (_, _, n) -> A.is_missing_size n) bs ->
+        let rec give = function
+          | [] -> []
+          | (ip, i, n) :: rest when A.is_missing_size n
+              && not (List.exists (fun (_, _, n) -> A.is_missing_size n) rest) ->
+            (ip, i, e2) :: rest
+          | b :: rest -> b :: give rest
+        in
+        A.ArrayComprehension (p, give bs, e)
+      | _ -> A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
   (* Empty map *)
   | MAP; LSQBRACKET; RSQBRACKET;
@@ -1258,6 +1272,11 @@ pexpr(Q):
         fail_at_position
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Exists, List.flatten vars, e) }
+
+  (* An array comprehension, whose sizes are given by the carets after it *)
+  | LPAREN; e = pexpr(Q); FOREACH; ids = ident_list_pos; RPAREN
+    { A.ArrayComprehension
+        (mk_pos $startpos, List.map (fun (p, i) -> (p, i, A.missing_size p)) ids, e) }
                                                                        
   (* A relation *)
   | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Lt, e1, e2) }

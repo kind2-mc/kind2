@@ -1,0 +1,6 @@
+-- Array comprehensions are not supported in types, including the types of
+-- type ascriptions
+node N (x: int^3) returns (ok: bool);
+let
+  ok = (x : subtype { v: int^3 | v = (i foreach i)^3 })[0] = x[0];
+tel

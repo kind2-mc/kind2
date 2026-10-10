@@ -167,6 +167,13 @@ val var_is_iboracle: HString.t -> bool
    results of a call statement (see lustreNameCalls.ml). *)
 val discarded_output : string
 
+(** Suffix of the fresh locals holding the value of an array comprehension *)
+val array_comprehension : string
+
+(** Checks if a variable name is the AST name of the local of an array
+    comprehension, ['<n>_gcomp'] *)
+val var_is_array_comprehension: HString.t -> bool
+
 (** Checks if a variable name corresponds to a discarded call-statement result *)
 val var_is_discarded_output: HString.t -> bool
 

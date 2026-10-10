@@ -116,6 +116,7 @@ let rec replace_last acc e =
   | AnyOp (pos, ti, e) -> AnyOp (pos, ti, r e)
   | ChooseOp (pos, ti, e) -> ChooseOp (pos, ti, r e)
   | Quantifier (pos, q, tis, e) -> Quantifier (pos, q, tis, r e)
+  | ArrayComprehension (pos, bs, e) -> ArrayComprehension (pos, bs, r e)
   | RecordExpr (pos, ident, ps, expr_list) ->
     RecordExpr (pos, ident, ps, List.map (fun (i, e) -> (i, r e)) expr_list)
   | GroupExpr (pos, kind, expr_list) ->
@@ -184,6 +185,7 @@ let rec find_last_expr ?(only_under_restart = false) e =
   | FieldProject (_, e, _, _) | Extract (_, e, _, _)
   | UnaryOp (_, _, e) | ConvOp (_, _, e)
   | AnyOp (_, _, e) | ChooseOp (_, _, e) | Quantifier (_, _, _, e)
+  | ArrayComprehension (_, _, e)
   | Pre (_, e) | TypeAscription (_, e, _) -> r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)

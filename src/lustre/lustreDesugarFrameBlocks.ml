@@ -124,6 +124,7 @@ let rec fill_ite_helper frame_pos node_id lhs fill e =
   | ConvOp (p, b, e) -> ConvOp (p, b, r e)
   | Extract (p, e, b, c) -> Extract (p, r e, b, c)
   | UnaryOp (p, b, e) -> UnaryOp (p, b, r e)
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (p, b, c, e) -> Quantifier (p, b, c, r e)
   | BinaryOp (p, b, e1, e2) -> BinaryOp (p, b, r e1, r e2)
   | CompOp (p, b, e1, e2) -> CompOp (p, b, r e1, r e2)

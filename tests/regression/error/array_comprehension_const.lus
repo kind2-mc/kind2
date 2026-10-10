@@ -1,0 +1,2 @@
+-- Array comprehensions are not supported in constant declarations
+const C: int^3 = (i foreach i)^3;

@@ -142,6 +142,68 @@ multidimensional array or of an array of compound values. For instance, given
 the matrix `M` above, `M[1 := M[1][2 := 0]]` denotes a copy of `M` in
 which the element at row `1`, column `2` is set to `0`.
 
+### Array comprehensions
+
+An array can also be defined element by element with an *array
+comprehension*. Where the expression `v ^ n` is the array of size `n` whose
+elements are all `v`, the expression
+
+```lustre
+(e foreach i) ^ n
+```
+
+is the array of size `n` whose element at index `i` is the value of `e`, for
+every `i` between `0` and `n - 1`. The index variable `i` is an integer bound
+in `e`, where it shadows any variable or constant of the same name, and the
+size `n` must be a constant expression, as in the type `t ^ n`. For example,
+
+```lustre
+C = (A[i] or B[i] foreach i) ^ n;
+```
+
+defines `C` as the element-wise disjunction of the Boolean arrays `A` and
+`B`, and `(i * i foreach i) ^ 4` is the array `[0, 1, 4, 9]`.
+
+A comprehension may list several index variables, one for each dimension of
+a multidimensional array, and is then followed by one size per index. The
+sizes are written as in the type of the array, so they are given from the
+innermost dimension to the outermost one, while the index variables are
+listed from the outermost to the innermost: if `A` and `B` have type
+`bool ^ n ^ m`, an array of `m` arrays of size `n`,
+
+```lustre
+C = (A[i][j] or B[i][j] foreach i, j) ^ n ^ m;
+```
+
+has the same type, with `i` ranging over the `m` rows and `j` over the `n`
+columns. A caret after the last size replicates the array, as for any array:
+`(i foreach i) ^ 3 ^ 2` is `[[0, 1, 2], [0, 1, 2]]`.
+
+The body of a comprehension may itself be an array, such as a comprehension:
+`((i + j foreach j) ^ 3 foreach i) ^ 2` is `[[0, 1, 2], [1, 2, 3]]`, and the
+inner body may refer to the outer index variables.
+
+The body may contain temporal operators. In particular, an element may
+depend on the previous value of the array being defined, as in this sliding
+window over a stream `s`, which stores the last `n` values of `s` (with `-1`
+for the values before the first step).
+
+```lustre
+A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+```
+
+As for `v ^ n`, a selection binds more tightly than the sizes, so a
+comprehension is written in parentheses before selecting one of its
+elements: `((i * i foreach i) ^ 4)[2]` is `4`.
+
+A comprehension is a value, not a definition: its body cannot refer to the
+current value of the array being defined, which would be a cyclic
+definition. Comprehensions are supported in the body of nodes and functions,
+including assertions and properties, but not in contracts, in constant
+declarations and in types (such as the predicate of a refinement type), and
+they cannot mention a variable bound by an enclosing quantifier or match
+arm.
+
 ### Structural equality
 
 Arrays support **structural equality** (denoted by `=`) and **structural

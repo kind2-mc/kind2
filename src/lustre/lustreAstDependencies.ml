@@ -421,6 +421,9 @@ and mk_graph_expr ?(only_modes = false)
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
      List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e) 
        (List.map (mk_graph_type) tys)
+  | LA.ArrayComprehension (_, bs, e) ->
+    List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e)
+      (List.map (fun (_, _, n) -> mk_graph_expr ~only_modes n) bs)
   | LA.TypeAscription (_, e, ty) ->
     union_dependency_analysis_data (mk_graph_expr ~only_modes e) (mk_graph_type ty)
   | _ -> empty_dependency_analysis_data
@@ -488,6 +491,9 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
+  | LA.ArrayComprehension (_, bs, e) ->
+    List.concat_map (fun (_, _, n) -> get_node_call_from_expr n) bs
+    @ get_node_call_from_expr e
   (* A restart is left in place by LustreGenNodes only when the type of its
      body cannot be inferred, which the type checker reports *)
   | LA.Restart (_, e1, e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
@@ -781,6 +787,12 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
     SI.diff (r e) (SI.flatten (List.map LH.vars_of_ty_ids qs))
+  (* The index variables are bound in the body, and the sizes of the
+     dimensions are constant expressions *)
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten
+      (SI.diff (r e) (SI.of_list (List.map (fun (_, i, _) -> i) bs))
+       :: List.map (fun (_, _, n) -> r n) bs)
 
   (* 'Any/Choose' operator *)
   | AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
@@ -946,6 +958,22 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      mk_graph_expr2 m e2 >>= fun g2 -> 
      R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
   | LA.IndexAccess (_, e1, _, _) -> mk_graph_expr2 m e1
+  (* The value of an array comprehension depends on its body, where its index
+     variables are bound, and on the sizes of its dimensions *)
+  | LA.ArrayComprehension (_, bs, e) ->
+    let bound_ids = List.map (fun (_, i, _) -> i) bs in
+    let* g = mk_graph_expr2 m e in
+    let g =
+      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g
+    in
+    let g =
+      { g with
+        graph_data = G.remove_vertices g.graph_data bound_ids;
+        graph_data2 = G.remove_vertices g.graph_data2 bound_ids;
+        id_pos_data = List.fold_left (fun m i -> IMap.remove i m) g.id_pos_data bound_ids }
+    in
+    let* gs = R.seq (List.map (fun (_, _, n) -> mk_graph_expr2 m n) bs) in
+    R.ok [List.fold_left union_dependency_analysis_data g (List.concat gs)]
 
   | LA.GroupExpr (_, ExprList, es) ->
     R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)
