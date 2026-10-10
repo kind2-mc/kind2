@@ -22,14 +22,16 @@ module Chk = LustreTypeChecker
 module AH = LustreAstHelpers
 
 type error_kind =
+  (* A restart block, unlike a restart expression, cannot be left for the type
+     checker to report the error *)
   | RestartUnknownVariable of HString.t
   | RestartPolymorphic
 
 let error_message = function
   | RestartUnknownVariable id ->
     "The variable '" ^ HString.string_of_hstring id
-    ^ "' cannot be used under a restart (for instance, the index variable of an \
-       array definition)"
+    ^ "' cannot be used in a restart block, as its type is not known (for \
+       instance, it is bound by a pattern of an unknown constructor)"
   | RestartPolymorphic ->
     "A restart cannot apply to values of a type parameter"
 
@@ -215,17 +217,12 @@ type abstraction =
   | Untyped
 
 (* Map the expressions of a node item, including the guards of its blocks, with
-   the variables the item binds around each one: the index variables of an
-   array definition, and the variables of a match pattern *)
+   the variables the item binds around each one: the variables of a match
+   pattern *)
 let rec map_node_item_exprs f ni =
   let r = map_node_item_exprs f in
   let f_eq = function
-    | A.Equation (pos, (A.StructDef (_, lhs) as l), e) ->
-      let bound = List.concat_map (function
-        | A.ArrayDef (_, _, inds) -> inds
-        | _ -> []) lhs
-      in
-      A.Equation (pos, l, f (Ctx.SI.of_list bound) e)
+    | A.Equation (pos, l, e) -> A.Equation (pos, l, f Ctx.SI.empty e)
     | A.Assert (pos, e) -> A.Assert (pos, f Ctx.SI.empty e)
   in
   match ni with
@@ -830,9 +827,9 @@ fun ctx node_name fun_ids gen_decls orig_e ->
 
 (* 'restart e every r': abstract [e] into a call to a fresh internal node, and
    restart the call every time [r] is true. An [e] without state is not
-   affected by a restart, and is kept as it is. If the type of [e] cannot be
-   inferred here, the expression is left for the later type-checking pass to
-   report the error. *)
+   affected by a restart, and is kept as it is. If the type of [e], or of a
+   variable it uses, cannot be inferred here, the expression is left for the
+   later type-checking pass to report the error. *)
 and abstract_restart:
   Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> Lib.position
   -> A.expr -> A.expr -> A.expr * A.declaration list =
@@ -844,8 +841,7 @@ fun ctx node_name fun_ids gen_decls pos e r ->
   | Abstracted (A.Call (_, [], node_id, args), decls) ->
     A.RestartEvery (pos, node_id, args, r), decls
   | Abstracted _ -> raise (Restart_error (pos, RestartPolymorphic))
-  | UnknownVariable id -> raise (Restart_error (pos, RestartUnknownVariable id))
-  | Untyped -> A.Restart (pos, e, r), []
+  | UnknownVariable _ | Untyped -> A.Restart (pos, e, r), []
 
 (* 'restart items every r end': abstract the items into a fresh internal node,
    whose outputs are the variables the items define and whose inputs are the

@@ -73,7 +73,7 @@ type error_kind = Unknown of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MissingComprehensionSize of HString.t
-  | MultAssignArrayDef
+  | ArrayDefinition of HString.t * HString.t list * LustreAst.expr list option
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
@@ -164,7 +164,17 @@ let error_message kind = match kind with
     ^ "' of an array comprehension has no size: an array comprehension is"
     ^ " followed by one size per index, the innermost index first, as in"
     ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m"
-  | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
+  | ArrayDefinition (id, inds, sizes) ->
+    let id = HString.string_of_hstring id in
+    let inds = String.concat ", " (List.map HString.string_of_hstring inds) in
+    let sizes, note = match sizes with
+      | Some sizes ->
+        String.concat "" (List.map (fun n -> "^" ^ LA.string_of_expr n) sizes), ""
+      | None -> "^...", ", with one size per index variable, the innermost first"
+    in
+    "The element-wise definition of the array '" ^ id ^ "' is not supported:"
+    ^ " define the array with an array comprehension instead, as in '"
+    ^ id ^ " = (e foreach " ^ inds ^ ")" ^ sizes ^ "'" ^ note
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
   | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
@@ -172,7 +182,7 @@ let error_message kind = match kind with
   | LemmaWithoutContract n -> "Lemma '" ^ HString.string_of_hstring n ^ "' has no contract to state a fact with"
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
-  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional array comprehension"
   | DuplicatePatternVariable id -> "Variable '"
     ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
   | AssignmentToPatternVariable id -> "Cannot reassign value to a match block "
@@ -533,50 +543,13 @@ let build_local_ctx ctx locals inputs outputs =
   let ctx = List.fold_left over_inputs ctx inputs in
   List.fold_left over_outputs ctx outputs
 
-let unwrap = function 
-| Result.Ok r -> r 
-| Error _ -> assert false
-
-let build_equation_ctx ctx tc_ctx = function
-  | LA.StructDef (_, items) ->
-    let over_items ctx = function
-      | LA.ArrayDef (_, i, indices) ->
-        let output_type_opt = StringMap.find_opt i ctx.locals |> Lib.join in
-        let is_symbolic = match output_type_opt with
-          | Some ty -> 
-            (* Chase type aliases if we have proper type context *)
-            let ty = match tc_ctx with 
-            | Some tc_ctx -> 
-              LustreTypeChecker.expand_type_syn_reftype_history tc_ctx ty |> unwrap 
-            | None -> ty 
-            in
-            (match ty with
-              | ArrayType (_, (_, e)) ->
-                let vars = LAH.vars_without_node_call_ids e in
-                let check_var e = StringMap.mem e ctx.free_consts
-                  || StringMap.mem e ctx.locals
-                in
-                LA.SI.exists check_var vars
-              | _ -> false)
-          | None -> false
-        in
-        let over_indices acc id =
-          if is_symbolic
-          then ctx_add_symbolic_array_index acc id output_type_opt
-          else ctx_add_array_index acc id output_type_opt
-        in
-        List.fold_left over_indices ctx indices
-      | _ -> ctx
-    in
-    List.fold_left over_items ctx items
-    
 let rec find_var_def_count_lhs id = function
   | LA.SingleIdent (pos, id')
   | TupleSelection (pos, id', _)
   | FieldSelection (pos, id', _)
   | ArraySliceStructItem (pos, id', _)
-  | ArrayDef (pos, id', _)
     -> if id = id' then [pos] else []
+  | ArrayDef _ -> assert false (* rejected by [no_array_definitions] *)
   | TupleStructItem (_, items) ->
     List.map (find_var_def_count_lhs id) items |> List.flatten
   
@@ -704,6 +677,48 @@ let no_assignment_to_pattern_var ctx pos i =
   if StringMap.mem i ctx.pattern_vars && not (StringMap.mem i ctx.locals)
   then syntax_error pos (AssignmentToPatternVariable i)
   else Ok ()
+
+(* Array comprehensions replace the element-wise definitions of arrays
+   'x[i] = e', which the parser still recognizes to report them. The other
+   checks of this module only see the source, so they never meet one: the
+   definitions that LustreDesugarArrayComprehensions introduces for
+   comprehensions come after them. *)
+let no_array_definitions outputs locals items =
+  (* The sizes of the dimensions of [id] that the indices [inds] range over,
+     innermost first as in the type, when its declared type is written as an
+     array type *)
+  let sizes id inds =
+    let declared =
+      List.find_map (fun (_, id', ty, _) -> if id = id' then Some ty else None) outputs
+      |> function
+      | Some ty -> Some ty
+      | None ->
+        List.find_map (function
+          | LA.NodeVarDecl (_, (_, id', ty, _)) when id = id' -> Some ty
+          | _ -> None) locals
+    in
+    let rec outer_sizes k ty =
+      if k = 0 then Some []
+      else match ty with
+        | LA.ArrayType (_, (ty, n)) ->
+          Option.map (fun ns -> n :: ns) (outer_sizes (k - 1) ty)
+        | _ -> None
+    in
+    Option.bind declared (outer_sizes (List.length inds)) |> Option.map List.rev
+  in
+  let rec over_struct_item = function
+    | LA.ArrayDef (pos, id, inds) ->
+      syntax_error pos (ArrayDefinition (id, inds, sizes id inds))
+    | TupleStructItem (_, items) -> over_struct_items items
+    | SingleIdent _ | TupleSelection _ | FieldSelection _
+    | ArraySliceStructItem _ -> Ok ()
+  and over_struct_items items =
+    List.fold_left (fun acc item -> acc >> over_struct_item item) (Ok ()) items
+  in
+  List.concat_map LAH.extract_node_equation items
+  |> List.fold_left
+    (fun acc (LA.StructDef (_, items), _) -> acc >> over_struct_items items)
+    (Ok ())
 
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
@@ -1088,6 +1103,8 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+  (* First, so that no other check meets an element-wise definition *)
+  let* () = no_array_definitions outputs locals items in
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
   let decl = LA.NodeDecl
@@ -1117,6 +1134,8 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
 and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) is_rec =
+  (* First, so that no other check meets an element-wise definition *)
+  let* () = no_array_definitions outputs locals items in
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
   let ctx =
@@ -1212,7 +1231,6 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
   let check_item: context -> Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
     LA.node_item -> ([> warning] list, 'a) result = fun ctx tc_ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
-      let ctx' = build_equation_ctx ctx tc_ctx lhs in
       let StructDef (_, struct_items) = lhs in
       (match struct_items, e with
        (* A call statement (empty left-hand side, see lustreParser.mly) is the
@@ -1224,10 +1242,10 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
           else syntax_error cpos
             (CallStatementCallsNonLemma (NI.get_user_name node_id)))
          >> check_struct_items ctx struct_items
-         >> check_expr_list ctx' f args
+         >> check_expr_list ctx f args
        | _ ->
          check_struct_items ctx struct_items
-           >> check_expr ctx' f e)
+           >> check_expr ctx f e)
     | LA.IfBlock (_, e, l1, l2) ->
       let* warnings1 = check_expr ctx f e in
       let* (warnings2, props) = (check_items ctx ~tc_ctx ~in_lemma f l1 props) in
@@ -1308,12 +1326,9 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | LA.ArrayDef (pos, _, _) :: _ :: _ 
-  | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
   | (SingleIdent (pos, id)) :: tail ->
     no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
-  | (ArrayDef (pos, id, _)) :: tail ->
-    no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
+  | ArrayDef _ :: _ -> assert false (* rejected by [no_array_definitions] *)
   | (TupleStructItem (pos, _)) :: _
   | (TupleSelection (pos, _, _)) :: _
   | (FieldSelection (pos, _, _)) :: _

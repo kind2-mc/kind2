@@ -1622,15 +1622,9 @@ let mk_graph_eqn: node_summary
     = fun rhs_g lhs ->
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
-    | LA.ArrayDef (p, arr, is) ->
-      let hs_dollar = HString.mk_hstring "$" in
-      let arr' = HString.concat hs_dollar
-        [arr;(List.fold_left
-          (fun acc i -> HString.concat hs_dollar [acc;i])
-          empty_hs
-          is)]
-      in 
-      connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
+    (* Rejected by LustreSyntaxChecks in the source, and only introduced for
+       array comprehensions after this pass *)
+    | LA.ArrayDef _ -> assert false
     (* None of these items below are supported at parsing yet. *)
     | LA.TupleStructItem (p, _)
       | LA.TupleSelection (p, _, _)
@@ -1866,7 +1860,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  R.ok (final_decls, toplevel_nodes, scc_map, analysis_data.nsummary)
+  R.ok (final_decls, toplevel_nodes, scc_map)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 

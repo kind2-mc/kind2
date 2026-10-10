@@ -85,7 +85,6 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
-  | InvalidNumberOfIndices of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type

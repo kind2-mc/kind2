@@ -1,0 +1,4 @@
+node N (x: int^3) returns (y: int^3);
+let
+  y[i] = x[i] + 1;
+tel

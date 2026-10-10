@@ -251,6 +251,10 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  (* The element-wise definition 'x[i][j] = e' of an array, only introduced by
+     LustreDesugarArrayComprehensions for an array comprehension in a node and
+     by LustreAstNormalizer. The parser builds it for the source syntax, which
+     LustreSyntaxChecks rejects. *)
   | ArrayDef of position * ident * ident list
 
 

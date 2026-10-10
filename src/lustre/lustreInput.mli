@@ -108,7 +108,6 @@ exception NoMainNode of string
 exception MainTypeWithoutRealizability of string
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
