@@ -12,11 +12,13 @@ from conftest import common_args, kind2_bin, run_timeout
 
 model = """
 node N (A: int^3) returns (B: int^3);
-var my_gcomp: int;
+var my_gcomp, other: int;
 let
   B = (A[i] + 1 foreach i)^3;
   my_gcomp = B[0];
-  check "p" my_gcomp > A[1];
+  other = B[1];
+  -- other is in the property, so that it is not sliced away
+  check "p" my_gcomp > A[1] or other < A[1];
 tel
 """
 
@@ -48,17 +50,30 @@ def run(tmp_path, model):
     return proc.stdout
 
 
+def table_names(output, header):
+    """The names of the variables in the rows of a table of a counterexample,
+    such as '== Locals ==', which ends at the first blank line"""
+    lines = output.split(header, 1)[1].splitlines()[1:]
+    names = []
+    for line in lines:
+        if not line.strip():
+            break
+        names.append(line.split()[0])
+    return names
+
+
 def test_counterexample_locals(tmp_path):
     output = run(tmp_path, model)
-    locals_section = output.split("== Locals ==", 1)[1]
-    assert "my_gcomp" in locals_section
+    # The table is there whatever is hidden, since 'other' is shown
+    names = table_names(output, "== Locals ==")
+    assert "my_gcomp" in names
     # The local of the comprehension, named 'gcomp_<n>' in the output
-    assert "gcomp_" not in locals_section
+    assert not any(name.startswith("gcomp_") for name in names)
 
 
 def test_counterexample_ghosts(tmp_path):
     output = run(tmp_path, contract_model)
-    ghosts_section = output.split("== Ghosts ==", 1)[1]
-    assert "my_gcomp" in ghosts_section
+    names = table_names(output, "== Ghosts ==")
+    assert "my_gcomp" in names
     # The ghost variable of the comprehension in the guarantee
-    assert "gcomp_" not in ghosts_section
+    assert not any("gcomp_" in name for name in names)

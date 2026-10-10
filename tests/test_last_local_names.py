@@ -12,7 +12,7 @@ from conftest import common_args, kind2_bin, run_timeout
 
 model = """
 node N (m: bool) returns (y: int);
-var my_glast: int;
+var my_glast, other: int;
 let
   frame (y)
     y = 0;
@@ -22,9 +22,23 @@ let
     end
   tel
   my_glast = y;
-  check "p" my_glast < 1;
+  other = y + 1;
+  -- other is in the property, so that it is not sliced away
+  check "p" my_glast < 1 or other < 0;
 tel
 """
+
+
+def table_names(output, header):
+    """The names of the variables in the rows of a table of a counterexample,
+    such as '== Locals ==', which ends at the first blank line"""
+    lines = output.split(header, 1)[1].splitlines()[1:]
+    names = []
+    for line in lines:
+        if not line.strip():
+            break
+        names.append(line.split()[0])
+    return names
 
 
 def test_counterexample_locals(tmp_path):
@@ -39,7 +53,8 @@ def test_counterexample_locals(tmp_path):
         timeout=run_timeout,
     )
     assert "invalid after" in proc.stdout
-    locals_section = proc.stdout.split("== Locals ==", 1)[1].split("\n\n", 1)[0]
-    assert "my_glast" in locals_section
+    # The table is there whatever is hidden, since 'other' is shown
+    names = table_names(proc.stdout, "== Locals ==")
+    assert "my_glast" in names
     # The local of 'last y', which is Kind 2 generated
-    assert "glast_y" not in locals_section and "glast_" not in locals_section.replace("my_glast", "")
+    assert not any("glast_" in name for name in names)
