@@ -1,12 +1,19 @@
+-- An array defined from the variables of match arms: a comprehension cannot
+-- mention a variable bound by a match arm, so the arms define a local that
+-- the comprehension, outside the match block, reads (formerly 'a[i] = v;' in
+-- each arm)
+
 datatype T = A (v: int) | B (w: int);
 
 node f (t: T) returns (a: int^3);
+var x: int;
 let
   match t with
   | A (v):
-    a[i] = v;
+    x = v;
   | B (w):
-    a[i] = w;
+    x = w;
   end
+  a = (x foreach i)^3;
   --%PROPERTY a[0] = a[1];
 tel

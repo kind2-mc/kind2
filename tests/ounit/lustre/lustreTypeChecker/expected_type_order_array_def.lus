@@ -1,4 +1,0 @@
-node N(c: bool) returns (a: int^2);
-let
-  a[i] = c;
-tel

@@ -511,13 +511,10 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
   function
   | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
   | (LA.Equation (pos, (StructDef (_, sis) as lhs), e)) ->
-    (* Collect ind_vars, as they shadow global constants. 
-       In general, this check is too coarse grained. For example, assuming 
-       some global constant i, it erroneously prevents both occurrences of i 
-       from being inlined in the following equation: 
-       A[i], x = (i, i). 
-       However, we currently do not support mixing inductive array definitions with 
-       multiple assignment, so this is not actually (currently) a problem. *)
+    (* Collect the index variables of an element-wise array definition (from
+       an array comprehension), as they shadow global constants. Such a
+       definition is never part of a multiple assignment, so they shadow the
+       constants in the whole right-hand side. *)
     let ind_vars = List.fold_left (fun acc si -> match si with
       | LA.ArrayDef (_, _, vars) -> acc @ vars 
       | _ -> acc
