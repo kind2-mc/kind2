@@ -1,0 +1,23 @@
+-- A node call of an array type whose arguments mention index variables of the
+-- comprehension. Its instances were put in an array that was not selected by
+-- the index variable of the comprehension, but indexed by the one of the
+-- element, which left the array unconstrained.
+node F(x: int) returns (c: int^2);
+let
+  c = [x, x] -> [pre c[0] + x, pre c[1] + x];
+tel
+
+node M(b: int^2; j: int) returns (r: int^2);
+let
+  r = [b[0] + 10 * j, b[1] + 100 * j];
+tel
+
+node main(a: int^2^3) returns (A: int^2^3; S: int^2^3);
+let
+  A = (F(i) foreach i)^3;
+  check "one" A[2][1] = (2 -> pre A[2][1] + 2) and A[1][0] = (1 -> pre A[1][0] + 1);
+  -- Over two index variables
+  S = (M(a[m], k)[k] foreach m, k)^2^3;
+  check "two" forall (m, k: int) (0 <= m and m < 3 and 0 <= k and k < 2) ==>
+    S[m][k] = (if k = 0 then a[m][0] else a[m][1] + 100);
+tel

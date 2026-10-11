@@ -1303,9 +1303,21 @@ let mk_mode_ref_id ids =
   Format.asprintf "%a" (Lib.pp_print_list pp_print_ident "::") ids
   |> HString.mk_hstring
 
-let rec vars_of_node_calls_h obs =
+(* The condition of a lazy construct and the operands it guards *)
+let lazy_construct = function
+  | BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) -> Some (e1, [e2])
+  | TernaryOp (_, LazyIte, e1, e2, e3) -> Some (e1, [e2; e3])
+  | _ -> None
+
+let rec vars_of_node_calls_h obs e =
   let vars obs = vars_of_node_calls_h obs in
-  function
+  match lazy_construct e with
+  (* A call under a lazy construct is only made where its condition selects
+     it, so its instance depends on the condition as much as on its arguments *)
+  | Some (cond, guarded) when List.exists expr_contains_call guarded ->
+    SI.flatten (vars true cond :: List.map (vars obs) guarded)
+  | _ ->
+  match e with
   | Ident (_, i) | Last (_, i) -> if obs then SI.singleton i else SI.empty
   | ModeRef (_, is) -> if obs then SI.singleton (mk_mode_ref_id is) else SI.empty
   | FieldProject (_, e, _, _) -> vars obs e

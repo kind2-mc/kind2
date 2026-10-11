@@ -1,0 +1,6 @@
+-- The third element of a sliding window is the value of two steps before
+node main(s: int) returns (A: int^3);
+let
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i)^3;
+  check true -> A[2] = pre s;
+tel

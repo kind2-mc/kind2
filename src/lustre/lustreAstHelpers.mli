@@ -113,10 +113,16 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
+val lazy_construct: expr -> (expr * expr list) option
+(** [lazy_construct e] returns the condition of [e] and the operands it
+    guards, if [e] is a lazy construct: a [when] expression, [and then],
+    [or else] or [==>] *)
+
 val vars_of_node_calls: expr -> SI.t
 (** [vars_of_node_calls e] returns all variable identifiers within arguments of node calls that
-    appear in the expression [e] (while excluding node call identifiers), and
-    within the restart conditions of restarted node calls *)
+    appear in the expression [e] (while excluding node call identifiers),
+    within the restart conditions of restarted node calls, and within the
+    conditions of the lazy constructs that guard node calls *)
 
 val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]

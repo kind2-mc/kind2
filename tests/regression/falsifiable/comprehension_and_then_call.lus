@@ -1,0 +1,13 @@
+-- The right operand of 'and then' at index 1 is the instance of the call for
+-- index 1, which takes 1 as its argument: at m = 1, A[1] is false. It would
+-- hold if the instance for index 0 were used instead.
+node Id(x: int) returns (y: int);
+let
+  y = x;
+tel
+
+node main(m: int) returns (A: bool^3);
+let
+  A = (m = i and then Id(i) = 0 foreach i)^3;
+  check m = 1 => A[1];
+tel
