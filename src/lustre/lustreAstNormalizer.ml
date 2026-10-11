@@ -885,6 +885,18 @@ let mk_fresh_local force info pos ind_vars expr_type expr =
   LocalCache.add local_cache expr nexpr;
   nexpr, gids
 
+(* A 'pre' guarded by an enclosing '->' is left bare by the normalization, and
+   is never read at the initial instant. A Boolean condition with such a 'pre'
+   that is abstracted into a local of its own, outside of the '->', is [init]
+   at the initial instant instead, where the 'pre' has no value (see #1744) *)
+let guard_initial_value init cond =
+  if AH.has_unguarded_pre_no_warn cond then
+    A.Arrow (AH.pos_of_expr cond, A.Const (dpos, init), cond)
+  else cond
+
+(* A guard is not established at the initial instant *)
+let guard_initial_condition = guard_initial_value A.False
+
 let mk_fresh_constant pos name expr_type =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
@@ -2295,7 +2307,9 @@ and normalize_equation info node_id map = function
     in
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
-and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr = 
+(* [def] maps the normalized expression to the definition of the local that
+   abstracts it *)
+and abstract_expr ?guard ?ty ?(def = Fun.id) force info (node_id : NI.t option) map expr =
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
   if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
@@ -2311,7 +2325,7 @@ and abstract_expr ?guard ?ty force info (node_id : NI.t option) map expr =
       | None ->
         Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
     in
-    let iexpr, gids2 = mk_fresh_local force info pos ivars ty nexpr in
+    let iexpr, gids2 = mk_fresh_local force info pos ivars ty (def nexpr) in
     iexpr, union gids1 gids2, warnings
 
 (* Proof obligation that the constructor owning a user-written selector is
@@ -2409,7 +2423,8 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
           if d <= 0 then e
           else
             let ie, gids =
-              mk_fresh_local false info pos info.inductive_variables (local_type e) e
+              mk_fresh_local false info pos info.inductive_variables (local_type e)
+                (guard_initial_condition e)
             in
             shift_gids := union !shift_gids gids;
             shift (d - 1) (mk_pre_local ie)
@@ -2473,7 +2488,12 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
         if List.exists implies emitted then empty ()
         else begin
           SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
-          let obligation = close (mk_body normalized_pick tester shift) in
+          (* A selector under a guarded 'pre' is not read at the initial
+             instant, where the obligation holds *)
+          let obligation =
+            close (mk_body normalized_pick tester shift)
+            |> guard_initial_value A.True
+          in
           (* Displayed in terms of the input model *)
           let display =
             close (mk_body source_pick (mk_tester src_base) shift_display)
@@ -2677,7 +2697,8 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) po
         if should_not_abstract info false conj then conj, empty ()
         else
           mk_fresh_local false info (AH.pos_of_expr conj)
-            info.inductive_variables (A.Bool dummy_pos) conj
+            info.inductive_variables (A.Bool dummy_pos)
+            (guard_initial_condition conj)
       in
       match AH.id_of_expr nexpr with
       | None -> assert false
@@ -3003,8 +3024,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let instance = call_instance_of_expr call in
     let flags = NI.Map.find id info.node_is_input_const in
     let cond = A.Const (dummy_pos, A.True) in
-    let nrestart, gids1, warnings1 = if AH.expr_is_const restart then restart, empty (), []
-      else abstract_expr ?guard true info node_id map restart
+    let nrestart, gids1, warnings1 =
+      if AH.expr_is_const restart then restart, empty (), []
+      else
+        (* A restart at the initial instant leaves the callee in its initial
+           state, so the condition may be false there *)
+        abstract_expr ?guard ~def:guard_initial_condition true info node_id map restart
     in let nargs, gids2, warnings2 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
