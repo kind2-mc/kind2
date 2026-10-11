@@ -2188,11 +2188,14 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                   (simplify_term_node default_of_var uf_defs model)
                   a b
 
-              | [Abstr a; Abstr b] ->
-                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
-
-              | [ADT a; ADT b] ->
-                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
+              (* Equation between arrays, ADTs or abstract values,
+                 true if all arguments are syntactically equal *)
+              | (Array _ | ADT _ | Abstr _) :: _ ->
+                let args' = List.map term_of_nf args in
+                (match args' with
+                 | a :: tl when List.for_all (Term.equal a) tl ->
+                   Bool Term.t_true
+                 | _ -> Bool (Term.mk_eq args'))
 
               (* Equation between integers or reals *)
               | [Num _ as a; Num _ as b] 
