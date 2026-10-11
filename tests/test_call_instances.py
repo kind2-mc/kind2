@@ -47,6 +47,10 @@ expected = {
         for m in range(3)
         for n in range(2)
     },
+    # Main5: s = (Wrap(Sub(a[i])) foreach i)^3
+    **{f"Sub[L78C13][{i}].assume[L8C3]": i == 1 for i in range(3)},
+    # Main6: s = (Wrap(when m = i then Sub(a[i]) else 0) foreach i)^3
+    **{f"Sub[L90C29][{i}].assume[L8C3]": i == 2 for i in range(3)},
 }
 
 

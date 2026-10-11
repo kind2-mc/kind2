@@ -3561,7 +3561,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
    [var] in the condition the calls are made under. The construct is expanded
    as a whole instead, into one instance per index, where [var] is replaced
    with the index ([index]), and every call it makes is the instance for that
-   index. *)
+   index.
+
+   So is a call whose operands make calls of their own: substituting the index
+   into the call once its operands are expanded would rebuild the instances of
+   those calls, which would lose their indices (see [expanded_call_instances]),
+   and so would the properties lifted from them. *)
 and expand_node_calls_in_place ?index info node_id var count expr =
   let r = expand_node_calls_in_place ?index info node_id var count in
   (* The call [call], rebuilt as [call'] with its operands expanded: the
@@ -3579,7 +3584,7 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     when index = None
       && A.SI.mem var (AH.vars_without_node_call_ids cond)
       && List.exists AH.expr_contains_call guarded ->
-    expand_lazy_construct info node_id var count expr
+    expand_per_index info node_id var count expr
   | _ ->
   match expr with
   | A.Ident (p, v) when index <> None && HString.equal v var ->
@@ -3656,16 +3661,22 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     A.ADTTerm (p, ty_args, ctor, List.map r expr_list)
   | ADTTester (p, e, ctor) -> A.ADTTester (p, r e, ctor)
   | Extract (p, e, ub, lb) -> A.Extract (p, r e, ub, lb)
+  | Call (_, _, _, expr_list) as e
+    when index = None && List.exists AH.expr_contains_call expr_list ->
+    expand_per_index info node_id var count e
+  | RestartEvery (_, _, expr_list, c) as e
+    when index = None && List.exists AH.expr_contains_call (c :: expr_list) ->
+    expand_per_index info node_id var count e
   | Call (p, ty_args, n, expr_list) as e ->
     expand_call e (A.Call (p, ty_args, n, List.map r expr_list))
   | RestartEvery (p, id, expr_list, e) as e' ->
     expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
-(* The lazy construct [expr], whose condition mentions [var], as a conditional
-   over the indices of [var] selecting the instance of [expr] for each index
-   (see [expand_node_calls_in_place]) *)
-and expand_lazy_construct info node_id var count expr =
+(* [expr], a lazy construct whose condition mentions [var] or a call whose
+   operands make calls, as a conditional over the indices of [var] selecting
+   the instance of [expr] for each index (see [expand_node_calls_in_place]) *)
+and expand_per_index info node_id var count expr =
   let ty = infer_type info (Some node_id) expr in
   select_instance info var count ty (fun k ->
     expand_node_calls_in_place ~index:k info node_id var count expr)
