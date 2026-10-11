@@ -47,6 +47,43 @@ expected = {
         for m in range(3)
         for n in range(2)
     },
+    # Main5: s = (Wrap(Sub(a[i])) foreach i)^3. The assumption of Wrap always
+    # holds: it checks the indices of the instances of the outer call
+    **{f"Sub[L83C13][{i}].assume[L8C3]": i == 1 for i in range(3)},
+    **{f"Wrap[L83C8][{i}].assume[L73C3]": False for i in range(3)},
+    # Main6: s = (Wrap(when m = i then Sub(a[i]) else 0) foreach i)^3
+    **{f"Sub[L95C29][{i}].assume[L8C3]": i == 2 for i in range(3)},
+    **{f"Wrap[L95C8][{i}].assume[L73C3]": False for i in range(3)},
+    # Main7: s = (restart Wrap(a[i]) every Pos(Sub(a[i])) foreach i)^3
+    **{f"Sub[L111C37][{i}].assume[L8C3]": i == 1 for i in range(3)},
+    **{
+        f"Main7.restart_L111C16[L111C8][{i}].Wrap[L111C16].assume[L73C3]": False
+        for i in range(3)
+    },
+    # Main8: s = (Wrap(Sub(a[i][j])) foreach i, j)^2^3
+    **{
+        f"Sub[L122C13][{i}][{j}].assume[L8C3]": (i, j) == (1, 1)
+        for i in range(3)
+        for j in range(2)
+    },
+    **{
+        f"Wrap[L122C8][{i}][{j}].assume[L73C3]": False
+        for i in range(3)
+        for j in range(2)
+    },
+    # Main9: s = (Wrap(Wrap(Sub(a[i]))) foreach i)^3
+    **{f"Sub[L133C18][{i}].assume[L8C3]": i == 2 for i in range(3)},
+    **{f"Wrap[L133C13][{i}].assume[L73C3]": False for i in range(3)},
+    **{f"Wrap[L133C8][{i}].assume[L73C3]": False for i in range(3)},
+    # Main10: s = (restart Wrap(Sub(a[i])) every r foreach i)^3
+    **{
+        f"Main10.restart_L144C16[L144C8][{i}].Sub[L144C21].assume[L8C3]": i == 1
+        for i in range(3)
+    },
+    **{
+        f"Main10.restart_L144C16[L144C8][{i}].Wrap[L144C16].assume[L73C3]": False
+        for i in range(3)
+    },
 }
 
 
