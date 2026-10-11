@@ -441,6 +441,9 @@ let call_instance_of_expr expr =
 
 let dpos = Lib.dummy_pos
 
+(* The index [k] of an array, as a constant *)
+let mk_index ?(pos = dpos) k = A.Const (pos, A.Num (HString.mk_hstring (string_of_int k)))
+
 let union_list ids =
   List.fold_left (fun x y -> union x y ) (empty ()) ids
 
@@ -2028,12 +2031,14 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let expanded =
           sizes <> [] && List.for_all (fun (_, sz) -> Option.is_some sz) sizes
         in
+        (* Only over the index variables the calls depend on: an index
+           variable of an element of an array type, in particular, does not
+           tell the instances of a call apart *)
         let expr =
           if expanded then
-            List.fold_left (fun acc i ->
-              let (size_opt, _, _, _) = StringMap.find i info.inductive_variables in
+            List.fold_left (fun acc (i, size_opt) ->
               expand_node_calls_in_place info node_id i (Option.get size_opt) acc
-            ) expr is
+            ) expr sizes
           else expr
         in
         let nexpr, gids1, warnings1 =
@@ -2092,8 +2097,8 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
           in
         let (nexpr, gids1, warnings), expanded = (
           if expand && lhs_arity <> rhs_arity then
-            (match StringMap.choose_opt info.inductive_variables with
-            | Some (ivar, (size_opt, _, _, _)) ->
+            (match array_sizes with
+            | (ivar, size_opt) :: _ ->
               let size = Option.get size_opt in
               let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
               let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
@@ -2107,7 +2112,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
               let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
               let warnings = List.flatten warnings in
             (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
-            | None -> normalize_expr ?guard:None info (Some node_id) map expr, false)
+            | [] -> normalize_expr ?guard:None info (Some node_id) map expr, false)
             
           else if expand && lhs_arity = rhs_arity then
             let expanded_expr = List.fold_left
@@ -2115,7 +2120,8 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
                 let size = Option.get size_opt in
                 expand_node_calls_in_place info node_id v size acc)
               expr
-              (StringMap.bindings info.inductive_variables)
+              (StringMap.bindings info.inductive_variables
+               |> List.filter (fun (v, _) -> A.SI.mem v vars_of_calls))
             in
             normalize_expr ?guard:None info (Some node_id) map expanded_expr, true
           else normalize_expr ?guard:None info (Some node_id) map expr, false
@@ -2240,8 +2246,8 @@ and normalize_equation info node_id map = function
     in
     let (nexpr, gids1, warnings), expanded = (
       if expand && lhs_arity <> rhs_arity then
-        (match StringMap.choose_opt info.inductive_variables with
-        | Some (ivar, (size_opt, _, _, _)) ->
+        (match array_sizes with
+        | (ivar, size_opt) :: _ ->
           let size = Option.get size_opt in
           let expanded_expr = expand_node_calls_in_place info node_id ivar size expr in
           let exprs, gids, warnings = Lib.split3 (List.init lhs_arity
@@ -2252,14 +2258,18 @@ and normalize_equation info node_id map = function
           let gids = List.fold_left (fun acc g -> union g acc) (empty ()) gids in
           let warnings = List.flatten warnings in
         (A.GroupExpr (dpos, A.ExprList, exprs), gids, warnings), true
-        | None -> normalize_expr info (Some node_id) map expr, false)
+        | [] -> normalize_expr info (Some node_id) map expr, false)
       else if expand && lhs_arity = rhs_arity then
         (* Expand in the order of the indices on the left-hand side, which is
-           the order of the indices of the instances (see [expand_node_call]) *)
+           the order of the indices of the instances (see [expand_node_call]),
+           over the index variables the calls depend on: an index variable of
+           an element of an array type, in particular, does not tell the
+           instances of a call apart *)
         let ivars =
           items
           |> List.concat_map (function A.ArrayDef (_, _, is) -> is | _ -> [])
-          |> List.filter (fun v -> StringMap.mem v info.inductive_variables)
+          |> List.filter (fun v ->
+               StringMap.mem v info.inductive_variables && A.SI.mem v vars_of_calls)
         in
         let expanded_expr = List.fold_left
           (fun acc v ->
@@ -2717,24 +2727,36 @@ and mk_fresh_qcall info (id : NI.t) inst_name pos args =
 
 and expand_node_call info node_id expr instance var count =
   let ty = infer_type info node_id expr in
-  let mk_index i = A.Const (dpos, Num (HString.mk_hstring (string_of_int i))) in
-  let expr_array = List.init count (fun i -> AH.substitute_naive var (mk_index i) expr) in
-  (* An instance of a call that is itself an instance, in an equation over
-     several indices, extends the indices of that instance *)
-  expr_array |> List.iteri (fun i e ->
-    expanded_call_instances :=
-      (e, instance @ [i]) :: !expanded_call_instances
-  );
-  match ty with
-  | A.ArrayType _ -> A.GroupExpr (dpos, ArrayExpr, expr_array)
-  | _ -> List.fold_left
-    (fun acc (i, e) ->
-      let pos = Lib.dummy_pos in
-      let i = HString.mk_hstring (Int.to_string i) in
-      let cond = A.CompOp (pos, A.Eq, A.Ident (pos, var), A.Const (pos, A.Num i)) in
-      A.TernaryOp (pos, A.Ite, cond, e, acc))
-    (List.nth expr_array 0)
-    (List.tl (List.init count (fun i -> i, List.nth expr_array i)))
+  select_instance info var count ty (fun k ->
+    let e = AH.substitute_naive var (mk_index k) expr in
+    (* An instance of a call that is itself an instance, in an equation over
+       several indices, extends the indices of that instance *)
+    expanded_call_instances := (e, instance @ [k]) :: !expanded_call_instances;
+    e)
+
+(* The expression whose value at each index [k] of the index variable [var],
+   of a dimension of size [count], is the one of [instance k], of type [ty]:
+   a conditional over [var], or, for an array, the element [var] of the array
+   of the instances. The other index variables of the equation index the
+   expression, as in [e[j]], which an array conditional cannot be compiled
+   under. No instance is made for a dimension of size 0, where the expression
+   is never evaluated, and its value is irrelevant. *)
+and select_instance info var count ty instance =
+  if count <= 0 then A.AbstractSymConst (dpos, ty)
+  else
+    let instances = List.init count instance in
+    match Chk.expand_type_syn_reftype_history info.context ty |> unwrap with
+    | A.ArrayType _ ->
+      A.IndexAccess
+        (dpos, A.GroupExpr (dpos, ArrayExpr, instances), A.Ident (dpos, var), A.Array)
+    | _ ->
+      List.fold_left
+        (fun (k, acc) e ->
+          let cond = A.CompOp (dpos, A.Eq, A.Ident (dpos, var), mk_index k) in
+          k + 1, A.TernaryOp (dpos, A.Ite, cond, e, acc))
+        (1, List.hd instances)
+        (List.tl instances)
+      |> snd
 
 and combine_args_with_const info args flags =
   let output_arity = List.map (fun e -> match e with
@@ -3542,25 +3564,26 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
    index. *)
 and expand_node_calls_in_place ?index info node_id var count expr =
   let r = expand_node_calls_in_place ?index info node_id var count in
-  (* Registers [e] as the instance for [index] of the call [call] *)
-  let instance_of call k e =
-    expanded_call_instances :=
-      (e, call_instance_of_expr call @ [k]) :: !expanded_call_instances;
-    e
+  (* The call [call], rebuilt as [call'] with its operands expanded: the
+     instance for [index], or the selection of its instances over [var] *)
+  let expand_call call call' =
+    let instance = call_instance_of_expr call in
+    match index with
+    | Some k ->
+      expanded_call_instances := (call', instance @ [k]) :: !expanded_call_instances;
+      call'
+    | None -> expand_node_call info (Some node_id) call' instance var count
   in
-  let lazy_guard_mentions_var cond guarded =
-    index = None
-    && A.SI.mem var (AH.vars_without_node_call_ids cond)
-    && List.exists AH.expr_contains_call guarded
-  in
+  match AH.lazy_construct expr with
+  | Some (cond, guarded)
+    when index = None
+      && A.SI.mem var (AH.vars_without_node_call_ids cond)
+      && List.exists AH.expr_contains_call guarded ->
+    expand_lazy_construct info node_id var count expr
+  | _ ->
   match expr with
   | A.Ident (p, v) when index <> None && HString.equal v var ->
-    A.Const (p, Num (HString.mk_hstring (string_of_int (Option.get index))))
-  | A.TernaryOp (_, A.LazyIte, c, e2, e3) when lazy_guard_mentions_var c [e2; e3] ->
-    expand_lazy_construct info node_id var count expr
-  | A.BinaryOp (_, (A.AndThen | A.OrElse | A.LazyImpl), e1, e2)
-    when lazy_guard_mentions_var e1 [e2] ->
-    expand_lazy_construct info node_id var count expr
+    mk_index ~pos:p (Option.get index)
   | Quantifier (_, _, ids, _)
     when index <> None && List.exists (fun (_, i, _) -> HString.equal i var) ids ->
     expr
@@ -3588,6 +3611,41 @@ and expand_node_calls_in_place ?index info node_id var count expr =
   | Fby (p, e1, e2) -> A.Fby (p, r e1, r e2)
   | TypeAscription (p, e, ty) -> A.TypeAscription (p, r e, ty)
   | TernaryOp (p, op, e1, e2, e3) -> A.TernaryOp (p, op, r e1, r e2, r e3)
+  | GroupExpr (p, ArrayExpr, expr_list) when index = None -> (
+    let expr_list = List.map (fun e -> r e) expr_list in
+    (* The elements of an array literal whose expansion selects an instance
+       of an array type for each index of [var] (see [select_instance]), such
+       as the array of the instances of a call over another index variable,
+       would make the literal mention [var], which an array literal cannot.
+       The literal is transposed instead: its element [j] at index [k] is the
+       element [j] of the array of the instances for index [k], and the
+       transposed literal is selected by [var]. An element that does not
+       depend on [var], and makes no call, is the same at every index. *)
+    let instances_of e =
+      match e with
+      | A.IndexAccess (_, A.GroupExpr (_, ArrayExpr, es), A.Ident (_, v), A.Array)
+        when HString.equal v var && List.length es = count ->
+        Some (Some es)
+      | e when not (A.SI.mem var (AH.vars_without_node_call_ids e))
+            && not (AH.expr_contains_call e) ->
+        Some None
+      | _ -> None
+    in
+    let instances = List.map instances_of expr_list in
+    if count > 0
+       && List.for_all Option.is_some instances
+       && List.exists (fun i -> i <> Some None) instances
+    then
+      let columns =
+        List.init count (fun k ->
+          A.GroupExpr (p, ArrayExpr,
+            List.map2
+              (fun e i -> match i with Some (Some es) -> List.nth es k | _ -> e)
+              expr_list instances))
+      in
+      A.IndexAccess (dpos, A.GroupExpr (dpos, ArrayExpr, columns), A.Ident (dpos, var), A.Array)
+    else A.GroupExpr (p, ArrayExpr, expr_list)
+  )
   | GroupExpr (p, k, expr_list) ->
     let expr_list = List.map (fun e -> r e) expr_list in
     A.GroupExpr (p, k, expr_list)
@@ -3598,43 +3656,19 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     A.ADTTerm (p, ty_args, ctor, List.map r expr_list)
   | ADTTester (p, e, ctor) -> A.ADTTester (p, r e, ctor)
   | Extract (p, e, ub, lb) -> A.Extract (p, r e, ub, lb)
-  | Call (p, ty_args, n, expr_list) as e -> (
-    let expr_list = List.map (fun e -> r e) expr_list in
-    let e' = A.Call (p, ty_args, n, expr_list) in
-    match index with
-    | Some k -> instance_of e k e'
-    | None ->
-      let instance = call_instance_of_expr e in
-      expand_node_call info (Some node_id) e' instance var count
-  )
-  | RestartEvery (p, id, expr_list, e) as e' -> (
-    let expr_list = List.map (fun e -> r e) expr_list in
-    let e'' = A.RestartEvery (p, id, expr_list, r e) in
-    match index with
-    | Some k -> instance_of e' k e''
-    | None ->
-      let instance = call_instance_of_expr e' in
-      expand_node_call info (Some node_id) e'' instance var count
-  )
+  | Call (p, ty_args, n, expr_list) as e ->
+    expand_call e (A.Call (p, ty_args, n, List.map r expr_list))
+  | RestartEvery (p, id, expr_list, e) as e' ->
+    expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
 (* The lazy construct [expr], whose condition mentions [var], as a conditional
    over the indices of [var] selecting the instance of [expr] for each index
    (see [expand_node_calls_in_place]) *)
 and expand_lazy_construct info node_id var count expr =
-  let instance k =
-    expand_node_calls_in_place ~index:k info node_id var count expr
-  in
-  let pos = Lib.dummy_pos in
-  List.fold_left
-    (fun acc k ->
-      let cond =
-        A.CompOp (pos, A.Eq, A.Ident (pos, var),
-          A.Const (pos, A.Num (HString.mk_hstring (string_of_int k))))
-      in
-      A.TernaryOp (pos, A.Ite, cond, instance k, acc))
-    (instance 0)
-    (List.init (count - 1) (fun k -> k + 1))
+  let ty = infer_type info (Some node_id) expr in
+  select_instance info var count ty (fun k ->
+    expand_node_calls_in_place ~index:k info node_id var count expr)
 
 and normalize_ty ?(guard = None) ?(id = None) info node_id map ty = 
   match ty with 

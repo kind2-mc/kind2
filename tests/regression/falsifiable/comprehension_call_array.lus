@@ -1,0 +1,12 @@
+-- The element [2][1] of the comprehension is the element 1 of the instance of
+-- the call for [2][1]
+node M(b: int^2; j: int) returns (r: int^2);
+let
+  r = [b[0] + 10 * j, b[1] + 100 * j];
+tel
+
+node main(a: int^2^3) returns (S: int^2^3);
+let
+  S = (M(a[m], k)[k] foreach m, k)^2^3;
+  check S[2][1] = a[2][1] + 10;
+tel

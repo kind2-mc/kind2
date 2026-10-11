@@ -32,12 +32,19 @@ expected = {
         for i in range(3)
         for j in range(2)
     },
-    # Main3: s = (Mid(a[m])[k] foreach m, k)^2^3, with
+    # Main3: s = (Mid(a[m], k)[k] foreach m, k)^2^3, with
     # r = (Sub(b[k]) foreach k)^2 in Mid
     **{
         f"Mid[L48C8][{m}][{k}].Sub[L41C8][{n}].assume[L8C3]": (m, n) == (2, 0)
         for m in range(3)
         for k in range(2)
+        for n in range(2)
+    },
+    # Main4: s = (Mid(a[m], 0)[k] foreach m, k)^2^3, whose call does not
+    # depend on k
+    **{
+        f"Mid[L62C8][{m}].Sub[L41C8][{n}].assume[L8C3]": (m, n) == (2, 0)
+        for m in range(3)
         for n in range(2)
     },
 }

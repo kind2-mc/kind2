@@ -36,7 +36,7 @@ tel
    [m][k], whatever the order they were first created in (k before m).
    The assumption is violated for the instance 0 of Sub in the instances
    [2][_] of Mid only. *)
-node Mid (b: int^2) returns (r: int^2)
+node Mid (b: int^2; j: int) returns (r: int^2)
 let
   r = (Sub(b[k]) foreach k)^2;
 tel
@@ -45,7 +45,21 @@ node Main3 () returns (ok: bool);
 var a: int^2^3; s: int^2^3;
 let
   a = [[1, 1], [1, 1], [-1, 1]];
-  s = (Mid(a[m])[k] foreach m, k)^2^3;
+  s = (Mid(a[m], k)[k] foreach m, k)^2^3;
   ok = s[0][0] = 1;
   check "P3" ok;
+tel
+
+(* A call whose arguments mention only one of the index variables of the
+   comprehension expands into one instance per index of that variable: the
+   other one indexes the output of the call, and does not tell the instances
+   apart. The assumption is violated for the instance 0 of Sub in the instance
+   [2] of Mid only. *)
+node Main4 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, 1], [-1, 1]];
+  s = (Mid(a[m], 0)[k] foreach m, k)^2^3;
+  ok = s[0][0] = 1;
+  check "P4" ok;
 tel

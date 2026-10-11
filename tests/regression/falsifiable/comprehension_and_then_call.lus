@@ -1,12 +1,13 @@
--- The right operand of 'and then' is only evaluated at the indices where the
--- left one holds
-node Count() returns (c: int);
+-- The right operand of 'and then' at index 1 is the instance of the call for
+-- index 1, which takes 1 as its argument: at m = 1, A[1] is false. It would
+-- hold if the instance for index 0 were used instead.
+node Id(x: int) returns (y: int);
 let
-  c = 1 -> pre c + 1;
+  y = x;
 tel
 
 node main(m: int) returns (A: bool^3);
 let
-  A = (m = i and then Count() >= 1 foreach i)^3;
-  check A[1] or m <> 2;
+  A = (m = i and then Id(i) = 0 foreach i)^3;
+  check m = 1 => A[1];
 tel
