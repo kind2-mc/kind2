@@ -1,0 +1,12 @@
+-- The right operand of 'and then' is only evaluated at the indices where the
+-- left one holds
+node Count() returns (c: int);
+let
+  c = 1 -> pre c + 1;
+tel
+
+node main(m: int) returns (A: bool^3);
+let
+  A = (m = i and then Count() >= 1 foreach i)^3;
+  check A[1] or m <> 2;
+tel

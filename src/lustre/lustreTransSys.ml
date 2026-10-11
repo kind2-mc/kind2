@@ -1531,14 +1531,17 @@ let rec constraints_of_node_calls
 
           else
 
-            (* Create fresh shadow variable for input *)
+            (* Create fresh shadow variable for input. The instances a call
+               in an array equation expands into share its position, so the
+               name tells them apart by the identifier of the call. *)
             let shadow_sv =
               let name =
                 let row, col = row_col_of_pos call_pos in
-                Format.asprintf "shw_%a_l%dc%d_%a"
+                Format.asprintf "shw_%a_l%dc%d_%a_%d"
                   (I.pp_print_ident true) (NI.get_internal_name call_node_id |> I.of_hstring)
                   row col
                   StateVar.pp_print_state_var formal_sv
+                  call_id
               in
               mk_fresh_state_var
                 ?is_const:None
@@ -1634,10 +1637,11 @@ let rec constraints_of_node_calls
     let has_ticked =
       let name =
         let row, col = row_col_of_pos call_pos in
-        Format.asprintf "tck_%a_l%dc%d_%a"
+        Format.asprintf "tck_%a_l%dc%d_%a_%d"
           (I.pp_print_ident true) (NI.get_internal_name call_node_id |> I.of_hstring)
           row col 
           StateVar.pp_print_state_var clock
+          call_id
       in
       mk_fresh_state_var
         ?is_const:None

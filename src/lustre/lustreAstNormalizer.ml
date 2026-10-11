@@ -3529,9 +3529,41 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     (* Pass through to the compiler, which handles it in compile_ast_expr. *)
     e, empty (), []
 
-and expand_node_calls_in_place info node_id var count expr =
-  let r = expand_node_calls_in_place info node_id var count in
+(* [expr] with the node calls it makes in an array equation over [var]
+   expanded into one instance per index (see [expand_node_call]), [count]
+   being the size of the dimension [var] ranges over.
+
+   A call under a lazy construct whose condition mentions [var] is only made
+   at the indices where the condition selects it, so the instances cannot be
+   selected by an eager conditional below the construct, which would leave
+   [var] in the condition the calls are made under. The construct is expanded
+   as a whole instead, into one instance per index, where [var] is replaced
+   with the index ([index]), and every call it makes is the instance for that
+   index. *)
+and expand_node_calls_in_place ?index info node_id var count expr =
+  let r = expand_node_calls_in_place ?index info node_id var count in
+  (* Registers [e] as the instance for [index] of the call [call] *)
+  let instance_of call k e =
+    expanded_call_instances :=
+      (e, call_instance_of_expr call @ [k]) :: !expanded_call_instances;
+    e
+  in
+  let lazy_guard_mentions_var cond guarded =
+    index = None
+    && A.SI.mem var (AH.vars_without_node_call_ids cond)
+    && List.exists AH.expr_contains_call guarded
+  in
   match expr with
+  | A.Ident (p, v) when index <> None && HString.equal v var ->
+    A.Const (p, Num (HString.mk_hstring (string_of_int (Option.get index))))
+  | A.TernaryOp (_, A.LazyIte, c, e2, e3) when lazy_guard_mentions_var c [e2; e3] ->
+    expand_lazy_construct info node_id var count expr
+  | A.BinaryOp (_, (A.AndThen | A.OrElse | A.LazyImpl), e1, e2)
+    when lazy_guard_mentions_var e1 [e2] ->
+    expand_lazy_construct info node_id var count expr
+  | Quantifier (_, _, ids, _)
+    when index <> None && List.exists (fun (_, i, _) -> HString.equal i var) ids ->
+    expr
   | A.FieldProject (p, e, i, pk) -> A.FieldProject (p, r e, i, pk)
   | UnaryOp (p, op, e) -> A.UnaryOp (p, op, r e)
   | ConvOp (p, op, e) -> A.ConvOp (p, op, r e)
@@ -3562,17 +3594,47 @@ and expand_node_calls_in_place info node_id var count expr =
   | RecordExpr (p, n, ps, expr_list) ->
     let expr_list = List.map (fun (i, e) -> (i, r e)) expr_list in
     A.RecordExpr (p, n, ps, expr_list)
-  | Call (p, ty_args, n, expr_list) as e ->
-    let instance = call_instance_of_expr e in
+  | ADTTerm (p, ty_args, ctor, expr_list) ->
+    A.ADTTerm (p, ty_args, ctor, List.map r expr_list)
+  | ADTTester (p, e, ctor) -> A.ADTTester (p, r e, ctor)
+  | Extract (p, e, ub, lb) -> A.Extract (p, r e, ub, lb)
+  | Call (p, ty_args, n, expr_list) as e -> (
     let expr_list = List.map (fun e -> r e) expr_list in
-    expand_node_call info (Some node_id) (A.Call (p, ty_args, n, expr_list))
-      instance var count
-  | RestartEvery (p, id, expr_list, e) as e' ->
-    let instance = call_instance_of_expr e' in
+    let e' = A.Call (p, ty_args, n, expr_list) in
+    match index with
+    | Some k -> instance_of e k e'
+    | None ->
+      let instance = call_instance_of_expr e in
+      expand_node_call info (Some node_id) e' instance var count
+  )
+  | RestartEvery (p, id, expr_list, e) as e' -> (
     let expr_list = List.map (fun e -> r e) expr_list in
-    let e = A.RestartEvery (p, id, expr_list, r e) in
-    expand_node_call info (Some node_id) e instance var count
+    let e'' = A.RestartEvery (p, id, expr_list, r e) in
+    match index with
+    | Some k -> instance_of e' k e''
+    | None ->
+      let instance = call_instance_of_expr e' in
+      expand_node_call info (Some node_id) e'' instance var count
+  )
   | e -> e
+
+(* The lazy construct [expr], whose condition mentions [var], as a conditional
+   over the indices of [var] selecting the instance of [expr] for each index
+   (see [expand_node_calls_in_place]) *)
+and expand_lazy_construct info node_id var count expr =
+  let instance k =
+    expand_node_calls_in_place ~index:k info node_id var count expr
+  in
+  let pos = Lib.dummy_pos in
+  List.fold_left
+    (fun acc k ->
+      let cond =
+        A.CompOp (pos, A.Eq, A.Ident (pos, var),
+          A.Const (pos, A.Num (HString.mk_hstring (string_of_int k))))
+      in
+      A.TernaryOp (pos, A.Ite, cond, instance k, acc))
+    (instance 0)
+    (List.init (count - 1) (fun k -> k + 1))
 
 and normalize_ty ?(guard = None) ?(id = None) info node_id map ty = 
   match ty with 
