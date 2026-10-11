@@ -884,12 +884,15 @@ let mk_fresh_local force info pos ind_vars expr_type expr =
 
 (* A 'pre' guarded by an enclosing '->' is left bare by the normalization, and
    is never read at the initial instant. A Boolean condition with such a 'pre'
-   that is abstracted into a local of its own, outside of the '->', is false at
-   the initial instant instead, where the 'pre' has no value (see #1744) *)
-let guard_initial_condition cond =
+   that is abstracted into a local of its own, outside of the '->', is [init]
+   at the initial instant instead, where the 'pre' has no value (see #1744) *)
+let guard_initial_value init cond =
   if AH.has_unguarded_pre_no_warn cond then
-    A.Arrow (AH.pos_of_expr cond, A.Const (dpos, A.False), cond)
+    A.Arrow (AH.pos_of_expr cond, A.Const (dpos, init), cond)
   else cond
+
+(* A guard is not established at the initial instant *)
+let guard_initial_condition = guard_initial_value A.False
 
 let mk_fresh_constant pos name expr_type =
   i := !i + 1;
@@ -2410,7 +2413,8 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
           if d <= 0 then e
           else
             let ie, gids =
-              mk_fresh_local false info pos info.inductive_variables (local_type e) e
+              mk_fresh_local false info pos info.inductive_variables (local_type e)
+                (guard_initial_condition e)
             in
             shift_gids := union !shift_gids gids;
             shift (d - 1) (mk_pre_local ie)
@@ -2474,7 +2478,12 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
         if List.exists implies emitted then empty ()
         else begin
           SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
-          let obligation = close (mk_body normalized_pick tester shift) in
+          (* A selector under a guarded 'pre' is not read at the initial
+             instant, where the obligation holds *)
+          let obligation =
+            close (mk_body normalized_pick tester shift)
+            |> guard_initial_value A.True
+          in
           (* Displayed in terms of the input model *)
           let display =
             close (mk_body source_pick (mk_tester src_base) shift_display)
