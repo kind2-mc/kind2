@@ -8,7 +8,9 @@ in Simplify.relation, which only takes integers, reals and bitvectors.
 
 The solver does not eliminate the array variables of the generalization, so
 IC3QE still shuts down without a result here, but as an unsupported feature,
-and not on an exception.
+and not on an exception. The test checks for that message, so that it fails
+if IC3QE stops before it generalizes, and the equation is never evaluated. It
+has to be updated once the solver eliminates the array variables.
 """
 
 import subprocess
@@ -40,3 +42,4 @@ def test_ic3qe_array_equation(tmp_path):
     assert "terminated on exception" not in output, output
     assert "Runtime error" not in output, output
     assert "Assertion failed" not in output, output
+    assert "Shutting down IC3QE: QE failed during generalization step" in output, output
