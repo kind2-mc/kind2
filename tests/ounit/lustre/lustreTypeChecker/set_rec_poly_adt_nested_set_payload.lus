@@ -1,0 +1,4 @@
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+node main() returns (ok: bool);
+var s: set<L<L<set<int>>>>;
+let s = {}@<L<L<set<int>>>>; ok = true; check ok; tel
