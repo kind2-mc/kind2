@@ -239,9 +239,58 @@ let lift_term state_var_map term =
 let pp_print_call_instance ppf instance =
   List.iter (Format.fprintf ppf "[%d]") instance
 
+(* Lift the name of a property in an internal node (see
+   [NodeId.is_internal]).
+
+   The name of the node means nothing to the user, and the position of its
+   call is the position of the expression it stands for, which the names of
+   its properties already carry: a property is named as in the node, with the
+   indices of the instance of the call right after the first position in the
+   name. The call of the internal node is transparent, so these are the outer
+   indices of the instance of the first call in the name, before its own ones,
+   as for a call in a comprehension over several indices. A name with no
+   position takes the indices at its end.
+
+   Every instance of a call has as many indices, so the names lifted from the
+   instances of a call stay distinct. *)
+let lift_internal_prop_name instance prop_name =
+  let indices = string_of_t pp_print_call_instance instance in
+  let len = String.length prop_name in
+  (* The index right after the digits from [i] on, if there is one *)
+  let rec digits_end i =
+    if i < len && prop_name.[i] >= '0' && prop_name.[i] <= '9' then
+      digits_end (i + 1)
+    else i
+  in
+  let digits_after i = let j = digits_end i in if j > i then Some j else None in
+  (* The index right after a position "[LnCm]" that starts at [i], if any *)
+  let position_end i =
+    if i + 1 < len && prop_name.[i] = '[' && prop_name.[i + 1] = 'L' then
+      match digits_after (i + 2) with
+      | Some j when j < len && prop_name.[j] = 'C' -> (
+        match digits_after (j + 1) with
+        | Some k when k < len && prop_name.[k] = ']' -> Some (k + 1)
+        | _ -> None)
+      | _ -> None
+    else None
+  in
+  let rec first_position_end i =
+    if i >= len then None
+    else
+      match position_end i with
+      | Some j -> Some j
+      | None -> first_position_end (i + 1)
+  in
+  match first_position_end 0 with
+  | Some i ->
+    String.sub prop_name 0 i ^ indices ^ String.sub prop_name i (len - i)
+  | None -> prop_name ^ indices
+
 (* Lift the name of a property in a subnode by adding the position of
    the node call, and the indices of the instance if any *)
-let lift_prop_name node_name pos instance prop_name =
+let lift_prop_name ~internal node_name pos instance prop_name =
+
+  if internal then lift_internal_prop_name instance prop_name else
 
   (* Pretty-print a position as attributes *)
   let pp_print_pos ppf pos = 
@@ -419,6 +468,25 @@ let subrequirements_of_contract
       in
       let prop_name =
         match name with
+        | _ when NI.is_internal node_id ->
+          let name =
+            match name with
+            | None -> Format.asprintf "assume%a" pp_print_line_and_column pos
+            | Some n -> n
+          in
+          (* The subtype check of an ascription the user wrote is reported as
+             a type ascription *)
+          let subtype = "SubType" in
+          let name =
+            if LustreGenNodes.is_user_ascription node_id
+               && Lib.string_starts_with name subtype
+            then
+              "TypeAscription"
+              ^ String.sub name (String.length subtype)
+                  (String.length name - String.length subtype)
+            else name
+          in
+          lift_internal_prop_name call_instance name
         | None -> (
           Format.asprintf "%a%a%a%tassume%a"
             NI.pp_print_node_id_user_name node_id
@@ -976,6 +1044,14 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     @ node_crt_svars
   in
 
+  (* An internal node is not analyzed on its own in a modular analysis (see
+     [Strategy.is_candidate_for_analysis]), and it stands for a part of the
+     body of the calling node: its properties may only hold under the
+     condition its call is guarded by, so they are checked in the calling node
+     in any case *)
+  let internal = NI.is_internal call_node_id in
+  let lift = internal || not (Flags.modular ()) in
+
   (* Instantiate properties of the called node in this node *)
   let node_props =
     properties
@@ -984,15 +1060,15 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       | P.Assumption _ -> true
       (* Candidate invariants are lifted so that, once proven, they can
          strengthen the analysis of the calling node *)
-      | P.Candidate _ -> not (Flags.modular ())
-      | _ -> Flags.check_subproperties () && not (Flags.modular ())
+      | P.Candidate _ -> lift
+      | _ -> internal || (Flags.check_subproperties () && lift)
     )
     |> List.fold_left (
       fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
 
         (* Lift name of property *)
         let prop_name =
-          lift_prop_name
+          lift_prop_name ~internal
             (NI.get_name call_node_id |> I.of_hstring) call_pos call_instance n
         in
 
@@ -4613,10 +4689,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               properties
               mode_requires
               node_invariants
-              (NI.get_node_type node_id <> NodeId.FreeConstant &&
-               NI.get_node_type node_id <> NodeId.TypeAscription &&
-               NI.get_node_type node_id <> NodeId.ClockedExpr &&
-               NI.get_node_type node_id <> NodeId.Restarted)
+              (not (NI.is_internal node_id))
           in
           trans_sys_of_node'
             options

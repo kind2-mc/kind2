@@ -145,3 +145,15 @@ let
   ok = s[0] + s[1] + s[2] <> 7;
   check "P10" ok;
 tel
+
+(* A call in a comprehension in the operand of a restart in another
+   comprehension. The assumption is violated for instance [1][1] of Sub only:
+   the indices of the restart come first. *)
+node Main11 (r: bool) returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, -1], [1, 1]];
+  s = (restart (Sub(a[i][j]) foreach j)^2 every r foreach i)^3;
+  ok = s[0][0] = 1;
+  check "P11" ok;
+tel
