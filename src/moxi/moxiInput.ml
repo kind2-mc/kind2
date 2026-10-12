@@ -143,6 +143,42 @@ let mk_svars sys_name is_input sys_vars =
       sorted_vars
   )
 
+(* Widest bit-vector index for which an equality with a constant array is
+   expanded (see [const_array_eq]): 2^8 conjuncts at most *)
+let max_expanded_index_width = 8
+
+(* The sort and value of a constant array term [((as const S) v)] *)
+let const_array_of_ast = function
+  | A.App (_, ((_, symbol, []), false, Some sort), [v]) -> (
+    try
+      let symb =
+        GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
+      in
+      if Symbol.is_const_array symb then Some (sort, v) else None
+    with Not_found -> None
+  )
+  | _ -> None
+
+(* [const_array_eq a ty v] is the conjunction of [(select a i) = v] over every
+   index [i] of the array type [ty], when its index sort is a bit-vector of at
+   most [max_expanded_index_width] bits: it is equivalent to [a = ((as const
+   ty) v)], by extensionality. Some solvers, such as Bitwuzla 0.9, do not
+   support an equality over constant arrays under Boolean structure, which
+   is where the engines put the initial-state constraint, and answer unknown;
+   they support the expansion. *)
+let const_array_eq a ty v =
+  let width = Type.bitvectorsize (Type.index_type_of_array ty) in
+  if width < 1 || width > max_expanded_index_width then None
+  else
+    let index i =
+      Term.mk_ubv
+        (Bitvector.num_to_ubv (Numeral.of_int width) (Numeral.of_int i))
+    in
+    List.init (1 lsl width) (fun i ->
+      Term.mk_eq [Term.mk_select a (index i); v])
+    |> Term.mk_and
+    |> Option.some
+
 let rec kind2_term scope = function
   | A.Constant c -> (
     match c with
@@ -181,6 +217,48 @@ let rec kind2_term scope = function
       )
     )
   )
+  | A.App (_, ((_, symbol, []), false, _), [x; y]) as t
+    when string_of_symbol symbol = "="
+      && (const_array_of_ast x <> None || const_array_of_ast y <> None) -> (
+    (* An equality with a constant array: expand it if the index sort
+       allows, otherwise translate it as any other application *)
+    let a, (sort, v) =
+      match const_array_of_ast x, const_array_of_ast y with
+      | _, Some c -> x, c
+      | Some c, _ -> y, c
+      | None, None -> assert false
+    in
+    match
+      const_array_eq (kind2_term scope a) (type_of_sort sort)
+        (kind2_term scope v)
+    with
+    | Some expanded -> expanded
+    | None -> kind2_app scope t
+  )
+  | A.App _ as t -> kind2_app scope t
+  | A.Let (_, var_bindings, term) -> (
+    (* TODO: Add full support for shadowing *)
+    let vars =
+      var_bindings |> List.map (fun (_, s, t) ->
+        let term' = kind2_term scope t in
+        let ty = Term.type_of_term term' in
+        let var =
+          let name = string_of_symbol s in
+          let svar =
+            StateVar.mk_state_var
+              ~is_input:false ~is_const:false ~for_inv_gen:true
+              name scope ty
+          in
+          Var.mk_state_var_instance svar TS.init_base
+        in
+        var, term'
+      )
+    in
+    Term.mk_let vars (kind2_term scope term)
+  )
+
+(* Translate a function application *)
+and kind2_app scope = function
   | A.App (_, (id, is_prime, sort), args) -> (
     let args = List.map (kind2_term scope) args in
 
@@ -221,26 +299,7 @@ let rec kind2_term scope = function
                (string_of_symbol symbol))
     )
   )
-  | A.Let (_, var_bindings, term) -> (
-    (* TODO: Add full support for shadowing *)
-    let vars =
-      var_bindings |> List.map (fun (_, s, t) ->
-        let term' = kind2_term scope t in
-        let ty = Term.type_of_term term' in
-        let var =
-          let name = string_of_symbol s in
-          let svar =
-            StateVar.mk_state_var
-              ~is_input:false ~is_const:false ~for_inv_gen:true
-              name scope ty
-          in
-          Var.mk_state_var_instance svar TS.init_base
-        in
-        var, term'
-      )
-    in
-    Term.mk_let vars (kind2_term scope term)
-  )
+  | A.Constant _ | A.QualId _ | A.Let _ -> assert false
 
 let mk_subsystem_calls local_map sys_name init_flag systems subsys =
   let process_subsys_attr
