@@ -1,0 +1,10 @@
+-- An arm of a match expression is evaluated like a branch of a 'when'
+-- expression, so a temporal arm is abstracted into a call under a scrutinee
+-- that mentions the symbolic index.
+
+datatype T = K | L;
+
+node N (const n: int; s: int) returns (A: int^n);
+let
+  A = (match (if i = 0 then K else L) with | K : s | L : (-1 -> pre A[i-1]) end foreach i)^n;
+tel

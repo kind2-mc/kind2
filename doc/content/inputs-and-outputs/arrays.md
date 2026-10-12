@@ -192,8 +192,9 @@ for the values before the first step).
 A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
 ```
 
-A temporal operator in a branch of a `when` expression, or in the right
-operand of `and then`, `or else` or `==>`, is evaluated only when its
+A temporal operator in a branch of a `when` expression, in an arm of a
+`match` expression, or in the right operand of `and then`, `or else` or
+`==>`, is evaluated only when its
 condition holds, which Kind 2 compiles as a call to a node. If the condition
 mentions an index variable, this is supported only when the size of the
 comprehension is a constant, as in
