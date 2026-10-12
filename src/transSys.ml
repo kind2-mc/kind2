@@ -2353,6 +2353,14 @@ let mk_trans_sys
     if is_one_state t then t else Term.mk_true ()
   in
 
+  (* The invariant below mentions the init flag, and the engines declare to
+     their solvers the state variables of the system: a front end that leaves
+     the flag out of them makes every engine that asserts the invariant fail
+     in the solver, with an unknown constant. Fail here instead. *)
+  assert (
+    List.exists (StateVar.equal_state_vars init_flag_state_var) state_vars
+  );
+
   let () =
     let flag =
       Var.mk_state_var_instance init_flag_state_var trans_base |> Term.mk_var

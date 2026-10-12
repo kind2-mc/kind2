@@ -242,7 +242,7 @@ let rec kind2_term scope = function
     Term.mk_let vars (kind2_term scope term)
   )
 
-let mk_subsystem_calls local_map sys_name systems subsys =
+let mk_subsystem_calls local_map sys_name init_flag systems subsys =
   let process_subsys_attr
     (subsystems, acc_svars, formulas, uid)
     A.{ loc; instance_name; system_name; variables } =
@@ -320,6 +320,15 @@ let mk_subsystem_calls local_map sys_name systems subsys =
         io_svars
         (inputs @ outputs)
     in
+    (* The subsystem's init flag is the caller's init flag: unlike a Lustre
+       node call, a subsystem instance has no flag of its own, so every
+       instance of a system maps the caller's flag down to the same callee
+       flag. Code that picks one instance by the state variables of a
+       property, like [TS.map_cex_prop_to_subsystem], must not be given a
+       property that mentions the flag; MoXI properties never do. *)
+    let sub_init_flag = TS.init_flag_state_var sub in
+    let map_up = SVM.add sub_init_flag init_flag map_up in
+    let map_down = SVM.add init_flag sub_init_flag map_down in
     let inst =
       TS.{
         uid ;
@@ -337,8 +346,10 @@ let mk_subsystem_calls local_map sys_name systems subsys =
         | None -> Some (sub, [inst])
       )
     in
+    (* Actual parameters, in the order of the subsystem's state variables:
+       init flag first, then inputs, outputs, locals and internals *)
     let svars =
-      io_svars @ lifted_svars
+      init_flag :: io_svars @ lifted_svars
       |> List.map (fun sv ->
         let v = Var.mk_state_var_instance sv TS.init_base in
         Term.mk_var v
@@ -417,7 +428,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   in
 
   let subsystems, subsys_svars, (subsys_init, subsys_trans) =
-    mk_subsystem_calls local_map sys_name systems sys_def.A.subsys
+    mk_subsystem_calls local_map sys_name init_flag systems sys_def.A.subsys
   in
 
   let internal_svars =
@@ -425,11 +436,15 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
     |> List.rev_append def_svars
   in
 
+  (* The init flag is a state variable of the system: it must be declared
+     to the solvers together with the other state variables, and it is the
+     first formal parameter of the init and trans predicates *)
   let state_vars =
     internal_svars
     |> List.rev_append local_svars
     |> List.rev_append output_svars
     |> List.rev_append input_svars
+    |> List.cons init_flag
   in
 
   let global_consts = [] in (* TODO *)
@@ -452,7 +467,11 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       Type.t_bool
   in
 
-  let init_conj = init_defs @ subsys_init in
+  (* Init flag is true in the initial state *)
+  let init_flag_init =
+    Var.mk_state_var_instance init_flag TS.init_base |> Term.mk_var
+  in
+  let init_conj = init_flag_init :: init_defs @ subsys_init in
   let init_conj =
     if (sys_def.inv = A.Constant True) then init_conj
     else (kind2_term sys_scope sys_def.inv) :: init_conj
@@ -484,7 +503,12 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       Type.t_bool
   in
 
-  let trans_conj = trans_defs @ subsys_trans in
+  (* Init flag becomes and stays false after the initial state *)
+  let init_flag_trans =
+    Var.mk_state_var_instance init_flag TS.trans_base
+    |> Term.mk_var |> Term.mk_not
+  in
+  let trans_conj = init_flag_trans :: trans_defs @ subsys_trans in
   let trans_conj =
     if (sys_def.inv = A.Constant True) then trans_conj
     else
