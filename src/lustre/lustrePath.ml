@@ -1680,7 +1680,7 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
         (Type.constructors_of_enum stream_type)
     | Type.Array (_, _) ->
       Format.pp_print_string ppf "type=\"array\""
-    | Type.Datatype (name, ctors) ->
+    | Type.Datatype (name, ctors, _) ->
       Format.fprintf ppf "type=\"datatype\" datatypeName=\"%a\"@ constructors=\"%a\""
         pp_print_name_xml name
         (pp_print_list pp_print_name_xml ", ")
@@ -2010,7 +2010,7 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
         (pp_print_list pp_print_qstring ", ")
         (Type.constructors_of_enum stream_type)
   )
-  | Type.Datatype (name, ctors) -> (
+  | Type.Datatype (name, ctors, _) -> (
     let pp_print_qstring ppf s = Format.fprintf ppf "\"%a\"" pp_print_name_json s in
     Format.fprintf ppf
         "\"%s\" : \"datatype\",@,\

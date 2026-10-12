@@ -920,13 +920,11 @@ let resolve_datatype_ref dt ft =
 let enum_field_ctor_sym sort_name ctor = sort_name ^ "$" ^ ctor
 
 let enum_field_sort ty =
-  let name =
-    Type.enum_field_sort_name (smt_name_of_adt_name (Type.name_of_enum ty))
-  in
+  let name = "enum$" ^ smt_name_of_adt_name (Type.name_of_enum ty) in
   let ctors = Type.constructors_of_enum ty in
   let sort =
-    Type.mk_datatype name
-      (List.map (fun c -> (enum_field_ctor_sym name c, [])) ctors)
+    Type.mk_enum_field_sort name
+      (List.map (fun c -> (enum_field_ctor_sym name c, [])) ctors) ty
   in
   (* A model may mention any of them, so declare every one *)
   List.iter (fun c ->
@@ -934,36 +932,35 @@ let enum_field_sort ty =
   ) ctors;
   sort
 
-(* The enum type, in its integer encoding, that the sort [sort] stands for *)
-let enum_of_field_sort sort =
-  match Type.constructors_of_datatype sort with
-  | (c, _) :: _ -> Type.enum_of_constr (Type.source_ctor_name c)
+(* The constructor of the sort [sort] holding each value of the enum it stands
+   for, paired with that value *)
+let enum_field_values sort =
+  List.combine
+    (List.map fst (Type.constructors_of_datatype sort))
+    (Type.constructors_of_enum (Type.enum_of_field_sort sort))
+
+(* The value of the sort an enum field has, as an if-then-else chain over its
+   values; the last is the unconditional branch *)
+let rec enum_field_ite cond value = function
   | [] -> assert false
+  | [v] -> value v
+  | v :: rest -> E.mk_ite (cond v) (value v) (enum_field_ite cond value rest)
 
 (* The integer-encoded enum value the field [e] of sort [sort] holds *)
 let decode_enum_field sort e =
-  let ety = enum_of_field_sort sort in
-  let value c = E.mk_constr (Type.source_ctor_name c) ety in
-  let rec build = function
-    | [] -> assert false
-    | [(c, _)] -> value c
-    | (c, _) :: rest -> E.mk_ite (E.mk_is_constructor c e) (value c) (build rest)
-  in
-  build (Type.constructors_of_datatype sort)
+  let ety = Type.enum_of_field_sort sort in
+  enum_field_ite
+    (fun (sym, _) -> E.mk_is_constructor sym e)
+    (fun (_, v) -> E.mk_constr v ety)
+    (enum_field_values sort)
 
 (* The value of sort [sort] the integer-encoded enum expression [e] denotes *)
 let encode_enum_field sort e =
-  let ety = enum_of_field_sort sort in
-  let ctor c = E.mk_uf (UfSymbol.mk_uf_symbol c [] sort) sort [] in
-  let rec build = function
-    | [] -> assert false
-    | [(c, _)] -> ctor c
-    | (c, _) :: rest ->
-      E.mk_ite
-        (E.mk_eq e (E.mk_constr (Type.source_ctor_name c) ety))
-        (ctor c) (build rest)
-  in
-  build (Type.constructors_of_datatype sort)
+  let ety = Type.enum_of_field_sort sort in
+  enum_field_ite
+    (fun (_, v) -> E.mk_eq e (E.mk_constr v ety))
+    (fun (sym, _) -> E.mk_uf (UfSymbol.uf_symbol_of_string sym) sort [])
+    (enum_field_values sort)
 
 let rec compile ctx gids adt_map scc_map decls =
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
@@ -1927,7 +1924,8 @@ and compile_ast_expr
       let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
       let sel = E.mk_selector selector_name result_type e' in
       let sel =
-        if Type.is_enum_field_sort result_type then decode_enum_field result_type sel
+        if Type.is_enum_field_sort result_type then
+          decode_enum_field result_type sel
         else sel
       in
       X.singleton X.empty_index sel
@@ -3891,9 +3889,11 @@ and compile_type_decl pos ctx cstate = function
           |> List.concat_map snd
           |> List.filter Type.is_enum_field_sort
           |> List.fold_left (fun acc s ->
-               if List.exists (Type.equal_types s) (acc @ cstate.recursive_datatypes)
-               then acc else acc @ [s])
+               if List.exists (Type.equal_types s) acc
+                  || List.exists (Type.equal_types s) cstate.recursive_datatypes
+               then acc else s :: acc)
                []
+          |> List.rev
         in
         cstate.recursive_datatypes @ enum_sorts @ [ty]
       | _ -> cstate.recursive_datatypes

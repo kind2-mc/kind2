@@ -38,7 +38,9 @@ type kindtype =
   (* First is element type, second is index type, and third is the size *)
   | Array of t * t
   | Abstr of string
-  | Datatype of string * (string * t list) list
+  (* Name, constructors, and the enum this sort stands for when it is the one
+     introduced for an enum-typed field of a recursive datatype. *)
+  | Datatype of string * (string * t list) list * t option
   (* Placeholder for a direct self-reference in a Datatype's own constructor
      field list, distinct from a real (populated) Datatype of the same name. *)
   | DatatypeRef of string
@@ -109,8 +111,12 @@ module Kindtype_node = struct
     | Array (_, _), _ -> false
     | Abstr s1, Abstr s2 -> s1 = s2
     | Abstr _, _ -> false
-    | Datatype (n1, ctors1), Datatype (n2, ctors2) ->
+    | Datatype (n1, ctors1, e1), Datatype (n2, ctors2, e2) ->
       n1 = n2 &&
+      (match e1, e2 with
+       | None, None -> true
+       | Some t1, Some t2 -> t1 == t2
+       | None, Some _ | Some _, None -> false) &&
       List.length ctors1 = List.length ctors2 &&
       List.for_all2
         (fun (c1, ts1) (c2, ts2) ->
@@ -256,7 +262,7 @@ let rec pp_print_type_node ppf = function
 
   | Abstr s -> Format.pp_print_string ppf s
 
-  | Datatype (name, _) -> Format.pp_print_string ppf name
+  | Datatype (name, _, _) -> Format.pp_print_string ppf name
 
   | DatatypeRef name -> Format.pp_print_string ppf name
 
@@ -318,7 +324,7 @@ let rec pp_print_type_node_debug ppf = function
 
   | Abstr s -> Format.pp_print_string ppf s
 
-  | Datatype (name, _) -> Format.pp_print_string ppf name
+  | Datatype (name, _, _) -> Format.pp_print_string ppf name
 
   | DatatypeRef name -> Format.pp_print_string ppf name
 
@@ -370,13 +376,11 @@ let source_ctor_name ctor =
   | None -> ctor
   | Some i -> String.sub ctor (i + 1) (String.length ctor - i - 1)
 
-(* A source identifier never contains '$', so a sort of this name can only be
-   one the compiler introduced for an enum-typed field *)
-let enum_field_sort_prefix = "enum$"
+let mk_datatype name ctors =
+  Hkindtype.hashcons (ht ()) (Datatype (name, ctors, None)) ()
 
-let enum_field_sort_name enum_name = enum_field_sort_prefix ^ enum_name
-
-let mk_datatype name ctors = Hkindtype.hashcons (ht ()) (Datatype (name, ctors)) ()
+let mk_enum_field_sort name ctors enum_ty =
+  Hkindtype.hashcons (ht ()) (Datatype (name, ctors, Some enum_ty)) ()
 
 let mk_datatype_ref name = Hkindtype.hashcons (ht ()) (DatatypeRef name) ()
 
@@ -470,9 +474,9 @@ let rec import { Hashcons.node = n } = match n with
 
   | Abstr s -> mk_abstr s
 
-  | Datatype (name, ctors) ->
+  | Datatype (name, ctors, enum_ty) ->
     let ctors' = List.map (fun (c, ts) -> (c, List.map import ts)) ctors in
-    mk_type (Datatype (name, ctors'))
+    mk_type (Datatype (name, ctors', Option.map import enum_ty))
 
   | DatatypeRef name -> mk_datatype_ref name
 
@@ -590,16 +594,20 @@ let is_datatype { Hashcons.node = t } = match t with
   | _ -> false
 
 let constructors_of_datatype = function
-  | { Hashcons.node = Datatype (_, ctors) } -> ctors
+  | { Hashcons.node = Datatype (_, ctors, _) } -> ctors
   | _ -> raise (Invalid_argument "constructors_of_datatype")
 
 let name_of_datatype = function
-  | { Hashcons.node = Datatype (name, _) } -> name
+  | { Hashcons.node = Datatype (name, _, _) } -> name
   | _ -> raise (Invalid_argument "name_of_datatype")
 
 let is_enum_field_sort { Hashcons.node = t } = match t with
-  | Datatype (name, _) -> String.starts_with ~prefix:enum_field_sort_prefix name
+  | Datatype (_, _, Some _) -> true
   | _ -> false
+
+let enum_of_field_sort = function
+  | { Hashcons.node = Datatype (_, _, Some enum_ty) } -> enum_ty
+  | _ -> raise (Invalid_argument "enum_of_field_sort")
 
 let is_datatype_ref { Hashcons.node = t } = match t with
   | DatatypeRef _ -> true
@@ -723,7 +731,7 @@ let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } =
       (check_type i1 i2) (* && (check_type t2 t1) *)
 
     (* Datatypes are nominally typed *)
-    | Datatype (n1, _), Datatype (n2, _) -> n1 = n2
+    | Datatype (n1, _, _), Datatype (n2, _, _) -> n1 = n2
     | DatatypeRef n1, DatatypeRef n2 -> n1 = n2
 
     (* No other subtype relationships *)

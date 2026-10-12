@@ -35,7 +35,9 @@ type kindtype =
   | BV of int 
   | Array of t * t
   | Abstr of string
-  | Datatype of string * (string * t list) list
+  (* Name, constructors, and the enum this sort stands for when it is the one
+     introduced for an enum-typed field of a recursive datatype. *)
+  | Datatype of string * (string * t list) list * t option
   (* Placeholder for a direct self-reference in a Datatype's own constructor
      field list, distinct from a real (populated) Datatype of the same name. *)
   | DatatypeRef of string
@@ -105,6 +107,11 @@ val mk_enum : string -> string list -> t
     be represented with [mk_datatype_ref name]. *)
 val mk_datatype : string -> (string * t list) list -> t
 
+(** [mk_enum_field_sort name ctors enum] is the datatype of the given name and
+    constructors, standing for the enum type [enum] as the sort of an enum-typed
+    field of a recursive datatype -- see {!is_enum_field_sort}. *)
+val mk_enum_field_sort : string -> (string * t list) list -> t -> t
+
 (** [qualified_ctor_name datatype ctor] is the symbol of constructor [ctor] of
     the datatype named [datatype]: constructor symbols are global in SMT, so the
     constructors of an instantiation of a polymorphic datatype are qualified by
@@ -113,11 +120,6 @@ val qualified_ctor_name : string -> string -> string
 
 (** The source name of a constructor symbol built by {!qualified_ctor_name}. *)
 val source_ctor_name : string -> string
-
-(** [enum_field_sort_name enum] is the name of the datatype that stands for the
-    enum named [enum] where it is a field of a recursive datatype -- see
-    {!is_enum_field_sort}. *)
-val enum_field_sort_name : string -> string
 
 (** Return a placeholder for a direct self-reference to the named datatype,
     for use as a field type within that datatype's own constructor list. *)
@@ -221,9 +223,12 @@ val constructors_of_datatype : t -> (string * t list) list
 val name_of_datatype : t -> string
 
 (** Return [true] if the type is the datatype an enum-typed field of a recursive
-    datatype has, i.e. one named by [enum_field_sort_name]. A value of such a
-    datatype stands for a value of that enum. *)
+    datatype has, i.e. one built by {!mk_enum_field_sort}. *)
 val is_enum_field_sort : t -> bool
+
+(** Return the enum a datatype built by {!mk_enum_field_sort} stands for, fail
+    if the type is not one *)
+val enum_of_field_sort : t -> t
 
 (** Return [true] if the type is a self-reference placeholder (see [mk_datatype_ref]) *)
 val is_datatype_ref : t -> bool

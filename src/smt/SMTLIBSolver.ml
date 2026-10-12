@@ -538,7 +538,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       (* Send command to the solver without timeout *)
       execute_command solver cmd 0
 
-    | Type.Datatype (dt_name, ctors) ->
+    | Type.Datatype (dt_name, ctors, _) ->
       let pp_ctor ppf (ctor_name, field_types) =
         Format.fprintf ppf "(%s" ctor_name;
         List.iteri (fun i ft ->
