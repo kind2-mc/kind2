@@ -44,6 +44,10 @@ let main () =
   )
   else
     parse_commandline_args () ;
+    (* Signal handlers, timeout and global timer, as in kind2: without
+       them a SIGTERM ends kmoxi without killing its solvers, and
+       --timeout is not enforced *)
+    RunSetup.setup () ;
     let filename = Flags.input_file () in
     try
       read_and_process_input_file filename
