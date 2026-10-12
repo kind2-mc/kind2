@@ -146,6 +146,14 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/restart_symbolic_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInRestart _)) -> true
     | _ -> false);
+  mk_test "symbolic array index in the guard of a temporal branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_symbolic_index_temporal_branch.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInLazyGuardedTemporalBranch _)) -> true
+    | _ -> false);
+  mk_test "symbolic array index in the guard of a temporal or else operand" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_symbolic_index_temporal_or_else.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInLazyGuardedTemporalBranch _)) -> true
+    | _ -> false);
   mk_test "test symbolic array index in not call" (fun () ->
     match load_file "./lustreSyntaxChecks/test_node_call_with_inductive_array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true

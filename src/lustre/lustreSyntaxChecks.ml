@@ -57,6 +57,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -140,6 +141,8 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInLazyGuardedNodeCall (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
     ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -1690,6 +1693,16 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
       (LA.SI.elements vars)
   with
   | Some v -> syntax_error pos (SymbolicArrayIndexInRestart v)
+  | None -> Ok [])
+(* A temporal branch of a lazy construct is abstracted into a call to a node
+   (see [LustreGenNodes.abstract_temporal_branch]), which is subject to the
+   same restriction as an explicit call under a lazy guard (see below) *)
+| LA.Pre (pos, _) | LA.Arrow (pos, _, _) | LA.Fby (pos, _, _) -> (
+  match
+    List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+      (LA.SI.elements ctx.lazy_cond_vars)
+  with
+  | Some v -> syntax_error pos (SymbolicArrayIndexInLazyGuardedTemporalBranch v)
   | None -> Ok [])
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
