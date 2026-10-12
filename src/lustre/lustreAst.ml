@@ -410,6 +410,15 @@ let is_missing_size = function
   | Ident (_, i) -> HString.string_of_hstring i = ""
   | _ -> false
 
+(* The size of an index variable without a bound in an array comprehension
+   where others have one, which LustreSyntaxChecks reports: an identifier no
+   source can contain either, which no caret gives a size to *)
+let unbounded_size pos = Ident (pos, HString.mk_hstring "<unbounded>")
+
+let is_unbounded_size = function
+  | Ident (_, i) -> HString.string_of_hstring i = "<unbounded>"
+  | _ -> false
+
 
 (* ********************************************************************** *)
 (* Pretty-printing functions                                              *)

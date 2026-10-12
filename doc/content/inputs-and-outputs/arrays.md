@@ -189,7 +189,10 @@ C = (A[i][j] or B[i][j] foreach i < m, j < n);
 
 and `(i * i foreach i < 4)` is the array `[0, 1, 4, 9]`. A comprehension
 gives the sizes of all of its index variables in the same way, either bounding
-them or after it. A caret after a comprehension whose index variables are
+them or after it. A bound extends to the next `,` or `)`, and, as the sizes
+after a comprehension, it is a constant outside the scope of the index
+variables: `(e foreach i < m, j < i)` is rejected, rather than defining a
+triangular array. A caret after a comprehension whose index variables are
 bounded replicates the array: `(i foreach i < 3) ^ 2` is
 `[[0, 1, 2], [0, 1, 2]]`. As its sizes are within the parentheses, an element
 of such a comprehension is selected directly: `(i * i foreach i < 4)[2]` is

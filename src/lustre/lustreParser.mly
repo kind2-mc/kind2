@@ -1274,17 +1274,18 @@ pexpr(Q):
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Exists, List.flatten vars, e) }
 
-  (* An array comprehension, whose sizes are given by the carets after it *)
-  | LPAREN; e = pexpr(Q); FOREACH; ids = ident_list_pos; RPAREN
-    { A.ArrayComprehension
-        (mk_pos $startpos, List.map (fun (p, i) -> (p, i, A.missing_size p)) ids, e) }
-
-  (* An array comprehension whose sizes bound its index variables:
-     '(e foreach i < m, j < n)' is '(e foreach i, j)^n^m' *)
+  (* An array comprehension. Its sizes are given by the carets after it, or
+     they bound its index variables: '(e foreach i < m, j < n)' is
+     '(e foreach i, j)^n^m'. An index variable without a bound among bounded
+     ones gets a size that no caret fills, which LustreSyntaxChecks reports. *)
   | LPAREN; e = pexpr(Q); FOREACH;
-    bs = separated_nonempty_list(COMMA, bounded_index(Q)); RPAREN
-    { A.ArrayComprehension (mk_pos $startpos, bs, e) }
-                                                                       
+    bs = separated_nonempty_list(COMMA, comprehension_index(Q)); RPAREN
+    { let bounded = List.exists (fun (_, _, n) -> Option.is_some n) bs in
+      let size p = if bounded then A.unbounded_size p else A.missing_size p in
+      A.ArrayComprehension (mk_pos $startpos,
+        List.map (fun (p, i, n) ->
+          (p, i, match n with Some n -> n | None -> size p)) bs, e) }
+
   (* A relation *)
   | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Lt, e1, e2) }
   | e1 = pexpr(Q); GT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Gt, e1, e2) }
@@ -1399,12 +1400,13 @@ lustre_type_list:
   | l = separated_nonempty_list(COMMA, lustre_type) { l }
   
 
-(* A comma-separated list of identifiers with position information *)
 (* An index variable of an array comprehension, with the size of its
-   dimension *)
-bounded_index(Q):
-  | i = ident; LT; n = pexpr(Q) { (mk_pos $startpos, i, n) }
+   dimension when it is bounded by it *)
+comprehension_index(Q):
+  | i = ident { (mk_pos $startpos, i, None) }
+  | i = ident; LT; n = pexpr(Q) { (mk_pos $startpos, i, Some n) }
 
+(* A comma-separated list of identifiers with position information *)
 ident_list_pos :
   | i = ident { [mk_pos $startpos, i] }
   | i = ident; COMMA; l = ident_list_pos
