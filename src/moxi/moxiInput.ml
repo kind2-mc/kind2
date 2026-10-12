@@ -84,6 +84,7 @@ let rec mk_subsystem map sys =
     has_contract = false;
     has_impl = true;
     rec_group = None;
+    is_internal = false;
     has_modes = false;
     map;
     subsystems = subsystems |> List.map TS.scope_of_trans_sys;

@@ -240,8 +240,20 @@ let pp_print_call_instance ppf instance =
   List.iter (Format.fprintf ppf "[%d]") instance
 
 (* Lift the name of a property in a subnode by adding the position of
-   the node call, and the indices of the instance if any *)
-let lift_prop_name node_name pos instance prop_name =
+   the node call, and the indices of the instance if any.
+
+   The name of an internal node (see [NodeId.is_internal]) means nothing to
+   the user, and the position of its call is the position of the expression it
+   stands for, which the names of its properties already carry: its properties
+   are named as in the node only, followed by the indices of the instance. *)
+let lift_prop_name ~internal node_name pos instance prop_name =
+
+  if internal then
+    string_of_t
+      (fun ppf prop_name ->
+         Format.fprintf ppf "%s%a" prop_name pp_print_call_instance instance)
+      prop_name
+  else
 
   (* Pretty-print a position as attributes *)
   let pp_print_pos ppf pos = 
@@ -976,6 +988,12 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     @ node_crt_svars
   in
 
+  (* An internal node is not analyzed on its own in a modular analysis (see
+     [Strategy.is_candidate_for_analysis]): its properties may only hold under
+     the condition its call is guarded by, so they are checked in the calling
+     node in any case *)
+  let lift_in_modular = NI.is_internal call_node_id in
+
   (* Instantiate properties of the called node in this node *)
   let node_props =
     properties
@@ -984,15 +1002,17 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       | P.Assumption _ -> true
       (* Candidate invariants are lifted so that, once proven, they can
          strengthen the analysis of the calling node *)
-      | P.Candidate _ -> not (Flags.modular ())
-      | _ -> Flags.check_subproperties () && not (Flags.modular ())
+      | P.Candidate _ -> lift_in_modular || not (Flags.modular ())
+      | _ ->
+        Flags.check_subproperties ()
+        && (lift_in_modular || not (Flags.modular ()))
     )
     |> List.fold_left (
       fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
 
         (* Lift name of property *)
         let prop_name =
-          lift_prop_name
+          lift_prop_name ~internal:(NI.is_internal call_node_id)
             (NI.get_name call_node_id |> I.of_hstring) call_pos call_instance n
         in
 
@@ -4613,10 +4633,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               properties
               mode_requires
               node_invariants
-              (NI.get_node_type node_id <> NodeId.FreeConstant &&
-               NI.get_node_type node_id <> NodeId.TypeAscription &&
-               NI.get_node_type node_id <> NodeId.ClockedExpr &&
-               NI.get_node_type node_id <> NodeId.Restarted)
+              (not (NI.is_internal node_id))
           in
           trans_sys_of_node'
             options
