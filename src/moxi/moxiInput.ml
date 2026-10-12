@@ -392,6 +392,15 @@ let rec bounds ty =
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
+(* Definition of a reserved state variable of a system *)
+type svar_def =
+  | OneState of A.term
+  (* The variable equals the term, over the current state, in every state *)
+  | TwoState of A.term option * A.term
+  (* The variable equals the first term, if any, in the initial state, and
+     the second term, over the current and next state, in every state that
+     follows a transition *)
+
 let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_system_cmd) =
 
   let sys_name_hs = hstring_of_symbol sys_def.A.name in
@@ -408,20 +417,38 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
 
   let def_svars, init_defs, trans_defs =
     List.fold_left
-      (fun (def_svars, init_defs, trans_defs) ((symb, sort), (init, trans)) ->
+      (fun (def_svars, init_defs, trans_defs) ((symb, sort), def) ->
         let svar = mk_svar ~reserved:true sys_name false symb sort in
-        let init_defs =
-          match init with
-          | None -> init_defs
-          | Some init -> (
-            let var = Var.mk_state_var_instance svar TS.init_base in
-            let eq = Term.mk_eq [Term.mk_var var; kind2_term sys_scope init] in
-            eq :: init_defs
+        let var = Var.mk_state_var_instance svar TS.init_base in
+        let var' = Var.mk_state_var_instance svar TS.trans_base in
+        let init_defs, trans_defs =
+          match def with
+          | OneState term -> (
+            (* Same definition in the initial state and, bumped to the next
+               state, after every transition: a one-state term must not be
+               shifted, or a state without successors could never be
+               observed *)
+            let term = kind2_term sys_scope term in
+            let eq = Term.mk_eq [Term.mk_var var; term] in
+            let eq' =
+              Term.mk_eq [Term.mk_var var'; Term.bump_state Numeral.one term]
+            in
+            eq :: init_defs, eq' :: trans_defs
+          )
+          | TwoState (init, trans) -> (
+            let init_defs =
+              match init with
+              | None -> init_defs
+              | Some init -> (
+                let eq = Term.mk_eq [Term.mk_var var; kind2_term sys_scope init] in
+                eq :: init_defs
+              )
+            in
+            let eq' = Term.mk_eq [Term.mk_var var'; kind2_term sys_scope trans] in
+            init_defs, eq' :: trans_defs
           )
         in
-        let var' = Var.mk_state_var_instance svar TS.trans_base in
-        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term sys_scope trans] in
-        svar :: def_svars, init_defs, eq' :: trans_defs
+        svar :: def_svars, init_defs, trans_defs
       )
       ([], [], [])
       defs
@@ -628,16 +655,23 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     let name =
       (Lib.dummy_span, HString.mk_hstring sys_name)
     in
-    let defs, assumption_vars =
+    (* An assumption over the current state only holds in every state, from
+       the initial one on; an assumption over the current and next state
+       holds after every transition *)
+    let defs, init_assumption_vars, trans_assumption_vars =
       List.fold_left
-        (fun (defs, vars) (_, (symb, term)) ->
-          let v =
-            let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
-            Var.mk_state_var_instance svar TS.trans_base
-          in
-          ((symb, bool_sort), (None, term)) :: defs, v :: vars
+        (fun (defs, init_vars, trans_vars) (_, (symb, term)) ->
+          let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
+          let v' = Var.mk_state_var_instance svar TS.trans_base in
+          if current_state_term term then
+            let v = Var.mk_state_var_instance svar TS.init_base in
+            ((symb, bool_sort), OneState term) :: defs,
+            v :: init_vars, v' :: trans_vars
+          else
+            ((symb, bool_sort), TwoState (None, term)) :: defs,
+            init_vars, v' :: trans_vars
         )
-        ([], [])
+        ([], [], [])
         assumption_fs
     in
     let defs, props, curr_state_props =
@@ -658,11 +692,17 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
             prop_expr = None ;
           }
         in
-        let curr_state_props =
-          if current_state_term term then [p.Property.prop_name]
-          else []
+        (* The property is the invariance of the negated reachable term. A
+           term over the current state is evaluated in every state, a term
+           over the current and next state after every transition, and holds
+           vacuously in the initial state *)
+        let def, curr_state_props =
+          if current_state_term term then
+            OneState (negate term), [p.Property.prop_name]
+          else
+            TwoState (Some (A.Constant A.True), negate term), []
         in
-        ((symb, bool_sort), (Some (A.Constant A.True), negate term)) :: defs,
+        ((symb, bool_sort), def) :: defs,
         [p], curr_state_props
       )
       | _ -> failwith("check-system query with multiple reachable attributes is not supported")
@@ -708,10 +748,13 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     let sys_scope = TS.scope_of_trans_sys sys in
     let sys =
       let (_, init_eq, trans_eq) = TS.init_trans_open sys in
-      let trans_ass =
-        List.map Term.mk_var assumption_vars |> Term.mk_and
+      let assume vars eq =
+        match vars with
+        | [] -> eq
+        | _ -> Term.mk_and ((List.map Term.mk_var vars) @ [eq])
       in
-      let trans_eq = Term.mk_and [trans_ass; trans_eq] in
+      let init_eq = assume init_assumption_vars init_eq in
+      let trans_eq = assume trans_assumption_vars trans_eq in
       TS.set_subsystem_equations sys sys_scope init_eq trans_eq
     in
     let sys =

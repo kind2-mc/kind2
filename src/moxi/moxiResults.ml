@@ -136,7 +136,9 @@ let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
         Numeral.pp_print_numeral k
         (Lib.pp_print_list pp_print_str_var_val " ") formatted_svar_names
 
-let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k = 
+(* Print state [k] of the path; the value of the reachability condition in
+   that state is read at step [k + offset] of the path *)
+let pp_print_step_of_trace offset (trans_sys : TransSys.t) path ppf k =
   let reachability_prop = TransSys.get_properties trans_sys in
   let reachability_svars = 
     List.map (fun Property.({prop_term}) -> 
@@ -153,15 +155,15 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
 
   let model_list = Model.path_to_list path in
   let values = List.map (fun reachability_svar -> 
-    List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k + 1)
+    List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k + offset)
   ) reachability_svars  in
-  let reachability_values = List.map2 (fun value reachability_svar -> 
-    if (Numeral.to_int k) == 0 then 
+  let reachability_values = List.map2 (fun value reachability_svar ->
+    if (Numeral.to_int k) == 0 then
       (reachability_svar, value, true)
-    else 
-      reachability_svar, 
-      value, 
-      not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) ((Numeral.to_int k)) ))
+    else
+      reachability_svar,
+      value,
+      not (Model.equal_value value (List.nth (List.assoc reachability_svar model_list) (Numeral.to_int k + offset - 1) ))
     ) values reachability_svars
    in
   let reachability_change = List.fold_left (fun changed (_, _, change) -> 
@@ -209,20 +211,30 @@ let (--) i j =
   in aux j [] 
 
 let pp_print_trail is_current_state trans_sys ppf path =
-  let range = 0 -- (Model.path_length path - 2) in
+  let last = Model.path_length path - 1 in
 
-  (match range with
-  | [] -> ()
-  | _ ->
+  if is_current_state then
+    (* The reachability condition is over the current state: it is evaluated
+       in every state of the path, and the last state is the one that
+       satisfies it *)
     Format.fprintf ppf "%a@,"
-      (Lib.pp_print_list (pp_print_step_of_trace trans_sys path) "@,") range );
+      (Lib.pp_print_list (pp_print_step_of_trace 0 trans_sys path) "@,")
+      (0 -- last)
+  else (
+    (* The reachability condition is over the current and next state: its
+       value for the transition from state k is stored at step k+1 *)
+    let range = 0 -- (last - 1) in
+    (match range with
+    | [] -> ()
+    | _ ->
+      Format.fprintf ppf "%a@,"
+        (Lib.pp_print_list (pp_print_step_of_trace 1 trans_sys path) "@,") range );
 
-  (* Only show the last state if it is not a property of the current state. *)
-  if not is_current_state then
     (* In the last state, do not print value of reachability variables *)
     Format.fprintf ppf "%a@,"
       (pp_print_last_step_of_trace trans_sys path)
-      (Numeral.of_int (Model.path_length path - 1))
+      (Numeral.of_int last)
+  )
 
 let pp_print_cex_trail trans_sys prop_name prefix is_current_state ppf cex = 
   Format.fprintf ppf "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
