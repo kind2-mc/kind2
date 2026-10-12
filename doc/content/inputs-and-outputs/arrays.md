@@ -179,6 +179,25 @@ has the same type, with `i` ranging over the `m` rows and `j` over the `n`
 columns. A caret after the last size replicates the array, as for any array:
 `(i foreach i) ^ 3 ^ 2` is `[[0, 1, 2], [0, 1, 2]]`.
 
+The sizes can also be written next to the index variables they bound, which
+keeps each size with its index: `(e foreach i < m, j < n)` is
+`(e foreach i, j) ^ n ^ m`. For instance, the array `C` above is also
+
+```lustre
+C = (A[i][j] or B[i][j] foreach i < m, j < n);
+```
+
+and `(i * i foreach i < 4)` is the array `[0, 1, 4, 9]`. A comprehension
+gives the sizes of all of its index variables in the same way, either bounding
+them or after it. A bound extends to the next `,` or `)`, and, as the sizes
+after a comprehension, it is a constant outside the scope of the index
+variables: `(e foreach i < m, j < i)` is rejected, rather than defining a
+triangular array. A caret after a comprehension whose index variables are
+bounded replicates the array: `(i foreach i < 3) ^ 2` is
+`[[0, 1, 2], [0, 1, 2]]`. As its sizes are within the parentheses, an element
+of such a comprehension is selected directly: `(i * i foreach i < 4)[2]` is
+`4`.
+
 The body of a comprehension may itself be an array, such as a comprehension:
 `((i + j foreach j) ^ 3 foreach i) ^ 2` is `[[0, 1, 2], [1, 2, 3]]`, and the
 inner body may refer to the outer index variables.

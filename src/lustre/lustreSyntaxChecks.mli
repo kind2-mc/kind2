@@ -55,6 +55,10 @@ type error_kind = Unknown of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MissingComprehensionSize of HString.t
+  | UnboundedComprehensionIndex of HString.t
+  | DuplicateComprehensionIndex of HString.t
+  | ComprehensionSizeMentionsIndex of HString.t * HString.t
+  | BooleanComprehensionSize of HString.t * LustreAst.expr
   | ArrayDefinition of HString.t * HString.t list * LustreAst.expr list option
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident

@@ -75,6 +75,10 @@ type error_kind = Unknown of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
   | MissingComprehensionSize of HString.t
+  | UnboundedComprehensionIndex of HString.t
+  | DuplicateComprehensionIndex of HString.t
+  | ComprehensionSizeMentionsIndex of HString.t * HString.t
+  | BooleanComprehensionSize of HString.t * LustreAst.expr
   | ArrayDefinition of HString.t * HString.t list * LustreAst.expr list option
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
@@ -169,7 +173,24 @@ let error_message kind = match kind with
   | MissingComprehensionSize i -> "The index '" ^ HString.string_of_hstring i
     ^ "' of an array comprehension has no size: an array comprehension is"
     ^ " followed by one size per index, the innermost index first, as in"
-    ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m"
+    ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m, or each"
+    ^ " index is bounded by its size, as in '(e foreach i < n, j < m)'"
+  | UnboundedComprehensionIndex i -> "The index '" ^ HString.string_of_hstring i
+    ^ "' of an array comprehension has no bound, unlike the other indices: the"
+    ^ " indices of a comprehension are all bounded by their sizes, as in"
+    ^ " '(e foreach i < m, j < n)', or the sizes all follow the comprehension,"
+    ^ " as in '(e foreach i, j)^n^m'"
+  | DuplicateComprehensionIndex i -> "The index '" ^ HString.string_of_hstring i
+    ^ "' appears more than once in the same array comprehension"
+  | ComprehensionSizeMentionsIndex (i, j) -> "The size of the index '"
+    ^ HString.string_of_hstring i ^ "' of an array comprehension mentions the"
+    ^ " index '" ^ HString.string_of_hstring j ^ "' of the same comprehension: the"
+    ^ " sizes of a comprehension are constant, and the indices are not in"
+    ^ " scope in them"
+  | BooleanComprehensionSize (i, n) -> "The size of the index '"
+    ^ HString.string_of_hstring i ^ "' of an array comprehension, '"
+    ^ LA.string_of_expr n ^ "', is not an integer: the bound of an index extends"
+    ^ " to the next ',' or ')' of the comprehension"
   | ArrayDefinition (id, inds, sizes) ->
     let id = HString.string_of_hstring id in
     let inds = String.concat ", " (List.map HString.string_of_hstring inds) in
@@ -712,6 +733,13 @@ let no_assignment_to_pattern_var ctx pos i =
    checks of this module only see the source, so they never meet one: the
    definitions that LustreDesugarArrayComprehensions introduces for
    comprehensions come after them. *)
+(* An expression whose operator makes a Boolean, and so cannot be the size of
+   an array *)
+let is_boolean_operation = function
+  | LA.BinaryOp (_, (LA.And | Or | Xor | Impl | AndThen | OrElse | LazyImpl), _, _)
+  | CompOp _ | UnaryOp (_, Not, _) -> true
+  | _ -> false
+
 let no_array_definitions outputs locals items =
   (* The sizes of the dimensions of [id] that the indices [inds] range over,
      innermost first as in the type, when its declared type is written as an
@@ -1547,9 +1575,49 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = check_expr ctx f e in 
       Res.ok (warnings @ warnings2)
     | ArrayComprehension (_, bs, _)
+      when List.exists (fun (_, i, _) ->
+             List.length (List.filter (fun (_, j, _) -> HString.equal i j) bs) > 1) bs ->
+      let (pos, i, _) =
+        List.find (fun (_, i, _) ->
+          List.length (List.filter (fun (_, j, _) -> HString.equal i j) bs) > 1) bs
+      in
+      syntax_error pos (DuplicateComprehensionIndex i)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (_, _, n) -> LA.is_unbounded_size n) bs ->
+      let (pos, i, _) = List.find (fun (_, _, n) -> LA.is_unbounded_size n) bs in
+      syntax_error pos (UnboundedComprehensionIndex i)
+    | ArrayComprehension (_, bs, _)
       when List.exists (fun (_, _, n) -> LA.is_missing_size n) bs ->
       let (pos, i, _) = List.find (fun (_, _, n) -> LA.is_missing_size n) bs in
       syntax_error pos (MissingComprehensionSize i)
+    (* A bound extends over the operators of lower precedence than '<', such
+       as 'and', which make a Boolean: '(x foreach i < 3 and x)' bounds 'i' by
+       '3 and x' *)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (p, _, n) -> LA.is_bounded_index p && is_boolean_operation n) bs ->
+      let (pos, i, n) =
+        List.find (fun (p, _, n) -> LA.is_bounded_index p && is_boolean_operation n) bs
+      in
+      syntax_error pos (BooleanComprehensionSize (i, n))
+    (* A size is outside the scope of the index variables, which a bound such
+       as 'j < i' would suggest otherwise. A size after the comprehension, as in
+       '(e foreach i, k)^i^2', is clearly outside it, and may name a constant
+       that has the name of an index variable. *)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (p, _, n) ->
+             LA.is_bounded_index p
+             && List.exists (fun (_, j, _) ->
+                  LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs ->
+      let (pos, i, n) =
+        List.find (fun (p, _, n) ->
+          LA.is_bounded_index p
+          && List.exists (fun (_, j, _) ->
+               LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs
+      in
+      let (_, j, _) =
+        List.find (fun (_, j, _) -> LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs
+      in
+      syntax_error pos (ComprehensionSizeMentionsIndex (i, j))
     | ArrayComprehension (_, bs, e) ->
       (* The index variables are subject to the restrictions of the indices of
          an array definition, which the comprehension is compiled to. An index

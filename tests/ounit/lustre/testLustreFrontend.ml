@@ -142,6 +142,30 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
+  mk_test "unbounded inner index of a bounded comprehension" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_unbounded_inner.lus" with
+    | Error (`LustreSyntaxChecksError (_, UnboundedComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "unbounded outer index of a bounded comprehension" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_unbounded_outer.lus" with
+    | Error (`LustreSyntaxChecksError (_, UnboundedComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "duplicate bounded comprehension index" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_duplicate_bounded.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "duplicate comprehension index" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_duplicate_caret.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "comprehension bound mentioning an index" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_size_mentions_index.lus" with
+    | Error (`LustreSyntaxChecksError (_, ComprehensionSizeMentionsIndex _)) -> true
+    | _ -> false);
+  mk_test "comprehension bound over a Boolean operator" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_boolean_size.lus" with
+    | Error (`LustreSyntaxChecksError (_, BooleanComprehensionSize _)) -> true
+    | _ -> false);
   mk_test "symbolic array index under a restart" (fun () ->
     match load_file "./lustreSyntaxChecks/restart_symbolic_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInRestart _)) -> true

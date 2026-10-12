@@ -440,6 +440,22 @@ val missing_size : position -> expr
 (** Whether an expression is [missing_size] *)
 val is_missing_size : expr -> bool
 
+(** The size of an index variable without a bound in an array comprehension
+    where others have one, while parsing *)
+val unbounded_size : position -> expr
+
+(** Whether an expression is [unbounded_size] *)
+val is_unbounded_size : expr -> bool
+
+(** Record that the index variable of an array comprehension at the given
+    position is bounded by its size in the source, '(e foreach i < n)', while
+    parsing *)
+val mark_bounded_index : position -> unit
+
+(** Whether the index variable of an array comprehension at the given position
+    is bounded by its size in the source *)
+val is_bounded_index : position -> bool
+
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
 val pp_print_pattern : Format.formatter -> pattern -> unit
