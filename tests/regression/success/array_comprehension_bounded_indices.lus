@@ -1,0 +1,29 @@
+-- The sizes of an array comprehension can bound its index variables:
+-- '(e foreach i < m, j < n)' is '(e foreach i, j)^n^m'
+
+const N: int;
+const K: int = 4;
+const Sq: int^K = (i * i foreach i < K);
+
+node main (A: int^3; M: int^2^3; c: int) returns (B: int^3);
+(*@contract
+  var D: int^3 = (2 * A[i] foreach i < 3);
+  guarantee "ghost" D = (A[i] + A[i] foreach i)^3;
+  guarantee "output" B = (A[i] + 1 foreach i)^3;
+*)
+var T: int^3^2; R: int^3^2; S: int^N; Z: int^4;
+let
+  B = (A[i] + 1 foreach i < 3);
+  T = (M[j][i] foreach i < 2, j < 3);
+  check "two" T = (M[j][i] foreach i, j)^3^2;
+  check "two_elem" T[1][2] = M[2][1];
+  R = ((i + j foreach j < 3) foreach i < 2);
+  check "nested" R[1][2] = 3;
+  S = (c foreach k < N);
+  check "symbolic" forall (k: int) 0 <= k and k < N => S[k] = c;
+  check "replicate" (i foreach i < 3)^2 = [[0, 1, 2], [0, 1, 2]];
+  Z = (i * i foreach i < 2 + 2);
+  check "expr_size" Z = Sq;
+  check "select" (i * i foreach i < 4)[2] = 4
+    and (i + j foreach i < 2, j < 3)[1][2] = 3;
+tel

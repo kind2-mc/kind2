@@ -1278,6 +1278,12 @@ pexpr(Q):
   | LPAREN; e = pexpr(Q); FOREACH; ids = ident_list_pos; RPAREN
     { A.ArrayComprehension
         (mk_pos $startpos, List.map (fun (p, i) -> (p, i, A.missing_size p)) ids, e) }
+
+  (* An array comprehension whose sizes bound its index variables:
+     '(e foreach i < m, j < n)' is '(e foreach i, j)^n^m' *)
+  | LPAREN; e = pexpr(Q); FOREACH;
+    bs = separated_nonempty_list(COMMA, bounded_index(Q)); RPAREN
+    { A.ArrayComprehension (mk_pos $startpos, bs, e) }
                                                                        
   (* A relation *)
   | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Lt, e1, e2) }
@@ -1394,6 +1400,11 @@ lustre_type_list:
   
 
 (* A comma-separated list of identifiers with position information *)
+(* An index variable of an array comprehension, with the size of its
+   dimension *)
+bounded_index(Q):
+  | i = ident; LT; n = pexpr(Q) { (mk_pos $startpos, i, n) }
+
 ident_list_pos :
   | i = ident { [mk_pos $startpos, i] }
   | i = ident; COMMA; l = ident_list_pos

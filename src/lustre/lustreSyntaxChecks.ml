@@ -169,7 +169,8 @@ let error_message kind = match kind with
   | MissingComprehensionSize i -> "The index '" ^ HString.string_of_hstring i
     ^ "' of an array comprehension has no size: an array comprehension is"
     ^ " followed by one size per index, the innermost index first, as in"
-    ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m"
+    ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m, or each"
+    ^ " index is bounded by its size, as in '(e foreach i < n, j < m)'"
   | ArrayDefinition (id, inds, sizes) ->
     let id = HString.string_of_hstring id in
     let inds = String.concat ", " (List.map HString.string_of_hstring inds) in

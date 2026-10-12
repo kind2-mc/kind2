@@ -1,0 +1,7 @@
+-- A comprehension gives the sizes of all of its index variables in the same
+-- way: bounding them, or after it
+
+node main (A: int^3^2) returns (B: int^3^2);
+let
+  B = (A[i][j] foreach i < 2, j)^3;
+tel
