@@ -45,6 +45,8 @@ type error = [
 
 exception Restart_error of Lib.position * error_kind
 
+let inserted_ascription_infix = ".subtype_"
+
 let mk_fresh_fn_name: ?inserted:bool -> Lib.position -> NI.t -> NI.node_type -> NI.t = 
 fun ?(inserted = false) pos node_name node_type -> 
   let pos = Lib.string_of_t Lib.pp_print_line_and_column pos in
@@ -54,13 +56,24 @@ fun ?(inserted = false) pos node_name node_type ->
   | Choose -> HString.mk_hstring ".choose_"
   | TypeAscription ->
     (* Ascriptions inserted by Kind 2 are reported as subtype obligations *)
-    HString.mk_hstring (if inserted then ".subtype_" else ".type_ascription_")
+    HString.mk_hstring
+      (if inserted then inserted_ascription_infix else ".type_ascription_")
   | ClockedExpr -> HString.mk_hstring ".clocked_expr_"
   | Restarted -> HString.mk_hstring ".restart_"
   | _ -> assert false
   in
   let name = HString.concat2 name pos |> HString.concat2 (NI.get_name node_name)  in
   NI.mk_node_id ~node_type ~user_name:name name
+
+let is_user_ascription node_id =
+  NI.get_node_type node_id = NI.TypeAscription &&
+  let name = NI.get_name node_id |> HString.string_of_hstring in
+  let n = String.length name and m = String.length inserted_ascription_infix in
+  let rec has_infix i =
+    i + m <= n
+    && (String.sub name i m = inserted_ascription_infix || has_infix (i + 1))
+  in
+  not (has_infix 0)
 
 (* Not every identifier occurring in an expression or a type denotes a variable
    that a generated node must take as an argument. Global constants are in

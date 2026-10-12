@@ -3688,6 +3688,9 @@ let check_nonvacuity_default = true
       Format.fprintf fmt
         "\
           Check properties of subnodes in addition to properties of the main node.@ \
+          The properties of the nodes Kind 2 generates for parts of a node,@ \
+          such as the temporal branches of lazy constructs, are checked in@ \
+          any case.@ \
           Ignored if --modular is true@ \
           Default: %a\
         "

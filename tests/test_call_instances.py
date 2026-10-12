@@ -6,8 +6,8 @@ if the names of the properties lifted from the instances only carried that
 position, the instances would share one status, decided by whichever engine
 reported first (#1514). The exit code does not tell that apart from a correct
 run, so this checks the status of each instance. The node generated for a
-restart (Main7, Main10) does not show in the names of its properties, which
-carry the indices of its instances at the end.
+restart (Main7, Main10) does not show in the names of its properties: the
+indices of its instances go to the first call in the name.
 """
 
 import json
@@ -58,7 +58,7 @@ expected = {
     **{f"Wrap[L95C8][{i}].assume[L73C3]": False for i in range(3)},
     # Main7: s = (restart Wrap(a[i]) every Pos(Sub(a[i])) foreach i)^3
     **{f"Sub[L111C37][{i}].assume[L8C3]": i == 1 for i in range(3)},
-    **{f"Wrap[L111C16].assume[L73C3][{i}]": False for i in range(3)},
+    **{f"Wrap[L111C16][{i}].assume[L73C3]": False for i in range(3)},
     # Main8: s = (Wrap(Sub(a[i][j])) foreach i, j)^2^3
     **{
         f"Sub[L122C13][{i}][{j}].assume[L8C3]": (i, j) == (1, 1)
@@ -75,8 +75,14 @@ expected = {
     **{f"Wrap[L133C13][{i}].assume[L73C3]": False for i in range(3)},
     **{f"Wrap[L133C8][{i}].assume[L73C3]": False for i in range(3)},
     # Main10: s = (restart Wrap(Sub(a[i])) every r foreach i)^3
-    **{f"Sub[L144C21].assume[L8C3][{i}]": i == 1 for i in range(3)},
-    **{f"Wrap[L144C16].assume[L73C3][{i}]": False for i in range(3)},
+    **{f"Sub[L144C21][{i}].assume[L8C3]": i == 1 for i in range(3)},
+    **{f"Wrap[L144C16][{i}].assume[L73C3]": False for i in range(3)},
+    # Main11: s = (restart (Sub(a[i][j]) foreach j)^2 every r foreach i)^3
+    **{
+        f"Sub[L156C17][{i}][{j}].assume[L8C3]": (i, j) == (1, 1)
+        for i in range(3)
+        for j in range(2)
+    },
 }
 
 
