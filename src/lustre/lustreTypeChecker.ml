@@ -2882,9 +2882,10 @@ and check_map_set_key_expr_type ctx pos ty =
   | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty =
-  (* Expand each named type at most once per traversal path, keyed on the
-     instantiation so a datatype at different type arguments is not taken for a
-     cycle. Finite because the type-declaration dependency graph is acyclic. *)
+  (* Expand each named type once per path, keyed on the instantiation so the same
+     datatype at different arguments is not a cycle. Terminates: a cycle through
+     two or more types is rejected earlier, and a self-reference must repeat its
+     own parameters, hence its key. *)
   let rec aux seen ty = let r = aux seen in match ty with
   | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _
   | TArr _ -> type_error pos (UnsupportedMapType ty)
