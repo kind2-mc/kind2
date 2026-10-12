@@ -276,7 +276,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
     Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
-  | Type.Datatype (name, _) -> Format.pp_print_string ppf name
+  | Type.Datatype (name, _, _) -> Format.pp_print_string ppf name
 
   | Type.DatatypeRef name -> Format.pp_print_string ppf name
 

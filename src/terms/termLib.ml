@@ -68,7 +68,7 @@ let rec default_of_type t =
     | Type.Real -> Term.mk_dec Decimal.zero
 
     (* Apply the first non-self-recursive constructor with default field values *)
-    | Type.Datatype (_, ctors) ->
+    | Type.Datatype (_, ctors, _) ->
       let is_self_recursive ty = Type.is_datatype_ref ty in
       let ctor_name, fields =
         match List.find_opt (fun (_, fs) -> not (List.exists is_self_recursive fs)) ctors with
@@ -147,7 +147,7 @@ let rec logic_of_sort ty =
     union (logic_of_sort ta) (logic_of_sort tr)
     |> add A
 
-  | Datatype (_, ctors) ->
+  | Datatype (_, ctors, _) ->
     let field_logic =
       List.concat_map snd ctors
       |> List.fold_left (fun acc t -> FeatureSet.union acc (logic_of_sort t)) empty

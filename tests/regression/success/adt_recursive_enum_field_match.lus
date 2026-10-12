@@ -1,0 +1,8 @@
+type E = enum { A, B };
+datatype L = LN | LC (h: E, t: L);
+
+node main(x: L) returns (ok: bool);
+let
+  ok = match x with | LN : true | LC (h, _) : h = A or h = B end;
+  check ok;
+tel

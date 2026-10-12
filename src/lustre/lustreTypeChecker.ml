@@ -3298,9 +3298,21 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       let is_recursive_adt =
         List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> mentions_self ty) fields) ctors
       in
+      (* A datatype is a sort of its own when it is directly recursive, and an
+         enum when every constructor is argument-free and it takes no type
+         parameters; any other is encoded as a record, which a field cannot
+         hold. *)
+      let is_scalar_adt id adt_ctors =
+        LH.is_directly_recursive_adt id adt_ctors
+        || (List.for_all (fun (_, fields) -> fields = []) adt_ctors
+            && (match lookup_ty_ty_vars ctx id with
+                | Some (_ :: _) -> false
+                | Some [] | None -> true))
+      in
       let rec is_scalar_field_type ty = match ty with
         | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
-        | LA.EnumType _ | LA.AbstractType _ | LA.ADT _ -> true
+        | LA.EnumType _ | LA.AbstractType _ -> true
+        | LA.ADT (_, id, adt_ctors) -> is_scalar_adt id adt_ctors
         | LA.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ty
         | LA.UserType (_, ty_args, id) ->
           (match lookup_ty_syn ctx id ty_args with
