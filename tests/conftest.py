@@ -175,6 +175,10 @@ log_dir = Path("logs")
 kind2_exe = "kind2.exe" if os.name == "nt" else "kind2"
 kind2_bin = (Path("../bin") / kind2_exe).resolve()
 
+# Where kmoxi lives, when it is built (`make kmoxi`)
+kmoxi_exe = "kmoxi.exe" if os.name == "nt" else "kmoxi"
+kmoxi_bin = (Path("../bin") / kmoxi_exe).resolve()
+
 ######################
 # Test running logic #
 ######################
