@@ -16,17 +16,6 @@
 
 *)
 
-(* Process setup common to the executables that run an analysis (kind2,
-   kmoxi), done once the command line is parsed and before any input is
-   read: descriptors kept from the children, signal handlers, the wall
-   clock timeout and the global timer.
-
-   Without it a SIGTERM keeps its default action and ends the process on
-   the spot, without the teardown that kills the solvers. The solvers are
-   started from engine domains, which block SIGTERM, SIGINT, SIGQUIT,
-   SIGALRM and SIGPIPE, and they keep that signal mask across exec: left
-   behind, they ignore everything but SIGKILL. *)
-
 (** Install the signal handlers, set the wall clock timeout of
     [--timeout] and start the global timer. To be called once the command
     line is parsed, before any input is read. *)
