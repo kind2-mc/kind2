@@ -290,6 +290,10 @@ type context = {
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
+  (* The bound variables, among [quant_vars], of the refinement types of type
+     ascriptions. Such a variable is not quantified: it is the input of the
+     node the ascription is abstracted into (see [LustreGenNodes]). *)
+  ascription_vars : StringSet.t;
   pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
@@ -308,6 +312,7 @@ let empty_ctx () = {
     consts = StringMap.empty;
     locals = StringMap.empty;
     quant_vars = StringMap.empty;
+    ascription_vars = StringSet.empty;
     pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
@@ -348,8 +353,13 @@ let ctx_add_local ctx i ty = {
   }
 
 let ctx_add_quant_var ctx i ty = {
-    ctx with quant_vars = StringMap.add i ty ctx.quant_vars
+    ctx with quant_vars = StringMap.add i ty ctx.quant_vars;
+    ascription_vars = StringSet.remove i ctx.ascription_vars
   }
+
+let ctx_add_ascription_var ctx i ty =
+  let ctx = ctx_add_quant_var ctx i ty in
+  { ctx with ascription_vars = StringSet.add i ctx.ascription_vars }
 
 let ctx_add_pattern_var ctx i ty = {
     ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
@@ -382,8 +392,11 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
 
 (* A quantified variable, or a symbolic array index, that a guard of the
    enclosing lazy constructs mentions *)
-let quant_var_in_lazy_guard ctx =
-  List.find_opt (fun v -> StringMap.mem v ctx.quant_vars)
+let quant_var_in_lazy_guard ?(ascription_vars_allowed=false) ctx =
+  List.find_opt
+    (fun v ->
+      StringMap.mem v ctx.quant_vars
+      && not (ascription_vars_allowed && StringSet.mem v ctx.ascription_vars))
     (LA.SI.elements ctx.lazy_cond_vars)
 
 let symbolic_index_in_lazy_guard ctx =
@@ -1516,6 +1529,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Extract (_, e, _, _)
     | Pre (_, e) -> 
       check_expr ctx f e 
+    | TypeAscription (_, e, LA.RefinementType (_, (_, i, ty), pred)) ->
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = check_expr (ctx_add_ascription_var ctx i (Some ty)) f pred in
+      Res.ok (warnings1 @ warnings2)
     | TypeAscription (_, e, ty) ->
       let* warnings1 = check_expr ctx f e in
       let* warnings2 = check_ty ctx f ty in
@@ -1816,7 +1833,9 @@ and check_temporal_branches ctx branches =
     match LAH.has_pre_or_arrow e with
     | None -> Ok []
     | Some pos -> (
-      match quant_var_in_lazy_guard ctx with
+      (* The branch lies inside the node an ascription is abstracted into, so
+         the bound variable of the ascription is not quantified there *)
+      match quant_var_in_lazy_guard ~ascription_vars_allowed:true ctx with
       | Some v -> syntax_error pos (QuantifiedVariableInLazyGuardedTemporalBranch v)
       | None -> (
         match symbolic_index_in_lazy_guard ctx with
