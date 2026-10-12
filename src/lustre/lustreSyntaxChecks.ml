@@ -57,6 +57,8 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
+  | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -140,6 +142,10 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInLazyGuardedNodeCall (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
     ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
+  | QuantifiedVariableInLazyGuardedTemporalBranch var -> "Quantified variable or refinement type bound variable '"
+    ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -284,6 +290,10 @@ type context = {
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
+  (* The bound variables, among [quant_vars], of the refinement types of type
+     ascriptions. Such a variable is not quantified: it is the input of the
+     node the ascription is abstracted into (see [LustreGenNodes]). *)
+  ascription_vars : StringSet.t;
   pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
@@ -302,6 +312,7 @@ let empty_ctx () = {
     consts = StringMap.empty;
     locals = StringMap.empty;
     quant_vars = StringMap.empty;
+    ascription_vars = StringSet.empty;
     pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
@@ -342,8 +353,13 @@ let ctx_add_local ctx i ty = {
   }
 
 let ctx_add_quant_var ctx i ty = {
-    ctx with quant_vars = StringMap.add i ty ctx.quant_vars
+    ctx with quant_vars = StringMap.add i ty ctx.quant_vars;
+    ascription_vars = StringSet.remove i ctx.ascription_vars
   }
+
+let ctx_add_ascription_var ctx i ty =
+  let ctx = ctx_add_quant_var ctx i ty in
+  { ctx with ascription_vars = StringSet.add i ctx.ascription_vars }
 
 let ctx_add_pattern_var ctx i ty = {
     ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
@@ -373,6 +389,19 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
       vars
   in
   ctx_add_lazy_cond_vars ctx lazy_vars
+
+(* A quantified variable, or a symbolic array index, that a guard of the
+   enclosing lazy constructs mentions *)
+let quant_var_in_lazy_guard ?(ascription_vars_allowed=false) ctx =
+  List.find_opt
+    (fun v ->
+      StringMap.mem v ctx.quant_vars
+      && not (ascription_vars_allowed && StringSet.mem v ctx.ascription_vars))
+    (LA.SI.elements ctx.lazy_cond_vars)
+
+let symbolic_index_in_lazy_guard ctx =
+  List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+    (LA.SI.elements ctx.lazy_cond_vars)
 
 (* Expression contains a pre, an arrow, or a call to a node *)
 let rec has_stateful_op ctx =
@@ -1500,6 +1529,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Extract (_, e, _, _)
     | Pre (_, e) -> 
       check_expr ctx f e 
+    | TypeAscription (_, e, LA.RefinementType (_, (_, i, ty), pred)) ->
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = check_expr (ctx_add_ascription_var ctx i (Some ty)) f pred in
+      Res.ok (warnings1 @ warnings2)
     | TypeAscription (_, e, ty) ->
       let* warnings1 = check_expr ctx f e in
       let* warnings2 = check_ty ctx f ty in
@@ -1640,6 +1673,9 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Match (_, e, arms, _) ->
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
       let* warnings1 = check_expr ctx f e in
+      (* Arms are evaluated lazily, so the scrutinee plays the role of the
+         guard, as for a match block *)
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
       let pat_vars pat =
         let rec collect = function
           | LA.VarPat (_, id) ->
@@ -1650,7 +1686,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = Res.seq (List.map (fun (pat, body) ->
         let ctx' = List.fold_left
           (fun c v -> ctx_add_pattern_var c v None)
-          ctx (pat_vars pat)
+          ctx_lazy (pat_vars pat)
         in
         let* warnings = check_expr ctx' f body in 
         let* warnings' = check_expr ctx' lazy_match body in 
@@ -1691,6 +1727,15 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   with
   | Some v -> syntax_error pos (SymbolicArrayIndexInRestart v)
   | None -> Ok [])
+(* A temporal branch of a lazy construct is abstracted into a call to a node
+   (see [LustreGenNodes.abstract_temporal_branch]), which is subject to the
+   same restrictions as an explicit call under a lazy guard (see below) *)
+| LA.TernaryOp (_, LazyIte, c, e2, e3) ->
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [e2; e3]
+| LA.BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [e2]
+| LA.Match (_, e, arms, _) ->
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map snd arms)
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
     ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
@@ -1736,15 +1781,13 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
     if not is_non_inlinable || LA.SI.is_empty ctx.lazy_cond_vars then
       Ok []
     else
-      let vars = LA.SI.elements ctx.lazy_cond_vars in
       match
-        if quant_vars_allowed then None
-        else List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars
+        if quant_vars_allowed then None else quant_var_in_lazy_guard ctx
       with
       | Some v ->
         syntax_error pos (QuantifiedVariableInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
       | None -> (
-        match List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices) vars with
+        match symbolic_index_in_lazy_guard ctx with
         | Some v ->
           syntax_error pos (SymbolicArrayIndexInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
         | None -> Ok []
@@ -1784,6 +1827,22 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   List.fold_left (>>) (Ok []) check
 
 | _ -> Ok []
+
+and check_temporal_branches ctx branches =
+  let check_branch e =
+    match LAH.has_pre_or_arrow e with
+    | None -> Ok []
+    | Some pos -> (
+      (* The branch lies inside the node an ascription is abstracted into, so
+         the bound variable of the ascription is not quantified there *)
+      match quant_var_in_lazy_guard ~ascription_vars_allowed:true ctx with
+      | Some v -> syntax_error pos (QuantifiedVariableInLazyGuardedTemporalBranch v)
+      | None -> (
+        match symbolic_index_in_lazy_guard ctx with
+        | Some v -> syntax_error pos (SymbolicArrayIndexInLazyGuardedTemporalBranch v)
+        | None -> Ok []))
+  in
+  List.fold_left (>>) (Ok []) (List.map check_branch branches)
 
 (* Check types for quantified variables in calls to non-inlinable functions. 
    In particular, refinement type bound variables that refer to array/map/set elements 

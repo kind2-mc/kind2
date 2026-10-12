@@ -87,6 +87,24 @@ fun ctx ids ->
     | _ -> Ctx.lookup_constructor ctx i |> Option.is_none
   ) ids
 
+(* The variables [ids], together with the variables their types mention, such
+   as a constant input that is the size of an array. A node generated over the
+   variables needs all of them as arguments, so that the types of its inputs
+   are well formed. *)
+let with_type_vars: Ctx.tc_context -> Ctx.SI.t -> Ctx.SI.t =
+fun ctx ids ->
+  let rec close acc = function
+    | [] -> acc
+    | i :: rest when Ctx.SI.mem i acc -> close acc rest
+    | i :: rest ->
+      let mentioned = match Ctx.lookup_ty ctx i with
+        | Some ty -> AH.vars_of_type (Ctx.expand_type_syn ctx ty) |> Ctx.SI.elements
+        | None -> []
+      in
+      close (Ctx.SI.add i acc) (mentioned @ rest)
+  in
+  close Ctx.SI.empty (Ctx.SI.elements ids)
+
 (* Resolve a match arm before the nodes its body needs are generated, returning
    the arm's pattern, a substitution to apply to its body, and the context the
    body is processed in.
@@ -775,7 +793,10 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
      the call site *)
   let e, mode_refs = AH.name_mode_refs orig_e in
   (* The variables used in the expression become the node's arguments *)
-  let inputs = AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx in
+  let inputs =
+    AH.vars_without_node_call_ids e |> with_type_vars ctx
+    |> Ctx.SI.elements |> node_arguments ctx
+  in
   let inputs_call = List.map (fun str ->
     match List.find_opt (fun (i, _, _) -> HString.equal i str) mode_refs with
     | Some (_, mpos, ids) -> A.ModeRef (mpos, ids)
@@ -893,7 +914,9 @@ fun ctx node_name fun_ids pos items r ->
          if List.exists (HString.equal i) acc then acc else acc @ [i]) []
   in
   let inputs =
-    Ctx.SI.diff (used_vars_of_node_items items) (Ctx.SI.of_list outputs)
+    Ctx.SI.diff
+      (used_vars_of_node_items items |> with_type_vars ctx)
+      (Ctx.SI.of_list outputs)
     |> Ctx.SI.elements |> node_arguments ctx
   in
   let lookup_ty i = match Ctx.lookup_ty ctx i with
