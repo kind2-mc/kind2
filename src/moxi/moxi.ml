@@ -42,8 +42,12 @@ let main () =
     Format.printf "Usage: %s <file>@." Sys.argv.(0);
     exit ExitCodes.usage_error
   )
-  else
+  else (
     parse_commandline_args () ;
+    (* Signal handlers, timeout and global timer, as in kind2: without
+       them a SIGTERM ends kmoxi without killing its solvers, and
+       --timeout is not enforced *)
+    RunSetup.setup () ;
     let filename = Flags.input_file () in
     try
       read_and_process_input_file filename
@@ -59,6 +63,7 @@ let main () =
           then fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
           else fun _ _ -> ()) backtrace;
       exit ExitCodes.error
+  )
 ;;
 
 main ()
