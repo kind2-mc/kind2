@@ -1404,7 +1404,8 @@ lustre_type_list:
    dimension when it is bounded by it *)
 comprehension_index(Q):
   | i = ident { (mk_pos $startpos, i, None) }
-  | i = ident; LT; n = pexpr(Q) { (mk_pos $startpos, i, Some n) }
+  | i = ident; LT; n = pexpr(Q)
+    { let pos = mk_pos $startpos in A.mark_bounded_index pos; (pos, i, Some n) }
 
 (* A comma-separated list of identifiers with position information *)
 ident_list_pos :

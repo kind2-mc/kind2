@@ -1594,19 +1594,25 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
        as 'and', which make a Boolean: '(x foreach i < 3 and x)' bounds 'i' by
        '3 and x' *)
     | ArrayComprehension (_, bs, _)
-      when List.exists (fun (_, _, n) -> is_boolean_operation n) bs ->
-      let (pos, i, n) = List.find (fun (_, _, n) -> is_boolean_operation n) bs in
+      when List.exists (fun (p, _, n) -> LA.is_bounded_index p && is_boolean_operation n) bs ->
+      let (pos, i, n) =
+        List.find (fun (p, _, n) -> LA.is_bounded_index p && is_boolean_operation n) bs
+      in
       syntax_error pos (BooleanComprehensionSize (i, n))
     (* A size is outside the scope of the index variables, which a bound such
-       as 'j < i' would suggest otherwise *)
+       as 'j < i' would suggest otherwise. A size after the comprehension, as in
+       '(e foreach i, k)^i^2', is clearly outside it, and may name a constant
+       that has the name of an index variable. *)
     | ArrayComprehension (_, bs, _)
-      when List.exists (fun (_, _, n) ->
-             List.exists (fun (_, j, _) ->
-               LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs ->
+      when List.exists (fun (p, _, n) ->
+             LA.is_bounded_index p
+             && List.exists (fun (_, j, _) ->
+                  LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs ->
       let (pos, i, n) =
-        List.find (fun (_, _, n) ->
-          List.exists (fun (_, j, _) ->
-            LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs
+        List.find (fun (p, _, n) ->
+          LA.is_bounded_index p
+          && List.exists (fun (_, j, _) ->
+               LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs
       in
       let (_, j, _) =
         List.find (fun (_, j, _) -> LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs

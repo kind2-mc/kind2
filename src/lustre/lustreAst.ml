@@ -419,6 +419,18 @@ let is_unbounded_size = function
   | Ident (_, i) -> HString.string_of_hstring i = "<unbounded>"
   | _ -> false
 
+(* The positions of the index variables of array comprehensions that the
+   source bounds by their sizes, '(e foreach i < n)', rather than giving the
+   sizes after the comprehension, '(e foreach i)^n'. Both forms build the same
+   comprehension, and the checks of a bound (LustreSyntaxChecks) only apply to
+   the first one: a size after a comprehension may name a constant that has
+   the name of an index variable, for instance. *)
+let bounded_indices : (position, unit) Hashtbl.t = Hashtbl.create 7
+
+let mark_bounded_index pos = Hashtbl.replace bounded_indices pos ()
+
+let is_bounded_index pos = Hashtbl.mem bounded_indices pos
+
 
 (* ********************************************************************** *)
 (* Pretty-printing functions                                              *)
@@ -617,6 +629,14 @@ and pp_print_expr ppf =
       Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
+    | ArrayComprehension (_, binders, e)
+      when List.for_all (fun (p, _, _) -> is_bounded_index p) binders ->
+      (* In the form of the source, with the sizes bounding the indices *)
+      Format.fprintf ppf "@[<hv 1>(%a@ foreach %a)@]"
+        pp_print_expr e
+        (pp_print_list (fun ppf (_, i, n) ->
+           Format.fprintf ppf "%a < %a" HString.pp_print_hstring i pp_print_expr n) ", ")
+        binders
     | ArrayComprehension (_, binders, e) ->
       (* The sizes are given innermost first. Parenthesized as a whole, as an
          array constructor, since a selection binds more tightly than them *)
