@@ -52,6 +52,11 @@ unsupported = {
         "  :current (c (= n 1)) :reachable (r (> n 3)) :query (q (c r)))\n",
         "5:13", "kmoxi does not support :current conditions",
     ),
+    # A query may name its :current condition more than once
+    "current named twice": (
+        "  :current (c (= n 1)) :reachable (r (> n 3)) :query (q (c c r)))\n",
+        "5:13", "kmoxi does not support :current conditions",
+    ),
     "fairness": (
         "  :fairness (f (> i' 0)) :reachable (r (> n 3)) :query (q (f r)))\n",
         "5:14", "kmoxi does not support :fairness conditions",
@@ -104,7 +109,21 @@ def test_ill_typed_conditions(tmp_path, case):
     assert f"model.moxi:{position}: error: {message}" in err, err
 
 
-def test_unnamed_current_ignored(tmp_path):
-    attrs = "  :current (c (= n 1)) :reachable (r (= n 4)) :query (q (r)))\n"
-    _, out, err = run(tmp_path, head + attrs, ["--enable", "BMC"])
-    assert ":query (q sat" in out, out + err
+# Answered queries: conditions no query names are ignored, and a :queries
+# attribute with one query is a :query
+answered = {
+    "unnamed current":
+        "  :current (c (= n 1)) :reachable (r (= n 4)) :query (q (r)))\n",
+    "unnamed fairness":
+        "  :fairness (f (> i' 0)) :reachable (r (= n 4)) :query (q (r)))\n",
+    "one query in queries":
+        "  :reachable (r (= n 4)) :queries ((q (r))))\n",
+    "reachable named twice":
+        "  :reachable (r (= n 4)) :query (q (r r)))\n",
+}
+
+
+@pytest.mark.parametrize("case", answered, ids=answered)
+def test_answered(tmp_path, case):
+    code, out, err = run(tmp_path, head + answered[case], ["--enable", "BMC"])
+    assert code == 0 and ":query (q sat" in out, out + err

@@ -892,10 +892,9 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
   in
   (* What the type checker accepts of a check-system but kmoxi does not
      translate *)
-  let unsupported_at = unsupported in
-  let unsupported = unsupported check_cmd.A.loc in
+  let unsupported_cmd = unsupported check_cmd.A.loc in
   match queries with
-  | [] -> unsupported "kmoxi requires a :query in every check-system"
+  | [] -> unsupported_cmd "kmoxi requires a :query in every check-system"
   | [q] -> (
     let query_name, query_symbols =
       match q with
@@ -907,23 +906,26 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
       )
       | _ -> assert false
     in
-    let assumption_fs, reachable_fs =
+    let named_fs =
       formulas |> List.filter_map (function
         | A.FormulaAttr attr ->
           let (_, ((_, s), _)) = attr in
           if HSS.mem s query_symbols then Some attr else None
         | _ -> None
       )
-      |> List.partition (fun (ty, ((span, _), _)) ->
-        match ty with
-        | A.Assumption -> true
-        | A.Reachable -> false
-        | A.Fairness ->
-          unsupported_at span
-            "kmoxi does not support :fairness conditions (liveness queries)"
-        | A.Current ->
-          unsupported_at span "kmoxi does not support :current conditions"
-      )
+    in
+    (* The conditions of the query that kmoxi does not translate *)
+    named_fs |> List.iter (fun (ty, ((span, _), _)) ->
+      match ty with
+      | A.Fairness ->
+        unsupported span
+          "kmoxi does not support :fairness conditions (liveness queries)"
+      | A.Current ->
+        unsupported span "kmoxi does not support :current conditions"
+      | A.Assumption | A.Reachable -> ()
+    ) ;
+    let assumption_fs, reachable_fs =
+      List.partition (fun (ty, _) -> ty = A.Assumption) named_fs
     in
     let loc = check_cmd.A.loc in
     let sys_name = "query" in
@@ -946,7 +948,8 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
     in
     let defs, props, curr_state_props =
       match reachable_fs with
-      | [] -> unsupported "kmoxi requires a query to name a :reachable condition"
+      | [] ->
+        unsupported_cmd "kmoxi requires a query to name a :reachable condition"
       | [(_, (symb, term))] -> (
         let v =
           let svar =
@@ -972,7 +975,7 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
         [p], curr_state_props
       )
       | _ :: (_, ((span, _), _)) :: _ ->
-        unsupported_at span "kmoxi supports one :reachable condition per query"
+        unsupported span "kmoxi supports one :reachable condition per query"
     in
     let input = check_cmd.A.input in
     let output = check_cmd.A.output in
@@ -1028,7 +1031,7 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
     in
     mk_subsystem (Scope.Hashtbl.create 7) sys, curr_state_props
   )
-  | _ -> unsupported "kmoxi supports one :query per check-system"
+  | _ -> unsupported_cmd "kmoxi supports one :query per check-system"
 
 let process_command (input : input) = function
   | A.SetLogicCmd (_, logic) ->

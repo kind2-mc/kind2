@@ -1004,7 +1004,7 @@ let check_check_system env (check : A.check_system_cmd) =
     List.fold_left (fun conditions -> function
       | A.FormulaAttr (ty, ((span, f), term)) ->
         let name = str f in
-        if List.mem_assoc f conditions then
+        if List.exists (fun (g, _) -> HS.equal f g) conditions then
           fail_span span (DuplicateFormula name);
         let what attr = Format.sprintf "the %s condition %s" attr name in
         (match ty with
@@ -1026,19 +1026,23 @@ let check_check_system env (check : A.check_system_cmd) =
       | A.QueryAttr _ -> conditions
     ) [] check.attrs
   in
-  (* Queries name declared conditions, at most one initiality condition *)
+  (* Queries name declared conditions, at most one initiality condition,
+     which they may name more than once *)
   List.fold_left (fun queries -> function
     | A.QueryAttr ((span, q), names) ->
       if List.exists (HS.equal q) queries then
         fail_span span (DuplicateQuery (str q));
       List.fold_left (fun current (span, f) ->
-        match List.assoc_opt f conditions with
+        match List.find_opt (fun (g, _) -> HS.equal f g) conditions with
         | None -> fail_span span (UnknownFormula (str q, str f))
-        | Some A.Current ->
-          if current then fail_span span (SeveralCurrent (str q));
-          true
+        | Some (_, A.Current) -> (
+          match current with
+          | Some c when not (HS.equal c f) ->
+            fail_span span (SeveralCurrent (str q))
+          | _ -> Some f
+        )
         | Some _ -> current
-      ) false names
+      ) None names
       |> ignore;
       q :: queries
     | A.FormulaAttr _ -> queries
