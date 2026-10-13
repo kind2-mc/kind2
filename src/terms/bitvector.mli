@@ -105,6 +105,10 @@ val sbv_rem : t -> t -> t
 (** Function that finds remainder of two unsigned bitvectors *)
 val ubv_rem : t -> t -> t
 
+(** Remainder of two signed bitvectors with the sign of the divisor
+    ([bvsmod] of SMT-LIB); the remainder by zero is the dividend *)
+val sbv_mod : t -> t -> t
+
 (** Function for signed bitvector subtraction *)
 val sbv_sub : t -> t -> t
 

@@ -97,6 +97,10 @@ val check_script : MoxiAst.script -> (unit, error) result
 
 (** {1 For the translation} *)
 
+(** An identifier with its indices as written, [(_ f i j)], or the bare
+    symbol when it has none *)
+val string_of_indexed_id : string -> MoxiAst.index list -> string
+
 (** The value and width of a bit-vector literal [(_ bvN m)], given the
     symbol and indices of an indexed identifier, if it is one. The checker
     has verified that the value fits the width of every literal of a

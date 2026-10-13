@@ -336,8 +336,10 @@ and bv_extract i j t =
   Term.mk_bvextract (Numeral.of_int i) (Numeral.of_int j) t
 
 (* The bit-vector operators of SMT-LIB that Kind 2 has no symbol for,
-   defined as in the FixedSizeBitVectors theory from the ones it has;
-   the type checker has established the arities and the sorts *)
+   defined as in the FixedSizeBitVectors theory from the ones it has; the
+   type checker has established the arities and the sorts. Each definition
+   mentions its operands once, so that the terms stay linear in the size of
+   the model: Kind 2 prints terms to the solvers without sharing *)
 and kind2_bv_app name args =
   match name, args with
   | "bvnand", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvand [a; b]))
@@ -346,25 +348,7 @@ and kind2_bv_app name args =
   | "bvcomp", [a; b] ->
     Some (Term.mk_ite (Term.mk_eq [a; b])
       (Term.mk_ubv (Bitvector.one 1)) (Term.mk_ubv (Bitvector.zero 1)))
-  | "bvsmod", [s; t] ->
-    (* The remainder of the signed division, with the sign of the divisor:
-       the remainder of the unsigned division of the absolute values, folded
-       back according to the signs of the operands *)
-    let m = bv_width s in
-    let zero = Term.mk_ubv (Bitvector.zero m) in
-    let msb_zero u =
-      Term.mk_eq [bv_extract (m - 1) (m - 1) u; Term.mk_ubv (Bitvector.zero 1)]
-    in
-    let s_nonneg = msb_zero s and t_nonneg = msb_zero t in
-    let abs u nonneg = Term.mk_ite nonneg u (Term.mk_bvneg u) in
-    let u = Term.mk_bvurem [abs s s_nonneg; abs t t_nonneg] in
-    Some (Term.mk_ite (Term.mk_eq [u; zero]) u
-      (Term.mk_ite (Term.mk_and [s_nonneg; t_nonneg]) u
-        (Term.mk_ite (Term.mk_and [Term.mk_not s_nonneg; t_nonneg])
-          (Term.mk_bvadd [Term.mk_bvneg u; t])
-          (Term.mk_ite (Term.mk_and [s_nonneg; Term.mk_not t_nonneg])
-            (Term.mk_bvadd [u; t])
-            (Term.mk_bvneg u)))))
+  | "bvsmod", [s; t] -> Some (Term.mk_bvsmod [s; t])
   | _ -> None
 
 (* The indexed bit-vector operators of SMT-LIB, given their numeral
@@ -374,12 +358,19 @@ and kind2_indexed_bv_app name indices args =
   match name, indices, args with
   | "extract", [i; j], [t] -> Some (bv_extract i j t)
   | "sign_extend", [i], [t] -> Some (Term.mk_bvsignext (Numeral.of_int i) t)
-  | "zero_extend", [i], [t] ->
-    Some (Term.mk_app_of_symbol_node (`BVZEROEXT (Numeral.of_int i)) [t])
+  | "zero_extend", [i], [t] -> Some (Term.mk_bvzeroext (Numeral.of_int i) t)
   | "repeat", [i], [t] ->
-    (* [i] copies of [t], [i] being positive *)
-    Some (List.fold_left (fun acc _ -> Term.mk_bvconcat acc t)
-      t (List.init (i - 1) Fun.id))
+    (* [i] copies of [t], [i] being positive, by doubling: the term has
+       log2 [i] concatenations, each of a term shared with itself, rather
+       than [i] - 1 of ever wider terms *)
+    let rec copies i =
+      if i = 1 then t
+      else
+        let half = copies (i / 2) in
+        let even = Term.mk_bvconcat half half in
+        if i mod 2 = 0 then even else Term.mk_bvconcat even t
+    in
+    Some (copies i)
   | ("rotate_left" | "rotate_right"), [i], [t] ->
     (* Rotating by the width is the identity; a rotation to the left by [k]
        bits moves the [m - k] low bits up, and the [k] high bits down *)
@@ -408,23 +399,24 @@ and kind2_app env = function
       | [] when string_of_symbol symbol = "!=" ->
         (* The disequality of MoXI *)
         Term.mk_not (Term.mk_eq args)
-      | [] when kind2_bv_app (string_of_symbol symbol) args <> None ->
-        Option.get (kind2_bv_app (string_of_symbol symbol) args)
       | [] -> (
-        let symb =
-          GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
-        in
-        if Symbol.is_const_array symb then (
-          match sort with
-          | Some sort -> (
-            match args with
-            | [v] -> Term.mk_const_array (type_of_sort sort) v
-            | _ -> failwith("Incorrect number of arguments for const function")
+        match kind2_bv_app (string_of_symbol symbol) args with
+        | Some t -> t
+        | None ->
+          let symb =
+            GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
+          in
+          if Symbol.is_const_array symb then (
+            match sort with
+            | Some sort -> (
+              match args with
+              | [v] -> Term.mk_const_array (type_of_sort sort) v
+              | _ -> failwith("Incorrect number of arguments for const function")
+            )
+            | None -> failwith("Couldn't determine sort for const function")
           )
-          | None -> failwith("Couldn't determine sort for const function")
-        )
-        else
-          Term.mk_app symb args
+          else
+            Term.mk_app symb args
       )
       | _ -> (
         match
@@ -439,7 +431,8 @@ and kind2_app env = function
          that kmoxi does not translate *)
       raise (Unsupported_feature (Lib.start_pos span,
         Format.sprintf "kmoxi does not support the function symbol '%s'"
-          (string_of_symbol symbol)))
+          (MoxiTypeChecker.string_of_indexed_id (string_of_symbol symbol)
+             indices)))
     )
   )
   | A.Constant _ | A.QualId _ | A.Let _ -> assert false

@@ -334,6 +334,28 @@ let ubv_rem (bv1 : t) (bv2 : t) : t =
     num_to_ubv (Numeral.of_int (List.length bv1)) r
 
 
+(* Remainder with the sign of the divisor: bvsmod of SMT-LIB. The remainder of
+   the signed division, as [sbv_rem], has the sign of the dividend; it is
+   shifted by the divisor when the signs differ, and a division by zero
+   returns the dividend, as in the definition of the theory *)
+let sbv_mod (bv1 : t) (bv2 : t) : t =
+  if ((List.length bv1) != (List.length bv2)) then
+    raise ComparingUnequalBVs
+  else
+    let n = Numeral.of_int (List.length bv1) in
+    let num2 = bv_to_num' n bv2 in
+    if Numeral.equal num2 Numeral.zero then bv1
+    else
+      let r = bv_to_num' n (sbv_rem bv1 bv2) in
+      let r =
+        if Numeral.equal r Numeral.zero
+           || (Numeral.lt r Numeral.zero) = (Numeral.lt num2 Numeral.zero)
+        then r
+        else Numeral.add r num2
+      in
+      num_to_bv n r
+
+
 (* Subtraction *)
 let sbv_sub (bv1 : t) (bv2 : t) : t =
   if ((List.length bv1) != (List.length bv2)) then

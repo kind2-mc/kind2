@@ -4,8 +4,10 @@ Kind 2 has symbols for most of the FixedSizeBitVectors theory, but not for
 bvnand, bvnor, bvxnor, bvcomp, bvsmod, repeat, rotate_left and rotate_right,
 and the MoXI front end translated neither these nor sign_extend and
 zero_extend, for which Kind 2 does have symbols: a model using one was
-rejected as unsupported. They are now defined from the operators Kind 2 has,
-as the theory defines them. Each operator is checked against an independent
+rejected as unsupported. bvsmod now has a symbol of its own, since its
+definition repeats its operands and nesting it made the queries grow
+exponentially; the others are defined from the operators Kind 2 has, as the
+theory defines them, each mentioning its operands once. Each operator is checked against an independent
 formulation of its meaning, over symbolic 8-bit inputs where SMT-LIB gives
 one (the shifts for the rotations, the sign test for the sign extension),
 and against the values z3 computes otherwise (the signed modulo, whose sign
@@ -52,10 +54,17 @@ identities = {
     # bvsmod: the sign of the result is the sign of the divisor, and
     # s = t * q + r for the rounding-down quotient; values from z3
     "bvsmod-values": "(and (= (bvsmod #xF9 #x03) #x02) (= (bvsmod #x07 #xFD) #xFE)"
-    " (= (bvsmod #xF9 #xFD) #xFF) (= (bvsmod #x07 #x03) #x01) (= (bvsmod #x80 #xFF) #x00))",
+    " (= (bvsmod #xF9 #xFD) #xFF) (= (bvsmod #x07 #x03) #x01) (= (bvsmod #x80 #xFF) #x00)"
+    " (= (bvsmod #x07 #x00) #x07) (= (bvsmod #xF9 #x00) #xF9))",
     "bvsmod-by-zero": "(= (bvsmod x #x00) x)",
     "bvsmod-sign": "(=> (and (not (= y #x00)) (not (= (bvsmod x y) #x00)))"
     " (= (bvslt (bvsmod x y) #x00) (bvslt y #x00)))",
+    # Nested bvsmod stays linear in size: a native symbol, not an expansion
+    "bvsmod-nested": "(=> (not (= y #x00)) (let ((r (bvsmod (bvsmod (bvsmod (bvsmod (bvsmod"
+    " (bvsmod x y) y) y) y) y) y))) (bvult (ite (bvslt r #x00) (bvneg r) r)"
+    " (ite (bvslt y #x00) (bvneg y) y))))",
+    # A wide repeat is built by doubling
+    "repeat-wide": "(= ((_ extract 8199 8192) ((_ repeat 4096) x)) x)",
     "bvsmod-magnitude": "(=> (not (= y #x00)) (bvult (ite (bvslt (bvsmod x y) #x00)"
     " (bvneg (bvsmod x y)) (bvsmod x y)) (ite (bvslt y #x00) (bvneg y) y)))",
 }

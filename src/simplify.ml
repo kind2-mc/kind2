@@ -818,6 +818,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSDIV, _
       | `BVUREM, _
       | `BVSREM, _
+      | `BVSMOD, _
       | `BVSHL, _
       | `BVLSHR, _
       | `BVASHR, _
@@ -2330,6 +2331,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
 
+          | `BVSMOD -> binary_bv_op Bitvector.sbv_mod args
+
           | `BVULT ->
 
             bv_relation
@@ -3012,6 +3015,8 @@ let rec remove_ite' fterm args =
         | `BVUREM -> binary_bv_op Bitvector.ubv_rem args
 
         | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
+
+        | `BVSMOD -> binary_bv_op Bitvector.sbv_mod args
 
         | `BVULT ->
 

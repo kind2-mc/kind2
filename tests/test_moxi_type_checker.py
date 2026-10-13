@@ -331,7 +331,7 @@ unsupported = {
     "operator": (
         head(logic="ALL", input="()", output="((y (_ BitVec 8)))")
         + "  :init (= y ((_ int2bv 8) 5)))\n",
-        "4:14", "kmoxi does not support the function symbol 'int2bv'",
+        "4:14", "kmoxi does not support the function symbol '(_ int2bv 8)'",
     ),
     "array-index-sort": (
         head(logic="QF_ALIA", input="()", output="((a (Array Int Int)))")
