@@ -19,6 +19,23 @@
 type error =
   | UnexpectedChar of Lib.position * char
   | SyntaxError of Lib.position
+  | TypeError of MoxiTypeChecker.error
+  | Unsupported of Lib.position * string
+
+(* A well-sorted construct that kmoxi does not translate *)
+exception Unsupported_feature of Lib.position * string
+
+let pp_print_error ppf = function
+  | UnexpectedChar (pos, c) ->
+    Format.fprintf ppf "%a: error: unexpected character ‘%c’"
+      Lib.pp_print_position pos c
+  | SyntaxError pos ->
+    Format.fprintf ppf "%a: syntax error" Lib.pp_print_position pos
+  | TypeError (pos, kind) ->
+    Format.fprintf ppf "%a: error: %s" Lib.pp_print_position pos
+      (MoxiTypeChecker.error_message kind)
+  | Unsupported (pos, msg) ->
+    Format.fprintf ppf "%a: error: %s" Lib.pp_print_position pos msg
 
 module A = MoxiAst
 module ML = MoxiLexer
@@ -53,14 +70,30 @@ type system_check = TS.t SubSystem.t
 type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
-  checks: (system_check * string list) list
+  checks: (system_check * string list) list ;
+  (* Numerals denote reals, in a logic with reals and no integers *)
+  real_numerals: bool
 }
 
 let empty_input =
 {
   systems = HSM.empty ;
-  checks = []
+  checks = [] ;
+  real_numerals = false
 }
+
+(* The environment of the translation of a term *)
+type term_env =
+{
+  scope: Scope.t ;
+  (* The variables bound by the enclosing let binders, which shadow the
+     state variables of the system *)
+  lets: Var.t HSM.t ;
+  real_numerals: bool
+}
+
+let unsupported span msg =
+  raise (Unsupported_feature (Lib.start_pos span, msg))
 
 let parse_buffer lexbuf =
   try
@@ -72,6 +105,13 @@ let parse_buffer lexbuf =
   | MP.Error ->
     let pos = Lib.position_of_lexing lexbuf.lex_start_p in
     Error (SyntaxError pos)
+
+(* Parse and type check the script in a lexing buffer *)
+let parse_and_check lexbuf =
+  let* ast = parse_buffer lexbuf in
+  match MoxiTypeChecker.check_script ast with
+  | Ok () -> Ok ast
+  | Error e -> Error (TypeError e)
 
 
 let rec mk_subsystem map sys =
@@ -131,13 +171,29 @@ let mk_svar ?(reserved=false) sys_name is_input symbol sort =
     ~is_input ~is_const:false ~for_inv_gen:true
     name scope (type_of_sort sort)
 
+(* The engines bound the indices of an array by its index type, which must
+   be a bit-vector type (see [bounds]) *)
+let rec check_array_indices span name ty =
+  match Type.node_of_type ty with
+  | Array (e, i) ->
+    if not (Type.is_bitvector i || Type.is_ubitvector i) then
+      unsupported span
+        (Format.asprintf
+           "kmoxi supports arrays indexed by bit-vectors only; %s has sort %a"
+           name Type.pp_print_type ty);
+    check_array_indices span name e
+  | _ -> ()
+
 let mk_svars sys_name is_input sys_vars =
   match sys_vars with
   | None -> []
   | Some (_, sorted_vars) -> (
     List.fold_left 
-      (fun acc (_, name, sort) ->
-        mk_svar sys_name is_input name sort :: acc
+      (fun acc (span, name, sort) ->
+        let svar = mk_svar sys_name is_input name sort in
+        check_array_indices span (string_of_symbol name)
+          (SV.type_of_state_var svar);
+        svar :: acc
       )
       []
       sorted_vars
@@ -179,17 +235,33 @@ let const_array_eq a ty v =
     |> Term.mk_and
     |> Option.some
 
-let rec kind2_term scope = function
+(* Translate a term in the environment [env] *)
+let rec kind2_term env = function
   | A.Constant c -> (
     match c with
     | True -> Term.mk_true ()
     | False -> Term.mk_false ()
-    | Numeral (_, n) -> Term.mk_num n
+    | Numeral (_, n) ->
+      if env.real_numerals then Term.mk_dec (Decimal.of_big_int (Numeral.to_big_int n))
+      else Term.mk_num n
     | Decimal (_, d) -> Term.mk_dec d
     | Bitvector (_, b) -> Term.mk_ubv b
   )
+  | A.QualId ((_, symbol, (_ :: _ as indices)), false, _)
+    when MoxiTypeChecker.bv_literal (string_of_symbol symbol) indices <> None -> (
+    (* A bit-vector constant [(_ bvN m)]: the type checker has checked that
+       the value fits the width *)
+    let value, width =
+      Option.get (MoxiTypeChecker.bv_literal (string_of_symbol symbol) indices)
+    in
+    Term.mk_ubv (Bitvector.num_to_ubv width value)
+  )
+  | A.QualId ((_, symbol, []), false, _)
+    when HSM.mem (hstring_of_symbol symbol) env.lets ->
+    Term.mk_var (HSM.find (hstring_of_symbol symbol) env.lets)
   | A.QualId (id, is_prime, _) -> (
     let _, symbol, indices = id in
+    let scope = env.scope in
 
     if indices <> [] then
       failwith("Unexpected indexed identifier") ;
@@ -229,44 +301,46 @@ let rec kind2_term scope = function
       | None, None -> assert false
     in
     match
-      const_array_eq (kind2_term scope a) (type_of_sort sort)
-        (kind2_term scope v)
+      const_array_eq (kind2_term env a) (type_of_sort sort)
+        (kind2_term env v)
     with
     | Some expanded -> expanded
-    | None -> kind2_app scope t
+    | None -> kind2_app env t
   )
-  | A.App _ as t -> kind2_app scope t
+  | A.App _ as t -> kind2_app env t
   | A.Let (_, var_bindings, term) -> (
-    (* TODO: Add full support for shadowing *)
-    let vars =
+    (* The bindings are simultaneous: the bound terms are translated in the
+       enclosing scope, and the variables they bind, free variables named
+       after them, are in scope in the body only, where they shadow state
+       and let-bound variables of the same name *)
+    let bindings =
       var_bindings |> List.map (fun (_, s, t) ->
-        let term' = kind2_term scope t in
-        let ty = Term.type_of_term term' in
-        let var =
-          let name = string_of_symbol s in
-          let svar =
-            StateVar.mk_state_var
-              ~is_input:false ~is_const:false ~for_inv_gen:true
-              name scope ty
-          in
-          Var.mk_state_var_instance svar TS.init_base
-        in
-        var, term'
+        let term' = kind2_term env t in
+        let var = Var.mk_free_var (hstring_of_symbol s) (Term.type_of_term term') in
+        s, var, term'
       )
     in
-    Term.mk_let vars (kind2_term scope term)
+    let lets =
+      List.fold_left (fun lets (s, var, _) -> HSM.add (hstring_of_symbol s) var lets)
+        env.lets bindings
+    in
+    Term.mk_let (List.map (fun (_, var, term') -> var, term') bindings)
+      (kind2_term { env with lets } term)
   )
 
 (* Translate a function application *)
-and kind2_app scope = function
-  | A.App (_, (id, is_prime, sort), args) -> (
-    let args = List.map (kind2_term scope) args in
+and kind2_app env = function
+  | A.App (span, (id, is_prime, sort), args) -> (
+    let args = List.map (kind2_term env) args in
 
     let _, symbol, indices = id in
 
     try
       if is_prime then raise Not_found ;
       match indices with
+      | [] when string_of_symbol symbol = "!=" ->
+        (* The disequality of MoXI *)
+        Term.mk_not (Term.mk_eq args)
       | [] -> (
         let symb =
           GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
@@ -295,8 +369,11 @@ and kind2_app scope = function
       )
       | _ -> raise Not_found
     with Not_found -> (
-      failwith(Format.sprintf "Invalid function symbol '%s'"
-               (string_of_symbol symbol))
+      (* The type checker has accepted the symbol: it is one of the theories
+         that kmoxi does not translate *)
+      raise (Unsupported_feature (Lib.start_pos span,
+        Format.sprintf "kmoxi does not support the function symbol '%s'"
+          (string_of_symbol symbol)))
     )
   )
   | A.Constant _ | A.QualId _ | A.Let _ -> assert false
@@ -451,7 +528,8 @@ let rec bounds ty =
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
-let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_system_cmd) =
+let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals systems
+    (sys_def: A.define_system_cmd) =
 
   let sys_name_hs = hstring_of_symbol sys_def.A.name in
   let sys_name = HString.string_of_hstring sys_name_hs in
@@ -464,6 +542,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   let local_svars = mk_svars sys_name false sys_def.A.local in
 
   let sys_scope = mk_sys_scope sys_name in
+  let env = { scope = sys_scope; lets = HSM.empty; real_numerals } in
 
   let def_svars, init_defs, trans_defs =
     List.fold_left
@@ -474,12 +553,12 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
           | None -> init_defs
           | Some init -> (
             let var = Var.mk_state_var_instance svar TS.init_base in
-            let eq = Term.mk_eq [Term.mk_var var; kind2_term sys_scope init] in
+            let eq = Term.mk_eq [Term.mk_var var; kind2_term env init] in
             eq :: init_defs
           )
         in
         let var' = Var.mk_state_var_instance svar TS.trans_base in
-        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term sys_scope trans] in
+        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term env trans] in
         svar :: def_svars, init_defs, eq' :: trans_defs
       )
       ([], [], [])
@@ -533,11 +612,11 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   let init_conj = init_flag_init :: init_defs @ subsys_init in
   let init_conj =
     if (sys_def.inv = A.Constant True) then init_conj
-    else (kind2_term sys_scope sys_def.inv) :: init_conj
+    else (kind2_term env sys_def.inv) :: init_conj
   in
   let init_conj =
     if (sys_def.init = A.Constant True) then init_conj
-    else (kind2_term sys_scope sys_def.init) :: init_conj
+    else (kind2_term env sys_def.init) :: init_conj
   in
   let init_term = Term.mk_and init_conj in
 
@@ -571,12 +650,12 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   let trans_conj =
     if (sys_def.inv = A.Constant True) then trans_conj
     else
-      let inv' = Term.bump_state Numeral.one (kind2_term sys_scope sys_def.inv) in
+      let inv' = Term.bump_state Numeral.one (kind2_term env sys_def.inv) in
       inv' :: trans_conj
   in
   let trans_conj =
     if (sys_def.trans = A.Constant True) then trans_conj
-    else (kind2_term sys_scope sys_def.trans) :: trans_conj
+    else (kind2_term env sys_def.trans) :: trans_conj
   in
   let trans_term = Term.mk_and trans_conj in
 
@@ -652,12 +731,15 @@ let negate term =
   let id = (Lib.dummy_span, symb, []) in
   A.App (Lib.dummy_span, (id, false, None), [term])
 
-let mk_check systems (check_cmd: A.check_system_cmd) =
+let mk_check ~real_numerals systems (check_cmd: A.check_system_cmd) =
   let queries, formulas =
     List.partition A.is_query_attr check_cmd.A.attrs
   in
+  (* What the type checker accepts of a check-system but kmoxi does not
+     translate *)
+  let unsupported = unsupported check_cmd.A.loc in
   match queries with
-  | [] -> failwith("check-system with no query")
+  | [] -> unsupported "kmoxi requires a :query in every check-system"
   | [q] -> (
     let query_name, query_symbols =
       match q with
@@ -701,7 +783,7 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     in
     let defs, props, curr_state_props =
       match reachable_fs with
-      | [] -> failwith("check-system query with no reachable attribute")
+      | [] -> unsupported "kmoxi requires a query to name a :reachable condition"
       | [(_, (symb, term))] -> (
         let v =
           let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
@@ -724,7 +806,7 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
         ((symb, bool_sort), (Some (A.Constant A.True), negate term)) :: defs,
         [p], curr_state_props
       )
-      | _ -> failwith("check-system query with multiple reachable attributes is not supported")
+      | _ -> unsupported "kmoxi supports one :reachable condition per query"
     in
     let input = check_cmd.A.input in
     let output = check_cmd.A.output in
@@ -763,7 +845,7 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
       subsys ; init ; trans ; inv ;
     }
     in
-    let _, sys, _ = mk_system ~defs ~local_map systems sys_def in
+    let _, sys, _ = mk_system ~defs ~local_map ~real_numerals systems sys_def in
     let sys_scope = TS.scope_of_trans_sys sys in
     let sys =
       let (_, init_eq, trans_eq) = TS.init_trans_open sys in
@@ -778,38 +860,47 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     in
     mk_subsystem (Scope.Hashtbl.create 7) sys, curr_state_props
   )
-  | _ -> failwith("check-system with more than one query is not currently supported")
+  | _ -> unsupported "kmoxi supports one :query per check-system"
 
-let process_command input = function
-  | A.SetLogicCmd (_, _logic) -> input
+let process_command (input : input) = function
+  | A.SetLogicCmd (_, logic) ->
+    { input with
+      real_numerals =
+        MoxiTypeChecker.numerals_are_real (HString.string_of_hstring logic) }
   | A.DefineSystemCmd sys_def -> (
-    let name, sys, svars = mk_system input.systems sys_def in
+    let name, sys, svars =
+      mk_system ~real_numerals:input.real_numerals input.systems sys_def
+    in
     { input with systems = HSM.add name (sys, svars) input.systems }
   )
   | A.CheckSystemCmd check_cmd ->
-    let check = mk_check input.systems check_cmd in
+    let check =
+      mk_check ~real_numerals:input.real_numerals input.systems check_cmd
+    in
     { input with checks = check :: input.checks }
 
 let process_ast ast =
   List.fold_left process_command empty_input ast
 
-(* Open and parse from file *)
-let of_file filename =
+(* Open a file and apply [f] to its parsed and type checked script; the
+   channel is closed on every path, an error or exception included *)
+let with_file filename f =
   let in_ch =
     match filename with
     | "" -> stdin
     | _ -> open_in filename
   in
-  try (
-    let lexbuf = Lexing.from_channel in_ch in
-    Lib.set_lexer_filename lexbuf filename ;
-    let* ast = parse_buffer lexbuf in
-    let input = process_ast ast in
-    close_in in_ch;
-    Ok input.checks
+  Fun.protect ~finally:(fun () -> close_in_noerr in_ch) (fun () ->
+    try
+      let lexbuf = Lexing.from_channel in_ch in
+      Lib.set_lexer_filename lexbuf filename ;
+      let* ast = parse_and_check lexbuf in
+      Ok (f ast)
+    with Unsupported_feature (pos, msg) -> Error (Unsupported (pos, msg))
   )
-  with e -> (
-    close_in_noerr in_ch;
-    raise e
-  )
+
+let check_file filename = with_file filename ignore
+
+let of_file filename =
+  with_file filename (fun ast -> (process_ast ast).checks)
    

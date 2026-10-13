@@ -3428,7 +3428,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Only parse the Lustre program. No analysis is performed.@ \
+          Only parse and type check the input program. No analysis is performed.@ \
           Default: %a\
         "
         fmt_bool only_parse_default
