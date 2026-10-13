@@ -1187,7 +1187,7 @@ let main fwd slice_to_prop prop in_sys param sys =
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg)
-  else if TransSys.subsystem_includes_fun_def sys then
+  else if TransSys.subsystem_includes_rec_fun_def sys then
     (* The definitions are part of the concrete unrolling the interpolating
        solver refines the abstraction on, and the interpolating solvers do
        not take them *)
