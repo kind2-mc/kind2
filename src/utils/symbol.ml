@@ -89,6 +89,7 @@ type interpreted_symbol =
   | `BVSDIV               (* Arithmetic integer signed division (binary) *)
   | `BVUREM               (* Arithmetic remainder (binary) *)
   | `BVSREM               (* Arithmetic signed remainder (binary) *)
+  | `BVSMOD               (* Arithmetic signed remainder with the sign of the divisor (binary) *)
   | `BVSHL                (* Logical shift left (binary) *)
   | `BVLSHR               (* Logical shift right (binary) *)
   | `BVASHR               (* Arithmetic right shift (binary) *)
@@ -243,6 +244,7 @@ module Symbol_node = struct
     | `BVSDIV, `BVSDIV
     | `BVUREM, `BVUREM
     | `BVSREM, `BVSREM
+    | `BVSMOD, `BVSMOD
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
     | `BVASHR, `BVASHR
@@ -305,6 +307,7 @@ module Symbol_node = struct
     | `BVSDIV, _
     | `BVUREM, _
     | `BVSREM, _
+    | `BVSMOD, _
     | `BVSHL, _
     | `BVLSHR, _
     | `BVASHR, _
@@ -469,6 +472,7 @@ let rec pp_print_symbol_node ppf = function
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSREM -> Format.pp_print_string ppf "bvsrem"
+  | `BVSMOD -> Format.pp_print_string ppf "bvsmod"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVASHR -> Format.pp_print_string ppf "bvashr"

@@ -328,12 +328,70 @@ let rec kind2_term env = function
       (kind2_term { env with lets } term)
   )
 
+(* The width of a bit-vector term *)
+and bv_width t = Type.bitvectorsize (Term.type_of_term t)
+
+(* The bits [i] to [j] of [t], both included *)
+and bv_extract i j t =
+  Term.mk_bvextract (Numeral.of_int i) (Numeral.of_int j) t
+
+(* The bit-vector operators of SMT-LIB that Kind 2 has no symbol for,
+   defined as in the FixedSizeBitVectors theory from the ones it has; the
+   type checker has established the arities and the sorts. Each definition
+   mentions its operands once, so that the terms stay linear in the size of
+   the model: Kind 2 prints terms to the solvers without sharing *)
+and kind2_bv_app name args =
+  match name, args with
+  | "bvnand", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvand [a; b]))
+  | "bvnor", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvor [a; b]))
+  | "bvxnor", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvxor [a; b]))
+  | "bvcomp", [a; b] ->
+    Some (Term.mk_ite (Term.mk_eq [a; b])
+      (Term.mk_ubv (Bitvector.one 1)) (Term.mk_ubv (Bitvector.zero 1)))
+  | "bvsmod", [s; t] -> Some (Term.mk_bvsmod [s; t])
+  | _ -> None
+
+(* The indexed bit-vector operators of SMT-LIB, given their numeral
+   indices; [extract], [sign_extend] and [zero_extend] are symbols of
+   Kind 2, the others are defined from them and [concat] *)
+and kind2_indexed_bv_app name indices args =
+  match name, indices, args with
+  | "extract", [i; j], [t] -> Some (bv_extract i j t)
+  | "sign_extend", [i], [t] -> Some (Term.mk_bvsignext (Numeral.of_int i) t)
+  | "zero_extend", [i], [t] -> Some (Term.mk_bvzeroext (Numeral.of_int i) t)
+  | "repeat", [i], [t] ->
+    (* [i] copies of [t], [i] being positive, by doubling: the term has
+       log2 [i] concatenations, each of a term shared with itself, rather
+       than [i] - 1 of ever wider terms *)
+    let rec copies i =
+      if i = 1 then t
+      else
+        let half = copies (i / 2) in
+        let even = Term.mk_bvconcat half half in
+        if i mod 2 = 0 then even else Term.mk_bvconcat even t
+    in
+    Some (copies i)
+  | ("rotate_left" | "rotate_right"), [i], [t] ->
+    (* Rotating by the width is the identity; a rotation to the left by [k]
+       bits moves the [m - k] low bits up, and the [k] high bits down *)
+    let m = bv_width t in
+    let k = if name = "rotate_left" then i mod m else (m - i mod m) mod m in
+    if k = 0 then Some t
+    else Some (Term.mk_bvconcat (bv_extract (m - k - 1) 0 t)
+                 (bv_extract (m - 1) (m - k) t))
+  | _ -> None
+
 (* Translate a function application *)
 and kind2_app env = function
   | A.App (span, (id, is_prime, sort), args) -> (
     let args = List.map (kind2_term env) args in
 
     let _, symbol, indices = id in
+
+    let numeral_index = function
+      | A.NumericIndex (_, n) -> Numeral.to_int n
+      | A.SymbolicIndex _ -> raise Not_found
+    in
 
     try
       if is_prime then raise Not_found ;
@@ -342,38 +400,39 @@ and kind2_app env = function
         (* The disequality of MoXI *)
         Term.mk_not (Term.mk_eq args)
       | [] -> (
-        let symb =
-          GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
-        in
-        if Symbol.is_const_array symb then (
-          match sort with
-          | Some sort -> (
-            match args with
-            | [v] -> Term.mk_const_array (type_of_sort sort) v
-            | _ -> failwith("Incorrect number of arguments for const function")
+        match kind2_bv_app (string_of_symbol symbol) args with
+        | Some t -> t
+        | None ->
+          let symb =
+            GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
+          in
+          if Symbol.is_const_array symb then (
+            match sort with
+            | Some sort -> (
+              match args with
+              | [v] -> Term.mk_const_array (type_of_sort sort) v
+              | _ -> failwith("Incorrect number of arguments for const function")
+            )
+            | None -> failwith("Couldn't determine sort for const function")
           )
-          | None -> failwith("Couldn't determine sort for const function")
-        )
-        else
-          Term.mk_app symb args
+          else
+            Term.mk_app symb args
       )
-      | [idx1; idx2] -> (
-        if (string_of_symbol symbol = "extract") then (
-          match idx1, idx2 with
-          | NumericIndex (_, i1), NumericIndex (_, i2) -> (
-            Term.mk_app (Symbol.s_extract i1 i2) args
-          )
-          | _ -> failwith("Unexpected indices for extract operator")
-        )
-        else raise Not_found
+      | _ -> (
+        match
+          kind2_indexed_bv_app (string_of_symbol symbol)
+            (List.map numeral_index indices) args
+        with
+        | Some t -> t
+        | None -> raise Not_found
       )
-      | _ -> raise Not_found
     with Not_found -> (
       (* The type checker has accepted the symbol: it is one of the theories
          that kmoxi does not translate *)
       raise (Unsupported_feature (Lib.start_pos span,
         Format.sprintf "kmoxi does not support the function symbol '%s'"
-          (string_of_symbol symbol)))
+          (MoxiTypeChecker.string_of_indexed_id (string_of_symbol symbol)
+             indices)))
     )
   )
   | A.Constant _ | A.QualId _ | A.Let _ -> assert false

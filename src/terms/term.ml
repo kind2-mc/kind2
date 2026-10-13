@@ -779,6 +779,7 @@ let rec type_of_term' t = match T.destruct t with
         | `BVSDIV
         | `BVUREM
         | `BVSREM
+        | `BVSMOD
         | `BVSHL
         | `BVLSHR 
         | `BVASHR ->
@@ -1307,6 +1308,12 @@ let mk_bvsrem = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVSREM a
 
+(* Hashcons a signed bitvector remainder with the sign of the divisor *)
+let mk_bvsmod = function
+  | [] -> invalid_arg "Term.mk_bvsmod"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSMOD a
+
 (* Hashcons a bitvector conjunction *)
 let mk_bvand = function
   | [] -> invalid_arg "Term.mk_bvand"
@@ -1481,6 +1488,9 @@ let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
 
 (* Hashcons a BV sign extension *)
 let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]
+
+(* Hashcons a zero extension of a bitvector by [i] bits *)
+let mk_bvzeroext i t = mk_app_of_symbol_node (`BVZEROEXT i) [t]
 
 (* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
 let mk_ubv_to_int t = 

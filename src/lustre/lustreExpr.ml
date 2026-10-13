@@ -329,6 +329,7 @@ let string_of_symbol = function
   | `BVSDIV -> "div"
   | `BVUREM -> "mod"
   | `BVSREM -> "mod"
+  | `BVSMOD -> "bvsmod"
   | `BVULT -> "<"
   | `BVULE -> "<="
   | `BVUGT -> ">"
@@ -669,6 +670,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `GT as s -> pp_print_app_chain safe pvar s ppf
 
     (* Binary non-associative symbols *)
+    | `BVSMOD
     | `BVSHL 
     | `BVLSHR 
     | `BVASHR as s -> 

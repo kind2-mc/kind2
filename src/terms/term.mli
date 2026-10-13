@@ -168,6 +168,10 @@ val mk_bvurem : t list -> t
 (** Create a signed bitvector modulus *)
 val mk_bvsrem : t list -> t
 
+(** Hashcons a signed bitvector remainder with the sign of the divisor
+    ([bvsmod] of SMT-LIB) *)
+val mk_bvsmod : t list -> t
+
 (** Create a bitvector conjunction *)
 val mk_bvand : t list -> t
 
@@ -287,6 +291,9 @@ val mk_bvconcat : t -> t -> t
 
 (** Create a BV sign extension *)
 val mk_bvsignext : Numeral.t -> t -> t
+
+(** Zero extension of a bitvector by the given number of bits *)
+val mk_bvzeroext : Numeral.t -> t -> t
 
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t
