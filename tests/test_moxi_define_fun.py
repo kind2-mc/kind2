@@ -55,10 +55,44 @@ unreachable = """
   :reachable (odd (= ((_ extract 0 0) c) #b1)) :query (q (odd)))
 """
 
+# A function name that needs quoting in SMT-LIB, and one that is the name of
+# an internal symbol of Kind 2 (the initial state predicate of main): the
+# solvers are given every function under a fresh name
+quoted = """
+(set-logic QF_LIA)
+(define-fun |my inc| ((b Int)) Int (+ b 1))
+(define-system main :input () :output ((x Int)) :local ()
+  :init (= x 0) :trans (= x' (|my inc| x)))
+(check-system main :input () :output ((x Int)) :local ()
+  :reachable (r (= x 3)) :query (q (r)))
+"""
+
+internal_name = """
+(set-logic QF_LIA)
+(define-fun __node_init_main ((b Int)) Int (+ b 1))
+(define-system main :input () :output ((x Int)) :local ()
+  :init (= x 0) :trans (= x' (__node_init_main x)))
+(check-system main :input () :output ((x Int)) :local ()
+  :reachable (r (= x 3)) :query (q (r)))
+"""
+
+# The parameters of a function are in a scope no system can have
+scope = """
+(set-logic QF_LIA)
+(define-fun usr ((x Bool)) Bool x)
+(define-system __define_fun :input () :output ((x Int)) :local ()
+  :init (= x 0) :trans (= x' (+ x 1)))
+(check-system __define_fun :input () :output ((x Int)) :local ()
+  :reachable (r (and (usr true) (= x 2))) :query (q (r)))
+"""
+
 answers = [
     ("nested", nested, "unsat", ["z3", "bitwuzla"]),
     ("shadowing", shadowing, "sat", ["z3"]),
     ("unreachable", unreachable, "unsat", ["z3", "bitwuzla"]),
+    ("quoted", quoted, "sat", ["z3"]),
+    ("internal_name", internal_name, "sat", ["z3"]),
+    ("scope", scope, "sat", ["z3"]),
 ]
 cases = [(name, model, expected, solver)
          for name, model, expected, solvers in answers for solver in solvers]
@@ -98,17 +132,32 @@ def test_define_fun_answers(tmp_path, name, model, expected, solver):
     assert f":query (q {expected}" in out, out
 
 
+# A function applied through another, and one applied by no system
+applied = """
+(set-logic QF_BV)
+(define-fun inc ((b (_ BitVec 4))) (_ BitVec 4) (bvadd b #x2))
+(define-fun twice ((b (_ BitVec 4))) (_ BitVec 4) (inc (inc b)))
+(define-fun unused ((b (_ BitVec 4))) (_ BitVec 4) (bvsub b #x1))
+(define-system main :input () :output ((c (_ BitVec 4))) :local ()
+  :init (= c #x0) :trans (= c' (twice c)))
+(check-system main :input () :output ((c (_ BitVec 4))) :local ()
+  :reachable (odd (= ((_ extract 0 0) c) #b1)) :query (q (odd)))
+"""
+
+
 def test_definition_given_to_solver(tmp_path):
-    # The solver is given the definition, and the logic stays quantifier-free
+    # The solver is given the definitions the system applies, each after
+    # those its body applies, and the logic stays quantifier-free
     trace_dir = tmp_path / "out"
-    _, out = run(tmp_path, unreachable,
+    _, out = run(tmp_path, applied,
                  ["--enable", "BMC", "--enable", "IND",
                   "--smt_trace", "--output_dir", str(trace_dir)])
     assert ":query (q unsat" in out, out
     traces = list(trace_dir.rglob("*.smt2"))
     assert traces, out
     text = traces[0].read_text()
-    assert re.search(r"\(define-fun\s+inc\s", text), text[:2000]
+    defined = re.findall(r"\(define-fun\s+(__kmoxi_fun_\d+_\w+)", text)
+    assert defined == ["__kmoxi_fun_0_inc", "__kmoxi_fun_1_twice"], defined
     assert "(set-logic QF_BV)" in text, text[:2000]
 
 
@@ -124,9 +173,10 @@ errors = {
         "argument 1 of 'inc'",
     ),
     "body sort": (
-        "(define-fun inc ((b Int)) Bool (+ b 1))",
+        "(define-fun inc ((b Int)) Bool\n  (+ b 1))",
         "x",
-        "the body of function 'inc' has sort Int, but Bool is declared",
+        # At the body, on the line after the name
+        ":4:3: error: the body of function 'inc' has sort Int, but Bool is declared",
     ),
     "system variable in body": (
         "(define-fun inc ((b Int)) Int (+ x 1))",
@@ -142,6 +192,26 @@ errors = {
         "(define-fun inc ((b Int)) Int b) (define-fun inc ((b Int)) Int b)",
         "x",
         "function 'inc' is already defined",
+    ),
+    "built-in function": (
+        "(define-fun abs ((b Int)) Int b)",
+        "x",
+        "'abs' is a built-in symbol, which cannot be defined",
+    ),
+    "const": (
+        "(define-fun const ((b Int)) Int b)",
+        "x",
+        "'const' is a built-in symbol, which cannot be defined",
+    ),
+    "indexed operator": (
+        "(define-fun extract ((b Int)) Int b)",
+        "x",
+        "'extract' is a built-in symbol, which cannot be defined",
+    ),
+    "bit-vector constant": (
+        "(define-fun bv5 () Int 5)",
+        "x",
+        "'bv5' is a built-in symbol, which cannot be defined",
     ),
 }
 

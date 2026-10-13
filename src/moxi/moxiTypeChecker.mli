@@ -74,6 +74,7 @@ type error_kind =
   | DuplicateLetBinding of string
   | SystemRedefined of string
   | FunctionRedefined of string
+  | BuiltinRedefined of string
   | FunctionBodySort of string * sort * sort
   | UnknownSystem of string
   | SelfInstantiation of string

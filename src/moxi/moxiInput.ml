@@ -589,6 +589,24 @@ let mk_subsystem_calls local_map sys_name init_flag systems subsys =
   in
   subsystems, lifted_svars, formulas
 
+(* The definitions, among [fun_defs] (last first), that [terms] apply,
+   directly or through the bodies of other definitions, in definition
+   order. A body applies only the functions defined before it, so one pass
+   from the last definition to the first collects them all. *)
+let applied_fun_defs fun_defs terms =
+  let module UFS = UfSymbol.UfSymbolSet in
+  let used =
+    List.fold_left (fun acc t -> UFS.union (Term.uf_symbols_of_term t) acc)
+      UFS.empty terms
+  in
+  List.fold_left
+    (fun (used, acc) ((uf, _, body) as def) ->
+       if UFS.mem uf used then
+         UFS.union (Term.uf_symbols_of_term body) used, def :: acc
+       else used, acc)
+    (used, []) fun_defs
+  |> snd
+
 let rec bounds ty =
   let fixed_bound ty' =
     match Type.node_of_type ty' with
@@ -740,7 +758,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
 
   let sys, _ =
     TS.mk_trans_sys
-      ~fun_defs:(List.rev fun_defs)
+      ~fun_defs:(applied_fun_defs fun_defs [init_term; trans_term])
       scope
       None (* instance_state_var *)
       init_flag
@@ -951,7 +969,21 @@ let process_command (input : input) = function
        body refers to them as to let-bound variables, which shadow
        everything else, and may apply the functions defined before. *)
     let name = hstring_of_symbol def.A.name in
-    let fun_scope = ["__define_fun"; HString.string_of_hstring name] in
+    (* The solvers are given the function under a fresh name, which no
+       other symbol has and is a simple SMT-LIB symbol: the MoXI name may
+       need quoting, or be the name of an internal symbol of Kind 2 *)
+    let fresh_name =
+      Format.sprintf "__kmoxi_fun_%d_%s" (List.length input.fun_defs)
+        (String.map
+           (fun c ->
+              match c with
+              | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> c
+              | _ -> '_')
+           (HString.string_of_hstring name))
+    in
+    (* The reserved scope of the fresh name, which the scope of no state
+       variable of a system can be *)
+    let fun_scope = mk_sys_scope ~reserved:true fresh_name in
     let params =
       List.map (fun (_, s, sort) ->
         let sv =
@@ -971,7 +1003,7 @@ let process_command (input : input) = function
     let body = kind2_term env def.A.body in
     let vars = List.map snd params in
     let uf =
-      UfSymbol.mk_uf_symbol (HString.string_of_hstring name)
+      UfSymbol.mk_uf_symbol fresh_name
         (List.map Var.type_of_var vars) (type_of_sort def.A.sort)
     in
     { input with
