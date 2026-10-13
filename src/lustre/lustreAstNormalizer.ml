@@ -31,8 +31,8 @@
   but the actual definition is not added to the AST. Instead it is recoreded in
   the generated_identifiers record.
 
-  pre operators are explicitly guarded in the AST by an oracle variable
-  if they were originally unguarded
+  pre operators are explicitly guarded in the AST by an oracle variable,
+  so that an expression keeps its initial value wherever a later pass moves it
     e.g. pre expr => oracle -> pre expr
 
   The following parts of the AST are abstracted by locals:
@@ -253,12 +253,6 @@ type info = {
      obligations line up a guard with a selector that sits under a different
      number of 'pre's (see mk_selector_obligation). *)
   call_context : (LustreAst.expr * LustreAst.expr * int) list;
-  (* The condition 'not the initial instant', once per enclosing '->' whose
-     right operand the expression being normalized sits in, with the 'pre'
-     nesting depth at which it was pushed. Same shape and role as
-     [call_context], but kept apart from it because the state of a node call
-     under an arrow still advances at the initial instant. *)
-  arrow_context : (LustreAst.expr * LustreAst.expr * int) list;
   (* Conditions of the enclosing eager constructs ('if', 'and', 'or', '=>')
      under which the value of the expression being normalized matters, with
      the 'pre' nesting depth at which each was pushed. They establish nothing
@@ -1260,7 +1254,6 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     inlinable_funcs = get_inlinable_func_decls inlinable_funcs decls;
     uf_callable_funcs;
     call_context = [];
-    arrow_context = [];
     value_context = [];
     pre_depth = 0;
     emit_selector_obligations = true;
@@ -2319,22 +2312,11 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
             shift_gids := union !shift_gids gids;
             shift (d - 1) (mk_pre_local ie)
         in
-        (* Nested arrows all stand for the same condition, so one copy of it
-           is enough per 'pre' depth *)
-        let guard_context =
-          let arrows =
-            List.fold_left
-              (fun acc ((_, _, d) as c) ->
-                if List.exists (fun (_, _, d') -> d = d') acc then acc else c :: acc)
-              [] info.arrow_context
-          in
-          info.call_context @ arrows
-        in
         (* 'pick' selects the normalized or the source form of each guard *)
         let shifted_guards pick shift_fn =
           List.map
             (fun c -> let g, d = pick c in shift_fn d g)
-            guard_context
+            info.call_context
         in
         let mk_body pick core shift_fn =
           let core = shift_fn info.pre_depth core in
@@ -2348,16 +2330,6 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
         in
         let normalized_pick (g, _, d) = (g, d) in
         let source_pick (_, g, d) = (g, d) in
-        (* A scrutinee read through a 'pre' that only an enclosing '->' gives a
-           value to has none at the initial instant, where the obligation is
-           vacuous: that arrow is one of the guards the obligation inherits.
-           The equations the obligation is built from hold at every instant, so
-           the arrow is repeated here. *)
-        let protect core =
-          if AH.has_unguarded_pre_no_warn core then
-            A.Arrow (pos, A.Const (pos, A.True), core)
-          else core
-        in
         (* Same shape as the obligation but with no generated locals: used to
            discover the variables to close over *)
         let probe = mk_body normalized_pick tester shift_display in
@@ -2399,11 +2371,7 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
         if List.exists implies emitted then empty ()
         else begin
           SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
-          (* The core is protected before it is shifted, so that the locals the
-             shift introduces are protected too *)
-          let obligation =
-            close (protect (mk_body normalized_pick (protect tester) shift))
-          in
+          let obligation = close (mk_body normalized_pick tester shift) in
           (* Displayed in terms of the input model *)
           let display =
             close (mk_body source_pick (mk_tester src_base) shift_display)
@@ -2722,10 +2690,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      (call, condact, restart every, merge/activate). The callee's state
      advances on every step whatever the enclosing eager conditions, so an
      argument is evaluated under none of them; the lazy guards gate the call
-     itself, and stay in [call_context]. An enclosing '->' gates nothing, so
-     the argument is evaluated at the initial instant too. *)
+     itself, and stay in [call_context]. *)
   let abstract_node_arg ?guard force is_const info map expr =
-    let info = { info with value_context = []; arrow_context = [] } in
+    let info = { info with value_context = [] } in
     let force = force || (is_const && is_ghost_const info expr) in
     let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
     if should_not_abstract info force nexpr then
@@ -2908,8 +2875,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         handle_call ~inlined:true vmap subst_args
       in
       let nargs, gids2, warnings2 = normalize_list
-        (normalize_expr ?guard
-           { info with value_context = []; arrow_context = [] } node_id map)
+        (normalize_expr ?guard { info with value_context = [] } node_id map)
         args
       in
       let nexpr, gids3 = mk_fresh_qcall info id inst_name pos nargs in
@@ -2939,14 +2905,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* ************************************************************************ *)
   | Arrow (pos, expr1, expr2) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
-    (* The right operand is read from the first instant on, never at the
-       initial one, which is what a selector read there has to account for *)
-    let info2 =
-      let not_init = A.Arrow (pos, A.Const (pos, A.False), A.Const (pos, A.True)) in
-      { info with
-        arrow_context = (not_init, not_init, info.pre_depth) :: info.arrow_context }
-    in
-    let nexpr2, gids2, warnings2 = normalize_expr ?guard:(Some nexpr1) info2 node_id map expr2 in
+    let nexpr2, gids2, warnings2 = normalize_expr ?guard:(Some nexpr1) info node_id map expr2 in
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
     Arrow (pos, nexpr1, nexpr2), gids, warnings
@@ -2969,31 +2928,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       in
     let info = { info with pre_depth = info.pre_depth + 1 } in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
-    let guard, gids2, warnings2, previously_guarded = match guard with
-      | Some guard -> guard, empty (), [], true
-      | None ->
-        let guard, _, gids = mk_fresh_oracle ty nexpr in
-        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
-        guard, gids, warnings, false
+    (* The 'pre' gets an initial value of its own even inside an arrow that
+       already supplies one, so that it stays well defined wherever a later
+       pass moves it. [guard] then only says whether the user wrote one. *)
+    let oracle, _, gids2 = mk_fresh_oracle ty nexpr in
+    let warnings2 = match guard with
+      | Some _ -> []
+      | None -> [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))]
     in
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
-    if previously_guarded then
-      let rec process_expr nexpr = 
-        match nexpr with
-        | A.IndexAccess (pos2, expr1, expr2, kind) ->
-          A.IndexAccess (pos2, process_expr expr1, expr2, kind)
-        | e -> Pre (pos, e)
-      in 
-      process_expr nexpr, gids, warnings
-    else
-      let rec process_expr nexpr = 
-        match nexpr with
-        | A.IndexAccess (pos2, expr1, expr2, kind) ->
-          A.IndexAccess (pos2, process_expr expr1, expr2, kind)
-        | e -> A.Arrow (pos, guard, Pre (pos, e))
-      in 
-      process_expr nexpr, gids, warnings
+    (* A local generalized to an array equation is read as l[i]; 'pre' has to
+       sit under the index access, as it does everywhere else in the AST *)
+    let rec process_expr nexpr =
+      match nexpr with
+      | A.IndexAccess (pos2, expr1, expr2, kind) ->
+        A.IndexAccess (pos2, process_expr expr1, expr2, kind)
+      | e -> A.Arrow (pos, oracle, Pre (pos, e))
+    in
+    process_expr nexpr, gids, warnings
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
@@ -3171,16 +3124,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
        the chain replicates it all again. Abstracting the scrutinee into a
        fresh local (shared by every occurrence of the same expression) keeps
        each level linear in the size of the value. A scrutinee that mentions
-       a quantified variable or an array index variable is left in place, and
-       so is one reading a 'pre' that only an enclosing '->' gives a value to:
-       the equation defining the local would hold at the initial instant too,
-       where that 'pre' has none. *)
+       a quantified variable or an array index variable is left in place. *)
     let abstract_scrutinee =
       match selector_info with
       | Some (_, _, _, false) ->
         info.quantified_variables = []
         && not (expr_has_inductive_var info.inductive_variables expr)
-        && not (AH.has_unguarded_pre_no_warn expr)
       | _ -> false
     in
     let nexpr, gids1, warnings =
