@@ -175,6 +175,11 @@ type t =
         They are given to the solvers as they are, as definitions of an
         SMT-LIB [define-fun], and do not change the logic beyond what their
         bodies use. *)
+
+    all_fun_defs : fun_def list;
+    (** The non-recursive function definitions of the system and of its
+        subsystems, each once and after those its body applies: the order
+        the solvers are given them in. Computed once, by [mk_trans_sys]. *)
     
     logic : TermLib.logic;
     (** Logic fragment needed to express the transition system 
@@ -913,32 +918,7 @@ let fold_subsystems ?(include_top = true) f accum ({ subsystems } as trans_sys) 
 
 (* The non-recursive function definitions of the system and its subsystems,
    each once, every definition after those its body applies *)
-let all_fun_defs trans_sys =
-  let module UFM = UfSymbol.UfSymbolMap in
-  let module UFS = UfSymbol.UfSymbolSet in
-  let defs =
-    fold_subsystems ~include_top:true
-      (fun acc t ->
-         List.fold_left (fun acc ((uf, _, _) as d) -> UFM.add uf d acc) acc
-           t.fun_defs)
-      UFM.empty trans_sys
-  in
-  (* Depth first: the definitions a body applies come first *)
-  let rec visit (seen, acc) ((uf, _, body) as def) =
-    if UFS.mem uf seen then seen, acc
-    else
-      let seen, acc =
-        UFS.fold
-          (fun uf' st ->
-             match UFM.find_opt uf' defs with
-             | Some d -> visit st d
-             | None -> st)
-          (Term.uf_symbols_of_term body)
-          (UFS.add uf seen, acc)
-      in
-      seen, def :: acc
-  in
-  UFM.fold (fun _ d st -> visit st d) defs (UFS.empty, []) |> snd |> List.rev
+let all_fun_defs { all_fun_defs } = all_fun_defs
 
 (* Give the solver the non-recursive function definitions of the system and
    its subsystems, before the predicates that may apply them *)
@@ -2160,6 +2140,30 @@ let one_state_conjuncts subsystems terms =
   List.filter_map
     (fun t -> if is_one_state t then Some t else sub_one_state t) terms
 
+(* [defs] without repetitions, every definition after those its body
+   applies (depth first) *)
+let order_fun_defs defs =
+  let module UFM = UfSymbol.UfSymbolMap in
+  let module UFS = UfSymbol.UfSymbolSet in
+  let by_symbol =
+    List.fold_left (fun acc ((uf, _, _) as d) -> UFM.add uf d acc) UFM.empty defs
+  in
+  let rec visit (seen, acc) ((uf, _, body) as def) =
+    if UFS.mem uf seen then seen, acc
+    else
+      let seen, acc =
+        UFS.fold
+          (fun uf' st ->
+             match UFM.find_opt uf' by_symbol with
+             | Some d -> visit st d
+             | None -> st)
+          (Term.uf_symbols_of_term body)
+          (UFS.add uf seen, acc)
+      in
+      seen, def :: acc
+  in
+  List.fold_left visit (UFS.empty, []) defs |> snd |> List.rev
+
 let mk_trans_sys
   ?(instance_var_id_start = 0)
   ?one_state_trans
@@ -2467,6 +2471,11 @@ let mk_trans_sys
       ufs;
       rec_fun_defs;
       fun_defs;
+      (* The subsystems' lists are ordered already: only their union with
+         the system's own definitions is ordered here *)
+      all_fun_defs =
+        order_fun_defs
+          (fun_defs @ List.concat_map (fun (t, _) -> t.all_fun_defs) subsystems);
       init_uf_symbol;
       init_formals;
       init;
