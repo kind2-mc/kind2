@@ -1,27 +1,27 @@
-"""IC3 with quantifier elimination extracts cubes from distinct terms.
+"""IC3 with quantifier elimination handles distinct terms.
 
-The extraction of an implicant from a model, which IC3QE generalizes its
-counterexamples to induction with, had no case for distinct and failed an
-assertion on it: IC3QE stopped on every system whose formulas compare terms
-with distinct, which MoXI models do. distinct is now the conjunction of the
-disequalities of every two of its arguments, extracted from with the same
-polarity.
+IC3QE generalizes its counterexamples to induction by extracting an
+implicant from a model, and both that extraction and the evaluation of
+terms in a model had no case for distinct: they failed an assertion on it,
+and IC3QE stopped on every system whose formulas apply distinct, which MoXI
+models do. distinct is now the conjunction of the disequalities of every
+two of its arguments, in the simplification that evaluates terms, and in
+the extraction, which takes the first pair of equal arguments when it is
+to be false.
 
-Each model is checked with IC3QE alone, with the query reachable and not,
-for distinct of two and of three arguments.
+Each model is checked with IC3QE alone: counters stepped from 0 by the
+given amounts, and a query in which distinct appears directly, or under
+another operator, so that it is evaluated as a subterm.
 """
 
-import os
 import re
-import subprocess
 
 import pytest
 
-from conftest import kill_tree, kmoxi_args, kmoxi_bin
+from conftest import LustreTimeout, kmoxi_args, kmoxi_bin, run_kind2
 
-# Counters stepped by the given amounts from 0; the query asks for all of
-# them to be pairwise distinct
-def model(steps):
+
+def model(steps, query):
     names = "abc"[: len(steps)]
     vars_ = " ".join(f"({n} Int)" for n in names)
     init = " ".join(f"(= {n} 0)" for n in names)
@@ -31,18 +31,25 @@ def model(steps):
 (define-system main :input () :output ({vars_}) :local ()
   :init (and {init}) :trans (and {trans}))
 (check-system main :input () :output ({vars_}) :local ()
-  :reachable (r (distinct {" ".join(names)})) :query (q (r)))
+  :reachable (r {query}) :query (q (r)))
 """
 
 
+# (steps of a, b, c), query, expected answer. With steps 1 and 1, a and b are
+# equal in every state; with 1 and 2 they differ from the first step on.
 cases = {
-    # Distinct after one step
-    "binary-sat": ([1, 2], "sat"),
-    # Equal in every state
-    "binary-unsat": ([1, 1], "unsat"),
-    "ternary-sat": ([1, 2, 3], "sat"),
-    # a and b are equal in every state
-    "ternary-unsat": ([1, 1, 3], "unsat"),
+    "binary-sat": ([1, 2], "(distinct a b)", "sat"),
+    "binary-unsat": ([1, 1], "(distinct a b)", "unsat"),
+    "ternary-sat": ([1, 2, 3], "(distinct a b c)", "sat"),
+    "ternary-unsat": ([1, 1, 3], "(distinct a b c)", "unsat"),
+    "or-sat": ([1, 2, 1], "(or (distinct a b) (< c 0))", "sat"),
+    "or-unsat": ([1, 1, 1], "(or (distinct a b) (< c 0))", "unsat"),
+    "ite-sat": ([1, 2, 1], "(ite (distinct a b) (> c 5) (< c 0))", "sat"),
+    "ite-unsat": ([1, 1, 1], "(ite (distinct a b) (> c 5) (< c 0))", "unsat"),
+    "and-sat": ([1, 2, 1], "(and (distinct a b) (>= c 0))", "sat"),
+    "and-unsat": ([1, 1, 1], "(and (distinct a b) (>= c 0))", "unsat"),
+    "implies-unsat": ([1, 2, 1], "(not (=> (distinct a b) (>= c 0)))", "unsat"),
+    "bool-eq-unsat": ([1, 1, 1], "(not (= (distinct a b) (< c 0)))", "unsat"),
 }
 
 
@@ -50,22 +57,15 @@ cases = {
 def test_ic3qe_distinct(tmp_path, case):
     if not kmoxi_bin.exists():
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
-    steps, expected = cases[case]
+    steps, query, expected = cases[case]
     path = tmp_path / f"{case}.moxi"
-    path.write_text(model(steps))
+    path.write_text(model(steps, query))
     args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
-    popen_args = {} if os.name == "nt" else {"start_new_session": True}
-    proc = subprocess.Popen(
-        [kmoxi_bin, "-v", *arg_list, "--enable", "IC3QE", str(path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **popen_args,
-    )
     try:
-        stdout, stderr = proc.communicate(timeout=60)
-    except subprocess.TimeoutExpired:
-        kill_tree(proc)
-        proc.communicate()
-        pytest.fail("no answer after 60s")
-    out = re.sub(r"\x1b\[[0-9;]*m", "", stdout + stderr)
+        res = run_kind2([kmoxi_bin, "-v", *arg_list, "--enable", "IC3QE", path])
+    except LustreTimeout as e:
+        pytest.fail(f"no answer: {e.output.decode('utf-8', errors='replace')}")
+    out = re.sub(r"\x1b\[[0-9;]*m", "", res.stdout.decode() + res.stderr.decode())
     assert "Assertion failed" not in out, out
     assert f":query (q {expected}" in out, out

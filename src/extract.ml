@@ -667,20 +667,29 @@ let extract uf_defs env term =
 
           )
 
-        (* Pairwise distinctness: the conjunction of the disequalities of
-           every two arguments, extracted from with the same polarity. To
-           be false, some two arguments are equal in the model, and the
-           conjunction gives the disequality of that pair to be false. *)
+        (* Pairwise distinctness to be true: every two arguments differ *)
+        | `DISTINCT when polarity ->
+
+          (accum, [(Simplify.pairwise_disequalities l, true)])
+
+        (* Pairwise distinctness to be false: two arguments are equal in the
+           model, the first such pair found, evaluating each argument once *)
         | `DISTINCT ->
 
-          let rec pairs = function
-            | [] -> []
-            | a :: tl ->
-              List.map (fun b -> Term.mk_not (Term.mk_eq [a; b])) tl
-              @ pairs tl
+          let values =
+            List.map (fun t -> t, Eval.term_of_value (eval_term t)) l
+          in
+          let rec equal_pair = function
+            | [] ->
+              raise (Invalid_argument "Extract on unsatisfiable formula")
+            | (a, va) :: tl -> (
+              match List.find_opt (fun (_, vb) -> Term.equal va vb) tl with
+              | Some (b, _) -> Term.mk_eq [a; b]
+              | None -> equal_pair tl
+            )
           in
 
-          (accum, [(Term.mk_and (pairs l), polarity)])
+          (accum, [(equal_pair values, true)])
 
         (* if-then-else *)
         | `ITE -> 

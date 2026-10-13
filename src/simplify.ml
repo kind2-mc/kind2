@@ -182,6 +182,15 @@ let term_of_dec_polynomial =
     Term.mk_dec
 
 
+(* The conjunction of the disequalities of every two of [terms], which is
+   what [(distinct t1 ... tn)] means *)
+let pairwise_disequalities terms =
+  let rec pairs = function
+    | [] -> []
+    | a :: tl -> List.map (fun b -> Term.mk_not (Term.mk_eq [a; b])) tl @ pairs tl
+  in
+  Term.mk_and (pairs terms)
+
 (* Convert a normal form to a term *)
 let term_of_nf = function 
   | Num p -> term_of_num_polynomial p
@@ -2300,8 +2309,11 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           (* Coincidence of real with integer not implemented *)
           | `IS_INT -> assert false
 
-          (* Distinct not implemented *)
-          | `DISTINCT -> assert false
+          (* Distinct is the conjunction of pairwise disequalities *)
+          | `DISTINCT ->
+            List.map term_of_nf args
+            |> pairwise_disequalities
+            |> Term.eval_t (simplify_term_node default_of_var uf_defs model)
 
           | `BVAND -> binary_bv_op Bitvector.bv_and args
 
@@ -3087,8 +3099,11 @@ let rec remove_ite' fterm args =
         (* Coincidence of real with integer (not implemented) *)
         | `IS_INT -> assert false
 
-        (* Distinct (not implemented) *)
-        | `DISTINCT -> assert false
+        (* Distinct is the conjunction of pairwise disequalities *)
+        | `DISTINCT ->
+          List.map term_of_nf args
+          |> pairwise_disequalities
+          |> Term.eval_t remove_ite'
 
         (* Normal form for an uninterpreted function *)
         | `UF u -> atom_of_term (Term.mk_uf u (List.map term_of_nf args))
