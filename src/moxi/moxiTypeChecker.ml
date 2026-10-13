@@ -19,6 +19,7 @@
 module A = MoxiAst
 module HS = HString
 module HSM = HS.HStringMap
+module HSS = HS.HStringSet
 
 (* ********************************************************************** *)
 (* Sorts                                                                  *)
@@ -30,6 +31,7 @@ type sort =
   | Real
   | BitVec of int
   | Array of sort * sort
+  | Enum of string
 
 let rec pp_print_sort ppf = function
   | Bool -> Format.pp_print_string ppf "Bool"
@@ -38,6 +40,7 @@ let rec pp_print_sort ppf = function
   | BitVec n -> Format.fprintf ppf "(_ BitVec %d)" n
   | Array (i, e) ->
     Format.fprintf ppf "(Array %a %a)" pp_print_sort i pp_print_sort e
+  | Enum s -> Format.pp_print_string ppf s
 
 let string_of_sort = Format.asprintf "%a" pp_print_sort
 
@@ -78,7 +81,9 @@ type error_kind =
   | DuplicateLetBinding of string
   | SystemRedefined of string
   | FunctionRedefined of string
+  | SymbolRedeclared of string
   | BuiltinRedefined of string
+  | SortRedeclared of string
   | FunctionBodySort of string * sort * sort
   | UnknownSystem of string
   | SelfInstantiation of string
@@ -103,7 +108,7 @@ let error_message = function
   | LogicAlreadySet ->
     "the logic is already set; set-logic may occur only once"
   | LogicAfterDefinition ->
-    "set-logic must precede every define-system and check-system command"
+    "set-logic must precede every declaration and definition"
   | UnknownSort s ->
     Format.sprintf "unknown sort '%s'" s
   | MalformedSort (s, why) ->
@@ -168,8 +173,14 @@ let error_message = function
     Format.sprintf "system '%s' is already defined" s
   | FunctionRedefined f ->
     Format.sprintf "function '%s' is already defined" f
+  | SymbolRedeclared f ->
+    Format.sprintf
+      "'%s' is already declared, as a constant, an enumeration value or a \
+       function" f
   | BuiltinRedefined f ->
     Format.sprintf "'%s' is a built-in symbol, which cannot be defined" f
+  | SortRedeclared s ->
+    Format.sprintf "sort '%s' is already declared" s
   | FunctionBodySort (f, declared, actual) ->
     Format.sprintf "the body of function '%s' has sort %s, but %s is declared"
       f (string_of_sort actual) (string_of_sort declared)
@@ -310,6 +321,12 @@ type env = {
   priming : priming;
   (* Functions defined with define-fun: their parameter and result sorts *)
   funs : (sort list * sort) HSM.t;
+  (* Constants declared with declare-const: their sorts *)
+  consts : sort HSM.t;
+  (* Enumeration sorts declared with declare-enum-sort, and the sort of each
+     of their values *)
+  enums : HSS.t;
+  enum_values : sort HSM.t;
 }
 
 let str = HS.string_of_hstring
@@ -339,7 +356,7 @@ let rec string_of_ast_sort A.{ id = (_, (_, s), indices); parameters } =
 
 let check_sort_in_logic pos logic sort =
   let rec check = function
-    | Bool -> ()
+    | Bool | Enum _ -> ()
     | Int -> if not logic.ints then fail pos (SortNotInLogic (Int, logic.name))
     | Real -> if not logic.reals then fail pos (SortNotInLogic (Real, logic.name))
     | BitVec _ as s ->
@@ -350,7 +367,8 @@ let check_sort_in_logic pos logic sort =
   in
   check sort
 
-let rec sort_of_ast logic (A.{ id = (span, (_, s), indices); parameters } as ast) =
+let rec sort_of_ast env (A.{ id = (span, (_, s), indices); parameters } as ast) =
+  let logic = env.logic in
   let pos = Lib.start_pos span in
   let malformed why = fail pos (MalformedSort (string_of_ast_sort ast, why)) in
   let simple sort =
@@ -376,9 +394,10 @@ let rec sort_of_ast logic (A.{ id = (span, (_, s), indices); parameters } as ast
     | "Array" -> (
       if indices <> [] then malformed "Array takes no indices";
       match parameters with
-      | [i; e] -> Array (sort_of_ast logic i, sort_of_ast logic e)
+      | [i; e] -> Array (sort_of_ast env i, sort_of_ast env e)
       | _ -> malformed "Array takes two sort parameters, index and element"
     )
+    | _ when HSS.mem s env.enums -> simple (Enum (str s))
     | _ -> fail pos (UnknownSort (string_of_ast_sort ast))
   in
   check_sort_in_logic pos logic sort;
@@ -478,6 +497,14 @@ let rec check_term env = function
               | PrimeInputs _ | PrimeAll -> ()
             );
             sort, false
+          | None when HSM.mem s env.consts ->
+            (* A constant is rigid, but not a constant term of the theory:
+               a product with it is nonlinear *)
+            if is_prime then fail pos (PrimedNonVariable name);
+            HSM.find s env.consts, false
+          | None when HSM.mem s env.enum_values ->
+            if is_prime then fail pos (PrimedNonVariable name);
+            HSM.find s env.enum_values, true
           | None -> (
             (* A function without parameters, applied to no arguments *)
             match HSM.find_opt s env.funs with
@@ -505,7 +532,7 @@ let rec check_term env = function
       | [] -> (
         match name, ascription with
         | "const", Some sort -> (
-          let sort = sort_of_ast env.logic sort in
+          let sort = sort_of_ast env sort in
           if not env.logic.arrays then not_in_logic pos env name;
           match sort with
           | Array (_, e) ->
@@ -553,7 +580,7 @@ let rec check_term env = function
 and check_ascription env pos sort = function
   | None -> ()
   | Some ascribed ->
-    let ascribed = sort_of_ast env.logic ascribed in
+    let ascribed = sort_of_ast env ascribed in
     if ascribed <> sort then fail pos (AscriptionMismatch (sort, ascribed))
 
 (* Check the sorts of the arguments against a list of expected sorts; the
@@ -772,12 +799,12 @@ let check_formula env what term =
 (* ********************************************************************** *)
 
 (* The sorted variables of a [:input], [:output] or [:local] attribute *)
-let sorted_var_list logic vars =
-  List.map (fun (span, (_, s), sort) -> span, s, sort_of_ast logic sort) vars
+let sorted_var_list env vars =
+  List.map (fun (span, (_, s), sort) -> span, s, sort_of_ast env sort) vars
 
-let sorted_vars logic = function
+let sorted_vars env = function
   | None -> []
-  | Some (_, vars) -> sorted_var_list logic vars
+  | Some (_, vars) -> sorted_var_list env vars
 
 (* The state variables of a system or check as an environment, failing on a
    duplicate name *)
@@ -855,15 +882,23 @@ let is_builtin env name =
       | Type_error (_, UnknownFunction _) -> false
       | Type_error _ -> true)
 
+(* A function, constant or enumeration value is named by a symbol that no
+   other one has, and that is not built in *)
+let check_new_symbol env span s =
+  let name = str s in
+  if HSM.mem s env.funs || HSM.mem s env.consts || HSM.mem s env.enum_values
+  then fail_span span (SymbolRedeclared name);
+  if is_builtin env name then fail_span span (BuiltinRedefined name)
+
 (* A function body is a term over the parameters only, unprimed, which may
    apply the functions defined before it *)
 let check_define_fun env (def : A.define_fun_cmd) =
   let name_span, name_hs = def.name in
   let name = str name_hs in
   if HSM.mem name_hs env.funs then fail_span name_span (FunctionRedefined name);
-  if is_builtin env name then fail_span name_span (BuiltinRedefined name);
-  let params = sorted_var_list env.logic def.params in
-  let result = sort_of_ast env.logic def.sort in
+  check_new_symbol env name_span name_hs;
+  let params = sorted_var_list env def.params in
+  let result = sort_of_ast env def.sort in
   let vars = vars_of [Local, params] in
   let what = Format.sprintf "the body of function %s" name in
   let body_sort, _ =
@@ -878,13 +913,46 @@ let check_define_fun env (def : A.define_fun_cmd) =
       HSM.add name_hs (List.map (fun (_, _, sort) -> sort) params, result)
         env.funs }
 
+let check_declare_const env (decl : A.declare_const_cmd) =
+  let name_span, name_hs = decl.name in
+  check_new_symbol env name_span name_hs;
+  { env with consts = HSM.add name_hs (sort_of_ast env decl.sort) env.consts }
+
+(* The values of an enumeration sort are symbols of their own, distinct from
+   each other and from every other symbol *)
+let check_declare_enum_sort env (decl : A.declare_enum_sort_cmd) =
+  let name_span, name_hs = decl.name in
+  let name = str name_hs in
+  if List.mem name ["Bool"; "Int"; "Real"; "BitVec"; "Array"]
+     || HSS.mem name_hs env.enums
+  then fail_span name_span (SortRedeclared name);
+  let sort = Enum name in
+  let env =
+    List.fold_left (fun env (span, v) ->
+      check_new_symbol env span v;
+      { env with enum_values = HSM.add v sort env.enum_values }
+    ) env decl.values
+  in
+  { env with enums = HSS.add name_hs env.enums }
+
+(* The variables of a system or check are not named after a function,
+   constant or enumeration value, which they would hide in the system.
+   Unlike them, the parameters of a function and the variables of a let are
+   bound in a term only, and may shadow them. *)
+let check_not_global env vars =
+  List.iter (fun (span, s, _) ->
+    if HSM.mem s env.funs || HSM.mem s env.consts || HSM.mem s env.enum_values
+    then fail_span span (SymbolRedeclared (str s))
+  ) vars
+
 let check_define_system env (sys : A.define_system_cmd) =
   let name_span, name_hs = sys.name in
   let name = str name_hs in
   if HSM.mem name_hs env.systems then fail_span name_span (SystemRedefined name);
-  let inputs = sorted_vars env.logic sys.input in
-  let outputs = sorted_vars env.logic sys.output in
-  let locals = sorted_vars env.logic sys.local in
+  let inputs = sorted_vars env sys.input in
+  let outputs = sorted_vars env sys.output in
+  let locals = sorted_vars env sys.local in
+  List.iter (check_not_global env) [inputs; outputs; locals];
   let vars = vars_of [Input, inputs; Output, outputs; Local, locals] in
   let env = { env with vars; lets = HSM.empty } in
   (* The parser lists the subsystems last first *)
@@ -911,7 +979,7 @@ let check_check_system env (check : A.check_system_cmd) =
     let span =
       match attr with Some (span, _) -> span | None -> check.loc
     in
-    let vars = sorted_vars env.logic attr in
+    let vars = sorted_vars env attr in
     let declared = List.length vars and expected = List.length formals in
     if declared <> expected then
       fail_span span (RenamingArity (kind, sys_name, declared, expected));
@@ -924,6 +992,7 @@ let check_check_system env (check : A.check_system_cmd) =
   let inputs = renaming "input" check.input sys_sig.inputs in
   let outputs = renaming "output" check.output sys_sig.outputs in
   let locals = renaming "local" check.local sys_sig.locals in
+  List.iter (check_not_global env) [inputs; outputs; locals];
   let vars = vars_of [Input, inputs; Output, outputs; Local, locals] in
   let env = { env with vars; lets = HSM.empty } in
   (* Conditions: assumptions may prime inputs only, reachability conditions
@@ -974,6 +1043,9 @@ let check_script script =
     lets = HSM.empty;
     priming = PrimeAll;
     funs = HSM.empty;
+    consts = HSM.empty;
+    enums = HSS.empty;
+    enum_values = HSM.empty;
   }
   in
   try
@@ -989,6 +1061,9 @@ let check_script script =
         in
         { env with logic }, true, defined
       | A.DefineFunCmd def -> check_define_fun env def, logic_set, true
+      | A.DeclareConstCmd decl -> check_declare_const env decl, logic_set, true
+      | A.DeclareEnumSortCmd decl ->
+        check_declare_enum_sort env decl, logic_set, true
       | A.DefineSystemCmd sys -> check_define_system env sys, logic_set, true
       | A.CheckSystemCmd check -> check_check_system env check, logic_set, true
     ) (empty_env, false, false) script

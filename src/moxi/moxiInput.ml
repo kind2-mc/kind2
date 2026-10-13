@@ -78,7 +78,19 @@ type input =
   (* The functions defined with define-fun: their symbols by name, and
      their definitions, last first *)
   funs: UfSymbol.t HSM.t ;
-  fun_defs: TS.fun_def list
+  fun_defs: TS.fun_def list ;
+  (* The enumeration sorts declared with declare-enum-sort, by name, and
+     their values. An enumeration sort is a type of Kind 2 that stands for
+     an integer range, one integer per value. *)
+  enums: Type.t HSM.t ;
+  enum_values: HSS.t ;
+  (* The constants declared with declare-const, by name: each is a constant
+     state variable, the same in every state and every system *)
+  consts: SV.t HSM.t ;
+  (* Their variables, and the ranges of those of an enumeration sort, last
+     first *)
+  const_vars: Var.t list ;
+  const_constraints: Term.t list
 }
 
 let empty_input =
@@ -88,7 +100,12 @@ let empty_input =
   logic = None ;
   real_numerals = false ;
   funs = HSM.empty ;
-  fun_defs = []
+  fun_defs = [] ;
+  enums = HSM.empty ;
+  enum_values = HSS.empty ;
+  consts = HSM.empty ;
+  const_vars = [] ;
+  const_constraints = []
 }
 
 (* The environment of the translation of a term *)
@@ -98,9 +115,8 @@ type term_env =
   (* The variables bound by the enclosing let binders, which shadow the
      state variables of the system *)
   lets: Var.t HSM.t ;
-  real_numerals: bool ;
-  (* The symbols of the functions defined so far, by name *)
-  funs: UfSymbol.t HSM.t
+  (* The declarations and definitions read so far *)
+  decls: input
 }
 
 let unsupported span msg =
@@ -148,11 +164,14 @@ let rec mk_subsystem map sys =
 let hstring_of_symbol = snd
 let string_of_symbol symbol = HString.string_of_hstring (snd symbol)
 
-let rec type_of_sort A.{ id; parameters } =
+let rec type_of_sort enums A.{ id; parameters } =
   let _, symbol, indices = id in
 
   let name = string_of_symbol symbol in
 
+  match HSM.find_opt (hstring_of_symbol symbol) enums with
+  | Some ty -> ty
+  | None ->
   if name = "Bool" then Type.t_bool
   else if name = "Int" then Type.t_int
   else if name = "Real" then Type.t_real
@@ -163,7 +182,8 @@ let rec type_of_sort A.{ id; parameters } =
   )
   else if name = "Array" then (
     match parameters with
-    | [idx_ty; elem_ty] -> Type.mk_array (type_of_sort elem_ty) (type_of_sort idx_ty)
+    | [idx_ty; elem_ty] ->
+      Type.mk_array (type_of_sort enums elem_ty) (type_of_sort enums idx_ty)
     | _ -> failwith("Incorrect arity for Array sort")
   )
   else raise (Invalid_argument
@@ -175,15 +195,17 @@ let mk_sys_scope ?(reserved=false) sys_name =
   else
     sys_name :: I.user_scope
 
-let mk_svar ?(reserved=false) sys_name is_input symbol sort =
+let mk_svar ?(reserved=false) enums sys_name is_input symbol sort =
   let name = string_of_symbol symbol in
   let scope = mk_sys_scope ~reserved sys_name in
   StateVar.mk_state_var
     ~is_input ~is_const:false ~for_inv_gen:true
-    name scope (type_of_sort sort)
+    name scope (type_of_sort enums sort)
 
 (* The engines bound the indices of an array by its index type, which must
-   be a bit-vector type (see [bounds]) *)
+   be a bit-vector type (see [bounds]). The elements are not constrained, so
+   they cannot be of an enumeration sort, whose values are a range of the
+   integers. *)
 let rec check_array_indices span name ty =
   match Type.node_of_type ty with
   | Array (e, i) ->
@@ -192,16 +214,27 @@ let rec check_array_indices span name ty =
         (Format.asprintf
            "kmoxi supports arrays indexed by bit-vectors only; %s has sort %a"
            name Type.pp_print_type ty);
+    if Type.is_enum e then
+      unsupported span
+        (Format.sprintf
+           "kmoxi does not support arrays of an enumeration sort, such as %s"
+           name);
     check_array_indices span name e
   | _ -> ()
 
-let mk_svars sys_name is_input sys_vars =
+(* The constraint that a variable of an enumeration sort has one of its
+   values *)
+let enum_range ty v =
+  let l, u = Type.bounds_of_enum ty in
+  Term.mk_leq [Term.mk_num l; v; Term.mk_num u]
+
+let mk_svars enums sys_name is_input sys_vars =
   match sys_vars with
   | None -> []
   | Some (_, sorted_vars) -> (
     List.fold_left 
       (fun acc (span, name, sort) ->
-        let svar = mk_svar sys_name is_input name sort in
+        let svar = mk_svar enums sys_name is_input name sort in
         check_array_indices span (string_of_symbol name)
           (SV.type_of_state_var svar);
         svar :: acc
@@ -253,7 +286,7 @@ let rec kind2_term env = function
     | True -> Term.mk_true ()
     | False -> Term.mk_false ()
     | Numeral (_, n) ->
-      if env.real_numerals then Term.mk_dec (Decimal.of_big_int (Numeral.to_big_int n))
+      if env.decls.real_numerals then Term.mk_dec (Decimal.of_big_int (Numeral.to_big_int n))
       else Term.mk_num n
     | Decimal (_, d) -> Term.mk_dec d
     | Bitvector (_, b) -> Term.mk_ubv b
@@ -294,7 +327,12 @@ let rec kind2_term env = function
     with Not_found -> (
       try
         if is_prime then raise Not_found ;
-        match HSM.find_opt (hstring_of_symbol symbol) env.funs with
+        let s = hstring_of_symbol symbol in
+        match HSM.find_opt s env.decls.consts with
+        | Some sv -> Term.mk_var (Var.mk_const_state_var sv)
+        | None when HSS.mem s env.decls.enum_values -> Term.mk_constr name
+        | None ->
+        match HSM.find_opt s env.decls.funs with
         | Some uf -> Term.mk_uf uf []
         | None -> Term.mk_uf (UfSymbol.uf_symbol_of_string name) []
       with Not_found -> (
@@ -314,7 +352,7 @@ let rec kind2_term env = function
       | None, None -> assert false
     in
     match
-      const_array_eq (kind2_term env a) (type_of_sort sort)
+      const_array_eq (kind2_term env a) (type_of_sort env.decls.enums sort)
         (kind2_term env v)
     with
     | Some expanded -> expanded
@@ -409,10 +447,10 @@ and kind2_app env = function
     try
       if is_prime then raise Not_found ;
       match indices with
-      | [] when HSM.mem (hstring_of_symbol symbol) env.funs ->
+      | [] when HSM.mem (hstring_of_symbol symbol) env.decls.funs ->
         (* A defined function, which the solvers are given the definition
            of *)
-        Term.mk_uf (HSM.find (hstring_of_symbol symbol) env.funs) args
+        Term.mk_uf (HSM.find (hstring_of_symbol symbol) env.decls.funs) args
       | [] when string_of_symbol symbol = "!=" ->
         (* The disequality of MoXI *)
         Term.mk_not (Term.mk_eq args)
@@ -427,7 +465,8 @@ and kind2_app env = function
             match sort with
             | Some sort -> (
               match args with
-              | [v] -> Term.mk_const_array (type_of_sort sort) v
+              | [v] ->
+                Term.mk_const_array (type_of_sort env.decls.enums sort) v
               | _ -> failwith("Incorrect number of arguments for const function")
             )
             | None -> failwith("Couldn't determine sort for const function")
@@ -454,7 +493,7 @@ and kind2_app env = function
   )
   | A.Constant _ | A.QualId _ | A.Let _ -> assert false
 
-let mk_subsystem_calls local_map sys_name init_flag systems subsys =
+let mk_subsystem_calls enums local_map sys_name init_flag systems subsys =
   let process_subsys_attr
     (subsystems, acc_svars, formulas, uid)
     A.{ loc; instance_name; system_name; variables } =
@@ -473,7 +512,7 @@ let mk_subsystem_calls local_map sys_name init_flag systems subsys =
           let scope = mk_sys_scope sys_name in
           StateVar.mk_state_var
             ~is_input:false ~is_const:false ~for_inv_gen:true
-            name scope (type_of_sort sort)
+            name scope (type_of_sort enums sort)
         ), false
       | None -> (
         locals |> List.map (fun sv ->
@@ -622,8 +661,8 @@ let rec bounds ty =
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
-let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
-    systems (sys_def: A.define_system_cmd) =
+let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
+    (sys_def: A.define_system_cmd) =
 
   let sys_name_hs = hstring_of_symbol sys_def.A.name in
   let sys_name = HString.string_of_hstring sys_name_hs in
@@ -631,17 +670,18 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
   let scope = [sys_name] in
   let init_flag = StateVar.mk_init_flag scope in
 
-  let input_svars = mk_svars sys_name true sys_def.A.input in
-  let output_svars = mk_svars sys_name false sys_def.A.output in
-  let local_svars = mk_svars sys_name false sys_def.A.local in
+  let enums = input.enums in
+  let input_svars = mk_svars enums sys_name true sys_def.A.input in
+  let output_svars = mk_svars enums sys_name false sys_def.A.output in
+  let local_svars = mk_svars enums sys_name false sys_def.A.local in
 
   let sys_scope = mk_sys_scope sys_name in
-  let env = { scope = sys_scope; lets = HSM.empty; real_numerals; funs } in
+  let env = { scope = sys_scope; lets = HSM.empty; decls = input } in
 
   let def_svars, init_defs, trans_defs =
     List.fold_left
       (fun (def_svars, init_defs, trans_defs) ((symb, sort), (init, trans)) ->
-        let svar = mk_svar ~reserved:true sys_name false symb sort in
+        let svar = mk_svar ~reserved:true enums sys_name false symb sort in
         let init_defs =
           match init with
           | None -> init_defs
@@ -660,7 +700,8 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
   in
 
   let subsystems, subsys_svars, (subsys_init, subsys_trans) =
-    mk_subsystem_calls local_map sys_name init_flag systems sys_def.A.subsys
+    mk_subsystem_calls enums local_map sys_name init_flag input.systems
+      sys_def.A.subsys
   in
 
   let internal_svars =
@@ -679,9 +720,21 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
     |> List.cons init_flag
   in
 
-  let global_consts = [] in (* TODO *)
+  (* The declared constants, which every system has, rather than passes to
+     its subsystems *)
+  let global_consts = List.rev input.const_vars in
 
-  let global_constraints = [] in (* TODO *)
+  let global_constraints = List.rev input.const_constraints in
+
+  (* The variables of an enumeration sort have one of its values, in every
+     state; those of the subsystems are constrained by the subsystems *)
+  let enum_ranges offset =
+    List.rev_append input_svars (List.rev_append output_svars local_svars)
+    |> List.filter (fun sv -> Type.is_enum (SV.type_of_state_var sv))
+    |> List.map (fun sv ->
+      enum_range (SV.type_of_state_var sv)
+        (Term.mk_var (Var.mk_state_var_instance sv offset)))
+  in
 
   let ufs = [] in (* TODO *)
 
@@ -703,7 +756,9 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
   let init_flag_init =
     Var.mk_state_var_instance init_flag TS.init_base |> Term.mk_var
   in
-  let init_conj = init_flag_init :: init_defs @ subsys_init in
+  let init_conj =
+    init_flag_init :: enum_ranges TS.init_base @ init_defs @ subsys_init
+  in
   let init_conj =
     if (sys_def.inv = A.Constant True) then init_conj
     else (kind2_term env sys_def.inv) :: init_conj
@@ -740,7 +795,9 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
     Var.mk_state_var_instance init_flag TS.trans_base
     |> Term.mk_var |> Term.mk_not
   in
-  let trans_conj = init_flag_trans :: trans_defs @ subsys_trans in
+  let trans_conj =
+    init_flag_trans :: enum_ranges TS.trans_base @ trans_defs @ subsys_trans
+  in
   let trans_conj =
     if (sys_def.inv = A.Constant True) then trans_conj
     else
@@ -755,13 +812,16 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
 
   let state_var_bounds = SVH.create 7 in
 
-  state_vars |> List.iter (fun sv ->
+  (* The engines read the bounds of every array, the constants' included *)
+  state_vars
+  @ List.map Var.state_var_of_state_var_instance global_consts
+  |> List.iter (fun sv ->
     SVH.add state_var_bounds sv (bounds (SV.type_of_state_var sv))
   );
 
   let sys, _ =
     TS.mk_trans_sys
-      ~fun_defs:(applied_fun_defs fun_defs [init_term; trans_term])
+      ~fun_defs:(applied_fun_defs input.fun_defs [init_term; trans_term])
       scope
       None (* instance_state_var *)
       init_flag
@@ -826,8 +886,7 @@ let negate term =
   let id = (Lib.dummy_span, symb, []) in
   A.App (Lib.dummy_span, (id, false, None), [term])
 
-let mk_check ~real_numerals ~funs ~fun_defs systems
-    (check_cmd: A.check_system_cmd) =
+let mk_check decls (check_cmd: A.check_system_cmd) =
   let queries, formulas =
     List.partition A.is_query_attr check_cmd.A.attrs
   in
@@ -869,7 +928,9 @@ let mk_check ~real_numerals ~funs ~fun_defs systems
       List.fold_left
         (fun (defs, vars) (_, (symb, term)) ->
           let v =
-            let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
+            let svar =
+              mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
+            in
             Var.mk_state_var_instance svar TS.trans_base
           in
           ((symb, bool_sort), (None, term)) :: defs, v :: vars
@@ -882,7 +943,9 @@ let mk_check ~real_numerals ~funs ~fun_defs systems
       | [] -> unsupported "kmoxi requires a query to name a :reachable condition"
       | [(_, (symb, term))] -> (
         let v =
-          let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
+          let svar =
+            mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
+          in
           Var.mk_state_var_instance svar TS.prop_base
         in
         let p =
@@ -942,7 +1005,7 @@ let mk_check ~real_numerals ~funs ~fun_defs systems
     }
     in
     let _, sys, _ =
-      mk_system ~defs ~local_map ~real_numerals ~funs ~fun_defs systems sys_def
+      mk_system ~defs ~local_map decls sys_def
     in
     let sys_scope = TS.scope_of_trans_sys sys in
     let sys =
@@ -992,7 +1055,8 @@ let process_command (input : input) = function
       List.map (fun (_, s, sort) ->
         let sv =
           StateVar.mk_state_var ~is_input:true ~is_const:false
-            ~for_inv_gen:false (string_of_symbol s) fun_scope (type_of_sort sort)
+            ~for_inv_gen:false (string_of_symbol s) fun_scope
+            (type_of_sort input.enums sort)
         in
         hstring_of_symbol s, Var.mk_state_var_instance sv Numeral.zero
       ) def.A.params
@@ -1000,32 +1064,51 @@ let process_command (input : input) = function
     let env = {
       scope = [];
       lets = List.fold_left (fun m (s, v) -> HSM.add s v m) HSM.empty params;
-      real_numerals = input.real_numerals;
-      funs = input.funs;
+      decls = input;
     }
     in
     let body = kind2_term env def.A.body in
     let vars = List.map snd params in
     let uf =
       UfSymbol.mk_uf_symbol fresh_name
-        (List.map Var.type_of_var vars) (type_of_sort def.A.sort)
+        (List.map Var.type_of_var vars) (type_of_sort input.enums def.A.sort)
     in
     { input with
       funs = HSM.add name uf input.funs;
       fun_defs = (uf, vars, body) :: input.fun_defs }
   )
-  | A.DefineSystemCmd sys_def -> (
-    let name, sys, svars =
-      mk_system ~real_numerals:input.real_numerals ~funs:input.funs
-        ~fun_defs:input.fun_defs input.systems sys_def
+  | A.DeclareEnumSortCmd decl ->
+    let values = List.map string_of_symbol decl.A.values in
+    let ty = Type.mk_enum (string_of_symbol decl.A.name) values in
+    { input with
+      enums = HSM.add (hstring_of_symbol decl.A.name) ty input.enums ;
+      enum_values =
+        List.fold_left (fun acc (_, v) -> HSS.add v acc) input.enum_values
+          decl.A.values }
+  | A.DeclareConstCmd decl -> (
+    let name = string_of_symbol decl.A.name in
+    let ty = type_of_sort input.enums decl.A.sort in
+    check_array_indices (fst decl.A.name) name ty;
+    (* In a reserved scope of its own, which the scope of no system can be *)
+    let sv =
+      StateVar.mk_state_var ~is_input:false ~is_const:true ~for_inv_gen:true
+        name (mk_sys_scope ~reserved:true "const") ty
     in
+    let var = Var.mk_const_state_var sv in
+    let constraints =
+      if Type.is_enum ty then [enum_range ty (Term.mk_var var)] else []
+    in
+    { input with
+      consts = HSM.add (hstring_of_symbol decl.A.name) sv input.consts ;
+      const_vars = var :: input.const_vars ;
+      const_constraints = List.rev_append constraints input.const_constraints }
+  )
+  | A.DefineSystemCmd sys_def -> (
+    let name, sys, svars = mk_system input sys_def in
     { input with systems = HSM.add name (sys, svars) input.systems }
   )
   | A.CheckSystemCmd check_cmd ->
-    let check =
-      mk_check ~real_numerals:input.real_numerals ~funs:input.funs
-        ~fun_defs:input.fun_defs input.systems check_cmd
-    in
+    let check = mk_check input check_cmd in
     { input with checks = check :: input.checks }
 
 let process_ast ast =

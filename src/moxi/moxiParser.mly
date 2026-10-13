@@ -61,6 +61,8 @@ let mk_span start_pos end_pos =
 %token CHECK_SYSTEM
 %token DEFINE_SYSTEM
 %token DEFINE_FUN
+%token DECLARE_CONST
+%token DECLARE_ENUM_SORT
 %token SET_LOGIC
 
 (* Keywords *)
@@ -107,6 +109,8 @@ command:
   | c=check_system { c }
   | c=define_system { c }
   | c=define_fun { c }
+  | c=declare_const { c }
+  | c=declare_enum_sort { c }
   | c=set_logic { c }
 
 set_logic:
@@ -152,6 +156,18 @@ define_fun:
   "(" DEFINE_FUN name=symbol "(" params=sorted_var* ")" sort=sort body=term ")"
   {
     A.DefineFunCmd { loc = mk_span $startpos $endpos; name; params; sort; body }
+  }
+
+declare_const:
+  "(" DECLARE_CONST name=symbol sort=sort ")"
+  {
+    A.DeclareConstCmd { loc = mk_span $startpos $endpos; name; sort }
+  }
+
+declare_enum_sort:
+  "(" DECLARE_ENUM_SORT name=symbol "(" values=symbol+ ")" ")"
+  {
+    A.DeclareEnumSortCmd { loc = mk_span $startpos $endpos; name; values }
   }
 
 define_system:
