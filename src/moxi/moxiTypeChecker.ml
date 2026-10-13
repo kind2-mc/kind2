@@ -59,6 +59,7 @@ type error_kind =
   | NumeralNotInLogic of string
   | DecimalNotInLogic of string
   | BitvectorNotInLogic of string
+  | BitvectorOutOfRange of string * int
   | SymbolNotInLogic of string * string
   | NonlinearTerm of string * string
   | UnboundVariable of string
@@ -112,6 +113,8 @@ let error_message = function
     Format.sprintf "decimals are not in logic %s" l
   | BitvectorNotInLogic l ->
     Format.sprintf "bit-vector literals are not in logic %s" l
+  | BitvectorOutOfRange (id, width) ->
+    Format.sprintf "bit-vector literal %s does not fit in %d bits" id width
   | SymbolNotInLogic (f, l) ->
     Format.sprintf "symbol '%s' is not in logic %s" f l
   | NonlinearTerm (f, l) ->
@@ -258,6 +261,12 @@ let logic_of_name name =
       | "NIRA" -> Some { l with ints = true; reals = true; linear = false }
       | _ -> None
 
+(* Numerals denote reals in a logic with reals and no integers *)
+let numerals_are_real name =
+  match logic_of_name name with
+  | Some logic -> logic.reals && not logic.ints
+  | None -> false
+
 (* ********************************************************************** *)
 (* Environment                                                            *)
 (* ********************************************************************** *)
@@ -292,17 +301,19 @@ let str = HS.string_of_hstring
 (* Sorts                                                                  *)
 (* ********************************************************************** *)
 
+(* An identifier with its indices, as written: [(_ f i j)], or [f] with no
+   indices *)
+let string_of_indexed_id name indices =
+  match indices with
+  | [] -> name
+  | _ ->
+    Format.sprintf "(_ %s %s)" name
+      (String.concat " " (List.map (function
+         | A.NumericIndex (_, n) -> Numeral.string_of_numeral n
+         | A.SymbolicIndex (_, s) -> str s) indices))
+
 let rec string_of_ast_sort A.{ id = (_, (_, s), indices); parameters } =
-  let name = str s in
-  let name =
-    match indices with
-    | [] -> name
-    | _ ->
-      Format.sprintf "(_ %s %s)" name
-        (String.concat " " (List.map (function
-           | A.NumericIndex (_, n) -> Numeral.string_of_numeral n
-           | A.SymbolicIndex (_, s) -> str s) indices))
-  in
+  let name = string_of_indexed_id (str s) indices in
   match parameters with
   | [] -> name
   | _ ->
@@ -366,41 +377,47 @@ let rec sort_of_ast logic (A.{ id = (span, (_, s), indices); parameters } as ast
 let not_in_logic pos env f =
   fail pos (SymbolNotInLogic (f, env.logic.name))
 
+(* The value and width of a bit-vector literal [(_ bvN m)], if the indexed
+   identifier is one: a symbol [bv] followed by digits, with one numeral
+   index, the width. The value may exceed the width: [bv_constant] checks it *)
+let bv_literal name indices =
+  match indices with
+  | [A.NumericIndex (_, width)] when String.starts_with ~prefix:"bv" name ->
+    let digits = String.sub name 2 (String.length name - 2) in
+    if digits <> "" && String.for_all (fun c -> c >= '0' && c <= '9') digits
+    then Some (Numeral.of_string digits, width)
+    else None
+  | _ -> None
+
 (* Interpret a bit-vector constant [(_ bvN m)] *)
 let bv_constant pos env name indices =
-  let value =
-    match String.starts_with ~prefix:"bv" name with
-    | true -> (
-      let digits = String.sub name 2 (String.length name - 2) in
-      if digits <> "" && String.for_all (fun c -> c >= '0' && c <= '9') digits
-      then Some digits else None
-    )
-    | false -> None
-  in
-  match value, indices with
-  | Some _, [A.NumericIndex (_, m)] when Numeral.(m > zero) ->
+  let id = string_of_indexed_id name indices in
+  match bv_literal name indices with
+  | Some (value, width) when Numeral.(width > zero) ->
     if not env.logic.bitvectors then
       fail pos (BitvectorNotInLogic env.logic.name);
-    if Numeral.(m > of_int max_int) then
-      fail pos (UnknownIndexedIdentifier name);
-    BitVec (Numeral.to_int m)
-  | _ ->
-    let id =
-      Format.sprintf "(_ %s %s)" name
-        (String.concat " " (List.map (function
-           | A.NumericIndex (_, n) -> Numeral.string_of_numeral n
-           | A.SymbolicIndex (_, s) -> str s) indices))
-    in
-    fail pos (UnknownIndexedIdentifier id)
+    if Numeral.(width > of_int max_int) then
+      fail pos (UnknownIndexedIdentifier id);
+    let width = Numeral.to_int width in
+    let bound = Numeral.of_big_int (Big_int.power_int_positive_int 2 width) in
+    if Numeral.(value >= bound) then fail pos (BitvectorOutOfRange (id, width));
+    BitVec width
+  | _ -> fail pos (UnknownIndexedIdentifier id)
 
-let numeric_indices pos name indices =
+(* The indices of an indexed identifier [id] as integers, all of which must
+   be numerals *)
+let numeric_indices pos id indices =
   List.map (function
     | A.NumericIndex (_, n) ->
       if Numeral.(n > of_int max_int) then
-        fail pos (UnknownIndexedIdentifier name);
+        fail pos (UnknownIndexedIdentifier id);
       Numeral.to_int n
-    | A.SymbolicIndex _ -> fail pos (UnknownIndexedIdentifier name)
+    | A.SymbolicIndex _ -> fail pos (UnknownIndexedIdentifier id)
   ) indices
+
+(* What an argument is expected to be: a description, or a sort with the
+   role it has, such as the sort of another argument *)
+type expected = Descr of string | SortAs of sort * string
 
 let rec check_term env = function
   | A.Constant c -> (
@@ -469,7 +486,7 @@ let rec check_term env = function
           | Array (_, e) ->
             if List.length args <> 1 then
               fail pos (Arity (name, "1 argument", List.length args));
-            check_args pos name [e, string_of_sort e] (List.map fst args);
+            check_args pos name [e] (List.map fst args);
             sort
           | _ -> fail pos (ConstArrayNotArraySort sort)
         )
@@ -506,13 +523,18 @@ and check_ascription env pos sort = function
     let ascribed = sort_of_ast env.logic ascribed in
     if ascribed <> sort then fail pos (AscriptionMismatch (sort, ascribed))
 
-(* Check the sorts of the arguments against a list of expected sorts, each
-   with the description to give in an error; the arity must have been
-   checked *)
+(* Check the sorts of the arguments against a list of expected sorts; the
+   arity must have been checked *)
 and check_args pos f expected args =
-  List.iteri (fun i (arg, (sort, descr)) ->
-    if arg <> sort then fail pos (ArgumentSort (f, i + 1, arg, descr))
+  List.iteri (fun i (arg, sort) ->
+    if arg <> sort then
+      fail pos (ArgumentSort (f, i + 1, arg, string_of_sort sort))
   ) (List.combine args expected)
+
+(* What an argument was expected to be, described only in an error *)
+and describe = function
+  | Descr d -> d
+  | SortAs (s, role) -> Format.sprintf "%s, %s" (string_of_sort s) role
 
 (* Check an application of a non-indexed function symbol to arguments given
    with their sorts and constant flags, and return its sort *)
@@ -528,9 +550,9 @@ and check_app pos env f args =
   let at_least k =
     arity (Format.sprintf "at least %d %s" k (plural k "argument")) (n >= k)
   in
-  let arg_sort i descr pred =
+  let arg_sort i expected pred =
     let s = List.nth args (i - 1) in
-    if not (pred s) then fail pos (ArgumentSort (f, i, s, descr));
+    if not (pred s) then fail pos (ArgumentSort (f, i, s, describe expected));
     s
   in
   (* All arguments have the sort of the first one, which satisfies [pred] *)
@@ -544,8 +566,10 @@ and check_app pos env f args =
     ) args;
     s
   in
-  let arith = "Int or Real" in
-  let bitvec = "a bit-vector sort" in
+  let arith = Descr "Int or Real" in
+  let bitvec = Descr "a bit-vector sort" in
+  let any = Descr "any sort" in
+  let array = Descr "an array sort" in
   let require ok = if not ok then not_in_logic pos env f in
   let require_arith () = require (logic.ints || logic.reals) in
   let require_bv () = require logic.bitvectors in
@@ -557,19 +581,17 @@ and check_app pos env f args =
   let constant_divisors () = List.for_all Fun.id (List.tl consts) in
   match f with
   (* Core *)
-  | "not" -> exactly 1; check_args pos f [Bool, "Bool"] args; Bool
+  | "not" -> exactly 1; check_args pos f [Bool] args; Bool
   | "=>" | "and" | "or" | "xor" ->
-    at_least 2; ignore (homogeneous "Bool" (( = ) Bool)); Bool
+    at_least 2; ignore (homogeneous (Descr "Bool") (( = ) Bool)); Bool
   | "=" | "distinct" ->
-    at_least 2; ignore (homogeneous "any sort" (fun _ -> true)); Bool
-  | "!=" -> exactly 2; ignore (homogeneous "any sort" (fun _ -> true)); Bool
+    at_least 2; ignore (homogeneous any (fun _ -> true)); Bool
+  | "!=" -> exactly 2; ignore (homogeneous any (fun _ -> true)); Bool
   | "ite" ->
     exactly 3;
-    ignore (arg_sort 1 "Bool" (( = ) Bool));
-    let s = arg_sort 2 "any sort" (fun _ -> true) in
-    ignore (arg_sort 3
-      (Format.sprintf "%s, the sort of the second argument" (string_of_sort s))
-      (( = ) s));
+    ignore (arg_sort 1 (Descr "Bool") (( = ) Bool));
+    let s = arg_sort 2 any (fun _ -> true) in
+    ignore (arg_sort 3 (SortAs (s, "the sort of the second argument")) (( = ) s));
     s
 
   (* Ints, Reals and Reals_Ints *)
@@ -582,32 +604,32 @@ and check_app pos env f args =
     s
   | "/" ->
     require logic.reals; at_least 2;
-    ignore (homogeneous "Real" (( = ) Real));
+    ignore (homogeneous (Descr "Real") (( = ) Real));
     linear_if (constant_divisors ());
     Real
   | "div" ->
     require logic.ints; at_least 2;
-    ignore (homogeneous "Int" (( = ) Int));
+    ignore (homogeneous (Descr "Int") (( = ) Int));
     linear_if (constant_divisors ());
     Int
   | "mod" ->
     require logic.ints; exactly 2;
-    ignore (homogeneous "Int" (( = ) Int));
+    ignore (homogeneous (Descr "Int") (( = ) Int));
     linear_if (constant_divisors ());
     Int
   | "abs" ->
-    require logic.ints; exactly 1; check_args pos f [Int, "Int"] args; Int
+    require logic.ints; exactly 1; check_args pos f [Int] args; Int
   | "<=" | "<" | ">=" | ">" ->
     require_arith (); at_least 2; ignore (homogeneous arith is_arith); Bool
   | "to_real" ->
     require (logic.ints && logic.reals); exactly 1;
-    check_args pos f [Int, "Int"] args; Real
+    check_args pos f [Int] args; Real
   | "to_int" ->
     require (logic.ints && logic.reals); exactly 1;
-    check_args pos f [Real, "Real"] args; Int
+    check_args pos f [Real] args; Int
   | "is_int" ->
     require (logic.ints && logic.reals); exactly 1;
-    check_args pos f [Real, "Real"] args; Bool
+    check_args pos f [Real] args; Bool
 
   (* FixedSizeBitVectors *)
   | "concat" -> (
@@ -634,24 +656,18 @@ and check_app pos env f args =
   (* ArraysEx *)
   | "select" -> (
     require_arrays (); exactly 2;
-    match arg_sort 1 "an array sort" (function Array _ -> true | _ -> false) with
+    match arg_sort 1 array (function Array _ -> true | _ -> false) with
     | Array (i, e) ->
-      ignore (arg_sort 2
-        (Format.sprintf "%s, the index sort of the array" (string_of_sort i))
-        (( = ) i));
+      ignore (arg_sort 2 (SortAs (i, "the index sort of the array")) (( = ) i));
       e
     | _ -> assert false
   )
   | "store" -> (
     require_arrays (); exactly 3;
-    match arg_sort 1 "an array sort" (function Array _ -> true | _ -> false) with
+    match arg_sort 1 array (function Array _ -> true | _ -> false) with
     | Array (i, e) as a ->
-      ignore (arg_sort 2
-        (Format.sprintf "%s, the index sort of the array" (string_of_sort i))
-        (( = ) i));
-      ignore (arg_sort 3
-        (Format.sprintf "%s, the element sort of the array" (string_of_sort e))
-        (( = ) e));
+      ignore (arg_sort 2 (SortAs (i, "the index sort of the array")) (( = ) i));
+      ignore (arg_sort 3 (SortAs (e, "the element sort of the array")) (( = ) e));
       a
     | _ -> assert false
   )
@@ -661,16 +677,9 @@ and check_app pos env f args =
 (* Check an application of an indexed function symbol and return its sort *)
 and check_indexed_app pos env f indices args =
   let n = List.length args in
-  let unknown indices =
-    fail pos (UnknownIndexedIdentifier
-      (Format.sprintf "(_ %s %s)" f
-         (String.concat " " (List.map string_of_int indices))))
-  in
-  let indices = numeric_indices pos f indices in
-  let name =
-    Format.sprintf "(_ %s %s)" f
-      (String.concat " " (List.map string_of_int indices))
-  in
+  let name = string_of_indexed_id f indices in
+  let unknown () = fail pos (UnknownIndexedIdentifier name) in
+  let indices = numeric_indices pos name indices in
   let exactly k =
     if n <> k then
       fail pos (Arity (name, Format.sprintf "%d %s" k (plural k "argument"), n))
@@ -692,22 +701,22 @@ and check_indexed_app pos env f indices args =
     BitVec (i - j + 1)
   | "repeat", [i] ->
     require env.logic.bitvectors; exactly 1;
-    if i < 1 then unknown indices;
+    if i < 1 then unknown ();
     BitVec (i * bv_arg ())
   | "zero_extend", [i] | "sign_extend", [i] ->
     require env.logic.bitvectors; exactly 1;
-    if i < 0 then unknown indices;
+    if i < 0 then unknown ();
     BitVec (bv_arg () + i)
   | "rotate_left", [i] | "rotate_right", [i] ->
     require env.logic.bitvectors; exactly 1;
-    if i < 0 then unknown indices;
+    if i < 0 then unknown ();
     BitVec (bv_arg ())
   | "int2bv", [m] ->
     require (env.logic.bitvectors && env.logic.ints); exactly 1;
-    if m < 1 then unknown indices;
-    check_args pos name [Int, "Int"] args;
+    if m < 1 then unknown ();
+    check_args pos name [Int] args;
     BitVec m
-  | _ -> unknown indices
+  | _ -> unknown ()
 
 (* Check a formula: a term of sort Bool. [what] names it in errors *)
 let check_formula env what term =

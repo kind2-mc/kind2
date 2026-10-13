@@ -55,6 +55,7 @@ type error_kind =
   | NumeralNotInLogic of string
   | DecimalNotInLogic of string
   | BitvectorNotInLogic of string
+  | BitvectorOutOfRange of string * int
   | SymbolNotInLogic of string * string
   | NonlinearTerm of string * string
   | UnboundVariable of string
@@ -93,3 +94,15 @@ val error_message : error_kind -> string
 
 (** Check a script, returning the first error found, if any *)
 val check_script : MoxiAst.script -> (unit, error) result
+
+(** {1 For the translation} *)
+
+(** The value and width of a bit-vector literal [(_ bvN m)], given the
+    symbol and indices of an indexed identifier, if it is one. The checker
+    has verified that the value fits the width of every literal of a
+    checked script. *)
+val bv_literal : string -> MoxiAst.index list -> (Numeral.t * Numeral.t) option
+
+(** Whether numerals denote reals in the logic of the given name: it has
+    reals and no integers *)
+val numerals_are_real : string -> bool

@@ -124,6 +124,16 @@ ill_typed = {
         + "  :init (= y ((_ foo 1) y)))\n",
         "4:14", "unknown indexed identifier '(_ foo 1)'",
     ),
+    "bitvector-literal-out-of-range": (
+        head(logic="QF_BV", input="()", output="((y (_ BitVec 8)))")
+        + "  :init (= y (_ bv300 8)))\n",
+        "4:14", "bit-vector literal (_ bv300 8) does not fit in 8 bits",
+    ),
+    "index-out-of-range": (
+        head(logic="QF_BV", input="()", output="((y (_ BitVec 8)))")
+        + "  :init (= ((_ extract 99999999999999999999 0) y) y))\n",
+        "4:12", "unknown indexed identifier '(_ extract 99999999999999999999 0)'",
+    ),
     "unknown-indexed-constant": (
         head(logic="QF_BV", input="()", output="((y (_ BitVec 8)))")
         + "  :init (= y (_ bvx 8)))\n",
@@ -311,22 +321,56 @@ def test_ill_typed_model_is_rejected(tmp_path, name):
     assert "Backtrace" not in run.stderr, run.stderr
 
 
-def test_unsupported_operator_is_reported(tmp_path):
-    """A well-sorted operator that kmoxi does not translate is reported like
-    a type error, at its position, rather than with a backtrace. The
-    translation runs after the check, so this is not an only-parse run."""
+# Well-sorted scripts that kmoxi does not translate: reported like a type
+# error, at a position, rather than with a backtrace. The translation runs
+# after the check, so these are not only-parse runs.
+check = (
+    head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+)
+unsupported = {
+    "operator": (
+        head(logic="ALL", input="()", output="((y (_ BitVec 8)))")
+        + "  :init (= y ((_ int2bv 8) 5)))\n",
+        "4:14", "kmoxi does not support the function symbol 'int2bv'",
+    ),
+    "array-index-sort": (
+        head(logic="QF_ALIA", input="()", output="((a (Array Int Int)))")
+        + "  :init (= (select a 0) 0))\n",
+        "3:22", "kmoxi supports arrays indexed by bit-vectors only; a has sort "
+        "(Array Int Int)",
+    ),
+    "no-query": (
+        check + "  :reachable (r (> y 0)))\n",
+        "5:1", "kmoxi requires a :query in every check-system",
+    ),
+    "two-queries": (
+        check + "  :reachable (r (> y 0)) :query (q (r)) :query (q2 (r)))\n",
+        "5:1", "kmoxi supports one :query per check-system",
+    ),
+    "query-without-reachable": (
+        check + "  :assumption (a (> x 0)) :query (q (a)))\n",
+        "5:1", "kmoxi requires a query to name a :reachable condition",
+    ),
+    "two-reachable-conditions": (
+        check + "  :reachable (r (> y 0)) :reachable (s (< y 0)) :query (q (r s)))\n",
+        "5:1", "kmoxi supports one :reachable condition per query",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", unsupported, ids=list(unsupported))
+def test_unsupported_script_is_reported(tmp_path, name):
     if not kmoxi_bin.exists():
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
 
+    model, position, message = unsupported[name]
     path = tmp_path / "model.moxi"
-    path.write_text(
-        head(logic="QF_BV", input="()", output="((y (_ BitVec 8)))")
-        + "  :init (= y (bvsmod y y)))\n"
-    )
+    path.write_text(model)
+    assert kmoxi(path, "--only_parse", "true").returncode == 0
     run = kmoxi(path, "--timeout", "30")
     assert run.returncode == PARSE_ERROR, run.stdout + run.stderr
-    assert run.stderr.startswith(f"{path}:4:14: error: "), run.stderr
-    assert "kmoxi does not support the function symbol 'bvsmod'" in run.stderr
+    assert run.stderr.startswith(f"{path}:{position}: error: "), run.stderr
+    assert message in run.stderr, run.stderr
     assert "Backtrace" not in run.stderr, run.stderr
 
 
@@ -345,7 +389,7 @@ well_typed = {
     # Numerals are reals in a logic with reals only
     "reals": (
         head(logic="QF_LRA", input="((x Real))", output="((y Real))")
-        + "  :init (and (<= 0 x 2) (= y (/ x 2)))\n  :trans (= y' (* 0.5 x')))\n"
+        + "  :init (and (<= 0 x 2) (= y (/ x 2)))\n  :trans (= y' (* (/ 1 2) x')))\n"
         "(check-system main :input ((x Real)) :output ((y Real)) :local ()\n"
         "  :reachable (r (> y (- x 0.5) 1)) :query (q (r)))\n",
         "unsat",
