@@ -4638,7 +4638,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               ?one_state_trans
               ~datatype_types:globals.G.recursive_datatypes
               ~fn_congruence_groups
-              ~fun_defs:(
+              ~rec_fun_defs:(
                 if is_defined then LustreFunDefs.blocks_of_node fun_defs node_id
                 else [])
               ?rec_cutoff:(

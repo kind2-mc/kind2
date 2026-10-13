@@ -304,7 +304,7 @@ val mk_trans_sys :
 
   (* Definitions of the recursive functions of the system, as blocks of
      mutually recursive definitions in dependency order *)
-  ?fun_defs:fun_def list list ->
+  ?rec_fun_defs:fun_def list list ->
   ?check_defs:fun_def list list ->
   ?check_ufs:UfSymbol.t list ->
   ?check_helpers:UfSymbol.t list ->
@@ -617,18 +617,18 @@ val get_ufs : t -> UfSymbol.t list
 
 (** Return the definitions of the recursive functions of this system, as
     blocks of mutually recursive definitions in dependency order *)
-val get_fun_defs : t -> fun_def list list
+val get_rec_fun_defs : t -> fun_def list list
 
 (** Return [true] if the system or one of its subsystems has a recursive
     function defined at the SMT level (see [LustreFunDefs]) *)
-val subsystem_includes_fun_def : t -> bool
+val subsystem_includes_rec_fun_def : t -> bool
 
-(** [define_fun_defs t defined define_rec] evaluates [define_rec] with each
+(** [define_rec_fun_defs t defined define_rec] evaluates [define_rec] with each
     block of recursive function definitions of [t] whose symbols are not in
     [defined], and returns [defined] extended with the symbols defined.
     The signature of [define_rec] is that of {!SMTSolver.define_funs_rec}
     partially evaluated with its first argument. *)
-val define_fun_defs :
+val define_rec_fun_defs :
   t -> UfSymbol.UfSymbolSet.t -> (fun_def list -> unit) ->
   UfSymbol.UfSymbolSet.t
 

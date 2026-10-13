@@ -162,7 +162,7 @@ type t =
     ufs : UfSymbol.t list;
     (** Other function declarations *)
 
-    fun_defs : fun_def list list;
+    rec_fun_defs : fun_def list list;
     (** Definitions of the recursive functions of this system, as blocks of
         mutually recursive definitions in dependency order: a block only
         applies the symbols of the blocks before it, of its own, and of
@@ -763,7 +763,7 @@ let get_split_properties { properties } =
 let get_function_symbols { ufs } = ufs
 
 (* Return the recursive function definitions *)
-let get_fun_defs { fun_defs } = fun_defs
+let get_rec_fun_defs { rec_fun_defs } = rec_fun_defs
 
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)
@@ -1001,9 +1001,9 @@ let get_sofar_term trans_sys pos =
   )
 
 (* Subsystem includes a recursive function defined at the SMT level *)
-let subsystem_includes_fun_def =
+let subsystem_includes_rec_fun_def =
   fold_subsystems ~include_top:true
-    (fun acc ts -> acc || get_fun_defs ts <> [])
+    (fun acc ts -> acc || get_rec_fun_defs ts <> [])
     false
 
 let subsystem_includes_function_symbol =
@@ -1014,7 +1014,7 @@ let subsystem_includes_function_symbol =
   *)
   fold_subsystems ~include_top:true
     (fun acc ts ->
-       acc || get_function_symbols ts <> [] || get_fun_defs ts <> [])
+       acc || get_function_symbols ts <> [] || get_rec_fun_defs ts <> [])
     false
 
 (* **************************************************************** *)
@@ -1184,7 +1184,7 @@ let declare_ufs { ufs } declared declare =
 (* Define the recursive functions of a system, skipping the blocks already
    defined (a block is shared by the systems of its functions, and a system
    carries the blocks its own depends on) *)
-let define_fun_defs { fun_defs } defined define_rec =
+let define_rec_fun_defs { rec_fun_defs } defined define_rec =
   List.fold_left
     (fun acc block ->
       match block with
@@ -1199,7 +1199,7 @@ let define_fun_defs { fun_defs } defined define_rec =
         )
     )
     defined
-    fun_defs
+    rec_fun_defs
 
 
 (* Declare the uninterpreted sorts, then the algebraic datatypes
@@ -1252,7 +1252,7 @@ let declare_sorts_ufs_const trans_sys ~define_rec declare declare_sort =
       let declared = declare_ufs t declared declare in
 
       (* Define recursive functions of sub system *)
-      let defined = define_fun_defs t defined define_rec in
+      let defined = define_rec_fun_defs t defined define_rec in
 
       declared, defined
     )
@@ -1261,7 +1261,7 @@ let declare_sorts_ufs_const trans_sys ~define_rec declare declare_sort =
   in
 
   (* Define recursive functions of top system *)
-  define_fun_defs trans_sys defined define_rec |> ignore
+  define_rec_fun_defs trans_sys defined define_rec |> ignore
 
 (* Declare the init and trans functions of the subsystems *)
 let define_subsystems trans_sys define =
@@ -1439,7 +1439,7 @@ let define_and_declare_of_bounds
 
       (* Define recursive functions of sub system, which its predicates
          may apply *)
-      let defined = define_fun_defs t defined define_rec in
+      let defined = define_rec_fun_defs t defined define_rec in
 
       (* Define initial state predicate *)
       define_init define t ;
@@ -1454,7 +1454,7 @@ let define_and_declare_of_bounds
   in
 
   (* Define recursive functions of top system *)
-  define_fun_defs trans_sys defined define_rec |> ignore ;
+  define_rec_fun_defs trans_sys defined define_rec |> ignore ;
 
   (* The definitions of the functions that are neither recursive nor
      imported, which the definitions for the supervisor's evaluation apply,
@@ -2105,7 +2105,7 @@ let mk_trans_sys
   ?one_state_trans
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
-  ?(fun_defs = [])
+  ?(rec_fun_defs = [])
   ?(check_defs = [])
   ?(check_ufs = [])
   ?(check_helpers = [])
@@ -2239,7 +2239,7 @@ let mk_trans_sys
              (* Logics of the bodies of the recursive function definitions *)
              List.concat_map
                (List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t))
-               fun_defs
+               rec_fun_defs
 
              @
 
@@ -2295,7 +2295,7 @@ let mk_trans_sys
          (* A recursive function definition is a quantified axiom to the
             solvers, which refuse it in a quantifier-free logic *)
          |> (fun features ->
-             if fun_defs <> [] then
+             if rec_fun_defs <> [] then
                TermLib.FeatureSet.add TermLib.UF features
                |> TermLib.FeatureSet.add TermLib.Q
                |> TermLib.FeatureSet.add TermLib.RF
@@ -2395,7 +2395,7 @@ let mk_trans_sys
       global_constraints;
       fn_congruence_groups;
       ufs;
-      fun_defs;
+      rec_fun_defs;
       init_uf_symbol;
       init_formals;
       init;
@@ -2750,7 +2750,7 @@ let transfer_results ~from ~into =
               (fun acc block ->
                  List.fold_left (fun acc (uf, _, _) -> UFS.add uf acc) acc block)
               (UFS.union (UFS.of_list t.ufs) acc)
-              t.fun_defs)
+              t.rec_fun_defs)
          UFS.empty into)
       (uf_defs into)
   in
