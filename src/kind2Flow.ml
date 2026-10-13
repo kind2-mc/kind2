@@ -1343,28 +1343,57 @@ let run in_sys =
       Flags.Arrays.set_smt true ;
 
       let params = ISys.moxi_params in_sys in
+      (* The checks not answered yet, and the system of the one being
+         analyzed, for the responses to give when time runs out *)
+      let pending = ref params in
+      let current = ref None in
+      let print_results sys =
+        Signals.ignoring_sigalrm (fun () ->
+          MoxiResults.pp_print_results sys in_sys (TSys.get_properties sys))
+      in
       let run_check param =
         let sys, _ =
           ISys.trans_sys_of_analysis in_sys param
         in
+        current := Some sys ;
         KEvent.log_analysis_start in_sys sys param ;
         Stat.start_timer Stat.analysis_time ;
         
         (* Analyze... *)
         analyze msg_setup false false false true modules in_sys param sys ;
-        let props = TSys.get_properties sys in
 
         (* Print results *)
-        MoxiResults.pp_print_results sys in_sys props;
+        print_results sys ;
+        current := None ;
+        pending := List.tl !pending ;
 
         KEvent.log_analysis_end ()
       in
-      (match params with
-       | [] -> (KEvent.log L_note "No system checks found.")
-       | _ -> List.iter run_check params
-      ) ;
-      
-      post_clean_exit_success `Supervisor Exit
+      (* Out of time, every check still gets its response: the one being
+         analyzed with what the engines established, once they are stopped,
+         and the others with every query unknown *)
+      let respond_to_pending () =
+        (try slaughter_kids ~exiting:true `Supervisor None
+         with TimeoutWall -> ()) ;
+        List.iter (fun param ->
+          let sys =
+            match !current with
+            | Some sys -> current := None ; sys
+            | None -> fst (ISys.trans_sys_of_analysis in_sys param)
+          in
+          print_results sys
+        ) !pending
+      in
+      try
+        (match params with
+         | [] -> (KEvent.log L_note "No system checks found.")
+         | _ -> List.iter run_check params
+        ) ;
+
+        post_clean_exit_success `Supervisor Exit
+      with TimeoutWall ->
+        (try respond_to_pending () with TimeoutWall -> ()) ;
+        raise TimeoutWall
     ) with
     | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
     | e -> (
