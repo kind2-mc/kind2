@@ -325,23 +325,25 @@ def kill_and_communicate(proc: Popen, timeout: float = kill_timeout):
     """Kill `proc` and every process it spawned, and read the rest of its
     output, giving up on it after `timeout` seconds.
 
-    Returns `(stdout, stderr)`, both empty if we gave up. `kill_tree` makes
-    a best effort only, and a process it could not reach, such as one that
+    Returns `(stdout, stderr)`, which hold only what was read before we gave
+    up, if we did. `kill_tree` makes a best effort only, and a process it could not reach, such as one that
     left the process group of the run, may still hold the pipes: reading
     them without a timeout would wait forever for an end that never comes.
     """
     kill_tree(proc)
     try:
         return proc.communicate(timeout=timeout)
-    except TimeoutExpired:
+    except TimeoutExpired as e:
         # Report what we have rather than wait for the rest forever: the
         # reader threads are daemons, and they do not keep the session alive.
-        return b"", b""
+        # On POSIX the exception holds everything read so far, across every
+        # call to `communicate`; on Windows it holds nothing.
+        return e.output or b"", e.stderr or b""
 
 
-def run_kind2(command) -> CompletedProcess:
-    """Run Kind 2, capturing its output, and give up on it after
-    `run_timeout` seconds. Raises `LustreTimeout` if we had to give up."""
+def run_kind2(command, timeout: float = run_timeout) -> CompletedProcess:
+    """Run Kind 2, capturing its output, and give up on it after `timeout`
+    seconds. Raises `LustreTimeout` if we had to give up."""
     popen_args = {}
     if os.name != "nt":
         # Put the run in a process group of its own, so that the solvers it
@@ -358,7 +360,7 @@ def run_kind2(command) -> CompletedProcess:
     proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
 
     try:
-        output, errors = proc.communicate(timeout=run_timeout)
+        output, errors = proc.communicate(timeout=timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -372,6 +374,40 @@ def run_kind2(command) -> CompletedProcess:
         raise LustreTimeout(output, errors, status)
 
     return CompletedProcess(command, proc.returncode, output, errors)
+
+
+# How much longer than its own `--timeout` we let a kmoxi run take before
+# killing it, in seconds
+kmoxi_slack = 30
+
+
+def run_kmoxi(path, *extra, timeout: int = 30):
+    """Run kmoxi on `path` with `extra` arguments and a `--timeout` of
+    `timeout` seconds, and return its standard output and error, decoded.
+
+    Skips the test if kmoxi is not built. Fails it if kmoxi gives no answer
+    within `timeout` and `kmoxi_slack` seconds, showing what kmoxi said and
+    whether it was still running then (see `run_kind2`).
+    """
+    if not kmoxi_bin.exists():
+        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
+    args = kmoxi_args | {"--timeout": str(timeout)}
+    arg_list = [arg for pair in args.items() for arg in pair]
+    try:
+        res = run_kind2(
+            [kmoxi_bin, *arg_list, *extra, path], timeout=timeout + kmoxi_slack
+        )
+    except LustreTimeout as e:
+        state = "still running" if e.status is None else f"exited with {e.status}"
+        pytest.fail(
+            f"no answer from kmoxi ({state}):\n"
+            f"{e.output.decode('utf-8', errors='replace')}"
+            f"{e.errors.decode('utf-8', errors='replace')}"
+        )
+    return (
+        res.stdout.decode("utf-8", errors="replace"),
+        res.stderr.decode("utf-8", errors="replace"),
+    )
 
 
 class LustreItem(pytest.Item):

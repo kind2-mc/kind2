@@ -15,7 +15,7 @@ import shutil
 
 import pytest
 
-from conftest import LustreTimeout, kmoxi_args, kmoxi_bin, run_kind2
+from conftest import run_kmoxi
 
 # mem starts as the constant array 0; a step writes 1 at index 1 when w holds
 system = """
@@ -46,8 +46,6 @@ cases = [
     ids=[f"{s}-index{w}-{e}" for s, w, e in cases],
 )
 def test_const_array_equality(tmp_path, solver, width, expected):
-    if not kmoxi_bin.exists():
-        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     if shutil.which(solver) is None:
         pytest.skip(f"{solver} is not installed")
 
@@ -58,15 +56,7 @@ def test_const_array_equality(tmp_path, solver, width, expected):
     ).format(width=width, query=queries[expected])
     path = tmp_path / "mem.moxi"
     path.write_text(model)
-    args = kmoxi_args | {"--timeout": "30"}
-    arg_list = [arg for pair in args.items() for arg in pair]
-    try:
-        res = run_kind2(
-            [kmoxi_bin, *arg_list, "--smt_solver", solver,
-             "--enable", "BMC", "--enable", "IND", path]
-        )
-    except LustreTimeout as e:
-        pytest.fail(f"no answer: {e.output.decode('utf-8', errors='replace')}")
-    stdout = res.stdout.decode("utf-8", errors="replace")
-    stderr = res.stderr.decode("utf-8", errors="replace")
+    stdout, stderr = run_kmoxi(
+        path, "--smt_solver", solver, "--enable", "BMC", "--enable", "IND"
+    )
     assert f":query (q {expected}" in stdout, stdout + stderr

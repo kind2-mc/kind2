@@ -18,7 +18,7 @@ import re
 
 import pytest
 
-from conftest import LustreTimeout, kmoxi_args, kmoxi_bin, run_kind2
+from conftest import run_kmoxi
 
 
 def model(steps, query):
@@ -55,17 +55,10 @@ cases = {
 
 @pytest.mark.parametrize("case", cases, ids=cases)
 def test_ic3qe_distinct(tmp_path, case):
-    if not kmoxi_bin.exists():
-        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     steps, query, expected = cases[case]
     path = tmp_path / f"{case}.moxi"
     path.write_text(model(steps, query))
-    args = kmoxi_args | {"--timeout": "30"}
-    arg_list = [arg for pair in args.items() for arg in pair]
-    try:
-        res = run_kind2([kmoxi_bin, "-v", *arg_list, "--enable", "IC3QE", path])
-    except LustreTimeout as e:
-        pytest.fail(f"no answer: {e.output.decode('utf-8', errors='replace')}")
-    out = re.sub(r"\x1b\[[0-9;]*m", "", res.stdout.decode() + res.stderr.decode())
+    stdout, stderr = run_kmoxi(path, "-v", "--enable", "IC3QE")
+    out = re.sub(r"\x1b\[[0-9;]*m", "", stdout + stderr)
     assert "Assertion failed" not in out, out
     assert f":query (q {expected}" in out, out
