@@ -119,8 +119,9 @@ You can now add modules following the instructions in the previous section.
 
 exception Error
 
-exception SolverNotFound
-exception UnsupportedSolver
+(** A solver is not found, or not supported; with the message logged *)
+exception SolverNotFound of string
+exception UnsupportedSolver of string
 
 (** {1 Accessors for flags} *)
 

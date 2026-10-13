@@ -28,9 +28,20 @@ let check_solvers logic =
   (match logic with
    | Some "QF_BV" -> Flags.Smt.prefer_solvers ~solver:`Bitwuzla_SMTLIB ()
    | _ -> ());
+  (* A solver that cannot be used is reported as an SMT-LIB error *)
+  let error code msg =
+    let msg =
+      if String.ends_with ~suffix:"." msg then
+        String.sub msg 0 (String.length msg - 1)
+      else msg
+    in
+    Format.printf "(error \"%s\")@."
+      (String.concat "\"\"" (String.split_on_char '"' msg));
+    exit code
+  in
   try Flags.check_solvers () with
-  | Flags.UnsupportedSolver -> exit ExitCodes.unsupported_solver
-  | Flags.SolverNotFound -> exit ExitCodes.not_found_error
+  | Flags.UnsupportedSolver msg -> error ExitCodes.unsupported_solver msg
+  | Flags.SolverNotFound msg -> error ExitCodes.not_found_error msg
 
 let read_and_process_input_file filename =
   if Flags.only_parse () then (
