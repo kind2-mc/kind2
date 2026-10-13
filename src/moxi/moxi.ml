@@ -18,9 +18,62 @@
 
 open Lib
 
+(* The logic declared by the first set-logic command of a MoXI file, if any.
+   The file is only read up to that command, which normally comes first. *)
+let declared_logic filename =
+  (* Next token: a parenthesis, or a symbol (possibly |quoted|) *)
+  let rec token ic =
+    match In_channel.input_char ic with
+    | None -> None
+    | Some (' ' | '\t' | '\n' | '\r') -> token ic
+    | Some ';' -> ignore (In_channel.input_line ic); token ic
+    | Some (('(' | ')') as c) -> Some (String.make 1 c)
+    | Some c ->
+      let buf = Buffer.create 16 in
+      Buffer.add_char buf c;
+      let rec symbol quoted =
+        match In_channel.input_char ic with
+        | None -> ()
+        | Some '|' when c = '|' && quoted -> Buffer.add_char buf '|'
+        | Some (' ' | '\t' | '\n' | '\r' | '(' | ')' | ';') when not quoted ->
+          (* A symbol ends there; whatever ends it does not matter here *)
+          ()
+        | Some c' -> Buffer.add_char buf c'; symbol quoted
+      in
+      symbol (c = '|');
+      Some (Buffer.contents buf)
+  in
+  let rec find ic =
+    match token ic with
+    | None -> None
+    | Some "set-logic" -> token ic
+    | Some _ -> find ic
+  in
+  match filename with
+  | "" -> None
+  | _ -> (
+    try In_channel.with_open_text filename find
+    with Sys_error _ -> None
+  )
+
+(* SMT solvers for each declared logic: main solver, interpolating solver
+   (IC3IA) and quantifier-elimination solver (IC3QE). They only apply to the
+   roles not set on the command line, and a solver that is not found is left
+   to the usual detection. *)
+let choose_solvers () =
+  let open Flags.Smt in
+  match declared_logic (Flags.input_file ()) with
+  | Some "QF_BV" ->
+    prefer_solvers
+      ~solver:`Bitwuzla_SMTLIB ~itp:`MathSAT_SMTLIB ~qe:`Z3_SMTLIB ()
+  | Some ("QF_ABV" | "QF_LIA") ->
+    prefer_solvers ~solver:`Z3_SMTLIB ~itp:`MathSAT_SMTLIB ~qe:`Z3_SMTLIB ()
+  | _ -> ()
+
 let parse_commandline_args () =
   try
-    Flags.parse_argv ~profile:Flags.kmoxi_profile ()
+    Flags.parse_argv
+      ~profile:(Flags.with_solver_choice Flags.kmoxi_profile choose_solvers) ()
   with
   | Flags.Error -> exit ExitCodes.usage_error
   | Flags.UnsupportedSolver -> exit ExitCodes.unsupported_solver

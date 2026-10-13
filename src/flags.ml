@@ -670,6 +670,56 @@ module Smt = struct
         with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
       )
     )
+
+  (* Look for the executable of a solver, and record its full path if found *)
+  let locate_solver = function
+    | `Bitwuzla_SMTLIB ->
+      find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) |> set_bitwuzla_bin
+    | `cvc5_SMTLIB ->
+      find_solver ~fail:false "cvc5" (cvc5_bin ()) |> set_cvc5_bin
+    | `MathSAT_SMTLIB ->
+      find_solver ~fail:false "MathSAT" (mathsat_bin ()) |> set_mathsat_bin
+    | `OpenSMT_SMTLIB ->
+      find_solver ~fail:false "OpenSMT" (opensmt_bin ()) |> set_opensmt_bin
+    | `SMTInterpol_SMTLIB ->
+      find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ())
+      |> set_smtinterpol_jar
+    | `Yices2_SMTLIB ->
+      find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ())
+      |> set_yices2smt2_bin
+    | `Z3_SMTLIB ->
+      find_solver ~fail:false "Z3" (z3_bin ()) |> set_z3_bin
+    | `detect -> raise Not_found
+
+  (* Use the given solvers for the solver roles the user left to detection,
+     provided their executables are found. A role whose preferred solver is
+     not found is left to detection, which then picks the first solver found
+     in the usual order. *)
+  let prefer_solvers ?solver:main ?itp ?qe () =
+    let prefer current preferred executable set =
+      match current, preferred with
+      | `detect, Some s -> (
+        try locate_solver (executable s); set s with Not_found -> ()
+      )
+      | _ -> ()
+    in
+    prefer (solver ()) main (fun s -> s) set_solver;
+    prefer (itp_solver ()) itp
+      (function
+        | `cvc5_QE -> `cvc5_SMTLIB
+        | `Bitwuzla_SMTLIB -> `Bitwuzla_SMTLIB
+        | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
+        | `OpenSMT_SMTLIB -> `OpenSMT_SMTLIB
+        | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
+        | `Z3_QE -> `Z3_SMTLIB
+        | `detect -> `detect)
+      set_itp_solver;
+    prefer (qe_solver ()) qe
+      (function
+        | `cvc5_SMTLIB -> `cvc5_SMTLIB
+        | `Z3_SMTLIB -> `Z3_SMTLIB
+        | `detect -> `detect)
+      set_qe_solver
 end
 
 
@@ -2939,6 +2989,9 @@ type profile = {
   input_desc : string ;
   kind2_only_flags : bool ;
   modules : string list ;
+  (* Run once the options are read, before the SMT solvers are checked and
+     detected: it can set solver preferences with [Smt.prefer_solvers] *)
+  choose_solvers : unit -> unit ;
 }
 
 let kind2_profile = {
@@ -2947,12 +3000,15 @@ let kind2_profile = {
     "the Lustre program in <input_file> or from standard input (in Lustre) \
      if no file is given" ;
   modules = List.map fst module_map ;
+  choose_solvers = (fun () -> ()) ;
 }
 
 (* kmoxi runs the engines on a MoXI model: the engine (C2I included, which
    reads only the transition system), solver and theory flags apply; the
    Lustre front end, contracts, certificates, IVCs, MCSs, test generation,
    the interpreter and the language server do not *)
+let with_solver_choice profile choose_solvers = { profile with choose_solvers }
+
 let kmoxi_profile = {
   input_desc =
     "the MoXI model in <input_file> or from standard input if no file is \
@@ -2962,6 +3018,7 @@ let kmoxi_profile = {
     Smt.id ; BmcKind.id ; IC3QE.id ; IC3IA.id ; Invgen.id ; C2I.id ; QE.id ;
     Arrays.id ; Quant.id
   ] ;
+  choose_solvers = (fun () -> ()) ;
 }
 
 (* The modules of a profile, with their flags *)
@@ -4511,6 +4568,9 @@ let parse_argv ?(profile = kind2_profile) () =
 
   (* If any module info was requested, print it and exit. *)
   Global.help_of () |> List.rev |> print_module_info profile ;
+
+  (* Let the executable pick solvers for the roles left to detection *)
+  profile.choose_solvers ();
 
   (* Check solver on path *)
   Smt.check_smtsolver ();
