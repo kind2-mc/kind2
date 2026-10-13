@@ -11,13 +11,11 @@ with each solver, and an equality over an index too wide to expand is
 translated as before.
 """
 
-import os
 import shutil
-import subprocess
 
 import pytest
 
-from conftest import kmoxi_args, kill_tree, kmoxi_bin
+from conftest import run_kmoxi
 
 # mem starts as the constant array 0; a step writes 1 at index 1 when w holds
 system = """
@@ -48,8 +46,6 @@ cases = [
     ids=[f"{s}-index{w}-{e}" for s, w, e in cases],
 )
 def test_const_array_equality(tmp_path, solver, width, expected):
-    if not kmoxi_bin.exists():
-        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     if shutil.which(solver) is None:
         pytest.skip(f"{solver} is not installed")
 
@@ -60,21 +56,7 @@ def test_const_array_equality(tmp_path, solver, width, expected):
     ).format(width=width, query=queries[expected])
     path = tmp_path / "mem.moxi"
     path.write_text(model)
-    args = kmoxi_args | {"--timeout": "30"}
-    arg_list = [arg for pair in args.items() for arg in pair]
-    popen_args = {} if os.name == "nt" else {"start_new_session": True}
-    proc = subprocess.Popen(
-        [kmoxi_bin, *arg_list, "--smt_solver", solver,
-         "--enable", "BMC", "--enable", "IND", str(path)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        **popen_args,
+    stdout, stderr = run_kmoxi(
+        path, "--smt_solver", solver, "--enable", "BMC", "--enable", "IND"
     )
-    try:
-        stdout, stderr = proc.communicate(timeout=60)
-    except subprocess.TimeoutExpired:
-        kill_tree(proc)
-        proc.communicate()
-        pytest.fail("no answer after 60s")
     assert f":query (q {expected}" in stdout, stdout + stderr
