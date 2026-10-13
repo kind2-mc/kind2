@@ -839,8 +839,24 @@ val subdir_for : string list -> string
 
 (** {1 Parsing of the command line} *)
 
-(** Parse the command line *)
-val parse_argv : unit -> unit
+(** The executables that share these flags *)
+type executable = Kind2 | Kmoxi
+
+(** What an executable shows and accepts on its command line: the modules
+    whose flags it registers, and how its usage message describes the
+    input. The global flags are always registered, less the ones that
+    concern kind2 only. *)
+type profile
+
+(** kind2: every module *)
+val kind2_profile : profile
+
+(** kmoxi: the engine, solver and theory flags *)
+val kmoxi_profile : profile
+
+(** Parse the command line of the executable of [profile] (kind2 by
+    default): a flag outside the profile is unknown. *)
+val parse_argv : ?profile:profile -> unit -> unit
 
 (*
    Local Variables:

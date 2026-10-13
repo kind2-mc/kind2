@@ -20,7 +20,7 @@ open Lib
 
 let parse_commandline_args () =
   try
-    Flags.parse_argv ()
+    Flags.parse_argv ~profile:Flags.kmoxi_profile ()
   with
   | Flags.Error -> exit ExitCodes.usage_error
   | Flags.UnsupportedSolver -> exit ExitCodes.unsupported_solver

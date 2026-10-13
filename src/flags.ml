@@ -73,18 +73,36 @@ let print_flags =
   Format.printf "@[<v>%a@]" (pp_print_list fmt_flag "@ ")
 
 
+(* The executables that share these flags: kind2 reads Lustre, kmoxi reads
+   MoXI and runs the same engines. Each registers the flags that concern it
+   (see [profile]). *)
+type executable = Kind2 | Kmoxi
+
 module Make_Spec (_:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let format_specs = ref []
+  (* The flags of kind2 only: they concern its Lustre front end or the
+     analyses only it runs. kmoxi neither shows nor accepts them. *)
+  let kind2_only_flags = ref []
   let add_specs specs = all_specs := List.rev_append specs !all_specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+  let add_spec ?(kind2_only = false) flag parse desc =
+    all_specs := (flag, parse, desc) :: !all_specs ;
+    if kind2_only then kind2_only_flags := flag :: !kind2_only_flags
   let add_format_spec flag parse desc =
     add_spec flag parse desc; format_specs := (flag, parse, desc) :: !format_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
   let format_specs () = !format_specs
+
+  (* The flag specifications an executable shows and accepts *)
+  let specs_for = function
+    | Kind2 -> all_specs ()
+    | Kmoxi ->
+      List.filter
+        (fun (flag, _, _) -> not (List.mem flag !kind2_only_flags))
+        (all_specs ())
 end
 
 (* Signature of modules for flags. *)
@@ -2917,14 +2935,51 @@ let fmt_module_info fmt (id, m0d) =
     (pp_print_list fmt_flag "@ ")
     (Flags.all_specs () |> List.rev)
 
+(* What an executable shows and accepts on its command line: how its usage
+   message describes the input, and the modules of [module_map] whose flags
+   it registers. The global flags are always registered, less the ones
+   marked kind2-only. *)
+type profile = {
+  exe : executable ;
+  input_desc : string ;
+  modules : string list ;
+}
+
+let kind2_profile = {
+  exe = Kind2 ;
+  input_desc =
+    "the Lustre program in <input_file> or from standard input (in Lustre) \
+     if no file is given" ;
+  modules = List.map fst module_map ;
+}
+
+(* kmoxi runs the engines on a MoXI model: the engine, solver and theory
+   flags apply; the Lustre front end, contracts, certificates, IVCs, MCSs,
+   test generation, the interpreter and the language server do not *)
+let kmoxi_profile = {
+  exe = Kmoxi ;
+  input_desc =
+    "the MoXI model in <input_file> or from standard input if no file is \
+     given" ;
+  modules = [
+    Smt.id ; BmcKind.id ; IC3QE.id ; IC3IA.id ; Invgen.id ; QE.id ;
+    Arrays.id ; Quant.id
+  ] ;
+}
+
+(* The modules of a profile, with their flags *)
+let modules_of profile =
+  List.filter (fun (id, _) -> List.mem id profile.modules) module_map
+
 (* Prints module info for a list of identifiers. If ["all"] is in the list,
-prints info for all modules.
+prints info for all modules of the profile.
 If the input list is not empty and all identifiers are defined, exits with
 status [0]. If some operators are undefined, exits with [2]. Does nothing if
 the list is empty. *)
-let print_module_info = function
+let print_module_info profile = function
 | [] -> ()
 | (hd :: tl) as ids -> (
+  let module_map = modules_of profile in
   Format.printf "%s@.@." usage_msg_header ;
   if List.mem all_modules_id ids then (
     Format.printf
@@ -2980,26 +3035,29 @@ module Global = struct
 
   include Make_Spec (struct end)
 
-  (* Returns all flags in all Kind 2 modules. *)
-  let all_kind2_specs () = List.fold_left (
+  (* The profile of the running executable, set by [parse_argv] *)
+  let profile = ref kind2_profile
+
+  (* Returns the flags the running executable registers: the global flags
+     it shows, and those of the modules of its profile. *)
+  let registered_specs () = List.fold_left (
     fun l (_, m0d) ->
       let module Flags = (val m0d: FlagModule) in
       l @ (Flags.all_specs ())
-  ) (all_specs ()) module_map
+  ) (specs_for !profile.exe) (modules_of !profile)
 
-  let usage_msg = Format.sprintf "\
+  let usage_msg () = Format.sprintf "\
     %s@.\
-    Prove properties over the Lustre program in <input_file> or from standard@ \
-    input (in Lustre) if no file is given.@.\
+    Prove properties over %s.@.\
     Global options follow, \
     use \"--help_of\" for module-specific information.\
-  " usage_msg_header
+  " usage_msg_header !profile.input_desc
 
 
   (* Prints help. *)
   let print_help () =
-    Format.printf "%s@.  " usage_msg ;
-    all_specs () |> List.rev |> print_flags ;
+    Format.printf "%s@.  " (usage_msg ()) ;
+    specs_for !profile.exe |> List.rev |> print_flags ;
     Format.printf "@."
 
 
@@ -3093,7 +3151,7 @@ module Global = struct
   let lus_main_default = None
 
   let lus_main = ref lus_main_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_main"
     (Arg.String (fun str -> lus_main := Some str))
     (fun fmt ->
@@ -3111,7 +3169,7 @@ module Global = struct
   let lus_main_const_default = None
 
   let lus_main_const = ref lus_main_const_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_main_const"
     (Arg.String (fun str -> lus_main_const := Some str))
     (fun fmt ->
@@ -3129,7 +3187,7 @@ module Global = struct
   let lus_main_type_default = None
 
   let lus_main_type = ref lus_main_type_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_main_type"
     (Arg.String (fun str -> lus_main_type := Some str))
     (fun fmt ->
@@ -3165,7 +3223,7 @@ module Global = struct
   let input_format_default = `Extension
 
   let input_format = ref input_format_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--input_format"
     (Arg.String (fun str -> input_format := input_format_of_string str))
     (fun fmt ->
@@ -3220,7 +3278,7 @@ module Global = struct
 
 
   let include_dirs = ref []
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--include_dir"
     (Arg.String
       (fun dir -> include_dirs := dir :: !include_dirs)
@@ -3290,7 +3348,7 @@ module Global = struct
   (* Log invariants. *)
   let log_invs_default = false
   let log_invs = ref log_invs_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--log_invs"
     (bool_arg log_invs)
     (fun fmt ->
@@ -3602,7 +3660,7 @@ module Global = struct
   (* Modular mode. *)
   let modular_default = false
   let modular = ref modular_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--modular"
     (bool_arg modular)
     (fun fmt ->
@@ -3629,7 +3687,7 @@ module Global = struct
     | `Experimental -> "experimental"
   let slice_nodes_default = `On
   let slice_nodes = ref slice_nodes_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--slice_nodes"
     (Arg.String
       (fun str -> slice_nodes := slice_nodes_of_string str)
@@ -3648,7 +3706,7 @@ module Global = struct
 
   let check_reach_default = true
   let check_reach = ref check_reach_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--check_reach"
     (bool_arg check_reach)
     (fun fmt ->
@@ -3664,7 +3722,7 @@ module Global = struct
 
 let check_nonvacuity_default = true
   let check_nonvacuity = ref check_nonvacuity_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--check_nonvacuity"
     (bool_arg check_nonvacuity)
     (fun fmt ->
@@ -3681,7 +3739,7 @@ let check_nonvacuity_default = true
 
   let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--check_subproperties"
     (bool_arg check_subproperties)
     (fun fmt ->
@@ -3702,7 +3760,7 @@ let check_nonvacuity_default = true
   (* Reject unguarded pre's in Lustre file. *)
   let lus_strict_default = false
   let lus_strict = ref lus_strict_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_strict"
     (bool_arg lus_strict)
     (fun fmt ->
@@ -3719,7 +3777,7 @@ let check_nonvacuity_default = true
   (* Reject include directives in Lustre files. *)
   let lus_no_include_default = false
   let lus_no_include = ref lus_no_include_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--no_include"
     (bool_arg lus_no_include)
     (fun fmt ->
@@ -3735,7 +3793,7 @@ let check_nonvacuity_default = true
   (* Reject unguarded pre's in Lustre file. *)
   let lus_push_pre_default = false
   let lus_push_pre = ref lus_push_pre_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_push_pre"
     (bool_arg lus_push_pre)
     (fun fmt ->
@@ -4437,9 +4495,11 @@ let post_argv_parse_actions () =
   if Global.log_format_json () then print_json_options ()
 
 
-let parse_argv () =
+let parse_argv ?(profile = kind2_profile) () =
+  Global.profile := profile ;
+
   (* CLAPing. *)
-  parse_clas (Global.all_kind2_specs ()) anon_action ;
+  parse_clas (Global.registered_specs ()) anon_action ;
 
   (* Colors if flag is not false and not in xml or json mode *)
   let open Format in
@@ -4452,7 +4512,7 @@ let parse_argv () =
   post_argv_parse_actions ();
 
   (* If any module info was requested, print it and exit. *)
-  Global.help_of () |> List.rev |> print_module_info ;
+  Global.help_of () |> List.rev |> print_module_info profile ;
 
   (* Check solver on path *)
   Smt.check_smtsolver ();
