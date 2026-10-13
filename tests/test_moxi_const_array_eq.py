@@ -17,7 +17,7 @@ import subprocess
 
 import pytest
 
-from conftest import common_args, kill_tree, kmoxi_bin
+from conftest import kmoxi_args, kill_tree, kmoxi_bin
 
 # mem starts as the constant array 0; a step writes 1 at index 1 when w holds
 system = """
@@ -60,7 +60,7 @@ def test_const_array_equality(tmp_path, solver, width, expected):
     ).format(width=width, query=queries[expected])
     path = tmp_path / "mem.moxi"
     path.write_text(model)
-    args = common_args | {"--timeout": "30"}
+    args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
     popen_args = {} if os.name == "nt" else {"start_new_session": True}
     proc = subprocess.Popen(

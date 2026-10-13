@@ -22,6 +22,10 @@ common_args = {
     "--check_subproperties": "true",
 }
 
+# The default arguments for every kmoxi run: those of common_args that kmoxi
+# accepts (--check_subproperties concerns the Lustre front end only)
+kmoxi_args = {"--timeout": "84", "--color": "false"}
+
 # How long we let a single Kind 2 run take before killing it, in seconds.
 #
 # Kind 2 enforces `--timeout` itself, but that enforcement has gaps: it does

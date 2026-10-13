@@ -20,7 +20,7 @@ import subprocess
 
 import pytest
 
-from conftest import common_args, kmoxi_bin, run_timeout
+from conftest import kmoxi_args, kmoxi_bin, run_timeout
 
 system = """
 (set-logic QF_BV)
@@ -73,7 +73,7 @@ identities = {
 def run(tmp_path, condition):
     path = tmp_path / "bv.moxi"
     path.write_text(system.format(condition=condition))
-    args = common_args | {"--timeout": "30"}
+    args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
     return subprocess.run(
         [kmoxi_bin, *arg_list, "--enable", "BMC", "--enable", "IND", str(path)],

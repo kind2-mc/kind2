@@ -16,7 +16,7 @@ import subprocess
 
 import pytest
 
-from conftest import common_args, kmoxi_bin, run_timeout
+from conftest import kmoxi_args, kmoxi_bin, run_timeout
 
 model = """
 (set-logic QF_LIA)
@@ -44,7 +44,7 @@ def test_query_unsat_without_solver_error(tmp_path, engines):
 
     path = tmp_path / "counter.moxi"
     path.write_text(model)
-    args = common_args | {"--timeout": "30"}
+    args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
     enable = [arg for engine in engines for arg in ("--enable", engine)]
     run = subprocess.run(

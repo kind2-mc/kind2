@@ -22,7 +22,7 @@ import time
 
 import pytest
 
-from conftest import common_args, kill_tree, kmoxi_bin
+from conftest import kmoxi_args, kill_tree, kmoxi_bin
 
 model = """
 (set-logic QF_LIA)
@@ -49,7 +49,7 @@ def start(tmp_path, extra):
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     path = tmp_path / "far.moxi"
     path.write_text(model)
-    args = common_args | {"--timeout": "0"}
+    args = kmoxi_args | {"--timeout": "0"}
     arg_list = [arg for pair in args.items() for arg in pair]
     return subprocess.Popen(
         [kmoxi_bin, *arg_list, *extra, str(path)],
