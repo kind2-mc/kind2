@@ -71,6 +71,8 @@ type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
   checks: (system_check * string list) list ;
+  (* The logic set with set-logic, if any *)
+  logic: string option ;
   (* Numerals denote reals, in a logic with reals and no integers *)
   real_numerals: bool ;
   (* The functions defined with define-fun: their symbols by name, and
@@ -83,6 +85,7 @@ let empty_input =
 {
   systems = HSM.empty ;
   checks = [] ;
+  logic = None ;
   real_numerals = false ;
   funs = HSM.empty ;
   fun_defs = []
@@ -959,9 +962,10 @@ let mk_check ~real_numerals ~funs ~fun_defs systems
 
 let process_command (input : input) = function
   | A.SetLogicCmd (_, logic) ->
+    let logic = HString.string_of_hstring logic in
     { input with
-      real_numerals =
-        MoxiTypeChecker.numerals_are_real (HString.string_of_hstring logic) }
+      logic = Some logic ;
+      real_numerals = MoxiTypeChecker.numerals_are_real logic }
   | A.DefineFunCmd def -> (
     (* The parameters are instances at offset zero of state variables in a
        scope of the function's own, as the formals of the predicates of a
@@ -1047,5 +1051,7 @@ let with_file filename f =
 let check_file filename = with_file filename ignore
 
 let of_file filename =
-  with_file filename (fun ast -> (process_ast ast).checks)
+  with_file filename (fun ast ->
+    let input = process_ast ast in
+    input.checks, input.logic)
    

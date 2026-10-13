@@ -19,10 +19,16 @@
 open Lib
 
 let parse_commandline_args () =
-  try
-    Flags.parse_argv ~profile:Flags.kmoxi_profile ()
-  with
+  try Flags.parse_argv ~profile:Flags.kmoxi_profile () with
   | Flags.Error -> exit ExitCodes.usage_error
+
+(* Prefer a main SMT solver for the logic the model sets, if the user left
+   it to detection and it is found, then check and detect the solvers *)
+let check_solvers logic =
+  (match logic with
+   | Some "QF_BV" -> Flags.Smt.prefer_solvers ~solver:`Bitwuzla_SMTLIB ()
+   | _ -> ());
+  try Flags.check_solvers () with
   | Flags.UnsupportedSolver -> exit ExitCodes.unsupported_solver
   | Flags.SolverNotFound -> exit ExitCodes.not_found_error
 
@@ -37,7 +43,8 @@ let read_and_process_input_file filename =
   )
   else
   match InputSystem.read_input_moxi filename with
-  | Some in_sys -> (
+  | Some (in_sys, logic) -> (
+    check_solvers logic ;
     Kind2Flow.run in_sys
   )
   | None -> exit ExitCodes.parse_error

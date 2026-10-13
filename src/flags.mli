@@ -322,6 +322,15 @@ module Smt : sig
 
   val get_itp_solver : unit -> solver
 
+  (** [prefer_solvers ?solver ?itp ?qe ()] uses the given main, interpolating
+      and quantifier-elimination solvers for the roles that were left to
+      detection (no [--smt_solver], [--smt_itp_solver], [--smt_qe_solver]),
+      provided their executables are found. A role whose preferred solver is
+      not found is left to detection. To be called before the solvers are
+      checked (see {!check_solvers}). *)
+  val prefer_solvers :
+    ?solver:solver -> ?itp:itp_solver -> ?qe:qe_solver -> unit -> unit
+
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
 
@@ -849,8 +858,15 @@ type profile
 val kind2_profile : profile
 
 (** kmoxi: the engine, solver and theory flags, and the global flags that
-    are not about the Lustre front end *)
+    are not about the Lustre front end. The SMT solvers are checked and
+    detected once the input is read, with {!check_solvers}. *)
 val kmoxi_profile : profile
+
+(** Check the SMT solvers given on the command line, detect the others, and
+    adjust the options to the solvers in use: what {!parse_argv} does, unless
+    its profile leaves it until the input is read, as kmoxi's does. Solver
+    preferences ({!Smt.prefer_solvers}) are to be set before. *)
+val check_solvers : unit -> unit
 
 (** Parse the command line of the executable of [profile] (kind2 by
     default): a flag outside the profile is unknown. *)

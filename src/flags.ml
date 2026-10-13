@@ -492,142 +492,84 @@ module Smt = struct
       raise SolverNotFound
 
   
+  (* Look for the executable of a solver, and record its full path if found.
+     Raise [Not_found] if it is not found, or [SolverNotFound] with [~fail]. *)
+  let locate_solver ?(fail = false) = function
+    | `Bitwuzla_SMTLIB ->
+      find_solver ~fail "Bitwuzla" (bitwuzla_bin ()) |> set_bitwuzla_bin
+    | `cvc5_SMTLIB ->
+      find_solver ~fail "cvc5" (cvc5_bin ()) |> set_cvc5_bin
+    | `MathSAT_SMTLIB ->
+      find_solver ~fail "MathSAT" (mathsat_bin ()) |> set_mathsat_bin
+    | `OpenSMT_SMTLIB ->
+      find_solver ~fail "OpenSMT" (opensmt_bin ()) |> set_opensmt_bin
+    | `SMTInterpol_SMTLIB ->
+      find_solver ~filetype:"JAR" ~fail "SMTInterpol" (smtinterpol_jar ())
+      |> set_smtinterpol_jar
+    | `Yices2_SMTLIB ->
+      find_solver ~fail "Yices2 SMT2" (yices2smt2_bin ())
+      |> set_yices2smt2_bin
+    | `Z3_SMTLIB ->
+      find_solver ~fail "Z3" (z3_bin ()) |> set_z3_bin
+    | `detect -> raise Not_found
+
+  (* The solver whose executable a solver for quantifier elimination or
+     interpolation runs *)
+  let qe_executable = function
+    | `cvc5_SMTLIB -> `cvc5_SMTLIB
+    | `Z3_SMTLIB -> `Z3_SMTLIB
+    | `detect -> `detect
+
+  let itp_executable = function
+    | `cvc5_QE -> `cvc5_SMTLIB
+    | `Bitwuzla_SMTLIB -> `Bitwuzla_SMTLIB
+    | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB -> `OpenSMT_SMTLIB
+    | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
+    | `Z3_QE -> `Z3_SMTLIB
+    | `detect -> `detect
+
+  (* Check that the executable of a solver chosen by the user is found,
+     unless it is the one of the main solver, checked already *)
+  let check_chosen executable =
+    if executable <> solver () then locate_solver ~fail:true executable
+
+  (* Set the role to the first of the solvers whose executable is found, in
+     the given order; raise [Not_found] if none is *)
+  let rec detect_first set executable = function
+    | [] -> raise Not_found
+    | s :: rest -> (
+      try locate_solver (executable s); set s
+      with Not_found -> detect_first set executable rest
+    )
+
   (* Check which SMT solver is available *)
   let check_smtsolver () = match solver () with
-    (* User chose Bitwuzla *)
-    | `Bitwuzla_SMTLIB ->
-      find_solver ~fail:true "Bitwuzla" (bitwuzla_bin ()) |> ignore
-    (* User chose cvc5 *)
-    | `cvc5_SMTLIB ->
-      find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
-    (* User chose OpenSMT *)
-    | `OpenSMT_SMTLIB ->
-      find_solver ~fail:true "OpenSMT" (opensmt_bin ()) |> ignore
-    (* User chose MathSAT *)
-    | `MathSAT_SMTLIB ->
-      find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
-    (* User chose SMTInterpol *)
-    | `SMTInterpol_SMTLIB ->
-      let full_path =
-        find_solver ~filetype:"JAR" ~fail:true "SMTInterpol" (smtinterpol_jar ())
-      in
-      set_smtinterpol_jar full_path
-    (* User chose Yices2 *)
-    | `Yices2_SMTLIB ->
-      find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
-    (* User chose Z3 *)
-    | `Z3_SMTLIB ->
-      find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    (* User did not choose SMT solver *)
-    | `detect ->
+    | `detect -> (
       try
-        let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-        set_solver `Z3_SMTLIB;
-        set_z3_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-        set_solver `cvc5_SMTLIB;
-        set_cvc5_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
-        set_solver `Yices2_SMTLIB;
-        set_yices2smt2_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-        set_solver `MathSAT_SMTLIB;
-        set_mathsat_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
-        set_solver `SMTInterpol_SMTLIB;
-        set_smtinterpol_jar exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
-        set_solver `OpenSMT_SMTLIB;
-        set_opensmt_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
-        set_solver `Bitwuzla_SMTLIB;
-        set_bitwuzla_bin exec;
+        detect_first set_solver (fun s -> s)
+          [ `Z3_SMTLIB; `cvc5_SMTLIB; `Yices2_SMTLIB; `MathSAT_SMTLIB;
+            `SMTInterpol_SMTLIB; `OpenSMT_SMTLIB; `Bitwuzla_SMTLIB ]
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
         raise SolverNotFound
+    )
+    (* User chose a solver *)
+    | s -> locate_solver ~fail:true s
 
   let check_qe_solver () = match qe_solver () with
-    (* User chose cvc5 *)
-    | `cvc5_SMTLIB -> (
-      match solver () with
-      | `cvc5_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
-    )
-    (* User chose Z3 *)
-    | `Z3_SMTLIB -> (
-      match solver () with
-      | `Z3_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    )
-    | `detect ->
+    | `detect -> (
       match solver () with
       | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
       | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
       | _ ->
-        try
-          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-          set_qe_solver `Z3_SMTLIB;
-          set_z3_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-          set_qe_solver `cvc5_SMTLIB;
-          set_cvc5_bin exec;
-        with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
+        try detect_first set_qe_solver qe_executable [ `Z3_SMTLIB; `cvc5_SMTLIB ]
+        with Not_found -> () (* We keep `detect to know no qe solver was found *)
+    )
+    (* User chose a solver *)
+    | s -> check_chosen (qe_executable s)
 
   let check_itp_solver () = match itp_solver () with
-    (* User chose cvc5qe *)
-    | `cvc5_QE -> (
-      match solver () with
-      | `cvc5_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
-    )
-    (* User chose Bitwuzla *)
-    | `Bitwuzla_SMTLIB -> (
-      match solver () with
-      | `Bitwuzla_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Bitwuzla" (bitwuzla_bin ()) |> ignore
-    )
-    (* User chose MathSAT *)
-    | `MathSAT_SMTLIB -> (
-      match solver () with
-      | `MathSAT_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
-    )
-    (* User chose OpenSMT *)
-    | `OpenSMT_SMTLIB -> (
-      match solver () with
-      | `OpenSMT_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "OpenSMT" (opensmt_bin ()) |> ignore
-    )
-    (* User chose SMTInterpol *)
-    | `SMTInterpol_SMTLIB -> (
-      match solver () with
-      | `SMTInterpol_SMTLIB -> ()
-      | _ ->
-        let full_path =
-          find_solver ~fail:true "SMTInterpol" (smtinterpol_jar ())
-        in
-        set_smtinterpol_jar full_path
-    )
-    (* User chose Z3qe *)
-    | `Z3_QE -> (
-      match solver () with
-      | `Z3_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    )
     | `detect -> (
       match solver () with
       | `OpenSMT_SMTLIB ->
@@ -637,39 +579,31 @@ module Smt = struct
            preference to OpenSMT as the interpolating solver over MathSAT.
         *)
         set_itp_solver `OpenSMT_SMTLIB;
-      | _ -> (
+      | _ ->
         try
-          let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-          set_itp_solver `MathSAT_SMTLIB;
-          set_mathsat_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
-          set_itp_solver `SMTInterpol_SMTLIB;
-          set_smtinterpol_jar exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-          set_itp_solver `Z3_QE;
-          set_z3_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-          set_itp_solver `cvc5_QE;
-          set_cvc5_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
-          set_itp_solver `OpenSMT_SMTLIB;
-          set_opensmt_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
-          set_itp_solver `Bitwuzla_SMTLIB;
-          set_bitwuzla_bin exec;
-        with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
-      )
+          detect_first set_itp_solver itp_executable
+            [ `MathSAT_SMTLIB; `SMTInterpol_SMTLIB; `Z3_QE; `cvc5_QE;
+              `OpenSMT_SMTLIB; `Bitwuzla_SMTLIB ]
+        with Not_found -> () (* We keep `detect to know no itp solver was found *)
     )
+    (* User chose a solver *)
+    | s -> check_chosen (itp_executable s)
+
+  (* Use the given solvers for the solver roles the user left to detection,
+     provided their executables are found. A role whose preferred solver is
+     not found is left to detection, which then picks the first solver found
+     in the usual order. *)
+  let prefer_solvers ?solver:main ?itp ?qe () =
+    let prefer current preferred executable set =
+      match current, preferred with
+      | `detect, Some s -> (
+        try locate_solver (executable s); set s with Not_found -> ()
+      )
+      | _ -> ()
+    in
+    prefer (solver ()) main (fun s -> s) set_solver;
+    prefer (itp_solver ()) itp itp_executable set_itp_solver;
+    prefer (qe_solver ()) qe qe_executable set_qe_solver
 end
 
 
@@ -2939,6 +2873,10 @@ type profile = {
   input_desc : string ;
   kind2_only_flags : bool ;
   modules : string list ;
+  (* Whether the SMT solvers are checked and detected once the input is
+     read, by [check_solvers], rather than by [parse_argv]: the executable
+     can then set solver preferences from the input *)
+  solvers_after_input : bool ;
 }
 
 let kind2_profile = {
@@ -2947,6 +2885,7 @@ let kind2_profile = {
     "the Lustre program in <input_file> or from standard input (in Lustre) \
      if no file is given" ;
   modules = List.map fst module_map ;
+  solvers_after_input = false ;
 }
 
 (* kmoxi runs the engines on a MoXI model: the engine (C2I included, which
@@ -2962,6 +2901,7 @@ let kmoxi_profile = {
     Smt.id ; BmcKind.id ; IC3QE.id ; IC3IA.id ; Invgen.id ; C2I.id ; QE.id ;
     Arrays.id ; Quant.id
   ] ;
+  solvers_after_input = true ;
 }
 
 (* The modules of a profile, with their flags *)
@@ -4493,6 +4433,29 @@ let post_argv_parse_actions () =
   if Global.log_format_json () then print_json_options ()
 
 
+(* Check the solvers given on the command line, and detect the others *)
+let detect_solvers () =
+  Smt.check_smtsolver ();
+  Smt.check_qe_solver ();
+  Smt.check_itp_solver ()
+
+(* Adjust the options to the versions of the solvers in use *)
+let solver_actions () =
+  solver_dependent_actions (Smt.solver ());
+
+  (match Smt.solver (), Smt.qe_solver () with
+  | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
+  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
+  | _, `cvc5_SMTLIB -> solver_dependent_actions `cvc5_SMTLIB
+  | _, `Z3_SMTLIB -> solver_dependent_actions `Z3_SMTLIB
+  | _, _ -> ()) ;
+
+  if Certif.proof () then solver_dependent_actions `cvc5_SMTLIB
+
+let check_solvers () =
+  detect_solvers ();
+  solver_actions ()
+
 let parse_argv ?(profile = kind2_profile) () =
   Global.profile := profile ;
 
@@ -4513,11 +4476,7 @@ let parse_argv ?(profile = kind2_profile) () =
   Global.help_of () |> List.rev |> print_module_info profile ;
 
   (* Check solver on path *)
-  Smt.check_smtsolver ();
-
-  Smt.check_qe_solver ();
-
-  Smt.check_itp_solver ();
+  if not profile.solvers_after_input then detect_solvers ();
 
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
@@ -4532,16 +4491,7 @@ let parse_argv ?(profile = kind2_profile) () =
     Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
   ) ;
 
-  solver_dependent_actions (Smt.solver ());
-
-  (match Smt.solver (), Smt.qe_solver () with
-  | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
-  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
-  | _, `cvc5_SMTLIB -> solver_dependent_actions `cvc5_SMTLIB
-  | _, `Z3_SMTLIB -> solver_dependent_actions `Z3_SMTLIB
-  | _, _ -> ()) ;
-
-  if Certif.proof () then solver_dependent_actions `cvc5_SMTLIB;
+  if not profile.solvers_after_input then solver_actions ();
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;
