@@ -27,6 +27,15 @@ let parse_commandline_args () =
   | Flags.SolverNotFound -> exit ExitCodes.not_found_error
 
 let read_and_process_input_file filename =
+  if Flags.only_parse () then (
+    (* Parse and type check only *)
+    match MoxiInput.check_file filename with
+    | Ok () -> exit ExitCodes.success
+    | Error e ->
+      Format.eprintf "%a@." MoxiInput.pp_print_error e;
+      exit ExitCodes.parse_error
+  )
+  else
   match InputSystem.read_input_moxi filename with
   | Some in_sys -> (
     Kind2Flow.run in_sys
