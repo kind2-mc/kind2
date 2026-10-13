@@ -341,9 +341,13 @@ def kill_and_communicate(proc: Popen, timeout: float = kill_timeout):
         return e.output or b"", e.stderr or b""
 
 
-def run_kind2(command, timeout: float = run_timeout) -> CompletedProcess:
+def run_kind2(
+    command, timeout: float = run_timeout, env=None, cwd=None, input=None
+) -> CompletedProcess:
     """Run Kind 2, capturing its output, and give up on it after `timeout`
-    seconds. Raises `LustreTimeout` if we had to give up."""
+    seconds. Raises `LustreTimeout` if we had to give up. `env` and `cwd`
+    are those of the run, and `input`, in bytes, is given to its standard
+    input, which is inherited otherwise."""
     popen_args = {}
     if os.name != "nt":
         # Put the run in a process group of its own, so that the solvers it
@@ -357,10 +361,13 @@ def run_kind2(command, timeout: float = run_timeout) -> CompletedProcess:
     # without them in its report cannot be told apart from a run that never
     # got that far. It is kept apart from standard output, which is checked
     # to be JSON matching the schema, and shown with it when a test fails.
-    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+    proc = Popen(
+        command, stdin=None if input is None else PIPE, stdout=PIPE,
+        stderr=PIPE, env=env, cwd=cwd, **popen_args
+    )
 
     try:
-        output, errors = proc.communicate(timeout=timeout)
+        output, errors = proc.communicate(input, timeout=timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -381,9 +388,13 @@ def run_kind2(command, timeout: float = run_timeout) -> CompletedProcess:
 kmoxi_slack = 30
 
 
-def run_kmoxi(path, *extra, timeout: int = 30):
+def run_kmoxi_process(
+    path, *extra, timeout: int = 30, env=None, cwd=None, input=None
+) -> CompletedProcess:
     """Run kmoxi on `path` with `extra` arguments and a `--timeout` of
-    `timeout` seconds, and return its standard output and error, decoded.
+    `timeout` seconds, and return the completed run, with its standard
+    output and error decoded. With `path` None, kmoxi reads the model from
+    `input`, a string; `env` and `cwd` are those of the run.
 
     Skips the test if kmoxi is not built. Fails it if kmoxi gives no answer
     within `timeout` and `kmoxi_slack` seconds, showing what kmoxi said and
@@ -393,9 +404,11 @@ def run_kmoxi(path, *extra, timeout: int = 30):
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     args = kmoxi_args | {"--timeout": str(timeout)}
     arg_list = [arg for pair in args.items() for arg in pair]
+    command = [kmoxi_bin, *arg_list, *extra, *([] if path is None else [path])]
     try:
         res = run_kind2(
-            [kmoxi_bin, *arg_list, *extra, path], timeout=timeout + kmoxi_slack
+            command, timeout=timeout + kmoxi_slack, env=env, cwd=cwd,
+            input=None if input is None else input.encode("utf-8"),
         )
     except LustreTimeout as e:
         state = "still running" if e.status is None else f"exited with {e.status}"
@@ -404,10 +417,19 @@ def run_kmoxi(path, *extra, timeout: int = 30):
             f"{e.output.decode('utf-8', errors='replace')}"
             f"{e.errors.decode('utf-8', errors='replace')}"
         )
-    return (
+    return CompletedProcess(
+        command,
+        res.returncode,
         res.stdout.decode("utf-8", errors="replace"),
         res.stderr.decode("utf-8", errors="replace"),
     )
+
+
+def run_kmoxi(path, *extra, timeout: int = 30):
+    """Run kmoxi as `run_kmoxi_process` does, and return its standard output
+    and error"""
+    res = run_kmoxi_process(path, *extra, timeout=timeout)
+    return res.stdout, res.stderr
 
 
 class LustreItem(pytest.Item):

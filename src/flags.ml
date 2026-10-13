@@ -4277,7 +4277,8 @@ let solver_dependent_actions solver =
     match get_version cmd with
     | None ->
         let msg = "Couldn't determine cvc5 version" in
-        Log.log L_warn "%s" msg;
+        (* An error, as the run ends on it *)
+        Log.log L_error "%s" msg;
         raise (UnsupportedSolver msg)
     | Some (major, minor, patch) ->
         if (major < 1) then (
