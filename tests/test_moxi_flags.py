@@ -54,12 +54,17 @@ def test_kind2_usage_unchanged():
 
 def test_kmoxi_modules():
     _, out = run(kmoxi_bin, ["--help_of", "all"])
-    for module in ("smt", "ind", "ic3qe", "ic3ia", "invgen", "arrays"):
+    for module in ("smt", "ind", "ic3qe", "ic3ia", "invgen", "c2i", "arrays"):
         assert f"Module {module}:" in out, module
     for module in ("contracts", "certif", "ivc", "mcs", "test", "lsp"):
         assert f"Module {module}:" not in out, module
+    # The legal values of --help_of are the modules of the profile, in its
+    # description and in its check, which rejects the others when parsing
+    _, out = run(kmoxi_bin, ["--help"])
+    assert re.search(r"^\s+c2i\s", out, re.M), out
+    assert not re.search(r"^\s+contracts\s", out, re.M), out
     code, out = run(kmoxi_bin, ["--help_of", "contracts"])
-    assert code != 0 and "Unknown module" in out, out
+    assert code != 0 and 'unknown module identifier "contracts"' in out, out
     _, out = run(kind2_bin, ["--help_of", "contracts"])
     assert "Module contracts:" in out, out
 
@@ -72,4 +77,10 @@ def test_kmoxi_rejects_kind2_only_flag(tmp_path):
     # A flag kmoxi keeps still parses: the run goes on to the analysis, and
     # BMC finds the state at depth 3
     code, out = run(kmoxi_bin, ["--timeout", "20", "--enable", "BMC", str(path)])
+    assert code == 0 and ":query (q sat" in out, out
+    # C2I runs on MoXI systems, so its flags are registered
+    code, out = run(
+        kmoxi_bin,
+        ["--timeout", "20", "--enable", "BMC", "--enable", "C2I", "--c2i_dnf", "2", str(path)],
+    )
     assert code == 0 and ":query (q sat" in out, out

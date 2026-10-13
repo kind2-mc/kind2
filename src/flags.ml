@@ -73,11 +73,6 @@ let print_flags =
   Format.printf "@[<v>%a@]" (pp_print_list fmt_flag "@ ")
 
 
-(* The executables that share these flags: kind2 reads Lustre, kmoxi reads
-   MoXI and runs the same engines. Each registers the flags that concern it
-   (see [profile]). *)
-type executable = Kind2 | Kmoxi
-
 module Make_Spec (_:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
@@ -96,10 +91,11 @@ module Make_Spec (_:sig end) = struct
   let all_specs () = !all_specs
   let format_specs () = !format_specs
 
-  (* The flag specifications an executable shows and accepts *)
-  let specs_for = function
-    | Kind2 -> all_specs ()
-    | Kmoxi ->
+  (* The flag specifications an executable shows and accepts: all of them,
+     or all but the ones marked kind2-only *)
+  let specs_shown ~with_kind2_only =
+    if with_kind2_only then all_specs ()
+    else
       List.filter
         (fun (flag, _, _) -> not (List.mem flag !kind2_only_flags))
         (all_specs ())
@@ -2936,33 +2932,34 @@ let fmt_module_info fmt (id, m0d) =
     (Flags.all_specs () |> List.rev)
 
 (* What an executable shows and accepts on its command line: how its usage
-   message describes the input, and the modules of [module_map] whose flags
-   it registers. The global flags are always registered, less the ones
-   marked kind2-only. *)
+   message describes the input, whether the global flags marked kind2-only
+   are registered with the others, and the modules of [module_map] whose
+   flags are. *)
 type profile = {
-  exe : executable ;
   input_desc : string ;
+  kind2_only_flags : bool ;
   modules : string list ;
 }
 
 let kind2_profile = {
-  exe = Kind2 ;
+  kind2_only_flags = true ;
   input_desc =
     "the Lustre program in <input_file> or from standard input (in Lustre) \
      if no file is given" ;
   modules = List.map fst module_map ;
 }
 
-(* kmoxi runs the engines on a MoXI model: the engine, solver and theory
-   flags apply; the Lustre front end, contracts, certificates, IVCs, MCSs,
-   test generation, the interpreter and the language server do not *)
+(* kmoxi runs the engines on a MoXI model: the engine (C2I included, which
+   reads only the transition system), solver and theory flags apply; the
+   Lustre front end, contracts, certificates, IVCs, MCSs, test generation,
+   the interpreter and the language server do not *)
 let kmoxi_profile = {
-  exe = Kmoxi ;
   input_desc =
     "the MoXI model in <input_file> or from standard input if no file is \
      given" ;
+  kind2_only_flags = false ;
   modules = [
-    Smt.id ; BmcKind.id ; IC3QE.id ; IC3IA.id ; Invgen.id ; QE.id ;
+    Smt.id ; BmcKind.id ; IC3QE.id ; IC3IA.id ; Invgen.id ; C2I.id ; QE.id ;
     Arrays.id ; Quant.id
   ] ;
 }
@@ -3044,7 +3041,7 @@ module Global = struct
     fun l (_, m0d) ->
       let module Flags = (val m0d: FlagModule) in
       l @ (Flags.all_specs ())
-  ) (specs_for !profile.exe) (modules_of !profile)
+  ) (specs_shown ~with_kind2_only:!profile.kind2_only_flags) (modules_of !profile)
 
   let usage_msg () = Format.sprintf "\
     %s@.\
@@ -3057,7 +3054,7 @@ module Global = struct
   (* Prints help. *)
   let print_help () =
     Format.printf "%s@.  " (usage_msg ()) ;
-    specs_for !profile.exe |> List.rev |> print_flags ;
+    specs_shown ~with_kind2_only:!profile.kind2_only_flags |> List.rev |> print_flags ;
     Format.printf "@."
 
 
@@ -3121,13 +3118,14 @@ module Global = struct
           Format.fprintf fmt
             "%-15s %s" (Format.sprintf "%s" key) Flags.desc
         ) "@ "
-      ) module_map
+      ) (modules_of !profile)
       all_modules_id
   let _ = add_spec
     "--help_of"
     (Arg.String 
       (fun str ->
-        if str = all_modules_id || List.mem_assoc str module_map then (
+        if str = all_modules_id || List.mem_assoc str (modules_of !profile)
+        then (
           if List.mem str !help_of |> not then help_of := str :: !help_of
         ) else BadArg (
           Format.sprintf "unknown module identifier \"%s\"" str,

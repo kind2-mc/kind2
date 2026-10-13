@@ -839,9 +839,6 @@ val subdir_for : string list -> string
 
 (** {1 Parsing of the command line} *)
 
-(** The executables that share these flags *)
-type executable = Kind2 | Kmoxi
-
 (** What an executable shows and accepts on its command line: the modules
     whose flags it registers, and how its usage message describes the
     input. The global flags are always registered, less the ones that
@@ -851,7 +848,8 @@ type profile
 (** kind2: every module *)
 val kind2_profile : profile
 
-(** kmoxi: the engine, solver and theory flags *)
+(** kmoxi: the engine, solver and theory flags, and the global flags that
+    are not about the Lustre front end *)
 val kmoxi_profile : profile
 
 (** Parse the command line of the executable of [profile] (kind2 by
