@@ -22,7 +22,7 @@ import time
 
 import pytest
 
-from conftest import kmoxi_args, kill_tree, kmoxi_bin
+from conftest import kill_and_communicate, kmoxi_args, kmoxi_bin
 
 model = """
 (set-logic QF_LIA)
@@ -63,8 +63,7 @@ def check_stops(proc, what):
     try:
         proc.communicate(timeout=grace)
     except subprocess.TimeoutExpired:
-        kill_tree(proc)
-        proc.communicate()
+        kill_and_communicate(proc)
         pytest.fail(f"kmoxi still running {grace}s after {what}")
     # The solvers are killed by the teardown; give them a moment to go
     deadline = time.monotonic() + 5

@@ -321,6 +321,24 @@ def kill_tree(proc: Popen):
     proc.kill()
 
 
+def kill_and_communicate(proc: Popen, timeout: float = kill_timeout):
+    """Kill `proc` and every process it spawned, and read the rest of its
+    output, giving up on it after `timeout` seconds.
+
+    Returns `(stdout, stderr)`, both empty if we gave up. `kill_tree` makes
+    a best effort only, and a process it could not reach, such as one that
+    left the process group of the run, may still hold the pipes: reading
+    them without a timeout would wait forever for an end that never comes.
+    """
+    kill_tree(proc)
+    try:
+        return proc.communicate(timeout=timeout)
+    except TimeoutExpired:
+        # Report what we have rather than wait for the rest forever: the
+        # reader threads are daemons, and they do not keep the session alive.
+        return b"", b""
+
+
 def run_kind2(command) -> CompletedProcess:
     """Run Kind 2, capturing its output, and give up on it after
     `run_timeout` seconds. Raises `LustreTimeout` if we had to give up."""
@@ -350,14 +368,7 @@ def run_kind2(command) -> CompletedProcess:
         # the question with our own signal.
         status = proc.poll()
 
-        kill_tree(proc)
-        try:
-            output, errors = proc.communicate(timeout=kill_timeout)
-        except TimeoutExpired:
-            # Some process we could not kill still holds the pipes. Report
-            # what we have rather than wait for the rest forever: the reader
-            # threads are daemons, and they do not keep the session alive.
-            output, errors = b"", b""
+        output, errors = kill_and_communicate(proc)
         raise LustreTimeout(output, errors, status)
 
     return CompletedProcess(command, proc.returncode, output, errors)

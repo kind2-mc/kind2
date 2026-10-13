@@ -11,13 +11,11 @@ with each solver, and an equality over an index too wide to expand is
 translated as before.
 """
 
-import os
 import shutil
-import subprocess
 
 import pytest
 
-from conftest import kmoxi_args, kill_tree, kmoxi_bin
+from conftest import LustreTimeout, kmoxi_args, kmoxi_bin, run_kind2
 
 # mem starts as the constant array 0; a step writes 1 at index 1 when w holds
 system = """
@@ -62,19 +60,13 @@ def test_const_array_equality(tmp_path, solver, width, expected):
     path.write_text(model)
     args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
-    popen_args = {} if os.name == "nt" else {"start_new_session": True}
-    proc = subprocess.Popen(
-        [kmoxi_bin, *arg_list, "--smt_solver", solver,
-         "--enable", "BMC", "--enable", "IND", str(path)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        **popen_args,
-    )
     try:
-        stdout, stderr = proc.communicate(timeout=60)
-    except subprocess.TimeoutExpired:
-        kill_tree(proc)
-        proc.communicate()
-        pytest.fail("no answer after 60s")
+        res = run_kind2(
+            [kmoxi_bin, *arg_list, "--smt_solver", solver,
+             "--enable", "BMC", "--enable", "IND", path]
+        )
+    except LustreTimeout as e:
+        pytest.fail(f"no answer: {e.output.decode('utf-8', errors='replace')}")
+    stdout = res.stdout.decode("utf-8", errors="replace")
+    stderr = res.stderr.decode("utf-8", errors="replace")
     assert f":query (q {expected}" in stdout, stdout + stderr
