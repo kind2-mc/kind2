@@ -124,6 +124,18 @@ bitvectors = f"""
   :reachable (r (and (= m busy) (= c limit) (bvugt limit #x2))) :query (q (r)))
 """
 
+# A constant of an array sort, whose value the model gives in MoXI syntax
+array_const = """
+(set-logic QF_ABV)
+(declare-const t (Array (_ BitVec 2) (_ BitVec 2)))
+(define-system main :input () :output ((n (_ BitVec 2))) :local ()
+  :init (= n #b00) :trans (= n' (bvadd n #b01)))
+(check-system main :input () :output ((n (_ BitVec 2))) :local ()
+  :reachable (r (and (= n #b10) (= (select t #b01) #b11) (= (select t #b10) #b01)
+                     (= (select t #b00) (select t #b11))))
+  :query (q (r)))
+"""
+
 engines = {
     "ind": ["--enable", "BMC", "--enable", "IND"],
     "ic3qe": ["--enable", "IC3QE"],
@@ -139,6 +151,7 @@ answers = [
     ("enum_const", enum_const, "sat", ["ind"]),
     ("enum_const_range", enum_const_range, "unsat", ["ind", "ic3qe", "ic3ia"]),
     ("bitvectors", bitvectors, "sat", ["ind"]),
+    ("array_const", array_const, "sat", ["ind"]),
 ]
 cases = [(name, model, expected, engine)
          for name, model, expected, es in answers for engine in es]
@@ -191,6 +204,17 @@ def test_model_gives_constants(tmp_path):
     assert "(define-fun k () Int 2)" in out, out
     _, out = run(tmp_path, enum_const, ["--enable", "BMC"])
     assert "(define-fun col () Color blue)" in out, out
+
+
+def test_model_gives_array_constants(tmp_path):
+    # A constant array of the value at two of the indices, with a store of
+    # each of the other two
+    _, out = run(tmp_path, array_const, ["--enable", "BMC"])
+    m = re.search(
+        r"\(define-fun t \(\) \(Array \(_ BitVec 2\) \(_ BitVec 2\)\) "
+        r"\(store \(store \(\(as const \(Array \(_ BitVec 2\) \(_ BitVec 2\)\)\) "
+        r"(#b\d\d)\) #b01 #b11\) #b10 #b01\)\)", out)
+    assert m, out
 
 
 def check_head(declarations, logic="QF_LIA"):
@@ -267,6 +291,29 @@ errors = {
         "(= x' (+ x red))",
         "argument 2 of '+' has sort Color",
     ),
+    # The variables of a system or check are not named after a constant, an
+    # enumeration value or a function, which they would hide
+    "variable named as a value": (
+        "",
+        "(= x' x)) (define-system S :input () :output ((red Int)) :local ()",
+        "'red' is already declared",
+    ),
+    "variable named as a constant": (
+        "(declare-const k Int)",
+        "(= x' x)) (define-system S :input ((k Bool)) :output () :local ()",
+        "'k' is already declared",
+    ),
+    "variable named as a function": (
+        "(define-fun f () Int 1)",
+        "(= x' x)) (define-system S :input () :output () :local ((f Int))",
+        "'f' is already declared",
+    ),
+    "renaming named as a constant": (
+        "(declare-const k Int)",
+        "(= x' x)) (check-system main :input ((c Color)) :output ((k Int)) "
+        ":local () :reachable (r true) :query (q (r))",
+        "'k' is already declared",
+    ),
     # A constant is not a constant term of the theory
     "nonlinear": (
         "(declare-const k Int)",
@@ -274,6 +321,25 @@ errors = {
         "nonlinear application of '*'",
     ),
 }
+
+
+# Unlike system variables, the parameters of a function and the variables
+# of a let are bound in a term only, and may shadow a constant or a value
+shadowing = f"""
+(set-logic QF_LIA)
+{color}
+(declare-const k Int)
+(define-fun f ((k Int) (red Bool)) Int (ite red k 0))
+(define-system main :input () :output ((x Int)) :local ()
+  :init (= x (f 1 true)) :trans (let ((k (+ x 1)) (green false)) (= x' (f k (not green)))))
+(check-system main :input () :output ((x Int)) :local ()
+  :reachable (r (= x 3)) :query (q (r)))
+"""
+
+
+def test_bound_variables_shadow(tmp_path):
+    _, out = run(tmp_path, shadowing, ["--enable", "BMC"])
+    assert ":query (q sat" in out, out
 
 
 @pytest.mark.parametrize("case", errors, ids=errors)

@@ -33,6 +33,50 @@ let rec pp_print_sort ppf ty =
     Format.fprintf ppf "(Array %a %a)" pp_print_sort i pp_print_sort e
   | _ -> Type.pp_print_type ppf ty
 
+(* A value of an array sort in MoXI syntax, given the elements at each list
+   of indices, outermost first: a constant array of the most frequent
+   element, with a store of each other one. MoXI arrays are indexed by
+   bit-vectors. *)
+let rec string_of_array ty elements =
+  let elem_ty = Type.elem_type_of_array ty in
+  let width = Type.bitvectorsize (Type.index_type_of_array ty) in
+  (* The model reads the indices as signed integers *)
+  let unsigned i = let n = 1 lsl width in ((i mod n) + n) mod n in
+  let index i =
+    Bitvector.num_to_ubv (Numeral.of_int width) (Numeral.of_int i)
+    |> Term.mk_ubv |> Term.string_of_term
+  in
+  (* The value at each index of the outer array, in order *)
+  let values =
+    List.fold_left (fun acc (indices, t) ->
+      match indices with
+      | i :: inner ->
+        let i = unsigned i in
+        let others = try List.assoc i acc with Not_found -> [] in
+        (i, (inner, t) :: others) :: List.remove_assoc i acc
+      | [] -> assert false
+    ) [] elements
+    |> List.sort compare
+    |> List.map (fun (i, inner) ->
+      i,
+      if Type.is_array elem_ty then string_of_array elem_ty (List.rev inner)
+      else match inner with
+        | [([], t)] -> string_of_value elem_ty t
+        | _ -> assert false)
+  in
+  let count v = List.length (List.filter (fun (_, v') -> v' = v) values) in
+  match values with
+  | [] -> "_"
+  | (_, first) :: _ ->
+    let default =
+      List.fold_left (fun best (_, v) -> if count v > count best then v else best)
+        first values
+    in
+    List.fold_left (fun acc (i, v) ->
+      if v = default then acc
+      else Format.sprintf "(store %s %s %s)" acc (index i) v
+    ) (Format.asprintf "((as const %a) %s)" pp_print_sort ty default) values
+
 let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
   List.fold_left (fun map (subsys_val, sys_val)  ->
     let top_val = StateVar.StateVarMap.find_opt sys_val top_to_sys in
@@ -286,6 +330,9 @@ let pp_print_const_decl _ppf (svar, svar_value_path) =
   | [] -> 
     let pp_print_value ppf = function
       | Model.Term t -> Format.pp_print_string ppf (string_of_value svar_type t)
+      | Model.Map m ->
+        Format.pp_print_string ppf
+          (string_of_array svar_type (Model.MIL.bindings m))
       | v -> Model.pp_print_value ~as_type:svar_type ppf v
     in
     Format.printf "(define-fun %s () %a %a)"

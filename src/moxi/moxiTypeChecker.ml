@@ -19,6 +19,7 @@
 module A = MoxiAst
 module HS = HString
 module HSM = HS.HStringMap
+module HSS = HS.HStringSet
 
 (* ********************************************************************** *)
 (* Sorts                                                                  *)
@@ -322,9 +323,9 @@ type env = {
   funs : (sort list * sort) HSM.t;
   (* Constants declared with declare-const: their sorts *)
   consts : sort HSM.t;
-  (* Enumeration sorts declared with declare-enum-sort: their values, and
-     the sort of each value *)
-  enums : HS.t list HSM.t;
+  (* Enumeration sorts declared with declare-enum-sort, and the sort of each
+     of their values *)
+  enums : HSS.t;
   enum_values : sort HSM.t;
 }
 
@@ -396,7 +397,7 @@ let rec sort_of_ast env (A.{ id = (span, (_, s), indices); parameters } as ast) 
       | [i; e] -> Array (sort_of_ast env i, sort_of_ast env e)
       | _ -> malformed "Array takes two sort parameters, index and element"
     )
-    | _ when HSM.mem s env.enums -> simple (Enum (str s))
+    | _ when HSS.mem s env.enums -> simple (Enum (str s))
     | _ -> fail pos (UnknownSort (string_of_ast_sort ast))
   in
   check_sort_in_logic pos logic sort;
@@ -923,7 +924,7 @@ let check_declare_enum_sort env (decl : A.declare_enum_sort_cmd) =
   let name_span, name_hs = decl.name in
   let name = str name_hs in
   if List.mem name ["Bool"; "Int"; "Real"; "BitVec"; "Array"]
-     || HSM.mem name_hs env.enums
+     || HSS.mem name_hs env.enums
   then fail_span name_span (SortRedeclared name);
   let sort = Enum name in
   let env =
@@ -932,7 +933,17 @@ let check_declare_enum_sort env (decl : A.declare_enum_sort_cmd) =
       { env with enum_values = HSM.add v sort env.enum_values }
     ) env decl.values
   in
-  { env with enums = HSM.add name_hs (List.map snd decl.values) env.enums }
+  { env with enums = HSS.add name_hs env.enums }
+
+(* The variables of a system or check are not named after a function,
+   constant or enumeration value, which they would hide in the system.
+   Unlike them, the parameters of a function and the variables of a let are
+   bound in a term only, and may shadow them. *)
+let check_not_global env vars =
+  List.iter (fun (span, s, _) ->
+    if HSM.mem s env.funs || HSM.mem s env.consts || HSM.mem s env.enum_values
+    then fail_span span (SymbolRedeclared (str s))
+  ) vars
 
 let check_define_system env (sys : A.define_system_cmd) =
   let name_span, name_hs = sys.name in
@@ -941,6 +952,7 @@ let check_define_system env (sys : A.define_system_cmd) =
   let inputs = sorted_vars env sys.input in
   let outputs = sorted_vars env sys.output in
   let locals = sorted_vars env sys.local in
+  List.iter (check_not_global env) [inputs; outputs; locals];
   let vars = vars_of [Input, inputs; Output, outputs; Local, locals] in
   let env = { env with vars; lets = HSM.empty } in
   (* The parser lists the subsystems last first *)
@@ -980,6 +992,7 @@ let check_check_system env (check : A.check_system_cmd) =
   let inputs = renaming "input" check.input sys_sig.inputs in
   let outputs = renaming "output" check.output sys_sig.outputs in
   let locals = renaming "local" check.local sys_sig.locals in
+  List.iter (check_not_global env) [inputs; outputs; locals];
   let vars = vars_of [Input, inputs; Output, outputs; Local, locals] in
   let env = { env with vars; lets = HSM.empty } in
   (* Conditions: assumptions may prime inputs only, reachability conditions
@@ -1031,7 +1044,7 @@ let check_script script =
     priming = PrimeAll;
     funs = HSM.empty;
     consts = HSM.empty;
-    enums = HSM.empty;
+    enums = HSS.empty;
     enum_values = HSM.empty;
   }
   in

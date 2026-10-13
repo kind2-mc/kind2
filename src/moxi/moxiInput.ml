@@ -85,8 +85,8 @@ type input =
   (* The constants declared with declare-const, by name: each is a constant
      state variable, the same in every state and every system *)
   consts: SV.t HSM.t ;
-  (* Their variables, in declaration order, and the ranges of those of an
-     enumeration sort *)
+  (* Their variables, and the ranges of those of an enumeration sort, last
+     first *)
   const_vars: Var.t list ;
   const_constraints: Term.t list
 }
@@ -166,9 +166,10 @@ let rec type_of_sort enums A.{ id; parameters } =
 
   let name = string_of_symbol symbol in
 
-  if HSM.mem (hstring_of_symbol symbol) enums then
-    HSM.find (hstring_of_symbol symbol) enums
-  else if name = "Bool" then Type.t_bool
+  match HSM.find_opt (hstring_of_symbol symbol) enums with
+  | Some ty -> ty
+  | None ->
+  if name = "Bool" then Type.t_bool
   else if name = "Int" then Type.t_int
   else if name = "Real" then Type.t_real
   else if name = "BitVec" then (
@@ -718,9 +719,9 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
 
   (* The declared constants, which every system has, rather than passes to
      its subsystems *)
-  let global_consts = input.const_vars in
+  let global_consts = List.rev input.const_vars in
 
-  let global_constraints = input.const_constraints in
+  let global_constraints = List.rev input.const_constraints in
 
   (* The variables of an enumeration sort have one of its values, in every
      state; those of the subsystems are constrained by the subsystems *)
@@ -808,7 +809,10 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
 
   let state_var_bounds = SVH.create 7 in
 
-  state_vars |> List.iter (fun sv ->
+  (* The engines read the bounds of every array, the constants' included *)
+  state_vars
+  @ List.map Var.state_var_of_state_var_instance global_consts
+  |> List.iter (fun sv ->
     SVH.add state_var_bounds sv (bounds (SV.type_of_state_var sv))
   );
 
@@ -1092,8 +1096,8 @@ let process_command (input : input) = function
     in
     { input with
       consts = HSM.add (hstring_of_symbol decl.A.name) sv input.consts ;
-      const_vars = input.const_vars @ [var] ;
-      const_constraints = input.const_constraints @ constraints }
+      const_vars = var :: input.const_vars ;
+      const_constraints = List.rev_append constraints input.const_constraints }
   )
   | A.DefineSystemCmd sys_def -> (
     let name, sys, svars = mk_system input sys_def in
