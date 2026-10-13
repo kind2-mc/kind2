@@ -23,7 +23,9 @@
     well-formed and belong to the declared logic; every term is well-sorted
     under the SMT-LIB theories of Core, Ints, Reals, Reals_Ints,
     FixedSizeBitVectors and ArraysEx, and only uses the symbols of the
-    declared logic (including its linearity restriction); the [:init] and
+    declared logic (including its linearity restriction); the constants,
+    enumeration sorts and values, and functions are declared once, under
+    names of their own; the [:init] and
     [:inv] conditions are one-state formulas and the [:trans] condition is a
     two-state formula; every subsystem instance refers to a defined system
     and binds its inputs and outputs to variables of the right sorts and
@@ -40,6 +42,7 @@ type sort =
   | Real
   | BitVec of int
   | Array of sort * sort (** Index sort, element sort *)
+  | Enum of string (** An enumeration sort, by name *)
 
 (** Print a sort in SMT-LIB syntax *)
 val pp_print_sort : Format.formatter -> sort -> unit
@@ -74,7 +77,9 @@ type error_kind =
   | DuplicateLetBinding of string
   | SystemRedefined of string
   | FunctionRedefined of string
+  | SymbolRedeclared of string
   | BuiltinRedefined of string
+  | SortRedeclared of string
   | FunctionBodySort of string * sort * sort
   | UnknownSystem of string
   | SelfInstantiation of string

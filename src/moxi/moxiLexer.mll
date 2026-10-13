@@ -36,6 +36,8 @@
     "as", P.AS ;
     "define-system", P.DEFINE_SYSTEM ;
     "define-fun", P.DEFINE_FUN ;
+    "declare-const", P.DECLARE_CONST ;
+    "declare-enum-sort", P.DECLARE_ENUM_SORT ;
     "check-system", P.CHECK_SYSTEM ;
     "set-logic", P.SET_LOGIC ;
     "true", P.TRUE ;

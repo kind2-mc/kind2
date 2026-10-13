@@ -367,8 +367,13 @@ the MoXI language definition before analyzing it. Its restrictions:
 - a `check-system` command has exactly one `:query`, over `:reachable` and
   `:assumption` conditions; `:fairness` (liveness) and `:current` are not
   supported;
-- arrays are indexed by bit-vectors;
-- uninterpreted sorts, constants and functions are not supported.
+- arrays are indexed by bit-vectors, and their elements are not of an
+  enumeration sort;
+- the values of an enumeration sort (`declare-enum-sort`) stand for
+  integers, so a model with one needs a solver with integer arithmetic,
+  such as Z3, even in `QF_BV`;
+- uninterpreted sorts and functions (`declare-sort`, `declare-fun`) are not
+  supported; constants (`declare-const`) are.
 
 ## Development
 

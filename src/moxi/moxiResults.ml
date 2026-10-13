@@ -19,6 +19,20 @@
 module TS = TransSys
 module SVM = StateVar.StateVarMap
 
+(* A value of a state variable of the given type, in MoXI syntax: the value
+   of an enumeration sort, rather than the integer that stands for it *)
+let string_of_value ty value =
+  if Type.is_enum ty then Type.get_constr_of_num (Term.numeral_of_term value)
+  else Term.string_of_term value
+
+(* A sort in MoXI syntax *)
+let rec pp_print_sort ppf ty =
+  match Type.node_of_type ty with
+  | Type.Enum _ -> Format.pp_print_string ppf (Type.name_of_enum ty)
+  | Type.Array (e, i) ->
+    Format.fprintf ppf "(Array %a %a)" pp_print_sort i pp_print_sort e
+  | _ -> Type.pp_print_type ppf ty
+
 let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
   List.fold_left (fun map (subsys_val, sys_val)  ->
     let top_val = StateVar.StateVarMap.find_opt sys_val top_to_sys in
@@ -34,6 +48,8 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
     match state_var_opt with 
     | None -> None
     | Some sys_state_var when not (StateVar.for_inv_gen sys_state_var) -> None (* Filter out init flags *)
+    (* The declared constants, which every system has, are in the model *)
+    | Some sys_state_var when StateVar.is_const sys_state_var -> None
     (* May want to find a more robust way to filter out invar_props*)
     (* | _ when String.starts_with ~prefix: "invar_prop." (StateVar.name_of_state_var state_var) -> None Filter out invar_props *)
     | Some sys_state_var -> (
@@ -47,8 +63,9 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
                                svar_kth_state_value) 
       in
       match svar_kth_state_value with
-      | Model.Term value -> 
-        Some (var_name, Term.string_of_term value, state_value_changed)
+      | Model.Term value ->
+        let ty = StateVar.type_of_state_var sys_state_var in
+        Some (var_name, string_of_value ty value, state_value_changed)
       | Model.Map _ ->
         Some (var_name, "[...]", true)
       | _ -> 
@@ -253,10 +270,10 @@ let pp_print_prop_trace _ prop =
   | PropKTrue _ 
   | PropUnknown -> () 
 
-let has_model _trans_sys _svar_path = 
-  false 
-  (* List.exists (fun svar -> List.mem_assoc svar svar_path)
-    (TransSys.global_const_state_vars trans_sys) *)
+(* The interpretation of the free symbols: the declared constants *)
+let has_model trans_sys svar_path =
+  List.exists (fun svar -> List.mem_assoc svar svar_path)
+    (TransSys.global_const_state_vars trans_sys)
 
 let pp_print_const_decl _ppf (svar, svar_value_path) =
   let svar_type = StateVar.type_of_state_var svar in
@@ -267,10 +284,14 @@ let pp_print_const_decl _ppf (svar, svar_value_path) =
     not (Model.equal_value value const_value)
   ) (List.tl svar_value_path) with
   | [] -> 
-    Format.printf "(define-fun %s () %a %a)" 
-      (StateVar.name_of_state_var svar) 
-      Type.pp_print_type svar_type 
-      (Model.pp_print_value ?as_type:(Some svar_type)) const_value
+    let pp_print_value ppf = function
+      | Model.Term t -> Format.pp_print_string ppf (string_of_value svar_type t)
+      | v -> Model.pp_print_value ~as_type:svar_type ppf v
+    in
+    Format.printf "(define-fun %s () %a %a)"
+      (StateVar.name_of_state_var svar)
+      pp_print_sort svar_type
+      pp_print_value const_value
   
   | _ -> 
     failwith (Format.asprintf 
