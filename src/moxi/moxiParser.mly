@@ -60,6 +60,7 @@ let mk_span start_pos end_pos =
 (* Command names *)
 %token CHECK_SYSTEM
 %token DEFINE_SYSTEM
+%token DEFINE_FUN
 %token SET_LOGIC
 
 (* Keywords *)
@@ -105,6 +106,7 @@ script: cmds=command* EOF { cmds }
 command:
   | c=check_system { c }
   | c=define_system { c }
+  | c=define_fun { c }
   | c=set_logic { c }
 
 set_logic:
@@ -144,6 +146,12 @@ check_system_attribute:
   | QUERY_KW "(" s=symbol "(" l=symbol+ ")" ")"
   {
     A.QueryAttr (s, l)
+  }
+
+define_fun:
+  "(" DEFINE_FUN name=symbol "(" params=sorted_var* ")" sort=sort body=term ")"
+  {
+    A.DefineFunCmd { loc = mk_span $startpos $endpos; name; params; sort; body }
   }
 
 define_system:

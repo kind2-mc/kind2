@@ -72,14 +72,20 @@ type input =
   systems: (TS.t * system_variables) HSM.t ;
   checks: (system_check * string list) list ;
   (* Numerals denote reals, in a logic with reals and no integers *)
-  real_numerals: bool
+  real_numerals: bool ;
+  (* The functions defined with define-fun: their symbols by name, and
+     their definitions, last first *)
+  funs: UfSymbol.t HSM.t ;
+  fun_defs: TS.fun_def list
 }
 
 let empty_input =
 {
   systems = HSM.empty ;
   checks = [] ;
-  real_numerals = false
+  real_numerals = false ;
+  funs = HSM.empty ;
+  fun_defs = []
 }
 
 (* The environment of the translation of a term *)
@@ -89,7 +95,9 @@ type term_env =
   (* The variables bound by the enclosing let binders, which shadow the
      state variables of the system *)
   lets: Var.t HSM.t ;
-  real_numerals: bool
+  real_numerals: bool ;
+  (* The symbols of the functions defined so far, by name *)
+  funs: UfSymbol.t HSM.t
 }
 
 let unsupported span msg =
@@ -283,7 +291,9 @@ let rec kind2_term env = function
     with Not_found -> (
       try
         if is_prime then raise Not_found ;
-        Term.mk_uf (UfSymbol.uf_symbol_of_string name) []
+        match HSM.find_opt (hstring_of_symbol symbol) env.funs with
+        | Some uf -> Term.mk_uf uf []
+        | None -> Term.mk_uf (UfSymbol.uf_symbol_of_string name) []
       with Not_found -> (
         failwith(Format.sprintf "Invalid constant symbol '%s'" name)
       )
@@ -396,6 +406,10 @@ and kind2_app env = function
     try
       if is_prime then raise Not_found ;
       match indices with
+      | [] when HSM.mem (hstring_of_symbol symbol) env.funs ->
+        (* A defined function, which the solvers are given the definition
+           of *)
+        Term.mk_uf (HSM.find (hstring_of_symbol symbol) env.funs) args
       | [] when string_of_symbol symbol = "!=" ->
         (* The disequality of MoXI *)
         Term.mk_not (Term.mk_eq args)
@@ -575,6 +589,24 @@ let mk_subsystem_calls local_map sys_name init_flag systems subsys =
   in
   subsystems, lifted_svars, formulas
 
+(* The definitions, among [fun_defs] (last first), that [terms] apply,
+   directly or through the bodies of other definitions, in definition
+   order. A body applies only the functions defined before it, so one pass
+   from the last definition to the first collects them all. *)
+let applied_fun_defs fun_defs terms =
+  let module UFS = UfSymbol.UfSymbolSet in
+  let used =
+    List.fold_left (fun acc t -> UFS.union (Term.uf_symbols_of_term t) acc)
+      UFS.empty terms
+  in
+  List.fold_left
+    (fun (used, acc) ((uf, _, body) as def) ->
+       if UFS.mem uf used then
+         UFS.union (Term.uf_symbols_of_term body) used, def :: acc
+       else used, acc)
+    (used, []) fun_defs
+  |> snd
+
 let rec bounds ty =
   let fixed_bound ty' =
     match Type.node_of_type ty' with
@@ -587,8 +619,8 @@ let rec bounds ty =
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
-let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals systems
-    (sys_def: A.define_system_cmd) =
+let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals ~funs ~fun_defs
+    systems (sys_def: A.define_system_cmd) =
 
   let sys_name_hs = hstring_of_symbol sys_def.A.name in
   let sys_name = HString.string_of_hstring sys_name_hs in
@@ -601,7 +633,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals systems
   let local_svars = mk_svars sys_name false sys_def.A.local in
 
   let sys_scope = mk_sys_scope sys_name in
-  let env = { scope = sys_scope; lets = HSM.empty; real_numerals } in
+  let env = { scope = sys_scope; lets = HSM.empty; real_numerals; funs } in
 
   let def_svars, init_defs, trans_defs =
     List.fold_left
@@ -726,6 +758,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) ~real_numerals systems
 
   let sys, _ =
     TS.mk_trans_sys
+      ~fun_defs:(applied_fun_defs fun_defs [init_term; trans_term])
       scope
       None (* instance_state_var *)
       init_flag
@@ -790,7 +823,8 @@ let negate term =
   let id = (Lib.dummy_span, symb, []) in
   A.App (Lib.dummy_span, (id, false, None), [term])
 
-let mk_check ~real_numerals systems (check_cmd: A.check_system_cmd) =
+let mk_check ~real_numerals ~funs ~fun_defs systems
+    (check_cmd: A.check_system_cmd) =
   let queries, formulas =
     List.partition A.is_query_attr check_cmd.A.attrs
   in
@@ -904,7 +938,9 @@ let mk_check ~real_numerals systems (check_cmd: A.check_system_cmd) =
       subsys ; init ; trans ; inv ;
     }
     in
-    let _, sys, _ = mk_system ~defs ~local_map ~real_numerals systems sys_def in
+    let _, sys, _ =
+      mk_system ~defs ~local_map ~real_numerals ~funs ~fun_defs systems sys_def
+    in
     let sys_scope = TS.scope_of_trans_sys sys in
     let sys =
       let (_, init_eq, trans_eq) = TS.init_trans_open sys in
@@ -926,15 +962,65 @@ let process_command (input : input) = function
     { input with
       real_numerals =
         MoxiTypeChecker.numerals_are_real (HString.string_of_hstring logic) }
+  | A.DefineFunCmd def -> (
+    (* The parameters are instances at offset zero of state variables in a
+       scope of the function's own, as the formals of the predicates of a
+       system are: that is the form the solvers are given formals in. The
+       body refers to them as to let-bound variables, which shadow
+       everything else, and may apply the functions defined before. *)
+    let name = hstring_of_symbol def.A.name in
+    (* The solvers are given the function under a fresh name, which no
+       other symbol has and is a simple SMT-LIB symbol: the MoXI name may
+       need quoting, or be the name of an internal symbol of Kind 2 *)
+    let fresh_name =
+      Format.sprintf "__kmoxi_fun_%d_%s" (List.length input.fun_defs)
+        (String.map
+           (fun c ->
+              match c with
+              | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> c
+              | _ -> '_')
+           (HString.string_of_hstring name))
+    in
+    (* The reserved scope of the fresh name, which the scope of no state
+       variable of a system can be *)
+    let fun_scope = mk_sys_scope ~reserved:true fresh_name in
+    let params =
+      List.map (fun (_, s, sort) ->
+        let sv =
+          StateVar.mk_state_var ~is_input:true ~is_const:false
+            ~for_inv_gen:false (string_of_symbol s) fun_scope (type_of_sort sort)
+        in
+        hstring_of_symbol s, Var.mk_state_var_instance sv Numeral.zero
+      ) def.A.params
+    in
+    let env = {
+      scope = [];
+      lets = List.fold_left (fun m (s, v) -> HSM.add s v m) HSM.empty params;
+      real_numerals = input.real_numerals;
+      funs = input.funs;
+    }
+    in
+    let body = kind2_term env def.A.body in
+    let vars = List.map snd params in
+    let uf =
+      UfSymbol.mk_uf_symbol fresh_name
+        (List.map Var.type_of_var vars) (type_of_sort def.A.sort)
+    in
+    { input with
+      funs = HSM.add name uf input.funs;
+      fun_defs = (uf, vars, body) :: input.fun_defs }
+  )
   | A.DefineSystemCmd sys_def -> (
     let name, sys, svars =
-      mk_system ~real_numerals:input.real_numerals input.systems sys_def
+      mk_system ~real_numerals:input.real_numerals ~funs:input.funs
+        ~fun_defs:input.fun_defs input.systems sys_def
     in
     { input with systems = HSM.add name (sys, svars) input.systems }
   )
   | A.CheckSystemCmd check_cmd ->
     let check =
-      mk_check ~real_numerals:input.real_numerals input.systems check_cmd
+      mk_check ~real_numerals:input.real_numerals ~funs:input.funs
+        ~fun_defs:input.fun_defs input.systems check_cmd
     in
     { input with checks = check :: input.checks }
 

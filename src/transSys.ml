@@ -167,6 +167,19 @@ type t =
         mutually recursive definitions in dependency order: a block only
         applies the symbols of the blocks before it, of its own, and of
         [ufs]. See [LustreFunDefs]. *)
+
+    fun_defs : fun_def list;
+    (** Definitions of the non-recursive functions the terms of the system
+        apply, directly or through the bodies of other definitions: a body
+        only applies the symbols defined in the list and those of [ufs].
+        They are given to the solvers as they are, as definitions of an
+        SMT-LIB [define-fun], and do not change the logic beyond what their
+        bodies use. *)
+
+    all_fun_defs : fun_def list;
+    (** The non-recursive function definitions of the system and of its
+        subsystems, each once and after those its body applies: the order
+        the solvers are given them in. Computed once, by [mk_trans_sys]. *)
     
     logic : TermLib.logic;
     (** Logic fragment needed to express the transition system 
@@ -765,6 +778,10 @@ let get_function_symbols { ufs } = ufs
 (* Return the recursive function definitions *)
 let get_rec_fun_defs { rec_fun_defs } = rec_fun_defs
 
+(* Return the non-recursive function definitions *)
+let get_fun_defs { fun_defs } = fun_defs
+
+
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)
 (* **************************************************************** *)
@@ -898,6 +915,16 @@ let fold_subsystems ?(include_top = true) f accum ({ subsystems } as trans_sys) 
     Scope.Set.empty
     (if include_top then [trans_sys] else List.map fst subsystems)
 
+
+(* The non-recursive function definitions of the system and its subsystems,
+   each once, every definition after those its body applies *)
+let all_fun_defs { all_fun_defs } = all_fun_defs
+
+(* Give the solver the non-recursive function definitions of the system and
+   its subsystems, before the predicates that may apply them *)
+let define_fun_defs trans_sys define =
+  all_fun_defs trans_sys
+  |> List.iter (fun (uf, vars, body) -> define uf vars body)
 
 (* Fold bottom-up over all subsystem instances *)
 let fold_subsystem_instances f trans_sys = 
@@ -1265,6 +1292,9 @@ let declare_sorts_ufs_const trans_sys ~define_rec declare declare_sort =
 
 (* Declare the init and trans functions of the subsystems *)
 let define_subsystems trans_sys define =
+  (* Define the non-recursive functions, which the predicates may apply *)
+  define_fun_defs trans_sys define ;
+
   (* Iterate over all subsystems *)
   trans_sys |> iter_subsystems ~include_top:false (fun t ->
 
@@ -1427,6 +1457,10 @@ let define_and_declare_of_bounds
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
 
+  (* Define the non-recursive functions, which the predicates of the
+     systems may apply *)
+  define_fun_defs trans_sys define ;
+
   (* Iterate over all subsystems *)
   let _, defined = fold_subsystems ~include_top:false (fun (declared, defined) t ->
 
@@ -1578,6 +1612,12 @@ let uf_defs trans_sys =
   (* Reverse predicate definitions to have predicate definitions of
      subsystems before *)
   |> List.rev
+
+  (* The definitions of the non-recursive functions come first, as the
+     predicates may apply them *)
+  |> List.append
+    (List.map (fun (uf, vars, body) -> uf, (vars, body))
+       (all_fun_defs trans_sys))
 
 (*
 (* Flatten the list of instances per subsystems ot a list of subsystem
@@ -2100,12 +2140,37 @@ let one_state_conjuncts subsystems terms =
   List.filter_map
     (fun t -> if is_one_state t then Some t else sub_one_state t) terms
 
+(* [defs] without repetitions, every definition after those its body
+   applies (depth first) *)
+let order_fun_defs defs =
+  let module UFM = UfSymbol.UfSymbolMap in
+  let module UFS = UfSymbol.UfSymbolSet in
+  let by_symbol =
+    List.fold_left (fun acc ((uf, _, _) as d) -> UFM.add uf d acc) UFM.empty defs
+  in
+  let rec visit (seen, acc) ((uf, _, body) as def) =
+    if UFS.mem uf seen then seen, acc
+    else
+      let seen, acc =
+        UFS.fold
+          (fun uf' st ->
+             match UFM.find_opt uf' by_symbol with
+             | Some d -> visit st d
+             | None -> st)
+          (Term.uf_symbols_of_term body)
+          (UFS.add uf seen, acc)
+      in
+      seen, def :: acc
+  in
+  List.fold_left visit (UFS.empty, []) defs |> snd |> List.rev
+
 let mk_trans_sys
   ?(instance_var_id_start = 0)
   ?one_state_trans
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
   ?(rec_fun_defs = [])
+  ?(fun_defs = [])
   ?(check_defs = [])
   ?(check_ufs = [])
   ?(check_helpers = [])
@@ -2203,12 +2268,14 @@ let mk_trans_sys
        subsystems of the transition system *)
     | `detect ->
 
+      (* The predicates of the subsystems and the functions the system
+         defines are not uninterpreted *)
       let fun_symbols =
         List.fold_left
           (fun a ({trans_uf_symbol; init_uf_symbol},_) ->
             trans_uf_symbol :: init_uf_symbol :: a
           )
-          []
+          (List.map (fun (uf, _, _) -> uf) fun_defs)
           subsystems
       in
 
@@ -2233,6 +2300,13 @@ let mk_trans_sys
              List.map
                (fun t -> TermLib.logic_of_term fun_symbols t)
                global_constraints
+
+             @
+
+             (* Logics of the bodies of the non-recursive function
+                definitions *)
+             List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t)
+               fun_defs
 
              @
 
@@ -2396,6 +2470,12 @@ let mk_trans_sys
       fn_congruence_groups;
       ufs;
       rec_fun_defs;
+      fun_defs;
+      (* The subsystems' lists are ordered already: only their union with
+         the system's own definitions is ordered here *)
+      all_fun_defs =
+        order_fun_defs
+          (fun_defs @ List.concat_map (fun (t, _) -> t.all_fun_defs) subsystems);
       init_uf_symbol;
       init_formals;
       init;
