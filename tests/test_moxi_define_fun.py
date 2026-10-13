@@ -153,7 +153,10 @@ def test_definition_given_to_solver(tmp_path):
                  ["--enable", "BMC", "--enable", "IND",
                   "--smt_trace", "--output_dir", str(trace_dir)])
     assert ":query (q unsat" in out, out
-    traces = list(trace_dir.rglob("*.smt2"))
+    # The trace of BMC: k-induction declares a logic with uninterpreted
+    # functions whatever the system, for the functions of its compression,
+    # and which trace a directory listing gives first varies
+    traces = sorted(trace_dir.rglob("*.bmc.*.smt2"))
     assert traces, out
     text = traces[0].read_text()
     defined = re.findall(r"\(define-fun\s+(__kmoxi_fun_\d+_\w+)", text)
