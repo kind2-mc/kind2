@@ -70,6 +70,7 @@ type system_check = TS.t SubSystem.t
 type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
+  (* The checks, last first *)
   checks: (system_check * string list) list ;
   (* The logic set with set-logic, if any *)
   logic: string option ;
@@ -928,7 +929,11 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
       List.partition (fun (ty, _) -> ty = A.Assumption) named_fs
     in
     let loc = check_cmd.A.loc in
-    let sys_name = "query" in
+    (* The system of the check, named after its position: its scope, and
+       those of its variables, are its own, which no other check has *)
+    let sys_name =
+      Format.sprintf "__kmoxi_check_%d" (List.length decls.checks)
+    in
     let name =
       (Lib.dummy_span, HString.mk_hstring sys_name)
     in
@@ -1146,5 +1151,6 @@ let check_file filename = with_file filename ignore
 let of_file filename =
   with_file filename (fun ast ->
     let input = process_ast ast in
-    input.checks, input.logic)
+    (* In the order of the script, which the responses follow *)
+    List.rev input.checks, input.logic)
    
