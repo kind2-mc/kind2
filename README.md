@@ -278,6 +278,98 @@ to install the Kind 2 binary into `<DIR>/bin`.
 
 You need a supported SMT solver in your PATH environment variable when running `kind2`.
 
+## kMoXI
+
+kMoXI (`kmoxi`) is a model checker for [MoXI](https://doi.org/10.1007/978-3-031-66149-5_2),
+the Model eXchange Interlingua, a language for symbolic model checking of
+transition systems built on SMT-LIB. It is a second executable built from
+the Kind 2 sources: a MoXI front end on top of the engines of Kind 2
+(bounded model checking, k-induction, IC3 with quantifier elimination or
+with implicit abstraction, and invariant generation), which run in parallel
+on the transition system of the model.
+
+### Building
+
+kMoXI is not distributed with the Kind 2 releases or through OPAM; build it
+from a clone of this repository, with the same dependencies as Kind 2:
+
+``` bash
+make kmoxi
+```
+
+This builds and installs `bin/kmoxi`. `make test` builds it as well, and runs
+its tests with those of Kind 2.
+
+### Usage
+
+``` bash
+kmoxi [options] model.moxi
+```
+
+A model declares its logic, defines one or more systems and checks the
+system `main` (or any other one) with a `check-system` command that names
+the conditions of its query. The answer is a MoXI `check-system-response`:
+`unsat` when no execution satisfies the query, with the inductive invariant
+that proves it as a certificate, or `sat`, with a witnessing trace:
+
+``` lisp
+(set-logic QF_LIA)
+(define-system counter
+  :input ((reset Bool))
+  :output ((c Int))
+  :init (= c 0)
+  :trans (= c' (ite reset 0 (+ c 1))))
+(check-system counter
+  :input ((reset Bool))
+  :output ((c Int))
+  :reachable (ten (= c 10))
+  :query (reach_ten (ten)))
+```
+
+```
+(check-system-response
+ :verbosity full
+ :query (reach_ten sat :model reach_ten_model :trace reach_ten_trace)
+ :trace (reach_ten_trace :prefix reach_ten_prefix)
+ :model (reach_ten_model ())
+ :trail
+   (reach_ten_prefix (
+                      (0 (counter::reset false) (counter::c 0)  (ten false) )
+                      (1 (counter::reset false) (counter::c 1)  (ten false) )
+                      ...
+                      (10 (counter::reset false) (counter::c 10)  (ten true) )
+                      )
+   )
+ )
+```
+
+The exit code is 0 when the analysis completes, whatever the answer; it is
+3 when the model does not parse or type check, and `--only_parse true`
+stops after that check. Useful options, all shared with Kind 2:
+
+- `--timeout <seconds>`: wall-clock timeout of the analysis;
+- `--enable <engine>`: run only the given engines, for example
+  `--enable BMC --enable IND`;
+- `--smt_solver`, `--smt_itp_solver`, `--smt_qe_solver`: the main,
+  interpolating and quantifier-elimination solvers, with `--z3_bin`,
+  `--bitwuzla_bin`, `--mathsat_bin` and the like to locate them. Without
+  these, kMoXI uses the solvers it finds on the path.
+
+`kmoxi --help` lists the options, and `kmoxi --help_of all` those of the
+engines.
+
+### Supported subset of MoXI
+
+kMoXI reads native MoXI (the S-expression syntax) with the logics `QF_BV`,
+`QF_ABV`, `QF_LIA`, `QF_LRA` and `QF_NIA`, and checks every model against
+the MoXI language definition before analyzing it. Its restrictions:
+
+- a `check-system` command has exactly one `:query`, over `:reachable` and
+  `:assumption` conditions; `:fairness` (liveness) and `:current` are not
+  supported;
+- arrays are indexed by bit-vectors;
+- uninterpreted sorts, constants and functions are not supported.
+
 ## Development
 
 With OPAM 2.x you can create a local switch which will install all dependencies automatically.
