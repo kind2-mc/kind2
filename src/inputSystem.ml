@@ -53,7 +53,7 @@ let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_moxi input_file =
   match MoxiInput.of_file input_file with
-  | Ok system_checks -> Some (Moxi system_checks)
+  | Ok (system_checks, logic) -> Some (Moxi system_checks, logic)
   | Error e ->
     Format.eprintf "%a@." MoxiInput.pp_print_error e;
     None

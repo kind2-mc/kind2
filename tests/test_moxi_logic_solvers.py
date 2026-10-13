@@ -1,10 +1,12 @@
-"""kmoxi picks its SMT solvers from the logic the input declares.
+"""kmoxi prefers Bitwuzla as main SMT solver for a model in QF_BV.
 
-For the solver roles left to detection, the declared logic decides: QF_BV
-uses Bitwuzla as main solver, QF_ABV and QF_LIA use Z3, and all three use
-MathSAT for interpolation and Z3 for quantifier elimination. A solver given on
-the command line wins, and a preferred solver that is not found is left to the
-usual detection.
+kmoxi checks and detects its SMT solvers once the model is parsed, and takes
+the logic from the set-logic command the parser read: a quoted logic name, a
+set-logic in a comment and a model read from standard input are what the
+parser makes of them. For QF_BV, Bitwuzla is the main solver if the user left
+it to detection and it is found; otherwise, and for the other logics, the
+solvers are detected as in kind2. A solver given on the command line wins.
+Parsing only (--only_parse) needs no solver.
 
 Each solver on the path is replaced by a shim that records its name before
 running the real solver, which tells which solvers a run started. Z3 is
@@ -30,15 +32,18 @@ models = {
 }
 
 
-def model(logic):
+def model(logic, set_logic=None):
     sort = models[logic]
     zero = "0" if sort == "Int" else "#b0000"
     one = "1" if sort == "Int" else "#b0001"
     plus = "+" if sort == "Int" else "bvadd"
+    if set_logic is None:
+        set_logic = f"(set-logic {logic})"
     return f"""
-(set-logic {logic})
+{set_logic}
 (define-system main :input () :output ((x {sort})) :local ()
-  :init (= x {zero}) :trans (= x' ({plus} x {one})))
+  :init (= x {zero}) :trans (= x' ({plus} x {one})) :inv true;(set-logic QF_BV)
+)
 (check-system main :input () :output ((x {sort})) :local ()
   :reachable (rch (= x {one})) :query (q (rch)))
 """
@@ -61,17 +66,19 @@ def shims(tmp_path):
     return shim_dir, log
 
 
-def run_kmoxi(tmp_path, shims, logic, extra=()):
+def run_kmoxi(tmp_path, shims, logic, extra=(), set_logic=None, stdin=False):
     if not kmoxi_bin.exists():
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     shim_dir, log = shims
+    text = model(logic, set_logic)
     path = tmp_path / f"{logic}.moxi"
-    path.write_text(model(logic))
+    path.write_text(text)
     env = dict(os.environ, PATH=f"{shim_dir}{os.pathsep}{os.environ['PATH']}")
     args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
     proc = subprocess.Popen(
-        [kmoxi_bin, *arg_list, *extra, str(path)],
+        [kmoxi_bin, *arg_list, *extra, *([] if stdin else [str(path)])],
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -79,7 +86,7 @@ def run_kmoxi(tmp_path, shims, logic, extra=()):
         start_new_session=True,
     )
     try:
-        stdout, _ = proc.communicate(timeout=60)
+        stdout, _ = proc.communicate(text if stdin else "", timeout=60)
     except subprocess.TimeoutExpired:
         kill_tree(proc)
         proc.communicate()
@@ -115,3 +122,41 @@ def test_missing_preferred_solver_detected(tmp_path, shims):
         ["--enable", "BMC", "--bitwuzla_bin", str(tmp_path / "no-bitwuzla")],
     )
     assert started == {"z3"}, started
+
+
+# The logic as the parser reads it: quoted, absent with a set-logic in a
+# comment only, and from standard input
+@pytest.mark.skipif(os.name == "nt", reason="the shims are shell scripts")
+@pytest.mark.parametrize(
+    "set_logic, stdin, bitwuzla",
+    [("(set-logic |QF_BV|)", False, True), ("", False, False),
+     (None, True, True)],
+    ids=["quoted", "comment", "stdin"],
+)
+def test_logic_from_parser(tmp_path, shims, set_logic, stdin, bitwuzla):
+    started = run_kmoxi(
+        tmp_path, shims, "QF_BV", ["--enable", "BMC"], set_logic, stdin
+    )
+    assert ("bitwuzla" in started) == bitwuzla, started
+
+
+def test_only_parse_needs_no_solver(tmp_path):
+    if not kmoxi_bin.exists():
+        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
+    path = tmp_path / "QF_BV.moxi"
+    path.write_text(model("QF_BV"))
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    res = subprocess.run(
+        [kmoxi_bin, "--only_parse", "true", str(path)],
+        capture_output=True, text=True, timeout=60,
+        env=dict(os.environ, PATH=str(empty)),
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+    # Analyzing does need one: kmoxi exits with the code for a solver not found
+    res = subprocess.run(
+        [kmoxi_bin, "--enable", "BMC", str(path)],
+        capture_output=True, text=True, timeout=60,
+        env=dict(os.environ, PATH=str(empty)),
+    )
+    assert res.returncode == 4, res.stdout + res.stderr

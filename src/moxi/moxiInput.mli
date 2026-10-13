@@ -33,5 +33,8 @@ val check_file : string -> (unit, error) result
 
 (** Parse, type check and translate the script in a file into one
     transition system per [check-system] command, each with the names of
-    its properties that are current-state formulas *)
-val of_file : string -> ((system_check * string list) list, error) result
+    its properties that are current-state formulas, and the logic set
+    with [set-logic], if any *)
+val of_file :
+  string ->
+  ((system_check * string list) list * string option, error) result

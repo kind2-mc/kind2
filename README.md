@@ -353,9 +353,9 @@ stops after that check. Useful options, all shared with Kind 2:
 - `--smt_solver`, `--smt_itp_solver`, `--smt_qe_solver`: the main,
   interpolating and quantifier-elimination solvers, with `--z3_bin`,
   `--bitwuzla_bin`, `--mathsat_bin` and the like to locate them. Without
-  these, kMoXI picks them from the logic the model declares (Bitwuzla for
-  `QF_BV`, Z3 for `QF_ABV` and `QF_LIA`, with MathSAT for interpolation and
-  Z3 for quantifier elimination), among the solvers it finds on the path.
+  these, kMoXI picks them among the solvers it finds on the path as `kind2`
+  does, except that it prefers Bitwuzla as the main solver when the model
+  sets the logic `QF_BV`.
 
 `kmoxi --help` lists the options, and `kmoxi --help_of all` those of the
 engines.
