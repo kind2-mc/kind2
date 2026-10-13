@@ -667,8 +667,20 @@ let extract uf_defs env term =
 
           )
 
-        (* TODO: Boolean exclusive disjunction to be true *)
-        | `DISTINCT ->  assert false
+        (* Pairwise distinctness: the conjunction of the disequalities of
+           every two arguments, extracted from with the same polarity. To
+           be false, some two arguments are equal in the model, and the
+           conjunction gives the disequality of that pair to be false. *)
+        | `DISTINCT ->
+
+          let rec pairs = function
+            | [] -> []
+            | a :: tl ->
+              List.map (fun b -> Term.mk_not (Term.mk_eq [a; b])) tl
+              @ pairs tl
+          in
+
+          (accum, [(Term.mk_and (pairs l), polarity)])
 
         (* if-then-else *)
         | `ITE -> 
