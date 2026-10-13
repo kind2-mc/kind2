@@ -93,6 +93,7 @@ type error_kind =
   | DuplicateFormula of string
   | DuplicateQuery of string
   | UnknownFormula of string * string
+  | SeveralCurrent of string
 
 (** An error and where it was found *)
 type error = Lib.position * error_kind

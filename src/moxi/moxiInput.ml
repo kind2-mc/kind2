@@ -892,6 +892,7 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
   in
   (* What the type checker accepts of a check-system but kmoxi does not
      translate *)
+  let unsupported_at = unsupported in
   let unsupported = unsupported check_cmd.A.loc in
   match queries with
   | [] -> unsupported "kmoxi requires a :query in every check-system"
@@ -913,10 +914,15 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
           if HSS.mem s query_symbols then Some attr else None
         | _ -> None
       )
-      |> List.partition (fun (ty, _) ->
+      |> List.partition (fun (ty, ((span, _), _)) ->
         match ty with
         | A.Assumption -> true
         | A.Reachable -> false
+        | A.Fairness ->
+          unsupported_at span
+            "kmoxi does not support :fairness conditions (liveness queries)"
+        | A.Current ->
+          unsupported_at span "kmoxi does not support :current conditions"
       )
     in
     let loc = check_cmd.A.loc in
@@ -965,7 +971,8 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
         ((symb, bool_sort), (Some (A.Constant A.True), negate term)) :: defs,
         [p], curr_state_props
       )
-      | _ -> unsupported "kmoxi supports one :reachable condition per query"
+      | _ :: (_, ((span, _), _)) :: _ ->
+        unsupported_at span "kmoxi supports one :reachable condition per query"
     in
     let input = check_cmd.A.input in
     let output = check_cmd.A.output in

@@ -97,6 +97,7 @@ type error_kind =
   | DuplicateFormula of string
   | DuplicateQuery of string
   | UnknownFormula of string * string
+  | SeveralCurrent of string
 
 type error = Lib.position * error_kind
 
@@ -220,6 +221,8 @@ let error_message = function
   | UnknownFormula (q, f) ->
     Format.sprintf "query %s refers to '%s', which names no condition of \
                     this check-system" q f
+  | SeveralCurrent q ->
+    Format.sprintf "query %s names more than one :current condition" q
 
 exception Type_error of error
 
@@ -995,13 +998,13 @@ let check_check_system env (check : A.check_system_cmd) =
   List.iter (check_not_global env) [inputs; outputs; locals];
   let vars = vars_of [Input, inputs; Output, outputs; Local, locals] in
   let env = { env with vars; lets = HSM.empty } in
-  (* Conditions: assumptions may prime inputs only, reachability conditions
-     any variable *)
+  (* Conditions: assumptions and fairness conditions may prime inputs only,
+     reachability conditions any variable, and initiality conditions none *)
   let conditions =
     List.fold_left (fun conditions -> function
       | A.FormulaAttr (ty, ((span, f), term)) ->
         let name = str f in
-        if List.exists (HS.equal f) conditions then
+        if List.mem_assoc f conditions then
           fail_span span (DuplicateFormula name);
         let what attr = Format.sprintf "the %s condition %s" attr name in
         (match ty with
@@ -1011,20 +1014,32 @@ let check_check_system env (check : A.check_system_cmd) =
              (what ":assumption") term
          | A.Reachable ->
            check_formula { env with priming = PrimeAll } (what ":reachable")
-             term);
-        f :: conditions
+             term
+         | A.Fairness ->
+           check_formula
+             { env with priming = PrimeInputs (what ":fairness") }
+             (what ":fairness") term
+         | A.Current ->
+           check_formula { env with priming = NoPrime (what ":current") }
+             (what ":current") term);
+        (f, ty) :: conditions
       | A.QueryAttr _ -> conditions
     ) [] check.attrs
   in
-  (* Queries name declared conditions *)
+  (* Queries name declared conditions, at most one initiality condition *)
   List.fold_left (fun queries -> function
     | A.QueryAttr ((span, q), names) ->
       if List.exists (HS.equal q) queries then
         fail_span span (DuplicateQuery (str q));
-      List.iter (fun (span, f) ->
-        if not (List.exists (HS.equal f) conditions) then
-          fail_span span (UnknownFormula (str q, str f))
-      ) names;
+      List.fold_left (fun current (span, f) ->
+        match List.assoc_opt f conditions with
+        | None -> fail_span span (UnknownFormula (str q, str f))
+        | Some A.Current ->
+          if current then fail_span span (SeveralCurrent (str q));
+          true
+        | Some _ -> current
+      ) false names
+      |> ignore;
       q :: queries
     | A.FormulaAttr _ -> queries
   ) [] check.attrs
