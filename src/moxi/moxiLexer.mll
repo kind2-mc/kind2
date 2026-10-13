@@ -35,6 +35,7 @@
     "_", P.UNDERSCORE ;
     "as", P.AS ;
     "define-system", P.DEFINE_SYSTEM ;
+    "define-fun", P.DEFINE_FUN ;
     "check-system", P.CHECK_SYSTEM ;
     "set-logic", P.SET_LOGIC ;
     "true", P.TRUE ;

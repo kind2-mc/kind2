@@ -105,9 +105,20 @@ type define_system_cmd =
   inv: term ;
 }
 
+(* (define-fun f ((x1 S1) ... (xn Sn)) S body) *)
+type define_fun_cmd =
+{
+  loc: span ;
+  name: symbol ;
+  params: sorted_var list ;
+  sort: sort ;
+  body: term ;
+}
+
 type command =
   | CheckSystemCmd of check_system_cmd
   | DefineSystemCmd of define_system_cmd
+  | DefineFunCmd of define_fun_cmd
   | SetLogicCmd of symbol
 
 type script = command list

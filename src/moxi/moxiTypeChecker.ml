@@ -77,6 +77,8 @@ type error_kind =
   | ConstArrayNotArraySort of sort
   | DuplicateLetBinding of string
   | SystemRedefined of string
+  | FunctionRedefined of string
+  | FunctionBodySort of string * sort * sort
   | UnknownSystem of string
   | SelfInstantiation of string
   | DuplicateInstance of string
@@ -163,6 +165,11 @@ let error_message = function
     Format.sprintf "variable '%s' is bound twice by the same let" v
   | SystemRedefined s ->
     Format.sprintf "system '%s' is already defined" s
+  | FunctionRedefined f ->
+    Format.sprintf "function '%s' is already defined" f
+  | FunctionBodySort (f, declared, actual) ->
+    Format.sprintf "the body of function '%s' has sort %s, but %s is declared"
+      f (string_of_sort actual) (string_of_sort declared)
   | UnknownSystem s ->
     Format.sprintf "unknown system '%s'" s
   | SelfInstantiation s ->
@@ -293,6 +300,8 @@ type env = {
   (* Let-bound variables, with whether they are bound to a constant term *)
   lets : (sort * bool) HSM.t;
   priming : priming;
+  (* Functions defined with define-fun: their parameter and result sorts *)
+  funs : (sort list * sort) HSM.t;
 }
 
 let str = HS.string_of_hstring
@@ -461,7 +470,19 @@ let rec check_term env = function
               | PrimeInputs _ | PrimeAll -> ()
             );
             sort, false
-          | None -> fail pos (UnboundVariable name)
+          | None -> (
+            (* A function without parameters, applied to no arguments *)
+            match HSM.find_opt s env.funs with
+            | Some ([], result) ->
+              if is_prime then fail pos (PrimedNonVariable name);
+              result, true
+            | Some (params, _) ->
+              fail pos
+                (Arity (name,
+                  Format.sprintf "%d %s" (List.length params)
+                    (plural (List.length params) "argument"), 0))
+            | None -> fail pos (UnboundVariable name)
+          )
         )
       )
     in
@@ -491,6 +512,17 @@ let rec check_term env = function
           | _ -> fail pos (ConstArrayNotArraySort sort)
         )
         | "const", None -> fail pos ConstArrayWithoutSort
+        | _ when HSM.mem s env.funs ->
+          let params, result = HSM.find s env.funs in
+          let n = List.length args in
+          if n <> List.length params then
+            fail pos
+              (Arity (name,
+                Format.sprintf "%d %s" (List.length params)
+                  (plural (List.length params) "argument"), n));
+          check_args pos name params (List.map fst args);
+          check_ascription env pos result ascription;
+          result
         | _ ->
           let sort = check_app pos env name args in
           check_ascription env pos sort ascription;
@@ -797,6 +829,30 @@ let check_subsystems env sys_name sys_name_hs subsys =
   ) [] subsys
   |> ignore
 
+(* A function body is a term over the parameters only, unprimed, which may
+   apply the functions defined before it *)
+let check_define_fun env (def : A.define_fun_cmd) =
+  let name_span, name_hs = def.name in
+  let name = str name_hs in
+  if HSM.mem name_hs env.funs then fail_span name_span (FunctionRedefined name);
+  let params =
+    List.map (fun (span, (_, s), sort) -> span, s, sort_of_ast env.logic sort)
+      def.params
+  in
+  let result = sort_of_ast env.logic def.sort in
+  let vars = vars_of [Local, params] in
+  let what = Format.sprintf "the body of function %s" name in
+  let body_sort, _ =
+    check_term { env with vars; lets = HSM.empty; priming = NoPrime what }
+      def.body
+  in
+  if body_sort <> result then
+    fail_span name_span (FunctionBodySort (name, result, body_sort));
+  { env with
+    funs =
+      HSM.add name_hs (List.map (fun (_, _, sort) -> sort) params, result)
+        env.funs }
+
 let check_define_system env (sys : A.define_system_cmd) =
   let name_span, name_hs = sys.name in
   let name = str name_hs in
@@ -892,6 +948,7 @@ let check_script script =
     vars = HSM.empty;
     lets = HSM.empty;
     priming = PrimeAll;
+    funs = HSM.empty;
   }
   in
   try
@@ -906,6 +963,7 @@ let check_script script =
           | None -> fail_span span (UnknownLogic (str l))
         in
         { env with logic }, true, defined
+      | A.DefineFunCmd def -> check_define_fun env def, logic_set, true
       | A.DefineSystemCmd sys -> check_define_system env sys, logic_set, true
       | A.CheckSystemCmd check -> check_check_system env check, logic_set, true
     ) (empty_env, false, false) script

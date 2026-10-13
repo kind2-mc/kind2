@@ -305,6 +305,10 @@ val mk_trans_sys :
   (* Definitions of the recursive functions of the system, as blocks of
      mutually recursive definitions in dependency order *)
   ?rec_fun_defs:fun_def list list ->
+
+  (* Definitions of the non-recursive functions the system applies, in
+     definition order *)
+  ?fun_defs:fun_def list ->
   ?check_defs:fun_def list list ->
   ?check_ufs:UfSymbol.t list ->
   ?check_helpers:UfSymbol.t list ->
@@ -618,6 +622,12 @@ val get_ufs : t -> UfSymbol.t list
 (** Return the definitions of the recursive functions of this system, as
     blocks of mutually recursive definitions in dependency order *)
 val get_rec_fun_defs : t -> fun_def list list
+
+(** Return the definitions of the non-recursive functions this system
+    applies, in definition order. They are given to the solvers as
+    definitions, before the predicates of the systems, and to the
+    evaluation of terms in a model with {!uf_defs}. *)
+val get_fun_defs : t -> fun_def list
 
 (** Return [true] if the system or one of its subsystems has a recursive
     function defined at the SMT level (see [LustreFunDefs]) *)

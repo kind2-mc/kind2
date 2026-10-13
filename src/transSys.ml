@@ -167,6 +167,13 @@ type t =
         mutually recursive definitions in dependency order: a block only
         applies the symbols of the blocks before it, of its own, and of
         [ufs]. See [LustreFunDefs]. *)
+
+    fun_defs : fun_def list;
+    (** Definitions of the non-recursive functions the system applies, in
+        definition order: a body only applies the symbols defined before it
+        and those of [ufs]. They are given to the solvers as they are, as
+        definitions of an SMT-LIB [define-fun], and do not change the logic
+        beyond what their bodies use. *)
     
     logic : TermLib.logic;
     (** Logic fragment needed to express the transition system 
@@ -765,6 +772,10 @@ let get_function_symbols { ufs } = ufs
 (* Return the recursive function definitions *)
 let get_rec_fun_defs { rec_fun_defs } = rec_fun_defs
 
+(* Return the non-recursive function definitions *)
+let get_fun_defs { fun_defs } = fun_defs
+
+
 (* **************************************************************** *)
 (* Iterate and Fold over Subsystems                                 *)
 (* **************************************************************** *)
@@ -898,6 +909,21 @@ let fold_subsystems ?(include_top = true) f accum ({ subsystems } as trans_sys) 
     Scope.Set.empty
     (if include_top then [trans_sys] else List.map fst subsystems)
 
+
+(* The non-recursive function definitions of the system and its subsystems,
+   each once, in definition order *)
+let all_fun_defs trans_sys =
+  let _, defs =
+    fold_subsystems ~include_top:true
+      (fun (seen, acc) t ->
+         List.fold_left
+           (fun (seen, acc) ((uf, _, _) as d) ->
+              if UfSymbol.UfSymbolSet.mem uf seen then seen, acc
+              else UfSymbol.UfSymbolSet.add uf seen, d :: acc)
+           (seen, acc) t.fun_defs)
+      (UfSymbol.UfSymbolSet.empty, []) trans_sys
+  in
+  List.rev defs
 
 (* Fold bottom-up over all subsystem instances *)
 let fold_subsystem_instances f trans_sys = 
@@ -1427,6 +1453,11 @@ let define_and_declare_of_bounds
   (* Declare constant state variables of top system *)
   declare_const_vars trans_sys declare;
 
+  (* Define the non-recursive functions, which the predicates of the
+     systems may apply *)
+  all_fun_defs trans_sys
+  |> List.iter (fun (uf, vars, body) -> define uf vars body) ;
+
   (* Iterate over all subsystems *)
   let _, defined = fold_subsystems ~include_top:false (fun (declared, defined) t ->
 
@@ -1578,6 +1609,12 @@ let uf_defs trans_sys =
   (* Reverse predicate definitions to have predicate definitions of
      subsystems before *)
   |> List.rev
+
+  (* The definitions of the non-recursive functions come first, as the
+     predicates may apply them *)
+  |> List.append
+    (List.map (fun (uf, vars, body) -> uf, (vars, body))
+       (all_fun_defs trans_sys))
 
 (*
 (* Flatten the list of instances per subsystems ot a list of subsystem
@@ -2106,6 +2143,7 @@ let mk_trans_sys
   ?(datatype_types = [])
   ?(fn_congruence_groups = [])
   ?(rec_fun_defs = [])
+  ?(fun_defs = [])
   ?(check_defs = [])
   ?(check_ufs = [])
   ?(check_helpers = [])
@@ -2203,12 +2241,14 @@ let mk_trans_sys
        subsystems of the transition system *)
     | `detect ->
 
+      (* The predicates of the subsystems and the functions the system
+         defines are not uninterpreted *)
       let fun_symbols =
         List.fold_left
           (fun a ({trans_uf_symbol; init_uf_symbol},_) ->
             trans_uf_symbol :: init_uf_symbol :: a
           )
-          []
+          (List.map (fun (uf, _, _) -> uf) fun_defs)
           subsystems
       in
 
@@ -2233,6 +2273,13 @@ let mk_trans_sys
              List.map
                (fun t -> TermLib.logic_of_term fun_symbols t)
                global_constraints
+
+             @
+
+             (* Logics of the bodies of the non-recursive function
+                definitions *)
+             List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t)
+               fun_defs
 
              @
 
@@ -2396,6 +2443,7 @@ let mk_trans_sys
       fn_congruence_groups;
       ufs;
       rec_fun_defs;
+      fun_defs;
       init_uf_symbol;
       init_formals;
       init;
