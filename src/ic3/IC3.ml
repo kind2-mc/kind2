@@ -20,6 +20,17 @@ open Lib
 
 exception UnsupportedFeature of string
 
+(* The model of variables, which IC3 generalizes into cubes: a model with
+   arrays too large to read is not supported, and IC3 stops *)
+let get_var_values solver bounds vars =
+  try
+    SMTSolver.get_var_values
+      ~array_limit:(`Raise SMTSolver.max_array_elements) solver bounds vars
+  with SMTSolver.Too_many_array_elements ->
+    raise (UnsupportedFeature (Format.sprintf
+      "IC3 stops: a model of the system has arrays of more than %d \
+       elements, too many to read" SMTSolver.max_array_elements))
+
 module C = Clause
 
 (* Frame is a trie of clauses *)
@@ -972,7 +983,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    
                    Don't use SMTSolver.get_model, because it is
                    expensive due to the many activation literals. *)
-                SMTSolver.get_var_values
+                get_var_values
                   solver
                   (TransSys.get_state_var_bounds trans_sys)
                   (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
@@ -1223,7 +1234,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                   (* Get model in all other frames *)
                   | _ ->
-                    SMTSolver.get_var_values
+                    get_var_values
                       solver
                       (TransSys.get_state_var_bounds trans_sys)
                       (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
@@ -1689,7 +1700,7 @@ let rec partition_inductive
 
       (* Get model for failed entailment check *)
       (fun solver ->
-        SMTSolver.get_var_values
+        get_var_values
           solver
           (TransSys.get_state_var_bounds trans_sys)
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
@@ -1791,7 +1802,7 @@ let partition_fwd_prop
 
         (* Get model for failed entailment check *)
         (fun solver ->
-          SMTSolver.get_var_values
+          get_var_values
             solver
             (TransSys.get_state_var_bounds trans_sys)
             (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
@@ -2557,7 +2568,7 @@ let extract_cex_path solver trans_sys trace =
             let path', state = 
               add_to_path
                 (* SMTSolver.get_model solver *)
-                (SMTSolver.get_var_values
+                (get_var_values
                    solver
                    (TransSys.get_state_var_bounds trans_sys)
                    (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
@@ -2619,7 +2630,7 @@ let extract_cex_path solver trans_sys trace =
                  constraint for state *)
               add_to_path
                 (* SMTSolver.get_model solver *)
-                (SMTSolver.get_var_values
+                (get_var_values
                    solver
                    (TransSys.get_state_var_bounds trans_sys)
                    (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one))
@@ -2905,7 +2916,7 @@ let bmc_checks solver input_sys aparam trans_sys props bound =
     (* Get model for all variables of transition system *)
     let model =
       (* SMTSolver.get_model solver *)
-      SMTSolver.get_var_values
+      get_var_values
         solver
         (TransSys.get_state_var_bounds trans_sys)
         (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)

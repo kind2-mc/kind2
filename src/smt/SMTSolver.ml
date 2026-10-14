@@ -799,8 +799,63 @@ let cross_2 l1 l2 =
 let cross ll = List.fold_left (fun acc l -> cross_2 l acc) [[]] ll
 
 
+(* How many elements of arrays a model is read with at most, and what
+   happens to the arrays past that *)
+type array_limit = [ `Raise of int | `Omit of int ]
+
+exception Too_many_array_elements
+
+(* The limit for the models of the engines: an array has [2^w] elements
+   for an index of [w] bits, and they are read one by one *)
+let max_array_elements = 1 lsl 16
+
+(* The value of an array the solver gives, a constant array with stores of
+   constant indices and values, in canonical form for the array type [ty]:
+   a store at an index other stores precede, as the value overrides theirs,
+   and no store of the value of the constant array, with the stores in the
+   order of their indices. Two values are then equal exactly if they are
+   the same term. The indices and values are those of the types of [ty],
+   as for a scalar value (see [Simplify]): the solver does not tell signed
+   and unsigned bit-vectors apart. Raises [Not_found] for a value of
+   another form, such as a lambda abstraction. *)
+let rec canonical_array_value ty t =
+  let value ty t =
+    if Type.is_array ty then canonical_array_value ty t
+    else if Type.is_ubitvector ty then Term.mk_ubv (Term.bitvector_of_term t)
+    else if Type.is_bitvector ty then Term.mk_bv (Term.bitvector_of_term t)
+    else if Term.is_numeral t && Type.is_real ty then
+      Term.mk_dec (Decimal.of_big_int (Numeral.to_big_int (Term.numeral_of_term t)))
+    else if Term.is_numeral t || Term.is_decimal t || Term.is_bool t then t
+    else raise Not_found
+  in
+  let index_ty = Type.index_type_of_array ty in
+  let elem_ty = Type.elem_type_of_array ty in
+  (* The stores from the outermost one, and the value of the constant
+     array *)
+  let rec stores acc t =
+    match Term.destruct t with
+    | Term.T.App (sym, [a; i; v])
+      when Symbol.node_of_symbol sym = `STORE ->
+      let i = value index_ty i in
+      if List.exists (fun (j, _) -> Term.equal i j) acc then stores acc a
+      else stores ((i, value elem_ty v) :: acc) a
+    | Term.T.App (sym, [d]) -> (
+      match Symbol.node_of_symbol sym with
+      | `CONST_ARRAY _ -> acc, value elem_ty d
+      | _ -> raise Not_found )
+    | _ -> raise Not_found
+  in
+  let stores, default =
+    try stores [] t with Invalid_argument _ | Failure _ -> raise Not_found
+  in
+  stores
+  |> List.filter (fun (_, v) -> not (Term.equal v default))
+  |> List.sort (fun (i, _) (j, _) -> Term.compare i j)
+  |> List.fold_left (fun a (i, v) -> Term.mk_store a i v)
+       (Term.mk_const_array ty default)
+
 (* Get model of the current context *)
-let get_var_values s state_var_indexes vars =
+let get_var_values ?array_limit s state_var_indexes vars =
   let module S = (val s.solver_inst) in
 
   (* separate array variables *)
@@ -833,11 +888,33 @@ let get_var_values s state_var_indexes vars =
       | r -> smt_error s r
   in
 
+  (* The number of array elements read so far, for [`Raise] *)
+  let read = ref 0 in
+
+  (* With the theory of arrays, the solver gives the value of an array as a
+     term, exactly, whatever the size of the array: a constant array with
+     stores. Without it, an array is a function symbol, whose value is a
+     function the solver gives in a form of its own. *)
+  let exact_value v =
+    if not (Flags.Arrays.smt ()) then None
+    else
+      match prof_get_value s [S.Conv.smtexpr_of_var v []] with
+      | `Values [(_, e)] -> (
+        try
+          Some (canonical_array_value (Var.type_of_var v)
+                  (S.Conv.term_of_smtexpr e))
+        with Not_found | Failure _ | Invalid_argument _ -> None )
+      | r -> smt_error s r
+  in
+
   (* Get model for arrays *)
   (* We obtain the model by first evaluating the bound of the array in the
      current model when it is not fixed. Then we evaluate A[0], ..., A[n] in the
      solver and return a map that represent this as the model *)
   List.iter (fun v ->
+    match exact_value v with
+    | Some t -> Var.VarHashtbl.add model v (Model.Term t)
+    | None ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
       let offset =
@@ -883,6 +960,23 @@ let get_var_values s state_var_indexes vars =
             (fun t -> Numeral.to_int (Term.numeral_of_term t))
         in
 
+        (* The elements of the array, checked against the limit before any
+           is read *)
+        let elements =
+          (* Saturated: the dimensions of nested arrays multiply *)
+          List.fold_left (fun n (lo, hi) ->
+            let d = max 0 (hi - lo + 1) in
+            if d <> 0 && n > max_int / d then max_int else n * d) 1 bnds
+        in
+        ( match array_limit with
+          | Some (`Raise limit) ->
+            if elements > limit - !read then raise Too_many_array_elements ;
+            read := !read + elements
+          | Some (`Omit limit) ->
+            (* Given no values, as an unbounded array *)
+            if elements > limit then raise Exit
+          | None -> () ) ;
+
         let args_list = cross (List.map range bnds) in
         let vt = Term.mk_var v in
         let sexprs =
@@ -910,7 +1004,7 @@ let get_var_values s state_var_indexes vars =
               Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
             ) Model.MIL.empty values in
         Var.VarHashtbl.add model v (Model.Map m)
-      with Exit -> (* No values for unbounded arrays *)
+      with Exit -> (* No values for unbounded arrays, or omitted ones *)
         Var.VarHashtbl.add model v (Model.Map Model.MIL.empty)
     ) array_vars;
       

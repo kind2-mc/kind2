@@ -1193,7 +1193,37 @@ let const_array ty_array = function
 
  | _ -> assert false
 
+(* The value of a constant array, if the term is one *)
+let const_array_value t =
+  match Term.destruct t with
+  | Term.T.App (sym, [v]) -> (
+    match Symbol.node_of_symbol sym with
+    | `CONST_ARRAY _ -> Some v
+    | _ -> None )
+  | _ -> None
+
+(* Whether a term is an array value: a constant array with stores of
+   constant indices and values, as models give the values of arrays (see
+   [SMTSolver.get_var_values]) *)
+let rec is_array_value t =
+  let is_value t =
+    Term.is_numeral t || Term.is_decimal t || Term.is_bool t
+    || Term.is_bitvector t || is_array_value t
+  in
+  match const_array_value t with
+  | Some v -> is_value v
+  | None ->
+    Term.is_store t &&
+    match Term.destruct t with
+    | Term.T.App (_, [a; i; v]) -> is_array_value a && is_value i && is_value v
+    | _ -> false
+
 let select simplify_term_node model fterm = function
+
+  (* Select from a constant array: its value *)
+  | [a; _] when const_array_value (term_of_nf a) <> None ->
+    Term.eval_t simplify_term_node
+      (Option.get (const_array_value (term_of_nf a)))
 
   (* Select from a store: the stored value if the indexes are equal, a select
      from the array stored into otherwise *)
@@ -1304,8 +1334,10 @@ let select simplify_term_node model fterm = function
               simplify_term_node
               value
 
-        (* Variable must not evaluate to a term *)
-        | Model.Term _ -> assert false
+        (* The value of an array as a term: the select from it *)
+        | Model.Term t ->
+          Term.eval_t simplify_term_node
+            (List.fold_left Term.mk_select t i')
 
        (* Free variable without assignment in model *)
        with Not_found ->
@@ -2205,6 +2237,10 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                 (match args' with
                  | a :: tl when List.for_all (Term.equal a) tl ->
                    Bool Term.t_true
+                 (* Array values are in canonical form: different ones
+                    are different arrays *)
+                 | _ when List.for_all is_array_value args' ->
+                   Bool Term.t_false
                  | _ -> Bool (Term.mk_eq args'))
 
               (* Equation between integers or reals *)

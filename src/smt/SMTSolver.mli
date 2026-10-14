@@ -153,9 +153,27 @@ val check_sat : ?timeout:int -> t -> bool
 (** Return a model of the current context if satisfiable *)
 val get_model : t -> Model.t
 
+(** How many elements of arrays a model is read with at most:
+    - [`Raise n]: {!Too_many_array_elements} is raised if the arrays of the
+      model have more than [n] elements in all;
+    - [`Omit n]: an array of more than [n] elements is given no values, as
+      an unbounded array is, and the others are read. *)
+type array_limit = [ `Raise of int | `Omit of int ]
+
+(** Raised by {!get_var_values} for [`Raise] *)
+exception Too_many_array_elements
+
+(** The limit on the array elements of the models of the engines *)
+val max_array_elements : int
+
 (** Return a values of the terms in the current context if
-    satisfiable *)
+    satisfiable.
+
+    The value of an array is read element by element, over the indices its
+    bounds give it: [2^w] elements for an index of [w] bits. With
+    [array_limit], the arrays read are limited (see {!array_limit}). *)
 val get_var_values :
+  ?array_limit:array_limit ->
   t ->
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
   Var.t list -> Model.t

@@ -21,7 +21,9 @@ binding are now encoded before the bindings are nested.
 The definitions of the functions a recursive function calls are given to the
 supervisor when it checks a counterexample that reaches a recursive call
 past the unrollings. In the model, the subtype obligation of Asc in the
-recursive call of F is such a counterexample.
+recursive call of F is such a counterexample. With the theory of arrays, the
+model has the value of the array argument, and the supervisor evaluates the
+call rather than leaving it unconstrained.
 """
 
 import json
@@ -92,11 +94,20 @@ def run(tmp_path, lustre, arrays):
     ]
     assert errors == [], errors
     # The supervisor checked a counterexample past the unrollings, so the
-    # definitions the functions have were given to it
-    assert any(
+    # definitions the functions have were given to it. Without the theory of
+    # arrays, the value of the array argument of the call is not known, and
+    # the call is left unconstrained. With it, the model has the value of the
+    # array, as a term, and the supervisor evaluates the call when the
+    # definitions let it.
+    left_unconstrained = any(
         "Counterexamples reach a recursive call of F" in log["value"]
         for log in logs
-    ), logs
+    )
+    if arrays == "false":
+        assert left_unconstrained, logs
+    else:
+        evaluated = any((tmp_path / "out").rglob("*.super.*.smt2"))
+        assert left_unconstrained or evaluated, logs
     answers = {
         obj["name"]: obj["answer"]["value"]
         for obj in objs
