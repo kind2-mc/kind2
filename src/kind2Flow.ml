@@ -752,8 +752,9 @@ let spawn_process in_sys param
         on_exit_engine messaging_worker kind_module Exit
 
       with
-      (* Termination message received. *)
-      | KEvent.Terminate as e ->
+      (* Termination message received, or the solvers of the engine
+         killed by the supervisor to stop it *)
+      | (KEvent.Terminate | SMTSolver.Killed) as e ->
         on_exit_engine messaging_worker kind_module e
       (* Catch all other exceptions. *)
       | e ->

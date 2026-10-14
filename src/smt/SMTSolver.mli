@@ -96,6 +96,10 @@ val destroy_all_of_process : unit -> unit
     solver call. *)
 val kill_solvers_of_domain : int -> unit
 
+(** The live solvers, as the domain that owns each (by its identifier, as
+    for {!kill_solvers_of_domain}) and the identifier of its process. *)
+val solver_pids_by_domain : unit -> (int * int) list
+
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int
   

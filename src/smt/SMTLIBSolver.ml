@@ -1271,6 +1271,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
     let kill_instance () = kill_instance solver
 
+    let pid () = solver.solver_pid
+
     let close_channels () = close_channels solver
 
 

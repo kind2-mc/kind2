@@ -221,6 +221,10 @@ val timeout_wall : unit -> float
 (** Per-run wallclock timeout. *)
 val timeout_analysis : unit -> float
 
+(** Memory limit in MB of the analysis, solvers included, or 0 for that
+    of the cgroup of the process (see {!MemoryWatch}). *)
+val memory_limit : unit -> int
+
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
 

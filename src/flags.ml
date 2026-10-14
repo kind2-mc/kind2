@@ -3436,6 +3436,26 @@ module Global = struct
   ])
   let timeout_analysis () = !timeout_analysis
 
+
+  (* Memory limit. *)
+  let memory_limit_default = 0
+  let memory_limit = ref memory_limit_default
+  let _ = add_specs ([
+    ( "--memory_limit",
+      Arg.Set_int memory_limit,
+      fun fmt ->
+        Format.fprintf fmt
+          "@[<v>Memory limit in MB of the analysis, solvers included: past \
+             80%% of it,@ the engine whose solvers use the most memory is \
+             stopped, so that the others go on.@ 0 is the limit of the \
+             cgroup of the process, if any.@ Linux only: elsewhere the \
+             memory used is not checked@ \
+           Default: %d@]"
+          memory_limit_default
+    )
+  ])
+  let memory_limit () = !memory_limit
+
   (* Only parse mode. *)
   let only_parse_default = false
   let only_parse = ref only_parse_default
@@ -4007,6 +4027,7 @@ let input_format = Global.input_format
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
+let memory_limit = Global.memory_limit
 let input_file = Global.input_file
 let all_input_files = Global.get_all_input_files
 let clear_input_files = Global.clear_input_files

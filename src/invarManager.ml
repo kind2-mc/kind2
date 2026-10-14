@@ -286,6 +286,10 @@ let rec loop
 
   handle_events input_sys aparam trans_sys ;
 
+  (* Stop the engine whose solvers take the memory, if they are about
+     to run the analysis out of it *)
+  MemoryWatch.check () ;
+
   (* On Windows there is no SIGALRM-based wall clock timeout: enforce
      it here. [handle_events] has just refreshed the total time. *)
   ( if Sys.win32 then
