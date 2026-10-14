@@ -32,7 +32,8 @@ type system_check = TransSys.t SubSystem.t
 val check_file : string -> (unit, error) result
 
 (** Parse, type check and translate the script in a file into one
-    transition system per [check-system] command, each with the names of
+    transition system per [check-system] command, in the order of the
+    script, each with the names of
     its properties that are current-state formulas, and the logic set
     with [set-logic], if any *)
 val of_file :

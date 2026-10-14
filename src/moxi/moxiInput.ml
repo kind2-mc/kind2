@@ -70,7 +70,12 @@ type system_check = TS.t SubSystem.t
 type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
+  (* The checks, last first *)
   checks: (system_check * string list) list ;
+  (* The names of all the systems of the script, and the number of the next
+     check, for the names of the systems of the checks *)
+  system_names: HSS.t ;
+  next_check: int ;
   (* The logic set with set-logic, if any *)
   logic: string option ;
   (* Numerals denote reals, in a logic with reals and no integers *)
@@ -97,6 +102,8 @@ let empty_input =
 {
   systems = HSM.empty ;
   checks = [] ;
+  system_names = HSS.empty ;
+  next_check = 0 ;
   logic = None ;
   real_numerals = false ;
   funs = HSM.empty ;
@@ -886,7 +893,7 @@ let negate term =
   let id = (Lib.dummy_span, symb, []) in
   A.App (Lib.dummy_span, (id, false, None), [term])
 
-let mk_check decls (check_cmd: A.check_system_cmd) =
+let mk_check decls sys_name (check_cmd: A.check_system_cmd) =
   let queries, formulas =
     List.partition A.is_query_attr check_cmd.A.attrs
   in
@@ -928,7 +935,6 @@ let mk_check decls (check_cmd: A.check_system_cmd) =
       List.partition (fun (ty, _) -> ty = A.Assumption) named_fs
     in
     let loc = check_cmd.A.loc in
-    let sys_name = "query" in
     let name =
       (Lib.dummy_span, HString.mk_hstring sys_name)
     in
@@ -1118,11 +1124,26 @@ let process_command (input : input) = function
     { input with systems = HSM.add name (sys, svars) input.systems }
   )
   | A.CheckSystemCmd check_cmd ->
-    let check = mk_check input check_cmd in
-    { input with checks = check :: input.checks }
+    (* The system of the check has a name of its own, which no other check
+       and no system of the script has: its scope, those of its variables,
+       and the names of its predicates are its own *)
+    let rec fresh k =
+      let name = Format.sprintf "__kmoxi_check_%d" k in
+      if HSS.mem (HString.mk_hstring name) input.system_names then fresh (k + 1)
+      else k, name
+    in
+    let k, sys_name = fresh input.next_check in
+    let check = mk_check input sys_name check_cmd in
+    { input with checks = check :: input.checks ; next_check = k + 1 }
 
 let process_ast ast =
-  List.fold_left process_command empty_input ast
+  let system_names =
+    List.fold_left (fun acc -> function
+      | A.DefineSystemCmd sys -> HSS.add (hstring_of_symbol sys.A.name) acc
+      | _ -> acc
+    ) HSS.empty ast
+  in
+  List.fold_left process_command { empty_input with system_names } ast
 
 (* Open a file and apply [f] to its parsed and type checked script; the
    channel is closed on every path, an error or exception included *)
@@ -1146,5 +1167,6 @@ let check_file filename = with_file filename ignore
 let of_file filename =
   with_file filename (fun ast ->
     let input = process_ast ast in
-    input.checks, input.logic)
+    (* In the order of the script, which the responses follow *)
+    List.rev input.checks, input.logic)
    
