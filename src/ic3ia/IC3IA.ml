@@ -820,15 +820,18 @@ let get_invariant init c =
   |> Term.mk_or
 
 (* The logic of each clause found, which the certificates of the clauses
-   of a frame make us compute again and again *)
-let clause_logics = Term.TermHashtbl.create 97
+   of a frame make us compute again and again; local to the domain, as
+   the terms whose tags it is keyed by *)
+let clause_logics =
+  let key = Domain.DLS.new_key (fun () -> Term.TermHashtbl.create 97) in
+  fun () -> Domain.DLS.get key
 
 let logic_of_clause c =
-  match Term.TermHashtbl.find_opt clause_logics c with
+  match Term.TermHashtbl.find_opt (clause_logics ()) c with
   | Some l -> l
   | None ->
     let l = TermLib.logic_of_term [] c in
-    Term.TermHashtbl.add clause_logics c l ;
+    Term.TermHashtbl.add (clause_logics ()) c l ;
     l
 
 (* Is the term in the logic of the original system, with none of the
@@ -838,8 +841,13 @@ let in_logic t =
   | None -> true
   | Some f -> not (TermLib.FeatureSet.mem f (logic_of_clause t))
 
+(* The clauses of a certificate if they are all in the logic *)
+let cert_in_logic cert =
+  if List.for_all in_logic cert then Some cert else None
+
 (* Report the invariant [inv] with the certificate [cert ()], a list of
-   clauses whose conjunction is 1-inductive and implies [inv]. A clause
+   clauses whose conjunction is 1-inductive and implies [inv], or [None]
+   if one of the clauses is not in the logic (see [cert_in_logic]). A clause
    IC3IA finds is inductive only together with the others of its frame,
    so the certificate of each is their conjunction: the supervisor takes
    the certificate of an invariant that is a property for that of the
@@ -847,10 +855,11 @@ let in_logic t =
    in the logic of the original system. *)
 let report_invariant sys cert inv =
   if in_logic inv then
-    let cert = cert () in
-    if List.for_all in_logic cert then
+    match cert () with
+    | Some cert ->
       KEvent.invariant
         (TransSys.scope_of_trans_sys sys) inv (1, Term.mk_and cert) false
+    | None -> ()
 
 let get_invariants init frames k =
   List.fold_left
@@ -917,7 +926,7 @@ let add_blocked_cube solver sys init frames s =
      [k]th, which are inductive together *)
   if TCube.frame s = TCube.FrameInf then (
     let inv = get_invariant init (TCube.cube s) in
-    report_invariant sys (fun () -> get_invariants init frames k) inv
+    report_invariant sys (fun () -> cert_in_logic (get_invariants init frames k)) inv
   ) ;
   
   frames
@@ -1055,6 +1064,9 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
 
 let main_ic3ia fwd prop in_sys param sys =
 
+   (* The clauses of an earlier run in the domain are of another system *)
+   Term.TermHashtbl.reset (clause_logics ()) ;
+
    let solver = mk_solver sys in
 
    let prop_name = prop.Property.prop_name in
@@ -1106,7 +1118,9 @@ let main_ic3ia fwd prop in_sys param sys =
 
     let invariants = loop predicates next_cube frames in
     
-    invariants |> List.iter (report_invariant sys (fun () -> invariants)) ;
+    (* The certificate of every invariant is all of them, checked once *)
+    let clauses = cert_in_logic invariants in
+    invariants |> List.iter (report_invariant sys (fun () -> clauses)) ;
 
     let cert = 1, Term.mk_and invariants in
 
