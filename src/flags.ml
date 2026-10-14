@@ -23,8 +23,8 @@ open Lib
 
 exception Error
 
-exception SolverNotFound
-exception UnsupportedSolver
+exception SolverNotFound of string
+exception UnsupportedSolver of string
 
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
@@ -488,8 +488,9 @@ module Smt = struct
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Log.log L_fatal "@[<v>%s %s %s not found.@]" name filetype bin;
-      raise SolverNotFound
+      let msg = Format.sprintf "%s %s %s not found." name filetype bin in
+      Log.log L_fatal "@[<v>%s@]" msg;
+      raise (SolverNotFound msg)
 
   
   (* Look for the executable of a solver, and record its full path if found.
@@ -552,7 +553,7 @@ module Smt = struct
             `SMTInterpol_SMTLIB; `OpenSMT_SMTLIB; `Bitwuzla_SMTLIB ]
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
-        raise SolverNotFound
+        raise (SolverNotFound "No SMT Solver found.")
     )
     (* User chose a solver *)
     | s -> locate_solver ~fail:true s
@@ -4275,13 +4276,19 @@ let solver_dependent_actions solver =
     let cmd = Format.asprintf "%s --version" (Smt.cvc5_bin ()) in
     match get_version cmd with
     | None ->
-        Log.log L_warn "Couldn't determine cvc5 version";
-        raise UnsupportedSolver
+        let msg = "Couldn't determine cvc5 version" in
+        (* An error, as the run ends on it *)
+        Log.log L_error "%s" msg;
+        raise (UnsupportedSolver msg)
     | Some (major, minor, patch) ->
         if (major < 1) then (
-          Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
-            major minor patch ;
-          raise UnsupportedSolver
+          let msg =
+            Format.sprintf
+              "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
+              major minor patch
+          in
+          Log.log L_error "%s" msg ;
+          raise (UnsupportedSolver msg)
         ) ;
         if
           Certif.proof () && not (
@@ -4292,11 +4299,14 @@ let solver_dependent_actions solver =
             (major > 1)
           )
         then (
-          Log.log L_error
-            "CPC proof production requires cvc5 >= 1.3.2. Found \
-             version: %d.%d.%d"
-            major minor patch;
-          raise UnsupportedSolver) ;
+          let msg =
+            Format.sprintf
+              "CPC proof production requires cvc5 >= 1.3.2. Found \
+               version: %d.%d.%d"
+              major minor patch
+          in
+          Log.log L_error "%s" msg;
+          raise (UnsupportedSolver msg)) ;
         if (major > 1) ||
            (major = 1 && (minor > 3 || (minor = 3 && patch >= 0)))
         then support_new_bv_cast_operators' := true;

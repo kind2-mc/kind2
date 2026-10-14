@@ -16,11 +16,10 @@ Bitwuzla runs is what tells them apart.
 
 import os
 import shutil
-import subprocess
 
 import pytest
 
-from conftest import kmoxi_args, kill_tree, kmoxi_bin
+from conftest import run_kmoxi_process
 
 solvers = ["z3", "bitwuzla", "mathsat"]
 
@@ -67,30 +66,14 @@ def shims(tmp_path):
 
 
 def run_kmoxi(tmp_path, shims, logic, extra=(), set_logic=None, stdin=False):
-    if not kmoxi_bin.exists():
-        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     shim_dir, log = shims
     text = model(logic, set_logic)
     path = tmp_path / f"{logic}.moxi"
     path.write_text(text)
     env = dict(os.environ, PATH=f"{shim_dir}{os.pathsep}{os.environ['PATH']}")
-    args = kmoxi_args | {"--timeout": "30"}
-    arg_list = [arg for pair in args.items() for arg in pair]
-    proc = subprocess.Popen(
-        [kmoxi_bin, *arg_list, *extra, *([] if stdin else [str(path)])],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-        start_new_session=True,
-    )
-    try:
-        stdout, _ = proc.communicate(text if stdin else "", timeout=60)
-    except subprocess.TimeoutExpired:
-        kill_tree(proc)
-        proc.communicate()
-        pytest.fail("no answer after 60s")
+    stdout = run_kmoxi_process(
+        None if stdin else path, *extra, env=env, input=text if stdin else ""
+    ).stdout
     assert ":query (q sat" in stdout, stdout
     return set(log.read_text().split()) if log.exists() else set()
 
@@ -141,22 +124,15 @@ def test_logic_from_parser(tmp_path, shims, set_logic, stdin, bitwuzla):
 
 
 def test_only_parse_needs_no_solver(tmp_path):
-    if not kmoxi_bin.exists():
-        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     path = tmp_path / "QF_BV.moxi"
     path.write_text(model("QF_BV"))
+    # No solver on the path, nor in the working directory, where kmoxi looks
+    # for an executable too
     empty = tmp_path / "empty"
     empty.mkdir()
-    res = subprocess.run(
-        [kmoxi_bin, "--only_parse", "true", str(path)],
-        capture_output=True, text=True, timeout=60,
-        env=dict(os.environ, PATH=str(empty)),
-    )
+    env = dict(os.environ, PATH=str(empty))
+    res = run_kmoxi_process(path, "--only_parse", "true", env=env, cwd=empty)
     assert res.returncode == 0, res.stdout + res.stderr
     # Analyzing does need one: kmoxi exits with the code for a solver not found
-    res = subprocess.run(
-        [kmoxi_bin, "--enable", "BMC", str(path)],
-        capture_output=True, text=True, timeout=60,
-        env=dict(os.environ, PATH=str(empty)),
-    )
+    res = run_kmoxi_process(path, "--enable", "BMC", env=env, cwd=empty)
     assert res.returncode == 4, res.stdout + res.stderr

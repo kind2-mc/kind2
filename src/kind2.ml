@@ -51,10 +51,10 @@ let setup : unit -> any_input = fun () ->
    | Flags.Error -> (
       KEvent.terminate_log () ; exit ExitCodes.usage_error
    )
-   | Flags.UnsupportedSolver -> (
+   | Flags.UnsupportedSolver _ -> (
       KEvent.terminate_log () ; exit ExitCodes.unsupported_solver
    )
-   | Flags.SolverNotFound -> (
+   | Flags.SolverNotFound _ -> (
       KEvent.terminate_log () ; exit ExitCodes.not_found_error
    )
   );
