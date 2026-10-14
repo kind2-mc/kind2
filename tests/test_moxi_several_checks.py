@@ -4,8 +4,8 @@ The system kmoxi builds for a check-system used to be named "query" for
 every check, so all of them had the same scope and the same variables. Each
 analysis looked its system up by that scope, and found the same one: a
 script with two checks got the response of one of them, twice. Each check
-now has a system of its own, numbered, and the responses follow the order
-of the script.
+now has a system of its own, numbered, under a name that no system of the
+script has, and the responses follow the order of the script.
 """
 
 import re
@@ -43,3 +43,25 @@ def test_each_check_answered(tmp_path, second):
     out = run(tmp_path, model)
     answers = re.findall(r":query \((\w+) (\w+)", out)
     assert answers == [("q1", "unsat"), ("q2", "sat")], out
+
+
+# Systems named as the systems of the checks would be: the checks are named
+# after none of the systems of the script, even one defined after them
+clashing = """(set-logic QF_LIA)
+(define-system __kmoxi_check_0 :input () :output ((x Int))
+  :init (= x 0) :trans (= x' (+ x 1)))
+(check-system __kmoxi_check_0 :input () :output ((x Int))
+  :reachable (r (= x 3)) :query (q1 (r)))
+(check-system __kmoxi_check_0 :input () :output ((x Int))
+  :reachable (r (< x 0)) :query (q2 (r)))
+(define-system __kmoxi_check_2 :input () :output ((y Int))
+  :init (= y 0) :trans (= y' y))
+(check-system __kmoxi_check_2 :input () :output ((y Int))
+  :reachable (r (= y 1)) :query (q3 (r)))
+"""
+
+
+def test_check_names_are_fresh(tmp_path):
+    out = run(tmp_path, clashing)
+    answers = re.findall(r":query \((\w+) (\w+)", out)
+    assert answers == [("q1", "sat"), ("q2", "unsat"), ("q3", "unsat")], out
