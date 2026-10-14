@@ -55,10 +55,12 @@ models = {
 (check-system main :input () :output ((x Int) (r Bool)) :local ()
   :reachable (r (< x 0)) :query (q (r)))
 """, {"@r", "x", "r"}),
+    # From blue, c stays blue: an invariant rules out blue, so that it
+    # mentions c and values of its sort, whichever invariant is found
     "enum": ("""(set-logic QF_LIA)
 (declare-enum-sort Color (red green blue))
 (define-system main :input () :output ((c Color)) :local ()
-  :init (= c red) :trans (= c' (ite (= c red) green red)))
+  :init (= c red) :trans (= c' (ite (= c red) green (ite (= c green) red blue))))
 (check-system main :input () :output ((c Color)) :local ()
   :reachable (r (= c blue)) :query (q (r)))
 """, {"@r", "c", "red", "green", "blue"}),
@@ -101,8 +103,8 @@ def parse(text):
 
 def check_term(term, names, numerals, out):
     """Every application in `term` has an operator of the theory in head
-    position, and every other atom is a name of the check, or a numeral if
-    [numerals]"""
+    position, and every other atom is a name of the check, a name of
+    kmoxi's own, or a numeral if [numerals]"""
     if isinstance(term, list):
         head = term[0] if term else None
         # (_ divisible n)
@@ -113,7 +115,10 @@ def check_term(term, names, numerals, out):
         for arg in term[1:]:
             check_term(arg, names, numerals, out)
     else:
-        assert (term in names or term in {"true", "false"}
+        # A variable of kmoxi's own, such as the init flag, which an
+        # invariant may or may not mention, is named after an @
+        internal = term.startswith("@") or term.startswith("|@")
+        assert (term in names or internal or term in {"true", "false"}
                 or numerals and term.isdigit()), out
 
 
@@ -126,7 +131,7 @@ def check_term(term, names, numerals, out):
         ("quoted", ("--enable", "IC3IA"), {"|@r 1|", "|x y|", "|z w|"}),
         ("instances", ("--enable", "IC3IA"), {"|C1::l|", "|C2::l|"}),
         ("clash", ("--enable", "IC3IA"), {"@r"}),
-        ("enum", ("--enable", "IC3IA"), {"blue"}),
+        ("enum", ("--enable", "IC3IA"), {"red", "green", "blue"}),
         ("divisible", ("--enable", "IC3QE"), {"divisible"}),
     ],
     ids=["default", "IC3IA", "instances", "clash", "enum", "divisible"],
@@ -148,4 +153,9 @@ def test_inv_is_smtlib_term(tmp_path, case, engines, mentioned):
     # No integer stands for a value of an enumeration sort
     check_term(inv, names, case != "enum", out)
     atoms = set(token.findall(out.split(prefix, 1)[1].split(" :k ", 1)[0]))
-    assert mentioned <= atoms, out
+    if case == "enum":
+        # Some value of the sort, by its name: which ones depends on the
+        # invariant found
+        assert mentioned & atoms, out
+    else:
+        assert mentioned <= atoms, out
