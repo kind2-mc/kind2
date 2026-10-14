@@ -63,6 +63,8 @@ and var_binding = span * symbol * term
 type formula_type =
   | Assumption
   | Reachable
+  | Fairness
+  | Current
 
 type formula_attr = formula_type * (symbol * term)
 

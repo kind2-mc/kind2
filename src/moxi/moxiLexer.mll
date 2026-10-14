@@ -102,6 +102,9 @@ rule token = parse
   | ":assumption"   { P.ASSUMPTION_KW }
   | ":reachable"    { P.REACHABLE_KW }
   | ":query"        { P.QUERY_KW }
+  | ":queries"      { P.QUERIES_KW }
+  | ":fairness"     { P.FAIRNESS_KW }
+  | ":current"      { P.CURRENT_KW }
 
   (* Quoted symbol *)
   | '|' (quoted_symbol_char* as s) '|'

@@ -79,6 +79,9 @@ let mk_span start_pos end_pos =
 %token ASSUMPTION_KW
 %token REACHABLE_KW
 %token QUERY_KW
+%token QUERIES_KW
+%token FAIRNESS_KW
+%token CURRENT_KW
 
 (* Symbols *)
 %token <HString.t>QUOTED_SYMBOL
@@ -134,20 +137,39 @@ check_system:
       input;
       output;
       local;
-      attrs;
+      attrs = List.concat attrs;
     }
   }
 
+(* An attribute, or the queries of a :queries attribute *)
 check_system_attribute:
   | ASSUMPTION_KW "(" s=symbol t=term ")"
   {
-    A.FormulaAttr (Assumption, (s, t))
+    [A.FormulaAttr (Assumption, (s, t))]
   } 
   | REACHABLE_KW "(" s=symbol t=term ")"
   {
-    A.FormulaAttr (Reachable, (s, t))
+    [A.FormulaAttr (Reachable, (s, t))]
   }
-  | QUERY_KW "(" s=symbol "(" l=symbol+ ")" ")"
+  | FAIRNESS_KW "(" s=symbol t=term ")"
+  {
+    [A.FormulaAttr (Fairness, (s, t))]
+  }
+  | CURRENT_KW "(" s=symbol t=term ")"
+  {
+    [A.FormulaAttr (Current, (s, t))]
+  }
+  | QUERY_KW q=query
+  {
+    [q]
+  }
+  | QUERIES_KW "(" qs=query+ ")"
+  {
+    qs
+  }
+
+query:
+  "(" s=symbol "(" l=symbol+ ")" ")"
   {
     A.QueryAttr (s, l)
   }

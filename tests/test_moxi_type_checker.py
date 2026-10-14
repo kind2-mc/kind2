@@ -353,7 +353,7 @@ unsupported = {
     ),
     "two-reachable-conditions": (
         check + "  :reachable (r (> y 0)) :reachable (s (< y 0)) :query (q (r s)))\n",
-        "5:1", "kmoxi supports one :reachable condition per query",
+        "6:38", "kmoxi supports one :reachable condition per query",
     ),
 }
 
