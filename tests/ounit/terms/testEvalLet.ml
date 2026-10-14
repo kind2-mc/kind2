@@ -21,7 +21,9 @@
     needs the variable, and keeps its value for the other occurrences. It
     finds the binding of a variable in a context of the variables in
     scope; the value must be that of the innermost binding of the
-    variable, the terms of a let being evaluated in the scope around it. *)
+    variable, the terms of a let being evaluated in the scope around it.
+    Folding under a quantifier opens it, adding variables that stand for
+    those it binds to the same context. *)
 
 open OUnit2
 
@@ -123,6 +125,45 @@ let test_random _ =
     assert_value (eval [] e) (term e)
   done
 
+(* Lets and quantifiers in each other: the variables of the term are the
+   free ones, z and w, and none that a let or a quantifier binds *)
+let test_quantifiers _ =
+  let q = Var.mk_fresh_var t_int in
+  let gt a b = Term.mk_gt [a; b] in
+  let assert_vars expected t =
+    assert_bool
+      (Format.asprintf "variables of %a" Term.pp_print_term t)
+      (Var.VarSet.equal (Var.VarSet.of_list expected) (Term.vars_of_term t))
+  in
+  (* forall q. let x = q + z in let y = 5 in x + y > w *)
+  assert_vars [z; w]
+    (Term.mk_forall [q]
+       (Term.mk_let [x, plus [v q; v z]]
+          (Term.mk_let [y, num 5] (gt (plus [v x; v y]) (v w)))));
+  (* let x = z + 1 in forall q. q > x and exists q. q > w *)
+  assert_vars [z; w]
+    (Term.mk_let [x, plus [v z; num 1]]
+       (Term.mk_and
+          [Term.mk_forall [q] (gt (v q) (v x));
+           Term.mk_exists [q] (gt (v q) (v w))]));
+  (* let x = (exists q. q > z) in let y = w in (x and y > 0): a quantifier
+     in a bound term, evaluated when the body needs x *)
+  assert_vars [z; w]
+    (Term.mk_let [x, Term.mk_exists [q] (gt (v q) (v z))]
+       (Term.mk_let [y, v w] (Term.mk_and [v x; gt (v y) (num 0)])))
+
+(* A long chain of lets, each of which refers to the outermost one:
+   x_0 = 1 and x_i = x_(i-1) + x_0, so x_n = n + 1. With the context in a
+   list, each lookup of x_0 took a time linear in i *)
+let test_long_chain _ =
+  let n = 20000 in
+  let xs = Array.init (n + 1) (fun i -> var (Printf.sprintf "x%d" i)) in
+  let levels =
+    List.init (n + 1) (fun i ->
+      [xs.(i), if i = 0 then num 1 else plus [v xs.(i - 1); v xs.(0)]])
+  in
+  assert_value (n + 1) (Term.mk_let_chain levels (v xs.(n)))
+
 let suite =
   "evaluation of lets" >::: [
     "shadowing" >:: test_shadowing;
@@ -130,6 +171,8 @@ let suite =
     "reused variable" >:: test_reused;
     "let in a bound term" >:: test_let_in_bound_term;
     "random lets" >:: test_random;
+    "lets and quantifiers" >:: test_quantifiers;
+    "long chain" >:: test_long_chain;
   ]
 
 let () = run_test_tt_main suite

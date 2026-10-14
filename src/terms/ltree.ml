@@ -1014,8 +1014,9 @@ struct
     (* Combine evaluated arguments from the result stack *)
     | FNode of 'a * t list
 
-    (* Pop [n] substitutions from the context *)
-    | FPop of int 
+    (* Pop the [n] substitutions of the variables from [v] on from the
+       context *)
+    | FPop of int * int
 
     (* Add top of the result stack as substitution for variable [n] to
        the context *)
@@ -1040,8 +1041,8 @@ struct
    symbol [s]. An [FCtx i] value takes the top element of the result
    stack, which is the value of the variable [i] and replaces the
    assignment to variable [i] on the context stack with the value. An
-   [FPop n] value marks the end of scope of [n] variables, the top [n]
-   elements of the context stack are removed.
+   [FPop (v, n)] value marks the end of scope of the [n] variables from
+   [v] on, whose assignments on top of the context stack are removed.
 
    - The result stack is a list of lists of values for the subterms of
    a term. When recursing into the subterms an empty value is added
@@ -1055,48 +1056,47 @@ struct
 *)
 
   (* The context: for each variable, by the number of binders down to
-     its binder, the stack of its assignments, the innermost on top, and
-     the variables in the order their assignments were added, the last
-     first. A variable can have several assignments: the term of a let
-     binding is evaluated at the depth of the binding when a variable
-     deeper in the term first needs it, so that its own let bindings add
-     assignments to variables of the scopes around that variable. *)
-  type 'a ctx = { stacks : 'a s_or_e list IntegerMap.t ; order : int list }
-
-  let empty_ctx = { stacks = IntegerMap.empty ; order = [] }
+     its binder, the stack of its assignments, the innermost on top. A
+     variable can have several assignments: the term of a let binding is
+     evaluated at the depth of the binding when a variable deeper in the
+     term first needs it, so that its own let bindings add assignments to
+     variables of the scopes around that variable. Assignments are added
+     and removed in a balanced way: the binder that adds assignments to
+     some variables removes them at the end of its scope, after those
+     added inside it are removed. A stack is never empty. *)
+  let empty_ctx = IntegerMap.empty
 
   (* The assignment on top of the stack of variable [v] *)
-  let find_ctx v { stacks } =
-    match IntegerMap.find_opt v stacks with
-    | Some (a :: _) -> a
-    | _ -> raise Not_found
+  let find_ctx v ctx =
+    match IntegerMap.find v ctx with
+    | a :: _ -> a
+    | [] -> assert false
 
-  (* Add the assignments [s] to the context [ctx], the first of [s] last,
-     as it was on top of an association list *)
+  (* Add the assignments [s] to the context [ctx] *)
   let add_subst s ctx =
-    List.fold_right
-      (fun (v, a) { stacks ; order } ->
-         let stack = Option.value ~default:[] (IntegerMap.find_opt v stacks) in
-         { stacks = IntegerMap.add v (a :: stack) stacks ; order = v :: order })
-      s ctx
+    List.fold_left
+      (fun ctx (v, a) ->
+         IntegerMap.update v
+           (function None -> Some [a] | Some stack -> Some (a :: stack))
+           ctx)
+      ctx s
 
-  (* Remove the assignment added last *)
-  let pop_ctx { stacks ; order } =
-    match order with
-    | [] -> None
-    | v :: order ->
-      let stacks =
-        match IntegerMap.find_opt v stacks with
-        | Some [_] | Some [] | None -> IntegerMap.remove v stacks
-        | Some (_ :: stack) -> IntegerMap.add v stack stacks
-      in
-      Some { stacks ; order }
+  (* Remove the assignment on top of the stack of variable [v] *)
+  let pop_ctx v ctx =
+    IntegerMap.update v
+      (function
+        | Some (_ :: (_ :: _ as stack)) -> Some stack
+        | Some [_] -> None
+        | Some [] | None -> assert false)
+      ctx
 
   (* Replace the assignment on top of the stack of variable [v] *)
-  let set_ctx v a ({ stacks } as ctx) =
-    match IntegerMap.find_opt v stacks with
-    | Some (_ :: stack) -> { ctx with stacks = IntegerMap.add v (a :: stack) stacks }
-    | _ -> ctx
+  let set_ctx v a ctx =
+    IntegerMap.update v
+      (function
+        | Some (_ :: stack) -> Some (a :: stack)
+        | Some [] | None -> assert false)
+      ctx
 
   (* Variant of the folding function above, where the term that is we
      are looking at is given as an argument to the function *)
@@ -1240,7 +1240,7 @@ struct
         f
         subst'
         accum
-        (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
+        (FTree (db + (List.length n), l) :: FPop (db + 1, List.length n) :: tl)
 
     (* The top element of the stack is a quantifier *)
     | FTree (db, { H.node = (Forall { H.node = L (n, l) } |
@@ -1279,7 +1279,7 @@ struct
         f
         subst'
         accum
-        (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
+        (FTree (db + (List.length n), l) :: FPop (db + 1, List.length n) :: tl)
 
     (* The top element of the instruction stack is a symbol *)
     | FNode (op, _) :: tl -> 
@@ -1304,22 +1304,16 @@ struct
       )
 
     (* The top element of the stack is an empty end-of-scope marker *)
-    | FPop 0 :: tl -> 
+    | FPop (_, 0) :: tl -> 
 
       (* Remove marker from the instruction stack *)
       fold fail_quant f subst accum tl
 
     (* The top element of the stack is a positive end-of-scope marker *)
-    | FPop i :: tl when i > 0 -> 
+    | FPop (v, i) :: tl when i > 0 -> 
 
-      (
-
-        (* Pop one scope from the context stack *)
-        match pop_ctx subst with 
-          | Some subst' -> fold fail_quant f subst' accum (FPop (pred i) :: tl)
-          | None -> assert false 
-
-      )
+      (* Pop one scope from the context stack *)
+      fold fail_quant f (pop_ctx v subst) accum (FPop (succ v, pred i) :: tl)
 
     (* The top element of the stack is a negative end-of-scope marker *)
     | FPop _ :: _ -> assert false
