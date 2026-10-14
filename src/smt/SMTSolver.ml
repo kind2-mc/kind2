@@ -450,7 +450,7 @@ let declare_fun s uf_symbol =
 
   fail_on_smt_error s
     (S.declare_fun
-       (UfSymbol.string_of_uf_symbol uf_symbol)
+       (UfSymbol.smtlib_string_of_uf_symbol uf_symbol)
        (UfSymbol.arg_type_of_uf_symbol uf_symbol)
        (UfSymbol.res_type_of_uf_symbol uf_symbol))
 
@@ -461,7 +461,7 @@ let define_fun s uf_symbol vars term =
 
   fail_on_smt_error s
     (S.define_fun
-       (UfSymbol.string_of_uf_symbol uf_symbol)
+       (UfSymbol.smtlib_string_of_uf_symbol uf_symbol)
        vars
        (UfSymbol.res_type_of_uf_symbol uf_symbol)
        (S.Conv.smtexpr_of_term term))
@@ -498,7 +498,7 @@ let define_funs_rec s defs =
   fail_on_smt_error s
     (S.define_funs_rec
        (List.map (fun (uf_symbol, vars, term) ->
-          UfSymbol.string_of_uf_symbol uf_symbol,
+          UfSymbol.smtlib_string_of_uf_symbol uf_symbol,
           vars,
           UfSymbol.res_type_of_uf_symbol uf_symbol,
           S.Conv.smtexpr_of_term term

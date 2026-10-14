@@ -19,16 +19,25 @@
 module TS = TransSys
 module SVM = StateVar.StateVarMap
 
+(* A symbol in SMT-LIB syntax, quoted if needed *)
+let quote = Lib.smtlib_symbol
+
+let name_of_state_var sv = quote (StateVar.name_of_state_var sv)
+
+(* The name of the model, trace, trail or certificate of a query *)
+let derived prop_name suffix = quote (prop_name ^ suffix)
+
 (* A value of a state variable of the given type, in MoXI syntax: the value
    of an enumeration sort, rather than the integer that stands for it *)
 let string_of_value ty value =
-  if Type.is_enum ty then Type.get_constr_of_num (Term.numeral_of_term value)
+  if Type.is_enum ty then
+    quote (Type.get_constr_of_num (Term.numeral_of_term value))
   else Term.string_of_term value
 
 (* A sort in MoXI syntax *)
 let rec pp_print_sort ppf ty =
   match Type.node_of_type ty with
-  | Type.Enum _ -> Format.pp_print_string ppf (Type.name_of_enum ty)
+  | Type.Enum _ -> Format.pp_print_string ppf (quote (Type.name_of_enum ty))
   | Type.Array (e, i) ->
     Format.fprintf ppf "(Array %a %a)" pp_print_sort i pp_print_sort e
   | _ -> Type.pp_print_type ppf ty
@@ -97,7 +106,7 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
     (* May want to find a more robust way to filter out invar_props*)
     (* | _ when String.starts_with ~prefix: "invar_prop." (StateVar.name_of_state_var state_var) -> None Filter out invar_props *)
     | Some sys_state_var -> (
-      let var_name = prefix ^ StateVar.name_of_state_var sys_state_var in 
+      let var_name = prefix ^ name_of_state_var sys_state_var in
       let translated_svar = StateVar.StateVarMap.find sys_state_var map in
       let svar_state_values = List.assoc translated_svar model_assoc_list in
       let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
@@ -130,7 +139,7 @@ let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_as
   let help k subsystems =
     List.map (fun (subsys_transys, TransSys.({ map_up; })) ->
       let map = Some (join_maps sys_map map_up) in
-      let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal in
+      let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal |> quote in
       let prefix = prefix ^ subsys_name ^ "::" in
       (get_state_var_vals_at_k_all ~map ~prefix subsys_transys model_assoc_list k)
     ) subsystems in
@@ -178,8 +187,8 @@ let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
     ) false formatted_svar_names
   in
 
-  let reachability_var_names = List.map (fun svar ->
-    StateVar.name_of_state_var svar) reachability_svars
+  let reachability_var_names =
+    List.map name_of_state_var reachability_svars
   in
   let formatted_svar_names = List.filter (fun (var, _, _) ->
     not (List.exists (String.equal var) reachability_var_names)
@@ -242,7 +251,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
   let reachability_values = List.map (fun (svar, value, changed) -> match value with 
     | Model.Term value -> 
       let negated_value = not (Term.bool_of_term value) in
-      StateVar.name_of_state_var svar, string_of_bool negated_value, changed 
+      name_of_state_var svar, string_of_bool negated_value, changed
     | _ -> assert false 
   ) reachability_values in
   let reachability_var_names = List.map (fun (name, _, _) -> name) reachability_values in
@@ -286,9 +295,8 @@ let pp_print_trail is_current_state trans_sys ppf path =
       (Numeral.of_int (Model.path_length path - 1))
 
 let pp_print_cex_trail trans_sys prop_name prefix is_current_state ppf cex = 
-  Format.fprintf ppf "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
-    prop_name
-    (if prefix then "_prefix" else "_lasso")
+  Format.fprintf ppf "@[<hv 2>:trail@ (%s (@[<v>@,%a@])@,) @]@,"
+    (derived prop_name (if prefix then "_prefix" else "_lasso"))
     (pp_print_trail is_current_state trans_sys) (Model.path_of_list cex)
 
 let pp_print_prop_trail trans_sys current_state_props ppf prop =
@@ -308,8 +316,8 @@ let pp_print_prop_trace _ prop =
   match Property.get_prop_status prop with
   | PropFalse _ -> 
     Format.printf "@[<hv 2>:trace@ (@[<v>%s :prefix %s@])@]@,"
-      (prop_name ^ "_trace")
-      (prop_name ^ "_prefix")
+      (derived prop_name "_trace")
+      (derived prop_name "_prefix")
   | PropInvariant _
   | PropKTrue _ 
   | PropUnknown -> () 
@@ -336,7 +344,7 @@ let pp_print_const_decl _ppf (svar, svar_value_path) =
       | v -> Model.pp_print_value ~as_type:svar_type ppf v
     in
     Format.printf "(define-fun %s () %a %a)"
-      (StateVar.name_of_state_var svar)
+      (name_of_state_var svar)
       pp_print_sort svar_type
       pp_print_value const_value
   
@@ -356,9 +364,9 @@ let pp_print_const_decls: TransSys.t -> Format.formatter -> (StateVar.t * Model.
 
 let pp_print_model trans_sys prop_name _ppf path =
   if has_model trans_sys path then 
-    Format.printf "%s@,%a@," (prop_name ^ "_model") (pp_print_const_decls trans_sys) path
+    Format.printf "%s@,%a@," (derived prop_name "_model") (pp_print_const_decls trans_sys) path
   else 
-    Format.printf "%s ()" (prop_name ^ "_model")
+    Format.printf "%s ()" (derived prop_name "_model")
 
 let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit 
 = fun trans_sys _ppf prop ->
@@ -376,7 +384,7 @@ let pp_print_prop_cert _ppf prop =
   match Property.get_prop_status prop with
   | PropInvariant (k, inv) -> 
     Format.printf "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
-      (prop_name ^ "_cert")
+      (derived prop_name "_cert")
       (LustreExpr.pp_print_term_as_expr false)
       inv
       k
@@ -385,8 +393,11 @@ let pp_print_prop_cert _ppf prop =
   | PropUnknown -> ()
 
 let prop_result_info prop_name prop_result = match prop_result with 
-| Property.PropFalse _ -> Format.sprintf ":model %s_model :trace %s_trace" prop_name prop_name
-| PropInvariant _ -> Format.sprintf ":certificate %s_cert" prop_name
+| Property.PropFalse _ ->
+  Format.sprintf ":model %s :trace %s"
+    (derived prop_name "_model") (derived prop_name "_trace")
+| PropInvariant _ ->
+  Format.sprintf ":certificate %s" (derived prop_name "_cert")
 | PropKTrue _
 | PropUnknown -> ""
 
@@ -400,7 +411,7 @@ let pp_print_prop_result _ppf prop =
   | PropUnknown -> "unknown"
   in
   Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ %s %s)@]@]@]@,"
-    prop_name result 
+    (quote prop_name) result
     (prop_result_info prop_name prop_result)
 
 let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit 

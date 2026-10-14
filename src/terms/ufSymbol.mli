@@ -118,6 +118,13 @@ val pp_print_uf_symbol : Format.formatter -> t -> unit
 (** Return a string representation of a symbol *)
 val string_of_uf_symbol : t -> string 
 
+(** Return the symbol as an SMT-LIB symbol: quoted if it is not a simple
+    symbol, as the SMT solvers are given it *)
+val smtlib_string_of_uf_symbol : t -> string
+
+(** Pretty-print the symbol as an SMT-LIB symbol *)
+val pp_print_smtlib_uf_symbol : Format.formatter -> t -> unit
+
 
 (* 
    Local Variables:

@@ -649,7 +649,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         (pp_print_list
            (fun ppf var -> 
               Format.fprintf ppf "(%s %s)" 
-                (UfSymbol.string_of_uf_symbol
+                (UfSymbol.smtlib_string_of_uf_symbol
                   (Var.unrolled_uf_of_state_var_instance var))
                 (string_of_sort (Var.type_of_var var)))
            "@ ")
@@ -672,7 +672,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         (pp_print_list
            (fun ppf var ->
               Format.fprintf ppf "(%s %s)"
-                (UfSymbol.string_of_uf_symbol
+                (UfSymbol.smtlib_string_of_uf_symbol
                   (Var.unrolled_uf_of_state_var_instance var))
                 (string_of_sort (Var.type_of_var var)))
            "@ ")
