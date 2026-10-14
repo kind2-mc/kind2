@@ -819,7 +819,12 @@ let get_invariant init c =
     (Cube.literals c)
   |> Term.mk_or
 
-let report_invariant sys inv =
+(* Report the invariant [inv], which [cert] implies; [cert] is 1-inductive.
+   A clause IC3IA finds is inductive only together with the others of its
+   frame, so the certificate of each is their conjunction: the supervisor
+   takes the certificate of an invariant that is a property for that of
+   the property. *)
+let report_invariant sys cert inv =
   let broadcast_inv =
     match !(added_logic ()) with
     | None -> true
@@ -831,9 +836,8 @@ let report_invariant sys inv =
   (* Only report an invariant if the term belongs to
      the logic of the original system *)
   if broadcast_inv then
-    let cert = (1, inv) in
     KEvent.invariant
-      (TransSys.scope_of_trans_sys sys) inv cert false
+      (TransSys.scope_of_trans_sys sys) inv (1, cert) false
 
 let add_blocked_cube solver sys init frames s =
   let k =
@@ -885,10 +889,16 @@ let add_blocked_cube solver sys init frames s =
   SMTSolver.trace_comment solver
     (Format.asprintf "Blocked [%d] : %a" k Cube.pp_print_cube s_cube) ;
 
-  (* Report if invariant *)
+  (* Report if invariant, with the clauses of the frame at infinity, which
+     are inductive together *)
   if TCube.frame s = TCube.FrameInf then (
     let inv = get_invariant init (TCube.cube s) in
-    report_invariant sys inv
+    let cert =
+      CS.fold (fun c invs -> get_invariant init c :: invs)
+        (Frame.cubes (List.nth frames (List.length frames - 1))) []
+      |> Term.mk_and
+    in
+    report_invariant sys cert inv
   ) ;
   
   frames
@@ -1088,10 +1098,11 @@ let main_ic3ia fwd prop in_sys param sys =
 
     let invariants = loop predicates next_cube frames in
     
-    invariants
-    |> List.iter (fun i -> report_invariant sys i) ;
+    let inv = Term.mk_and invariants in
 
-    let cert = 1, Term.mk_and invariants in
+    invariants |> List.iter (report_invariant sys inv) ;
+
+    let cert = 1, inv in
 
     KEvent.prop_status
       (Property.PropInvariant cert)
