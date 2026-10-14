@@ -79,31 +79,25 @@ let main () =
   Lib.set_log_level L_off ;
   Printexc.record_backtrace true ;
 
-  if Array.length Sys.argv < 2 then (
-    fatal_error ExitCodes.usage_error
-      "no input file given, see %s --help"
-      (Filename.basename Sys.argv.(0))
-  )
-  else (
-    parse_commandline_args () ;
-    (* Signal handlers, timeout and global timer, as in kind2: without
-       them a SIGTERM ends kmoxi without killing its solvers, and
-       --timeout is not enforced *)
-    RunSetup.setup () ;
-    let filename = Flags.input_file () in
-    try
-      read_and_process_input_file filename
-    with
-    | Sys_error msg ->
-      fatal_error ExitCodes.error "Error opening input file: %s" msg
-    | e ->
-      (* The backtrace goes to the standard error, outside of the SMT-LIB
-         response *)
-      let backtrace = Printexc.get_raw_backtrace () in
-      if Printexc.backtrace_status () then
-        Format.eprintf "Backtrace:@ %a@." print_backtrace backtrace ;
-      fatal_error ExitCodes.error "Fatal error: %s" (Printexc.to_string e)
-  )
+  (* Without an input file, the model is read from the standard input *)
+  parse_commandline_args () ;
+  (* Signal handlers, timeout and global timer, as in kind2: without
+     them a SIGTERM ends kmoxi without killing its solvers, and
+     --timeout is not enforced *)
+  RunSetup.setup () ;
+  let filename = Flags.input_file () in
+  try
+    read_and_process_input_file filename
+  with
+  | Sys_error msg ->
+    fatal_error ExitCodes.error "Error opening input file: %s" msg
+  | e ->
+    (* The backtrace goes to the standard error, outside of the SMT-LIB
+       response *)
+    let backtrace = Printexc.get_raw_backtrace () in
+    if Printexc.backtrace_status () then
+      Format.eprintf "Backtrace:@ %a@." print_backtrace backtrace ;
+    fatal_error ExitCodes.error "Fatal error: %s" (Printexc.to_string e)
 ;;
 
 main ()

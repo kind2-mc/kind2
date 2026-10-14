@@ -7,9 +7,11 @@ the first two on the standard error, and the usage text, with color codes,
 for the last.
 """
 
+import subprocess
+
 import pytest
 
-from conftest import run_kmoxi_process
+from conftest import kmoxi_bin, run_kmoxi_process
 
 ERROR = 1
 USAGE_ERROR = 2
@@ -38,6 +40,16 @@ def check_error(res, code, message):
 def test_syntax_error(path, extra):
     res = run_kmoxi_process(path, *extra)
     check_error(res, PARSE_ERROR, f"{path}:3:1: syntax error")
+
+
+def test_syntax_error_no_arguments():
+    # Without any argument, kmoxi reads the model from the standard input
+    if not kmoxi_bin.exists():
+        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
+    res = subprocess.run(
+        [kmoxi_bin], input=model, capture_output=True, text=True, timeout=30
+    )
+    check_error(res, PARSE_ERROR, "(stdin):3:1: syntax error")
 
 
 def test_missing_file(tmp_path):
