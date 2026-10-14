@@ -18,8 +18,32 @@
 
 open Lib
 
+(* Report a fatal error as an SMT-LIB error on the standard output, on a
+   single line, and exit with [code]. The message loses its final period;
+   a quote in it is doubled, and a character an SMT-LIB string literal does
+   not allow is replaced: white space by a space, any other by [?]. *)
+let fatal_error code fmt =
+  Format.kasprintf (fun msg ->
+    let msg =
+      if String.ends_with ~suffix:"." msg then
+        String.sub msg 0 (String.length msg - 1)
+      else msg
+    in
+    let msg =
+      String.map (function
+        | '\t' | '\n' | '\r' -> ' '
+        | c when Char.code c < 32 || Char.code c = 127 -> '?'
+        | c -> c
+      ) msg
+    in
+    Format.printf "(error \"%s\")@."
+      (String.concat "\"\"" (String.split_on_char '"' msg));
+    exit code
+  ) fmt
+
 let parse_commandline_args () =
   try Flags.parse_argv ~profile:Flags.kmoxi_profile () with
+  | Flags.UsageError msg -> fatal_error ExitCodes.usage_error "%s" msg
   | Flags.Error -> exit ExitCodes.usage_error
 
 (* Prefer a main SMT solver for the logic the model sets, if the user left
@@ -28,20 +52,10 @@ let check_solvers logic =
   (match logic with
    | Some "QF_BV" -> Flags.Smt.prefer_solvers ~solver:`Bitwuzla_SMTLIB ()
    | _ -> ());
-  (* A solver that cannot be used is reported as an SMT-LIB error *)
-  let error code msg =
-    let msg =
-      if String.ends_with ~suffix:"." msg then
-        String.sub msg 0 (String.length msg - 1)
-      else msg
-    in
-    Format.printf "(error \"%s\")@."
-      (String.concat "\"\"" (String.split_on_char '"' msg));
-    exit code
-  in
   try Flags.check_solvers () with
-  | Flags.UnsupportedSolver msg -> error ExitCodes.unsupported_solver msg
-  | Flags.SolverNotFound msg -> error ExitCodes.not_found_error msg
+  | Flags.UnsupportedSolver msg ->
+    fatal_error ExitCodes.unsupported_solver "%s" msg
+  | Flags.SolverNotFound msg -> fatal_error ExitCodes.not_found_error "%s" msg
 
 let read_and_process_input_file filename =
   if Flags.only_parse () then (
@@ -49,16 +63,16 @@ let read_and_process_input_file filename =
     match MoxiInput.check_file filename with
     | Ok () -> exit ExitCodes.success
     | Error e ->
-      Format.eprintf "%a@." MoxiInput.pp_print_error e;
-      exit ExitCodes.parse_error
+      fatal_error ExitCodes.parse_error "%a" MoxiInput.pp_print_error e
   )
   else
   match InputSystem.read_input_moxi filename with
-  | Some (in_sys, logic) -> (
+  | Ok (in_sys, logic) -> (
     check_solvers logic ;
     Kind2Flow.run in_sys
   )
-  | None -> exit ExitCodes.parse_error
+  | Error e ->
+    fatal_error ExitCodes.parse_error "%a" MoxiInput.pp_print_error e
 
 
 let main () =
@@ -66,8 +80,9 @@ let main () =
   Printexc.record_backtrace true ;
 
   if Array.length Sys.argv < 2 then (
-    Format.printf "Usage: %s <file>@." Sys.argv.(0);
-    exit ExitCodes.usage_error
+    fatal_error ExitCodes.usage_error
+      "no input file given, see %s --help"
+      (Filename.basename Sys.argv.(0))
   )
   else (
     parse_commandline_args () ;
@@ -80,16 +95,14 @@ let main () =
       read_and_process_input_file filename
     with
     | Sys_error msg ->
-      Format.eprintf "Error opening input file: %s@." msg ;
-      exit ExitCodes.error
+      fatal_error ExitCodes.error "Error opening input file: %s" msg
     | e ->
+      (* The backtrace goes to the standard error, outside of the SMT-LIB
+         response *)
       let backtrace = Printexc.get_raw_backtrace () in
-      Format.eprintf "Fatal error:@ %s %a@."
-        (Printexc.to_string e)
-        (if Printexc.backtrace_status ()
-          then fun fmt -> Format.fprintf fmt "@\nBacktrace:@ %a" print_backtrace
-          else fun _ _ -> ()) backtrace;
-      exit ExitCodes.error
+      if Printexc.backtrace_status () then
+        Format.eprintf "Backtrace:@ %a@." print_backtrace backtrace ;
+      fatal_error ExitCodes.error "Fatal error: %s" (Printexc.to_string e)
   )
 ;;
 

@@ -52,11 +52,8 @@ let translate_contracts_lustre = ContractsToProps.translate_file
 let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_moxi input_file =
-  match MoxiInput.of_file input_file with
-  | Ok (system_checks, logic) -> Some (Moxi system_checks, logic)
-  | Error e ->
-    Format.eprintf "%a@." MoxiInput.pp_print_error e;
-    None
+  MoxiInput.of_file input_file
+  |> Result.map (fun (system_checks, logic) -> Moxi system_checks, logic)
 
 (*let read_input_horn input_file = assert false*)
 

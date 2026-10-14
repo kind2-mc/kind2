@@ -64,7 +64,7 @@ def test_kmoxi_modules():
     assert re.search(r"^\s+c2i\s", out, re.M), out
     assert not re.search(r"^\s+contracts\s", out, re.M), out
     code, out = run(kmoxi_bin, ["--help_of", "contracts"])
-    assert code != 0 and 'unknown module identifier "contracts"' in out, out
+    assert code != 0 and 'unknown module identifier ""contracts""' in out, out
     _, out = run(kind2_bin, ["--help_of", "contracts"])
     assert "Module contracts:" in out, out
 
@@ -73,7 +73,7 @@ def test_kmoxi_rejects_kind2_only_flag(tmp_path):
     path = tmp_path / "counter.moxi"
     path.write_text(model)
     code, out = run(kmoxi_bin, ["--lus_main", "main", str(path)])
-    assert code != 0 and 'unknown flag "--lus_main"' in out, out
+    assert code != 0 and out == '(error "unknown flag --lus_main")\n', out
     # A flag kmoxi keeps still parses: the run goes on to the analysis, and
     # BMC finds the state at depth 3
     code, out = run(kmoxi_bin, ["--timeout", "20", "--enable", "BMC", str(path)])
