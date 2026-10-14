@@ -9,11 +9,10 @@ of the script.
 """
 
 import re
-import subprocess
 
 import pytest
 
-from conftest import kill_tree, kmoxi_args, kmoxi_bin
+from conftest import run_kmoxi
 
 system = """(set-logic QF_LIA)
 (define-system main :input () :output ((x Int)) :local ((t Int))
@@ -29,24 +28,10 @@ def check(condition, reachable, query):
 
 
 def run(tmp_path, model):
-    if not kmoxi_bin.exists():
-        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
     path = tmp_path / "model.moxi"
     path.write_text(model)
-    args = kmoxi_args | {"--timeout": "30"}
-    arg_list = [arg for pair in args.items() for arg in pair]
-    proc = subprocess.Popen(
-        [kmoxi_bin, *arg_list, "--enable", "BMC", "--enable", "IND", str(path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        start_new_session=True,
-    )
-    try:
-        stdout, stderr = proc.communicate(timeout=60)
-    except subprocess.TimeoutExpired:
-        kill_tree(proc)
-        proc.communicate()
-        pytest.fail("no answer after 60s")
-    return stdout + stderr
+    out, err = run_kmoxi(path, "--enable", "BMC", "--enable", "IND")
+    return out + err
 
 
 # The conditions of the two checks have the same name, or different ones:
