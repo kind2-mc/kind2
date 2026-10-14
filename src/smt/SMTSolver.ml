@@ -799,8 +799,18 @@ let cross_2 l1 l2 =
 let cross ll = List.fold_left (fun acc l -> cross_2 l acc) [[]] ll
 
 
+(* How many elements of arrays a model is read with at most, and what
+   happens to the arrays past that *)
+type array_limit = [ `Raise of int | `Omit of int ]
+
+exception Too_many_array_elements
+
+(* The limit for the models of the engines: an array has [2^w] elements
+   for an index of [w] bits, and they are read one by one *)
+let max_array_elements = 1 lsl 16
+
 (* Get model of the current context *)
-let get_var_values s state_var_indexes vars =
+let get_var_values ?array_limit s state_var_indexes vars =
   let module S = (val s.solver_inst) in
 
   (* separate array variables *)
@@ -813,8 +823,10 @@ let get_var_values s state_var_indexes vars =
       ) ([], []) vars
   in
 
-  (* Get values of SMT expressions in current context *)
+  (* Get values of SMT expressions in current context, if any: a get-value
+     of no term is an error *)
   let model =
+    if sexpr_vars = [] then Model.create 7 else
     match prof_get_value s sexpr_vars with 
     | `Values v -> 
 
@@ -833,11 +845,44 @@ let get_var_values s state_var_indexes vars =
       | r -> smt_error s r
   in
 
+  (* The number of array elements read so far, for [`Raise] *)
+  let read = ref 0 in
+
+  (* With the theory of arrays, the solver gives the value of an array as a
+     term, exactly, whatever the size of the array: a constant array with
+     stores, kept in canonical form. Without it, an array is a function
+     symbol, whose value is a function the solver gives in a form of its
+     own. The values of all the arrays are asked for at once. *)
+  let exact_values =
+    let exact = Var.VarHashtbl.create 7 in
+    if Flags.Arrays.smt () && Flags.Arrays.read_whole () && array_vars <> []
+    then (
+      match
+        prof_get_value s
+          (List.map (fun v -> S.Conv.smtexpr_of_var v []) array_vars)
+      with
+      | `Values values when List.length values = List.length array_vars ->
+        List.iter2 (fun v (_, e) ->
+          try
+            Var.VarHashtbl.add exact v
+              (TermLib.canonical_array_value (Var.type_of_var v)
+                 (S.Conv.term_of_smtexpr e))
+          with Not_found | Failure _ | Invalid_argument _ -> ()
+        ) array_vars values
+      | `Values _ -> ()
+      | r -> smt_error s r ) ;
+    exact
+  in
+  let exact_value v = Var.VarHashtbl.find_opt exact_values v in
+
   (* Get model for arrays *)
   (* We obtain the model by first evaluating the bound of the array in the
      current model when it is not fixed. Then we evaluate A[0], ..., A[n] in the
      solver and return a map that represent this as the model *)
   List.iter (fun v ->
+    match exact_value v with
+    | Some t -> Var.VarHashtbl.add model v (Model.Term t)
+    | None ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
       let offset =
@@ -883,6 +928,24 @@ let get_var_values s state_var_indexes vars =
             (fun t -> Numeral.to_int (Term.numeral_of_term t))
         in
 
+        (* The elements of the array, checked against the limit before any
+           is read *)
+        let elements =
+          (* Saturated: the dimensions of nested arrays multiply *)
+          List.fold_left (fun n (lo, hi) ->
+            let d = max 0 (hi - lo + 1) in
+            if d <> 0 && n > max_int / d then max_int else n * d) 1 bnds
+        in
+        ( match array_limit with
+          | Some (`Raise limit) ->
+            if elements > limit - !read then raise Too_many_array_elements ;
+            read := !read + elements
+          | Some (`Omit limit) ->
+            (* Given no values, as an unbounded array, past the limit *)
+            if elements > limit - !read then raise Exit ;
+            read := !read + elements
+          | None -> () ) ;
+
         let args_list = cross (List.map range bnds) in
         let vt = Term.mk_var v in
         let sexprs =
@@ -910,7 +973,7 @@ let get_var_values s state_var_indexes vars =
               Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
             ) Model.MIL.empty values in
         Var.VarHashtbl.add model v (Model.Map m)
-      with Exit -> (* No values for unbounded arrays *)
+      with Exit -> (* No values for unbounded arrays, or omitted ones *)
         Var.VarHashtbl.add model v (Model.Map Model.MIL.empty)
     ) array_vars;
       
@@ -1138,6 +1201,24 @@ let get_term_value s term =
        (* Keep assignment *)
        (term, value)
   )
+  | r -> smt_error s r
+
+(* Get values of terms in the current context, in one query: the values
+   are those of the terms in order, whatever terms the solver repeats *)
+let get_term_values_at_once s terms =
+  let module S = (val s.solver_inst) in
+  if terms = [] then [] else
+  match prof_get_value s (List.map S.Conv.smtexpr_of_term terms) with
+  | `Values m when List.length m = List.length terms ->
+    List.map2 (fun term (_, smt_value) ->
+      let value = S.Conv.term_of_smtexpr smt_value in
+      if
+        Type.equal_types (Term.type_of_term value) Type.t_int &&
+        Type.equal_types (Term.type_of_term term) Type.t_real
+      then (term, Term.mk_to_real value)
+      else (term, value)
+    ) terms m
+  | `Values _ -> failwith "Unexpected number of values in a get-value response"
   | r -> smt_error s r
 
 (* Get values of terms in the current context *)

@@ -536,7 +536,10 @@ let refine fwd solver sys predicates cubes =
          parsable back (they range over the uninterpreted sort that encodes
          arrays). This is what BMC does too, see {!Base.solve}. *)
       let model =
+        (* An array too large to read is left out: the counterexample is
+           only reported *)
         SMTSolver.get_var_values
+          ~array_limit:(`Omit SMTSolver.max_array_elements)
           intrpo
           (TransSys.get_state_var_bounds sys)
           (TransSys.vars_of_bounds sys Numeral.zero (Numeral.of_int (len - 2)))

@@ -27,12 +27,6 @@ let name_of_state_var sv = quote (StateVar.name_of_state_var sv)
 (* The name of the model, trace, trail or certificate of a query *)
 let derived prop_name suffix = quote (prop_name ^ suffix)
 
-(* A value of a state variable of the given type, in MoXI syntax: the value
-   of an enumeration sort, rather than the integer that stands for it *)
-let string_of_value ty value =
-  if Type.is_enum ty then
-    quote (Type.get_constr_of_num (Term.numeral_of_term value))
-  else Term.string_of_term value
 
 (* A sort in MoXI syntax *)
 let rec pp_print_sort ppf ty =
@@ -41,6 +35,27 @@ let rec pp_print_sort ppf ty =
   | Type.Array (e, i) ->
     Format.fprintf ppf "(Array %a %a)" pp_print_sort i pp_print_sort e
   | _ -> Type.pp_print_type ppf ty
+
+(* A value of a state variable of the given type, in MoXI syntax: the value
+   of an enumeration sort, rather than the integer that stands for it, and
+   the value of an array, a constant array with stores, in SMT-LIB syntax *)
+let rec string_of_value ty value =
+  if Type.is_enum ty then
+    quote (Type.get_constr_of_num (Term.numeral_of_term value))
+  else if Type.is_array ty then
+    let index_ty = Type.index_type_of_array ty in
+    let elem_ty = Type.elem_type_of_array ty in
+    match Term.destruct value with
+    | Term.T.App (sym, [a; i; v])
+      when Symbol.node_of_symbol sym = `STORE ->
+      Format.sprintf "(store %s %s %s)" (string_of_value ty a)
+        (string_of_value index_ty i) (string_of_value elem_ty v)
+    | Term.T.App (sym, [d]) when (match Symbol.node_of_symbol sym with
+        | `CONST_ARRAY _ -> true | _ -> false) ->
+      Format.asprintf "((as const %a) %s)" pp_print_sort ty
+        (string_of_value elem_ty d)
+    | _ -> Term.string_of_term value
+  else Term.string_of_term value
 
 (* A value of an array sort in MoXI syntax, given the elements at each list
    of indices, outermost first: a constant array of the most frequent

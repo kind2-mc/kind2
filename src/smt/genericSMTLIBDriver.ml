@@ -64,6 +64,7 @@ let s_div = HString.mk_hstring "/"
 let s_minus = HString.mk_hstring "-"
 let s_index = HString.mk_hstring "_"
 let s_as = HString.mk_hstring "as"
+let s_const = HString.mk_hstring "const"
 let s_int_to_bv = HString.mk_hstring "int_to_bv"
 let s_extract = HString.mk_hstring "extract"
 let s_signext = HString.mk_hstring "sign_extend"
@@ -365,6 +366,14 @@ let gen_expr_of_string_sexpr'
 
       (* Return the constant *)
       Term.mk_uf uf []
+
+    (* A constant array, ((as const (Array I E)) v), as solvers give the
+       value of an array *)
+    | HStringSExpr.List
+        [HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.Atom c; ty]; v]
+      when s == s_as && c == s_const ->
+      Term.mk_const_array (conv.type_of_sexpr ty)
+        (expr_of_string_sexpr conv bound_vars v)
 
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
@@ -825,10 +834,12 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `STORE -> Format.pp_print_string ppf "store"
 
   | `CONST_ARRAY ty_array ->
+    (* The sort as the solver knows it, as for a declaration: a range of
+       integers is an integer *)
     Format.fprintf
       ppf
       "(as const %a)"
-      Type.pp_print_type ty_array
+      pp_print_sort ty_array
 
   | `UF u -> UfSymbol.pp_print_smtlib_uf_symbol ppf u
   | `IsConstructor s -> Format.fprintf ppf "(_ is %s)" s

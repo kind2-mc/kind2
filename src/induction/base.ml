@@ -74,9 +74,11 @@ let rec split trans solver k to_split actlit congruence congruence_holds =
       )
     | false -> `Split (
 
-    (* Get the full model *)
+    (* Get the full model, for the counterexample. An array too large to
+       read is left out of it: it is only reported. *)
     let model =
       SMTSolver.get_var_values
+        ~array_limit:(`Omit SMTSolver.max_array_elements)
         solver
         (TransSys.get_state_var_bounds trans)
         (TransSys.vars_of_bounds trans Numeral.zero k)
@@ -87,18 +89,17 @@ let rec split trans solver k to_split actlit congruence congruence_holds =
       Model.path_from_model (TransSys.state_vars trans) model k
     in
 
-    (* Evaluation function. *)
-    let eval term =
-      Eval.eval_term (TransSys.uf_defs trans) model term
-      |> Eval.bool_of_value
+    (* The values of the properties at [k], from the solver rather than
+       from the model, which may leave out the arrays they read *)
+    let values =
+      SMTSolver.get_term_values_at_once solver
+        (List.map (fun (_, term) -> Term.bump_state k term) to_split)
+    in
+    let holds (_, term) =
+      Term.equal (List.assq (Term.bump_state k term) values) Term.t_true
     in
     (* Splitting properties. *)
-    let new_to_split, new_falsifiable =
-      List.partition
-        ( fun (_, term) ->
-          Term.bump_state k term |> eval )
-        to_split
-    in
+    let new_to_split, new_falsifiable = List.partition holds to_split in
     (* Building result. *)
     Some (new_to_split, (new_falsifiable, cex))
     )

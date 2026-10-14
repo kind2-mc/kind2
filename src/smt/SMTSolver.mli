@@ -153,9 +153,34 @@ val check_sat : ?timeout:int -> t -> bool
 (** Return a model of the current context if satisfiable *)
 val get_model : t -> Model.t
 
+(** How many elements of arrays a model is read with at most:
+    - [`Raise n]: {!Too_many_array_elements} is raised if the arrays of the
+      model have more than [n] elements in all;
+    - [`Omit n]: an array whose elements would take the elements read past
+      [n] in all is given no values, as an unbounded array is, and the
+      others are read. *)
+type array_limit = [ `Raise of int | `Omit of int ]
+
+(** Raised by {!get_var_values} for [`Raise] *)
+exception Too_many_array_elements
+
+(** The limit on the array elements of the models of the engines *)
+val max_array_elements : int
+
 (** Return a values of the terms in the current context if
-    satisfiable *)
+    satisfiable.
+
+    The value of an array is read element by element, over the indices its
+    bounds give it: [2^w] elements for an index of [w] bits. With
+    [array_limit], the arrays read are limited (see {!array_limit}).
+
+    With the theory of arrays, and {!Flags.Arrays.read_whole}, the value of
+    an array is read whole instead, as a term: the solver gives it as a
+    constant array with stores, which is kept in the canonical form of
+    {!TermLib.canonical_array_value}. A value of another form is read
+    element by element. *)
 val get_var_values :
+  ?array_limit:array_limit ->
   t ->
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
   Var.t list -> Model.t
@@ -236,6 +261,12 @@ val check_sat_and_get_term_values : t ->
 (** Get the values of the given terms in the current context. The context
     must be satisfiable, as after a [check_sat] that returned true. *)
 val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
+
+(** Get the values of the given terms as {!get_term_values} does, but in one
+    query rather than one per term: the values are matched with the terms by
+    their order in the response, which SMT-LIB gives as the order of the
+    terms, whatever form of each term the solver repeats. *)
+val get_term_values_at_once : t -> Term.t list -> (Term.t * Term.t) list
 
 
 (** Check satisfiability under assumptions as with {!check_sat_assuming},
