@@ -19,26 +19,8 @@
 module TS = TransSys
 module SVM = StateVar.StateVarMap
 
-(* A symbol in SMT-LIB syntax: a simple symbol, or a quoted one when the
-   name is not a simple symbol or is a reserved word. A name read from a
-   model has no bars or backslashes: the lexer allows none in a symbol. *)
-let quote name =
-  let symbol_char = function
-    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9'
-    | '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '_' | '-' | '+' | '='
-    | '<' | '>' | '.' | '?' | '/' -> true
-    | _ -> false
-  in
-  let reserved =
-    ["_"; "!"; "as"; "let"; "exists"; "forall"; "match"; "par"; "true";
-     "false"; "BINARY"; "DECIMAL"; "HEXADECIMAL"; "NUMERAL"; "STRING"]
-  in
-  if name <> ""
-  && String.for_all symbol_char name
-  && not (name.[0] >= '0' && name.[0] <= '9')
-  && not (List.mem name reserved)
-  then name
-  else "|" ^ name ^ "|"
+(* A symbol in SMT-LIB syntax, quoted if needed *)
+let quote = Lib.smtlib_symbol
 
 let name_of_state_var sv = quote (StateVar.name_of_state_var sv)
 

@@ -745,22 +745,9 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
     state_vars
   in
 
-  (* The solvers are given the predicates of the system under names that
-     are simple SMT-LIB symbols: the name of the system may need quoting.
-     A name that is changed is numbered, so that no two systems share it. *)
-  let pred_name =
-    let simple =
-      String.map
-        (function 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' as c -> c | _ -> '_')
-        sys_name
-    in
-    if simple = sys_name then sys_name
-    else Format.sprintf "%s_%d" simple (HSM.cardinal input.systems)
-  in
-
   let init_uf_symbol =
     UfSymbol.mk_uf_symbol
-      (Format.sprintf "%s_%s" RI.init_uf_string pred_name)
+      (Format.sprintf "%s_%s" RI.init_uf_string sys_name)
       (List.map Var.type_of_var init_formals)
       Type.t_bool
   in
@@ -798,7 +785,7 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
 
   let trans_uf_symbol =
     UfSymbol.mk_uf_symbol
-      (Format.sprintf "%s_%s" RI.trans_uf_string pred_name)
+      (Format.sprintf "%s_%s" RI.trans_uf_string sys_name)
       (List.map Var.type_of_var trans_formals)
       Type.t_bool
   in
