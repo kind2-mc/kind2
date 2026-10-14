@@ -394,26 +394,168 @@ let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit
   | PropKTrue _ 
   | PropUnknown -> ()
 
-(* An invariant as an SMT-LIB term over the names of the variables of the
-   check, quoted if needed: each variable is replaced by a free variable of
-   that name, which is printed as it is. A variable of the next state is
-   primed. *)
-let pp_print_inv ppf inv =
-  let subst =
-    Term.vars_of_term inv |> Var.VarSet.elements |> List.filter_map (fun v ->
-      if Var.is_state_var_instance v || Var.is_const_state_var v then
-        let name = name_of_state_var (Var.state_var_of_state_var_instance v) in
-        let name =
-          if Var.is_state_var_instance v &&
-             Numeral.(Var.offset_of_state_var_instance v > TS.init_base)
-          then name ^ "'"
-          else name
-        in
-        let fv = Var.mk_free_var (HString.mk_hstring name) (Var.type_of_var v) in
-        Some (v, Term.mk_var fv)
-      else None)
+(* The name of a variable of the system of a check in a certificate, as an
+   SMT-LIB symbol, quoted if needed:
+   - a variable of the check, by its name in the check;
+   - a variable of a subsystem instance, by the path of the instances down
+     to it, as in [C1::C::l]: the first instance, the call of the system of
+     the check, is the check itself;
+   - a declared constant, by its name;
+   - a variable of kmoxi's own, such as the one a reachability condition is
+     encoded by, by its name after an [@], with which SMT-LIB reserves
+     symbols for solvers, so that it is the name of no variable of the
+     model. *)
+let cert_name_of_state_var sv =
+  let name = StateVar.name_of_state_var sv in
+  (* The scope of the variables of a system, rather than kmoxi's own *)
+  let usr = List.hd LustreIdent.user_scope in
+  match StateVar.scope_of_state_var sv with
+  | _ when StateVar.is_const sv -> quote name
+  | [ _ ; s ] when s = usr -> quote name
+  | _ :: "ins" :: _ :: rest ->
+    (* The instances, each after an "ins", and the scope of the variable in
+       the last one *)
+    let rec instances acc = function
+      | "ins" :: instance :: rest -> instances (instance :: acc) rest
+      | [ s ] when s = usr -> Some (List.rev acc)
+      | _ -> None
+    in
+    (match instances [] rest with
+     | Some path -> quote (String.concat "::" (path @ [ name ]))
+     | None -> quote ("@" ^ String.concat "::" (List.tl rest @ [ name ])))
+  | _ -> quote ("@" ^ name)
+
+(* Print a term of an invariant in SMT-LIB syntax, over the names of
+   [cert_name_of_state_var]: the value of an enumeration sort by its name,
+   rather than the integer that stands for it, wherever it is compared with
+   a term of the sort; a function defined with define-fun by its MoXI name;
+   a divisibility constraint as [(_ divisible n)] *)
+let rec pp_print_cert_term ?enum ppf t =
+  match Term.destruct t with
+  | Term.T.Var v ->
+    Format.pp_print_string ppf
+      (cert_name_of_state_var (Var.state_var_of_state_var_instance v))
+  | Term.T.Const s -> (
+    match Symbol.node_of_symbol s, enum with
+    | `NUMERAL n, Some _ ->
+      Format.pp_print_string ppf (quote (Type.get_constr_of_num n))
+    | _ -> GenericSMTLIBDriver.pp_print_symbol ppf s )
+  | Term.T.App (s, args) ->
+    (* The enumeration sort of the arguments of an equation, or of the
+       branches of an if-then-else, if one is of such a sort *)
+    let enum_of args =
+      List.find_map (fun a ->
+        let ty = Term.type_of_term a in
+        if Type.is_enum ty then Some ty else None) args
+    in
+    let pp_args ?enum ppf args =
+      List.iter (fun a ->
+        Format.fprintf ppf "@ %a" (pp_print_cert_term ?enum) a) args
+    in
+    (match Symbol.node_of_symbol s, args with
+     | (`EQ | `DISTINCT), _ ->
+       Format.fprintf ppf "@[<hv 1>(%a%a)@]"
+         (GenericSMTLIBDriver.pp_print_symbol ~arity:(List.length args)) s
+         (pp_args ?enum:(enum_of args)) args
+     | `ITE, [c; t; e] ->
+       let enum = match enum_of [t; e] with Some _ as e -> e | None -> enum in
+       Format.fprintf ppf "@[<hv 1>(ite@ %a%a)@]"
+         (pp_print_cert_term ?enum:None) c (pp_args ?enum) [t; e]
+     | `DIVISIBLE n, _ ->
+       Format.fprintf ppf "@[<hv 1>((_ divisible %a)%a)@]"
+         Numeral.pp_print_numeral n (pp_args ?enum:None) args
+     | `UF u, _ ->
+       let name =
+         match MoxiInput.moxi_name_of_uf u with
+         | Some name -> quote name
+         | None -> UfSymbol.smtlib_string_of_uf_symbol u
+       in
+       if args = [] then Format.pp_print_string ppf name
+       else
+         Format.fprintf ppf "@[<hv 1>(%s%a)@]" name (pp_args ?enum:None) args
+     | _ ->
+       Format.fprintf ppf "@[<hv 1>(%a%a)@]"
+         (GenericSMTLIBDriver.pp_print_symbol ~arity:(List.length args)) s
+         (pp_args ?enum:None) args)
+
+(* The most cases an atom over variables of enumeration sorts is split into
+   (see [split_enum_atoms]) *)
+let max_enum_cases = 64
+
+(* The invariant with every atom that uses a variable of an enumeration sort
+   other than in an equation with its values written as a case split over
+   the values of these variables. The engines take a value of an
+   enumeration sort for the integer that encodes it, and an atom such as
+   [2 - c >= 0] has no sort in MoXI: it is the disjunction of [(= c v)] for
+   the values [v] it holds for, each with what the atom is for that value
+   if it has other variables. An atom with more than [max_enum_cases] cases
+   is left as it is. *)
+let rec split_enum_atoms t =
+  let enum_vars t =
+    Term.vars_of_term t |> Var.VarSet.elements
+    |> List.filter (fun v -> Type.is_enum (Var.type_of_var v))
   in
-  Term.pp_print_term ppf (Term.apply_subst subst inv)
+  (* A value, or a variable, of an enumeration sort *)
+  let is_enum_value t =
+    Term.is_numeral t ||
+    match Term.destruct t with
+    | Term.T.Var v -> Type.is_enum (Var.type_of_var v)
+    | _ -> false
+  in
+  match Term.destruct t with
+  (* Boolean structure *)
+  | Term.T.App (s, args) when (match Symbol.node_of_symbol s with
+      | `AND | `OR | `NOT | `IMPLIES | `XOR -> true
+      | `ITE -> Type.is_bool (Term.type_of_term t)
+      | `EQ -> List.for_all (fun a -> Type.is_bool (Term.type_of_term a)) args
+      | _ -> false) ->
+    Term.mk_app s (List.map split_enum_atoms args)
+  (* An equation between values of an enumeration sort, printed as it is *)
+  | Term.T.App (s, args)
+    when (match Symbol.node_of_symbol s with
+        | `EQ | `DISTINCT -> true | _ -> false)
+      && List.for_all is_enum_value args
+      && List.exists (fun a -> Type.is_enum (Term.type_of_term a)) args -> t
+  | _ ->
+    match enum_vars t with
+    | [] -> t
+    | vars ->
+      let domains =
+        List.map (fun v ->
+          let l, u = Type.bounds_of_enum (Var.type_of_var v) in
+          v, List.init (Numeral.to_int Numeral.(u - l) + 1)
+               (fun i -> Numeral.(l + of_int i))) vars
+      in
+      let cases =
+        List.fold_left (fun n (_, d) -> n * List.length d) 1 domains
+      in
+      if cases > max_enum_cases then t
+      else
+        (* Every assignment of values to the variables *)
+        let rec assignments = function
+          | [] -> [ [] ]
+          | (v, d) :: rest ->
+            let tails = assignments rest in
+            List.concat_map (fun n -> List.map (fun a -> (v, n) :: a) tails) d
+        in
+        assignments domains
+        |> List.filter_map (fun a ->
+          let model =
+            Model.of_list
+              (List.map (fun (v, n) -> v, Model.Term (Term.mk_num n)) a)
+          in
+          let equations =
+            List.map (fun (v, n) -> Term.mk_eq [ Term.mk_var v; Term.mk_num n ]) a
+          in
+          match Eval.eval_term [] model t with
+          | Eval.ValBool false -> None
+          | Eval.ValBool true -> Some (Term.mk_and equations)
+          | v -> Some (Term.mk_and (equations @ [ Eval.term_of_value v ])))
+        |> (function [] -> Term.t_false | [ c ] -> c | cs -> Term.mk_or cs)
+
+(* An invariant of a certificate. The invariants of certificates are of the
+   current state, with no variable at another offset. *)
+let pp_print_inv ppf inv = pp_print_cert_term ppf (split_enum_atoms inv)
 
 let pp_print_prop_cert _ppf prop =
   let prop_name = prop.Property.prop_name in
