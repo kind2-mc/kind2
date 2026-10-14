@@ -21,7 +21,9 @@ open Lib
 (* Report a fatal error as an SMT-LIB error on the standard output, on a
    single line, and exit with [code]. The message loses its final period;
    a quote in it is doubled, and a character an SMT-LIB string literal does
-   not allow is replaced: white space by a space, any other by [?]. *)
+   not allow is replaced: white space by a space, any other by [?]. So is a
+   byte that is not part of a valid UTF-8 character, such as the one an
+   unexpected character of the input may be. *)
 let fatal_error code fmt =
   Format.kasprintf (fun msg ->
     let msg =
@@ -35,6 +37,20 @@ let fatal_error code fmt =
         | c when Char.code c < 32 || Char.code c = 127 -> '?'
         | c -> c
       ) msg
+    in
+    let msg =
+      let buf = Buffer.create (String.length msg) in
+      let rec utf_8 i =
+        if i < String.length msg then (
+          let d = String.get_utf_8_uchar msg i in
+          let n = Uchar.utf_decode_length d in
+          if Uchar.utf_decode_is_valid d then
+            Buffer.add_string buf (String.sub msg i n)
+          else Buffer.add_char buf '?' ;
+          utf_8 (i + n))
+      in
+      utf_8 0 ;
+      Buffer.contents buf
     in
     Format.printf "(error \"%s\")@."
       (String.concat "\"\"" (String.split_on_char '"' msg));
@@ -57,16 +73,31 @@ let check_solvers logic =
     fatal_error ExitCodes.unsupported_solver "%s" msg
   | Flags.SolverNotFound msg -> fatal_error ExitCodes.not_found_error "%s" msg
 
+(* Read the input file with [read]: an error reading it, not one of the
+   analysis, is reported as one about the file, which it names *)
+let reading_input filename read =
+  try read filename with Sys_error msg ->
+    let name = if filename = "" then "the standard input" else filename in
+    (* The message of the system may start with the file name already *)
+    let msg =
+      let prefix = filename ^ ": " in
+      if filename <> "" && String.starts_with ~prefix msg then
+        String.sub msg (String.length prefix)
+          (String.length msg - String.length prefix)
+      else msg
+    in
+    fatal_error ExitCodes.error "Error reading input file %s: %s" name msg
+
 let read_and_process_input_file filename =
   if Flags.only_parse () then (
     (* Parse and type check only *)
-    match MoxiInput.check_file filename with
+    match reading_input filename MoxiInput.check_file with
     | Ok () -> exit ExitCodes.success
     | Error e ->
       fatal_error ExitCodes.parse_error "%a" MoxiInput.pp_print_error e
   )
   else
-  match InputSystem.read_input_moxi filename with
+  match reading_input filename InputSystem.read_input_moxi with
   | Ok (in_sys, logic) -> (
     check_solvers logic ;
     Kind2Flow.run in_sys
@@ -79,18 +110,17 @@ let main () =
   Lib.set_log_level L_off ;
   Printexc.record_backtrace true ;
 
-  (* Without an input file, the model is read from the standard input *)
-  parse_commandline_args () ;
-  (* Signal handlers, timeout and global timer, as in kind2: without
-     them a SIGTERM ends kmoxi without killing its solvers, and
-     --timeout is not enforced *)
-  RunSetup.setup () ;
-  let filename = Flags.input_file () in
+  (* Every fatal error is reported, those of the command line and of the
+     setup included *)
   try
-    read_and_process_input_file filename
+    (* Without an input file, the model is read from the standard input *)
+    parse_commandline_args () ;
+    (* Signal handlers, timeout and global timer, as in kind2: without
+       them a SIGTERM ends kmoxi without killing its solvers, and
+       --timeout is not enforced *)
+    RunSetup.setup () ;
+    read_and_process_input_file (Flags.input_file ())
   with
-  | Sys_error msg ->
-    fatal_error ExitCodes.error "Error opening input file: %s" msg
   | e ->
     (* The backtrace goes to the standard error, outside of the SMT-LIB
        response *)

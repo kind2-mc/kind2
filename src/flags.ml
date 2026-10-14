@@ -4021,16 +4021,20 @@ let set_input_file s =
   try Global.set_input_file s with Unix.Unix_error _ -> ()
 
 let anon_action s =
+  (* An empty input file name is not the standard input, which no file
+     name stands for *)
+  if s = "" then raise (Arg.Bad "Empty input file name") ;
   match Global.input_file () with
   | "" -> (
     (* filenames that start with - are allowed after the flag -- *)
-    if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
+    if not !Global.only_filename && String.starts_with ~prefix:"-" s then
+      raise (UnknownFlag s);
     set_input_file s ;
     Global.set_input_format s;
     Global.set_output_dir s
   )
   | _ ->
-    if s.[0] = '-' then raise (UnknownFlag s)
+    if String.starts_with ~prefix:"-" s then raise (UnknownFlag s)
     else raise (Arg.Bad ("More than one input file given: "^s))
 
 

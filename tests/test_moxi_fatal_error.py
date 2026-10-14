@@ -11,7 +11,7 @@ import subprocess
 
 import pytest
 
-from conftest import kmoxi_bin, run_kmoxi_process
+from conftest import kind2_bin, kmoxi_bin, run_kind2, run_kmoxi_process
 
 ERROR = 1
 USAGE_ERROR = 2
@@ -57,8 +57,37 @@ def test_missing_file(tmp_path):
     res = run_kmoxi_process(missing)
     check_error(
         res, ERROR,
-        f"Error opening input file: {missing}: No such file or directory",
+        f"Error reading input file {missing}: No such file or directory",
     )
+
+
+def test_directory(tmp_path):
+    # The message of the system does not name the file: the error does
+    res = run_kmoxi_process(tmp_path)
+    check_error(res, ERROR, f"Error reading input file {tmp_path}: Is a directory")
+
+
+def test_empty_argument():
+    # An empty file name is not the standard input
+    res = run_kmoxi_process("")
+    check_error(res, USAGE_ERROR, "Empty input file name")
+    # kind2 reports it as a usage error too, rather than crashing on it
+    if not kind2_bin.exists():
+        pytest.skip(f"{kind2_bin} is not built")
+    res = run_kind2([kind2_bin, ""])
+    assert res.returncode == USAGE_ERROR, res.stdout + res.stderr
+    assert b"Empty input file name" in res.stdout + res.stderr, res.stdout
+
+
+def test_invalid_utf_8(tmp_path):
+    # The lexer reports the unexpected byte 0xe9, not valid UTF-8 alone: it
+    # is replaced, and the line is valid UTF-8
+    path = tmp_path / "latin1.moxi"
+    path.write_bytes(b"(set-logic QF_LIA)\n\xe9\n")
+    res = run_kmoxi_process(path)
+    assert "\ufffd" not in res.stdout, res.stdout
+    check_error(res, PARSE_ERROR,
+                f"{path}:2:1: error: unexpected character \u2018?\u2019")
 
 
 @pytest.mark.parametrize("color", ["false", "true"])
