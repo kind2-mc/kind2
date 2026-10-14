@@ -547,10 +547,14 @@ let rec split_enum_atoms t =
           let equations =
             List.map (fun (v, n) -> Term.mk_eq [ Term.mk_var v; Term.mk_num n ]) a
           in
-          match Eval.eval_term [] model t with
-          | Eval.ValBool false -> None
-          | Eval.ValBool true -> Some (Term.mk_and equations)
-          | v -> Some (Term.mk_and (equations @ [ Eval.term_of_value v ])))
+          (* The atom for these values, with its other variables left as
+             they are rather than given the defaults of their types *)
+          let value =
+            Simplify.simplify_term_model ~default_of_var:Term.mk_var [] model t
+          in
+          if Term.equal value Term.t_false then None
+          else if Term.equal value Term.t_true then Some (Term.mk_and equations)
+          else Some (Term.mk_and (equations @ [ value ])))
         |> (function [] -> Term.t_false | [ c ] -> c | cs -> Term.mk_or cs)
 
 (* An invariant of a certificate. The invariants of certificates are of the
