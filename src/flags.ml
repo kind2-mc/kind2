@@ -2878,6 +2878,8 @@ type profile = {
      read, by [check_solvers], rather than by [parse_argv]: the executable
      can then set solver preferences from the input *)
   solvers_after_input : bool ;
+  (* What --version prints, and the log starts with *)
+  banner : string ;
 }
 
 let kind2_profile = {
@@ -2887,6 +2889,7 @@ let kind2_profile = {
      if no file is given" ;
   modules = List.map fst module_map ;
   solvers_after_input = false ;
+  banner = Format.asprintf "%t" pp_print_version ;
 }
 
 (* kmoxi runs the engines on a MoXI model: the engine (C2I included, which
@@ -2903,6 +2906,10 @@ let kmoxi_profile = {
     Arrays.id ; Quant.id
   ] ;
   solvers_after_input = true ;
+  (* kmoxi has a version of its own, with the Kind 2 build it is part of *)
+  banner =
+    Format.sprintf "kMoXI %s (Kind 2 %s)" Version.kmoxi_version
+      Version.version ;
 }
 
 (* The modules of a profile, with their flags *)
@@ -3920,7 +3927,7 @@ let check_nonvacuity_default = true
     "--version"
     (Arg.Unit
       (fun () -> 
-        Format.printf "%t@." pp_print_version ;
+        Format.printf "%s@." !profile.banner ;
         exit ExitCodes.success
       )
     )
@@ -4435,7 +4442,7 @@ let post_argv_parse_actions () =
     (* Temporarily set log level to info and output logo. *)
     let old_log_level = get_log_level () in
     set_log_level L_info ;
-    Log.log L_info "%a" pp_print_banner () ;
+    Log.log L_info "%s" !Global.profile.banner ;
     if Global.log_format_json () then Format.fprintf !log_ppf ",@.";
     (* Reset log level. *)
     set_log_level old_log_level ;

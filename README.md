@@ -300,6 +300,10 @@ make kmoxi
 This builds and installs `bin/kmoxi`. `make test` builds it as well, and runs
 its tests with those of Kind 2.
 
+kMoXI has a version of its own, independent of that of Kind 2.
+`kmoxi --version` prints it with the Kind 2 build it comes from, for
+example `kMoXI v0.1.0 (Kind 2 v3.0.0-292-g700d64f)`.
+
 ### Usage
 
 ``` bash
