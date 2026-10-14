@@ -471,9 +471,12 @@ let rec kind2_term env = function
   | A.Let _ as t ->
     (* A chain of directly nested lets, as translators write a formula with
        shared subterms, is translated as a few lets of independent bindings
-       (see [let_segments]): Kind 2 builds a let by traversing its body, so
-       translating each of thousands of lets on its own takes a time and a
-       memory that grow faster than the square of their number *)
+       (see [let_segments]), built at once with [Term.mk_let_chain]. Built
+       one at a time, thousands of lets take a time that grows faster than
+       the square of their number, since Kind 2 builds a let by traversing
+       its body; and each subterm of a long chain of lets keeps the indexes
+       of the bound variables it contains, a memory that grows with the
+       square of the length of the chain *)
     let chain, body = let_chain [] t in
     kind2_let_segments env (let_segments chain) body
 
@@ -483,44 +486,44 @@ let rec kind2_term env = function
    they bind, free variables named after them, shadow state and let-bound
    variables of the same name in the lets after it and in [body]. The
    bindings of a segment are then bound by one let per level, the lowest
-   outermost, so that a binding is in the scope of those it depends on *)
+   outermost, so that a binding is in the scope of those it depends on,
+   and the lets of all segments are built as one chain *)
 and kind2_let_segments env segments body =
-  match segments with
-  | [] -> kind2_term env body
-  | segment :: segments ->
-    let env, bindings =
-      List.fold_left (fun (env, acc) lets ->
-        let bindings =
-          lets |> List.map (fun (s, level, t) ->
-            let term' = kind2_term env t in
-            let var =
-              Var.mk_free_var (hstring_of_symbol s) (Term.type_of_term term')
-            in
-            s, level, var, term'
-          )
-        in
-        let lets =
-          List.fold_left (fun lets (s, _, var, _) ->
-            HSM.add (hstring_of_symbol s) var lets)
-            env.lets bindings
-        in
-        { env with lets }, List.rev_append bindings acc
-      ) (env, []) segment
-    in
-    let bindings = List.rev bindings in
-    let depth = List.fold_left (fun d (_, l, _, _) -> max d l) 0 bindings in
-    let rec bind level inner =
-      if level < 1 then inner
-      else
-        let at_level =
-          List.filter_map (fun (_, l, var, term') ->
-            if l = level then Some (var, term') else None)
-            bindings
-        in
-        bind (level - 1)
-          (if at_level = [] then inner else Term.mk_let at_level inner)
-    in
-    bind depth (kind2_let_segments env segments body)
+  let env, levels =
+    List.fold_left (fun (env, levels) segment ->
+      let env, bindings =
+        List.fold_left (fun (env, acc) lets ->
+          let bindings =
+            lets |> List.map (fun (s, level, t) ->
+              let term' = kind2_term env t in
+              let var =
+                Var.mk_free_var (hstring_of_symbol s) (Term.type_of_term term')
+              in
+              s, level, var, term'
+            )
+          in
+          let lets =
+            List.fold_left (fun lets (s, _, var, _) ->
+              HSM.add (hstring_of_symbol s) var lets)
+              env.lets bindings
+          in
+          { env with lets }, List.rev_append bindings acc
+        ) (env, []) segment
+      in
+      (* The bindings of each level, in their order *)
+      let depth = List.fold_left (fun d (_, l, _, _) -> max d l) 0 bindings in
+      let at_level = Array.make depth [] in
+      List.iter (fun (_, l, var, term') ->
+        at_level.(l - 1) <- (var, term') :: at_level.(l - 1))
+        bindings;
+      let levels =
+        Array.fold_left (fun levels b -> if b = [] then levels else b :: levels)
+          levels at_level
+      in
+      env, levels
+    ) (env, []) segments
+  in
+  Term.mk_let_chain (List.rev levels) (kind2_term env body)
 
 (* The width of a bit-vector term *)
 and bv_width t = Type.bitvectorsize (Term.type_of_term t)
