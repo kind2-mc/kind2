@@ -20,3 +20,9 @@
 
 val pp_print_results:
   TransSys.t -> _ InputSystem.t -> Property.t list -> unit
+
+(** The term with every atom that uses a variable of an enumeration sort
+    other than in an equation with its values written as a case split over
+    the values of these variables, as certificates are printed (exposed for
+    testing) *)
+val split_enum_atoms : Term.t -> Term.t

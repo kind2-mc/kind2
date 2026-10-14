@@ -1,3 +1,3 @@
 (tests
-  (names testTermQuant testSimplifyAdt testSimplifyArray testArrayValues testInvs testTermLogic)
+  (names testTermQuant testSimplifyAdt testSimplifyArray testArrayValues testInvs testTermLogic testEnumAtoms)
   (libraries ounit2 kind2dev))

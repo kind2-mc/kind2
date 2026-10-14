@@ -31,6 +31,10 @@ type system_check = TransSys.t SubSystem.t
 (** Parse and type check the script in a file, without translating it *)
 val check_file : string -> (unit, error) result
 
+(** The MoXI name of a function defined with [define-fun], given the symbol
+    it is translated to, which has a fresh name *)
+val moxi_name_of_uf : UfSymbol.t -> string option
+
 (** Parse, type check and translate the script in a file into one
     transition system per [check-system] command, in the order of the
     script, each with the names of

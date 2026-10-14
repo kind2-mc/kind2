@@ -126,6 +126,12 @@ type term_env =
   decls: input
 }
 
+(* The MoXI names of the functions defined with define-fun, by their
+   symbols, which have fresh names (see [process_command]) *)
+let moxi_names = UfSymbol.UfSymbolHashtbl.create 7
+
+let moxi_name_of_uf uf = UfSymbol.UfSymbolHashtbl.find_opt moxi_names uf
+
 let unsupported span msg =
   raise (Unsupported_feature (Lib.start_pos span, msg))
 
@@ -1089,6 +1095,8 @@ let process_command (input : input) = function
       UfSymbol.mk_uf_symbol fresh_name
         (List.map Var.type_of_var vars) (type_of_sort input.enums def.A.sort)
     in
+    UfSymbol.UfSymbolHashtbl.replace moxi_names uf
+      (HString.string_of_hstring name) ;
     { input with
       funs = HSM.add name uf input.funs;
       fun_defs = (uf, vars, body) :: input.fun_defs }
