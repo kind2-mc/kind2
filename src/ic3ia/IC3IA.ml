@@ -819,25 +819,49 @@ let get_invariant init c =
     (Cube.literals c)
   |> Term.mk_or
 
-(* Report the invariant [inv], which [cert] implies; [cert] is 1-inductive.
-   A clause IC3IA finds is inductive only together with the others of its
-   frame, so the certificate of each is their conjunction: the supervisor
-   takes the certificate of an invariant that is a property for that of
-   the property. *)
+(* The logic of each clause found, which the certificates of the clauses
+   of a frame make us compute again and again *)
+let clause_logics = Term.TermHashtbl.create 97
+
+let logic_of_clause c =
+  match Term.TermHashtbl.find_opt clause_logics c with
+  | Some l -> l
+  | None ->
+    let l = TermLib.logic_of_term [] c in
+    Term.TermHashtbl.add clause_logics c l ;
+    l
+
+(* Is the term in the logic of the original system, with none of the
+   features the interpolation adds? *)
+let in_logic t =
+  match !(added_logic ()) with
+  | None -> true
+  | Some f -> not (TermLib.FeatureSet.mem f (logic_of_clause t))
+
+(* Report the invariant [inv] with the certificate [cert ()], a list of
+   clauses whose conjunction is 1-inductive and implies [inv]. A clause
+   IC3IA finds is inductive only together with the others of its frame,
+   so the certificate of each is their conjunction: the supervisor takes
+   the certificate of an invariant that is a property for that of the
+   property. An invariant is reported only if it and its certificate are
+   in the logic of the original system. *)
 let report_invariant sys cert inv =
-  let broadcast_inv =
-    match !(added_logic ()) with
-    | None -> true
-    | Some f -> (
-      let inv_logic = TermLib.logic_of_term [] inv in
-      not (TermLib.FeatureSet.mem f inv_logic)
+  if in_logic inv then
+    let cert = cert () in
+    if List.for_all in_logic cert then
+      KEvent.invariant
+        (TransSys.scope_of_trans_sys sys) inv (1, Term.mk_and cert) false
+
+let get_invariants init frames k =
+  List.fold_left
+    (fun invs f ->
+      CS.fold
+        (fun c invs -> get_invariant init c :: invs)
+        (Frame.cubes f)
+        invs
     )
-  in
-  (* Only report an invariant if the term belongs to
-     the logic of the original system *)
-  if broadcast_inv then
-    KEvent.invariant
-      (TransSys.scope_of_trans_sys sys) inv (1, cert) false
+    []
+    (list_suffix frames k)
 
 let add_blocked_cube solver sys init frames s =
   let k =
@@ -889,16 +913,11 @@ let add_blocked_cube solver sys init frames s =
   SMTSolver.trace_comment solver
     (Format.asprintf "Blocked [%d] : %a" k Cube.pp_print_cube s_cube) ;
 
-  (* Report if invariant, with the clauses of the frame at infinity, which
-     are inductive together *)
+  (* Report if invariant, with the clauses of the frame at infinity, the
+     [k]th, which are inductive together *)
   if TCube.frame s = TCube.FrameInf then (
     let inv = get_invariant init (TCube.cube s) in
-    let cert =
-      CS.fold (fun c invs -> get_invariant init c :: invs)
-        (Frame.cubes (List.nth frames (List.length frames - 1))) []
-      |> Term.mk_and
-    in
-    report_invariant sys cert inv
+    report_invariant sys (fun () -> get_invariants init frames k) inv
   ) ;
   
   frames
@@ -1000,17 +1019,6 @@ let add_frame f frames =
   Lib.list_insert_at f (List.length frames - 1) frames
 
 
-let get_invariants init frames k =
-  List.fold_left
-    (fun invs f ->
-      CS.fold
-        (fun c invs -> get_invariant init c :: invs)
-        (Frame.cubes f)
-        invs
-    )
-    []
-    (list_suffix frames k)
-
 let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames =
   let init = get_init base_offset in
   let rec loop frames k =
@@ -1098,11 +1106,9 @@ let main_ic3ia fwd prop in_sys param sys =
 
     let invariants = loop predicates next_cube frames in
     
-    let inv = Term.mk_and invariants in
+    invariants |> List.iter (report_invariant sys (fun () -> invariants)) ;
 
-    invariants |> List.iter (report_invariant sys inv) ;
-
-    let cert = 1, inv in
+    let cert = 1, Term.mk_and invariants in
 
     KEvent.prop_status
       (Property.PropInvariant cert)
