@@ -154,8 +154,11 @@ def test_inv_is_smtlib_term(tmp_path, case, engines, mentioned):
     check_term(inv, names, case != "enum", out)
     atoms = set(token.findall(out.split(prefix, 1)[1].split(" :k ", 1)[0]))
     if case == "enum":
-        # Some value of the sort, by its name: which ones depends on the
-        # invariant found
-        assert mentioned & atoms, out
+        # An invariant over c gives some value of the sort, by its name:
+        # which ones depends on the invariant found. The invariant need not
+        # mention c: with the property, @r alone is inductive, since no
+        # state but one with c blue has a successor with c blue
+        if "c" in atoms:
+            assert mentioned & atoms, out
     else:
         assert mentioned <= atoms, out
