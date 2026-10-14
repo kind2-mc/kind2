@@ -552,8 +552,9 @@ let post_clean_exit process base_status exn =
   (* Exit with status. *)
   exit status
 
-(** Clean up before exit *)
-let on_exit sys process status exn =
+(** Clean up before exit. [results] prints what the run established, once
+    the engines are stopped. *)
+let on_exit ?(results = fun () -> ()) sys process status exn =
   (* From here to [exit] nothing bounds the teardown but the watchdog,
      so it starts now, carrying what the results already say.
 
@@ -579,6 +580,11 @@ let on_exit sys process status exn =
   Lib.drop_partial_output () ;
   try
     slaughter_kids ~exiting:true process sys;
+    (try results () with
+     | TimeoutWall -> ()
+     | e ->
+       KEvent.log L_error "Could not print the results: %s"
+         (Printexc.to_string e)) ;
     post_clean_exit process status exn
   with TimeoutWall -> post_clean_exit process status TimeoutWall
 
@@ -593,8 +599,8 @@ let post_clean_exit_realiz_results in_sys process exn =
   let base_status = status_of_realiz_results in_sys in
   post_clean_exit process base_status exn
 
-let on_exit_success process exn =
-  on_exit None process ExitCodes.success exn
+let on_exit_success ?results process exn =
+  on_exit ?results None process ExitCodes.success exn
 
 (** Clean up before exit. *)
 let on_exit_safety_results in_sys process exn =
@@ -1335,22 +1341,36 @@ let run in_sys =
   ) 
 
   | modules when InputSystem.is_moxi_input in_sys -> (
-    
+
+    let params = ISys.moxi_params in_sys in
+    (* The checks not answered yet, and the system of the one being
+       analyzed, for the responses to give when time runs out *)
+    let pending = ref params in
+    let current = ref None in
+    let print_results sys =
+      MoxiResults.pp_print_results sys in_sys (TSys.get_properties sys)
+    in
+    (* Out of time, every check still gets its response: the one being
+       analyzed with what the engines established, and the others with every
+       query unknown. Printed by [on_exit], once the engines are stopped and
+       under its watchdog. *)
+    let respond_to_pending () =
+      List.iter (fun param ->
+        let sys =
+          match !current with
+          | Some sys -> current := None ; sys
+          | None -> fst (ISys.trans_sys_of_analysis in_sys param)
+        in
+        print_results sys
+      ) !pending
+    in
+
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
       KEvent.run_im msg_setup ;
       Flags.Arrays.set_smt true ;
 
-      let params = ISys.moxi_params in_sys in
-      (* The checks not answered yet, and the system of the one being
-         analyzed, for the responses to give when time runs out *)
-      let pending = ref params in
-      let current = ref None in
-      let print_results sys =
-        Signals.ignoring_sigalrm (fun () ->
-          MoxiResults.pp_print_results sys in_sys (TSys.get_properties sys))
-      in
       let run_check param =
         let sys, _ =
           ISys.trans_sys_of_analysis in_sys param
@@ -1362,40 +1382,26 @@ let run in_sys =
         (* Analyze... *)
         analyze msg_setup false false false true modules in_sys param sys ;
 
-        (* Print results *)
+        (* Print results, with the timer disarmed, so that the response is
+           not cut short; the timer is armed again for the time left, which
+           raises [TimeoutWall] at once if none is *)
+        Signals.unset_timeout () ;
         print_results sys ;
         current := None ;
         pending := List.tl !pending ;
+        Signals.set_sigalrm_timeout_from_flag () ;
 
         KEvent.log_analysis_end ()
       in
-      (* Out of time, every check still gets its response: the one being
-         analyzed with what the engines established, once they are stopped,
-         and the others with every query unknown *)
-      let respond_to_pending () =
-        (try slaughter_kids ~exiting:true `Supervisor None
-         with TimeoutWall -> ()) ;
-        List.iter (fun param ->
-          let sys =
-            match !current with
-            | Some sys -> current := None ; sys
-            | None -> fst (ISys.trans_sys_of_analysis in_sys param)
-          in
-          print_results sys
-        ) !pending
-      in
-      try
-        (match params with
-         | [] -> (KEvent.log L_note "No system checks found.")
-         | _ -> List.iter run_check params
-        ) ;
-
-        post_clean_exit_success `Supervisor Exit
-      with TimeoutWall ->
-        (try respond_to_pending () with TimeoutWall -> ()) ;
-        raise TimeoutWall
+      (match params with
+       | [] -> (KEvent.log L_note "No system checks found.")
+       | _ -> List.iter run_check params
+      ) ;
+      
+      post_clean_exit_success `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
+    | TimeoutWall ->
+      on_exit_success ~results:respond_to_pending `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e ;
       on_exit_success `Supervisor e
