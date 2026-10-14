@@ -394,13 +394,34 @@ let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit
   | PropKTrue _ 
   | PropUnknown -> ()
 
-let pp_print_prop_cert _ppf prop = 
+(* An invariant as an SMT-LIB term over the names of the variables of the
+   check, quoted if needed: each variable is replaced by a free variable of
+   that name, which is printed as it is. A variable of the next state is
+   primed. *)
+let pp_print_inv ppf inv =
+  let subst =
+    Term.vars_of_term inv |> Var.VarSet.elements |> List.filter_map (fun v ->
+      if Var.is_state_var_instance v || Var.is_const_state_var v then
+        let name = name_of_state_var (Var.state_var_of_state_var_instance v) in
+        let name =
+          if Var.is_state_var_instance v &&
+             Numeral.(Var.offset_of_state_var_instance v > TS.init_base)
+          then name ^ "'"
+          else name
+        in
+        let fv = Var.mk_free_var (HString.mk_hstring name) (Var.type_of_var v) in
+        Some (v, Term.mk_var fv)
+      else None)
+  in
+  Term.pp_print_term ppf (Term.apply_subst subst inv)
+
+let pp_print_prop_cert _ppf prop =
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with
-  | PropInvariant (k, inv) -> 
+  | PropInvariant (k, inv) ->
     Format.printf "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
       (derived prop_name "_cert")
-      (LustreExpr.pp_print_term_as_expr false)
+      pp_print_inv
       inv
       k
   | PropFalse _ 
