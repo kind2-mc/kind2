@@ -128,6 +128,7 @@ sig
   val mk_app : symbol -> t list -> t
 
   val mk_let : (var * t) list -> t -> t
+  val mk_let_chain : (var * t) list list -> t -> t
 
   val mk_let_elim : (var * t) list -> t -> t
 
@@ -410,6 +411,13 @@ struct
 
   (* Hashconsing for terms *)
   module Ht = H.Make (T_node)
+
+  (* Hash tables of variables, which are hashconsed *)
+  module VH = Hashtbl.Make (struct
+      type t = T.var
+      let equal = ( == )
+      let hash = T.hash_of_var
+    end)
 
   (* Hashcons table for terms *)
   (* The hash-cons table is private to the domain using it. A domain
@@ -1496,6 +1504,55 @@ struct
 
     (* Return let binding *)
     ht_let (mk_lambda x t) b
+
+  (* Constructor for a chain of let bindings: [mk_let_chain [b_1; ...;
+     b_n] t] is [mk_let b_1 (mk_let b_2 (... (mk_let b_n t)))], where
+     the terms of [b_j] are in the scope of the variables of [b_1] to
+     [b_(j-1)], and [t] in that of all of them. The nested lets would
+     traverse their body once for every let, this binds the variables
+     with one traversal of each term. *)
+  let mk_let_chain bs t =
+
+    let bs = Array.of_list (List.map List.split bs) in
+    let n = Array.length bs in
+
+    (* [inner.(j)] is the number of variables bound by the [j]th let and
+       those inside it *)
+    let inner = Array.make (n + 1) 0 in
+    for j = n - 1 downto 0 do
+      inner.(j) <- inner.(j + 1) + List.length (fst bs.(j))
+    done;
+
+    (* Each variable with the lets that bind it and its relative index
+       in each, as in [mk_lambda], innermost first *)
+    let binders = VH.create 97 in
+    Array.iteri
+      (fun j (x, _) -> List.iteri (fun i v -> VH.add binders v (j, i)) (List.rev x))
+      bs;
+
+    (* Bind the variables of the first [s] lets in a term in their scope:
+       a variable of the [j]th let is [i] variables into its binding, and
+       under the variables of the lets after it up to the [s]th *)
+    let bind_first s term =
+      map
+        (fun db -> function
+           | { H.node = FreeVar v } as t -> (
+             match List.find_opt (fun (j, _) -> j < s) (VH.find_all binders v) with
+             | Some (j, i) -> ht_bound_var (succ db + i + inner.(j + 1) - inner.(s))
+             | None -> t)
+           | t -> t)
+        term
+    in
+
+    let rec build j =
+      if j = n then bind_first n t
+      else
+        let x, b = bs.(j) in
+        ht_let
+          (hl_lambda (List.map T.sort_of_var x) (build (j + 1)))
+          (List.map (bind_first j) b)
+    in
+    build 0
 
   (* Create a let binding of terms to variables, eliminate bindings to
      variables that do not occur in the term *)

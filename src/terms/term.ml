@@ -979,6 +979,9 @@ let mk_lambda = T.mk_lambda
 (* Return a hashconsed let binding *)
 let mk_let  = T.mk_let
 
+(* Return a hashconsed chain of let bindings *)
+let mk_let_chain = T.mk_let_chain
+
 
 (* Return a hashconsed existentially quantified term *)
 let mk_exists ?(fundef=false) vars t =
