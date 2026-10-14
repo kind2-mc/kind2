@@ -34,6 +34,18 @@ module Set = Term.TermSet
 (* Values. *)
 module type DomainSig = InvGenDomain.Domain
 
+(* The state variables of the terms of the classes of a graph, their
+   representatives included *)
+let state_vars_of_classes classes =
+  Map.fold
+    (fun rep members acc ->
+       Set.fold
+         (fun term acc ->
+            StateVar.StateVarSet.union (Term.state_vars_of_term term) acc)
+         members
+         (StateVar.StateVarSet.union (Term.state_vars_of_term rep) acc))
+    classes StateVar.StateVarSet.empty
+
 
 
 (* Term. *)
@@ -1159,15 +1171,7 @@ digraph mode_graph {
   (* The state variables of the terms of the graph, the only ones whose
      values evaluating its terms needs: the terms of the graph do not change
      when it is split *)
-  let state_vars_of { classes } =
-    Map.fold
-      (fun rep members acc ->
-         Set.fold
-           (fun term acc ->
-              StateVar.StateVarSet.union (Term.state_vars_of_term term) acc)
-           members
-           (StateVar.StateVarSet.union (Term.state_vars_of_term rep) acc))
-      classes StateVar.StateVarSet.empty
+  let state_vars_of { classes } = state_vars_of_classes classes
 
   (** Queries the lsd and updates the graph. Iterates until the graph is
   stable. That is, when the lsd returns unsat. *)
@@ -1393,16 +1397,7 @@ digraph mode_graph {
   let stabilize graph in_sys sys known base =
     (* The state variables of the terms of the graph, the only ones whose
        values evaluating its terms needs *)
-    let vars =
-      Map.fold
-        (fun rep members acc ->
-           Set.fold
-             (fun term acc ->
-                StateVar.StateVarSet.union (Term.state_vars_of_term term) acc)
-             members
-             (StateVar.StateVarSet.union (Term.state_vars_of_term rep) acc))
-        graph StateVar.StateVarSet.empty
-    in
+    let vars = state_vars_of_classes graph in
     let has_cex = Lsd.query_base ~vars in_sys base in
 
     (* Splits a class and inserts it in the graph. Replaces the binding of

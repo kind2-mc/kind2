@@ -1370,6 +1370,8 @@ let run in_sys =
       KEvent.set_module `Supervisor ;
       KEvent.run_im msg_setup ;
       Flags.Arrays.set_smt true ;
+      (* Array values are read whole, and printed as SMT-LIB terms *)
+      Flags.Arrays.set_read_whole true ;
 
       let run_check param =
         let sys, _ =

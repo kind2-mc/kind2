@@ -263,7 +263,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
        values at [k], from the solver, exactly and without reading a
        model *)
     let values =
-      SMTSolver.get_term_values solver
+      SMTSolver.get_term_values_at_once solver
         (List.map (fun (_, (_, term)) -> Term.bump_state k term) to_split)
     in
 
@@ -277,7 +277,11 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
         (Flags.BmcKind.lazy_invariants ()) ||
         (Flags.BmcKind.ind_print_cex ())
       then
-        Some (SMTSolver.get_var_values solver svi
+        (* An array too large to read is left out: the invariants are
+           evaluated where they can be, and the counterexample is only
+           printed *)
+        Some (SMTSolver.get_var_values
+          ~array_limit:(`Omit SMTSolver.max_array_elements) solver svi
           (TransSys.vars_of_bounds trans Numeral.zero k))
       else if Flags.BmcKind.compress () then
         try

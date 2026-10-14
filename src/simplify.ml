@@ -1202,22 +1202,6 @@ let const_array_value t =
     | _ -> None )
   | _ -> None
 
-(* Whether a term is an array value: a constant array with stores of
-   constant indices and values, as models give the values of arrays (see
-   [SMTSolver.get_var_values]) *)
-let rec is_array_value t =
-  let is_value t =
-    Term.is_numeral t || Term.is_decimal t || Term.is_bool t
-    || Term.is_bitvector t || is_array_value t
-  in
-  match const_array_value t with
-  | Some v -> is_value v
-  | None ->
-    Term.is_store t &&
-    match Term.destruct t with
-    | Term.T.App (_, [a; i; v]) -> is_array_value a && is_value i && is_value v
-    | _ -> false
-
 let select simplify_term_node model fterm = function
 
   (* Select from a constant array: its value *)
@@ -2237,10 +2221,18 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                 (match args' with
                  | a :: tl when List.for_all (Term.equal a) tl ->
                    Bool Term.t_true
-                 (* Array values are in canonical form: different ones
-                    are different arrays *)
-                 | _ when List.for_all is_array_value args' ->
-                   Bool Term.t_false
+                 (* Array values: equal exactly if their canonical forms
+                    are the same, whatever the stores they are built
+                    with *)
+                 | a :: _ when List.for_all TermLib.is_array_value args' -> (
+                   let ty = Term.type_of_term a in
+                   match
+                     List.map (TermLib.canonical_array_value ty) args'
+                   with
+                   | c :: tl when List.for_all (Term.equal c) tl ->
+                     Bool Term.t_true
+                   | _ -> Bool Term.t_false
+                   | exception Not_found -> Bool (Term.mk_eq args') )
                  | _ -> Bool (Term.mk_eq args'))
 
               (* Equation between integers or reals *)

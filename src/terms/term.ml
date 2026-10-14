@@ -692,10 +692,12 @@ let rec type_of_term' t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term' a)
            | _ -> assert false)
 
-        | `CONST_ARRAY _ (* ty_array *) ->
+        (* The array type of a constant array, not the type of its
+           value *)
+        | `CONST_ARRAY ty_array ->
 
           (match l with
-           | [v] -> (type_of_term' v)
+           | [_] -> ty_array
            | _ -> assert false)
 
         (* Bitvector-valued function *)

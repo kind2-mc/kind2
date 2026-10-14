@@ -809,51 +809,6 @@ exception Too_many_array_elements
    for an index of [w] bits, and they are read one by one *)
 let max_array_elements = 1 lsl 16
 
-(* The value of an array the solver gives, a constant array with stores of
-   constant indices and values, in canonical form for the array type [ty]:
-   a store at an index other stores precede, as the value overrides theirs,
-   and no store of the value of the constant array, with the stores in the
-   order of their indices. Two values are then equal exactly if they are
-   the same term. The indices and values are those of the types of [ty],
-   as for a scalar value (see [Simplify]): the solver does not tell signed
-   and unsigned bit-vectors apart. Raises [Not_found] for a value of
-   another form, such as a lambda abstraction. *)
-let rec canonical_array_value ty t =
-  let value ty t =
-    if Type.is_array ty then canonical_array_value ty t
-    else if Type.is_ubitvector ty then Term.mk_ubv (Term.bitvector_of_term t)
-    else if Type.is_bitvector ty then Term.mk_bv (Term.bitvector_of_term t)
-    else if Term.is_numeral t && Type.is_real ty then
-      Term.mk_dec (Decimal.of_big_int (Numeral.to_big_int (Term.numeral_of_term t)))
-    else if Term.is_numeral t || Term.is_decimal t || Term.is_bool t then t
-    else raise Not_found
-  in
-  let index_ty = Type.index_type_of_array ty in
-  let elem_ty = Type.elem_type_of_array ty in
-  (* The stores from the outermost one, and the value of the constant
-     array *)
-  let rec stores acc t =
-    match Term.destruct t with
-    | Term.T.App (sym, [a; i; v])
-      when Symbol.node_of_symbol sym = `STORE ->
-      let i = value index_ty i in
-      if List.exists (fun (j, _) -> Term.equal i j) acc then stores acc a
-      else stores ((i, value elem_ty v) :: acc) a
-    | Term.T.App (sym, [d]) -> (
-      match Symbol.node_of_symbol sym with
-      | `CONST_ARRAY _ -> acc, value elem_ty d
-      | _ -> raise Not_found )
-    | _ -> raise Not_found
-  in
-  let stores, default =
-    try stores [] t with Invalid_argument _ | Failure _ -> raise Not_found
-  in
-  stores
-  |> List.filter (fun (_, v) -> not (Term.equal v default))
-  |> List.sort (fun (i, _) (j, _) -> Term.compare i j)
-  |> List.fold_left (fun a (i, v) -> Term.mk_store a i v)
-       (Term.mk_const_array ty default)
-
 (* Get model of the current context *)
 let get_var_values ?array_limit s state_var_indexes vars =
   let module S = (val s.solver_inst) in
@@ -868,8 +823,10 @@ let get_var_values ?array_limit s state_var_indexes vars =
       ) ([], []) vars
   in
 
-  (* Get values of SMT expressions in current context *)
+  (* Get values of SMT expressions in current context, if any: a get-value
+     of no term is an error *)
   let model =
+    if sexpr_vars = [] then Model.create 7 else
     match prof_get_value s sexpr_vars with 
     | `Values v -> 
 
@@ -893,19 +850,30 @@ let get_var_values ?array_limit s state_var_indexes vars =
 
   (* With the theory of arrays, the solver gives the value of an array as a
      term, exactly, whatever the size of the array: a constant array with
-     stores. Without it, an array is a function symbol, whose value is a
-     function the solver gives in a form of its own. *)
-  let exact_value v =
-    if not (Flags.Arrays.smt ()) then None
-    else
-      match prof_get_value s [S.Conv.smtexpr_of_var v []] with
-      | `Values [(_, e)] -> (
-        try
-          Some (canonical_array_value (Var.type_of_var v)
-                  (S.Conv.term_of_smtexpr e))
-        with Not_found | Failure _ | Invalid_argument _ -> None )
-      | r -> smt_error s r
+     stores, kept in canonical form. Without it, an array is a function
+     symbol, whose value is a function the solver gives in a form of its
+     own. The values of all the arrays are asked for at once. *)
+  let exact_values =
+    let exact = Var.VarHashtbl.create 7 in
+    if Flags.Arrays.smt () && Flags.Arrays.read_whole () && array_vars <> []
+    then (
+      match
+        prof_get_value s
+          (List.map (fun v -> S.Conv.smtexpr_of_var v []) array_vars)
+      with
+      | `Values values when List.length values = List.length array_vars ->
+        List.iter2 (fun v (_, e) ->
+          try
+            Var.VarHashtbl.add exact v
+              (TermLib.canonical_array_value (Var.type_of_var v)
+                 (S.Conv.term_of_smtexpr e))
+          with Not_found | Failure _ | Invalid_argument _ -> ()
+        ) array_vars values
+      | `Values _ -> ()
+      | r -> smt_error s r ) ;
+    exact
   in
+  let exact_value v = Var.VarHashtbl.find_opt exact_values v in
 
   (* Get model for arrays *)
   (* We obtain the model by first evaluating the bound of the array in the
@@ -973,8 +941,9 @@ let get_var_values ?array_limit s state_var_indexes vars =
             if elements > limit - !read then raise Too_many_array_elements ;
             read := !read + elements
           | Some (`Omit limit) ->
-            (* Given no values, as an unbounded array *)
-            if elements > limit then raise Exit
+            (* Given no values, as an unbounded array, past the limit *)
+            if elements > limit - !read then raise Exit ;
+            read := !read + elements
           | None -> () ) ;
 
         let args_list = cross (List.map range bnds) in
@@ -1232,6 +1201,24 @@ let get_term_value s term =
        (* Keep assignment *)
        (term, value)
   )
+  | r -> smt_error s r
+
+(* Get values of terms in the current context, in one query: the values
+   are those of the terms in order, whatever terms the solver repeats *)
+let get_term_values_at_once s terms =
+  let module S = (val s.solver_inst) in
+  if terms = [] then [] else
+  match prof_get_value s (List.map S.Conv.smtexpr_of_term terms) with
+  | `Values m when List.length m = List.length terms ->
+    List.map2 (fun term (_, smt_value) ->
+      let value = S.Conv.term_of_smtexpr smt_value in
+      if
+        Type.equal_types (Term.type_of_term value) Type.t_int &&
+        Type.equal_types (Term.type_of_term term) Type.t_real
+      then (term, Term.mk_to_real value)
+      else (term, value)
+    ) terms m
+  | `Values _ -> failwith "Unexpected number of values in a get-value response"
   | r -> smt_error s r
 
 (* Get values of terms in the current context *)

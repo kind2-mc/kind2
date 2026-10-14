@@ -92,7 +92,7 @@ let rec split trans solver k to_split actlit congruence congruence_holds =
     (* The values of the properties at [k], from the solver rather than
        from the model, which may leave out the arrays they read *)
     let values =
-      SMTSolver.get_term_values solver
+      SMTSolver.get_term_values_at_once solver
         (List.map (fun (_, term) -> Term.bump_state k term) to_split)
     in
     let holds (_, term) =

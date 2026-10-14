@@ -703,6 +703,14 @@ module Arrays : sig
 
   val set_smt : bool -> unit
 
+  (** Whether the values of arrays in models are read whole, as terms, with
+      the theory of arrays (see [SMTSolver.get_var_values]), rather than
+      element by element. Off by default: the output of Kind 2 prints
+      arrays element by element; kmoxi sets it. Not a command-line option. *)
+  val read_whole : unit -> bool
+
+  val set_read_whole : bool -> unit
+
   (** Inline arrays with fixed bounds *)
   val inline : unit -> bool
 

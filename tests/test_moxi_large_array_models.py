@@ -16,6 +16,8 @@ The arrays here have 17-bit indices, 2^17 elements: reading them element by
 element would be slow rather than too large for memory.
 """
 
+import time
+
 import pytest
 
 from conftest import run_kmoxi_process
@@ -52,7 +54,13 @@ constant = f"""(set-logic QF_ABV)
 def run(tmp_path, model, *args):
     path = tmp_path / "model.moxi"
     path.write_text(model)
-    return run_kmoxi_process(path, *args, timeout=60)
+    start = time.monotonic()
+    res = run_kmoxi_process(path, *args, timeout=60)
+    # A tenth of a second when the values are read whole; reading the 2^17
+    # elements of the arrays one by one takes a minute or more
+    elapsed = time.monotonic() - start
+    assert elapsed < 20, f"{elapsed:.1f}s: {res.stdout}"
+    return res
 
 
 @pytest.mark.parametrize("engines", [["BMC"], ["IC3QE"], ["IC3IA"], []],

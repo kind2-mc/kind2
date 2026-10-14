@@ -2206,6 +2206,13 @@ module Arrays = struct
     let set_smt f = smt := f
     let smt () = !smt
 
+  (* Whether the values of arrays in models are read whole, as terms, with
+     the theory of arrays: set by kmoxi, whose output prints them so; the
+     output of Kind 2 prints arrays element by element. Not an option. *)
+  let read_whole = ref false
+  let set_read_whole b = read_whole := b
+  let read_whole () = !read_whole
+
   let inline_default = true
   let inline = ref inline_default
   let _ = add_spec
