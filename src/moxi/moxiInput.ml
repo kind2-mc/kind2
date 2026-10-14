@@ -292,6 +292,102 @@ let const_array_eq a ty v =
     |> Term.mk_and
     |> Option.some
 
+(* The symbols that occur free in the term as variables, that is, not as
+   function symbols, primed or indexed, and not bound by a let of the term,
+   added to [acc] *)
+let rec free_symbols bound acc = function
+  | A.Constant _ -> acc
+  | A.QualId ((_, s, []), false, _) ->
+    let s = hstring_of_symbol s in
+    if HSS.mem s bound then acc else HSS.add s acc
+  | A.QualId _ -> acc
+  | A.App (_, _, args) -> List.fold_left (free_symbols bound) acc args
+  | A.Let (_, bindings, t) ->
+    let acc =
+      List.fold_left (fun acc (_, _, t) -> free_symbols bound acc t)
+        acc bindings
+    in
+    let bound =
+      List.fold_left (fun bound (_, s, _) -> HSS.add (hstring_of_symbol s) bound)
+        bound bindings
+    in
+    free_symbols bound acc t
+
+(* The bindings of the lets of a chain of directly nested lets, outermost
+   first, and the term innermost *)
+let rec let_chain acc = function
+  | A.Let (_, bindings, t) ->
+    let_chain (List.map (fun (_, s, t) -> s, t) bindings :: acc) t
+  | t -> List.rev acc, t
+
+(* The chain of lets [chain] (see [let_chain]) split into segments, each a
+   list of lets whose bindings carry a level: 1 for a binding whose term
+   depends on no binding of the segment, and otherwise 1 + the highest
+   level of those it depends on. In a segment, each binding can be moved to
+   the let of its level without changing what any symbol refers to, since
+   the lets of a segment
+
+   - bind each symbol once,
+   - bind no symbol that a term of an earlier let of the segment takes
+     from the enclosing scope, and
+   - have no term that refers to a symbol of its own let, which it takes
+     from the enclosing scope as well.
+
+   A let that breaks the first or the second condition starts a new
+   segment, and one that breaks the third, or binds a symbol twice, is a
+   segment of its own *)
+let let_segments chain =
+  let close segments segment =
+    if segment = [] then segments else List.rev segment :: segments
+  in
+  (* [segment] is the current segment, its lets in reverse order, [levels]
+     the levels of its symbols, and [outer] the symbols its terms take from
+     the enclosing scope *)
+  let rec split segments segment levels outer = function
+    | [] -> List.rev (close segments segment)
+    | lets :: chain ->
+      let names = List.map (fun (s, _) -> hstring_of_symbol s) lets in
+      let refs =
+        List.map (fun (_, t) -> free_symbols HSS.empty HSS.empty t) lets
+      in
+      let own = HSS.of_list names in
+      if HSS.cardinal own <> List.length names
+         || List.exists (fun r -> not (HSS.disjoint r own)) refs
+      then
+        let alone = List.map (fun (s, t) -> s, 1, t) lets in
+        split ([alone] :: close segments segment) [] HSM.empty HSS.empty chain
+      else if
+        segment <> []
+        && List.exists (fun n -> HSM.mem n levels || HSS.mem n outer) names
+      then
+        split (close segments segment) [] HSM.empty HSS.empty (lets :: chain)
+      else
+        let leveled =
+          List.map2 (fun (s, t) r ->
+            let level =
+              HSS.fold (fun n l ->
+                match HSM.find_opt n levels with
+                | Some l' -> max l (l' + 1)
+                | None -> l)
+                r 1
+            in
+            s, level, t)
+            lets refs
+        in
+        let outer =
+          List.fold_left (fun outer r ->
+            HSS.union outer (HSS.filter (fun n -> not (HSM.mem n levels)) r))
+            outer refs
+        in
+        let levels =
+          List.fold_left (fun levels (s, l, _) ->
+            HSM.add (hstring_of_symbol s) l levels)
+            levels leveled
+        in
+        split segments (leveled :: segment) levels outer chain
+  in
+  split [] [] HSM.empty HSS.empty chain
+
 (* Translate a term in the environment [env] *)
 let rec kind2_term env = function
   | A.Constant c -> (
@@ -372,25 +468,59 @@ let rec kind2_term env = function
     | None -> kind2_app env t
   )
   | A.App _ as t -> kind2_app env t
-  | A.Let (_, var_bindings, term) -> (
-    (* The bindings are simultaneous: the bound terms are translated in the
-       enclosing scope, and the variables they bind, free variables named
-       after them, are in scope in the body only, where they shadow state
-       and let-bound variables of the same name *)
-    let bindings =
-      var_bindings |> List.map (fun (_, s, t) ->
-        let term' = kind2_term env t in
-        let var = Var.mk_free_var (hstring_of_symbol s) (Term.type_of_term term') in
-        s, var, term'
-      )
+  | A.Let _ as t ->
+    (* A chain of directly nested lets, as translators write a formula with
+       shared subterms, is translated as a few lets of independent bindings
+       (see [let_segments]): Kind 2 builds a let by traversing its body, so
+       translating each of thousands of lets on its own takes a time and a
+       memory that grow faster than the square of their number *)
+    let chain, body = let_chain [] t in
+    kind2_let_segments env (let_segments chain) body
+
+(* Translate the let segments [segments] (see [let_segments]) with the term
+   [body] innermost. The bindings of a let are simultaneous: their terms
+   are translated in the scope of the lets before it, and the variables
+   they bind, free variables named after them, shadow state and let-bound
+   variables of the same name in the lets after it and in [body]. The
+   bindings of a segment are then bound by one let per level, the lowest
+   outermost, so that a binding is in the scope of those it depends on *)
+and kind2_let_segments env segments body =
+  match segments with
+  | [] -> kind2_term env body
+  | segment :: segments ->
+    let env, bindings =
+      List.fold_left (fun (env, acc) lets ->
+        let bindings =
+          lets |> List.map (fun (s, level, t) ->
+            let term' = kind2_term env t in
+            let var =
+              Var.mk_free_var (hstring_of_symbol s) (Term.type_of_term term')
+            in
+            s, level, var, term'
+          )
+        in
+        let lets =
+          List.fold_left (fun lets (s, _, var, _) ->
+            HSM.add (hstring_of_symbol s) var lets)
+            env.lets bindings
+        in
+        { env with lets }, List.rev_append bindings acc
+      ) (env, []) segment
     in
-    let lets =
-      List.fold_left (fun lets (s, var, _) -> HSM.add (hstring_of_symbol s) var lets)
-        env.lets bindings
+    let bindings = List.rev bindings in
+    let depth = List.fold_left (fun d (_, l, _, _) -> max d l) 0 bindings in
+    let rec bind level inner =
+      if level < 1 then inner
+      else
+        let at_level =
+          List.filter_map (fun (_, l, var, term') ->
+            if l = level then Some (var, term') else None)
+            bindings
+        in
+        bind (level - 1)
+          (if at_level = [] then inner else Term.mk_let at_level inner)
     in
-    Term.mk_let (List.map (fun (_, var, term') -> var, term') bindings)
-      (kind2_term { env with lets } term)
-  )
+    bind depth (kind2_let_segments env segments body)
 
 (* The width of a bit-vector term *)
 and bv_width t = Type.bitvectorsize (Term.type_of_term t)
