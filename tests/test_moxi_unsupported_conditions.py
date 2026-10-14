@@ -80,7 +80,9 @@ def test_unsupported_reported(tmp_path, case):
     assert code == 0
     code, out, err = run(tmp_path, head + attrs, [])
     assert code == PARSE_ERROR, out + err
-    assert f"model.moxi:{position}: error: {message}" in err, err
+    assert f"model.moxi:{position}: error: {message}" in out, out
+    assert out.startswith('(error "') and out.endswith('")\n'), out
+    assert err == "", err
 
 
 ill_typed = {
@@ -106,7 +108,9 @@ def test_ill_typed_conditions(tmp_path, case):
     attrs, position, message = ill_typed[case]
     code, out, err = run(tmp_path, head + attrs, ["--only_parse", "true"])
     assert code == PARSE_ERROR, out + err
-    assert f"model.moxi:{position}: error: {message}" in err, err
+    assert f"model.moxi:{position}: error: {message}" in out, out
+    assert out.startswith('(error "') and out.endswith('")\n'), out
+    assert err == "", err
 
 
 # Answered queries: conditions no query names are ignored, and a :queries

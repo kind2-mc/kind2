@@ -25,6 +25,7 @@ exception Error
 
 exception SolverNotFound of string
 exception UnsupportedSolver of string
+exception UsageError of string
 
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
@@ -2887,6 +2888,9 @@ type profile = {
   solvers_after_input : bool ;
   (* What --version prints, and the log starts with *)
   banner : string ;
+  (* Whether an error on the command line is raised as [UsageError], for
+     the executable to report, rather than printed with the usage *)
+  raise_usage_errors : bool ;
 }
 
 let kind2_profile = {
@@ -2897,6 +2901,7 @@ let kind2_profile = {
   modules = List.map fst module_map ;
   solvers_after_input = false ;
   banner = Format.asprintf "%t" pp_print_version ;
+  raise_usage_errors = false ;
 }
 
 (* kmoxi runs the engines on a MoXI model: the engine (C2I included, which
@@ -2917,6 +2922,7 @@ let kmoxi_profile = {
   banner =
     Format.sprintf "kMoXI %s (Kind 2 %s)" Version.kmoxi_version
       Version.version ;
+  raise_usage_errors = true ;
 }
 
 (* The modules of a profile, with their flags *)
@@ -4022,16 +4028,20 @@ let set_input_file s =
   try Global.set_input_file s with Unix.Unix_error _ -> ()
 
 let anon_action s =
+  (* An empty input file name is not the standard input, which no file
+     name stands for *)
+  if s = "" then raise (Arg.Bad "Empty input file name") ;
   match Global.input_file () with
   | "" -> (
     (* filenames that start with - are allowed after the flag -- *)
-    if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
+    if not !Global.only_filename && String.starts_with ~prefix:"-" s then
+      raise (UnknownFlag s);
     set_input_file s ;
     Global.set_input_format s;
     Global.set_output_dir s
   )
   | _ ->
-    if s.[0] = '-' then raise (UnknownFlag s)
+    if String.starts_with ~prefix:"-" s then raise (UnknownFlag s)
     else raise (Arg.Bad ("More than one input file given: "^s))
 
 
@@ -4122,9 +4132,20 @@ let parse_clas specs anon_action =
       )
     in
 
+    (* The executable reports the error itself *)
+    let raise_usage_error fmt =
+      Format.kasprintf (fun msg -> raise (UsageError msg)) fmt
+    in
+
     (
       try args |> cla_loop
       with
+      | UnknownFlag flag when !Global.profile.raise_usage_errors ->
+        raise_usage_error "unknown flag %s" flag
+      | BadArg (error, (flag, _, _)) when !Global.profile.raise_usage_errors ->
+        raise_usage_error "error on flag %s: %s" flag error
+      | Arg.Bad expl when !Global.profile.raise_usage_errors ->
+        raise_usage_error "%s" expl
       | UnknownFlag flag -> (
         check_format_flags args;
         (

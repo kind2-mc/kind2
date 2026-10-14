@@ -123,6 +123,11 @@ exception Error
 exception SolverNotFound of string
 exception UnsupportedSolver of string
 
+(** An error on the command line, with its message: raised by {!parse_argv}
+    instead of printing the usage, if the profile says so, as kmoxi's
+    does *)
+exception UsageError of string
+
 (** {1 Accessors for flags} *)
 
 
@@ -868,7 +873,8 @@ val kind2_profile : profile
 
 (** kmoxi: the engine, solver and theory flags, and the global flags that
     are not about the Lustre front end. The SMT solvers are checked and
-    detected once the input is read, with {!check_solvers}. *)
+    detected once the input is read, with {!check_solvers}, and an error on
+    the command line is raised as {!UsageError}. *)
 val kmoxi_profile : profile
 
 (** Check the SMT solvers given on the command line, detect the others, and

@@ -4,8 +4,9 @@ The MoXI front end used to translate a parsed script straight into
 transition systems. An ill-sorted model was either accepted, with the
 solvers given nonsense (a Boolean output compared to 0 answered "sat" with a
 trace), or rejected with an uncaught exception and a backtrace. The sort
-checker now reports the first error with its position and a message, and
-kmoxi exits with the parse error code. `--only_parse true` stops after the
+checker now reports the first error with its position and a message, as an
+SMT-LIB error on the standard output, and kmoxi exits with the parse error
+code. `--only_parse true` stops after the
 check, which is how the ill-typed models below are run. Each case is a
 model and a fragment of the expected message; the well-typed models are
 run to an answer, since the constructs they use (the `!=` disequality, a
@@ -21,6 +22,18 @@ from conftest import kmoxi_args, kmoxi_bin, run_timeout
 
 # Exit code of a parse or type error
 PARSE_ERROR = 3
+
+
+def assert_error(run, path, position, message):
+    """Check that `run` exited with a parse error, reported as a single
+    SMT-LIB error on the standard output, with its position and `message`,
+    whose quotes are doubled there"""
+    assert run.returncode == PARSE_ERROR, run.stdout + run.stderr
+    assert run.stdout.startswith(f'(error "{path}:{position}: error: '), run.stdout
+    assert run.stdout.endswith('")\n'), run.stdout
+    assert run.stdout.count("\n") == 1, run.stdout
+    assert message.replace('"', '""') in run.stdout, run.stdout
+    assert run.stderr == "", run.stderr
 
 
 def kmoxi(path, *args):
@@ -315,10 +328,7 @@ def test_ill_typed_model_is_rejected(tmp_path, name):
     path = tmp_path / "model.moxi"
     path.write_text(model)
     run = kmoxi(path, "--only_parse", "true")
-    assert run.returncode == PARSE_ERROR, run.stdout + run.stderr
-    assert run.stderr.startswith(f"{path}:{position}: error: "), run.stderr
-    assert message in run.stderr, run.stderr
-    assert "Backtrace" not in run.stderr, run.stderr
+    assert_error(run, path, position, message)
 
 
 # Well-sorted scripts that kmoxi does not translate: reported like a type
@@ -368,10 +378,7 @@ def test_unsupported_script_is_reported(tmp_path, name):
     path.write_text(model)
     assert kmoxi(path, "--only_parse", "true").returncode == 0
     run = kmoxi(path, "--timeout", "30")
-    assert run.returncode == PARSE_ERROR, run.stdout + run.stderr
-    assert run.stderr.startswith(f"{path}:{position}: error: "), run.stderr
-    assert message in run.stderr, run.stderr
-    assert "Backtrace" not in run.stderr, run.stderr
+    assert_error(run, path, position, message)
 
 
 # Well-typed models with the answer to their query
