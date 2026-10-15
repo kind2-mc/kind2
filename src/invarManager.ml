@@ -244,6 +244,15 @@ let wait_for_children run_process pending_processes sys child_pids =
 
           let crashed_too =
             match EngineDomains.outcome child with
+            | EngineDomains.Done None
+              when MemoryWatch.stopped_for_memory child_id ->
+              (* Stopped for the memory its solvers took: the engines
+                 that depend on it cannot conclude without it *)
+              KEvent.log L_info
+                "Child process %d (%a) stopped for memory"
+                child_id
+                pp_print_kind_module (EngineDomains.mdl child) ;
+              true
             | EngineDomains.Done None ->
               KEvent.log L_info
                 "Child process %d (%a) terminated normally"

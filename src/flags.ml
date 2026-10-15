@@ -3442,14 +3442,18 @@ module Global = struct
   let memory_limit = ref memory_limit_default
   let _ = add_specs ([
     ( "--memory_limit",
-      Arg.Set_int memory_limit,
+      Arg.Int (fun n ->
+        if n < 0 then
+          Arg.Bad "--memory_limit expects a non-negative integer" |> raise
+        else memory_limit := n),
       fun fmt ->
         Format.fprintf fmt
           "@[<v>Memory limit in MB of the analysis, solvers included: past \
              80%% of it,@ the engine whose solvers use the most memory is \
              stopped, so that the others go on.@ 0 is the limit of the \
-             cgroup of the process, if any.@ Linux only: elsewhere the \
-             memory used is not checked@ \
+             cgroup of the process, if any.@ A solver run through a \
+             wrapper script is counted only if the script execs it.@ \
+             Linux only: elsewhere the memory used is not checked@ \
            Default: %d@]"
           memory_limit_default
     )

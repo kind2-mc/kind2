@@ -22,10 +22,19 @@
     the first process to exceed the limit ends the analysis. When they
     use more than 80% of the limit, [check] stops the engine whose
     solvers use the most memory, by killing its solvers, so that the
-    other engines go on. The limit is that of [--memory_limit], or else
-    that of the cgroup of Kind 2 (or of an ancestor of it). Linux only:
-    elsewhere, and where there is no limit, [check] does nothing. *)
+    other engines go on; only if they use more than the excess, and a
+    second after the last engine stopped at the earliest. The limit is
+    that of [--memory_limit], and the memory used that of Kind 2 and its
+    solvers, or else the limit is that of the cgroup of Kind 2 (or of an
+    ancestor of it), and the memory used that charged to that cgroup.
+    Linux only: elsewhere, and where there is no limit, [check] does
+    nothing. *)
 
 (** Check the memory used, at most once every quarter of a second; for
     the polling loop of the supervisor. *)
 val check : unit -> unit
+
+(** Was the engine with the given identifier stopped by [check]? Such an
+    engine ends as if it terminated normally, and the engines that depend
+    on it are to be stopped as if it had crashed. *)
+val stopped_for_memory : int -> bool
