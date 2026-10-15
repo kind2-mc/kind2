@@ -49,6 +49,10 @@ let id { id } = id
 
 let mdl { mdl } = mdl
 
+(* The identifier of the domain of an engine, by which the solvers it
+   owns are registered (see {!SMTSolver.kill_solvers_of_domain}) *)
+let domain_id { domain } = (Domain.get_id domain :> int)
+
 let outcome { outcome } = Atomic.get outcome
 
 (* Fresh identifiers for engines *)
@@ -212,8 +216,7 @@ let find id_ =
 (* Kill the solver processes of the domain of an engine, without
    interacting with them, to unblock an engine stuck in a solver
    call *)
-let kill_solvers { domain } =
-  SMTSolver.kill_solvers_of_domain ((Domain.get_id domain :> int))
+let kill_solvers c = SMTSolver.kill_solvers_of_domain (domain_id c)
 
 (* Give up on the engines that are still running: a domain cannot be
    killed, and an engine busy in a long computation would delay the end

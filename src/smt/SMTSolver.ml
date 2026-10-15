@@ -255,6 +255,7 @@ struct
 
   let delete_instance = I.delete_instance
   let kill_instance = I.kill_instance
+  let pid = I.pid
   let close_channels = I.close_channels
   let declare_sort s = guard (fun () -> I.declare_sort s)
   let declare_fun f a r = guard (fun () -> I.declare_fun f a r)
@@ -430,6 +431,16 @@ let kill_solvers_of_domain owner =
       set_aside mine)
   in
   kill_entries entries
+
+(* The live solvers, as the domain that owns each and the identifier of
+   its process *)
+let solver_pids_by_domain () =
+  Mutex.protect all_solvers_lock (fun () ->
+    IntMap.fold
+      (fun _ (owner, s) acc ->
+        let module S = (val s.solver_inst) in
+        (owner, S.pid ()) :: acc)
+      !all_solvers [])
 
 (* Return the unique identifier of the solver instance *)
 let id_of_instance { id } = id

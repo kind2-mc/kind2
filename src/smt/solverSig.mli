@@ -56,6 +56,9 @@ module type Inst = sig
       domain, to unblock an engine stuck in a solver call. *)
   val kill_instance : unit -> unit
 
+  (** The process identifier of the solver process *)
+  val pid : unit -> int
+
   (** Close the pipes to a solver process that {!kill_instance} killed.
       Only for the domain that owns the solver, and only once: that
       domain may be reading them until it learns of the kill. *)
