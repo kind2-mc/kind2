@@ -427,31 +427,6 @@ let scrutinee_must_be_shared ctx e =
       in
       not (is_function || is_constructor))
 
-(* The index variables of the array definition whose right-hand side is being
-   desugared, with the position to report their type at. They are bound over
-   that side and are declared nowhere else, so a node generated from it must be
-   told their type; only [abstract_match] is given them, so that a restart that
-   reads one is still rejected rather than abstracted. *)
-let array_def_indices: (HString.t * Lib.position) list ref = ref []
-
-let indices_of_lhs (A.StructDef (_, items)) =
-  List.concat_map (fun item ->
-    match item with
-    | A.ArrayDef (pos, _, indices) -> List.map (fun i -> (i, pos)) indices
-    | A.SingleIdent _ | A.TupleStructItem _ | A.TupleSelection _
-    | A.FieldSelection _ | A.ArraySliceStructItem _ -> []
-  ) items
-
-(* Run [f] with the indices an equation's left-hand side binds. The previous
-   indices are restored, since the items of a block nested in an arm are
-   desugared within the enclosing equation's scope. *)
-let with_array_indices lhs f =
-  let saved = !array_def_indices in
-  array_def_indices := indices_of_lhs lhs;
-  let result = f () in
-  array_def_indices := saved;
-  result
-
 (* Whether the type of a local declaration is being desugared: dependency
    analysis does not look there, so a node generated for it is taken as top level. *)
 let in_local_decl: bool ref = ref false
@@ -1028,9 +1003,6 @@ fun ctx node_name fun_ids quant gen_decls scrut_ty pos scrut arms ty_opt ->
        parameter only carries the type the arms match on *)
     let ty = base_type ctx ty in
     let ctx = Ctx.add_ty (Ctx.remove_const ctx param) param ty in
-    let ctx = List.fold_left (fun ctx (idx, ipos) ->
-      Ctx.add_ty (Ctx.remove_const ctx idx) idx (A.Int ipos)) ctx !array_def_indices
-    in
     let m = A.Match (pos, A.Ident (pos, param), arms, ty_opt) in
     (* The arms become the body of a node, so a quantified variable they read
        would be passed to a node call, which Kind 2 does not allow *)
@@ -1240,9 +1212,7 @@ fun ctx node_name fun_ids ni ->
   in
   match ni with
   | A.Body (Equation (pos, lhs, rhs)) ->
-    let rhs, gen_nodes = with_array_indices lhs (fun () ->
-      desugar_expr ctx node_name fun_ids rhs)
-    in
+    let rhs, gen_nodes = desugar_expr ctx node_name fun_ids rhs in
     [A.Body (Equation (pos, lhs, rhs))], gen_nodes
   | AnnotProperty (pos, name, e, k) -> 
     let e, gen_nodes = desugar_expr ctx node_name fun_ids e in
@@ -1267,9 +1237,7 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = with_array_indices lhs (fun () ->
-          desugar_expr ctx node_name fun_ids rhs)
-        in
+        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
@@ -1288,9 +1256,7 @@ fun ctx node_name fun_ids ni ->
     let process_branch_item ctx ni =
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
-        let rhs, gen_nodes1 = with_array_indices lhs (fun () ->
-          desugar_expr ctx node_name fun_ids rhs)
-        in
+        let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
         let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
