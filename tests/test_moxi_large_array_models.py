@@ -72,7 +72,7 @@ def test_state_array(tmp_path, engines):
     # The value of the array, whole: a constant array, possibly with stores,
     # with the value the reachability condition reads at index 5
     step = [l for l in out.splitlines() if l.strip().startswith("(3 ")][0]
-    value = step.split("(main::a ", 1)[1]
+    value = step.split("(a ", 1)[1]
     assert value.startswith(("(store ", "((as const")), step
     assert f"(as const {sort})" in value and "#b00000111" in value, step
 

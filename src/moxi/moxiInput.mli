@@ -35,6 +35,10 @@ val check_file : string -> (unit, error) result
     it is translated to, which has a fresh name *)
 val moxi_name_of_uf : UfSymbol.t -> string option
 
+(** The name of a subsystem call of a system, given the system and the
+    instance of the call *)
+val call_name : TransSys.t -> TransSys.instance -> string
+
 (** Parse, type check and translate the script in a file into one
     transition system per [check-system] command, in the order of the
     script, each with the names of

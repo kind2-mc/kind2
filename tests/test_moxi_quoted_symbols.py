@@ -35,9 +35,9 @@ def test_symbols_quoted(tmp_path):
         ":query (|q 1| sat :model |q 1_model| :trace |q 1_trace|)",
         ":trace (|q 1_trace| :prefix |q 1_prefix|)",
         "(define-fun |my k| () Int 2)",
-        "(|the sys|::|x y| 0)",
-        "(|the sys|::l |go now|)",
-        "(|the sys|::|2t| 0)",
+        "(|x y| 0)",
+        "(l |go now|)",
+        "(|2t| 0)",
         "(|reach it| true)",
     ]:
         assert text in out, out + err

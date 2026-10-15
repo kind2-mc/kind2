@@ -338,10 +338,10 @@ that proves it as a certificate, or `sat`, with a witnessing trace:
  :model (reach_ten_model ())
  :trail
    (reach_ten_prefix (
-                      (0 (counter::reset false) (counter::c 0)  (ten false) )
-                      (1 (counter::reset false) (counter::c 1)  (ten false) )
+                      (0 (reset false) (c 0)  (ten false) )
+                      (1 (reset false) (c 1)  (ten false) )
                       ...
-                      (10 (counter::reset false) (counter::c 10)  (ten true) )
+                      (10 (reset false) (c 10)  (ten true) )
                       )
    )
  )
