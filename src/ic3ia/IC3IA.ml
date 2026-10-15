@@ -191,7 +191,7 @@ let mk_solver sys =
    let solver =
      SMTSolver.create_instance
        ~produce_models:true
-       ~produce_unsat_cores:true
+       ~produce_unsat_assumptions:true
        (get_logic sys)
        (Flags.Smt.solver ())
    in
@@ -224,24 +224,52 @@ let mk_solver sys =
 
 let depth frames = List.length frames - 2
 
-let get_R frames k =
+(* The activation literals of the terms asserted once for all, each the
+   negation of a cube of a frame or a term of a query, under an activation
+   literal assumed when the frame or term is part of a query. Asserting
+   the frames anew for every query took most of the time on systems that
+   need many queries. *)
+let term_actlits =
+  let key = Domain.DLS.new_key (fun () -> Term.TermHashtbl.create 97) in
+  fun () -> Domain.DLS.get key
+
+(* The activation literal of a term, asserting [actlit => term] the first
+   time; must be called outside any push of the solver *)
+let actlit_of_term solver t =
+  let table = term_actlits () in
+  match Term.TermHashtbl.find_opt table t with
+  | Some a -> a
+  | None ->
+    let s = Actlit.fresh_actlit () in
+    SMTSolver.declare_fun solver s ;
+    let a = Actlit.term_of_actlit s in
+    SMTSolver.assert_term solver (Term.mk_implies [a; t]) ;
+    Term.TermHashtbl.add table t a ;
+    a
+
+(* The activation literals of the frames from the [k]th on, with the
+   index of the frame of each *)
+let frame_actlits solver frames k =
   list_suffix frames k
-  |> List.map (fun f -> Frame.to_term f)
-  |> Term.mk_and
-  
-let check_sat solver predicates term =
-  SMTSolver.push solver ;
-  SMTSolver.assert_term solver term ;
-  let res =
-    SMTSolver.check_sat_and_get_term_values
-      solver
-      (fun _ predicate_evaluations -> (* If sat. *)
-        Some predicate_evaluations
-      )
-      (fun _ -> None) (* If unsat. *)
-      (TS.elements predicates)
-  in
-  SMTSolver.pop solver ; res
+  |> List.mapi (fun i f ->
+    match f with
+    | Frame.Ft t -> [ k + i, actlit_of_term solver t ]
+    | Frame.Fi cubes ->
+      CS.elements cubes
+      |> List.map (fun c ->
+        k + i, actlit_of_term solver (Term.mk_not (Cube.to_term c))))
+  |> List.concat
+
+(* Check the assertions of the solver under the activation literals
+   [lits], and return the values of the predicates if satisfiable *)
+let check_sat_lits solver predicates lits =
+  SMTSolver.check_sat_assuming solver
+    (fun s ->
+      match TS.elements predicates with
+      | [] -> Some []
+      | ps -> Some (SMTSolver.get_term_values_at_once s ps))
+    (fun _ -> None)
+    lits
 
 let extract_cube predicates predicate_evaluations =
   let eval p =
@@ -262,10 +290,11 @@ let extract_cube predicates predicate_evaluations =
 
 
 let get_bad_cube solver predicates frames prop =
-  let r_and_not_p =
-    Term.mk_and [get_R frames (depth frames); Term.mk_not prop]
+  let lits =
+    actlit_of_term solver (Term.mk_not prop)
+    :: List.map snd (frame_actlits solver frames (depth frames))
   in
-  match check_sat solver predicates r_and_not_p with
+  match check_sat_lits solver predicates lits with
   | Some predicate_evaluations -> (
     Some (extract_cube predicates predicate_evaluations)
   )
@@ -651,12 +680,11 @@ let is_blocked solver frames s =
     true
   else (
     (* Semantic subsumption thru SAT: *)
-    let query =
-      Term.mk_and
-        [TCube.cube s |> Cube.to_term;
-         get_R frames (TCube.frame_index s)]
+    let lits =
+      actlit_of_term solver (TCube.cube s |> Cube.to_term)
+      :: List.map snd (frame_actlits solver frames (TCube.frame_index s))
     in
-    match check_sat solver TS.empty query with
+    match check_sat_lits solver TS.empty lits with
     | None -> true
     | _ -> false
   )
@@ -665,29 +693,32 @@ let is_initial init c =
   not (Cube.contains (Term.mk_not init) c)
 
 
-let get_minimum_f f_names unsat_core =
-  match List.find_opt (fun (_, f) -> TS.mem f unsat_core) f_names with
-  | None -> TCube.FrameInf
-  | Some (i, _) -> TCube.Frame i
-
-
-let get_minimal_non_initial_cube init p_names unsat_core =
-  let cube =
-    List.fold_left
-      (fun c (l, l') ->
-        if TS.mem l' unsat_core then Cube.add l c else c
-      )
-      Cube.empty
-      p_names
-  in
-  if is_initial init cube then
-    Cube.add (Term.mk_not init) cube
-  else
-    cube
-
 let solve_relative solver predicates frames s option =
 
   let cube = TCube.cube s in
+
+  let k = 
+    match TCube.frame s with
+    | TCube.Frame i -> i - 1
+    | TCube.FrameInf -> (List.length frames) - 1
+    | TCube.FrameNull -> assert false
+  in
+
+  (* The frames from the [k]th on are assumed through their activation
+     literals. Those of the last frame are always needed, and the frames
+     the unsat core does not involve are not: the frame of a blocked cube
+     is the lowest one in the core but the last *)
+  let last = List.length frames - 1 in
+  let f_lits = frame_actlits solver frames k in
+
+  (* The literals of the cube, at the next state, through activation
+     literals as well: the unsat core gives the ones needed *)
+  let p_names =
+    Cube.literals cube
+    |> List.map (fun l ->
+      let l' = Term.bump_state Numeral.(prime_offset - base_offset) l in
+      l, actlit_of_term solver l')
+  in
 
   SMTSolver.push solver ;
 
@@ -700,75 +731,51 @@ let solve_relative solver predicates frames s option =
     SMTSolver.assert_term solver not_cube
   ) ;
 
-  let k = 
-    match TCube.frame s with
-    | TCube.Frame i -> i - 1
-    | TCube.FrameInf -> (List.length frames) - 1
-    | TCube.FrameNull -> assert false
-  in
-
-  let named_frames, last_frame  =
-    let named_frames = list_suffix frames k in
-    named_frames,
-    List.rev named_frames |> List.hd
-  in
-
-  let f_names =
-    List.mapi
-      (fun i f ->
-        let t = Frame.to_term f in
-        SMTSolver.assert_named_term_wr solver t |> ignore ;
-        (k+i, t)
-      )
-      named_frames
-  in
-  SMTSolver.assert_term solver (Frame.to_term last_frame) ;
-
-  let p_literals = Cube.literals cube in
-
-  let p_names =
-    List.map
-      (fun l ->
-        let l' =
-          Term.bump_state Numeral.(prime_offset - base_offset) l
-        in
-        SMTSolver.assert_named_term_wr solver l' |> ignore ;
-        l, l'
-      )
-      p_literals
-  in
+  let lits = List.map snd f_lits @ List.map snd p_names in
 
   let res =
-    SMTSolver.check_sat_and_get_term_values
-      solver
-      (fun _ predicate_evaluations ->
-        Some predicate_evaluations
-      )
-      (fun _ -> None )
-      (TS.elements predicates)
+    SMTSolver.check_sat_assuming solver
+      (fun s ->
+        (* The values of the predicates only matter for the cube of the
+           model *)
+        match option, TS.elements predicates with
+        | ExtractModel, (_ :: _ as ps) ->
+          `Sat (SMTSolver.get_term_values_at_once s ps)
+        | _ -> `Sat [])
+      (fun s -> `Unsat (SMTSolver.get_unsat_core_lits s |> TS.of_list))
+      lits
   in
 
+  SMTSolver.pop solver ;
+
   match res with
-  | Some predicate_evaluations -> (
+  | `Sat predicate_evaluations -> (
     let c =
       match option with
       | ExtractModel ->
          extract_cube predicates predicate_evaluations
       | _ -> Cube.empty
     in
-    SMTSolver.pop solver ;
     TCube.mk c TCube.FrameNull
   )
-  | None -> (
-    let unsat_core =
-      SMTSolver.get_unsat_core_of_names solver |> TS.of_list
+  | `Unsat unsat_core -> (
+    let min_frame =
+      List.find_opt
+        (fun (i, a) -> i < last && TS.mem a unsat_core)
+        f_lits
+      |> function
+      | Some (i, _) -> TCube.Frame i
+      | None -> TCube.FrameInf
     in
-    SMTSolver.pop solver ;
-
-    let min_frame = get_minimum_f f_names unsat_core in
     let min_cube =
       let init = get_init base_offset in
-      get_minimal_non_initial_cube init p_names unsat_core
+      let c =
+        List.fold_left
+          (fun c (l, a) -> if TS.mem a unsat_core then Cube.add l c else c)
+          Cube.empty
+          p_names
+      in
+      if is_initial init c then Cube.add (Term.mk_not init) c else c
     in
     let frame =
       match min_frame with
@@ -1071,6 +1078,7 @@ let main_ic3ia fwd prop in_sys param sys =
 
    (* The clauses of an earlier run in the domain are of another system *)
    Term.TermHashtbl.reset (clause_logics ()) ;
+   Term.TermHashtbl.reset (term_actlits ()) ;
 
    let solver = mk_solver sys in
 
