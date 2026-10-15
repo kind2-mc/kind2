@@ -219,57 +219,56 @@ let mk_solver sys =
       [Term.mk_uf guard [];
        sys_def solver sys prime_abstr_offset]) ;
 
-   solver
+   (* The activation literals of the terms asserted once in this
+      instance, see [actlit_of_term] *)
+   solver, Term.TermHashtbl.create 97
 
 
 let depth frames = List.length frames - 2
 
-(* The activation literals of the terms asserted once for all, each the
-   negation of a cube of a frame or a term of a query, under an activation
-   literal assumed when the frame or term is part of a query. Asserting
-   the frames anew for every query took most of the time on systems that
-   need many queries. *)
-let term_actlits =
-  let key = Domain.DLS.new_key (fun () -> Term.TermHashtbl.create 97) in
-  fun () -> Domain.DLS.get key
-
 (* The activation literal of a term, asserting [actlit => term] the first
-   time; must be called outside any push of the solver *)
-let actlit_of_term solver t =
-  let table = term_actlits () in
-  match Term.TermHashtbl.find_opt table t with
+   time, and recording it in [actlits], the table of the solver instance.
+   The negation of each cube of a frame and the terms that recur in
+   queries are asserted once, under an activation literal assumed when
+   the frame or term is part of a query: asserting the frames anew for
+   every query took most of the time on systems that need many queries.
+   Must be called outside any push of the solver. *)
+let actlit_of_term solver actlits t =
+  match Term.TermHashtbl.find_opt actlits t with
   | Some a -> a
   | None ->
     let s = Actlit.fresh_actlit () in
     SMTSolver.declare_fun solver s ;
     let a = Actlit.term_of_actlit s in
     SMTSolver.assert_term solver (Term.mk_implies [a; t]) ;
-    Term.TermHashtbl.add table t a ;
+    Term.TermHashtbl.add actlits t a ;
     a
 
 (* The activation literals of the frames from the [k]th on, with the
    index of the frame of each *)
-let frame_actlits solver frames k =
+let frame_actlits solver actlits frames k =
   list_suffix frames k
   |> List.mapi (fun i f ->
     match f with
-    | Frame.Ft t -> [ k + i, actlit_of_term solver t ]
+    | Frame.Ft t -> [ k + i, actlit_of_term solver actlits t ]
     | Frame.Fi cubes ->
       CS.elements cubes
       |> List.map (fun c ->
-        k + i, actlit_of_term solver (Term.mk_not (Cube.to_term c))))
+        k + i, actlit_of_term solver actlits (Term.mk_not (Cube.to_term c))))
   |> List.concat
 
 (* Check the assertions of the solver under the activation literals
-   [lits], and return the values of the predicates if satisfiable *)
+   [lits], and return the values of the predicates if satisfiable. The
+   literals may be none, when the frames of a subsumption check have no
+   cube. *)
 let check_sat_lits solver predicates lits =
-  SMTSolver.check_sat_assuming solver
-    (fun s ->
-      match TS.elements predicates with
-      | [] -> Some []
-      | ps -> Some (SMTSolver.get_term_values_at_once s ps))
-    (fun _ -> None)
-    lits
+  let if_sat s =
+    Some (SMTSolver.get_term_values_at_once s (TS.elements predicates))
+  in
+  match lits with
+  | [] ->
+    if SMTSolver.check_sat solver then if_sat solver else None
+  | _ -> SMTSolver.check_sat_assuming solver if_sat (fun _ -> None) lits
 
 let extract_cube predicates predicate_evaluations =
   let eval p =
@@ -289,10 +288,10 @@ let extract_cube predicates predicate_evaluations =
   cube
 
 
-let get_bad_cube solver predicates frames prop =
+let get_bad_cube solver actlits predicates frames prop =
   let lits =
-    actlit_of_term solver (Term.mk_not prop)
-    :: List.map snd (frame_actlits solver frames (depth frames))
+    actlit_of_term solver actlits (Term.mk_not prop)
+    :: List.map snd (frame_actlits solver actlits frames (depth frames))
   in
   match check_sat_lits solver predicates lits with
   | Some predicate_evaluations -> (
@@ -666,7 +665,7 @@ let refine fwd solver sys predicates cubes =
   solve []
 
 
-let is_blocked solver frames s =
+let is_blocked solver actlits frames s =
   (* Check syntactic subsumption (faster than SAT): *) 
   let blocked =
     list_suffix frames (TCube.frame_index s)
@@ -679,21 +678,23 @@ let is_blocked solver frames s =
   if blocked then
     true
   else (
-    (* Semantic subsumption thru SAT: *)
+    (* Semantic subsumption thru SAT. The cube is asserted only for
+       this query, the frames through their activation literals *)
     let lits =
-      actlit_of_term solver (TCube.cube s |> Cube.to_term)
-      :: List.map snd (frame_actlits solver frames (TCube.frame_index s))
+      List.map snd (frame_actlits solver actlits frames (TCube.frame_index s))
     in
-    match check_sat_lits solver TS.empty lits with
-    | None -> true
-    | _ -> false
+    SMTSolver.push solver ;
+    SMTSolver.assert_term solver (TCube.cube s |> Cube.to_term) ;
+    let res = check_sat_lits solver TS.empty lits in
+    SMTSolver.pop solver ;
+    res = None
   )
 
 let is_initial init c =
   not (Cube.contains (Term.mk_not init) c)
 
 
-let solve_relative solver predicates frames s option =
+let solve_relative solver actlits predicates frames s option =
 
   let cube = TCube.cube s in
 
@@ -709,7 +710,7 @@ let solve_relative solver predicates frames s option =
      the unsat core does not involve are not: the frame of a blocked cube
      is the lowest one in the core but the last *)
   let last = List.length frames - 1 in
-  let f_lits = frame_actlits solver frames k in
+  let f_lits = frame_actlits solver actlits frames k in
 
   (* The literals of the cube, at the next state, through activation
      literals as well: the unsat core gives the ones needed *)
@@ -717,36 +718,36 @@ let solve_relative solver predicates frames s option =
     Cube.literals cube
     |> List.map (fun l ->
       let l' = Term.bump_state Numeral.(prime_offset - base_offset) l in
-      l, actlit_of_term solver l')
+      l, actlit_of_term solver actlits l')
   in
 
-  SMTSolver.push solver ;
-
-  (* Asserts system definition via activation literal *)
-  SMTSolver.assert_term solver
-    (Term.mk_uf (sys_def_guard ()) []) ;
-
+  (* The negation of the cube is only asserted for this query *)
   if option <> NoInd then (
+    SMTSolver.push solver ;
     let not_cube = Term.negate (Cube.to_term cube) in
     SMTSolver.assert_term solver not_cube
   ) ;
 
-  let lits = List.map snd f_lits @ List.map snd p_names in
+  (* The system definition is assumed through its activation literal *)
+  let lits =
+    Term.mk_uf (sys_def_guard ()) []
+    :: List.map snd f_lits @ List.map snd p_names
+  in
 
   let res =
     SMTSolver.check_sat_assuming solver
       (fun s ->
         (* The values of the predicates only matter for the cube of the
            model *)
-        match option, TS.elements predicates with
-        | ExtractModel, (_ :: _ as ps) ->
-          `Sat (SMTSolver.get_term_values_at_once s ps)
+        match option with
+        | ExtractModel ->
+          `Sat (SMTSolver.get_term_values_at_once s (TS.elements predicates))
         | _ -> `Sat [])
       (fun s -> `Unsat (SMTSolver.get_unsat_core_lits s |> TS.of_list))
       lits
   in
 
-  SMTSolver.pop solver ;
+  if option <> NoInd then SMTSolver.pop solver ;
 
   match res with
   | `Sat predicate_evaluations -> (
@@ -787,7 +788,7 @@ let solve_relative solver predicates frames s option =
     TCube.mk min_cube frame
   )
 
-let generalize solver init predicates frames s =
+let generalize solver actlits init predicates frames s =
   let c = TCube.cube s in
   let f = TCube.frame s in
 
@@ -801,7 +802,7 @@ let generalize solver init predicates frames s =
         else (
           let s' = TCube.mk c' f in
           let z =
-            solve_relative solver predicates frames s' Default
+            solve_relative solver actlits predicates frames s' Default
           in
           match TCube.frame z with
           | TCube.FrameNull -> c
@@ -939,7 +940,7 @@ let add_blocked_cube solver sys init frames s =
   frames
 
 
-let block_cube fwd solver in_sys param sys prop_name predicates next_cube frames s0 =
+let block_cube fwd solver actlits in_sys param sys prop_name predicates next_cube frames s0 =
 
   let init = get_init base_offset in
 
@@ -965,10 +966,10 @@ let block_cube fwd solver in_sys param sys prop_name predicates next_cube frames
       )
       | _ -> (
         let next_cube, frames, q =
-          if not (is_blocked solver frames s) then (
+          if not (is_blocked solver actlits frames s) then (
             assert (not (is_initial init (TCube.cube s))) ;
             let z =
-              solve_relative solver predicates frames s ExtractModel
+              solve_relative solver actlits predicates frames s ExtractModel
             in
 
             match TCube.frame z with
@@ -988,7 +989,7 @@ let block_cube fwd solver in_sys param sys prop_name predicates next_cube frames
             | _ -> (
               (* Cube 's' was blocked by image of predecessor *)
               let z =
-                generalize solver init predicates frames z
+                generalize solver actlits init predicates frames z
               in
               (* Push z as far forward as possible *)
               let rec push_forward z' =
@@ -996,7 +997,7 @@ let block_cube fwd solver in_sys param sys prop_name predicates next_cube frames
                 | Frame f when f < (depth frames) - 1 -> (
                   let nz =
                     let nxt = TCube.next z' in
-                    solve_relative solver predicates frames nxt Default
+                    solve_relative solver actlits predicates frames nxt Default
                   in
                   match TCube.frame nz with
                   | FrameNull -> z'
@@ -1035,7 +1036,7 @@ let add_frame f frames =
   Lib.list_insert_at f (List.length frames - 1) frames
 
 
-let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames =
+let propogate_blocked_cubes solver actlits in_sys param sys prop_name predicates frames =
   let init = get_init base_offset in
   let rec loop frames k =
     if k < depth frames then (
@@ -1045,7 +1046,7 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
             handle_events in_sys param sys prop_name ;
             let s =
               let tc = TCube.mk c (Frame (k+1)) in
-              solve_relative solver predicates frames' tc NoInd
+              solve_relative solver actlits predicates frames' tc NoInd
             in
             (* Move the cube in the frames of this fold, not in those the
                loop was entered with: the latter undid the earlier moves of
@@ -1078,9 +1079,8 @@ let main_ic3ia fwd prop in_sys param sys =
 
    (* The clauses of an earlier run in the domain are of another system *)
    Term.TermHashtbl.reset (clause_logics ()) ;
-   Term.TermHashtbl.reset (term_actlits ()) ;
 
-   let solver = mk_solver sys in
+   let solver, actlits = mk_solver sys in
 
    let prop_name = prop.Property.prop_name in
 
@@ -1105,13 +1105,13 @@ let main_ic3ia fwd prop in_sys param sys =
    try (
 
     let rec loop predicates next_cube frames =
-      match get_bad_cube solver predicates frames prop with
+      match get_bad_cube solver actlits predicates frames prop with
       | Some cube -> (
         let s =
           TCube.mk cube (TCube.Frame (depth frames))
         in
         let predicates, next_cube, frames =
-          block_cube fwd solver in_sys param sys prop_name predicates next_cube frames s
+          block_cube fwd solver actlits in_sys param sys prop_name predicates next_cube frames s
         in
         loop predicates next_cube frames
       )
@@ -1123,7 +1123,7 @@ let main_ic3ia fwd prop in_sys param sys =
         SMTSolver.trace_comment solver
           (Format.sprintf "Number of frames: %d" (List.length frames)) ;
 
-        match propogate_blocked_cubes solver in_sys param sys prop_name predicates frames with
+        match propogate_blocked_cubes solver actlits in_sys param sys prop_name predicates frames with
         | None, frames -> loop predicates next_cube frames
         | Some invariants, _ -> invariants
       )

@@ -33,11 +33,3 @@ let mk_frame t = Ft t
 let cubes = function
   | Fi cubes -> cubes
   | _ -> assert false
-
-let to_term = function
-  | Ft t -> t
-  | Fi cubes -> (
-    CS.elements cubes
-    |> List.map (fun c -> Cube.to_term c |> Term.mk_not)
-    |> Term.mk_and
-  )
