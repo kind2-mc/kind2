@@ -2497,11 +2497,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
         and index_types = compile_ast_type cstate ctx map ast_type in
-        (* Locals introduced to desugar the 'last' operator are Kind 2
-           generated and therefore invisible (not shown in counterexamples). *)
+        (* Locals introduced to desugar the 'last' operator and to bind a
+           shared match scrutinee are Kind 2 generated and therefore invisible
+           (not shown in counterexamples). *)
         let over_indices = fun index index_type accum ->
           let source =
-            if GI.var_is_last_local i then N.Generated N.Plain
+            if GI.var_is_last_local i || GI.var_is_match_scrutinee i
+            then N.Generated N.Plain
             else adt_source_for_index N.Local index
           in
           let possible_state_var = mk_state_var

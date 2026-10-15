@@ -20,6 +20,11 @@
 type error_kind =
   | RestartUnknownVariable of HString.t
   | RestartPolymorphic
+  | RestartMatchScrutinee
+  | MatchScrutineeQuantifiedVariable of HString.t
+  | MatchScrutineeInLocalDecl
+  | MatchScrutineeUnknownVariable of HString.t
+  | MatchScrutineeUntyped
 
 val error_message : error_kind -> string
 

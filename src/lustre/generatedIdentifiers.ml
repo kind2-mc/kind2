@@ -214,13 +214,19 @@ let block_guard = "bguard"
    calls a node must name a single instance of it. *)
 let match_scrutinee = "mscrut"
 
-(* Checks if a variable name corresponds to a bound match block scrutinee. As
-   with [var_is_discarded_output], the leading numeric segment may have been
-   moved to the end, so we look for [match_scrutinee] as a '_'-separated
-   segment. *)
+(* The locals lustreGenNodes.ml has bound match scrutinees to. Recognising one
+   by name would also catch a user-written identifier holding the same
+   '_'-separated segment, which the passes below would then exempt from checks
+   a user variable must meet. *)
+let match_scrutinees : unit HString.HStringHashtbl.t =
+  HString.HStringHashtbl.create 7
+
+let register_match_scrutinee var =
+  HString.HStringHashtbl.replace match_scrutinees var ()
+
+(* Checks if a variable name corresponds to a bound match block scrutinee *)
 let var_is_match_scrutinee var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem match_scrutinee
+  HString.HStringHashtbl.mem match_scrutinees var
 
 (* Checks if a variable name corresponds to a 'last'-operator local. As with
    [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading

@@ -25,6 +25,18 @@ module GI = GeneratedIdentifiers
 type error_kind =
   | RestartUnknownVariable of HString.t
   | RestartPolymorphic
+  | RestartMatchScrutinee
+  | MatchScrutineeQuantifiedVariable of HString.t
+  | MatchScrutineeInLocalDecl
+  | MatchScrutineeUnknownVariable of HString.t
+  | MatchScrutineeUntyped
+
+(* A scrutinee that contains a call is copied by the match desugaring unless
+   this pass shares it, so a match the pass cannot rewrite is refused here
+   rather than compiled with copies that may disagree. *)
+let shared_scrutinee_prefix =
+  "The scrutinee of this match must be evaluated once because it contains a \
+   call, which could not be done here"
 
 let error_message = function
   | RestartUnknownVariable id ->
@@ -33,12 +45,28 @@ let error_message = function
        array definition)"
   | RestartPolymorphic ->
     "A restart cannot apply to values of a type parameter"
+  | RestartMatchScrutinee ->
+    "A match block whose scrutinee contains a call cannot appear under a \
+     restart, since the scrutinee must be evaluated once"
+  | MatchScrutineeQuantifiedVariable id ->
+    "Quantified variable '" ^ HString.string_of_hstring id
+    ^ "' is not allowed in an arm of a match whose scrutinee contains a call, \
+       since the scrutinee must be evaluated once"
+  | MatchScrutineeInLocalDecl ->
+    "A match whose scrutinee contains a call cannot appear in the type of a \
+     local declaration, since the scrutinee must be evaluated once"
+  | MatchScrutineeUnknownVariable id ->
+    shared_scrutinee_prefix ^ ": the type of the variable '"
+    ^ HString.string_of_hstring id ^ "' is not known at this point"
+  | MatchScrutineeUntyped ->
+    shared_scrutinee_prefix
+    ^ ": the type of the match could not be determined at this point"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
 ]
 
-exception Restart_error of Lib.position * error_kind
+exception Gen_nodes_error of Lib.position * error_kind
 
 let mk_fresh_fn_name: Lib.position -> NI.t -> NI.node_type -> NI.t = 
 fun pos node_name node_type -> 
@@ -67,12 +95,15 @@ fun pos ->
 (* [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref 0
 
-(* The name of the local a match block binds its scrutinee to. The leading
-   numeric segment guarantees it cannot clash with a user-written identifier. *)
+(* The name of the local a match block binds its scrutinee to. The name is
+   registered so that this and the passes below recognise the local by
+   identity rather than by its shape. *)
 let mk_fresh_scrutinee_local: unit -> HString.t =
 fun () ->
   i := !i + 1;
-  HString.mk_hstring (string_of_int !i ^ "_" ^ GI.match_scrutinee)
+  let name = HString.mk_hstring (string_of_int !i ^ "_" ^ GI.match_scrutinee) in
+  GI.register_match_scrutinee name;
+  name
 
 (* Not every identifier occurring in an expression or a type denotes a variable
    that a generated node must take as an argument. Global constants are in
@@ -190,6 +221,14 @@ fun ctx node_name scrut ->
        nothing about whether the program is well typed *)
     | exception _ -> Unknown)
 
+(* A type without the constraint of a refinement type. The output of a
+   generated node carries this: the constraint is already checked where the
+   value is defined, or on the variable it defines. *)
+let base_type ctx ty =
+  match Chk.expand_type_syn_reftype_history ctx ty with
+  | Ok ty -> ty
+  | Error _ -> ty
+
 (* Add the signatures of generated node and function declarations to a context,
    so that the type of a call to one can be inferred. Best-effort: a signature
    that cannot be built here (e.g. because its types still contain operators that
@@ -199,6 +238,22 @@ let add_node_sigs: Ctx.tc_context -> A.declaration list -> Ctx.tc_context =
 fun ctx decls ->
   let add ctx pos node_decl is_func =
     try
+      (* A signature is only read here to infer the type of a call to it, and
+         this pass takes the base type of that, so the refinements of its types
+         are dropped: one holding a call this pass has yet to desugar would
+         otherwise cost the whole signature. *)
+      let id, ext, opac, params, inputs, outputs, locals, items, contract =
+        node_decl
+      in
+      let inputs =
+        List.map (fun (p, i, ty, c, k) -> p, i, base_type ctx ty, c, k) inputs
+      in
+      let outputs =
+        List.map (fun (p, i, ty, c) -> p, i, base_type ctx ty, c) outputs
+      in
+      let node_decl =
+        id, ext, opac, params, inputs, outputs, locals, items, contract
+      in
       match Chk.tc_ctx_of_node_decl pos ctx node_decl is_func with
       | Ok (_, ctx, _) -> ctx
       | Error _ -> ctx
@@ -299,16 +354,25 @@ let has_state ctx e =
    the copies can then disagree on which constructor the value has. Such a
    scrutinee must be evaluated once and shared. A call this pass generates is
    classified by the kind of its identifier, since its signature may not have
-   reached the context yet; 'any' operators, type ascriptions and restarts all
-   become one. Function calls are deterministic (a single UF application) and
-   are safe to copy. *)
+   reached the context yet. A type ascription is a passthrough, and a function
+   call a single UF application, so their copies agree; the expression an
+   ascription wraps stays in the scrutinee and is classified on its own. A
+   callee the context does not hold is assumed to need sharing: sharing one
+   that did not need it only abstracts the match. *)
 let scrutinee_must_be_shared ctx e =
   AH.calls_of_expr e |> NI.Set.exists (fun id ->
     match NI.get_node_type id with
-    | Any | TypeAscription | ClockedExpr | Restarted | Matched -> true
-    | Choose | Contract | Environment | Type
+    | Any | ClockedExpr | Restarted | Matched -> true
+    | Choose | TypeAscription | Contract | Environment | Type
     | DefinedConstant | FreeConstant -> false
-    | Component -> Ctx.node_id_is_node ctx id)
+    | Component ->
+      let is_function =
+        Ctx.member_node ctx id && not (Ctx.node_id_is_node ctx id)
+      in
+      let is_constructor =
+        Ctx.lookup_constructor ctx (NI.get_name id) |> Option.is_some
+      in
+      not (is_function || is_constructor))
 
 (* The index variables of the array definition whose right-hand side is being
    desugared, with the position to report their type at. They are bound over
@@ -335,6 +399,31 @@ let with_array_indices lhs f =
   array_def_indices := saved;
   result
 
+(* Whether the type of a local declaration is being desugared: dependency
+   analysis does not look there, so a node generated for it is taken as top level. *)
+let in_local_decl: bool ref = ref false
+
+(* Run [f] with the types of a node's local declarations in scope *)
+let with_local_decls f =
+  let saved = !in_local_decl in
+  in_local_decl := true;
+  let result = f () in
+  in_local_decl := saved;
+  result
+
+(* The variables bound by the quantifiers the expression being desugared is
+   under. A node generated for an expression that reads one of them would take
+   it as an argument, which Kind 2 does not allow. *)
+let quantified_vars: HString.t list ref = ref []
+
+(* Run [f] with the variables a quantifier binds added to those in scope *)
+let with_quantified_vars tis f =
+  let saved = !quantified_vars in
+  quantified_vars := List.map (fun (_, id, _) -> id) tis @ saved;
+  let result = f () in
+  quantified_vars := saved;
+  result
+
 (* The condition of a restart whose body has no state can be dropped, provided
    it calls nothing, since the obligations of a call (the assumptions of its
    contract, say) must still be checked, and it is well typed, since the type
@@ -345,14 +434,6 @@ let droppable_condition ctx node_name r =
       | Ok (ty, _, _) ->
         (match Ctx.expand_type_syn ctx ty with A.Bool _ -> true | _ -> false)
       | Error _ | exception _ -> false)
-
-(* The type of an output of a generated node is the base type of the value it
-   stands for, without the constraint of a refinement type: the constraint is
-   already checked where the value is defined, or on the variable it defines *)
-let base_type ctx ty =
-  match Chk.expand_type_syn_reftype_history ctx ty with
-  | Ok ty -> ty
-  | Error _ -> ty
 
 let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
 fun ctx node_name fun_ids ty -> 
@@ -590,7 +671,10 @@ fun ctx node_name fun_ids expr ->
       List.fold_left
         (fun ctx (_, id, ty) -> Ctx.add_ty (Ctx.remove_const ctx id) id ty) ctx tis
     in
-    let e, gen_nodes = desugar_expr body_ctx node_name fun_ids e in
+    let e, gen_nodes =
+      with_quantified_vars tis (fun () ->
+        desugar_expr body_ctx node_name fun_ids e)
+    in
     Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
   | Restart (pos, e, r) ->
     let e, gen_nodes1 = rec_call e in
@@ -750,15 +834,20 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
    the desugaring makes all name the one parameter. The call stands where the
    match stood, so the scrutinee is evaluated under the same clock as before.
 
-   If the match cannot be abstracted here it is returned as it came in. *)
+   A match that must be shared and cannot be abstracted here is refused, since
+   leaving it as it came in would compile independent copies of its
+   scrutinee. *)
 and abstract_match:
   Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> scrutinee
   -> Lib.position -> A.expr -> (A.pattern * A.expr) list -> A.lustre_type option
   -> A.expr * A.declaration list =
 fun ctx node_name fun_ids gen_decls scrut_ty pos scrut arms ty_opt ->
-  let unchanged = A.Match (pos, scrut, arms, ty_opt), [] in
+  if !in_local_decl then raise (Gen_nodes_error (pos, MatchScrutineeInLocalDecl));
   match scrut_ty with
-  | Illtyped | Unknown -> unchanged
+  (* The scrutinee has a type error, so the later type-checking pass rejects
+     the program whatever this pass does with the match *)
+  | Illtyped -> A.Match (pos, scrut, arms, ty_opt), []
+  | Unknown -> raise (Gen_nodes_error (pos, MatchScrutineeUntyped))
   | Known ty ->
     let param = mk_fresh_scrutinee_param pos in
     (* A refinement on the scrutinee is established where it is defined, so the
@@ -771,6 +860,12 @@ fun ctx node_name fun_ids gen_decls scrut_ty pos scrut arms ty_opt ->
     let m = A.Match (pos, A.Ident (pos, param), arms, ty_opt) in
     match abstract_into_node ctx node_name fun_ids Matched gen_decls m with
     | Abstracted (A.Call (cpos, ty_args, node_id, args), decls) ->
+      (* The arms become the body of a node, so a quantified variable they read
+         would be passed to a node call, which Kind 2 does not allow *)
+      List.iter (function
+        | A.Ident (_, i) when List.exists (HString.equal i) !quantified_vars ->
+          raise (Gen_nodes_error (pos, MatchScrutineeQuantifiedVariable i))
+        | _ -> ()) args;
       (* The parameter stands for the scrutinee in the generated node, so the
          scrutinee itself is passed in its place *)
       let args = List.map (function
@@ -778,8 +873,10 @@ fun ctx node_name fun_ids gen_decls scrut_ty pos scrut arms ty_opt ->
         | arg -> arg) args
       in
       A.Call (cpos, ty_args, node_id, args), decls
-    | Abstracted _ -> unchanged (* [abstract_into_node] returns a call *)
-    | UnknownVariable _ | Untyped -> unchanged
+    | Abstracted _ -> assert false (* [abstract_into_node] returns a call *)
+    | UnknownVariable id ->
+      raise (Gen_nodes_error (pos, MatchScrutineeUnknownVariable id))
+    | Untyped -> raise (Gen_nodes_error (pos, MatchScrutineeUntyped))
 
 (* When a branch of a when-then-else expression is temporal (it uses '->' or
    'pre'), abstract it into a call to a fresh internal node, so that its
@@ -812,8 +909,8 @@ fun ctx node_name fun_ids gen_decls pos e r ->
   match abstract_into_node ctx node_name fun_ids Restarted gen_decls e with
   | Abstracted (A.Call (_, [], node_id, args), decls) ->
     A.RestartEvery (pos, node_id, args, r), decls
-  | Abstracted _ -> raise (Restart_error (pos, RestartPolymorphic))
-  | UnknownVariable id -> raise (Restart_error (pos, RestartUnknownVariable id))
+  | Abstracted _ -> raise (Gen_nodes_error (pos, RestartPolymorphic))
+  | UnknownVariable id -> raise (Gen_nodes_error (pos, RestartUnknownVariable id))
   | Untyped -> A.Restart (pos, e, r), []
 
 (* 'restart items every r end': abstract the items into a fresh internal node,
@@ -832,17 +929,21 @@ fun ctx node_name fun_ids pos items r ->
     |> List.fold_left (fun acc i ->
          if List.exists (HString.equal i) acc then acc else acc @ [i]) []
   in
+  (* A match block under the restart binds its shared scrutinee to a local that
+     the generated node would have to define, which this pass cannot type here *)
+  if List.exists GI.var_is_match_scrutinee outputs
+  then raise (Gen_nodes_error (pos, RestartMatchScrutinee));
   let inputs =
     Ctx.SI.diff (used_vars_of_node_items items) (Ctx.SI.of_list outputs)
     |> Ctx.SI.elements |> node_arguments ctx
   in
   let lookup_ty i = match Ctx.lookup_ty ctx i with
     | Some ty -> ty
-    | None -> raise (Restart_error (pos, RestartUnknownVariable i))
+    | None -> raise (Gen_nodes_error (pos, RestartUnknownVariable i))
   in
   let tys = List.map lookup_ty (inputs @ outputs) in
   if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
-  then raise (Restart_error (pos, RestartPolymorphic));
+  then raise (Gen_nodes_error (pos, RestartPolymorphic));
   let input_decls, gen_nodes1 = List.map (fun i ->
     let ty, gen_nodes = desugar_type ctx node_name fun_ids (lookup_ty i) in
     let is_const = Option.is_some (Ctx.lookup_const ctx i) in
@@ -1035,8 +1136,9 @@ fun ctx node_name fun_ids ni ->
       else scrut_ty
     in
     let bind, scrut, gen_nodes_ty =
-      match scrut_ty with
-      | Known sty when must_share ->
+      match must_share, scrut_ty with
+      | false, (Known _ | Illtyped | Unknown) -> [], scrut, []
+      | true, Known sty ->
         let name = mk_fresh_scrutinee_local () in
         let sty, gen_nodes_ty =
           desugar_type ctx node_name fun_ids (base_type ctx sty)
@@ -1044,7 +1146,10 @@ fun ctx node_name fun_ids ni ->
         item_locals := A.NodeVarDecl (pos, (pos, name, sty, A.ClockTrue)) :: !item_locals;
         let lhs = A.StructDef (pos, [A.SingleIdent (pos, name)]) in
         [A.Body (A.Equation (pos, lhs, scrut))], A.Ident (pos, name), gen_nodes_ty
-      | Known _ | Illtyped | Unknown -> [], scrut, []
+      (* The scrutinee has a type error, so the later type-checking pass
+         rejects the program whatever this pass does with the block *)
+      | true, Illtyped -> [], scrut, []
+      | true, Unknown -> raise (Gen_nodes_error (pos, MatchScrutineeUntyped))
     in
     bind @ [A.MatchBlock (pos, scrut, arms, ty)], gen_nodes @ gen_nodes_ty
   | RestartBlock (pos, nis, r) ->
@@ -1088,6 +1193,7 @@ let desugar_outputs ctx id fun_ids outputs =
   outputs, List.flatten gen_nodes
 
 let desugar_locals ctx id fun_ids locals =
+  with_local_decls @@ fun () ->
   let locals, gen_nodes = List.map (function
     | A.NodeVarDecl (pos, (p, id', ty, c)) ->
         let ty, gen_nodes = desugar_type ctx id fun_ids ty in
@@ -1183,4 +1289,4 @@ fun ctx decls ->
 let gen_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list, [> error]) result =
 fun ctx decls ->
   try Ok (gen_nodes_of_decls ctx decls)
-  with Restart_error (pos, kind) -> Error (`LustreGenNodesError (pos, kind))
+  with Gen_nodes_error (pos, kind) -> Error (`LustreGenNodesError (pos, kind))

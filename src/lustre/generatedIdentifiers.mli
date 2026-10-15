@@ -181,6 +181,11 @@ val clocked_call_tie : string
    its scrutinee to (see lustreGenNodes.ml). *)
 val match_scrutinee : string
 
+(** Records a local that lustreGenNodes.ml bound a match scrutinee to. These
+    are recognised by identity rather than by name, so that a user-written
+    identifier holding the same segment is not taken for a generated one. *)
+val register_match_scrutinee: HString.t -> unit
+
 (** Checks if a variable name corresponds to a bound match block scrutinee *)
 val var_is_match_scrutinee: HString.t -> bool
 
