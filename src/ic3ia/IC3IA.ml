@@ -1040,8 +1040,13 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
               let tc = TCube.mk c (Frame (k+1)) in
               solve_relative solver predicates frames' tc NoInd
             in
+            (* Move the cube in the frames of this fold, not in those the
+               loop was entered with: the latter undid the earlier moves of
+               the round, leaving the later queries of the round justified by
+               clauses the frames no longer had, and a frame could be found
+               empty, and the frames after it inductive, when they were not *)
             if TCube.frame s <> TCube.FrameNull then
-              add_blocked_cube solver sys init frames s
+              add_blocked_cube solver sys init frames' s
             else
               frames'
           )
