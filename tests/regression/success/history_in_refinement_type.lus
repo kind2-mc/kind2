@@ -1,0 +1,26 @@
+(* A history quantifier in the refinement type of an output, alone and with
+   a property quantifying over the same history, and of a local, over an
+   input and over another local *)
+node N(x: int) returns (y: subtype { v: int | exists (z: history(x)) v = z });
+let
+  y = x;
+tel
+
+node M(x: int) returns (y: subtype { v: int | exists (z: history(x)) v = z });
+let
+  y = x;
+  check "P" exists (z: history(x)) z = x;
+tel
+
+node L(x: int) returns ();
+var l: subtype { v: int | exists (z: history(x)) v = z };
+let
+  l = x;
+tel
+
+node K(x: int) returns ();
+var l: subtype { v: int | exists (z: history(m)) v = z }; m: int;
+let
+  m = x;
+  l = m;
+tel

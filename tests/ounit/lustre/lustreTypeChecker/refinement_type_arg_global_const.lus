@@ -1,0 +1,2 @@
+type R<T> = struct { f: T };
+const C: R<int> = R@<subtype { w: int | w >= 100 }> { f = 0 };

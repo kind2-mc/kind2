@@ -1,4 +1,4 @@
--- An array-indexed call to a node with assumptions, each instance fed its
+-- A call in an array comprehension to a node with assumptions, each instance fed its
 -- own previous output. The call expands into three instances, each with its
 -- own assumption history ('sofar' flag) stated as a candidate property: the
 -- candidates must carry distinct names, as property statuses are matched by
@@ -17,7 +17,7 @@ tel
 node Main (a: int^3) returns (ok: bool)
 var s: int^3;
 let
-  s[i] = Sub(0 -> pre s[i]);
+  s = (Sub(0 -> pre s[i]) foreach i)^3;
   ok = s[0] >= 0 and s[1] >= 0 and s[2] >= 0;
   check "P" ok;
 tel

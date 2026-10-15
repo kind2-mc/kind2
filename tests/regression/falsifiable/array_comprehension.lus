@@ -1,0 +1,7 @@
+-- A property on an array comprehension that does not hold. The fresh local the
+-- comprehension is compiled to is not shown in the counterexample.
+node N (A: int^3) returns (B: int^3);
+let
+  B = (A[i] + 1 foreach i)^3;
+  check B[0] > A[1];
+tel

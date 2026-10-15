@@ -305,6 +305,7 @@ and push_pre is_guarded pos =
   | ArrayConstr (p, e1, e2) -> ArrayConstr (p, r e1, e2)
   | IndexAccess (p, e1, e2, k) -> IndexAccess (p, r e1, e2, k)
   | Quantifier (p, q, l, e) -> Quantifier (p, q, l, r e)
+  | ArrayComprehension (p, bs, e) -> ArrayComprehension (p, bs, r e)
   | AnyOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
   | RestartEvery _ as e -> LA.Pre (pos, e)
@@ -423,6 +424,16 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     (* A free constant left in a binder's type must not resolve to the binder *)
     let tis, e' = LH.rename_self_referencing_binders tis e' in
     Quantifier (pos, q, tis, e')
+  | ArrayComprehension (pos, bs, e) ->
+    (* The sizes are constant expressions, in which the index variables are not
+       in scope; in the body, the index variables shadow the constants *)
+    let bs =
+      List.map (fun (p, id, n) -> (p, id, simplify_expr ~ind_vars ctx n)) bs
+    in
+    let ids = List.map (fun (_, id, _) -> id) bs in
+    let ctx = List.fold_left TC.remove_const ctx ids in
+    let e' = simplify_expr ~ind_vars:(ids @ ind_vars) ~is_guarded:false ctx e in
+    ArrayComprehension (pos, bs, e')
   | EmptySet (pos, Some ty) -> 
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
   | EmptyMap (pos, Some (kt, vt)) -> 
@@ -500,13 +511,10 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
   function
   | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
   | (LA.Equation (pos, (StructDef (_, sis) as lhs), e)) ->
-    (* Collect ind_vars, as they shadow global constants. 
-       In general, this check is too coarse grained. For example, assuming 
-       some global constant i, it erroneously prevents both occurrences of i 
-       from being inlined in the following equation: 
-       A[i], x = (i, i). 
-       However, we currently do not support mixing inductive array definitions with 
-       multiple assignment, so this is not actually (currently) a problem. *)
+    (* Collect the index variables of an element-wise array definition (from
+       an array comprehension), as they shadow global constants. Such a
+       definition is never part of a multiple assignment, so they shadow the
+       constants in the whole right-hand side. *)
     let ind_vars = List.fold_left (fun acc si -> match si with
       | LA.ArrayDef (_, _, vars) -> acc @ vars 
       | _ -> acc

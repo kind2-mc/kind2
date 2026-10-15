@@ -1,0 +1,9 @@
+-- The bound variable of a type ascription is not quantified: the ascription is
+-- abstracted into a node whose input is the variable, so a temporal branch
+-- under a guard that mentions it lies inside that node
+node N (x: int) returns (y: int);
+let
+  assert x >= 0;
+  y = (x : subtype { v: int | v >= 0 or else (true -> pre x < 0) });
+  check y = x;
+tel

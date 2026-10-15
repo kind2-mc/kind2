@@ -38,6 +38,10 @@ type 'a t = {
   (* The recursive group of a recursive function. *)
   rec_group : int option ;
 
+  (* System is an internal artifact of the translation, only analyzed as part
+     of the systems that call it. *)
+  is_internal : bool ;
+
   map : 'a t Scope.Hashtbl.t ;
 
   (* Direct sub-systems. *)
@@ -46,13 +50,14 @@ type 'a t = {
 
 (* Strategy info of a subsystem. *)
 let strategy_info_of {
-  opacity; has_contract ; has_modes ; has_impl ; rec_group
+  opacity; has_contract ; has_modes ; has_impl ; rec_group ; is_internal
 } = {
   Strategy.opacity ;
   Strategy.has_contract ;
   Strategy.has_modes ;
   Strategy.has_impl;
   Strategy.rec_group;
+  Strategy.is_internal;
 }
 
 

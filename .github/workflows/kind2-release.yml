@@ -152,7 +152,6 @@ jobs:
         # Untap aws to silence Homebrew trust warnings
         # See https://github.com/actions/runner-images/issues/14232
         brew untap aws/tap || true
-        brew update
 
     # Build Kind 2 binaries compatible with old versions of macOS
     - name: Set MACOSX_DEPLOYMENT_TARGET

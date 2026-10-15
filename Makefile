@@ -51,7 +51,7 @@ kind2-doc:
 #   make test TEST_ARGS="--slice-off --slice-experimental"
 TEST_ARGS ?=
 
-test: build
+test: build kmoxi
 	@dune build --profile release @runtest
 	@cd $(CURDIR)/tests/ && ./run $(TEST_ARGS)
 

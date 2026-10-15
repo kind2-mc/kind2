@@ -1,0 +1,15 @@
+-- A node call with state, of an array type, under a guard that mentions the
+-- index variable of the comprehension
+node F() returns (c: int^2);
+var n: int;
+let
+  n = 1 -> pre n + 1;
+  c = [n, 2 * n];
+tel
+
+node main(m: int) returns (A: int^2^3);
+let
+  A = (when m = i then F() else [0, 0] foreach i)^3;
+  check "active" m = 1 => A[1][1] = 2 * A[1][0];
+  check "inactive" m <> 2 => A[2] = [0, 0];
+tel

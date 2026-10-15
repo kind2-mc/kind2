@@ -140,6 +140,10 @@ type expr =
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
+  (* '(e foreach i, j)^m^n': the array of size n (of arrays of size m) whose
+     element at index i (and j) is e. Each binder is the position and name of
+     an index variable, and the size of its dimension, outermost first. *)
+  | ArrayComprehension of position * (position * ident * expr) list * expr
   (* 'restart e every r': the state of e is reset to its initial state at
      every step where r is true (desugared by LustreGenNodes into a
      RestartEvery call to a node generated for e) *)
@@ -247,6 +251,10 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  (* The element-wise definition 'x[i][j] = e' of an array, only introduced by
+     LustreDesugarArrayComprehensions for an array comprehension in a node and
+     by LustreAstNormalizer. The parser builds it for the source syntax, which
+     LustreSyntaxChecks rejects. *)
   | ArrayDef of position * ident * ident list
 
 
@@ -257,6 +265,10 @@ type eq_lhs =
 (* The left-hand side of an equation in a contract *)
 type contract_eq_lhs =
   | GhostVarDec of position * typed_ident list
+(* A ghost variable of an array type defined element-wise by the equation
+   'x[i][j] = e' (only introduced by LustreDesugarArrayComprehensions, for an
+   array comprehension in a contract) *)
+| GhostArrayDef of position * typed_ident * ident list
 
 (* An equation or assertion in the node body *)
 type node_equation =
@@ -388,6 +400,36 @@ type declaration =
 
 (* A Lustre program *)
 type t = declaration list
+
+(* The size of a dimension of an array comprehension that no caret has given
+   yet, while parsing: an identifier with an empty name, which no source can
+   contain *)
+let missing_size pos = Ident (pos, HString.mk_hstring "")
+
+let is_missing_size = function
+  | Ident (_, i) -> HString.string_of_hstring i = ""
+  | _ -> false
+
+(* The size of an index variable without a bound in an array comprehension
+   where others have one, which LustreSyntaxChecks reports: an identifier no
+   source can contain either, which no caret gives a size to *)
+let unbounded_size pos = Ident (pos, HString.mk_hstring "<unbounded>")
+
+let is_unbounded_size = function
+  | Ident (_, i) -> HString.string_of_hstring i = "<unbounded>"
+  | _ -> false
+
+(* The positions of the index variables of array comprehensions that the
+   source bounds by their sizes, '(e foreach i < n)', rather than giving the
+   sizes after the comprehension, '(e foreach i)^n'. Both forms build the same
+   comprehension, and the checks of a bound (LustreSyntaxChecks) only apply to
+   the first one: a size after a comprehension may name a constant that has
+   the name of an index variable, for instance. *)
+let bounded_indices : (position, unit) Hashtbl.t = Hashtbl.create 7
+
+let mark_bounded_index pos = Hashtbl.replace bounded_indices pos ()
+
+let is_bounded_index pos = Hashtbl.mem bounded_indices pos
 
 
 (* ********************************************************************** *)
@@ -587,6 +629,23 @@ and pp_print_expr ppf =
       Format.fprintf ppf "@[<hv 2>exists@ @[<hv 1>(%a)@]@ %a@]" 
         (pp_print_list pp_print_typed_decl ";@ ") vars
         pp_print_expr e
+    | ArrayComprehension (_, binders, e)
+      when List.for_all (fun (p, _, _) -> is_bounded_index p) binders ->
+      (* In the form of the source, with the sizes bounding the indices *)
+      Format.fprintf ppf "@[<hv 1>(%a@ foreach %a)@]"
+        pp_print_expr e
+        (pp_print_list (fun ppf (_, i, n) ->
+           Format.fprintf ppf "%a < %a" HString.pp_print_hstring i pp_print_expr n) ", ")
+        binders
+    | ArrayComprehension (_, binders, e) ->
+      (* The sizes are given innermost first. Parenthesized as a whole, as an
+         array constructor, since a selection binds more tightly than them *)
+      Format.fprintf ppf "@[<hv 1>((%a@ foreach %a)%a)@]"
+        pp_print_expr e
+        (pp_print_list (fun ppf (_, i, _) -> HString.pp_print_hstring ppf i) ", ")
+        binders
+        (pp_print_list (fun ppf (_, _, n) -> Format.fprintf ppf "^%a" pp_print_expr n) "")
+        (List.rev binders)
 
     | UnaryOp (p, Uminus, e) -> p1 p "-" e
     | BinaryOp (p, Mod, e1, e2) -> p2 p "mod" e1 e2 
@@ -1031,10 +1090,15 @@ let pp_print_contract_eq_lhs ppf = function
     Format.fprintf ppf "(%a)"
       (pp_print_list pp_print_ident ", ") (List.map (fun (_, i, _) -> i) l)
 
+  | GhostArrayDef (_, (_, x, _), is) ->
+    Format.fprintf ppf "%a%a" pp_print_ident x
+      (pp_print_list (fun ppf i -> Format.fprintf ppf "[%a]" pp_print_ident i) "") is
+
 let pp_print_typed_contract_eq_lhs ppf = function
   | GhostVarDec (_, l) ->
     Format.fprintf ppf "%a"
       (pp_print_list pp_print_typed_ident ", ") l
+  | GhostArrayDef (_, ti, _) -> pp_print_typed_ident ppf ti
 
 
 let rec pp_print_node_body ppf = function

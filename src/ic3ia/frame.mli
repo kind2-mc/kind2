@@ -27,5 +27,3 @@ val is_empty : t -> bool
 val mk_frame : Term.t -> t
 
 val cubes : t -> Cube.CubeSet.t
-
-val to_term : t -> Term.t

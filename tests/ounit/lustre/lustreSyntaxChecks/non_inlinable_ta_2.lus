@@ -3,5 +3,5 @@ const N: int;
 
 node N () returns (A: int^N)
 let
-  A[i] = (i: Temp);
+  A = ((i: Temp) foreach i)^N;
 tel

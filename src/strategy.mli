@@ -32,6 +32,9 @@ type info = {
   has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
   rec_group: int option ; (** The recursive group of a recursive function *)
+  is_internal: bool ;  (** Is the system an internal artifact of the
+                           translation, only analyzed as part of the systems
+                           that call it? *)
 }
 
 (** Takes some results and some information about (sub)systems, and returns

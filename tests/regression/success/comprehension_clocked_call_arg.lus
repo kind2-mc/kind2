@@ -1,0 +1,15 @@
+-- The instances of a call under a 'when' guard, in a comprehension whose
+-- index variable is in the arguments of the call: each instance takes its
+-- argument through a shadow variable of its own
+node Sum(x: int) returns (c: int);
+let
+  c = x -> pre c + x;
+tel
+
+node main(B: int^3; c: bool) returns (A: int^3);
+var s1: int;
+let
+  A = (when c then 0 else Sum(B[i]) foreach i)^3;
+  s1 = (if c then 0 else B[1]) -> pre s1 + (if c then 0 else B[1]);
+  check not c => A[1] = s1;
+tel

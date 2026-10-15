@@ -1,5 +1,9 @@
 let package_name = "kind2"
 
+(* The version of kmoxi, which is its own: it changes with kmoxi, whatever
+   the version of Kind 2, and is set by hand *)
+let kmoxi_version = "v0.1.0"
+
 let base_version = "v3.0.0"
 
 let version =

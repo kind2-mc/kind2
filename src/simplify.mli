@@ -48,6 +48,11 @@
     this function was last called. *)
 val has_division_by_zero_happened: unit -> bool
 
+(** [pairwise_disequalities [t1; ...; tn]] is the conjunction of the
+    disequalities of every two of the terms, which is what
+    [(distinct t1 ... tn)] means *)
+val pairwise_disequalities : Term.t list -> Term.t
+
 (** Simplify a term *)
 val simplify_term :
   ?split_eq:bool ->

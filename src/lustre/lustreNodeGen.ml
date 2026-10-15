@@ -760,6 +760,7 @@ let compile_contract_item cstate gids map count scope kind pos name expr =
       let source =
         try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
       in
+      let source = LustreDesugarArrayComprehensions.restore source in
       LDAT.string_of_expr_as_source
         ~ref_type_names:cstate.ref_type_names cstate.adt_map source
     in
@@ -909,6 +910,58 @@ let resolve_datatype_ref dt ft =
   if Type.is_datatype_ref ft
      && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
   then dt else ft
+
+(* An enum is an integer everywhere else, but a datatype field of integer sort
+   lets a model read a value outside the enum out of a free datatype value: a
+   field is pinned by its constructor, so no range constraint can be put on one
+   after the fact. An enum-typed field of a recursive datatype is given a sort
+   of its own instead, a datatype with one nullary constructor per enum value,
+   which holds nothing else; the integer encoding is restored where a field is
+   read ([decode_enum_field]) and where one is built ([encode_enum_field]). *)
+let enum_field_ctor_sym sort_name ctor = sort_name ^ "$" ^ ctor
+
+let enum_field_sort ty =
+  let name = "enum$" ^ smt_name_of_adt_name (Type.name_of_enum ty) in
+  let ctors = Type.constructors_of_enum ty in
+  let sort =
+    Type.mk_enum_field_sort name
+      (List.map (fun c -> (enum_field_ctor_sym name c, [])) ctors) ty
+  in
+  (* A model may mention any of them, so declare every one *)
+  List.iter (fun c ->
+    ignore (UfSymbol.mk_uf_symbol (enum_field_ctor_sym name c) [] sort)
+  ) ctors;
+  sort
+
+(* The constructor of the sort [sort] holding each value of the enum it stands
+   for, paired with that value *)
+let enum_field_values sort =
+  List.combine
+    (List.map fst (Type.constructors_of_datatype sort))
+    (Type.constructors_of_enum (Type.enum_of_field_sort sort))
+
+(* The value of the sort an enum field has, as an if-then-else chain over its
+   values; the last is the unconditional branch *)
+let rec enum_field_ite cond value = function
+  | [] -> assert false
+  | [v] -> value v
+  | v :: rest -> E.mk_ite (cond v) (value v) (enum_field_ite cond value rest)
+
+(* The integer-encoded enum value the field [e] of sort [sort] holds *)
+let decode_enum_field sort e =
+  let ety = Type.enum_of_field_sort sort in
+  enum_field_ite
+    (fun (sym, _) -> E.mk_is_constructor sym e)
+    (fun (_, v) -> E.mk_constr v ety)
+    (enum_field_values sort)
+
+(* The value of sort [sort] the integer-encoded enum expression [e] denotes *)
+let encode_enum_field sort e =
+  let ety = Type.enum_of_field_sort sort in
+  enum_field_ite
+    (fun (_, v) -> E.mk_eq e (E.mk_constr v ety))
+    (fun (sym, _) -> E.mk_uf (UfSymbol.uf_symbol_of_string sym) sort [])
+    (enum_field_values sort)
 
 let rec compile ctx gids adt_map scc_map decls =
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
@@ -1100,7 +1153,8 @@ and compile_ast_type
         Type.mk_datatype_ref smt_name
       else
         match X.bindings (compile_ast_type cstate ctx map ty) with
-        | [(idx, t)] when idx = X.empty_index -> t
+        | [(idx, t)] when idx = X.empty_index ->
+          if Type.is_enum t then enum_field_sort t else t
         | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
     in
     let ctors' = List.map (fun (c, fields) ->
@@ -1831,6 +1885,7 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Quantifiers                                                        *)
   (* ****************************************************************** *)
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (_, A.Forall, avars, expr) ->
     compile_quantifier bounds A.Forall avars expr
   | A.Quantifier (_, A.Exists, avars, expr) ->
@@ -1869,7 +1924,13 @@ and compile_ast_expr
       let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
       let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
       let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
-      X.singleton X.empty_index (E.mk_selector selector_name result_type e')
+      let sel = E.mk_selector selector_name result_type e' in
+      let sel =
+        if Type.is_enum_field_sort result_type then
+          decode_enum_field result_type sel
+        else sel
+      in
+      X.singleton X.empty_index sel
     | None ->
       let unguarded_adt = match pk with
         | A.Selector (_, A.UserType (_, _, ty_name), _) ->
@@ -1955,13 +2016,24 @@ and compile_ast_expr
       (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
       arg_exprs
     in
-    let arg_types = List.map
-      (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
-      field_tys
+    let ctor_name = compiled_ctor_sym adt_type ctor in
+    (* The sorts the datatype declares, which for an enum-typed field is not
+       the compiled type of the field's source type (see [enum_field_sort]) *)
+    let arg_types =
+      if Type.is_datatype adt_type then
+        List.assoc ctor_name (Type.constructors_of_datatype adt_type)
+        |> List.map (resolve_datatype_ref adt_type)
+      else
+        List.map
+          (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
+          field_tys
     in
-    let ctor_sym =
-      UfSymbol.mk_uf_symbol (compiled_ctor_sym adt_type ctor) arg_types adt_type
+    let compiled_args =
+      List.map2 (fun at e ->
+        if Type.is_enum_field_sort at then encode_enum_field at e else e
+      ) arg_types compiled_args
     in
+    let ctor_sym = UfSymbol.mk_uf_symbol ctor_name arg_types adt_type in
     X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
   | A.Match _ -> assert false
   | A.ADTTester (_, expr, ctor) ->
@@ -2167,7 +2239,16 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         (id |> HString.mk_hstring |> mk_ident, [prefix; ref])
       | _ -> assert false
     in
-    let over_vars (gvar_accum, eq_accum) = fun (pos, (A.GhostVarDec (_, tis)), expr) ->
+    let over_vars (gvar_accum, eq_accum) = fun (pos, lhs, expr) ->
+        (* The variables, and the items of the left-hand side of their
+           equation: an indexed ghost variable is defined element-wise, as by
+           an array definition in a node *)
+        let tis, struct_items = match lhs with
+          | A.GhostVarDec (_, tis) ->
+            tis, List.map (fun (pos, id, _) -> A.SingleIdent (pos, id)) tis
+          | A.GhostArrayDef (p, ((_, id, _) as ti), is) ->
+            [ti], [A.ArrayDef (p, id, is)]
+        in
         let extract_local ((_, id, ty)) = (
           let expr_ident = mk_ident id in
           let (ident, contract_namespace) = extract_namespace id in
@@ -2182,7 +2263,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
                 ident
                 index
                 index_type
-                (Some N.Ghost)
+                (* The ghost variables of array comprehensions, the only ones
+                   defined element-wise, are Kind 2 generated and therefore
+                   invisible *)
+                (Some (match lhs with
+                  | A.GhostArrayDef _ -> N.Generated N.Plain
+                  | A.GhostVarDec _ -> N.Ghost))
               )
             in
             match possible_state_var with
@@ -2198,7 +2284,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         ) in
         
         (* Patch up eq_rhs and ghost_local *)
-        let struct_items = List.map (fun (pos, id, _) -> A.SingleIdent(pos, id)) tis in
         let eq_lhs = A.StructDef (pos, struct_items) in
         let eq_rhs = expr in
         (List.map extract_local tis) @ gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum
@@ -2497,11 +2582,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
         and index_types = compile_ast_type cstate ctx map ast_type in
-        (* Locals introduced to desugar the 'last' operator are Kind 2
-           generated and therefore invisible (not shown in counterexamples). *)
+        (* Locals introduced to desugar the 'last' operator and array
+           comprehensions are Kind 2 generated and therefore invisible (not
+           shown in counterexamples). *)
         let over_indices = fun index index_type accum ->
           let source =
-            if GI.var_is_last_local i then N.Generated N.Plain
+            if GI.var_is_last_local i || GI.var_is_array_comprehension i
+            then N.Generated N.Plain
             else adt_source_for_index N.Local index
           in
           let possible_state_var = mk_state_var
@@ -2978,6 +3065,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
             let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
             try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
         in
+        let desugared = LustreDesugarArrayComprehensions.restore desugared in
         LDAT.string_of_expr_as_source
           ~ref_type_names:cstate.ref_type_names cstate.adt_map desugared
       in
@@ -3661,7 +3749,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (fun acc (id, h_id) ->
         let id = mk_ident id in
         let h_id = mk_ident h_id in
-        let svars = H.find !map.usr_state_var id in
+        (* [id] is the variable as renamed in the scope of the quantifier,
+           e.g. the abstracted argument of an imported contract, which is not
+           a user variable, or a ghost variable, which is a user variable
+           under its name as written *)
+        let svars =
+          try H.find !map.usr_state_var id with Not_found ->
+          try H.find !map.res_state_var id with Not_found ->
+          H.find !map.expr id |> X.map state_var_of_expr
+        in
         let h_svars = H.find !map.res_state_var h_id in
         List.fold_left2
           (fun acc (_, sv) (_, h_sv) ->
@@ -3812,7 +3908,20 @@ and compile_type_decl pos ctx cstate = function
       | [], [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty
                              && not (List.exists (Type.equal_types ty)
                                        cstate.recursive_datatypes) ->
-        cstate.recursive_datatypes @ [ty]
+        (* The sort of an enum-typed field is a datatype of its own, declared
+           before the datatype whose field has it *)
+        let enum_sorts =
+          Type.constructors_of_datatype ty
+          |> List.concat_map snd
+          |> List.filter Type.is_enum_field_sort
+          |> List.fold_left (fun acc s ->
+               if List.exists (Type.equal_types s) acc
+                  || List.exists (Type.equal_types s) cstate.recursive_datatypes
+               then acc else s :: acc)
+               []
+          |> List.rev
+        in
+        cstate.recursive_datatypes @ enum_sorts @ [ty]
       | _ -> cstate.recursive_datatypes
     in
     { cstate with

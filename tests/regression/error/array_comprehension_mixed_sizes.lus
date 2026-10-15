@@ -1,0 +1,7 @@
+-- The index variables of a comprehension are all bounded by their sizes, or
+-- the sizes all follow the comprehension: an inner index without a bound
+
+node main (A: int^3^2) returns (B: int^3^2);
+let
+  B = (A[i][j] foreach i < 2, j)^3;
+tel

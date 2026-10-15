@@ -1,6 +1,0 @@
--- The index variable of an array definition cannot be used under a restart.
-
-node f (a: int^3; r: bool) returns (b: int^3);
-let
-  b[i] = restart (0 -> pre a[i]) every r;
-tel

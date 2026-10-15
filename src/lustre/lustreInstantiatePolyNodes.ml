@@ -93,6 +93,10 @@ let instantiate_type_variables_ci
     (p, id, Chk.instantiate_type_variables ctx p node_id ty ty_args |> unwrap)
   ) tis in
   GhostVars (p, GhostVarDec (p2, tis), expr)
+| GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr) ->
+  let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in
+  let ty = Chk.instantiate_type_variables ctx p3 node_id ty ty_args |> unwrap in
+  GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr)
 | Assume (p, name, b, expr) -> 
   let expr = Chk.instantiate_type_variables_expr ctx node_id ty_args expr |> unwrap in  
   Assume (p, name, b, expr)
@@ -217,6 +221,9 @@ let bound_by_contract_item = function
   | A.GhostConst (A.UntypedConst (_, id, _))
   | A.GhostConst (A.TypedConst (_, id, _, _)) -> [id]
   | A.GhostVars (_, A.GhostVarDec (_, tis), _) -> List.map (fun (_, id, _) -> id) tis
+  (* The indices bind only over the right-hand side, so they are not names the
+     contract makes available to a type argument *)
+  | A.GhostVars (_, A.GhostArrayDef (_, (_, id, _), _), _) -> [id]
   | A.Assume _ | A.Guarantee _ | A.Mode _ | A.ContractCall _
   | A.AssumptionVars _ | A.Decreases _ -> []
 
@@ -244,6 +251,15 @@ let rename_in_ci ren ci =
   | A.GhostVars (p, A.GhostVarDec (p2, tis), e) ->
     let tis = List.map (fun (p, id, ty) -> (p, rid id, rt ty)) tis in
     A.GhostVars (p, A.GhostVarDec (p2, tis), re e)
+  (* The indices are bound over the right-hand side, so a renaming they shadow
+     does not apply there *)
+  | A.GhostVars (p, A.GhostArrayDef (p2, (p3, id, ty), is), e) ->
+    let ren = List.filter (fun (i, _) -> not (List.mem i is)) ren in
+    let e =
+      LH.apply_subst_in_expr
+        (List.map (fun (i, j) -> (i, A.Ident (Lib.dummy_pos, j))) ren) e
+    in
+    A.GhostVars (p, A.GhostArrayDef (p2, (p3, rid id, rt ty), is), e)
   | A.ContractCall (p, name, ty_args, ins, outs) ->
     A.ContractCall (p, name, List.map rt ty_args, List.map re ins, List.map rid outs)
   | A.AssumptionVars (p, ids) ->
@@ -659,6 +675,7 @@ and gen_poly_decls_expr: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.de
     let ctx, gids, kt, decls1, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map kt in 
     let ctx, gids, vt, decls2, node_decls_map = gen_poly_decls_ty ctx gids caller_nname node_decls_map vt in 
     ctx, gids, EmptyMap (p, Some (kt, vt)), decls1 @ decls2, node_decls_map
+  | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (p, q, tis, expr) -> 
     let ctx, gids, expr, decls1, node_decls_map = rec_call expr in 
     let ctx, gids, tis, decls2, node_decls_map = List.fold_left (fun (ctx, gids, acc_tis, acc_decls, acc_node_decls_map) (p, id, ty) -> 
@@ -818,6 +835,10 @@ and gen_poly_decls_ci
     ctx, gids, acc_tis @ [p, id, ty], decls @ acc_decls, node_decls_map
   ) (ctx, gids, [], decls, node_decls_map) tis in 
   ctx, gids, GhostVars (p, GhostVarDec (p2, tis), expr), decls, node_decls_map
+| GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr) ->
+  let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in
+  let ctx, gids, ty, decls', node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in
+  ctx, gids, GhostVars (p, GhostArrayDef (p2, (p3, id, ty), is), expr), decls' @ decls, node_decls_map
 | Mode (p, id, creqs, cens) -> 
   let ctx, gids, creqs, decls, node_decls_map = List.fold_left (fun (ctx, gids, acc_creqs, acc_decls, acc_node_decls_map) (p, id, expr) -> 
     let ctx, gids, expr, decls, node_decls_map = gen_poly_decls_expr ctx gids node_id acc_node_decls_map expr in 
@@ -1152,6 +1173,7 @@ and rewrite_expr ctx record params expr =
           A.ADTTerm (pos, [], mono_ctor_name mono_name ctor, args)
         | None -> unresolved ())
   | A.TypeAscription (pos, e, ty) -> A.TypeAscription (pos, r e, rt ty)
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (pos, q, tis, e) ->
     A.Quantifier (pos, q, List.map (fun (p, i, ty) -> (p, i, rt ty)) tis, r e)
   | A.AnyOp _ | A.ChooseOp _ -> assert false (* desugared in lustreDesugarAnyChooseOps *)
@@ -1241,6 +1263,8 @@ let rewrite_contract_item ctx record params ci =
   | A.GhostConst cd -> A.GhostConst (rewrite_const_decl ctx record params cd)
   | A.GhostVars (pos, A.GhostVarDec (p, tis), e) ->
     A.GhostVars (pos, A.GhostVarDec (p, List.map (fun (p, i, ty) -> (p, i, rt ty)) tis), re e)
+  | A.GhostVars (pos, A.GhostArrayDef (p, (p2, i, ty), is), e) ->
+    A.GhostVars (pos, A.GhostArrayDef (p, (p2, i, rt ty), is), re e)
   | A.Assume (pos, id, s, e) -> A.Assume (pos, id, s, re e)
   | A.Guarantee (pos, id, s, e) -> A.Guarantee (pos, id, s, re e)
   | A.Decreases (pos, e) -> A.Decreases (pos, re e)

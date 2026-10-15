@@ -100,7 +100,6 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
-  | InvalidNumberOfIndices of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
@@ -108,6 +107,7 @@ type error_kind = Unknown of string
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
   | TempOperatorInFuncTypeAscription 
+  | RefinementTypeArgInConstant of HString.t
   | NoIndexAccessInArrayLength of tc_type
   | NestedTypeTemporal of LustreAst.lustre_type
   | NestedTypeNodeCall of LustreAst.lustre_type
@@ -228,7 +228,6 @@ let error_message kind = match kind with
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
-  | InvalidNumberOfIndices id -> "Recursive definition of array '" ^ HString.string_of_hstring id ^ "' must use one (and only one) index for every array dimension"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs whose payloads are also valid set element / map key types are supported"
@@ -240,6 +239,9 @@ let error_message kind = match kind with
     Format.asprintf "Interface of function %a is not allowed to use a type containing a temporal operator or node call"
       NI.pp_print_node_id_user_name node_id
   | TempOperatorInFuncTypeAscription -> "Type ascription in the context of a function cannot have temporal operator or node call"
+  | RefinementTypeArgInConstant id ->
+    Format.asprintf "Record expression of type %a with a refinement type argument is not supported where a constant expression is expected"
+      HString.pp_print_hstring id
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
       LA.pp_print_lustre_type ty
@@ -494,6 +496,11 @@ let rec infer_const_attr ctx exp =
     let r1 = List.map (fun (_, _, ty) -> infer_const_attr_ty ctx ty) tis in 
     let r1 = List.fold_left combine [R.ok ()] r1 in
     combine r1 (infer_const_attr ctx e)
+  | ArrayComprehension (p, bs, e) ->
+    let ctx = List.fold_left (fun acc_ctx (_, id, _) ->
+      add_const acc_ctx id (LA.Ident (p, id)) (LA.Int p) Global
+    ) ctx bs in
+    combine [R.ok ()] (infer_const_attr ctx e)
   (* Clock operators *)
   (* Temporal operators *)
   | Pre (_, e) ->
@@ -528,6 +535,64 @@ let rec infer_const_attr ctx exp =
     let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
     combine r_args r_tys
   | LA.AbstractSymConst _ -> assert false 
+
+(* Whether the record type name instantiated with ty_args gets a refinement
+   type from type arguments, given directly or along a chain of type synonyms *)
+let rec refinement_in_type_args ctx name ty_args =
+  List.exists (type_contains_ref ctx) ty_args ||
+  match lookup_ty_syn_body ctx name ty_args with
+  | Some (LA.UserType (_, args, name')) when not (HString.equal name name') ->
+    refinement_in_type_args ctx name' args
+  | Some _ | None -> false
+
+(* A record expression in e with a type argument containing a refinement
+   type, whose refinement cannot be checked in a constant expression. The
+   record expression e itself is not reported if exempt_top holds. *)
+let rec refinement_type_arg_in_expr ?(exempt_top = false) ctx e =
+  let r = refinement_type_arg_in_expr ctx in
+  let first l = List.fold_left (fun acc x -> match acc with Some _ -> acc | None -> x) None l in
+  let r_ty ty = LH.fold_lustre_ty ~into_ty_args:true r None (fun a b -> first [a; b]) ty in
+  match e with
+  | LA.RecordExpr (pos, name, ty_args, flds) ->
+    if not exempt_top && refinement_in_type_args ctx name ty_args then Some (pos, name)
+    else first (List.map r_ty ty_args @ List.map (fun (_, e) -> r e) flds)
+  | Ident _ | ModeRef _ | Const _ | Last _ | EmptyMap (_, None) | EmptySet (_, None) -> None
+  | EmptyMap (_, Some (kt, vt)) -> first [r_ty kt; r_ty vt]
+  | EmptySet (_, Some ty) | AbstractSymConst (_, ty) -> r_ty ty
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e) | ConvOp (_, _, e)
+  | Extract (_, e, _, _) | Pre (_, e) | ADTTester (_, e, _) -> r e
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | Arrow (_, e1, e2) | Fby (_, e1, e2)
+  | Restart (_, e1, e2) | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _) ->
+    first [r e1; r e2]
+  | TernaryOp (_, _, e1, e2, e3) -> first [r e1; r e2; r e3]
+  | AnyOp (_, (_, _, ty), e) | ChooseOp (_, (_, _, ty), e) | TypeAscription (_, e, ty) ->
+    first [r_ty ty; r e]
+  | GroupExpr (_, _, es) -> first (List.map r es)
+  | StructUpdate (_, e1, idx, e2) ->
+    first [r e1; LH.fold_label_or_index None (fun a b -> first [a; b]) r idx; Option.bind e2 r]
+  | Quantifier (_, _, tis, e) -> first (List.map (fun (_, _, ty) -> r_ty ty) tis @ [r e])
+  | ArrayComprehension (_, bs, e) -> first (List.map (fun (_, _, n) -> r n) bs @ [r e])
+  | RestartEvery (_, _, es, e) -> first (List.map r es @ [r e])
+  | Call (_, ty_args, _, es) | ADTTerm (_, ty_args, _, es) ->
+    first (List.map r_ty ty_args @ List.map r es)
+  | Match (_, e, arms, _) -> first (r e :: List.map (fun (_, e) -> r e) arms)
+
+(* Reject a refinement type argument in the constant expression e, unless e is
+   a record expression whose type is exactly the declared type, which then
+   yields the refinement check. checked is e after type checking, which carries
+   the inferred type arguments. *)
+let check_no_refinement_type_arg ctx declared e checked =
+  let exempt_top = match e, checked, declared with
+    | LA.RecordExpr _, LA.RecordExpr (pos, name, ty_args, _), Some ty ->
+      let rec_ty = expand_type_syn ctx (LA.UserType (pos, ty_args, name)) in
+      (match LH.syn_type_equal None rec_ty (expand_type_syn ctx ty) with
+      | Ok equal -> equal
+      | Error () -> false)
+    | _, _, _ -> false
+  in
+  match refinement_type_arg_in_expr ~exempt_top ctx e with
+  | Some (pos, name) -> type_error pos (RefinementTypeArgInConstant name)
+  | None -> R.ok ()
 
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
@@ -571,6 +636,59 @@ let check_constant_args ctx i arg_exprs =
     )
     else R.ok ()
   )
+
+(* Reject a refinement type argument in an argument for a constant parameter,
+   unless it is a record expression of exactly that parameter's type *)
+let check_const_args_refinement_type_args ctx node_id param_tys args checked_args =
+  let param_tys = match param_tys with
+    | LA.GroupType (_, tys) -> tys
+    | ty -> [ty]
+  in
+  (* Arguments that cannot be matched with the parameters are not checked *)
+  let params = match lookup_node_param_attr ctx node_id with
+    | Some attrs when List.length attrs = List.length param_tys -> List.combine attrs param_tys
+    | Some _ | None -> []
+  in
+  let split es params = match split_by_arity ctx es params with
+    | Some slices -> slices
+    | None -> List.map (fun _ -> []) es
+  in
+  (* The types of parameters may mention the constant parameters, whose values
+     are known when given by a whole component of the arguments *)
+  let rec sigma_of checked params = match checked, params with
+    | LA.GroupExpr (_, ExprList, cs), _ -> List.concat (List.map2 sigma_of cs (split cs params))
+    | _, [((id, true), _)] -> [(id, checked)]
+    | _, ([((_, false), _)] | [] | _ :: _ :: _) -> []
+  in
+  let sigma = List.concat (List.map2 sigma_of checked_args (split checked_args params)) in
+  let shared e checked params =
+    if List.exists (fun ((_, is_const), _) -> is_const) params then
+      check_no_refinement_type_arg ctx None e checked
+    else R.ok ()
+  in
+  (* Each position is checked on the sub-expression giving its value, and a
+     sub-expression shared by several positions if any of them is constant *)
+  let rec check e checked params = match e, checked with
+    | LA.GroupExpr (_, ExprList, es), LA.GroupExpr (_, ExprList, cs)
+      when List.length es = List.length cs ->
+      R.seq_ (List.map2 (fun (e, c) ps -> check e c ps) (List.combine es cs) (split cs params))
+    | TernaryOp (_, _, e1, e2, e3), TernaryOp (_, _, c1, c2, c3) ->
+      shared e1 c1 params >> check e2 c2 params >> check e3 c3 params
+    | Arrow (_, e1, e2), Arrow (_, c1, c2) | Fby (_, e1, e2), Fby (_, c1, c2) ->
+      check e1 c1 params >> check e2 c2 params
+    | Pre (_, e1), Pre (_, c1) -> check e1 c1 params
+    | Match (_, e1, arms, _), Match (_, c1, c_arms, _) when List.length arms = List.length c_arms ->
+      shared e1 c1 params >>
+      R.seq_ (List.map2 (fun (_, e) (_, c) -> check e c params) arms c_arms)
+    | _, _ -> (
+      match params with
+      | [((_, true), ty)] ->
+        check_no_refinement_type_arg ctx (Some (LH.subst_in_type_exprs sigma ty)) e checked
+      | [((_, false), _)] | [] | _ :: _ :: _ -> shared e checked params
+    )
+  in
+  R.seq_ (List.map2 (fun (e, c) ps -> check e c ps)
+    (List.combine args checked_args) (split checked_args params))
 
 let rec type_extract_array_lens ctx ty = match ty with 
   | LA.ArrayType (_, (ty, expr)) -> expr :: type_extract_array_lens ctx ty
@@ -693,6 +811,13 @@ let rec instantiate_type_variables_expr: tc_context -> NI.t -> tc_type list -> L
     ) tis) in 
     let* e = call e in 
     R.ok (LA.Quantifier (pos, q, tis, e))
+  | ArrayComprehension (pos, bs, e) ->
+    let* bs = R.seq (List.map (fun (p, id, n) ->
+      let* n = call n in
+      R.ok (p, id, n)
+    ) bs) in
+    let* e = call e in
+    R.ok (LA.ArrayComprehension (pos, bs, e))
   | Ident _ | Last _ | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> R.ok expr
   | FieldProject (pos, e, idx, pk) ->
@@ -898,8 +1023,9 @@ let unify_types pos ctx is_type_ascription ty1 ty2 =
     | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
       R.ok StringMap.empty
     | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
-      (* Guard against infinite recursion on recursive ADTs: expand each ADT
-         name at most once per unification path. *)
+      (* Expand each ADT at most once per unification path. Keyed on the name,
+         not the instantiation, so a nested second occurrence of the same
+         datatype is taken for a cycle and contributes no bindings. *)
       if HString.HStringSet.mem id1 seen then R.ok StringMap.empty
       else
         let seen' = HString.HStringSet.add id1 seen in
@@ -1372,6 +1498,27 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
+  (* An array comprehension '(e foreach i, j)^m^n' with 'e: T' has type
+     T^m^n. The index variables are integers in scope in the body only, where
+     they shadow the constants of the same name, and the sizes are checked as
+     the sizes of an array constructor *)
+  | LA.ArrayComprehension (p, bs, e) ->
+    let extn_ctx = List.fold_left (fun acc_ctx (ip, id, _) ->
+      add_ty (shadow_const acc_ctx id) id (LA.Int ip)
+    ) ctx bs in
+    let* ty, e, warnings1 = infer_type_expr extn_ctx nname e in
+    let* bs, warnings2 =
+      R.seq (List.map (fun (ip, id, n) ->
+        let* n, warnings = check_array_size_expr ctx nname ty n in
+        R.ok ((ip, id, n), warnings)
+      ) bs) |> R.map List.split
+    in
+    let arr_ty =
+      List.fold_right (fun (_, _, n) acc -> LA.ArrayType (p, (acc, n))) bs ty
+    in
+    R.ok (arr_ty, LA.ArrayComprehension (p, bs, e),
+          warnings1 @ List.flatten warnings2)
+
   (* An any/choose operator has the type its binder declares. These are turned
      into node calls before the main type-checking pass runs, so this case only
      serves the passes that infer types beforehand. *)
@@ -1498,6 +1645,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
           expand_type_syn ctx exp_arg_tys, expand_type_syn ctx exp_ret_tys
         | _ -> assert false 
       in
+      let orig_arg_exprs = arg_exprs in
       let* given_arg_tys, arg_exprs, warnings3 = infer_type_node_args pos ctx arg_exprs nname in
       let given_arg_tys = expand_type_syn ctx given_arg_tys in
       let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
@@ -1505,6 +1653,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       if are_equal then
         let call = LA.Call (pos, ty_args, node_id, arg_exprs) in  
         (check_constant_args ctx node_id arg_exprs >> 
+        check_const_args_refinement_type_args ctx node_id exp_arg_tys orig_arg_exprs arg_exprs >> 
         (R.ok (exp_ret_tys, call, List.flatten warnings1 @ warnings2 @ warnings3)))
       else (
         match NI.get_node_type node_id with 
@@ -1599,20 +1748,6 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.AbstractSymConst (_, ty) -> R.ok (ty, e, [])
 (** Infer the type of a [LA.expr] with the types of free variables given in [tc_context] *)
 
-and check_array_dimensions pos ctx base_e idxs =
-  let ty = lookup_ty ctx base_e |> Option.get in
-  let* ty = expand_type_syn_reftype_history ctx ty in
-  let rec calc_number_of_array_dimensions ty = 
-    match ty with 
-    | LustreAst.ArrayType (_, (ty, _)) -> 
-      1 + calc_number_of_array_dimensions ty
-    | _ -> 0
-  in 
-  let num_dimensions = calc_number_of_array_dimensions ty in 
-  if List.length idxs != num_dimensions then 
-    (type_error pos (InvalidNumberOfIndices base_e))
-  else R.ok ()
-
 and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr * [> warning] list, [> error]) result
   = fun ctx nname expr exp_ty ->
   match expr with
@@ -1689,6 +1824,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | TypeAscription (pos, _, _) 
   | ArrayConstr (pos, _, _)
   | Quantifier (pos, _, _, _)
+  | ArrayComprehension (pos, _, _)
   | Restart (pos, _, _)
   | RestartEvery (pos, _, _, _)
   | Arrow (pos, _, _)
@@ -2089,9 +2225,10 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
             let* _ = check_expr_is_constant local_ctx "constant definition" e in
-            let* e, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* checked, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* _ = check_no_refinement_type_arg local_ctx (Some ty) e checked in
             let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
-            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))), warnings1 @ warnings2)
+            R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, checked, ty))), warnings1 @ warnings2)
           | LA.NodeVarDecl (p, (p2, id, ty, c)) -> 
             let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
             R.ok (LA.NodeVarDecl (p, (p2, id, ty, c)), warnings)
@@ -2129,24 +2266,12 @@ and do_node_eqn: tc_context -> NI.t -> LA.node_equation -> (LA.node_equation * [
     R.ok (LA.Assert (pos, e), warnings)
   | LA.Equation (p, lhs, e)  as eqn ->
     Debug.parse "Checking equation: %a" LA.pp_print_node_body eqn;
-    (* This is a special case where we have undeclared identifiers 
-       as short hands for assigning values to arrays aka recursive technique *)
-    let get_array_def_context: LA.struct_item -> tc_context = 
-      function
-      | ArrayDef (pos, _, is) ->
-        List.fold_left (fun c i -> add_ty c i (LA.Int pos)) empty_tc_context is 
-      | _ -> empty_tc_context
-    in
-    let ctx_from_lhs ctx (LA.StructDef (_, items)) =
-      List.fold_left union ctx (List.map get_array_def_context items)
-    in
-    let new_ctx = ctx_from_lhs ctx lhs in
     Debug.parse "Checking node equation lhs=%a; rhs=%a"
       LA.pp_print_eq_lhs lhs
       LA.pp_print_expr e;
-    let* ty, e, warnings1 = infer_type_expr new_ctx (Some nname) e in
+    let* ty, e, warnings1 = infer_type_expr ctx (Some nname) e in
     Debug.parse "RHS has type %a for lhs %a" LA.pp_print_lustre_type ty LA.pp_print_eq_lhs lhs;
-    let* lhs, warnings2 = check_type_struct_def new_ctx nname lhs ty in 
+    let* lhs, warnings2 = check_type_struct_def ctx lhs ty in 
     R.ok (LA.Equation (p, lhs, e), warnings1 @ warnings2)
 
 and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] list, [> error]) result = fun ctx nname ->
@@ -2228,8 +2353,8 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
     let* e, warnings = check_type_expr ctx (Some nname) e (Bool (LH.pos_of_expr e)) in 
     R.ok (LA.AnnotProperty (p, id, e, k), warnings)
   
-and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (LA.struct_item * [> warning] list, [> error]) result
-  = fun ctx nname st exp_ty ->
+and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> (LA.struct_item * [> warning] list, [> error]) result
+  = fun ctx st exp_ty ->
   match st with
   | SingleIdent (pos, i) ->
     let* inf_ty = (match (lookup_ty ctx i) with
@@ -2258,36 +2383,17 @@ and check_type_struct_item: tc_context -> NI.t -> LA.struct_item -> tc_type -> (
         ^ " cannot be re-defined"))
       else R.ok ())
       (type_error pos (ExpectedType (exp_ty, inf_ty))) *)
-  | ArrayDef (pos, base_e, idxs) ->
-    check_array_dimensions pos ctx base_e idxs >>
-    let array_idx_expr =
-      List.fold_left (fun e i -> LA.IndexAccess (pos, e, i, Array))
-        (LA.Ident (pos, base_e))
-        (List.map (fun i -> LA.Ident (pos, i)) idxs)
-    in
-    (* Not `check_type_expr`, which would report the type of the right-hand
-       side as the expected one *)
-    let* elem_ty, array_idx_expr, warnings = infer_type_expr ctx (Some nname) array_idx_expr in
-    let* _ = R.ifM (eq_lustre_type ctx elem_ty exp_ty)
-      (R.ok ())
-      (type_error pos (ExpectedType (elem_ty, exp_ty)))
-    in
-    let rec extract_base_e e = match e with 
-    | LA.IndexAccess (_, e, _, _) -> extract_base_e e
-    | e -> e 
-    in  
-    let base_e = match extract_base_e array_idx_expr with 
-    | LA.Ident (_, base_e) -> base_e 
-    | _ -> assert false 
-    in
-    R.ok (LA.ArrayDef (pos, base_e, idxs), warnings)
+  (* Element-wise array definitions are rejected in the source by
+     LustreSyntaxChecks, and only introduced by
+     LustreDesugarArrayComprehensions after type checking *)
+  | ArrayDef _ -> assert false
   | TupleStructItem _ -> Lib.todo __LOC__
   | TupleSelection _ -> Lib.todo __LOC__
   | FieldSelection _ -> Lib.todo __LOC__
   | ArraySliceStructItem _ -> Lib.todo __LOC__
 
-and check_type_struct_def: tc_context -> NI.t -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [> warning] list, [> error]) result
-  = fun ctx nname (StructDef (pos, lhss)) exp_ty ->
+and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [> warning] list, [> error]) result
+  = fun ctx (StructDef (pos, lhss)) exp_ty ->
   (* An empty left-hand side denotes a call statement whose results are
      discarded (e.g. 'double(n-1);'). The right-hand side has already been
      type checked, so there is nothing more to verify here. *)
@@ -2309,19 +2415,19 @@ and check_type_struct_def: tc_context -> NI.t -> LA.eq_lhs -> tc_type -> (LA.eq_
         (* Case 1. the LHS is just one identifier 
           * so we have to check if the exp_type is the same as LHS *)
         then 
-          let* lhs, warnings = check_type_struct_item ctx nname (List.hd lhss) exp_ty in 
+          let* lhs, warnings = check_type_struct_item ctx (List.hd lhss) exp_ty in 
           R.ok (LA.StructDef (pos, [lhs]), warnings)
         else (* Case 2. LHS is a compound statment *)
           if List.length lhss = List.length exp_ty_lst
           then 
-            let* lhss, warnings = R.seq (List.map2 (check_type_struct_item ctx nname) lhss exp_ty_lst) |> R.map List.split in 
+            let* lhss, warnings = R.seq (List.map2 (check_type_struct_item ctx) lhss exp_ty_lst) |> R.map List.split in 
             R.ok (LA.StructDef (pos, lhss), List.flatten warnings)
           else type_error pos (MismatchOfEquationType (Some lhss, exp_ty))
     (* We are dealing with simple types, so lhs has to be a singleton list *)
     | _ -> if (List.length lhss != 1)
           then type_error pos (MismatchOfEquationType (None, exp_ty))
           else let lhs = List.hd lhss in
-          let* lhs, warnings = check_type_struct_item ctx nname lhs exp_ty in 
+          let* lhs, warnings = check_type_struct_item ctx lhs exp_ty in 
           R.ok (LA.StructDef (pos, [lhs]), warnings))
   else type_error pos (DisallowedReassignment (SI.filter (fun e -> (member_val ctx e)) lhs_vars)))
 (** The structure of the left hand side of the equation 
@@ -2483,7 +2589,11 @@ and check_contract_node_eqn: (LA.SI.t * LA.SI.t) -> tc_context -> NI.t -> LA.con
         ^ (HString.string_of_hstring (NI.get_user_name c_id)))))
 
 and contract_eqn_to_node_eqn: LA.contract_ghost_vars -> LA.node_equation
-  = fun (pos1, GhostVarDec(pos2, tis), expr) ->
+  = function
+  (* Only introduced by LustreDesugarArrayComprehensions, after type
+     checking *)
+  | (_, GhostArrayDef _, _) -> assert false
+  | (pos1, GhostVarDec(pos2, tis), expr) ->
     let lhs = LA.StructDef(pos2, 
     List.map (fun (pos, i, _) -> LA.SingleIdent(pos, i)) tis
     ) in
@@ -2513,22 +2623,29 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
-      let* ty, e, warnings = infer_type_expr ctx nname e in
-      let* ctx = check_and_add_constant_definition ctx i e ty src in 
-      R.ok (LA.UntypedConst (pos, i, e), ctx, warnings)
+      let* ty, checked, warnings = infer_type_expr ctx nname e in
+      let* _ = check_no_refinement_type_arg ctx None e checked in
+      let* ctx = check_and_add_constant_definition ctx i checked ty src in 
+      R.ok (LA.UntypedConst (pos, i, checked), ctx, warnings)
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
     let* exp_ty, warnings1 = check_type_well_formed ctx src nname true exp_ty in
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else
-      let* e, warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
-      let* ctx = check_and_add_constant_definition ctx i e exp_ty src in 
-      R.ok (LA.TypedConst (pos, i, e, exp_ty), ctx, warnings1 @ warnings2)
+      let* checked, warnings2 = check_type_expr (add_ty ctx i exp_ty) nname e exp_ty in 
+      let* _ = check_no_refinement_type_arg ctx (Some exp_ty) e checked in
+      let* ctx = check_and_add_constant_definition ctx i checked exp_ty src in 
+      R.ok (LA.TypedConst (pos, i, checked, exp_ty), ctx, warnings1 @ warnings2)
 (** Fail if a duplicate constant is detected  *)
   
 and tc_ctx_contract_vars: tc_context -> NI.t -> LA.contract_ghost_vars -> (LA.contract_ghost_vars * tc_context, [> error]) result 
-  = fun ctx cname (p, GhostVarDec (p2, tis), e) ->
+  = fun ctx cname -> function
+  | (p, GhostArrayDef (p2, (pos, i, ty), is), e) ->
+    let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in
+    if member_ty ctx i then type_error pos (Redeclaration i)
+    else R.ok ((p, LA.GhostArrayDef (p2, (pos, i, ty), is), e), add_ty ctx i ty)
+  | (p, GhostVarDec (p2, tis), e) ->
     let* tis, ctx = R.seq_chain
       (fun (tis, ctx) (pos, i, ty) ->
         let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in 
@@ -2781,6 +2898,8 @@ and check_no_index_access ctx nname ty e =
   | FieldProject (_, e, _, _) | ConvOp (_, _, e)
   | UnaryOp (_, _, e) 
   | Quantifier (_, _, _, e) | Extract (_, e, _, _) -> r e
+  | ArrayComprehension (_, bs, e) ->
+    Res.seq_ (List.map (fun (_, _, n) -> r n) bs) >> r e
   | AnyOp (_, (_, _, ty'), e) ->
     LH.fold_lustre_ty (check_no_index_access ctx nname ty) (R.ok ()) (>>) ty' >> r e
   | ChooseOp (_, (_, _, ty'), e) ->
@@ -2887,8 +3006,10 @@ and check_map_set_key_expr_type ctx pos ty =
   | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty =
-  (* Guard against infinite recursion on recursive ADTs: expand each type
-     name at most once per traversal path. *)
+  (* Expand each named type once per path, keyed on the instantiation so the same
+     datatype at different arguments is not a cycle. Terminates: a cycle through
+     two or more types is rejected earlier, and a self-reference must repeat its
+     own parameters, hence its key. *)
   let rec aux seen ty = let r = aux seen in match ty with
   | LA.Map _ | Set _ | GroupType _ | ArrayType _ | History _
   | TArr _ -> type_error pos (UnsupportedMapType ty)
@@ -2901,11 +3022,14 @@ and check_map_set_type pos ctx ty =
   | UserType (_, ty_args, i) ->
     if (member_ty_syn ctx i || member_u_types ctx i)
     then
-      if HString.HStringSet.mem i seen then R.ok ()
+      let k =
+        Format.asprintf "%a" LA.pp_print_lustre_type ty |> HString.mk_hstring
+      in
+      if HString.HStringSet.mem k seen then R.ok ()
       else
         let* _ = instantiate_type_variables ctx pos (NI.mk_node_id i) ty ty_args in
         let ty = expand_type_syn ctx ty in
-        aux (HString.HStringSet.add i seen) ty
+        aux (HString.HStringSet.add k seen) ty
     (* This case may be indicative of a dangling type identifier. But, we return `Ok` here because
        this will be caught by `check_type_well_formed`, which recursively checks
        the map key and value types for wellformedness. *)
@@ -2932,8 +3056,13 @@ and expr_contains_set_binop ctx ni expr =
   | Quantifier (_, _, tis, e) -> 
     let ctx = List.fold_left (fun acc (_, id, ty) -> 
       add_ty acc id ty 
-    ) ctx tis in 
-    expr_contains_set_binop ctx ni e 
+    ) ctx tis in
+    expr_contains_set_binop ctx ni e
+  | ArrayComprehension (_, bs, e) ->
+    let ctx = List.fold_left (fun acc (p, id, _) ->
+      add_ty acc id (LA.Int p)
+    ) ctx bs in
+    expr_contains_set_binop ctx ni e
   | Ident _  -> false
   | Last _ -> false
   | EmptyMap (_, None) | EmptySet (_, None)
@@ -3181,9 +3310,21 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       let is_recursive_adt =
         List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> mentions_self ty) fields) ctors
       in
+      (* A datatype is a sort of its own when it is directly recursive, and an
+         enum when every constructor is argument-free and it takes no type
+         parameters; any other is encoded as a record, which a field cannot
+         hold. *)
+      let is_scalar_adt id adt_ctors =
+        LH.is_directly_recursive_adt id adt_ctors
+        || (List.for_all (fun (_, fields) -> fields = []) adt_ctors
+            && (match lookup_ty_ty_vars ctx id with
+                | Some (_ :: _) -> false
+                | Some [] | None -> true))
+      in
       let rec is_scalar_field_type ty = match ty with
         | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
-        | LA.EnumType _ | LA.AbstractType _ | LA.ADT _ -> true
+        | LA.EnumType _ | LA.AbstractType _ -> true
+        | LA.ADT (_, id, adt_ctors) -> is_scalar_adt id adt_ctors
         | LA.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ty
         | LA.UserType (_, ty_args, id) ->
           (match lookup_ty_syn ctx id ty_args with
@@ -3359,9 +3500,10 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
     else
       R.ok false
   | ADT (_, n1, cons1), ADT (_, n2, cons2) ->
-    (* Two instantiations of a polymorphic datatype share their name, and differ
-       only in the field types their constructors carry. Each name is entered
-       once per comparison path, so that a self-reference terminates. *)
+    (* Two instantiations of a polymorphic datatype share their name and differ
+       only in their constructors' field types. The guard is keyed on the name,
+       not the instantiation, so a nested second occurrence of the same datatype
+       is taken for a cycle and compared equal even at different arguments. *)
     if not (HString.equal n1 n2) then R.ok false
     else if HString.HStringSet.mem n1 seen then R.ok true
     else

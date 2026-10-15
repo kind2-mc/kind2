@@ -1132,6 +1132,7 @@ let rec subsystem_of_nodes' map nodes top =
       has_modes;
       has_impl;
       rec_group;
+      is_internal = NodeId.is_internal top;
       map;
       subsystems
     }

@@ -6,11 +6,11 @@ tel
 node N(A: int^4) returns (A1, A2, A3, A4, A5, A6, A7, A8: int^4; B1, B2: int^4^4);
 let
   frame (A1, A2, A3, A4, A5, A6, A7, A8, B1, B2)
-    A1[i] = i;
-    A2[i] = i;
-    A3[i] = i;
-    A4[i] = i;
-    B1[i][j] = i+j;
+    A1 = (i foreach i)^4;
+    A2 = (i foreach i)^4;
+    A3 = (i foreach i)^4;
+    A4 = (i foreach i)^4;
+    B1 = (i+j foreach i, j)^4^4;
     A5 = [0, 1, 2, 3];
     A6 = 0^4;
     A7 = A; 
@@ -22,11 +22,11 @@ let
     A3 = pre A; -- A3[i] = i -> pre A[i];
     A4 = pre M(); -- A4[i] = i -> pre M()[i];
     B1 = pre 0^4^4; -- B1[i][j] = i + j -> pre 0^4^4[i][j]
-    A5[i] = pre A5[i] + 1; -- A5[i] = [0, 1, 2, 3][i] -> pre A5[i] + 1;
-    A6[i] = pre A6[i] + 1; -- A6[i] = 0^4[i] -> pre A6[i] + 1;
-    A7[i] = pre A7[i] + 1; -- A7[i] = A[i] -> pre A7[i] + 1;
-    A8[i] = pre A8[i] + 1; -- A8[i] = M()[i] -> pre A8[i] + 1;
-    B2[i][j] = pre B2[i][j] + 1; -- B2[i][j] = 0^4^4[i][j] -> pre B2[i][j] + 1;
+    A5 = (pre A5[i] + 1 foreach i)^4; -- A5[i] = [0, 1, 2, 3][i] -> pre A5[i] + 1;
+    A6 = (pre A6[i] + 1 foreach i)^4; -- A6[i] = 0^4[i] -> pre A6[i] + 1;
+    A7 = (pre A7[i] + 1 foreach i)^4; -- A7[i] = A[i] -> pre A7[i] + 1;
+    A8 = (pre A8[i] + 1 foreach i)^4; -- A8[i] = M()[i] -> pre A8[i] + 1;
+    B2 = (pre B2[i][j] + 1 foreach i, j)^4^4; -- B2[i][j] = 0^4^4[i][j] -> pre B2[i][j] + 1;
   tel
 
   check true -> A1[0] = 0;

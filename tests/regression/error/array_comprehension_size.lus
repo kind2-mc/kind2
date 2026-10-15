@@ -1,0 +1,5 @@
+-- The size of a dimension of an array comprehension must be constant
+node N (x: int; A: int^3) returns (B: int^3);
+let
+  B = (A[i] foreach i)^x;
+tel

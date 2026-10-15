@@ -349,6 +349,14 @@ let rec pp_print_value_term_json as_type ppf t = match as_type with
     in
     Format.fprintf ppf "\"%s\"" (escape_json_string num_str)
   )
+  (* An enum keeps the rendering of an enum wherever it is held, so that the
+     sort its field has inside a recursive datatype stays an encoding detail *)
+  | Some ty when Type.is_enum_field_sort ty -> (
+    match destruct_datatype_value ty t with
+    | None -> pp_print_term_as_json_value ppf t
+    | Some (ctor_name, _) ->
+      Format.fprintf ppf "\"%s\"" (escape_json_string ctor_name)
+  )
   | Some ty when Type.is_datatype ty -> (
     match destruct_datatype_value ty t with
     | None -> pp_print_term_as_json_value ppf t

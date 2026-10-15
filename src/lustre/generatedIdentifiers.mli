@@ -33,6 +33,14 @@ type source =
       the (polarity-adjusted) conjunction of the enclosing when-block guards.
       Node calls in such an equation must be activated on that clock. *)
 
+(* A generated equation *)
+type equation =
+  LustreAst.typed_ident list (* quantified variables *)
+  * (Lib.position * NodeId.t) list (* contract scope  *)
+  * LustreAst.eq_lhs
+  * LustreAst.expr
+  * source option (* Record the source of the equation if generated before normalization step *)
+
 type t = {
   node_args : (HString.t (* abstracted variable name *)
     * bool (* whether the variable is constant *)
@@ -119,13 +127,7 @@ type t = {
     LustreAst.binary_operator * 
     LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr
-    * source option) (* Record the source of the equation if generated before normalization step *)
-    list;
+  equations : equation list;
   nonvacuity_props: StringSet.t;
   clocked_call_ties:
     (HString.t * HString.t option * HString.t * HString.t) list;
@@ -141,6 +143,13 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
+  history_defs: (LustreAst.lustre_type * equation) StringMap.t;
+  (* The type and the equation of each history variable, by name. A history
+     variable is named after the variable it records, as renamed in the scope
+     of its quantifier, so every property quantifying over the history of the
+     same variable yields the same definition. They are kept apart from
+     [locals] and [equations], and are declared once per node (see
+     [LustreAstNormalizer.normalize_node]). *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -151,21 +160,35 @@ val iboracle : string
 of reachability queries with timestep bounds. *)
 val ctr_id : HString.t
 
-(** Checks if a variable name corresponds to an iboracle *)
+(** Checks if a variable name is the AST name of an iboracle, ['<n>_iboracle'] *)
 val var_is_iboracle: HString.t -> bool
 
 (* String constant used as the suffix of fresh locals capturing the discarded
    results of a call statement (see lustreNameCalls.ml). *)
 val discarded_output : string
 
-(** Checks if a variable name corresponds to a discarded call-statement result *)
+(** Suffix of the fresh locals holding the value of an array comprehension *)
+val array_comprehension : string
+
+(** Checks if a variable name is the AST name of the local of an array
+    comprehension, ['<n>_gcomp'] *)
+val var_is_array_comprehension: HString.t -> bool
+
+(** Checks if a variable name is the AST name of a discarded call-statement
+    result, ['<n>_discard'] *)
 val var_is_discarded_output: HString.t -> bool
+
+(** Checks if a state variable name is the one of a discarded call-statement
+    result, ['discard_<n>'] *)
+val svar_is_discarded_output: HString.t -> bool
 
 (* String constant used as a segment of fresh locals introduced to desugar the
    'last' operator (see lustreDesugarLast.ml). *)
 val last_local : string
 
-(** Checks if a variable name corresponds to a 'last'-operator local *)
+(** Checks if a variable name is the AST name of a 'last'-operator local,
+    ['<n>_glast_<x>'] or ['<n>_glast_init_<x>']. A state variable name, where
+    the number is moved to an index, does not match. *)
 val var_is_last_local: HString.t -> bool
 
 (* String constant used as the suffix of fresh locals capturing the output of

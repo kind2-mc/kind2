@@ -1,0 +1,14 @@
+-- Each instance of the call counts the steps where the guard for its own
+-- index holds, not those of another index
+node Count() returns (c: int);
+let
+  c = 1 -> pre c + 1;
+tel
+
+node main(m: int) returns (A: int^3);
+var n0: int;
+let
+  A = (when m = i then Count() else 0 foreach i)^3;
+  n0 = (if m = 0 then 1 else 0) -> pre n0 + (if m = 0 then 1 else 0);
+  check m = 1 => A[1] = n0;
+tel

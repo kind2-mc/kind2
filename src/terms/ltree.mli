@@ -216,6 +216,11 @@ sig
   (** Constructor for a let binding *)
   val mk_let : (var * t) list -> t -> t
 
+  (** [mk_let_chain [b_1; ...; b_n] t] is [mk_let b_1 (mk_let b_2 (...
+      (mk_let b_n t)))], built with one traversal of each term instead of
+      one of the body for every let *)
+  val mk_let_chain : (var * t) list list -> t -> t
+
   (** Constructor for a let binding *)
   val mk_let_elim : (var * t) list -> t -> t
 
