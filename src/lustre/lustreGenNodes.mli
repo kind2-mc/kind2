@@ -19,6 +19,7 @@
 
 type error_kind =
   | RestartUnknownVariable of HString.t
+  | RestartQuantifiedVariable of HString.t
   | RestartPolymorphic
   | RestartMatchScrutinee
   | MatchScrutineeQuantifiedVariable of HString.t
@@ -31,6 +32,10 @@ val error_message : error_kind -> string
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
 ]
+
+(* Whether the node is generated for a type ascription the user wrote, rather
+   than for one Kind 2 inserted to check a subtype *)
+val is_user_ascription : NodeId.t -> bool
 
 (* Generate nodes/functions for any operators, choose operators, type ascriptions,
    temporal expressions in a clocked position, and restart expressions and

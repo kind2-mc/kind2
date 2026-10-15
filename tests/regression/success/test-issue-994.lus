@@ -1,8 +1,22 @@
+-- A record field of an earlier element in a record constructor (#994),
+-- formerly
+--   rats[i] = if i = 0 then rational { n = 0 ; d = 1}
+--             else rational { n = rats[i-1].n ; d = 1};
+
 type rational = struct { n: int; d: int };
+
+function rec Rat (k: int) returns (r: rational)
+(*@contract
+  decreases k;
+*)
+let
+  r = when k <= 0 then rational { n = 0 ; d = 1}
+      else rational { n = Rat(k - 1).n ; d = 1};
+tel
 
 node Test () returns ()
 var rats: rational^4;
 let 
-    rats[i] = if i = 0 then rational { n = 0 ; d = 1} else rational { n = rats[i-1].n ; d = 1};
+    rats = (Rat(i) foreach i)^4;
     check rats[0].n=0;
 tel

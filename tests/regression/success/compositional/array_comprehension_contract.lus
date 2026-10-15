@@ -1,0 +1,15 @@
+-- The ghost variable an array comprehension in a contract is compiled to is
+-- part of the contract, so it is in the abstraction of a node by its contract
+node Inc (A: int^3) returns (B: int^3);
+(*@contract
+  var D: int^3 = (A[i] + 1 foreach i)^3;
+  guarantee "inc" B = D;
+*)
+let
+  B = (A[i] + 1 foreach i)^3;
+tel
+
+node Top (A: int^3) returns ();
+let
+  check "top" Inc(A)[1] = A[1] + 1;
+tel

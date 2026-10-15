@@ -1,5 +1,5 @@
 node slide (const n:int; s:int) returns(A: int^n);
 let
-    A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
+    A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
     %PROPERTY n > 1 => (true -> A[1] = pre s);
 tel

@@ -277,6 +277,11 @@ val pp_print_tc_context: Format.formatter -> tc_context -> unit
 val arity_of_expr: tc_context -> LA.expr -> int
 (** Return the arity of a Lustre expression given a context *)
 
+val split_by_arity: tc_context -> LA.expr list -> 'a list -> 'a list list option
+(** [split_by_arity ctx es items] splits [items] into consecutive slices, one
+    per expression of [es] with as many items as its arity (see {!arity_of_expr}).
+    Returns [None] if the arities of [es] do not add up to the length of [items]. *)
+
 val traverse_group_expr_list: (int -> LA.expr -> 'a) -> tc_context -> int -> LA.expr list -> 'a
 (** Traverse a group expr list *)
 

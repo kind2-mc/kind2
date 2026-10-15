@@ -1,0 +1,4 @@
+type R<T> = struct { f: T };
+node N(x: int) returns (y: int);
+(*@contract guarantee (R@<subtype { w: int | w >= x }> { f = y }).f = y; *)
+let y = x - 1; tel

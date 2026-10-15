@@ -1,0 +1,6 @@
+const i: int = 3;
+node main (A: int^3^2; x: bool) returns ();
+var B: bool^3;
+let
+  B = (x foreach k < 3 and x);
+tel

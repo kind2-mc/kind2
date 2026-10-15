@@ -182,6 +182,15 @@ let term_of_dec_polynomial =
     Term.mk_dec
 
 
+(* The conjunction of the disequalities of every two of [terms], which is
+   what [(distinct t1 ... tn)] means *)
+let pairwise_disequalities terms =
+  let rec pairs = function
+    | [] -> []
+    | a :: tl -> List.map (fun b -> Term.mk_not (Term.mk_eq [a; b])) tl @ pairs tl
+  in
+  Term.mk_and (pairs terms)
+
 (* Convert a normal form to a term *)
 let term_of_nf = function 
   | Num p -> term_of_num_polynomial p
@@ -818,6 +827,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSDIV, _
       | `BVUREM, _
       | `BVSREM, _
+      | `BVSMOD, _
       | `BVSHL, _
       | `BVLSHR, _
       | `BVASHR, _
@@ -1183,7 +1193,21 @@ let const_array ty_array = function
 
  | _ -> assert false
 
+(* The value of a constant array, if the term is one *)
+let const_array_value t =
+  match Term.destruct t with
+  | Term.T.App (sym, [v]) -> (
+    match Symbol.node_of_symbol sym with
+    | `CONST_ARRAY _ -> Some v
+    | _ -> None )
+  | _ -> None
+
 let select simplify_term_node model fterm = function
+
+  (* Select from a constant array: its value *)
+  | [a; _] when const_array_value (term_of_nf a) <> None ->
+    Term.eval_t simplify_term_node
+      (Option.get (const_array_value (term_of_nf a)))
 
   (* Select from a store: the stored value if the indexes are equal, a select
      from the array stored into otherwise *)
@@ -1294,8 +1318,10 @@ let select simplify_term_node model fterm = function
               simplify_term_node
               value
 
-        (* Variable must not evaluate to a term *)
-        | Model.Term _ -> assert false
+        (* The value of an array as a term: the select from it *)
+        | Model.Term t ->
+          Term.eval_t simplify_term_node
+            (List.fold_left Term.mk_select t i')
 
        (* Free variable without assignment in model *)
        with Not_found ->
@@ -2188,11 +2214,26 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                   (simplify_term_node default_of_var uf_defs model)
                   a b
 
-              | [Abstr a; Abstr b] ->
-                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
-
-              | [ADT a; ADT b] ->
-                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
+              (* Equation between arrays, ADTs or abstract values,
+                 true if all arguments are syntactically equal *)
+              | (Array _ | ADT _ | Abstr _) :: _ ->
+                let args' = List.map term_of_nf args in
+                (match args' with
+                 | a :: tl when List.for_all (Term.equal a) tl ->
+                   Bool Term.t_true
+                 (* Array values: equal exactly if their canonical forms
+                    are the same, whatever the stores they are built
+                    with *)
+                 | a :: _ when List.for_all TermLib.is_array_value args' -> (
+                   let ty = Term.type_of_term a in
+                   match
+                     List.map (TermLib.canonical_array_value ty) args'
+                   with
+                   | c :: tl when List.for_all (Term.equal c) tl ->
+                     Bool Term.t_true
+                   | _ -> Bool Term.t_false
+                   | exception Not_found -> Bool (Term.mk_eq args') )
+                 | _ -> Bool (Term.mk_eq args'))
 
               (* Equation between integers or reals *)
               | [Num _ as a; Num _ as b] 
@@ -2296,8 +2337,11 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           (* Coincidence of real with integer not implemented *)
           | `IS_INT -> assert false
 
-          (* Distinct not implemented *)
-          | `DISTINCT -> assert false
+          (* Distinct is the conjunction of pairwise disequalities *)
+          | `DISTINCT ->
+            List.map term_of_nf args
+            |> pairwise_disequalities
+            |> Term.eval_t (simplify_term_node default_of_var uf_defs model)
 
           | `BVAND -> binary_bv_op Bitvector.bv_and args
 
@@ -2326,6 +2370,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `BVUREM -> binary_bv_op Bitvector.ubv_rem args
 
           | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
+
+          | `BVSMOD -> binary_bv_op Bitvector.sbv_mod args
 
           | `BVULT ->
 
@@ -3010,6 +3056,8 @@ let rec remove_ite' fterm args =
 
         | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
 
+        | `BVSMOD -> binary_bv_op Bitvector.sbv_mod args
+
         | `BVULT ->
 
           bv_relation
@@ -3079,8 +3127,11 @@ let rec remove_ite' fterm args =
         (* Coincidence of real with integer (not implemented) *)
         | `IS_INT -> assert false
 
-        (* Distinct (not implemented) *)
-        | `DISTINCT -> assert false
+        (* Distinct is the conjunction of pairwise disequalities *)
+        | `DISTINCT ->
+          List.map term_of_nf args
+          |> pairwise_disequalities
+          |> Term.eval_t remove_ite'
 
         (* Normal form for an uninterpreted function *)
         | `UF u -> atom_of_term (Term.mk_uf u (List.map term_of_nf args))

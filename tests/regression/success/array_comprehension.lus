@@ -1,0 +1,56 @@
+-- Array comprehensions: '(e foreach i)^n' is the array of size n whose element
+-- at index i is e, and '(e foreach i, j)^m^n' the array of n arrays of size m
+-- whose element at row i and column j is e.
+
+-- Element-wise, over an array of symbolic size
+node Or (const n: int; A, B: bool^n) returns (C: bool^n);
+let
+  C = (A[i] or B[i] foreach i)^n;
+  check "or" forall (i: int) 0 <= i and i < n => C[i] = (A[i] or B[i]);
+tel
+
+-- Two dimensions: the sizes follow the type, so i < m and j < n
+node Or2 (const n, m: int; A, B: bool^n^m) returns (C: bool^n^m);
+let
+  C = (A[i][j] or B[i][j] foreach i, j)^n^m;
+  check "or2" forall (i, j: int) 0 <= i and i < m and 0 <= j and j < n =>
+    C[i][j] = (A[i][j] or B[i][j]);
+tel
+
+-- A sliding window: an element may depend on the previous value of the array
+node Slide (const n: int; s: int) returns (A: int^n);
+let
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
+  check "slide" n > 1 => (true -> A[1] = pre s);
+tel
+
+-- Comprehensions in properties, a caret past the sizes, nested comprehensions
+node Values () returns ();
+let
+  check "squares" (i * i foreach i)^4 = [0, 1, 4, 9];
+  check "replicate" (i foreach i)^3^2 = [[0, 1, 2], [0, 1, 2]];
+  check "transpose" ([[1, 2], [3, 4]][j][i] foreach i, j)^2^2 = [[1, 3], [2, 4]];
+  check "nested" ((i + j foreach j)^3 foreach i)^2 = [[0, 1, 2], [1, 2, 3]];
+tel
+
+-- An element of an array type
+type row = int^3;
+node Rows (a: row) returns (m: row^2);
+let
+  m = (a foreach i)^2;
+  check "rows" m[1][2] = a[2];
+tel
+
+-- In a function, and an element of a record type
+type rational = struct { num: int; den: int };
+function Reverse (A: int^3) returns (B: int^3);
+let
+  B = (A[2 - i] foreach i)^3;
+tel
+
+node Records (A: int^3) returns (r: rational^4);
+let
+  r = (rational { num = i; den = i + 1 } foreach i)^4;
+  check "records" r[3].den = 4;
+  check "function" Reverse(A)[0] = A[2];
+tel

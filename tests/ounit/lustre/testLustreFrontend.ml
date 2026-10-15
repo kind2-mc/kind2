@@ -142,6 +142,46 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
+  mk_test "unbounded inner index of a bounded comprehension" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_unbounded_inner.lus" with
+    | Error (`LustreSyntaxChecksError (_, UnboundedComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "unbounded outer index of a bounded comprehension" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_unbounded_outer.lus" with
+    | Error (`LustreSyntaxChecksError (_, UnboundedComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "duplicate bounded comprehension index" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_duplicate_bounded.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "duplicate comprehension index" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_duplicate_caret.lus" with
+    | Error (`LustreSyntaxChecksError (_, DuplicateComprehensionIndex _)) -> true
+    | _ -> false);
+  mk_test "comprehension bound mentioning an index" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_size_mentions_index.lus" with
+    | Error (`LustreSyntaxChecksError (_, ComprehensionSizeMentionsIndex _)) -> true
+    | _ -> false);
+  mk_test "comprehension bound over a Boolean operator" (fun () ->
+    match load_file "./lustreSyntaxChecks/comprehension_boolean_size.lus" with
+    | Error (`LustreSyntaxChecksError (_, BooleanComprehensionSize _)) -> true
+    | _ -> false);
+  mk_test "symbolic array index under a restart" (fun () ->
+    match load_file "./lustreSyntaxChecks/restart_symbolic_index.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInRestart _)) -> true
+    | _ -> false);
+  mk_test "symbolic array index in the guard of a temporal branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_symbolic_index_temporal_branch.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInLazyGuardedTemporalBranch _)) -> true
+    | _ -> false);
+  mk_test "symbolic array index in the guard of a temporal or else operand" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_symbolic_index_temporal_or_else.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInLazyGuardedTemporalBranch _)) -> true
+    | _ -> false);
+  mk_test "symbolic array index in the scrutinee of a temporal match arm" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_symbolic_index_temporal_match_arm.lus" with
+    | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInLazyGuardedTemporalBranch _)) -> true
+    | _ -> false);
   mk_test "test symbolic array index in not call" (fun () ->
     match load_file "./lustreSyntaxChecks/test_node_call_with_inductive_array_index.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
@@ -202,9 +242,17 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/choose_op_func_pre.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
-  mk_test "inductive array definition in multiple assignment" (fun () ->
+  mk_test "element-wise array definition" (fun () ->
+    match load_file "./lustreSyntaxChecks/array_definition.lus" with
+    | Error (`LustreSyntaxChecksError (_, ArrayDefinition _)) -> true
+    | _ -> false);
+  mk_test "element-wise array definition in a block" (fun () ->
+    match load_file "./lustreSyntaxChecks/array_definition_in_block.lus" with
+    | Error (`LustreSyntaxChecksError (_, ArrayDefinition _)) -> true
+    | _ -> false);
+  mk_test "element-wise array definition in multiple assignment" (fun () ->
     match load_file "./lustreSyntaxChecks/mult_assign_array_def.lus" with
-    | Error (`LustreSyntaxChecksError (_, MultAssignArrayDef)) -> true
+    | Error (`LustreSyntaxChecksError (_, ArrayDefinition _)) -> true
     | _ -> false);
   mk_test "symbolic array index passed to non-inlinable function" (fun () ->
     match load_file "./lustreSyntaxChecks/array_index.lus" with
@@ -221,6 +269,10 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "quantified lazy guard rejects non-inlinable call" (fun () ->
     match load_file "./lustreSyntaxChecks/lazy_quant_noninlinable_call.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedNodeCall _)) -> true
+    | _ -> false);
+  mk_test "quantified lazy guard rejects temporal branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_temporal_branch.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedTemporalBranch _)) -> true
     | _ -> false);
   mk_test "quantified lazy guard allows inlinable call" (fun () ->
     match load_file "./lustreSyntaxChecks/lazy_quant_inlinable_call.lus" with
@@ -245,96 +297,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
   mk_test "Assignment to a match block pattern variable" (fun () ->
     match load_file "./lustreSyntaxChecks/match_block_assign_pattern_var.lus" with
     | Error (`LustreSyntaxChecksError (_, AssignmentToPatternVariable _)) -> true
-    | _ -> false);
-])
-
-(* *************************************************************************** *)
-(*                   Lustre Ast Array Dependencies Checks                      *)
-(* *************************************************************************** *)
-let _ = run_test_tt_main ("frontend lustreArrayDependencies error tests" >::: [
-  mk_test "test type ascription" (fun () ->
-    match load_file "./lustreTypeChecker/type_ascription.lus" with
-    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
-    | _ -> false); 
-  mk_test "test index access in array length" (fun () ->
-    match load_file "./lustreTypeChecker/array_len_bug.lus" with
-    | Error (`LustreTypeCheckerError (_, NoIndexAccessInArrayLength _)) -> true
-    | _ -> false); 
-  mk_test "test function contract with temporal interface 2" (fun () ->
-    match load_file "./lustreTypeChecker/temporal_fun_contract_2.lus" with
-    | Error (`LustreTypeCheckerError (_, TempOperatorInFuncInterface _)) -> true
-    | _ -> false); 
-  mk_test "test function contract with temporal interface" (fun () ->
-    match load_file "./lustreTypeChecker/temporal_fun_contract.lus" with
-    | Error (`LustreTypeCheckerError (_, TempOperatorInFuncInterface _)) -> true
-    | _ -> false); 
-  mk_test "test record type inference 1" (fun () ->
-    match load_file "./lustreTypeChecker/record_type_inference_1.lus" with
-    | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
-    | _ -> false); 
-  mk_test "test record type inference 2" (fun () ->
-    match load_file "./lustreTypeChecker/record_type_inference_2.lus" with
-    | Error (`LustreTypeCheckerError (_, InvalidPolymorphicCall _)) -> true
-    | _ -> false); 
-  mk_test "test record type inference 3" (fun () ->
-    match load_file "./lustreTypeChecker/record_type_inference_3.lus" with
-    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
-    | _ -> false); 
-  mk_test "test record type inference 4" (fun () ->
-    match load_file "./lustreTypeChecker/record_type_inference_4.lus" with
-    | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
-    | _ -> false); 
-  mk_test "test illtyped call" (fun () ->
-    match load_file "./lustreTypeChecker/SteamBoiler2.lus" with
-    | Error (`LustreArrayDependencies (_, Cycle _)) -> true
-    | _ -> false); 
-  mk_test "test invalid inductive array def 1" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array1.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 2" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array2.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 3" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array3.lus" with
-    | Error (`LustreArrayDependencies  (_, ComplicatedExpr _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 4" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array4.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 5" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array5.lus" with
-    | Error (`LustreArrayDependencies  (_, ComplicatedExpr _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 6" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array6.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 7" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array7.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 8" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array8.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 9" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array9.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 10" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array10.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 11" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array11.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
-    | _ -> false);
-  mk_test "test invalid inductive array def 12" (fun () ->
-    match load_file "./lustreArrayDependencies/inductive_array12.lus" with
-    | Error (`LustreArrayDependencies  (_, Cycle _)) -> true
     | _ -> false);
 ])
 
@@ -576,6 +538,38 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
 (*                        Lustre Type Checker Checks                           *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
+  mk_test "test type ascription" (fun () ->
+    match load_file "./lustreTypeChecker/type_ascription.lus" with
+    | Error (`LustreTypeCheckerError (_, UnificationFailed _)) -> true
+    | _ -> false); 
+  mk_test "test index access in array length" (fun () ->
+    match load_file "./lustreTypeChecker/array_len_bug.lus" with
+    | Error (`LustreTypeCheckerError (_, NoIndexAccessInArrayLength _)) -> true
+    | _ -> false); 
+  mk_test "test function contract with temporal interface 2" (fun () ->
+    match load_file "./lustreTypeChecker/temporal_fun_contract_2.lus" with
+    | Error (`LustreTypeCheckerError (_, TempOperatorInFuncInterface _)) -> true
+    | _ -> false); 
+  mk_test "test function contract with temporal interface" (fun () ->
+    match load_file "./lustreTypeChecker/temporal_fun_contract.lus" with
+    | Error (`LustreTypeCheckerError (_, TempOperatorInFuncInterface _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 1" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_1.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 2" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_2.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidPolymorphicCall _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 3" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_3.lus" with
+    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
+    | _ -> false); 
+  mk_test "test record type inference 4" (fun () ->
+    match load_file "./lustreTypeChecker/record_type_inference_4.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedRecord _)) -> true
+    | _ -> false); 
   mk_test "test type ascription with temporal operator in context of function" (fun () ->
     match load_file "./lustreTypeChecker/type_ascription_temporal_func.lus" with
     | Error (`LustreTypeCheckerError (_, TempOperatorInFuncTypeAscription)) -> true
@@ -884,10 +878,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/bad_subrange_bound_1.lus" with
     | Error (`LustreTypeCheckerError (_, UnboundNodeName _)) -> true
     | _ -> false);
-  mk_test "test illegal array definition without enough indices" (fun () ->
-    match load_file "./lustreTypeChecker/array_frame.lus" with
-    | Error (`LustreTypeCheckerError (_, InvalidNumberOfIndices _)) -> true
-    | _ -> false);
   mk_test "test unsupported quantified array variable" (fun () ->
     match load_file "./lustreSyntaxChecks/array_quantified_var.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedVariable _)) -> true
@@ -915,6 +905,26 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
   mk_test "test set with ADT set payload is rejected" (fun () ->
     match load_file "./lustreTypeChecker/set_adt_set_payload.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with a set payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_poly_adt_nested_set_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with an array payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_poly_adt_nested_array_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test map key with a set payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/map_poly_adt_nested_set_key.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
+    | _ -> false);
+  mk_test "test set with a set payload under two instantiations of a recursive polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/set_rec_poly_adt_nested_set_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType (Set (_, Int _)))) -> true
+    | _ -> false);
+  mk_test "test contract ghost variable with a set payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/contract_ghost_set_poly_adt_nested_set_payload.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType (Set (_, Int _)))) -> true
     | _ -> false);
   mk_test "test map with illtyped access" (fun () ->
     match load_file "./lustreTypeChecker/map_incorrect_access.lus" with
@@ -1028,6 +1038,18 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
+  mk_test "test recursive ADT with a polymorphic datatype field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_poly_datatype_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField (ty_name, field))) ->
+      HString.string_of_hstring ty_name = "L"
+      && HString.string_of_hstring field = "h"
+    | _ -> false);
+  mk_test "test recursive ADT with a payload-carrying datatype field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_datatype_field.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField (ty_name, field))) ->
+      HString.string_of_hstring ty_name = "L"
+      && HString.string_of_hstring field = "h"
+    | _ -> false);
   mk_test "test non-uniform polymorphic recursion is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_polymorphic_recursion.lus" with
     | Error (`LustreTypeCheckerError (_, NonUniformRecursiveDatatype _)) -> true
@@ -1120,10 +1142,6 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/expected_type_order_equation_call.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, _))) -> true
     | _ -> false);
-  mk_test "expected type reported first: array definition" (fun () ->
-    match load_file "./lustreTypeChecker/expected_type_order_array_def.lus" with
-    | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
-    | _ -> false);
   mk_test "expected type reported first: array update" (fun () ->
     match load_file "./lustreTypeChecker/expected_type_order_array_update.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType (Int _, Bool _))) -> true
@@ -1144,6 +1162,46 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/mismatched_contract_import_order.lus" with
     | Error (`LustreTypeCheckerError (_,
         MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
+    | _ -> false);
+  mk_test "refinement type argument in global constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_global_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in node-local constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_local_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in ghost constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_ghost_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument through a synonym in constant" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_synonym_const.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument under restart" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_restart.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument in a when branch" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_when.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument within a tuple" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in constant parameter argument within an if-then-else" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_const_param_ite_tuple.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "checked record field in a restart spread over a constant parameter" (fun () ->
+    match load_file "./lustreTypeChecker/restart_tuple_const_param_inserted_check.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
   mk_test "if-then-else constant of the wrong type" (fun () ->
     match load_file "./lustreTypeChecker/ite_const_wrong_type.lus" with

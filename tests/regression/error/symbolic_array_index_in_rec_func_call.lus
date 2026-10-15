@@ -1,6 +1,7 @@
 -- A quantified variable may appear in the arguments of a call to a recursive
--- function that is defined at the SMT level, but a symbolic array index may
--- not: only an inlined call is given the index variable itself.
+-- function that is defined at the SMT level, but the index variable of an
+-- array comprehension may not: only an inlined call is given the index
+-- variable itself.
 
 datatype Nat = Zero | Succ (p: Nat);
 const K: int;
@@ -16,6 +17,6 @@ tel
 node main (ns: Nat^K) returns ();
 var a: bool^K;
 let
-  a[i] = Even(ns[i]);
+  a = (Even(ns[i]) foreach i)^K;
   check a[0];
 tel

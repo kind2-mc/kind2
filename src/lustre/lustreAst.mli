@@ -182,6 +182,10 @@ and expr =
   | IndexAccess of position * expr * expr * access_kind
   (* Quantified expressions *)
   | Quantifier of position * quantifier * typed_ident list * expr
+  (* '(e foreach i, j)^m^n': the array of size n (of arrays of size m) whose
+     element at index i (and j) is e. Each binder is the position and name of
+     an index variable, and the size of its dimension, outermost first. *)
+  | ArrayComprehension of position * (position * ident * expr) list * expr
   (* 'restart e every r': the state of e is reset to its initial state at
      every step where r is true (desugared by LustreGenNodes into a
      RestartEvery call to a node generated for e) *)
@@ -258,6 +262,10 @@ type struct_item =
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
+  (* The element-wise definition 'x[i][j] = e' of an array, only introduced by
+     LustreDesugarArrayComprehensions for an array comprehension in a node and
+     by LustreAstNormalizer. The parser builds it for the source syntax, which
+     LustreSyntaxChecks rejects. *)
   | ArrayDef of position * ident * ident list
 
 (** The left-hand side of an equation *)
@@ -267,6 +275,10 @@ type eq_lhs =
 (* The left-hand side of an equation in a contract *)
 type contract_eq_lhs =
 | GhostVarDec of position * typed_ident list
+(* A ghost variable of an array type defined element-wise by the equation
+   'x[i][j] = e' (only introduced by LustreDesugarArrayComprehensions, for an
+   array comprehension in a contract) *)
+| GhostArrayDef of position * typed_ident * ident list
 
 (** An equation or assertion in the node body *)
 type node_equation =
@@ -420,6 +432,29 @@ type declaration =
 
 (** A Lustre program as a list of declarations *) 
 type t = declaration list
+
+(** The size of a dimension of an array comprehension that no caret has given
+    yet, while parsing *)
+val missing_size : position -> expr
+
+(** Whether an expression is [missing_size] *)
+val is_missing_size : expr -> bool
+
+(** The size of an index variable without a bound in an array comprehension
+    where others have one, while parsing *)
+val unbounded_size : position -> expr
+
+(** Whether an expression is [unbounded_size] *)
+val is_unbounded_size : expr -> bool
+
+(** Record that the index variable of an array comprehension at the given
+    position is bounded by its size in the source, '(e foreach i < n)', while
+    parsing *)
+val mark_bounded_index : position -> unit
+
+(** Whether the index variable of an array comprehension at the given position
+    is bounded by its size in the source *)
+val is_bounded_index : position -> bool
 
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit

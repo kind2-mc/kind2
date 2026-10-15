@@ -60,7 +60,7 @@ type term =
 
 and var_binding = span * symbol * term
 
-type formula_type = Assumption | Reachable
+type formula_type = Assumption | Reachable | Fairness | Current
 
 type formula_attr = formula_type * (symbol * term)
 
@@ -103,9 +103,38 @@ type define_system_cmd =
   inv: term ;
 }
 
+(* (define-fun f ((x1 S1) ... (xn Sn)) S body) *)
+type define_fun_cmd =
+{
+  loc: span ;
+  name: symbol ;
+  params: sorted_var list ;
+  sort: sort ;
+  body: term ;
+}
+
+(* (declare-const c S) *)
+type declare_const_cmd =
+{
+  loc: span ;
+  name: symbol ;
+  sort: sort ;
+}
+
+(* (declare-enum-sort S (v1 ... vn)) *)
+type declare_enum_sort_cmd =
+{
+  loc: span ;
+  name: symbol ;
+  values: symbol list ;
+}
+
 type command =
   | CheckSystemCmd of check_system_cmd
   | DefineSystemCmd of define_system_cmd
+  | DefineFunCmd of define_fun_cmd
+  | DeclareConstCmd of declare_const_cmd
+  | DeclareEnumSortCmd of declare_enum_sort_cmd
   | SetLogicCmd of symbol
 
 type script = command list

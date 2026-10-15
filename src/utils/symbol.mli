@@ -68,6 +68,7 @@
     {- [`BVSDIV] binary: arithmetic integer signed division}
     {- [`BVUREM] binary: arithmetic remainder}
     {- [`BVSREM] binary: arithmetic signed remainder}
+    {- [`BVSMOD] binary: arithmetic signed remainder with the sign of the divisor}
     {- [`BVSHL] binary: logical shift left}
     {- [`BVLSHR] binary: logical shift right}
     {- [`BVASHR] binary: arithmetic shift right}
@@ -165,6 +166,7 @@ type interpreted_symbol =
   | `BVSDIV               (** Arithmetic integer signed division (binary) *)
   | `BVUREM               (** Arithmetic remainder (binary) *)
   | `BVSREM               (** Arithmetic signed remainder (binary) *)
+  | `BVSMOD               (** Arithmetic signed remainder with the sign of the divisor (binary) *)
   | `BVSHL                (** Logical shift left (binary) *)
   | `BVLSHR               (** Logical shift right (binary) *)
   | `BVASHR               (** Arithmetic shift right (binary) *)

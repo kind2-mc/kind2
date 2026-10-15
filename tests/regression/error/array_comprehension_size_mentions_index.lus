@@ -1,0 +1,9 @@
+-- The sizes of a comprehension are not in the scope of its index variables:
+-- 'j < i' does not make a triangular array, even when a constant is named 'i'
+
+const i: int = 3;
+
+node main (x: bool) returns (B: bool^3^2);
+let
+  B = (x foreach i < 2, j < i);
+tel

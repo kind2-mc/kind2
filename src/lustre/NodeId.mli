@@ -33,6 +33,10 @@ val get_name: t -> HString.t
 val get_user_name: t -> HString.t 
 val get_internal_name: t -> HString.t
 val get_node_type: t -> node_type
+
+(* Whether the node is an internal artifact of the translation, which is
+   hidden from the user and only checked in the context of its callers *)
+val is_internal: t -> bool
 val get_monomorphization: t -> int list
 
 module Map : Map.S with type key = t

@@ -1,0 +1,11 @@
+type E = enum { A, B, C };
+datatype L = LN | LC (h: E, t: L);
+datatype M = MN | MC (g: E, u: M);
+
+node main(x: L; y: M; e: E) returns (ok: bool);
+let
+  ok = (LC?(x) ==> (x.h = A or x.h = B or x.h = C))
+       and (MC?(y) ==> (y.g = A or y.g = B or y.g = C))
+       and ((LC?(x) and then MC?(y) and then x.h = e and then y.g = e) ==> x.h = y.g);
+  check ok;
+tel

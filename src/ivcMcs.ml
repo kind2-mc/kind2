@@ -275,6 +275,7 @@ let rec minimize_node_call_args ue keep expr =
     | A.UnaryOp (p,op,e) -> A.UnaryOp (p,op,aux e)
     | A.BinaryOp (p,op,e1,e2) -> A.BinaryOp (p,op,aux e1,aux e2)
     | A.Quantifier (p,q,ids,e) -> A.Quantifier (p,q,ids,aux e)
+    | A.ArrayComprehension (p,bs,e) -> A.ArrayComprehension (p,bs,aux e)
     | A.AnyOp (p,ti,e) -> A.AnyOp (p,ti,aux e)
     | A.ChooseOp (p,ti,e) -> A.ChooseOp (p,ti,aux e)
     | A.TernaryOp (p,op,e1,e2,e3) -> A.TernaryOp (p,op,aux e1,aux e2,aux e3)
@@ -305,6 +306,7 @@ and ast_contains p ast =
       |> List.exists (fun x -> x)
     | A.ConvOp (_,_,e) | A.UnaryOp (_,_,e) | A.FieldProject (_,e,_,_)
       | A.Quantifier (_,_,_,e)
+      | A.ArrayComprehension (_,_,e)
       | A.Pre (_,e) | A.StructUpdate (_, e, _, None) 
       | A.ChooseOp (_,_,e) | A.AnyOp (_,_,e) | A.Extract (_,e,_,_) ->
       aux e
@@ -430,6 +432,7 @@ let minimize_contract_node_eq ue keep cne =
   match cne with
   | A.ContractCall _ -> [cne]
   | A.GhostConst d -> [A.GhostConst (minimize_const_decl ue keep d)]
+  | A.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
   | A.GhostVars (pos, (GhostVarDec(_, til) as lhs), expr) ->
     let typ = List.map (fun (_, _, t) -> t) til in
     let (_, expr) = minimize_expr (ue false) keep typ expr in

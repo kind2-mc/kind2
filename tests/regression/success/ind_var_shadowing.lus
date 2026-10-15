@@ -2,6 +2,6 @@ const j: int = 2;
 
 node M() returns (A:int^3;);
 let
-  A[j] = j;
+  A = (j foreach j)^3;
   check A[0] = 0;
 tel

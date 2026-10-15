@@ -1,0 +1,9 @@
+function P(v: int) returns (r: bool); let r = v >= 0; tel
+function G(y: int) returns (a: subtype {v: int | P(v)}); let a = 0; tel
+node N() returns (z: int);
+var y: int;
+let
+  y = 0 -> pre y + 1;
+  z = when y <> 1 then G(y) + (0 -> pre y) else 7;
+  check y = 2 => z = 0;
+tel

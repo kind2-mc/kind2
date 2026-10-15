@@ -1,0 +1,22 @@
+-- No instance of a call is made for a comprehension of size 0, so the
+-- properties of the callee, which do not hold, are not checked
+const N: int = 0;
+
+node F() returns (c: int);
+let
+  c = 1 -> pre c + 1;
+  check c < 0;
+tel
+
+node G(x: int) returns (c: int);
+let
+  c = x;
+  check c < 0;
+tel
+
+node main(m: int) returns (A, B: int^N);
+let
+  A = (when m = i then F() else 0 foreach i)^N;
+  B = (G(i) foreach i)^N;
+  check true;
+tel

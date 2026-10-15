@@ -1,0 +1,16 @@
+-- A restart block cannot use a variable whose type is not known, such as one
+-- bound by a pattern of an unknown constructor: the block is abstracted into
+-- a node, which needs the type of the variable.
+
+datatype T = A (v: int) | B;
+node N (t: T; r: bool) returns (b: int);
+let
+  match t with
+  | Foo (w):
+    restart
+      b = 0 -> pre w;
+    every r end
+  | _:
+    b = 0;
+  end
+tel

@@ -1293,8 +1293,8 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
 ) :: tl when N.node_is_visible node ->
 
   (* Functions derived from constants are printed along with the global constants. 
-     Type ascriptions not shown. *)
-  if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr || NI.get_node_type node_id = Restarted then
+     The other internal nodes are not shown. *)
+  if NI.is_internal node_id then
     pp_print_lustre_path_pt' false const_map const_funcs globals ppf tl
   else 
 
@@ -1681,7 +1681,7 @@ let pp_print_stream_xml node model clock ppf (index, state_var) =
         (Type.constructors_of_enum stream_type)
     | Type.Array (_, _) ->
       Format.pp_print_string ppf "type=\"array\""
-    | Type.Datatype (name, ctors) ->
+    | Type.Datatype (name, ctors, _) ->
       Format.fprintf ppf "type=\"datatype\" datatypeName=\"%a\"@ constructors=\"%a\""
         pp_print_name_xml name
         (pp_print_list pp_print_name_xml ", ")
@@ -1734,8 +1734,8 @@ let rec pp_print_lustre_path_xml' is_top const_map const_funcs ppf = function
   ) :: tl when N.node_is_visible node ->
 
     (* Functions derived from constants are printed along with the global constants. 
-       Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr || NI.get_node_type node_id = Restarted then 
+       The other internal nodes are not shown. *)
+    if NI.is_internal node_id then 
       pp_print_lustre_path_xml' false const_map const_funcs ppf tl 
     else
 
@@ -2011,7 +2011,7 @@ let rec pp_print_type_json ?state_var ?model field ppf stream_type =
         (pp_print_list pp_print_qstring ", ")
         (Type.constructors_of_enum stream_type)
   )
-  | Type.Datatype (name, ctors) -> (
+  | Type.Datatype (name, ctors, _) -> (
     let pp_print_qstring ppf s = Format.fprintf ppf "\"%a\"" pp_print_name_json s in
     Format.fprintf ppf
         "\"%s\" : \"datatype\",@,\
@@ -2294,10 +2294,7 @@ let pp_print_streams_json_testgen ppf
    left with a trailing comma. *)
 let node_prints_json = function
   | (_, Node (node, _, _, _, _, _, _, _)) ->
-    N.node_is_visible node &&
-    (match NI.get_node_type node.N.node_id with
-     | NI.FreeConstant | NI.TypeAscription | NI.ClockedExpr | NI.Restarted -> false
-     | _ -> true)
+    N.node_is_visible node && not (NI.is_internal node.N.node_id)
 
 (* Output a list of node models. *)
 let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = function
@@ -2311,8 +2308,8 @@ let rec pp_print_lustre_path_json' is_top const_map const_funcs globals ppf = fu
   ) :: tl when N.node_is_visible node ->
 
     (* Functions derived from constants are printed along with the global constants. 
-       Type ascriptions not shown. *)
-    if NI.get_node_type node_id = FreeConstant || NI.get_node_type node_id = TypeAscription || NI.get_node_type node_id = ClockedExpr || NI.get_node_type node_id = Restarted then
+       The other internal nodes are not shown. *)
+    if NI.is_internal node_id then
       pp_print_lustre_path_json' false const_map const_funcs globals ppf tl
     else
 

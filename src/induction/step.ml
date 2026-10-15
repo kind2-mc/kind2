@@ -258,30 +258,41 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
   let if_sat _ =
 
     let svi = TransSys.get_state_var_bounds trans in
-    
-    (* Extract a model *)
-    let model = 
 
-      (* Do we need the full model? *)
-      if
-        (Flags.BmcKind.compress ()) ||
-        (Flags.BmcKind.lazy_invariants ()) ||
-        (Flags.BmcKind.ind_print_cex ())
-      then 
-
-        (* Get model for all variables *)
-        SMTSolver.get_var_values solver svi
-          (TransSys.vars_of_bounds trans Numeral.zero k)
-        
-      else
-        
-        (* We only need the model at [k] *)
-        TransSys.vars_of_bounds trans k k
-        |> (SMTSolver.get_var_values solver svi)
-        
+    (* Which properties the counterexample to induction falsifies: their
+       values at [k], from the solver, exactly and without reading a
+       model *)
+    let values =
+      SMTSolver.get_term_values_at_once solver
+        (List.map (fun (_, (_, term)) -> Term.bump_state k term) to_split)
     in
 
-    Some model
+    (* The model of all the variables, for lazy invariants and for printing
+       the counterexample, which evaluate terms in it, and for compressing
+       the path. Compression is given up on for a model with arrays too
+       large to read: over a part of the model, it would take states that
+       differ only in such an array for equal. *)
+    let model =
+      if
+        (Flags.BmcKind.lazy_invariants ()) ||
+        (Flags.BmcKind.ind_print_cex ())
+      then
+        (* An array too large to read is left out: the invariants are
+           evaluated where they can be, and the counterexample is only
+           printed *)
+        Some (SMTSolver.get_var_values
+          ~array_limit:(`Omit SMTSolver.max_array_elements) solver svi
+          (TransSys.vars_of_bounds trans Numeral.zero k))
+      else if Flags.BmcKind.compress () then
+        try
+          Some (SMTSolver.get_var_values
+            ~array_limit:(`Raise SMTSolver.max_array_elements) solver svi
+            (TransSys.vars_of_bounds trans Numeral.zero k))
+        with SMTSolver.Too_many_array_elements -> None
+      else None
+    in
+
+    Some (model, values)
 
   in
 
@@ -335,17 +346,25 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       List.iter (SMTSolver.assert_term solver) spurious ;
       loop ()
 
-    | `Model (Some model) ->
+    | `Model (Some (model_opt, values)) ->
       (
 
-      (* Evaluation function. *)
-      let term_to_val =
-        Eval.eval_term (TransSys.uf_defs trans) model
+      (* The model, empty when it was not read *)
+      let model =
+        match model_opt with Some model -> model | None -> Model.create 0
       in
-      (* Bool evaluation function. *)
+      (* Bool evaluation function, in the model, for lazy invariants *)
       let eval term =
-        term_to_val term |> Eval.bool_of_value
+        Eval.eval_term (TransSys.uf_defs trans) model term
+        |> Eval.bool_of_value
       in
+      (* Whether a property holds at [k], from its value *)
+      let holds term =
+        Term.equal
+          (List.assq (Term.bump_state k term) values) Term.t_true
+      in
+      (* Whether the path is compressed: not without the model *)
+      let compress = Flags.BmcKind.compress () && model_opt <> None in
 
       (* Attempting to block counterexample with invariants. *)
       let blocked_by_invariant =
@@ -361,7 +380,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       then loop ()
       else (
         let path =
-          if (Flags.BmcKind.compress ()) || print_cex then
+          if compress || print_cex then
             Model.path_from_model
               (TransSys.state_vars trans) model k
           else StateVar.StateVarHashtbl.create 0
@@ -372,7 +391,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
       
         (* Attempting to compress path. *)
         ( match
-            if Flags.BmcKind.compress () then
+            if compress then
               Compress.check_and_block
                 (SMTSolver.declare_fun solver) trans path
             else []
@@ -382,7 +401,7 @@ let split (input_sys, analysis, trans) solver k to_split actlits =
               (* Splitting properties. *)
               let new_to_split, new_falsifiable =
                 List.partition (fun (name, (_, term)) ->
-                  let holds = Term.bump_state k term |> eval in
+                  let holds = holds term in
                   if (not holds) && print_cex then
                     (* Log cex. *)
                     KEvent.step_cex input_sys analysis trans name cex ;

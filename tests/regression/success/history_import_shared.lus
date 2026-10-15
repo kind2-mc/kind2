@@ -1,0 +1,29 @@
+(* The node and the contract it imports quantify over the history of the
+   same variable b, under different names *)
+contract C(a: int) returns ();
+let
+  guarantee "G" forall (z: history(a)) z >= 0;
+tel
+
+node N(b: int) returns ();
+(*@contract
+  assume b >= 0;
+  import C(b) returns ();
+*)
+let
+  check "P" forall (z: history(b)) z >= 0;
+tel
+
+(* The input of the imported contract is bound to an expression, so its
+   history is that of the variable the expression is abstracted to *)
+contract D(a: int) returns ();
+let
+  guarantee "G" exists (z: history(a)) z = a;
+tel
+
+node M(b: int) returns ();
+(*@contract
+  import D(b + 1) returns ();
+*)
+let
+tel

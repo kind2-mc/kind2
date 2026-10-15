@@ -19,9 +19,27 @@
 type error =
   | UnexpectedChar of Lib.position * char
   | SyntaxError of Lib.position
+  | TypeError of MoxiTypeChecker.error
+  | Unsupported of Lib.position * string
+    (** A well-sorted construct that kmoxi does not translate *)
+
+(** Print an error as [file:line:column: error: message] *)
+val pp_print_error : Format.formatter -> error -> unit
 
 type system_check = TransSys.t SubSystem.t
 
-(* val of_file : string -> (TransSys.t SubSystem.t, [> error]) result *)
+(** Parse and type check the script in a file, without translating it *)
+val check_file : string -> (unit, error) result
 
-val of_file : string -> ((system_check * string list) list, error) result
+(** The MoXI name of a function defined with [define-fun], given the symbol
+    it is translated to, which has a fresh name *)
+val moxi_name_of_uf : UfSymbol.t -> string option
+
+(** Parse, type check and translate the script in a file into one
+    transition system per [check-system] command, in the order of the
+    script, each with the names of
+    its properties that are current-state formulas, and the logic set
+    with [set-logic], if any *)
+val of_file :
+  string ->
+  ((system_check * string list) list * string option, error) result

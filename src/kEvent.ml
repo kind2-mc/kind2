@@ -231,17 +231,6 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-(* Ensure that the names printed are properly formatted *)
-let name_wrapper s =
-  let re =
-    Str.regexp "^.+\\.\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
-    if Str.string_match re s 0 then
-      let kind = "TypeAscription" in
-      let loc = Str.matched_group 2 s in
-      kind ^ "[" ^ loc ^"]"
-    else
-      s
-      
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
@@ -280,7 +269,6 @@ let proved_pt mdl level trans_sys k prop =
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
-    let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
@@ -361,7 +349,7 @@ let unknown_pt mdl level trans_sys prop =
       warning_tag
       (if TransSys.is_candidate trans_sys prop then
          "Candidate" else "Property")
-      (name_wrapper prop)
+      prop
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
@@ -522,7 +510,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        (name_wrapper prop)
+        prop
         (
           match disproved, kind with
             | true, Property.Invariant ->
@@ -594,7 +582,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text (name_wrapper prop)
+      div_by_zero_text prop
       |> printf_pt L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -732,7 +720,7 @@ let prop_status_pt level trans_sys prop_status_kind =
       ppf
       "@[<v>@{<blue_b>%s@}: %a\
       %a"
-      (name_wrapper name)
+      name
       pp_print_status_of_prop
       (status, kind)
       pp_expr sexpr
@@ -1350,7 +1338,7 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text (name_wrapper prop)
+      div_by_zero_text prop
       |> printf_json mdl L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")

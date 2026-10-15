@@ -19,6 +19,88 @@
 module TS = TransSys
 module SVM = StateVar.StateVarMap
 
+(* A symbol in SMT-LIB syntax, quoted if needed *)
+let quote = Lib.smtlib_symbol
+
+let name_of_state_var sv = quote (StateVar.name_of_state_var sv)
+
+(* The name of the model, trace, trail or certificate of a query *)
+let derived prop_name suffix = quote (prop_name ^ suffix)
+
+
+(* A sort in MoXI syntax *)
+let rec pp_print_sort ppf ty =
+  match Type.node_of_type ty with
+  | Type.Enum _ -> Format.pp_print_string ppf (quote (Type.name_of_enum ty))
+  | Type.Array (e, i) ->
+    Format.fprintf ppf "(Array %a %a)" pp_print_sort i pp_print_sort e
+  | _ -> Type.pp_print_type ppf ty
+
+(* A value of a state variable of the given type, in MoXI syntax: the value
+   of an enumeration sort, rather than the integer that stands for it, and
+   the value of an array, a constant array with stores, in SMT-LIB syntax *)
+let rec string_of_value ty value =
+  if Type.is_enum ty then
+    quote (Type.get_constr_of_num (Term.numeral_of_term value))
+  else if Type.is_array ty then
+    let index_ty = Type.index_type_of_array ty in
+    let elem_ty = Type.elem_type_of_array ty in
+    match Term.destruct value with
+    | Term.T.App (sym, [a; i; v])
+      when Symbol.node_of_symbol sym = `STORE ->
+      Format.sprintf "(store %s %s %s)" (string_of_value ty a)
+        (string_of_value index_ty i) (string_of_value elem_ty v)
+    | Term.T.App (sym, [d]) when (match Symbol.node_of_symbol sym with
+        | `CONST_ARRAY _ -> true | _ -> false) ->
+      Format.asprintf "((as const %a) %s)" pp_print_sort ty
+        (string_of_value elem_ty d)
+    | _ -> Term.string_of_term value
+  else Term.string_of_term value
+
+(* A value of an array sort in MoXI syntax, given the elements at each list
+   of indices, outermost first: a constant array of the most frequent
+   element, with a store of each other one. MoXI arrays are indexed by
+   bit-vectors. *)
+let rec string_of_array ty elements =
+  let elem_ty = Type.elem_type_of_array ty in
+  let width = Type.bitvectorsize (Type.index_type_of_array ty) in
+  (* The model reads the indices as signed integers *)
+  let unsigned i = let n = 1 lsl width in ((i mod n) + n) mod n in
+  let index i =
+    Bitvector.num_to_ubv (Numeral.of_int width) (Numeral.of_int i)
+    |> Term.mk_ubv |> Term.string_of_term
+  in
+  (* The value at each index of the outer array, in order *)
+  let values =
+    List.fold_left (fun acc (indices, t) ->
+      match indices with
+      | i :: inner ->
+        let i = unsigned i in
+        let others = try List.assoc i acc with Not_found -> [] in
+        (i, (inner, t) :: others) :: List.remove_assoc i acc
+      | [] -> assert false
+    ) [] elements
+    |> List.sort compare
+    |> List.map (fun (i, inner) ->
+      i,
+      if Type.is_array elem_ty then string_of_array elem_ty (List.rev inner)
+      else match inner with
+        | [([], t)] -> string_of_value elem_ty t
+        | _ -> assert false)
+  in
+  let count v = List.length (List.filter (fun (_, v') -> v' = v) values) in
+  match values with
+  | [] -> "_"
+  | (_, first) :: _ ->
+    let default =
+      List.fold_left (fun best (_, v) -> if count v > count best then v else best)
+        first values
+    in
+    List.fold_left (fun acc (i, v) ->
+      if v = default then acc
+      else Format.sprintf "(store %s %s %s)" acc (index i) v
+    ) (Format.asprintf "((as const %a) %s)" pp_print_sort ty default) values
+
 let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) = 
   List.fold_left (fun map (subsys_val, sys_val)  ->
     let top_val = StateVar.StateVarMap.find_opt sys_val top_to_sys in
@@ -34,10 +116,12 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
     match state_var_opt with 
     | None -> None
     | Some sys_state_var when not (StateVar.for_inv_gen sys_state_var) -> None (* Filter out init flags *)
+    (* The declared constants, which every system has, are in the model *)
+    | Some sys_state_var when StateVar.is_const sys_state_var -> None
     (* May want to find a more robust way to filter out invar_props*)
     (* | _ when String.starts_with ~prefix: "invar_prop." (StateVar.name_of_state_var state_var) -> None Filter out invar_props *)
     | Some sys_state_var -> (
-      let var_name = prefix ^ StateVar.name_of_state_var sys_state_var in 
+      let var_name = prefix ^ name_of_state_var sys_state_var in
       let translated_svar = StateVar.StateVarMap.find sys_state_var map in
       let svar_state_values = List.assoc translated_svar model_assoc_list in
       let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
@@ -47,8 +131,9 @@ let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map =
                                svar_kth_state_value) 
       in
       match svar_kth_state_value with
-      | Model.Term value -> 
-        Some (var_name, Term.string_of_term value, state_value_changed)
+      | Model.Term value ->
+        let ty = StateVar.type_of_state_var sys_state_var in
+        Some (var_name, string_of_value ty value, state_value_changed)
       | Model.Map _ ->
         Some (var_name, "[...]", true)
       | _ -> 
@@ -69,7 +154,7 @@ let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_as
   let help k subsystems =
     List.map (fun (subsys_transys, TransSys.({ map_up; })) ->
       let map = Some (join_maps sys_map map_up) in
-      let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal in
+      let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal |> quote in
       let prefix = prefix ^ subsys_name ^ "::" in
       (get_state_var_vals_at_k_all ~map ~prefix subsys_transys model_assoc_list k)
     ) subsystems in
@@ -117,8 +202,8 @@ let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
     ) false formatted_svar_names
   in
 
-  let reachability_var_names = List.map (fun svar ->
-    StateVar.name_of_state_var svar) reachability_svars
+  let reachability_var_names =
+    List.map name_of_state_var reachability_svars
   in
   let formatted_svar_names = List.filter (fun (var, _, _) ->
     not (List.exists (String.equal var) reachability_var_names)
@@ -181,7 +266,7 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
   let reachability_values = List.map (fun (svar, value, changed) -> match value with 
     | Model.Term value -> 
       let negated_value = not (Term.bool_of_term value) in
-      StateVar.name_of_state_var svar, string_of_bool negated_value, changed 
+      name_of_state_var svar, string_of_bool negated_value, changed
     | _ -> assert false 
   ) reachability_values in
   let reachability_var_names = List.map (fun (name, _, _) -> name) reachability_values in
@@ -225,9 +310,8 @@ let pp_print_trail is_current_state trans_sys ppf path =
       (Numeral.of_int (Model.path_length path - 1))
 
 let pp_print_cex_trail trans_sys prop_name prefix is_current_state ppf cex = 
-  Format.fprintf ppf "@[<hv 2>:trail@ (%s%s (@[<v>@,%a@])@,) @]@,"
-    prop_name
-    (if prefix then "_prefix" else "_lasso")
+  Format.fprintf ppf "@[<hv 2>:trail@ (%s (@[<v>@,%a@])@,) @]@,"
+    (derived prop_name (if prefix then "_prefix" else "_lasso"))
     (pp_print_trail is_current_state trans_sys) (Model.path_of_list cex)
 
 let pp_print_prop_trail trans_sys current_state_props ppf prop =
@@ -247,16 +331,16 @@ let pp_print_prop_trace _ prop =
   match Property.get_prop_status prop with
   | PropFalse _ -> 
     Format.printf "@[<hv 2>:trace@ (@[<v>%s :prefix %s@])@]@,"
-      (prop_name ^ "_trace")
-      (prop_name ^ "_prefix")
+      (derived prop_name "_trace")
+      (derived prop_name "_prefix")
   | PropInvariant _
   | PropKTrue _ 
   | PropUnknown -> () 
 
-let has_model _trans_sys _svar_path = 
-  false 
-  (* List.exists (fun svar -> List.mem_assoc svar svar_path)
-    (TransSys.global_const_state_vars trans_sys) *)
+(* The interpretation of the free symbols: the declared constants *)
+let has_model trans_sys svar_path =
+  List.exists (fun svar -> List.mem_assoc svar svar_path)
+    (TransSys.global_const_state_vars trans_sys)
 
 let pp_print_const_decl _ppf (svar, svar_value_path) =
   let svar_type = StateVar.type_of_state_var svar in
@@ -267,10 +351,17 @@ let pp_print_const_decl _ppf (svar, svar_value_path) =
     not (Model.equal_value value const_value)
   ) (List.tl svar_value_path) with
   | [] -> 
-    Format.printf "(define-fun %s () %a %a)" 
-      (StateVar.name_of_state_var svar) 
-      Type.pp_print_type svar_type 
-      (Model.pp_print_value ?as_type:(Some svar_type)) const_value
+    let pp_print_value ppf = function
+      | Model.Term t -> Format.pp_print_string ppf (string_of_value svar_type t)
+      | Model.Map m ->
+        Format.pp_print_string ppf
+          (string_of_array svar_type (Model.MIL.bindings m))
+      | v -> Model.pp_print_value ~as_type:svar_type ppf v
+    in
+    Format.printf "(define-fun %s () %a %a)"
+      (name_of_state_var svar)
+      pp_print_sort svar_type
+      pp_print_value const_value
   
   | _ -> 
     failwith (Format.asprintf 
@@ -288,9 +379,9 @@ let pp_print_const_decls: TransSys.t -> Format.formatter -> (StateVar.t * Model.
 
 let pp_print_model trans_sys prop_name _ppf path =
   if has_model trans_sys path then 
-    Format.printf "%s@,%a@," (prop_name ^ "_model") (pp_print_const_decls trans_sys) path
+    Format.printf "%s@,%a@," (derived prop_name "_model") (pp_print_const_decls trans_sys) path
   else 
-    Format.printf "%s ()" (prop_name ^ "_model")
+    Format.printf "%s ()" (derived prop_name "_model")
 
 let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit 
 = fun trans_sys _ppf prop ->
@@ -303,13 +394,180 @@ let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit
   | PropKTrue _ 
   | PropUnknown -> ()
 
-let pp_print_prop_cert _ppf prop = 
+(* The name of a variable of the system of a check in a certificate, as an
+   SMT-LIB symbol, quoted if needed:
+   - a variable of the check, by its name in the check;
+   - a variable of a subsystem instance, by the path of the instances down
+     to it, as in [C1::C::l]: the first instance, the call of the system of
+     the check, is the check itself;
+   - a declared constant, by its name;
+   - a variable of kmoxi's own, such as the one a reachability condition is
+     encoded by, by its name after an [@], with which SMT-LIB reserves
+     symbols for solvers, so that it is the name of no variable of the
+     model. *)
+let cert_name_of_state_var sv =
+  let name = StateVar.name_of_state_var sv in
+  (* The scope of the variables of a system, rather than kmoxi's own *)
+  let usr = List.hd LustreIdent.user_scope in
+  match StateVar.scope_of_state_var sv with
+  | _ when StateVar.is_const sv -> quote name
+  | [ _ ; s ] when s = usr -> quote name
+  | _ :: "ins" :: _ :: rest ->
+    (* The instances, each after an "ins", and the scope of the variable in
+       the last one *)
+    let rec instances acc = function
+      | "ins" :: instance :: rest -> instances (instance :: acc) rest
+      | [ s ] when s = usr -> Some (List.rev acc)
+      | _ -> None
+    in
+    (match instances [] rest with
+     | Some path -> quote (String.concat "::" (path @ [ name ]))
+     | None -> quote ("@" ^ String.concat "::" (List.tl rest @ [ name ])))
+  | _ -> quote ("@" ^ name)
+
+(* Print a term of an invariant in SMT-LIB syntax, over the names of
+   [cert_name_of_state_var]: the value of an enumeration sort by its name,
+   rather than the integer that stands for it, wherever it is compared with
+   a term of the sort; a function defined with define-fun by its MoXI name;
+   a divisibility constraint as [(_ divisible n)] *)
+let rec pp_print_cert_term ?enum ppf t =
+  match Term.destruct t with
+  | Term.T.Var v ->
+    Format.pp_print_string ppf
+      (cert_name_of_state_var (Var.state_var_of_state_var_instance v))
+  | Term.T.Const s -> (
+    match Symbol.node_of_symbol s, enum with
+    | `NUMERAL n, Some _ ->
+      Format.pp_print_string ppf (quote (Type.get_constr_of_num n))
+    | _ -> GenericSMTLIBDriver.pp_print_symbol ppf s )
+  | Term.T.App (s, args) ->
+    (* The enumeration sort of the arguments of an equation, or of the
+       branches of an if-then-else, if one is of such a sort *)
+    let enum_of args =
+      List.find_map (fun a ->
+        let ty = Term.type_of_term a in
+        if Type.is_enum ty then Some ty else None) args
+    in
+    let pp_args ?enum ppf args =
+      List.iter (fun a ->
+        Format.fprintf ppf "@ %a" (pp_print_cert_term ?enum) a) args
+    in
+    (match Symbol.node_of_symbol s, args with
+     | (`EQ | `DISTINCT), _ ->
+       Format.fprintf ppf "@[<hv 1>(%a%a)@]"
+         (GenericSMTLIBDriver.pp_print_symbol ~arity:(List.length args)) s
+         (pp_args ?enum:(enum_of args)) args
+     | `ITE, [c; t; e] ->
+       let enum = match enum_of [t; e] with Some _ as e -> e | None -> enum in
+       Format.fprintf ppf "@[<hv 1>(ite@ %a%a)@]"
+         (pp_print_cert_term ?enum:None) c (pp_args ?enum) [t; e]
+     | `DIVISIBLE n, _ ->
+       Format.fprintf ppf "@[<hv 1>((_ divisible %a)%a)@]"
+         Numeral.pp_print_numeral n (pp_args ?enum:None) args
+     | `UF u, _ ->
+       let name =
+         match MoxiInput.moxi_name_of_uf u with
+         | Some name -> quote name
+         | None -> UfSymbol.smtlib_string_of_uf_symbol u
+       in
+       if args = [] then Format.pp_print_string ppf name
+       else
+         Format.fprintf ppf "@[<hv 1>(%s%a)@]" name (pp_args ?enum:None) args
+     | _ ->
+       Format.fprintf ppf "@[<hv 1>(%a%a)@]"
+         (GenericSMTLIBDriver.pp_print_symbol ~arity:(List.length args)) s
+         (pp_args ?enum:None) args)
+
+(* The most cases an atom over variables of enumeration sorts is split into
+   (see [split_enum_atoms]) *)
+let max_enum_cases = 64
+
+(* The invariant with every atom that uses a variable of an enumeration sort
+   other than in an equation with its values written as a case split over
+   the values of these variables. The engines take a value of an
+   enumeration sort for the integer that encodes it, and an atom such as
+   [2 - c >= 0] has no sort in MoXI: it is the disjunction of [(= c v)] for
+   the values [v] it holds for, each with what the atom is for that value
+   if it has other variables. An atom with more than [max_enum_cases] cases
+   is left as it is. *)
+let rec split_enum_atoms t =
+  let enum_vars t =
+    Term.vars_of_term t |> Var.VarSet.elements
+    |> List.filter (fun v -> Type.is_enum (Var.type_of_var v))
+  in
+  (* A value, or a variable, of an enumeration sort *)
+  let is_enum_value t =
+    Term.is_numeral t ||
+    match Term.destruct t with
+    | Term.T.Var v -> Type.is_enum (Var.type_of_var v)
+    | _ -> false
+  in
+  match Term.destruct t with
+  (* Boolean structure *)
+  | Term.T.App (s, args) when (match Symbol.node_of_symbol s with
+      | `AND | `OR | `NOT | `IMPLIES | `XOR -> true
+      | `ITE -> Type.is_bool (Term.type_of_term t)
+      | `EQ -> List.for_all (fun a -> Type.is_bool (Term.type_of_term a)) args
+      | _ -> false) ->
+    Term.mk_app s (List.map split_enum_atoms args)
+  (* An equation between values of an enumeration sort, printed as it is *)
+  | Term.T.App (s, args)
+    when (match Symbol.node_of_symbol s with
+        | `EQ | `DISTINCT -> true | _ -> false)
+      && List.for_all is_enum_value args
+      && List.exists (fun a -> Type.is_enum (Term.type_of_term a)) args -> t
+  | _ ->
+    match enum_vars t with
+    | [] -> t
+    | vars ->
+      let domains =
+        List.map (fun v ->
+          let l, u = Type.bounds_of_enum (Var.type_of_var v) in
+          v, List.init (Numeral.to_int Numeral.(u - l) + 1)
+               (fun i -> Numeral.(l + of_int i))) vars
+      in
+      let cases =
+        List.fold_left (fun n (_, d) -> n * List.length d) 1 domains
+      in
+      if cases > max_enum_cases then t
+      else
+        (* Every assignment of values to the variables *)
+        let rec assignments = function
+          | [] -> [ [] ]
+          | (v, d) :: rest ->
+            let tails = assignments rest in
+            List.concat_map (fun n -> List.map (fun a -> (v, n) :: a) tails) d
+        in
+        assignments domains
+        |> List.filter_map (fun a ->
+          let model =
+            Model.of_list
+              (List.map (fun (v, n) -> v, Model.Term (Term.mk_num n)) a)
+          in
+          let equations =
+            List.map (fun (v, n) -> Term.mk_eq [ Term.mk_var v; Term.mk_num n ]) a
+          in
+          (* The atom for these values, with its other variables left as
+             they are rather than given the defaults of their types *)
+          let value =
+            Simplify.simplify_term_model ~default_of_var:Term.mk_var [] model t
+          in
+          if Term.equal value Term.t_false then None
+          else if Term.equal value Term.t_true then Some (Term.mk_and equations)
+          else Some (Term.mk_and (equations @ [ value ])))
+        |> (function [] -> Term.t_false | [ c ] -> c | cs -> Term.mk_or cs)
+
+(* An invariant of a certificate. The invariants of certificates are of the
+   current state, with no variable at another offset. *)
+let pp_print_inv ppf inv = pp_print_cert_term ppf (split_enum_atoms inv)
+
+let pp_print_prop_cert _ppf prop =
   let prop_name = prop.Property.prop_name in
   match Property.get_prop_status prop with
-  | PropInvariant (k, inv) -> 
+  | PropInvariant (k, inv) ->
     Format.printf "@[<hv 2>:certificate@ (@[<v>%s :inv %a :k %i@])@]@,"
-      (prop_name ^ "_cert")
-      (LustreExpr.pp_print_term_as_expr false)
+      (derived prop_name "_cert")
+      pp_print_inv
       inv
       k
   | PropFalse _ 
@@ -317,8 +575,11 @@ let pp_print_prop_cert _ppf prop =
   | PropUnknown -> ()
 
 let prop_result_info prop_name prop_result = match prop_result with 
-| Property.PropFalse _ -> Format.sprintf ":model %s_model :trace %s_trace" prop_name prop_name
-| PropInvariant _ -> Format.sprintf ":certificate %s_cert" prop_name
+| Property.PropFalse _ ->
+  Format.sprintf ":model %s :trace %s"
+    (derived prop_name "_model") (derived prop_name "_trace")
+| PropInvariant _ ->
+  Format.sprintf ":certificate %s" (derived prop_name "_cert")
 | PropKTrue _
 | PropUnknown -> ""
 
@@ -332,7 +593,7 @@ let pp_print_prop_result _ppf prop =
   | PropUnknown -> "unknown"
   in
   Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ %s %s)@]@]@]@,"
-    prop_name result 
+    (quote prop_name) result
     (prop_result_info prop_name prop_result)
 
 let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit 

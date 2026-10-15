@@ -1,0 +1,9 @@
+-- Array comprehensions are not supported in the ghost constants of a contract
+node N (A: int^3) returns (B: int^3);
+(*@contract
+  const C: int^3 = (i foreach i)^3;
+  guarantee B = C;
+*)
+let
+  B = (i foreach i)^3;
+tel

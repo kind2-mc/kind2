@@ -14,7 +14,7 @@
     "activate", "any", "assert", "assume", "assumption_vars", "at", "auto",
     "check", "choose", "con", "cond", "condact", "const", "contract",
     "datatype", "decreases", "default", "else", "elsif", "end", "ensure",
-    "every", "exists", "fby", "fi", "forall", "frame", "from", "function",
+    "every", "exists", "fby", "fi", "forall", "foreach", "frame", "from", "function",
     "guarantee", "if", "import", "imported", "include", "initial", "invariant",
     "last", "lemma", "let", "match", "merge", "mode", "noc", "node", "of",
     "opaque", "otherwise", "param", "pre", "provided", "reachable", "rec",

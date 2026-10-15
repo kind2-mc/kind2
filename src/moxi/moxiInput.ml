@@ -19,6 +19,23 @@
 type error =
   | UnexpectedChar of Lib.position * char
   | SyntaxError of Lib.position
+  | TypeError of MoxiTypeChecker.error
+  | Unsupported of Lib.position * string
+
+(* A well-sorted construct that kmoxi does not translate *)
+exception Unsupported_feature of Lib.position * string
+
+let pp_print_error ppf = function
+  | UnexpectedChar (pos, c) ->
+    Format.fprintf ppf "%a: error: unexpected character ‘%c’"
+      Lib.pp_print_position pos c
+  | SyntaxError pos ->
+    Format.fprintf ppf "%a: syntax error" Lib.pp_print_position pos
+  | TypeError (pos, kind) ->
+    Format.fprintf ppf "%a: error: %s" Lib.pp_print_position pos
+      (MoxiTypeChecker.error_message kind)
+  | Unsupported (pos, msg) ->
+    Format.fprintf ppf "%a: error: %s" Lib.pp_print_position pos msg
 
 module A = MoxiAst
 module ML = MoxiLexer
@@ -53,14 +70,70 @@ type system_check = TS.t SubSystem.t
 type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
-  checks: (system_check * string list) list
+  (* The checks, last first *)
+  checks: (system_check * string list) list ;
+  (* The names of all the systems of the script, and the number of the next
+     check, for the names of the systems of the checks *)
+  system_names: HSS.t ;
+  next_check: int ;
+  (* The logic set with set-logic, if any *)
+  logic: string option ;
+  (* Numerals denote reals, in a logic with reals and no integers *)
+  real_numerals: bool ;
+  (* The functions defined with define-fun: their symbols by name, and
+     their definitions, last first *)
+  funs: UfSymbol.t HSM.t ;
+  fun_defs: TS.fun_def list ;
+  (* The enumeration sorts declared with declare-enum-sort, by name, and
+     their values. An enumeration sort is a type of Kind 2 that stands for
+     an integer range, one integer per value. *)
+  enums: Type.t HSM.t ;
+  enum_values: HSS.t ;
+  (* The constants declared with declare-const, by name: each is a constant
+     state variable, the same in every state and every system *)
+  consts: SV.t HSM.t ;
+  (* Their variables, and the ranges of those of an enumeration sort, last
+     first *)
+  const_vars: Var.t list ;
+  const_constraints: Term.t list
 }
 
 let empty_input =
 {
   systems = HSM.empty ;
-  checks = []
+  checks = [] ;
+  system_names = HSS.empty ;
+  next_check = 0 ;
+  logic = None ;
+  real_numerals = false ;
+  funs = HSM.empty ;
+  fun_defs = [] ;
+  enums = HSM.empty ;
+  enum_values = HSS.empty ;
+  consts = HSM.empty ;
+  const_vars = [] ;
+  const_constraints = []
 }
+
+(* The environment of the translation of a term *)
+type term_env =
+{
+  scope: Scope.t ;
+  (* The variables bound by the enclosing let binders, which shadow the
+     state variables of the system *)
+  lets: Var.t HSM.t ;
+  (* The declarations and definitions read so far *)
+  decls: input
+}
+
+(* The MoXI names of the functions defined with define-fun, by their
+   symbols, which have fresh names (see [process_command]) *)
+let moxi_names = UfSymbol.UfSymbolHashtbl.create 7
+
+let moxi_name_of_uf uf = UfSymbol.UfSymbolHashtbl.find_opt moxi_names uf
+
+let unsupported span msg =
+  raise (Unsupported_feature (Lib.start_pos span, msg))
 
 let parse_buffer lexbuf =
   try
@@ -73,6 +146,13 @@ let parse_buffer lexbuf =
     let pos = Lib.position_of_lexing lexbuf.lex_start_p in
     Error (SyntaxError pos)
 
+(* Parse and type check the script in a lexing buffer *)
+let parse_and_check lexbuf =
+  let* ast = parse_buffer lexbuf in
+  match MoxiTypeChecker.check_script ast with
+  | Ok () -> Ok ast
+  | Error e -> Error (TypeError e)
+
 
 let rec mk_subsystem map sys =
   let scope = TS.scope_of_trans_sys sys in
@@ -84,6 +164,7 @@ let rec mk_subsystem map sys =
     has_contract = false;
     has_impl = true;
     rec_group = None;
+    is_internal = false;
     has_modes = false;
     map;
     subsystems = subsystems |> List.map TS.scope_of_trans_sys;
@@ -96,11 +177,14 @@ let rec mk_subsystem map sys =
 let hstring_of_symbol = snd
 let string_of_symbol symbol = HString.string_of_hstring (snd symbol)
 
-let rec type_of_sort A.{ id; parameters } =
+let rec type_of_sort enums A.{ id; parameters } =
   let _, symbol, indices = id in
 
   let name = string_of_symbol symbol in
 
+  match HSM.find_opt (hstring_of_symbol symbol) enums with
+  | Some ty -> ty
+  | None ->
   if name = "Bool" then Type.t_bool
   else if name = "Int" then Type.t_int
   else if name = "Real" then Type.t_real
@@ -111,7 +195,8 @@ let rec type_of_sort A.{ id; parameters } =
   )
   else if name = "Array" then (
     match parameters with
-    | [idx_ty; elem_ty] -> Type.mk_array (type_of_sort elem_ty) (type_of_sort idx_ty)
+    | [idx_ty; elem_ty] ->
+      Type.mk_array (type_of_sort enums elem_ty) (type_of_sort enums idx_ty)
     | _ -> failwith("Incorrect arity for Array sort")
   )
   else raise (Invalid_argument
@@ -123,36 +208,213 @@ let mk_sys_scope ?(reserved=false) sys_name =
   else
     sys_name :: I.user_scope
 
-let mk_svar ?(reserved=false) sys_name is_input symbol sort =
+let mk_svar ?(reserved=false) enums sys_name is_input symbol sort =
   let name = string_of_symbol symbol in
   let scope = mk_sys_scope ~reserved sys_name in
   StateVar.mk_state_var
     ~is_input ~is_const:false ~for_inv_gen:true
-    name scope (type_of_sort sort)
+    name scope (type_of_sort enums sort)
 
-let mk_svars sys_name is_input sys_vars =
+(* The engines bound the indices of an array by its index type, which must
+   be a bit-vector type (see [bounds]). The elements are not constrained, so
+   they cannot be of an enumeration sort, whose values are a range of the
+   integers. *)
+let rec check_array_indices span name ty =
+  match Type.node_of_type ty with
+  | Array (e, i) ->
+    if not (Type.is_bitvector i || Type.is_ubitvector i) then
+      unsupported span
+        (Format.asprintf
+           "kmoxi supports arrays indexed by bit-vectors only; %s has sort %a"
+           name Type.pp_print_type ty);
+    if Type.is_enum e then
+      unsupported span
+        (Format.sprintf
+           "kmoxi does not support arrays of an enumeration sort, such as %s"
+           name);
+    check_array_indices span name e
+  | _ -> ()
+
+(* The constraint that a variable of an enumeration sort has one of its
+   values *)
+let enum_range ty v =
+  let l, u = Type.bounds_of_enum ty in
+  Term.mk_leq [Term.mk_num l; v; Term.mk_num u]
+
+let mk_svars enums sys_name is_input sys_vars =
   match sys_vars with
   | None -> []
   | Some (_, sorted_vars) -> (
     List.fold_left 
-      (fun acc (_, name, sort) ->
-        mk_svar sys_name is_input name sort :: acc
+      (fun acc (span, name, sort) ->
+        let svar = mk_svar enums sys_name is_input name sort in
+        check_array_indices span (string_of_symbol name)
+          (SV.type_of_state_var svar);
+        svar :: acc
       )
       []
       sorted_vars
   )
 
-let rec kind2_term scope = function
+(* Widest bit-vector index for which an equality with a constant array is
+   expanded (see [const_array_eq]): 2^8 conjuncts at most *)
+let max_expanded_index_width = 8
+
+(* The sort and value of a constant array term [((as const S) v)] *)
+let const_array_of_ast = function
+  | A.App (_, ((_, symbol, []), false, Some sort), [v]) -> (
+    try
+      let symb =
+        GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
+      in
+      if Symbol.is_const_array symb then Some (sort, v) else None
+    with Not_found -> None
+  )
+  | _ -> None
+
+(* [const_array_eq a ty v] is the conjunction of [(select a i) = v] over every
+   index [i] of the array type [ty], when its index sort is a bit-vector of at
+   most [max_expanded_index_width] bits: it is equivalent to [a = ((as const
+   ty) v)], by extensionality. Some solvers, such as Bitwuzla 0.9, do not
+   support an equality over constant arrays under Boolean structure, which
+   is where the engines put the initial-state constraint, and answer unknown;
+   they support the expansion. *)
+let const_array_eq a ty v =
+  let width = Type.bitvectorsize (Type.index_type_of_array ty) in
+  if width < 1 || width > max_expanded_index_width then None
+  else
+    let index i =
+      Term.mk_ubv
+        (Bitvector.num_to_ubv (Numeral.of_int width) (Numeral.of_int i))
+    in
+    List.init (1 lsl width) (fun i ->
+      Term.mk_eq [Term.mk_select a (index i); v])
+    |> Term.mk_and
+    |> Option.some
+
+(* The symbols that occur free in the term as variables, that is, not as
+   function symbols, primed or indexed, and not bound by a let of the term,
+   added to [acc] *)
+let rec free_symbols bound acc = function
+  | A.Constant _ -> acc
+  | A.QualId ((_, s, []), false, _) ->
+    let s = hstring_of_symbol s in
+    if HSS.mem s bound then acc else HSS.add s acc
+  | A.QualId _ -> acc
+  | A.App (_, _, args) -> List.fold_left (free_symbols bound) acc args
+  | A.Let (_, bindings, t) ->
+    let acc =
+      List.fold_left (fun acc (_, _, t) -> free_symbols bound acc t)
+        acc bindings
+    in
+    let bound =
+      List.fold_left (fun bound (_, s, _) -> HSS.add (hstring_of_symbol s) bound)
+        bound bindings
+    in
+    free_symbols bound acc t
+
+(* The bindings of the lets of a chain of directly nested lets, outermost
+   first, and the term innermost *)
+let rec let_chain acc = function
+  | A.Let (_, bindings, t) ->
+    let_chain (List.map (fun (_, s, t) -> s, t) bindings :: acc) t
+  | t -> List.rev acc, t
+
+(* The chain of lets [chain] (see [let_chain]) split into segments, each a
+   list of lets whose bindings carry a level: 1 for a binding whose term
+   depends on no binding of the segment, and otherwise 1 + the highest
+   level of those it depends on. In a segment, each binding can be moved to
+   the let of its level without changing what any symbol refers to, since
+   the lets of a segment
+
+   - bind each symbol once,
+   - bind no symbol that a term of an earlier let of the segment takes
+     from the enclosing scope, and
+   - have no term that refers to a symbol of its own let, which it takes
+     from the enclosing scope as well.
+
+   A let that breaks the first or the second condition starts a new
+   segment, and one that breaks the third, or binds a symbol twice, is a
+   segment of its own *)
+let let_segments chain =
+  let close segments segment =
+    if segment = [] then segments else List.rev segment :: segments
+  in
+  (* [segment] is the current segment, its lets in reverse order, [levels]
+     the levels of its symbols, and [outer] the symbols its terms take from
+     the enclosing scope *)
+  let rec split segments segment levels outer = function
+    | [] -> List.rev (close segments segment)
+    | lets :: chain ->
+      let names = List.map (fun (s, _) -> hstring_of_symbol s) lets in
+      let refs =
+        List.map (fun (_, t) -> free_symbols HSS.empty HSS.empty t) lets
+      in
+      let own = HSS.of_list names in
+      if HSS.cardinal own <> List.length names
+         || List.exists (fun r -> not (HSS.disjoint r own)) refs
+      then
+        let alone = List.map (fun (s, t) -> s, 1, t) lets in
+        split ([alone] :: close segments segment) [] HSM.empty HSS.empty chain
+      else if
+        segment <> []
+        && List.exists (fun n -> HSM.mem n levels || HSS.mem n outer) names
+      then
+        split (close segments segment) [] HSM.empty HSS.empty (lets :: chain)
+      else
+        let leveled =
+          List.map2 (fun (s, t) r ->
+            let level =
+              HSS.fold (fun n l ->
+                match HSM.find_opt n levels with
+                | Some l' -> max l (l' + 1)
+                | None -> l)
+                r 1
+            in
+            s, level, t)
+            lets refs
+        in
+        let outer =
+          List.fold_left (fun outer r ->
+            HSS.union outer (HSS.filter (fun n -> not (HSM.mem n levels)) r))
+            outer refs
+        in
+        let levels =
+          List.fold_left (fun levels (s, l, _) ->
+            HSM.add (hstring_of_symbol s) l levels)
+            levels leveled
+        in
+        split segments (leveled :: segment) levels outer chain
+  in
+  split [] [] HSM.empty HSS.empty chain
+
+(* Translate a term in the environment [env] *)
+let rec kind2_term env = function
   | A.Constant c -> (
     match c with
     | True -> Term.mk_true ()
     | False -> Term.mk_false ()
-    | Numeral (_, n) -> Term.mk_num n
+    | Numeral (_, n) ->
+      if env.decls.real_numerals then Term.mk_dec (Decimal.of_big_int (Numeral.to_big_int n))
+      else Term.mk_num n
     | Decimal (_, d) -> Term.mk_dec d
     | Bitvector (_, b) -> Term.mk_ubv b
   )
+  | A.QualId ((_, symbol, (_ :: _ as indices)), false, _)
+    when MoxiTypeChecker.bv_literal (string_of_symbol symbol) indices <> None -> (
+    (* A bit-vector constant [(_ bvN m)]: the type checker has checked that
+       the value fits the width *)
+    let value, width =
+      Option.get (MoxiTypeChecker.bv_literal (string_of_symbol symbol) indices)
+    in
+    Term.mk_ubv (Bitvector.num_to_ubv width value)
+  )
+  | A.QualId ((_, symbol, []), false, _)
+    when HSM.mem (hstring_of_symbol symbol) env.lets ->
+    Term.mk_var (HSM.find (hstring_of_symbol symbol) env.lets)
   | A.QualId (id, is_prime, _) -> (
     let _, symbol, indices = id in
+    let scope = env.scope in
 
     if indices <> [] then
       failwith("Unexpected indexed identifier") ;
@@ -174,74 +436,210 @@ let rec kind2_term scope = function
     with Not_found -> (
       try
         if is_prime then raise Not_found ;
-        Term.mk_uf (UfSymbol.uf_symbol_of_string name) []
+        let s = hstring_of_symbol symbol in
+        match HSM.find_opt s env.decls.consts with
+        | Some sv -> Term.mk_var (Var.mk_const_state_var sv)
+        | None when HSS.mem s env.decls.enum_values -> Term.mk_constr name
+        | None ->
+        match HSM.find_opt s env.decls.funs with
+        | Some uf -> Term.mk_uf uf []
+        | None -> Term.mk_uf (UfSymbol.uf_symbol_of_string name) []
       with Not_found -> (
         failwith(Format.sprintf "Invalid constant symbol '%s'" name)
       )
     )
   )
-  | A.App (_, (id, is_prime, sort), args) -> (
-    let args = List.map (kind2_term scope) args in
+  | A.App (_, ((_, symbol, []), false, _), [x; y]) as t
+    when string_of_symbol symbol = "="
+      && (const_array_of_ast x <> None || const_array_of_ast y <> None) -> (
+    (* An equality with a constant array: expand it if the index sort
+       allows, otherwise translate it as any other application *)
+    let a, (sort, v) =
+      match const_array_of_ast x, const_array_of_ast y with
+      | _, Some c -> x, c
+      | Some c, _ -> y, c
+      | None, None -> assert false
+    in
+    match
+      const_array_eq (kind2_term env a) (type_of_sort env.decls.enums sort)
+        (kind2_term env v)
+    with
+    | Some expanded -> expanded
+    | None -> kind2_app env t
+  )
+  | A.App _ as t -> kind2_app env t
+  | A.Let _ as t ->
+    (* A chain of directly nested lets, as translators write a formula with
+       shared subterms, is translated as a few lets of independent bindings
+       (see [let_segments]), built at once with [Term.mk_let_chain]. Built
+       one at a time, thousands of lets take a time that grows faster than
+       the square of their number, since Kind 2 builds a let by traversing
+       its body; and each subterm of a long chain of lets keeps the indexes
+       of the bound variables it contains, a memory that grows with the
+       square of the length of the chain *)
+    let chain, body = let_chain [] t in
+    kind2_let_segments env (let_segments chain) body
+
+(* Translate the let segments [segments] (see [let_segments]) with the term
+   [body] innermost. The bindings of a let are simultaneous: their terms
+   are translated in the scope of the lets before it, and the variables
+   they bind, free variables named after them, shadow state and let-bound
+   variables of the same name in the lets after it and in [body]. The
+   bindings of a segment are then bound by one let per level, the lowest
+   outermost, so that a binding is in the scope of those it depends on,
+   and the lets of all segments are built as one chain *)
+and kind2_let_segments env segments body =
+  let env, levels =
+    List.fold_left (fun (env, levels) segment ->
+      let env, bindings =
+        List.fold_left (fun (env, acc) lets ->
+          let bindings =
+            lets |> List.map (fun (s, level, t) ->
+              let term' = kind2_term env t in
+              let var =
+                Var.mk_free_var (hstring_of_symbol s) (Term.type_of_term term')
+              in
+              s, level, var, term'
+            )
+          in
+          let lets =
+            List.fold_left (fun lets (s, _, var, _) ->
+              HSM.add (hstring_of_symbol s) var lets)
+              env.lets bindings
+          in
+          { env with lets }, List.rev_append bindings acc
+        ) (env, []) segment
+      in
+      (* The bindings of each level, in their order *)
+      let depth = List.fold_left (fun d (_, l, _, _) -> max d l) 0 bindings in
+      let at_level = Array.make depth [] in
+      List.iter (fun (_, l, var, term') ->
+        at_level.(l - 1) <- (var, term') :: at_level.(l - 1))
+        bindings;
+      let levels =
+        Array.fold_left (fun levels b -> if b = [] then levels else b :: levels)
+          levels at_level
+      in
+      env, levels
+    ) (env, []) segments
+  in
+  Term.mk_let_chain (List.rev levels) (kind2_term env body)
+
+(* The width of a bit-vector term *)
+and bv_width t = Type.bitvectorsize (Term.type_of_term t)
+
+(* The bits [i] to [j] of [t], both included *)
+and bv_extract i j t =
+  Term.mk_bvextract (Numeral.of_int i) (Numeral.of_int j) t
+
+(* The bit-vector operators of SMT-LIB that Kind 2 has no symbol for,
+   defined as in the FixedSizeBitVectors theory from the ones it has; the
+   type checker has established the arities and the sorts. Each definition
+   mentions its operands once, so that the terms stay linear in the size of
+   the model: Kind 2 prints terms to the solvers without sharing *)
+and kind2_bv_app name args =
+  match name, args with
+  | "bvnand", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvand [a; b]))
+  | "bvnor", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvor [a; b]))
+  | "bvxnor", [a; b] -> Some (Term.mk_bvnot (Term.mk_bvxor [a; b]))
+  | "bvcomp", [a; b] ->
+    Some (Term.mk_ite (Term.mk_eq [a; b])
+      (Term.mk_ubv (Bitvector.one 1)) (Term.mk_ubv (Bitvector.zero 1)))
+  | "bvsmod", [s; t] -> Some (Term.mk_bvsmod [s; t])
+  | _ -> None
+
+(* The indexed bit-vector operators of SMT-LIB, given their numeral
+   indices; [extract], [sign_extend] and [zero_extend] are symbols of
+   Kind 2, the others are defined from them and [concat] *)
+and kind2_indexed_bv_app name indices args =
+  match name, indices, args with
+  | "extract", [i; j], [t] -> Some (bv_extract i j t)
+  | "sign_extend", [i], [t] -> Some (Term.mk_bvsignext (Numeral.of_int i) t)
+  | "zero_extend", [i], [t] -> Some (Term.mk_bvzeroext (Numeral.of_int i) t)
+  | "repeat", [i], [t] ->
+    (* [i] copies of [t], [i] being positive, by doubling: the term has
+       log2 [i] concatenations, each of a term shared with itself, rather
+       than [i] - 1 of ever wider terms *)
+    let rec copies i =
+      if i = 1 then t
+      else
+        let half = copies (i / 2) in
+        let even = Term.mk_bvconcat half half in
+        if i mod 2 = 0 then even else Term.mk_bvconcat even t
+    in
+    Some (copies i)
+  | ("rotate_left" | "rotate_right"), [i], [t] ->
+    (* Rotating by the width is the identity; a rotation to the left by [k]
+       bits moves the [m - k] low bits up, and the [k] high bits down *)
+    let m = bv_width t in
+    let k = if name = "rotate_left" then i mod m else (m - i mod m) mod m in
+    if k = 0 then Some t
+    else Some (Term.mk_bvconcat (bv_extract (m - k - 1) 0 t)
+                 (bv_extract (m - 1) (m - k) t))
+  | _ -> None
+
+(* Translate a function application *)
+and kind2_app env = function
+  | A.App (span, (id, is_prime, sort), args) -> (
+    let args = List.map (kind2_term env) args in
 
     let _, symbol, indices = id in
+
+    let numeral_index = function
+      | A.NumericIndex (_, n) -> Numeral.to_int n
+      | A.SymbolicIndex _ -> raise Not_found
+    in
 
     try
       if is_prime then raise Not_found ;
       match indices with
+      | [] when HSM.mem (hstring_of_symbol symbol) env.decls.funs ->
+        (* A defined function, which the solvers are given the definition
+           of *)
+        Term.mk_uf (HSM.find (hstring_of_symbol symbol) env.decls.funs) args
+      | [] when string_of_symbol symbol = "!=" ->
+        (* The disequality of MoXI *)
+        Term.mk_not (Term.mk_eq args)
       | [] -> (
-        let symb =
-          GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
-        in
-        if Symbol.is_const_array symb then (
-          match sort with
-          | Some sort -> (
-            match args with
-            | [v] -> Term.mk_const_array (type_of_sort sort) v
-            | _ -> failwith("Incorrect number of arguments for const function")
+        match kind2_bv_app (string_of_symbol symbol) args with
+        | Some t -> t
+        | None ->
+          let symb =
+            GenericSMTLIBDriver.symbol_of_smtlib_atom (hstring_of_symbol symbol)
+          in
+          if Symbol.is_const_array symb then (
+            match sort with
+            | Some sort -> (
+              match args with
+              | [v] ->
+                Term.mk_const_array (type_of_sort env.decls.enums sort) v
+              | _ -> failwith("Incorrect number of arguments for const function")
+            )
+            | None -> failwith("Couldn't determine sort for const function")
           )
-          | None -> failwith("Couldn't determine sort for const function")
-        )
-        else
-          Term.mk_app symb args
+          else
+            Term.mk_app symb args
       )
-      | [idx1; idx2] -> (
-        if (string_of_symbol symbol = "extract") then (
-          match idx1, idx2 with
-          | NumericIndex (_, i1), NumericIndex (_, i2) -> (
-            Term.mk_app (Symbol.s_extract i1 i2) args
-          )
-          | _ -> failwith("Unexpected indices for extract operator")
-        )
-        else raise Not_found
+      | _ -> (
+        match
+          kind2_indexed_bv_app (string_of_symbol symbol)
+            (List.map numeral_index indices) args
+        with
+        | Some t -> t
+        | None -> raise Not_found
       )
-      | _ -> raise Not_found
     with Not_found -> (
-      failwith(Format.sprintf "Invalid function symbol '%s'"
-               (string_of_symbol symbol))
+      (* The type checker has accepted the symbol: it is one of the theories
+         that kmoxi does not translate *)
+      raise (Unsupported_feature (Lib.start_pos span,
+        Format.sprintf "kmoxi does not support the function symbol '%s'"
+          (MoxiTypeChecker.string_of_indexed_id (string_of_symbol symbol)
+             indices)))
     )
   )
-  | A.Let (_, var_bindings, term) -> (
-    (* TODO: Add full support for shadowing *)
-    let vars =
-      var_bindings |> List.map (fun (_, s, t) ->
-        let term' = kind2_term scope t in
-        let ty = Term.type_of_term term' in
-        let var =
-          let name = string_of_symbol s in
-          let svar =
-            StateVar.mk_state_var
-              ~is_input:false ~is_const:false ~for_inv_gen:true
-              name scope ty
-          in
-          Var.mk_state_var_instance svar TS.init_base
-        in
-        var, term'
-      )
-    in
-    Term.mk_let vars (kind2_term scope term)
-  )
+  | A.Constant _ | A.QualId _ | A.Let _ -> assert false
 
-let mk_subsystem_calls local_map sys_name systems subsys =
+let mk_subsystem_calls enums local_map sys_name init_flag systems subsys =
   let process_subsys_attr
     (subsystems, acc_svars, formulas, uid)
     A.{ loc; instance_name; system_name; variables } =
@@ -260,7 +658,7 @@ let mk_subsystem_calls local_map sys_name systems subsys =
           let scope = mk_sys_scope sys_name in
           StateVar.mk_state_var
             ~is_input:false ~is_const:false ~for_inv_gen:true
-            name scope (type_of_sort sort)
+            name scope (type_of_sort enums sort)
         ), false
       | None -> (
         locals |> List.map (fun sv ->
@@ -319,6 +717,15 @@ let mk_subsystem_calls local_map sys_name systems subsys =
         io_svars
         (inputs @ outputs)
     in
+    (* The subsystem's init flag is the caller's init flag: unlike a Lustre
+       node call, a subsystem instance has no flag of its own, so every
+       instance of a system maps the caller's flag down to the same callee
+       flag. Code that picks one instance by the state variables of a
+       property, like [TS.map_cex_prop_to_subsystem], must not be given a
+       property that mentions the flag; MoXI properties never do. *)
+    let sub_init_flag = TS.init_flag_state_var sub in
+    let map_up = SVM.add sub_init_flag init_flag map_up in
+    let map_down = SVM.add init_flag sub_init_flag map_down in
     let inst =
       TS.{
         uid ;
@@ -336,8 +743,10 @@ let mk_subsystem_calls local_map sys_name systems subsys =
         | None -> Some (sub, [inst])
       )
     in
+    (* Actual parameters, in the order of the subsystem's state variables:
+       init flag first, then inputs, outputs, locals and internals *)
     let svars =
-      io_svars @ lifted_svars
+      init_flag :: io_svars @ lifted_svars
       |> List.map (fun sv ->
         let v = Var.mk_state_var_instance sv TS.init_base in
         Term.mk_var v
@@ -368,6 +777,24 @@ let mk_subsystem_calls local_map sys_name systems subsys =
   in
   subsystems, lifted_svars, formulas
 
+(* The definitions, among [fun_defs] (last first), that [terms] apply,
+   directly or through the bodies of other definitions, in definition
+   order. A body applies only the functions defined before it, so one pass
+   from the last definition to the first collects them all. *)
+let applied_fun_defs fun_defs terms =
+  let module UFS = UfSymbol.UfSymbolSet in
+  let used =
+    List.fold_left (fun acc t -> UFS.union (Term.uf_symbols_of_term t) acc)
+      UFS.empty terms
+  in
+  List.fold_left
+    (fun (used, acc) ((uf, _, body) as def) ->
+       if UFS.mem uf used then
+         UFS.union (Term.uf_symbols_of_term body) used, def :: acc
+       else used, acc)
+    (used, []) fun_defs
+  |> snd
+
 let rec bounds ty =
   let fixed_bound ty' =
     match Type.node_of_type ty' with
@@ -380,7 +807,8 @@ let rec bounds ty =
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
-let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_system_cmd) =
+let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
+    (sys_def: A.define_system_cmd) =
 
   let sys_name_hs = hstring_of_symbol sys_def.A.name in
   let sys_name = HString.string_of_hstring sys_name_hs in
@@ -388,27 +816,29 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   let scope = [sys_name] in
   let init_flag = StateVar.mk_init_flag scope in
 
-  let input_svars = mk_svars sys_name true sys_def.A.input in
-  let output_svars = mk_svars sys_name false sys_def.A.output in
-  let local_svars = mk_svars sys_name false sys_def.A.local in
+  let enums = input.enums in
+  let input_svars = mk_svars enums sys_name true sys_def.A.input in
+  let output_svars = mk_svars enums sys_name false sys_def.A.output in
+  let local_svars = mk_svars enums sys_name false sys_def.A.local in
 
   let sys_scope = mk_sys_scope sys_name in
+  let env = { scope = sys_scope; lets = HSM.empty; decls = input } in
 
   let def_svars, init_defs, trans_defs =
     List.fold_left
       (fun (def_svars, init_defs, trans_defs) ((symb, sort), (init, trans)) ->
-        let svar = mk_svar ~reserved:true sys_name false symb sort in
+        let svar = mk_svar ~reserved:true enums sys_name false symb sort in
         let init_defs =
           match init with
           | None -> init_defs
           | Some init -> (
             let var = Var.mk_state_var_instance svar TS.init_base in
-            let eq = Term.mk_eq [Term.mk_var var; kind2_term sys_scope init] in
+            let eq = Term.mk_eq [Term.mk_var var; kind2_term env init] in
             eq :: init_defs
           )
         in
         let var' = Var.mk_state_var_instance svar TS.trans_base in
-        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term sys_scope trans] in
+        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term env trans] in
         svar :: def_svars, init_defs, eq' :: trans_defs
       )
       ([], [], [])
@@ -416,7 +846,8 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
   in
 
   let subsystems, subsys_svars, (subsys_init, subsys_trans) =
-    mk_subsystem_calls local_map sys_name systems sys_def.A.subsys
+    mk_subsystem_calls enums local_map sys_name init_flag input.systems
+      sys_def.A.subsys
   in
 
   let internal_svars =
@@ -424,16 +855,32 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
     |> List.rev_append def_svars
   in
 
+  (* The init flag is a state variable of the system: it must be declared
+     to the solvers together with the other state variables, and it is the
+     first formal parameter of the init and trans predicates *)
   let state_vars =
     internal_svars
     |> List.rev_append local_svars
     |> List.rev_append output_svars
     |> List.rev_append input_svars
+    |> List.cons init_flag
   in
 
-  let global_consts = [] in (* TODO *)
+  (* The declared constants, which every system has, rather than passes to
+     its subsystems *)
+  let global_consts = List.rev input.const_vars in
 
-  let global_constraints = [] in (* TODO *)
+  let global_constraints = List.rev input.const_constraints in
+
+  (* The variables of an enumeration sort have one of its values, in every
+     state; those of the subsystems are constrained by the subsystems *)
+  let enum_ranges offset =
+    List.rev_append input_svars (List.rev_append output_svars local_svars)
+    |> List.filter (fun sv -> Type.is_enum (SV.type_of_state_var sv))
+    |> List.map (fun sv ->
+      enum_range (SV.type_of_state_var sv)
+        (Term.mk_var (Var.mk_state_var_instance sv offset)))
+  in
 
   let ufs = [] in (* TODO *)
 
@@ -451,14 +898,20 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       Type.t_bool
   in
 
-  let init_conj = init_defs @ subsys_init in
+  (* Init flag is true in the initial state *)
+  let init_flag_init =
+    Var.mk_state_var_instance init_flag TS.init_base |> Term.mk_var
+  in
+  let init_conj =
+    init_flag_init :: enum_ranges TS.init_base @ init_defs @ subsys_init
+  in
   let init_conj =
     if (sys_def.inv = A.Constant True) then init_conj
-    else (kind2_term sys_scope sys_def.inv) :: init_conj
+    else (kind2_term env sys_def.inv) :: init_conj
   in
   let init_conj =
     if (sys_def.init = A.Constant True) then init_conj
-    else (kind2_term sys_scope sys_def.init) :: init_conj
+    else (kind2_term env sys_def.init) :: init_conj
   in
   let init_term = Term.mk_and init_conj in
 
@@ -483,27 +936,38 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) systems (sys_def: A.define_syste
       Type.t_bool
   in
 
-  let trans_conj = trans_defs @ subsys_trans in
+  (* Init flag becomes and stays false after the initial state *)
+  let init_flag_trans =
+    Var.mk_state_var_instance init_flag TS.trans_base
+    |> Term.mk_var |> Term.mk_not
+  in
+  let trans_conj =
+    init_flag_trans :: enum_ranges TS.trans_base @ trans_defs @ subsys_trans
+  in
   let trans_conj =
     if (sys_def.inv = A.Constant True) then trans_conj
     else
-      let inv' = Term.bump_state Numeral.one (kind2_term sys_scope sys_def.inv) in
+      let inv' = Term.bump_state Numeral.one (kind2_term env sys_def.inv) in
       inv' :: trans_conj
   in
   let trans_conj =
     if (sys_def.trans = A.Constant True) then trans_conj
-    else (kind2_term sys_scope sys_def.trans) :: trans_conj
+    else (kind2_term env sys_def.trans) :: trans_conj
   in
   let trans_term = Term.mk_and trans_conj in
 
   let state_var_bounds = SVH.create 7 in
 
-  state_vars |> List.iter (fun sv ->
+  (* The engines read the bounds of every array, the constants' included *)
+  state_vars
+  @ List.map Var.state_var_of_state_var_instance global_consts
+  |> List.iter (fun sv ->
     SVH.add state_var_bounds sv (bounds (SV.type_of_state_var sv))
   );
 
   let sys, _ =
     TS.mk_trans_sys
+      ~fun_defs:(applied_fun_defs input.fun_defs [init_term; trans_term])
       scope
       None (* instance_state_var *)
       init_flag
@@ -568,12 +1032,15 @@ let negate term =
   let id = (Lib.dummy_span, symb, []) in
   A.App (Lib.dummy_span, (id, false, None), [term])
 
-let mk_check systems (check_cmd: A.check_system_cmd) =
+let mk_check decls sys_name (check_cmd: A.check_system_cmd) =
   let queries, formulas =
     List.partition A.is_query_attr check_cmd.A.attrs
   in
+  (* What the type checker accepts of a check-system but kmoxi does not
+     translate *)
+  let unsupported_cmd = unsupported check_cmd.A.loc in
   match queries with
-  | [] -> failwith("check-system with no query")
+  | [] -> unsupported_cmd "kmoxi requires a :query in every check-system"
   | [q] -> (
     let query_name, query_symbols =
       match q with
@@ -585,21 +1052,28 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
       )
       | _ -> assert false
     in
-    let assumption_fs, reachable_fs =
+    let named_fs =
       formulas |> List.filter_map (function
         | A.FormulaAttr attr ->
           let (_, ((_, s), _)) = attr in
           if HSS.mem s query_symbols then Some attr else None
         | _ -> None
       )
-      |> List.partition (fun (ty, _) ->
-        match ty with
-        | A.Assumption -> true
-        | A.Reachable -> false
-      )
+    in
+    (* The conditions of the query that kmoxi does not translate *)
+    named_fs |> List.iter (fun (ty, ((span, _), _)) ->
+      match ty with
+      | A.Fairness ->
+        unsupported span
+          "kmoxi does not support :fairness conditions (liveness queries)"
+      | A.Current ->
+        unsupported span "kmoxi does not support :current conditions"
+      | A.Assumption | A.Reachable -> ()
+    ) ;
+    let assumption_fs, reachable_fs =
+      List.partition (fun (ty, _) -> ty = A.Assumption) named_fs
     in
     let loc = check_cmd.A.loc in
-    let sys_name = "query" in
     let name =
       (Lib.dummy_span, HString.mk_hstring sys_name)
     in
@@ -607,7 +1081,9 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
       List.fold_left
         (fun (defs, vars) (_, (symb, term)) ->
           let v =
-            let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
+            let svar =
+              mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
+            in
             Var.mk_state_var_instance svar TS.trans_base
           in
           ((symb, bool_sort), (None, term)) :: defs, v :: vars
@@ -617,10 +1093,13 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     in
     let defs, props, curr_state_props =
       match reachable_fs with
-      | [] -> failwith("check-system query with no reachable attribute")
+      | [] ->
+        unsupported_cmd "kmoxi requires a query to name a :reachable condition"
       | [(_, (symb, term))] -> (
         let v =
-          let svar = mk_svar ~reserved:true sys_name false symb bool_sort in
+          let svar =
+            mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
+          in
           Var.mk_state_var_instance svar TS.prop_base
         in
         let p =
@@ -640,7 +1119,8 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
         ((symb, bool_sort), (Some (A.Constant A.True), negate term)) :: defs,
         [p], curr_state_props
       )
-      | _ -> failwith("check-system query with multiple reachable attributes is not supported")
+      | _ :: (_, ((span, _), _)) :: _ ->
+        unsupported span "kmoxi supports one :reachable condition per query"
     in
     let input = check_cmd.A.input in
     let output = check_cmd.A.output in
@@ -679,7 +1159,9 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
       subsys ; init ; trans ; inv ;
     }
     in
-    let _, sys, _ = mk_system ~defs ~local_map systems sys_def in
+    let _, sys, _ =
+      mk_system ~defs ~local_map decls sys_def
+    in
     let sys_scope = TS.scope_of_trans_sys sys in
     let sys =
       let (_, init_eq, trans_eq) = TS.init_trans_open sys in
@@ -694,38 +1176,138 @@ let mk_check systems (check_cmd: A.check_system_cmd) =
     in
     mk_subsystem (Scope.Hashtbl.create 7) sys, curr_state_props
   )
-  | _ -> failwith("check-system with more than one query is not currently supported")
+  | _ -> unsupported_cmd "kmoxi supports one :query per check-system"
 
-let process_command input = function
-  | A.SetLogicCmd (_, _logic) -> input
+let process_command (input : input) = function
+  | A.SetLogicCmd (_, logic) ->
+    let logic = HString.string_of_hstring logic in
+    { input with
+      logic = Some logic ;
+      real_numerals = MoxiTypeChecker.numerals_are_real logic }
+  | A.DefineFunCmd def -> (
+    (* The parameters are instances at offset zero of state variables in a
+       scope of the function's own, as the formals of the predicates of a
+       system are: that is the form the solvers are given formals in. The
+       body refers to them as to let-bound variables, which shadow
+       everything else, and may apply the functions defined before. *)
+    let name = hstring_of_symbol def.A.name in
+    (* The solvers are given the function under a fresh name, which no
+       other symbol has and is a simple SMT-LIB symbol: the MoXI name may
+       need quoting, or be the name of an internal symbol of Kind 2 *)
+    let fresh_name =
+      Format.sprintf "__kmoxi_fun_%d_%s" (List.length input.fun_defs)
+        (String.map
+           (fun c ->
+              match c with
+              | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> c
+              | _ -> '_')
+           (HString.string_of_hstring name))
+    in
+    (* The reserved scope of the fresh name, which the scope of no state
+       variable of a system can be *)
+    let fun_scope = mk_sys_scope ~reserved:true fresh_name in
+    let params =
+      List.map (fun (_, s, sort) ->
+        let sv =
+          StateVar.mk_state_var ~is_input:true ~is_const:false
+            ~for_inv_gen:false (string_of_symbol s) fun_scope
+            (type_of_sort input.enums sort)
+        in
+        hstring_of_symbol s, Var.mk_state_var_instance sv Numeral.zero
+      ) def.A.params
+    in
+    let env = {
+      scope = [];
+      lets = List.fold_left (fun m (s, v) -> HSM.add s v m) HSM.empty params;
+      decls = input;
+    }
+    in
+    let body = kind2_term env def.A.body in
+    let vars = List.map snd params in
+    let uf =
+      UfSymbol.mk_uf_symbol fresh_name
+        (List.map Var.type_of_var vars) (type_of_sort input.enums def.A.sort)
+    in
+    UfSymbol.UfSymbolHashtbl.replace moxi_names uf
+      (HString.string_of_hstring name) ;
+    { input with
+      funs = HSM.add name uf input.funs;
+      fun_defs = (uf, vars, body) :: input.fun_defs }
+  )
+  | A.DeclareEnumSortCmd decl ->
+    let values = List.map string_of_symbol decl.A.values in
+    let ty = Type.mk_enum (string_of_symbol decl.A.name) values in
+    { input with
+      enums = HSM.add (hstring_of_symbol decl.A.name) ty input.enums ;
+      enum_values =
+        List.fold_left (fun acc (_, v) -> HSS.add v acc) input.enum_values
+          decl.A.values }
+  | A.DeclareConstCmd decl -> (
+    let name = string_of_symbol decl.A.name in
+    let ty = type_of_sort input.enums decl.A.sort in
+    check_array_indices (fst decl.A.name) name ty;
+    (* In a reserved scope of its own, which the scope of no system can be *)
+    let sv =
+      StateVar.mk_state_var ~is_input:false ~is_const:true ~for_inv_gen:true
+        name (mk_sys_scope ~reserved:true "const") ty
+    in
+    let var = Var.mk_const_state_var sv in
+    let constraints =
+      if Type.is_enum ty then [enum_range ty (Term.mk_var var)] else []
+    in
+    { input with
+      consts = HSM.add (hstring_of_symbol decl.A.name) sv input.consts ;
+      const_vars = var :: input.const_vars ;
+      const_constraints = List.rev_append constraints input.const_constraints }
+  )
   | A.DefineSystemCmd sys_def -> (
-    let name, sys, svars = mk_system input.systems sys_def in
+    let name, sys, svars = mk_system input sys_def in
     { input with systems = HSM.add name (sys, svars) input.systems }
   )
   | A.CheckSystemCmd check_cmd ->
-    let check = mk_check input.systems check_cmd in
-    { input with checks = check :: input.checks }
+    (* The system of the check has a name of its own, which no other check
+       and no system of the script has: its scope, those of its variables,
+       and the names of its predicates are its own *)
+    let rec fresh k =
+      let name = Format.sprintf "__kmoxi_check_%d" k in
+      if HSS.mem (HString.mk_hstring name) input.system_names then fresh (k + 1)
+      else k, name
+    in
+    let k, sys_name = fresh input.next_check in
+    let check = mk_check input sys_name check_cmd in
+    { input with checks = check :: input.checks ; next_check = k + 1 }
 
 let process_ast ast =
-  List.fold_left process_command empty_input ast
+  let system_names =
+    List.fold_left (fun acc -> function
+      | A.DefineSystemCmd sys -> HSS.add (hstring_of_symbol sys.A.name) acc
+      | _ -> acc
+    ) HSS.empty ast
+  in
+  List.fold_left process_command { empty_input with system_names } ast
 
-(* Open and parse from file *)
-let of_file filename =
+(* Open a file and apply [f] to its parsed and type checked script; the
+   channel is closed on every path, an error or exception included *)
+let with_file filename f =
   let in_ch =
     match filename with
     | "" -> stdin
     | _ -> open_in filename
   in
-  try (
-    let lexbuf = Lexing.from_channel in_ch in
-    Lib.set_lexer_filename lexbuf filename ;
-    let* ast = parse_buffer lexbuf in
+  Fun.protect ~finally:(fun () -> close_in_noerr in_ch) (fun () ->
+    try
+      let lexbuf = Lexing.from_channel in_ch in
+      Lib.set_lexer_filename lexbuf filename ;
+      let* ast = parse_and_check lexbuf in
+      Ok (f ast)
+    with Unsupported_feature (pos, msg) -> Error (Unsupported (pos, msg))
+  )
+
+let check_file filename = with_file filename ignore
+
+let of_file filename =
+  with_file filename (fun ast ->
     let input = process_ast ast in
-    close_in in_ch;
-    Ok input.checks
-  )
-  with e -> (
-    close_in_noerr in_ch;
-    raise e
-  )
+    (* In the order of the script, which the responses follow *)
+    List.rev input.checks, input.logic)
    

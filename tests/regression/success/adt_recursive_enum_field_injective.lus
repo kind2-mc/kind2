@@ -1,0 +1,9 @@
+type E = enum { A, B };
+datatype L = LN | LC (h: E, t: L);
+
+node main(x: L; y: L) returns (ok: bool);
+let
+  ok = (LC?(x) ==> (x = LC(x.h, x.t)))
+       and ((LC?(x) and then LC?(y) and then x.h = y.h and then x.t = y.t) ==> x = y);
+  check ok;
+tel

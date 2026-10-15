@@ -536,7 +536,10 @@ let refine fwd solver sys predicates cubes =
          parsable back (they range over the uninterpreted sort that encodes
          arrays). This is what BMC does too, see {!Base.solve}. *)
       let model =
+        (* An array too large to read is left out: the counterexample is
+           only reported *)
         SMTSolver.get_var_values
+          ~array_limit:(`Omit SMTSolver.max_array_elements)
           intrpo
           (TransSys.get_state_var_bounds sys)
           (TransSys.vars_of_bounds sys Numeral.zero (Numeral.of_int (len - 2)))
@@ -816,21 +819,58 @@ let get_invariant init c =
     (Cube.literals c)
   |> Term.mk_or
 
-let report_invariant sys inv =
-  let broadcast_inv =
-    match !(added_logic ()) with
-    | None -> true
-    | Some f -> (
-      let inv_logic = TermLib.logic_of_term [] inv in
-      not (TermLib.FeatureSet.mem f inv_logic)
+(* The logic of each clause found, which the certificates of the clauses
+   of a frame make us compute again and again; local to the domain, as
+   the terms whose tags it is keyed by *)
+let clause_logics =
+  let key = Domain.DLS.new_key (fun () -> Term.TermHashtbl.create 97) in
+  fun () -> Domain.DLS.get key
+
+let logic_of_clause c =
+  match Term.TermHashtbl.find_opt (clause_logics ()) c with
+  | Some l -> l
+  | None ->
+    let l = TermLib.logic_of_term [] c in
+    Term.TermHashtbl.add (clause_logics ()) c l ;
+    l
+
+(* Is the term in the logic of the original system, with none of the
+   features the interpolation adds? *)
+let in_logic t =
+  match !(added_logic ()) with
+  | None -> true
+  | Some f -> not (TermLib.FeatureSet.mem f (logic_of_clause t))
+
+(* The clauses of a certificate if they are all in the logic *)
+let cert_in_logic cert =
+  if List.for_all in_logic cert then Some cert else None
+
+(* Report the invariant [inv] with the certificate [cert ()], a list of
+   clauses whose conjunction is 1-inductive and implies [inv], or [None]
+   if one of the clauses is not in the logic (see [cert_in_logic]). A clause
+   IC3IA finds is inductive only together with the others of its frame,
+   so the certificate of each is their conjunction: the supervisor takes
+   the certificate of an invariant that is a property for that of the
+   property. An invariant is reported only if it and its certificate are
+   in the logic of the original system. *)
+let report_invariant sys cert inv =
+  if in_logic inv then
+    match cert () with
+    | Some cert ->
+      KEvent.invariant
+        (TransSys.scope_of_trans_sys sys) inv (1, Term.mk_and cert) false
+    | None -> ()
+
+let get_invariants init frames k =
+  List.fold_left
+    (fun invs f ->
+      CS.fold
+        (fun c invs -> get_invariant init c :: invs)
+        (Frame.cubes f)
+        invs
     )
-  in
-  (* Only report an invariant if the term belongs to
-     the logic of the original system *)
-  if broadcast_inv then
-    let cert = (1, inv) in
-    KEvent.invariant
-      (TransSys.scope_of_trans_sys sys) inv cert false
+    []
+    (list_suffix frames k)
 
 let add_blocked_cube solver sys init frames s =
   let k =
@@ -882,10 +922,11 @@ let add_blocked_cube solver sys init frames s =
   SMTSolver.trace_comment solver
     (Format.asprintf "Blocked [%d] : %a" k Cube.pp_print_cube s_cube) ;
 
-  (* Report if invariant *)
+  (* Report if invariant, with the clauses of the frame at infinity, the
+     [k]th, which are inductive together *)
   if TCube.frame s = TCube.FrameInf then (
     let inv = get_invariant init (TCube.cube s) in
-    report_invariant sys inv
+    report_invariant sys (fun () -> cert_in_logic (get_invariants init frames k)) inv
   ) ;
   
   frames
@@ -987,17 +1028,6 @@ let add_frame f frames =
   Lib.list_insert_at f (List.length frames - 1) frames
 
 
-let get_invariants init frames k =
-  List.fold_left
-    (fun invs f ->
-      CS.fold
-        (fun c invs -> get_invariant init c :: invs)
-        (Frame.cubes f)
-        invs
-    )
-    []
-    (list_suffix frames k)
-
 let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames =
   let init = get_init base_offset in
   let rec loop frames k =
@@ -1010,8 +1040,13 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
               let tc = TCube.mk c (Frame (k+1)) in
               solve_relative solver predicates frames' tc NoInd
             in
+            (* Move the cube in the frames of this fold, not in those the
+               loop was entered with: the latter undid the earlier moves of
+               the round, leaving the later queries of the round justified by
+               clauses the frames no longer had, and a frame could be found
+               empty, and the frames after it inductive, when they were not *)
             if TCube.frame s <> TCube.FrameNull then
-              add_blocked_cube solver sys init frames s
+              add_blocked_cube solver sys init frames' s
             else
               frames'
           )
@@ -1033,6 +1068,9 @@ let propogate_blocked_cubes solver in_sys param sys prop_name predicates frames 
 
 
 let main_ic3ia fwd prop in_sys param sys =
+
+   (* The clauses of an earlier run in the domain are of another system *)
+   Term.TermHashtbl.reset (clause_logics ()) ;
 
    let solver = mk_solver sys in
 
@@ -1085,8 +1123,9 @@ let main_ic3ia fwd prop in_sys param sys =
 
     let invariants = loop predicates next_cube frames in
     
-    invariants
-    |> List.iter (fun i -> report_invariant sys i) ;
+    (* The certificate of every invariant is all of them, checked once *)
+    let clauses = cert_in_logic invariants in
+    invariants |> List.iter (report_invariant sys (fun () -> clauses)) ;
 
     let cert = 1, Term.mk_and invariants in
 
@@ -1187,7 +1226,7 @@ let main fwd slice_to_prop prop in_sys param sys =
         prop.Property.prop_name
     in
     raise (UnsupportedFeature msg)
-  else if TransSys.subsystem_includes_fun_def sys then
+  else if TransSys.subsystem_includes_rec_fun_def sys then
     (* The definitions are part of the concrete unrolling the interpolating
        solver refines the abstraction on, and the interpolating solvers do
        not take them *)

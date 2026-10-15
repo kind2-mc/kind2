@@ -153,15 +153,76 @@ let contract_abstracts node =
    abstract it in the current analysis *)
 let eligible node = not (contract_abstracts node)
 
-(* The equations and calls of a node, by the state variable they define *)
+(* Type ascriptions *)
+
+(* A type ascription (e : T) is a call to a generated node whose output is
+   its first input, of type T, and whose other inputs are the variables of T
+   (see [LustreGenNodes]). T only gives an obligation on e, which is an
+   assumption of the node, an obligation of its callers that the transition
+   system keeps at every call: in a definition, the call is the identity on
+   e (see [ascription_is_identity]). *)
+let is_type_ascription node_id =
+  NI.get_node_type node_id = NI.TypeAscription
+
+(* The state variables of the first input of a node. The inputs are always
+   indexed by their position; the output of a node with a single output is
+   not. *)
+let first_input inputs =
+  match D.find_prefix [D.ListIndex 0] inputs with
+  | svars -> svars
+  | exception Not_found -> D.empty
+
+(* The array an equation copies whole, if it is one: [y[i1]...[in] =
+   x[i1]...[in]] for all the indexes of [y], with [x] a state variable or a
+   constant of the type of [y]. Such an equation defines [y] as [x], which a
+   definition can be built from. *)
+let whole_array_copy ((sv, bounds), e) =
+  let n = List.length bounds in
+  if n = 0 || not (List.for_all (function E.Bound _ -> true | _ -> false) bounds)
+  then None
+  else
+    let t = E.base_term_of_expr Numeral.zero (E.init_expr e) in
+    if not (Term.is_select t) then None
+    else
+      let v, idxs = Term.indexes_and_var_of_select t in
+      (* The [k]-th index of the select is the [k]-th index variable *)
+      let rec are_index_vars k = function
+        | [] -> true
+        | t :: ts ->
+          Term.is_free_var t
+          && Term.equal t
+            (E.mk_array_index_var k (Term.type_of_term t)
+             |> E.init_expr |> E.base_term_of_expr Numeral.zero)
+          && are_index_vars (k + 1) ts
+      in
+      if List.length idxs = n
+         && are_index_vars 0 idxs
+         && not (Var.is_free_var v)
+         && Type.equal_types (Var.type_of_var v) (StateVar.type_of_state_var sv)
+      then Some v
+      else None
+
+(* The definitions of the state variables of a node, from its equations and
+   calls. A state variable is [Unsupported] when its equations are not ones a
+   definition can be built from: more than one equation, as for the indexes
+   of an array, or an equation for every index that is not a whole-array
+   copy. *)
 type svar_def =
   | Eq of E.t
+  | Copy of Var.t
   | Call of N.node_call
+  | Unsupported
 
 let defs_of_node { N.equations; N.calls } =
   let defs =
     List.fold_left
-      (fun acc ((sv, _), e) -> SVM.add sv (Eq e) acc)
+      (fun acc (((sv, bounds), e) as eq) ->
+         if SVM.mem sv acc then SVM.add sv Unsupported acc
+         else
+           match bounds, whole_array_copy eq with
+           | [], _ -> SVM.add sv (Eq e) acc
+           | _, Some v -> SVM.add sv (Copy v) acc
+           | _, None -> SVM.add sv Unsupported acc)
       SVM.empty
       equations
   in
@@ -174,21 +235,53 @@ let defs_of_node { N.equations; N.calls } =
 (* The state variables a definition depends on *)
 let deps_of_def = function
   | Eq e -> E.state_vars_of_expr e
-  | Call { N.call_inputs; N.call_context } ->
-    let deps = D.values call_inputs |> SVS.of_list in
-    match call_context with
-    | Some sv -> SVS.add sv deps
-    | None -> deps
+  | Copy v -> SVS.singleton (Var.state_var_of_state_var_instance v)
+  | Call { N.call_node_id; N.call_inputs; N.call_context } ->
+    (* A type ascription only reads its first input in a definition *)
+    let inputs =
+      if is_type_ascription call_node_id then first_input call_inputs
+      else call_inputs
+    in
+    let deps = D.values inputs |> SVS.of_list in
+    (match call_context with
+     | Some sv -> SVS.add sv deps
+     | None -> deps)
+  | Unsupported -> SVS.empty
 
-(* The state variables of a node other than its inputs *)
-let defined_svars { N.outputs; N.locals } =
-  D.values outputs @ List.concat_map D.values locals
+(* Whether a type ascription node outputs its first input: its output has
+   the indexes of the input, and each of its state variables is defined by a
+   single equation as the state variable of the input at the same index, or
+   as a whole-array copy of it *)
+let ascription_is_identity ({ N.inputs; N.outputs; N.asserts; N.oracles } as node) =
+  let input = first_input inputs in
+  let in_keys = D.keys input in
+  let out_keys = D.keys outputs in
+  asserts = [] && oracles = []
+  && List.length in_keys = List.length out_keys
+  && List.for_all2 D.equal_index in_keys out_keys
+  &&
+  let defs = defs_of_node node in
+  let is_input sv sv' = StateVar.equal_state_vars sv sv' in
+  D.fold2
+    (fun _ out_sv in_sv ok ->
+       ok
+       && match SVM.find_opt out_sv defs with
+       | Some (Eq e) -> E.is_var e && is_input (E.state_var_of_expr e) in_sv
+       | Some (Copy v) ->
+         (* A copy of the input at the current instant, not of its previous
+            value or of a constant *)
+         Var.is_state_var_instance v
+         && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
+         && is_input (Var.state_var_of_state_var_instance v) in_sv
+       | Some (Call _ | Unsupported) | None -> false)
+    outputs input true
 
 (* Whether the body of a function is a total function of its inputs that a
-   definition can be built from: no assertion or oracle, and no array but the
-   inputs (whose selects are terms of the definition); every output
-   defined, through equations and calls only, from the inputs (and global
-   constants); and every callee recursive, imported, or itself definable
+   definition can be built from: no assertion or oracle; every state variable
+   defined by a single equation, which is an equation for every index only if
+   it copies an array whole, or by a call; every output defined, through
+   these equations and calls only, from the inputs (and global constants);
+   and every callee recursive, imported, or itself definable
    (memoized in [memo]; a function in progress is not definable, which only
    matters for a call cycle, and a call cycle is a recursive group) *)
 let rec definable nodes memo node =
@@ -201,13 +294,11 @@ let rec definable nodes memo node =
     memo := NI.Map.add node_id b !memo;
     b
 
-and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node) =
-  let no_array sv =
-    not (Type.is_array (StateVar.type_of_state_var sv))
-  in
+and definable' nodes memo ({ N.inputs; N.outputs; N.calls } as node) =
   let callee_ok { N.call_node_id } =
     match N.node_of_node_id call_node_id nodes with
     | exception Not_found -> false
+    | callee when is_type_ascription call_node_id -> ascription_is_identity callee
     | callee ->
       N.is_function callee
       && not (is_lemma callee)
@@ -218,8 +309,16 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node
   (* A call may have a context (the branch of a conditional it is in):
      its constraints only hold under it, and the definition leaves its value
      undefined outside of it *)
-  let call_ok ({ N.call_cond; N.call_defaults; N.call_oracles } as call) =
-    call_cond = [] && call_defaults = None
+  let call_ok ({ N.call_node_id; N.call_cond; N.call_defaults; N.call_oracles } as call) =
+    (* An ascription in a lazy branch is a call that the guard of the branch
+       activates, with no defaults. Its output is only read where it is
+       active, where it is its input, so the activation does not change its
+       definition. *)
+    let lazy_branch_ascription =
+      is_type_ascription call_node_id
+      && List.for_all (function N.CActivate _ -> true | N.CRestart _ -> false) call_cond
+    in
+    (call_cond = [] || lazy_branch_ascription) && call_defaults = None
     && call_oracles = [] && callee_ok call
   in
   let defs = defs_of_node node in
@@ -243,8 +342,7 @@ and definable' nodes memo ({ N.inputs; N.outputs; N.equations; N.calls } as node
   && not node.N.is_extern
   && node.N.oracles = []
   && node.N.asserts = []
-  && List.for_all (fun ((_, bounds), _) -> bounds = []) equations
-  && List.for_all no_array (defined_svars node)
+  && not (SVM.exists (fun _ -> function Unsupported -> true | _ -> false) defs)
   && List.for_all call_ok calls
   && (D.values outputs
       |> List.fold_left
@@ -333,6 +431,10 @@ let rec bindings_of_node ctx node acc =
         | Eq e ->
           SVS.add sv visited,
           (var_of_svar sv, term_of_expr (E.init_expr e)) :: acc
+        | Copy v ->
+          SVS.add sv visited,
+          (var_of_svar sv, Term.mk_var v) :: acc
+        | Unsupported -> assert false (* Checked by [definable] *)
         | Call ({ N.call_outputs } as call) ->
           D.fold (fun _ sv -> SVS.add sv) call_outputs visited,
           bindings_of_call ctx call acc
@@ -345,6 +447,16 @@ let rec bindings_of_node ctx node acc =
 and bindings_of_call
     ctx ({ N.call_node_id; N.call_inputs; N.call_outputs; N.call_context }) acc =
   let callee = N.node_of_node_id call_node_id ctx.nodes in
+  if is_type_ascription call_node_id then
+    (* The output of a type ascription is its first input (checked by
+       [ascription_is_identity]) *)
+    D.fold2
+      (fun _ call_out call_in acc ->
+         (var_of_svar call_out, term_of_svar call_in) :: acc)
+      call_outputs
+      (first_input call_inputs)
+      acc
+  else
   let args = D.values call_inputs |> List.map term_of_svar in
   let uf_symbols =
     match func_info callee with
@@ -451,14 +563,15 @@ let body_of_output bindings output =
       bindings
   in
   (* [kept] is in dependency order: nest the bindings from the innermost
-     (last) one. Without the theory of arrays, a select of an array input
-     is encoded as the application of its select symbol, as in the
-     transition relation *)
+     (last) one. Without the theory of arrays, a select of an array is
+     encoded as the application of its select symbol, as in the transition
+     relation. The selects are encoded in each binding before the bindings
+     are nested: once nested, a select of an array local would apply to a
+     bound variable, which the encoding does not take. *)
   List.fold_right
-    (fun binding body -> Term.mk_let [binding] body)
+    (fun (v, t) body -> Term.mk_let [v, Term.convert_select t] body)
     kept
     (Term.mk_var output_var)
-  |> Term.convert_select
 
 (* The block of definitions of a recursive group *)
 let block_of_scc nodes helpers scc_id members =

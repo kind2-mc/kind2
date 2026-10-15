@@ -23,6 +23,8 @@ module StringMap = HString.HStringMap
 
 module StringSet = HString.HStringSet
 
+module AH = LustreAstHelpers
+
 type source =
   | Local
   | Input
@@ -32,6 +34,14 @@ type source =
   (* Output of an equation pulled out of a when-block branch; the expression is
      the (polarity-adjusted) conjunction of the enclosing when-block guards.
      Node calls in such an equation must be activated on that clock. *)
+
+(* A generated equation *)
+type equation =
+  LustreAst.typed_ident list (* quantified variables *)
+  * (Lib.position * NodeId.t) list (* contract scope  *)
+  * LustreAst.eq_lhs
+  * LustreAst.expr
+  * source option (* Record the source of the equation if generated before normalization step *)
 
 type t = {
   node_args : (HString.t (* abstracted variable name *)
@@ -119,13 +129,7 @@ type t = {
     LustreAst.binary_operator * 
     LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr
-    * source option) (* Record the source of the equation if generated before normalization step *)
-    list;
+  equations : equation list;
   nonvacuity_props: StringSet.t;
   clocked_call_ties:
     (HString.t * HString.t option * HString.t * HString.t) list;
@@ -149,6 +153,13 @@ type t = {
   prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
+  history_defs: (LustreAst.lustre_type * equation) StringMap.t;
+  (* The type and the equation of each history variable, by name. A history
+     variable is named after the variable it records, as renamed in the scope
+     of its quantifier, so every property quantifying over the history of the
+     same variable yields the same definition. They are kept apart from
+     [locals] and [equations], and are declared once per node (see
+     [LustreAstNormalizer.normalize_node]). *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -159,13 +170,6 @@ let iboracle =  "iboracle"
    of reachability queries with timestep bounds. *)
 let ctr_id = HString.mk_hstring "*counter"
 
-(* Checks if a variable name corresponds to an iboracle *)
-let var_is_iboracle var =
-  let
-    var = String.split_on_char '_' (HString.string_of_hstring var) |>
-    List.rev |> List.hd
-  in
-  (var = iboracle)
 
 (* String constant used in lustreNameCalls.ml as the suffix of the fresh local
    variables introduced to capture the discarded results of a call statement
@@ -173,17 +177,48 @@ let var_is_iboracle var =
    abstract calls appearing inside larger expressions. *)
 let discarded_output = "discard"
 
-(* Checks if a variable name corresponds to a discarded call-statement result.
+(* Whether a segment of a name is a numeral: the leading segment of the AST
+   names of generated variables, which no identifier in the source can have *)
+let is_numeral s = s <> "" && String.for_all (fun c -> '0' <= c && c <= '9') s
 
-   At the AST level the fresh variables are named with [discarded_output] as a
-   suffix (e.g. '1_discard'), but [LustreNodeGen.mk_ident] turns a leading
-   numeric segment into a trailing index, so the corresponding state variable is
-   named with [discarded_output] as a prefix instead (e.g. 'discard_1'). We
-   therefore look for [discarded_output] as a '_'-separated segment, which
-   matches both forms. *)
-let var_is_discarded_output var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem discarded_output
+(* Checks if a variable name is the AST name '<n>_<suffix>' of a generated
+   variable. The leading numeric segment, which no identifier in the source can
+   have, keeps it apart from user names such as 'my_<suffix>'. *)
+let is_generated_ast_name suffix var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [n; s] -> s = suffix && is_numeral n
+  | _ -> false
+
+(* Checks if a state variable name is the one of a generated variable
+   '<n>_<suffix>' with no further index: [LustreNodeGen.mk_ident] turns the
+   leading numeric segment into a trailing index, '<suffix>_<n>'.
+
+   This form is not unique: a user variable named exactly '<suffix>_<n>' gets
+   the same name. That collision is in [LustreNodeGen.mk_ident] itself and
+   affects every generated name, not just this check (see issue #1734). *)
+let is_generated_svar_name suffix var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | [s; n] -> s = suffix && is_numeral n
+  | _ -> false
+
+(* Checks if a variable name is the AST name of an iboracle, '<n>_iboracle'
+   (see lustreDesugarIfBlocks.ml), as opposed to a user name such as
+   'my_iboracle', which a frame block must not replace with its stuttering
+   value. *)
+let var_is_iboracle = is_generated_ast_name iboracle
+
+(* Checks if a variable name is the AST name of a discarded call-statement
+   result, '<n>_discard' (see lustreNameCalls.ml), as opposed to a user name
+   such as 'my_discard', which must be defined in every branch of an if
+   block. *)
+let var_is_discarded_output = is_generated_ast_name discarded_output
+
+(* Checks if a state variable name is the one of a discarded call-statement
+   result, 'discard_<n>'. Only lemmas are invoked in call statements, and the
+   result of a lemma is a single value, so the name has no further index.
+   See [is_generated_svar_name] for the collision with a user variable named
+   exactly so. *)
+let svar_is_discarded_output = is_generated_svar_name discarded_output
 
 (* String constant used in lustreDesugarLast.ml as a segment of the fresh local
    variables introduced to desugar the 'last' operator (e.g. '0_glast_o'). The
@@ -214,27 +249,33 @@ let block_guard = "bguard"
    calls a node must name a single instance of it. *)
 let match_scrutinee = "mscrut"
 
-(* The locals lustreGenNodes.ml has bound match scrutinees to. Recognising one
-   by name would also catch a user-written identifier holding the same
-   '_'-separated segment, which the passes below would then exempt from checks
-   a user variable must meet. *)
-let match_scrutinees : unit HString.HStringHashtbl.t =
-  HString.HStringHashtbl.create 7
+(* Checks if a variable name is the AST name of a bound match block scrutinee,
+   '<n>_mscrut', as opposed to a user name such as 'my_mscrut', which the
+   passes below must not exempt from the checks a user variable must meet. *)
+let var_is_match_scrutinee = is_generated_ast_name match_scrutinee
 
-let register_match_scrutinee var =
-  HString.HStringHashtbl.replace match_scrutinees var ()
+(* String constant used in lustreDesugarArrayComprehensions.ml as the suffix of
+   the fresh locals holding the value of an array comprehension
+   (e.g. '4_gcomp'). *)
+let array_comprehension = "gcomp"
 
-(* Checks if a variable name corresponds to a bound match block scrutinee *)
-let var_is_match_scrutinee var =
-  HString.HStringHashtbl.mem match_scrutinees var
+(* Checks if a variable name is the AST name of the local of an array
+   comprehension, '<n>_gcomp'. The name of its state variable, where
+   [LustreNodeGen.mk_ident] has moved the number to an index ('gcomp_<n>'),
+   does not match. *)
+let var_is_array_comprehension = is_generated_ast_name array_comprehension
 
-(* Checks if a variable name corresponds to a 'last'-operator local. As with
-   [var_is_discarded_output], [LustreNodeGen.mk_ident] may move the leading
-   numeric segment to the end, so we look for [last_local] as a '_'-separated
-   segment, which matches both forms. *)
+(* Checks if a variable name is the AST name of a 'last'-operator local,
+   '<n>_glast_<x>' or '<n>_glast_init_<x>' (see lustreDesugarLast.ml). The
+   leading numeric segment keeps it apart from user names such as 'my_glast':
+   such a variable must keep its refinement-type obligations and be shown in
+   counterexamples. The name of its state variable, where
+   [LustreNodeGen.mk_ident] has moved the number to an index ('glast_<x>_<n>'),
+   does not match: a caller with a state variable must use its AST name. *)
 let var_is_last_local var =
-  String.split_on_char '_' (HString.string_of_hstring var)
-  |> List.mem last_local
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | n :: segment :: _ :: _ -> segment = last_local && is_numeral n
+  | _ -> false
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
@@ -243,6 +284,30 @@ let union_keys key id1 id2 = match key, id1, id2 with
   (* Identifiers are guaranteed to be unique making this branch impossible *)
   | _, (Some _), (Some _) -> assert false
 
+
+(* Two definitions of the same history variable record the same variable, so
+   they must be equal up to positions. The contract scope is not compared: it
+   only resolves mode references, which a history equation has none of. *)
+let union_history_defs _ ((ty1, (qv1, _, lhs1, rhs1, src1)) as def) (ty2, (qv2, _, lhs2, rhs2, src2)) =
+  let equal = function Ok b -> b | Error () -> false in
+  let typed_ident_equal (_, id1, ty1) (_, id2, ty2) =
+    HString.equal id1 id2 && equal (AH.syn_type_equal None ty1 ty2)
+  in
+  let lhs_equal lhs1 lhs2 =
+    match lhs1, lhs2 with
+    | LustreAst.StructDef (_, [LustreAst.ArrayDef (_, id1, is1)]),
+      LustreAst.StructDef (_, [LustreAst.ArrayDef (_, id2, is2)]) ->
+      HString.equal id1 id2 && List.equal HString.equal is1 is2
+    | _ -> false
+  in
+  assert (
+    equal (AH.syn_type_equal None ty1 ty2)
+    && List.equal typed_ident_equal qv1 qv2
+    && lhs_equal lhs1 lhs2
+    && equal (AH.syn_expr_equal None rhs1 rhs2)
+    && src1 = None && src2 = None
+  );
+  Some def
 
 let union ids1 ids2 = {
     locals = StringMap.merge union_keys ids1.locals ids2.locals;
@@ -272,7 +337,8 @@ let union ids1 ids2 = {
     expr_source_map = StringMap.union (fun _ src _ -> Some src) ids1.expr_source_map ids2.expr_source_map;
     prop_source_map = StringMap.union (fun _ src _ -> Some src) ids1.prop_source_map ids2.prop_source_map;
     type_ascription_exprs = NodeId.Map.union (fun _ expr _ -> Some expr) ids1.type_ascription_exprs ids2.type_ascription_exprs;
-    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars
+    history_vars = StringMap.union (fun _ h_sv _ -> Some h_sv) ids1.history_vars ids2.history_vars;
+    history_defs = StringMap.union union_history_defs ids1.history_defs ids2.history_defs
   }
 
 (* Same as union_keys, but we don't assume that identifiers are unique *)
@@ -309,4 +375,5 @@ let empty () = {
   prop_source_map = StringMap.empty;
   type_ascription_exprs = NodeId.Map.empty;
   history_vars = StringMap.empty;
+  history_defs = StringMap.empty;
 }

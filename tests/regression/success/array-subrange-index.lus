@@ -3,6 +3,6 @@ type I = subrange [0,1] of int;
 
 node N(j: I) returns (B: int^2)
 let
-  B[i] = 0;
+  B = (0 foreach i)^2;
   check B[j]=0;
 tel
