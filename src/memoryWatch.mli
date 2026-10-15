@@ -22,8 +22,9 @@
     the first process to exceed the limit ends the analysis. When they
     use more than 80% of the limit, [check] stops the engine whose
     solvers use the most memory, by killing its solvers, so that the
-    other engines go on; only if they use more than the excess, and a
-    second after the last engine stopped at the earliest. The limit is
+    other engines go on: only if the solvers of the engines use more
+    than the excess in all, and a second after the last engine stopped
+    at the earliest. The limit is
     that of [--memory_limit], and the memory used that of Kind 2 and its
     solvers, or else the limit is that of the cgroup of Kind 2 (or of an
     ancestor of it), and the memory used that charged to that cgroup.

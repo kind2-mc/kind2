@@ -169,16 +169,21 @@ let check () =
       in
       let excess = float_of_int used -. threshold *. float_of_int limit in
       if excess > 0. then
-        (* The engine whose solvers use the most memory, if stopping it
-           frees enough: when Kind 2 itself takes the memory, stopping
-           engines does not help, and would stop them all in turn *)
-        EngineDomains.live ()
-        |> List.filter_map (fun c ->
-          Hashtbl.find_opt by_domain (EngineDomains.domain_id c)
-          |> Option.map (fun m -> m, c))
-        |> List.sort (fun (m, _) (m', _) -> compare m' m)
-        |> function
-        | (m, c) :: _ when float_of_int m >= excess ->
+        let engines =
+          EngineDomains.live ()
+          |> List.filter_map (fun c ->
+            Hashtbl.find_opt by_domain (EngineDomains.domain_id c)
+            |> Option.map (fun m -> m, c))
+          |> List.sort (fun (m, _) (m', _) -> compare m' m)
+        in
+        (* The engine whose solvers use the most memory, if stopping
+           engines can free enough: when Kind 2 itself takes the memory,
+           it does not help, and would stop them all in turn. When no
+           engine frees enough alone, the next one is stopped at the next
+           check after the pause *)
+        let solvers = List.fold_left (fun t (m, _) -> t + m) 0 engines in
+        match engines with
+        | (m, c) :: _ when float_of_int solvers >= excess ->
           KEvent.log L_warn
             "@[<hov>Stopping %a:@ its solvers use %d MB,@ and the analysis \
              %d MB of the %d MB it may use.@]"
