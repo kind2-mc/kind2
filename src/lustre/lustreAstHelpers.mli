@@ -142,9 +142,10 @@ val vars_of_ty_ids: typed_ident -> SI.t
 val calls_of_expr: expr -> NodeId.Set.t 
 (** [calls_of_expr e] returns all node/function names for those nodes/functions called in [e] *)
 
-val vars_of_type: lustre_type -> SI.t
+val vars_of_type: ?into_ty_args:bool -> lustre_type -> SI.t
 (** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
-    while excluding node call identifiers and refinement type bound variables *)
+    while excluding node call identifiers and refinement type bound variables.
+    [into_ty_args] also descends into the type arguments of a user type *)
 
 val rename_self_referencing_binders :
   ?expand:(lustre_type -> lustre_type) ->

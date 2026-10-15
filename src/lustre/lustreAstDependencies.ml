@@ -527,8 +527,9 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
+  | UserType (_, ty_args, _) -> List.concat_map extract_node_calls_type ty_args
   | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _  
-  | UserType _ | AbstractType _ | EnumType _ | History _ -> []
+  | AbstractType _ | EnumType _ | History _ -> []
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.map extract_node_calls_type tys |> List.flatten
@@ -540,12 +541,17 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
   | LA.Decreases (_, e) ->
     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
-  | LA.ContractCall (pos, node_id, _, es, _) ->
+  | LA.ContractCall (pos, node_id, ty_args, es, _) ->
+     (* A type argument may call a node in the expressions it embeds, which is a
+        dependency of the importing node just as a call in an argument is *)
+     let node_refs =
+       List.flatten (List.map get_node_call_from_expr es)
+       @ List.flatten (List.map extract_node_calls_type ty_args)
+     in
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_prefix (NI.get_internal_name node_id) pos)
        (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p)
-             (List.flatten (List.map get_node_call_from_expr es))))
+          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) node_refs))
   | LA.Assume (_, _, _, e) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
@@ -1134,10 +1140,17 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
   = fun ad ->
   function
   | LA.AssumptionVars _ -> R.ok ad
-  | LA.ContractCall (pos, node_id, _, es, _) ->
-    R.ok (connect_g_pos 
-      (List.fold_left union_dependency_analysis_data ad
-        (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
+  | LA.ContractCall (pos, node_id, ty_args, es, _) ->
+    (* The variables a type argument mentions are read by the import, as those
+       of an argument are *)
+    let graphs =
+      List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es
+      @ List.map
+          (fun ty -> mk_graph_type (LH.map_lustre_ty LH.abstract_pre_subexpressions ty))
+          ty_args
+    in
+    R.ok (connect_g_pos
+      (List.fold_left union_dependency_analysis_data ad graphs)
       (HString.concat2 contract_prefix (NI.get_internal_name node_id)) pos)
   | LA.Assume (_, _, _, e)
   | LA.Guarantee (_, _, _, e) 
@@ -1213,8 +1226,15 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
   function
   | LA.Assume (_, _, _, e) ->
     check_eqn_no_current_vals ids ad e
-  | LA.ContractCall (_, _, _, es, _ ) ->
-    R.seq_ (List.map (fun e -> check_eqn_no_current_vals ids ad e) es)
+  | LA.ContractCall (_, _, ty_args, es, _ ) ->
+    (* A type argument constrains the imported contract's variables, so naming
+       a current output in one is an assumption on that output *)
+    let ty_arg_exprs =
+      List.concat_map
+        (LH.fold_lustre_ty ~into_ty_args:true (fun e -> [e]) [] (@))
+        ty_args
+    in
+    R.seq_ (List.map (fun e -> check_eqn_no_current_vals ids ad e) (es @ ty_arg_exprs))
   (* | LA.Mode (_, _, reqs, _) ->
      let req_es = List.map (fun (_, _, e) -> e) reqs in
      R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) *)
