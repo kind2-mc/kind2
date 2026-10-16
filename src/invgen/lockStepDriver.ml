@@ -217,8 +217,19 @@ let base_add_invariants t ts invs =
   )
 
 
+(* The state variable instances of [instances] whose state variable is in
+   [vars], if given *)
+let restrict_to ?vars instances =
+  match vars with
+  | None -> instances
+  | Some vars ->
+    List.filter
+      (fun v ->
+         StateVar.StateVarSet.mem (Var.state_var_of_state_var_instance v) vars)
+      instances
+
 (** Queries base, returns an option of the model. *)
-let query_base in_sys base_checker candidates =
+let query_base ?vars in_sys base_checker candidates =
   (* Restarting solver if necessary. *)
   conditional_base_solver_reset in_sys base_checker ;
 
@@ -252,8 +263,10 @@ let query_base in_sys base_checker candidates =
           then TransSys.vars_of_bounds sys k k
           else TransSys.vars_of_bounds sys (Numeral.pred k) k
         )
+        |> restrict_to ?vars
         (* Getting their value. *)
-        |> SMTSolver.get_var_values solver
+        |> SMTSolver.get_var_values
+          ~array_limit:(`Raise SMTSolver.max_array_elements) solver
           (TransSys.get_state_var_bounds sys)
         (* Bumping to -k. *)
         |> Model.bump_var minus_k 
@@ -432,7 +445,7 @@ let query_step two_state in_sys step_checker candidates =
   loop candidates
 
 (** Queries step, returns an option of the model. *)
-let nu_query_step two_state in_sys step_checker candidates =
+let nu_query_step ?vars two_state in_sys step_checker candidates =
   (* Restarting solver if necessary. *)
   conditional_step_solver_reset in_sys step_checker ;
 
@@ -475,8 +488,10 @@ let nu_query_step two_state in_sys step_checker candidates =
         let minus_k = Numeral.(~- k) in
         (* Variables we want to know the value of. *)
         TransSys.vars_of_bounds sys (Numeral.pred k) k
+        |> restrict_to ?vars
         (* Getting their value. *)
-        |> SMTSolver.get_var_values solver
+        |> SMTSolver.get_var_values
+          ~array_limit:(`Raise SMTSolver.max_array_elements) solver
           (TransSys.get_state_var_bounds sys)
         (* Bumping to -k. *)
         |> Model.bump_var minus_k 

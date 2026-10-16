@@ -1,0 +1,18 @@
+-- Node calls guarded by 'and then', 'or else' and '==>' with a condition that
+-- mentions the index variable of the comprehension: the instance for each
+-- index is made under the condition for that index, and takes the index as
+-- its argument
+node Id(x: int) returns (y: int);
+let
+  y = x;
+tel
+
+node main(m: int) returns (A, B, C: bool^3);
+let
+  A = (m = i and then Id(i) = m foreach i)^3;
+  B = (m <> i or else Id(i) = m foreach i)^3;
+  C = (m = i ==> Id(i) = m foreach i)^3;
+  check "and_then" A[0] = (m = 0) and A[1] = (m = 1) and A[2] = (m = 2);
+  check "or_else" B[0] and B[1] and B[2];
+  check "impl" C[0] and C[1] and C[2];
+tel

@@ -1,0 +1,5 @@
+contract C<T>(a: T) returns (r: bool);
+let guarantee true; tel
+node N(x: int) returns (y: bool);
+(*@contract import C@<subtype { w: int | w >= zzz }>(0) returns (y); *)
+let y = true; tel

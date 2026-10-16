@@ -1,0 +1,8 @@
+-- The body of an array comprehension cannot refer to the current value of the
+-- array being defined, not even to another element: an element defined from
+-- the previous one is defined with 'pre' or with a recursive function instead
+
+node N (x: int) returns (A: int^3);
+let
+  A = (if i = 0 then x else A[i-1] + 1 foreach i)^3;
+tel

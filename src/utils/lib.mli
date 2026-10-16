@@ -340,6 +340,17 @@ val log_level_of_int : int -> log_level
 
 val string_of_log_level : log_level -> string
 
+(** {1 SMT-LIB symbols} *)
+
+(** [smtlib_symbol name] is [name] as an SMT-LIB symbol: [name] itself if
+    it is a simple symbol and not a reserved word, [|name|] otherwise. The
+    name must not contain a bar or a backslash. *)
+val smtlib_symbol : string -> string
+
+(** The name an SMT-LIB symbol stands for: the symbol without its bars if
+    it is quoted, the symbol itself otherwise *)
+val unquote_smtlib_symbol : string -> string
+
 (** Current formatter for output *)
 val log_ppf : Format.formatter ref 
 

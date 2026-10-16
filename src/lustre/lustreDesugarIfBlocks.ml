@@ -88,7 +88,6 @@ let rec has_leaf_none = function
 (** Extracts the variable name and position from an equation LHS. *)
 let get_lhs_var lhs = match lhs with
   | A.StructDef (pos, [SingleIdent (_, i)]) -> (i, pos)
-  | A.StructDef (pos, [ArrayDef (_, i, _)]) -> (i, pos)
   | _ -> assert false
 
 (** Fresh local variables introduced to capture the discarded results of a call
@@ -153,35 +152,6 @@ let rec add_eq_to_tree conds rhs node =
     )
 
 
-(* If there are multiple recursive array definitions for the same array that use
-   different locals, we need to translate to using only one set of locals for desugaring.
-   For example,
-   if c
-   then 
-     array[i] = expr1
-   else
-     array[j] = expr2
-  
-    desugars to array[i] = if c then expr1 else expr2. In this function, we update expr2
-    to use the local "i" rather than "j".   *)
-let update_recursive_array_locals map lhs expr = 
-  match lhs with
-    | A.StructDef (_, [ArrayDef (_, var1, inds1)]) -> (
-      let matching_lhs = LhsMap.bindings map |> List.map fst |> List.map fst
-      |> List.find_opt 
-        (fun x -> (match x with 
-          | A.StructDef (_, [ArrayDef (_, var2, _)]) when var1 = var2 -> true 
-          | _ -> false)
-        ) in 
-      match matching_lhs with
-        | Some (A.StructDef (_, [ArrayDef (_, _, inds2)]) as lhs2) -> 
-        (* Replace instances with "inds1" with "inds2" *)
-        lhs2, AH.replace_idents inds1 inds2 expr
-        | _ -> lhs, expr
-      ) 
-    | _ -> lhs, expr
-
-
 (** Converts an if block to a map of trees (creates a tree for each equation LHS) *)
 let if_block_to_trees ib =
   let rec helper ib trees conds = (
@@ -189,7 +159,6 @@ let if_block_to_trees ib =
       | A.IfBlock (pos, cond, ni::nis, nis') -> (
         match ni with
           | A.Body (Equation (_, lhs, expr)) -> 
-          let lhs, expr = update_recursive_array_locals trees lhs expr in
           (* Update corresponding tree (or add new tree if it doesn't exist) *)
           let trees = LhsMap.update (lhs, AH.pos_of_expr expr) 
             (fun tree -> match tree with
@@ -219,7 +188,6 @@ let if_block_to_trees ib =
       | A.IfBlock (pos, cond, [], ni::nis) -> (
         match ni with
           | A.Body (Equation (_, lhs, expr)) -> 
-            let lhs, expr = update_recursive_array_locals trees lhs expr in
             (* Update corresponding tree (or add new tree if it doesn't exist) *)
             let trees = LhsMap.update (lhs, AH.pos_of_expr expr) 
               (fun tree -> match tree with
@@ -260,7 +228,6 @@ let when_block_to_trees wb =
       | A.WhenBlock (pos, cond, ni::nis, nis') -> (
         match ni with
           | A.Body (Equation (_, lhs, expr)) ->
-          let lhs, expr = update_recursive_array_locals trees lhs expr in
           let trees = LhsMap.update (lhs, AH.pos_of_expr expr)
             (fun tree -> match tree with
               | Some tree -> Some (add_eq_to_tree (conds @ [(true, cond)]) expr tree)
@@ -286,7 +253,6 @@ let when_block_to_trees wb =
       | A.WhenBlock (pos, cond, [], ni::nis) -> (
         match ni with
           | A.Body (Equation (_, lhs, expr)) ->
-            let lhs, expr = update_recursive_array_locals trees lhs expr in
             let trees = LhsMap.update (lhs, AH.pos_of_expr expr)
               (fun tree -> match tree with
                 | Some tree -> Some (add_eq_to_tree (conds @ [(false, cond)]) expr tree)
@@ -340,13 +306,6 @@ let rec tree_to_lazy_ite pos node =
 let get_tree_type ctx lhs = 
   match lhs with
     | A.StructDef(_, [SingleIdent(_, i)]) -> (Ctx.lookup_ty ctx i) 
-    | A.StructDef(_, [ArrayDef(_, i, _)]) -> (
-      match (Ctx.lookup_ty ctx i) with
-        (* Assignment in the form of A[i] = f(i), so the RHS type is no
-           longer an array *)
-        | Some (ArrayType (_, (ty, _))) -> Some ty
-        | _ -> None
-      )
     (* Other cases not possible *)
     | _ -> assert false
 

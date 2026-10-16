@@ -200,6 +200,7 @@ let rec matches_of_expr expr =
   | A.StructUpdate (_, e, idx, e_opt) ->
     r e @ LH.fold_label_or_index [] (@) r idx
     @ (match e_opt with Some e -> r e | None -> [])
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (_, _, tis, e) ->
     rtys (List.map (fun (_, _, ty) -> ty) tis) @ r e
   | A.AnyOp (_, (_, _, ty), e) | A.ChooseOp (_, (_, _, ty), e) ->
@@ -264,6 +265,8 @@ let matches_of_contract_item = function
   | A.GhostVars (_, A.GhostVarDec (_, tis), e) ->
     List.concat_map (fun (_, _, ty) -> matches_of_type ty) tis
     @ matches_of_expr e
+  | A.GhostVars (_, A.GhostArrayDef (_, (_, _, ty), _), e) ->
+    matches_of_type ty @ matches_of_expr e
   | A.AssumptionVars _ -> []
 
 let matches_of_contract (_, items) = List.concat_map matches_of_contract_item items

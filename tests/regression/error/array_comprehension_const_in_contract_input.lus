@@ -1,0 +1,7 @@
+-- A constant defined by an array comprehension cannot be used in the type of
+-- an input of a contract node, where it would not be inlined
+const Sq: int^3 = (i * i foreach i)^3;
+contract C (a: subtype { x: int | x >= Sq[0] }) returns (y: int);
+let
+  guarantee y = a;
+tel

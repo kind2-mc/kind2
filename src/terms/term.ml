@@ -340,7 +340,6 @@ let bitvector_of_term t = match destruct t with
       let num = Symbol.numeral_of_symbol s in
       let width = sufficiently_large_bit_width (num |> Numeral.to_int) |> Numeral.of_int in
       Bitvector.num_to_ubv width num
-  (* For Yices 1 native *)
 
   | _ -> invalid_arg "bitvector_of_term"
 
@@ -693,10 +692,12 @@ let rec type_of_term' t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term' a)
            | _ -> assert false)
 
-        | `CONST_ARRAY _ (* ty_array *) ->
+        (* The array type of a constant array, not the type of its
+           value *)
+        | `CONST_ARRAY ty_array ->
 
           (match l with
-           | [v] -> (type_of_term' v)
+           | [_] -> ty_array
            | _ -> assert false)
 
         (* Bitvector-valued function *)
@@ -780,6 +781,7 @@ let rec type_of_term' t = match T.destruct t with
         | `BVSDIV
         | `BVUREM
         | `BVSREM
+        | `BVSMOD
         | `BVSHL
         | `BVLSHR 
         | `BVASHR ->
@@ -976,6 +978,9 @@ let mk_lambda = T.mk_lambda
 
 (* Return a hashconsed let binding *)
 let mk_let  = T.mk_let
+
+(* Return a hashconsed chain of let bindings *)
+let mk_let_chain = T.mk_let_chain
 
 
 (* Return a hashconsed existentially quantified term *)
@@ -1308,6 +1313,12 @@ let mk_bvsrem = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVSREM a
 
+(* Hashcons a signed bitvector remainder with the sign of the divisor *)
+let mk_bvsmod = function
+  | [] -> invalid_arg "Term.mk_bvsmod"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSMOD a
+
 (* Hashcons a bitvector conjunction *)
 let mk_bvand = function
   | [] -> invalid_arg "Term.mk_bvand"
@@ -1482,6 +1493,9 @@ let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
 
 (* Hashcons a BV sign extension *)
 let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]
+
+(* Hashcons a zero extension of a bitvector by [i] bits *)
+let mk_bvzeroext i t = mk_app_of_symbol_node (`BVZEROEXT i) [t]
 
 (* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
 let mk_ubv_to_int t = 

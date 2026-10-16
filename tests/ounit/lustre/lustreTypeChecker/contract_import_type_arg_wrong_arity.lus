@@ -1,0 +1,6 @@
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+contract C<T>(a: T) returns (r: bool);
+let guarantee true; tel
+node main(x: int) returns (y: bool);
+(*@contract import C@<L<int, int>>(x) returns (y); *)
+let y = true; tel

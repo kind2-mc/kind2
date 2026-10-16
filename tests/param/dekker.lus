@@ -8,8 +8,8 @@ let
 want = any@<bool^n>;
 crit = any@<bool^n>;
 turn = any@<int>;
-pwant[i] = false -> pre want[i];
-pcrit[i] = false -> pre crit[i];
+pwant = false^n -> pre want;
+pcrit = false^n -> pre crit;
 
 -- assert (n<5);
 

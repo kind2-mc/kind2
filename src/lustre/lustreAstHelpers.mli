@@ -66,7 +66,8 @@ val substitute_naive : HString.t -> expr -> expr -> expr
 
 val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
 (** [apply_subst_in_expr s e] applies the substitution defined by association list [s]
-    to the expression [e].
+    to the expression [e], including the expressions of the types it carries
+    (e.g. explicit type arguments), as {!subst_in_type_exprs} does.
     Bound variables introduced by match arms, quantifiers and [any]/[choose] are
     alpha-renamed when needed to avoid capture. *)
 
@@ -83,6 +84,11 @@ val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
     to the expressions of (possibly dependent) type [t]
     AnyOp and Quantifier are not supported due to introduction of bound variables. *)
     
+val subst_in_type_exprs : (HString.t * expr) list -> lustre_type -> lustre_type
+(** [subst_in_type_exprs s t] applies the substitution [s] to every expression of
+    type [t]. A refinement type's binder shadows [s] in its predicate, and is
+    alpha-renamed when a substituted expression would be captured by it. *)
+
 val apply_type_subst_in_type : (HString.t * lustre_type) list -> lustre_type -> lustre_type
 (** [apply_type_subst_in_type s t] applies the (type-level) substitution defined by association list [s]
     to type [t]. *)
@@ -107,9 +113,16 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
+val lazy_construct: expr -> (expr * expr list) option
+(** [lazy_construct e] returns the condition of [e] and the operands it
+    guards, if [e] is a lazy construct: a [when] expression, [and then],
+    [or else] or [==>] *)
+
 val vars_of_node_calls: expr -> SI.t
 (** [vars_of_node_calls e] returns all variable identifiers within arguments of node calls that
-    appear in the expression [e] (while excluding node call identifiers) *)
+    appear in the expression [e] (while excluding node call identifiers),
+    within the restart conditions of restarted node calls, and within the
+    conditions of the lazy constructs that guard node calls *)
 
 val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
@@ -142,9 +155,10 @@ val vars_of_ty_ids: typed_ident -> SI.t
 val calls_of_expr: expr -> NodeId.Set.t 
 (** [calls_of_expr e] returns all node/function names for those nodes/functions called in [e] *)
 
-val vars_of_type: lustre_type -> SI.t
+val vars_of_type: ?into_ty_args:bool -> lustre_type -> SI.t
 (** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
-    while excluding node call identifiers and refinement type bound variables *)
+    while excluding node call identifiers and refinement type bound variables.
+    [into_ty_args] also descends into the type arguments of a user type *)
 
 val rename_self_referencing_binders :
   ?expand:(lustre_type -> lustre_type) ->
@@ -186,10 +200,6 @@ val split_program: declaration list -> (declaration list * declaration list)
 val abstract_pre_subexpressions: expr -> expr
 (** Abstracts out the pre expressions into a constant so that the built graph does not create a cycle.*)
 
-val replace_idents: index list -> index list -> expr -> expr
-(** For every identifier, if that identifier is position n in locals1,
-   replace it with position n in locals2 *)
-  
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)
 

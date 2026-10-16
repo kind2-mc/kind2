@@ -2,7 +2,11 @@
 -- single-variable ones. Once the innermost has been expanded away its body
 -- holds no quantifier, so the one around it expands in turn and the copies
 -- multiply: counting them one quantifier at a time sees only three per
--- level and never bails out, while 3^16 of them are built.
+-- level and never bails out, while 3^16 of them are built. Measuring the
+-- result bails out halfway, and the levels expanded below the one over
+-- budget are put back as quantifiers: left expanded, they made a term of
+-- 6561 copies under eight quantifiers, which every engine handed the solver
+-- at every unrolling, and the run timed out on Windows.
 type Color = enum { Red, Green, Blue };
 node main (x: Color; y: int) returns ();
 let

@@ -88,3 +88,11 @@ def test_array_witness_holds_three_lists():
     found = witnesses("adt_rec_cex_array.lus")
     assert len(found["a"]) == 3, found
     assert [constructor(cell) for cell in found["a"]] == ["Cons"] * 3, found
+
+
+def test_enum_field_witness_is_its_value():
+    # `LC?(x) => (x.h = A)` is false only for a `LC` whose head is the
+    # other value of `E`, which prints as an enum value does
+    found = witnesses("adt_recursive_enum_field_false.lus")
+    assert constructor(found["x"]) == "LC", found
+    assert found["x"]["args"][0] == "B", found

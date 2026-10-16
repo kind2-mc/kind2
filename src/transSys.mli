@@ -304,7 +304,11 @@ val mk_trans_sys :
 
   (* Definitions of the recursive functions of the system, as blocks of
      mutually recursive definitions in dependency order *)
-  ?fun_defs:fun_def list list ->
+  ?rec_fun_defs:fun_def list list ->
+
+  (* Definitions of the non-recursive functions the system applies, in
+     definition order *)
+  ?fun_defs:fun_def list ->
   ?check_defs:fun_def list list ->
   ?check_ufs:UfSymbol.t list ->
   ?check_helpers:UfSymbol.t list ->
@@ -527,6 +531,12 @@ val declare_const_vars : t -> (UfSymbol.t -> unit) -> unit
 *)
 val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
+(** [declare_sorts declare_sort datatypes] declares the uninterpreted sorts,
+    then the algebraic datatypes [datatypes], which are in dependency order,
+    with [declare_sort]: a datatype's fields may have an uninterpreted
+    sort *)
+val declare_sorts : (Type.t -> unit) -> Type.t list -> unit
+
 (** Declare the sorts, uninterpreted functions and const variables
     of this system and its subsystems, and define their recursive
     functions with [define_rec], whose signature is that of
@@ -611,18 +621,24 @@ val get_ufs : t -> UfSymbol.t list
 
 (** Return the definitions of the recursive functions of this system, as
     blocks of mutually recursive definitions in dependency order *)
-val get_fun_defs : t -> fun_def list list
+val get_rec_fun_defs : t -> fun_def list list
+
+(** Return the definitions of the non-recursive functions this system
+    applies, in definition order. They are given to the solvers as
+    definitions, before the predicates of the systems, and to the
+    evaluation of terms in a model with {!uf_defs}. *)
+val get_fun_defs : t -> fun_def list
 
 (** Return [true] if the system or one of its subsystems has a recursive
     function defined at the SMT level (see [LustreFunDefs]) *)
-val subsystem_includes_fun_def : t -> bool
+val subsystem_includes_rec_fun_def : t -> bool
 
-(** [define_fun_defs t defined define_rec] evaluates [define_rec] with each
+(** [define_rec_fun_defs t defined define_rec] evaluates [define_rec] with each
     block of recursive function definitions of [t] whose symbols are not in
     [defined], and returns [defined] extended with the symbols defined.
     The signature of [define_rec] is that of {!SMTSolver.define_funs_rec}
     partially evaluated with its first argument. *)
-val define_fun_defs :
+val define_rec_fun_defs :
   t -> UfSymbol.UfSymbolSet.t -> (fun_def list -> unit) ->
   UfSymbol.UfSymbolSet.t
 

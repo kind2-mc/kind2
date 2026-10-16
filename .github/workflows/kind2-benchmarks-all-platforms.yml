@@ -83,7 +83,6 @@ jobs:
           # Untap aws to silence Homebrew trust warnings
           # See https://github.com/actions/runner-images/issues/14232
           brew untap aws/tap || true
-          brew update
 
       - name: Set up OCaml ${{ env.OCAML_VERSION }}
         uses: ocaml/setup-ocaml@v3

@@ -28,3 +28,20 @@ let solver_missing () =
   match Lib.find_on_path (Flags.Smt.z3_bin ()) with
   | _ -> false
   | exception Not_found -> true
+
+(* The warnings logged while [f] runs *)
+let warnings_of f =
+  let buffer = Buffer.create 256 in
+  let ppf = !Lib.log_ppf in
+  let level = Lib.get_log_level () in
+  Lib.log_ppf := Format.formatter_of_buffer buffer ;
+  Lib.set_log_level L_warn ;
+  let result =
+    Fun.protect
+      ~finally:(fun () ->
+        Format.pp_print_flush !Lib.log_ppf () ;
+        Lib.log_ppf := ppf ;
+        Lib.set_log_level level)
+      f
+  in
+  result, Buffer.contents buffer

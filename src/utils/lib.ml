@@ -780,6 +780,38 @@ let ignore_or_kfprintf level =
   if output_on_level level then kfprintf else ikfprintf
 
 (* ********************************************************************** *)
+(* SMT-LIB symbols                                                        *)
+(* ********************************************************************** *)
+
+(* A name as an SMT-LIB symbol: the name itself when it is a simple symbol
+   and not a reserved word, the name quoted otherwise. The name has no bar
+   or backslash, which no quoted symbol can contain. *)
+let smtlib_symbol name =
+  let symbol_char = function
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9'
+    | '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '_' | '-' | '+' | '='
+    | '<' | '>' | '.' | '?' | '/' -> true
+    | _ -> false
+  in
+  let reserved =
+    ["_"; "!"; "as"; "let"; "exists"; "forall"; "match"; "par"; "true";
+     "false"; "BINARY"; "DECIMAL"; "HEXADECIMAL"; "NUMERAL"; "STRING"]
+  in
+  if name <> ""
+  && String.for_all symbol_char name
+  && not (name.[0] >= '0' && name.[0] <= '9')
+  && not (List.mem name reserved)
+  then name
+  else "|" ^ name ^ "|"
+
+(* The name a symbol stands for: without the bars of a quoted symbol *)
+let unquote_smtlib_symbol s =
+  let n = String.length s in
+  if n >= 2 && s.[0] = '|' && s.[n - 1] = '|' then String.sub s 1 (n - 2)
+  else s
+
+
+(* ********************************************************************** *)
 (* Output target                                                          *)  
 (* ********************************************************************** *)
 

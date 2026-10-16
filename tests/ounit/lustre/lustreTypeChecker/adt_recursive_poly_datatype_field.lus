@@ -1,0 +1,4 @@
+datatype P<T> = NA | NB;
+datatype L = LN | LC (h: P<int>, t: L);
+node main (x: L) returns (ok: bool);
+let ok = true; tel

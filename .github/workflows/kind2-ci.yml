@@ -62,7 +62,6 @@ jobs:
         # Untap aws to silence Homebrew trust warnings
         # See https://github.com/actions/runner-images/issues/14232
         brew untap aws/tap || true
-        brew update
 
     - name: Build Kind 2
       uses: ./.github/actions/build-kind2

@@ -1,0 +1,6 @@
+-- Array comprehensions are not supported in types, including global type
+-- declarations
+type T = subtype { x: int | x = ((i foreach i)^3)[0] };
+node N (a: T) returns ();
+let
+tel

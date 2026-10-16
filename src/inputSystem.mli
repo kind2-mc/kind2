@@ -45,8 +45,10 @@ val translate_contracts_lustre : string -> string -> unit
 (** Read native input from file *)
 val read_input_native : string -> TransSys.t t
 
-(** Read MoXI input from file *)
-val read_input_moxi : string -> TransSys.t t option
+(** Read MoXI input from file, with the logic it sets, if any, or the error
+    in it *)
+val read_input_moxi :
+  string -> (TransSys.t t * string option, MoxiInput.error) result
 
 (** Returns the scopes of all the systems in an input systems, in topological
     order. *)

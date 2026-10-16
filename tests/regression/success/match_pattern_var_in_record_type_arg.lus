@@ -1,0 +1,13 @@
+const k: int = 0;
+datatype T = A (k: int) | B (w: int);
+type R<U> = struct { f: U };
+node main (x: int) returns (y: int);
+var t: T;
+let
+  t = A(x);
+  y = match t with
+      | A (k) : (R@<subtype { w: int | w <= k }> { f = k }).f
+      | B (w) : w
+      end;
+  check y = x;
+tel

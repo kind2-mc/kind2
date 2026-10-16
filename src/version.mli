@@ -31,6 +31,9 @@ val package_name : string
 (** *)
 val version : string
 
+(** The version of kmoxi, independent of that of Kind 2 *)
+val kmoxi_version : string
+
 
 (* 
    Local Variables:

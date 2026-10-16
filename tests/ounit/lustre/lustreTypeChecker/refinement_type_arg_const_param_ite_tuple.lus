@@ -1,0 +1,4 @@
+type R<T> = struct { f: T };
+const B: bool;
+node M(const a: int; const r: R<int>; x: int) returns (z: int); let z = a + r.f + x; tel
+node N(y: int) returns (z: int); let z = M(if B then (if B then (1, R@<subtype {w: int | w >= 0}>{f=0}) else (2, R@<int>{f=0})) else (3, R@<int>{f=0}), y); check z >= y; tel

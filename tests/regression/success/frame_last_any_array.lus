@@ -1,10 +1,10 @@
 node count1 (m: bool) returns (A: int^3);
 let
   frame (A)
-    A[i] = any { v: int | v >= 0 };
+    A = (any { v: int | v >= 0 } foreach i)^3;
   let
     when m then
-      A[i] = last A[i] + 1;
+      A = (last A[i] + 1 foreach i)^3;
     end
   tel
   check "nonneg1" A[0] >= 0;
@@ -13,26 +13,24 @@ tel
 node count2 (m: bool) returns (B: int^2^2);
 let
   frame (B)
-    B[i][j] = any { v: int | v >= 0 };
+    B = (any { v: int | v >= 0 } foreach i, j)^2^2;
   let
     when m then
-      B[i][j] = last B[i][j] + 1;
+      B = (last B[i][j] + 1 foreach i, j)^2^2;
     end
   tel
   check "nonneg2" B[0][1] >= 0;
 tel
 
--- A deterministic array initialization referenced through 'last' exercises the
--- same array-recursive last-definition (independent of 'any'); a plain
--- 'last_A = 0 -> pre A' would be rejected as an arrow type mismatch (int vs
--- int^3).
+-- A deterministic array initialization referenced through 'last', independent
+-- of 'any'.
 node count3 (m: bool) returns (A: int^3);
 let
   frame (A)
-    A[i] = 0;
+    A = (0 foreach i)^3;
   let
     when m then
-      A[i] = last A[i] + 1;
+      A = (last A[i] + 1 foreach i)^3;
     end
   tel
   check "nonneg3" A[0] >= 0;

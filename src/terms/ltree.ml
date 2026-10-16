@@ -24,6 +24,7 @@ module H = Hashcons
 
 (* Set over integers *)
 module IntegerSet = Set.Make (struct type t = int let compare = compare end)
+module IntegerMap = Map.Make (Int)
 
 
 (* Input signature for functor *)
@@ -128,6 +129,7 @@ sig
   val mk_app : symbol -> t list -> t
 
   val mk_let : (var * t) list -> t -> t
+  val mk_let_chain : (var * t) list list -> t -> t
 
   val mk_let_elim : (var * t) list -> t -> t
 
@@ -410,6 +412,13 @@ struct
 
   (* Hashconsing for terms *)
   module Ht = H.Make (T_node)
+
+  (* Hash tables of variables, which are hashconsed *)
+  module VH = Hashtbl.Make (struct
+      type t = T.var
+      let equal = ( == )
+      let hash = T.hash_of_var
+    end)
 
   (* Hashcons table for terms *)
   (* The hash-cons table is private to the domain using it. A domain
@@ -1005,8 +1014,9 @@ struct
     (* Combine evaluated arguments from the result stack *)
     | FNode of 'a * t list
 
-    (* Pop [n] substitutions from the context *)
-    | FPop of int 
+    (* Pop the [n] substitutions of the variables from [v] on from the
+       context *)
+    | FPop of int * int
 
     (* Add top of the result stack as substitution for variable [n] to
        the context *)
@@ -1019,9 +1029,10 @@ struct
 
    We keep three stacks when traversing the term: 
 
-   - The context stack is an association list of variables to either
-   terms or cached values. Elements on the context stack are in
-   reverse order of the de Bruijn indices. 
+   - The context stack maps variables, by the number of binders down to
+   theirs, to either terms or cached values (see [ctx]), so that looking
+   up a variable takes a time logarithmic, not linear, in the number of
+   variables in scope. 
 
    - The instruction stack contains one of four values. An [FTree t]
    value evaluates the subterms of [t] and pushes the result onto the
@@ -1030,8 +1041,8 @@ struct
    symbol [s]. An [FCtx i] value takes the top element of the result
    stack, which is the value of the variable [i] and replaces the
    assignment to variable [i] on the context stack with the value. An
-   [FPop n] value marks the end of scope of [n] variables, the top [n]
-   elements of the context stack are removed.
+   [FPop (v, n)] value marks the end of scope of the [n] variables from
+   [v] on, whose assignments on top of the context stack are removed.
 
    - The result stack is a list of lists of values for the subterms of
    a term. When recursing into the subterms an empty value is added
@@ -1043,6 +1054,49 @@ struct
    TODO: implement fold over quantified terms
 
 *)
+
+  (* The context: for each variable, by the number of binders down to
+     its binder, the stack of its assignments, the innermost on top. A
+     variable can have several assignments: the term of a let binding is
+     evaluated at the depth of the binding when a variable deeper in the
+     term first needs it, so that its own let bindings add assignments to
+     variables of the scopes around that variable. Assignments are added
+     and removed in a balanced way: the binder that adds assignments to
+     some variables removes them at the end of its scope, after those
+     added inside it are removed. A stack is never empty. *)
+  let empty_ctx = IntegerMap.empty
+
+  (* The assignment on top of the stack of variable [v] *)
+  let find_ctx v ctx =
+    match IntegerMap.find v ctx with
+    | a :: _ -> a
+    | [] -> assert false
+
+  (* Add the assignments [s] to the context [ctx] *)
+  let add_subst s ctx =
+    List.fold_left
+      (fun ctx (v, a) ->
+         IntegerMap.update v
+           (function None -> Some [a] | Some stack -> Some (a :: stack))
+           ctx)
+      ctx s
+
+  (* Remove the assignment on top of the stack of variable [v] *)
+  let pop_ctx v ctx =
+    IntegerMap.update v
+      (function
+        | Some (_ :: (_ :: _ as stack)) -> Some stack
+        | Some [_] -> None
+        | Some [] | None -> assert false)
+      ctx
+
+  (* Replace the assignment on top of the stack of variable [v] *)
+  let set_ctx v a ctx =
+    IntegerMap.update v
+      (function
+        | Some (_ :: stack) -> Some (a :: stack)
+        | Some [] | None -> assert false)
+      ctx
 
   (* Variant of the folding function above, where the term that is we
      are looking at is given as an argument to the function *)
@@ -1111,7 +1165,7 @@ struct
           (* try  *)
 
             (* Get the assignment to the variable in the context stack *)
-            List.assoc (dbm - db + 1) subst 
+            find_ctx (dbm - db + 1) subst 
 
           (* Every variable must be bound *)
           (* with Not_found -> assert false *)
@@ -1177,8 +1231,7 @@ struct
       in
 
       (* Add substitutions to the context stack *)
-      (* let subst' = List.rev_append s subst in *)
-      let subst' = s @ subst in
+      let subst' = add_subst s subst in
 
       (* Add term under lambda to instruction stack, followed by a pop
          instruction for the number of scopes added by the binding *)
@@ -1187,7 +1240,7 @@ struct
         f
         subst'
         accum
-        (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
+        (FTree (db + (List.length n), l) :: FPop (db + 1, List.length n) :: tl)
 
     (* The top element of the stack is a quantifier *)
     | FTree (db, { H.node = (Forall { H.node = L (n, l) } |
@@ -1217,7 +1270,7 @@ struct
       in
 
       (* Add to the context stack *)
-      let subst' = s @ subst in
+      let subst' = add_subst s subst in
 
       (* Add term under lambda to instruction stack, followed by a pop
          instruction for the number of scopes added by the binding *)
@@ -1226,7 +1279,7 @@ struct
         f
         subst'
         accum
-        (FTree (db + (List.length n), l) :: FPop (List.length n) :: tl)
+        (FTree (db + (List.length n), l) :: FPop (db + 1, List.length n) :: tl)
 
     (* The top element of the instruction stack is a symbol *)
     | FNode (op, _) :: tl -> 
@@ -1251,23 +1304,16 @@ struct
       )
 
     (* The top element of the stack is an empty end-of-scope marker *)
-    | FPop 0 :: tl -> 
+    | FPop (_, 0) :: tl -> 
 
       (* Remove marker from the instruction stack *)
       fold fail_quant f subst accum tl
 
     (* The top element of the stack is a positive end-of-scope marker *)
-    | FPop i :: tl when i > 0 -> 
+    | FPop (v, i) :: tl when i > 0 -> 
 
-      (
-
-        match subst with 
-
-          (* Pop one scope from the context stack *)
-          | _ :: subst' -> fold fail_quant f subst' accum (FPop (pred i) :: tl)
-          | [] -> assert false 
-
-      )
+      (* Pop one scope from the context stack *)
+      fold fail_quant f (pop_ctx v subst) accum (FPop (succ v, pred i) :: tl)
 
     (* The top element of the stack is a negative end-of-scope marker *)
     | FPop _ :: _ -> assert false
@@ -1281,23 +1327,8 @@ struct
 
           | [t] :: atl -> 
 
-            let rec aux accum = function 
-              | [] -> List.rev accum 
-              | (v, _) :: tl when v = i -> List.rev_append ((v, E t) :: accum) tl 
-              | h :: tl -> aux (h :: accum) tl
-            in
-(*
             (* Modify context to store evaluation for variable *)
-            let subst' = 
-              List.map 
-                (function 
-                  | (v, _) when v = i -> (v, E t)
-                  | e -> e)
-                subst
-            in
-*)
-            (* Modify context to store evaluation for variable *)
-            let subst' = aux [] subst in 
+            let subst' = set_ctx i (E t) subst in 
 
             (* Continue with modified context *)
             fold fail_quant f subst' atl itl
@@ -1319,7 +1350,7 @@ struct
      unfolded.
   *)
   let eval_t ?(fail_on_quantifiers=true)f t = 
-    fold fail_on_quantifiers f [] [[]] [FTree (0, t)]
+    fold fail_on_quantifiers f empty_ctx [[]] [FTree (0, t)]
 
 
   let rec import_lambda = function { H.node = L (i, t) } -> 
@@ -1496,6 +1527,55 @@ struct
 
     (* Return let binding *)
     ht_let (mk_lambda x t) b
+
+  (* Constructor for a chain of let bindings: [mk_let_chain [b_1; ...;
+     b_n] t] is [mk_let b_1 (mk_let b_2 (... (mk_let b_n t)))], where
+     the terms of [b_j] are in the scope of the variables of [b_1] to
+     [b_(j-1)], and [t] in that of all of them. The nested lets would
+     traverse their body once for every let, this binds the variables
+     with one traversal of each term. *)
+  let mk_let_chain bs t =
+
+    let bs = Array.of_list (List.map List.split bs) in
+    let n = Array.length bs in
+
+    (* [inner.(j)] is the number of variables bound by the [j]th let and
+       those inside it *)
+    let inner = Array.make (n + 1) 0 in
+    for j = n - 1 downto 0 do
+      inner.(j) <- inner.(j + 1) + List.length (fst bs.(j))
+    done;
+
+    (* Each variable with the lets that bind it and its relative index
+       in each, as in [mk_lambda], innermost first *)
+    let binders = VH.create 97 in
+    Array.iteri
+      (fun j (x, _) -> List.iteri (fun i v -> VH.add binders v (j, i)) (List.rev x))
+      bs;
+
+    (* Bind the variables of the first [s] lets in a term in their scope:
+       a variable of the [j]th let is [i] variables into its binding, and
+       under the variables of the lets after it up to the [s]th *)
+    let bind_first s term =
+      map
+        (fun db -> function
+           | { H.node = FreeVar v } as t -> (
+             match List.find_opt (fun (j, _) -> j < s) (VH.find_all binders v) with
+             | Some (j, i) -> ht_bound_var (succ db + i + inner.(j + 1) - inner.(s))
+             | None -> t)
+           | t -> t)
+        term
+    in
+
+    let rec build j =
+      if j = n then bind_first n t
+      else
+        let x, b = bs.(j) in
+        ht_let
+          (hl_lambda (List.map T.sort_of_var x) (build (j + 1)))
+          (List.map (bind_first j) b)
+    in
+    build 0
 
   (* Create a let binding of terms to variables, eliminate bindings to
      variables that do not occur in the term *)

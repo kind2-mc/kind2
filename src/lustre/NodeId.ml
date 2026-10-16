@@ -89,6 +89,12 @@ let get_internal_name node_id = node_id.internal_name
 
 let get_node_type node_id = node_id.node_type 
 
+let is_internal node_id =
+  match node_id.node_type with
+  | FreeConstant | TypeAscription | ClockedExpr | Restarted -> true
+  | Component | Contract | Environment | Type | Any | Choose
+  | DefinedConstant -> false
+
 let get_monomorphization node_id = node_id.monomorphization
 
 let compare: t -> t -> int 

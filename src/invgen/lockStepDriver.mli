@@ -53,8 +53,14 @@ val base_add_invariants : base -> bool -> Term.t list -> unit
 (** Checks whether some terms are falsifiable [k] states away from the initial
 state, where [k] is the internal depth of the base checker.
 
-Returns an option of a model falsifying some of the terms. *)
-val query_base : 'a InputSystem.t -> base -> Term.t list -> Model.t option
+Returns an option of a model falsifying some of the terms. With [vars], the
+model only has the values of these state variables: the terms the model is
+for may not read all of them, and an array is read element by element.
+Raises [SMTSolver.Too_many_array_elements] if the arrays of the model have
+more than [SMTSolver.max_array_elements] elements. *)
+val query_base :
+  ?vars:StateVar.StateVarSet.t ->
+  'a InputSystem.t -> base -> Term.t list -> Model.t option
 
 
 
@@ -94,8 +100,11 @@ Returns the elements of [candidates] for which the first element of the pair
 (the term) is an invariant. *)
 val query_step : bool -> 'a InputSystem.t -> step -> (Term.t * 'b) list -> (Term.t * 'b) list
 
-(** Queries step, returns an option of the model. *)
-val nu_query_step : bool -> 'a InputSystem.t -> step -> Term.t list -> Model.t option
+(** Queries step, returns an option of the model, of the state variables
+[vars] only if given (see [query_base]). *)
+val nu_query_step :
+  ?vars:StateVar.StateVarSet.t ->
+  bool -> 'a InputSystem.t -> step -> Term.t list -> Model.t option
 
 
 

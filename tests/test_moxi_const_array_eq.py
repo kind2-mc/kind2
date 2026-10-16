@@ -1,0 +1,62 @@
+"""An equality with a constant array is expanded over the indices.
+
+kmoxi translates an equality between an array and a constant array whose
+index sort is a small bit-vector into the conjunction of the equalities
+between each element and the constant. Bitwuzla 0.9 does not support an
+equality over constant arrays under Boolean structure, which is where every
+engine puts the initial-state constraint, and answered unknown on such
+systems; with the expansion it answers. The expansion must keep the meaning
+of the equality, which the satisfiable and unsatisfiable queries below check
+with each solver, and an equality over an index too wide to expand is
+translated as before.
+"""
+
+import shutil
+
+import pytest
+
+from conftest import run_kmoxi
+
+# mem starts as the constant array 0; a step writes 1 at index 1 when w holds
+system = """
+(set-logic QF_ABV)
+(define-system main
+  :input ((w Bool) (i (_ BitVec {width}))) :output ((mem (Array (_ BitVec {width}) (_ BitVec 4)))) :local ()
+  :init (= mem ((as const (Array (_ BitVec {width}) (_ BitVec 4))) #b0000))
+  :trans (= mem' (ite w (store mem {one} #b0001) mem)))
+"""
+
+queries = {
+    # An element other than 0 or 1: never
+    "unsat": ":reachable (rch (and (not (= (select mem i) #b0000)) (not (= (select mem i) #b0001))))",
+    # Element 1 is written
+    "sat": ":reachable (rch (= (select mem i) #b0001))",
+}
+
+cases = [
+    (solver, width, expected)
+    for solver in ["z3", "bitwuzla"]
+    for width, expected in [(2, "unsat"), (2, "sat"), (9, "sat")]
+]
+
+
+@pytest.mark.parametrize(
+    "solver, width, expected",
+    cases,
+    ids=[f"{s}-index{w}-{e}" for s, w, e in cases],
+)
+def test_const_array_equality(tmp_path, solver, width, expected):
+    if shutil.which(solver) is None:
+        pytest.skip(f"{solver} is not installed")
+
+    model = system.format(width=width, one="#b" + "0" * (width - 1) + "1") + (
+        "(check-system main :input ((w Bool) (i (_ BitVec {width})))"
+        " :output ((mem (Array (_ BitVec {width}) (_ BitVec 4)))) :local ()"
+        " {query} :query (q (rch)))\n"
+    ).format(width=width, query=queries[expected])
+    path = tmp_path / "mem.moxi"
+    path.write_text(model)
+    stdout, stderr = run_kmoxi(
+        path, "--smt_solver", solver, "--enable", "BMC", "--enable", "IND"
+    )
+    assert f":query (q {expected}" in stdout, stdout + stderr

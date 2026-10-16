@@ -1,0 +1,21 @@
+contract C<T>(z: int) returns (r: T);
+let
+  guarantee true;
+tel
+
+node N1(x: int) returns (y: int);
+(*@contract
+    import C@<subtype { w: int | w >= x }>(0) returns (y);
+*)
+let
+  y = x + 1;
+tel
+
+node N2(u: int) returns (y: int);
+(*@contract
+    var x: int = u - 5;
+    import C@<subtype { w: int | w >= x }>(0) returns (y);
+*)
+let
+  y = u;
+tel

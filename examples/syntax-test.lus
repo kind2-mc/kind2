@@ -403,26 +403,34 @@ let
   y = when Rise(x) then Count() else held;
 tel;
 
--- Array inductive definitions
-node sum (const n: int; A: int ^ n) returns (s: int);
-var cumul: int ^ n;
+-- A recursive function over an array
+function rec sum_upto (const n: int; A: int ^ n; k: int) returns (s: int);
+(*@contract
+  decreases k;
+*)
 let
-  cumul[k] = if k = 0 then A[0] else A[k] + cumul[k-1];
-  s = cumul[n-1];
+  s = when k <= 0 or k > n then 0 else sum_upto(n, A, k - 1) + A[k - 1];
 tel
+
+node sum (const n: int; A: int ^ n) returns (s: int);
+let
+  s = sum_upto(n, A, n);
+tel
+
+-- Array comprehensions
 
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
-  B[i] = A[low + i];
+  B = (A[low + i] foreach i)^(up-low);
 tel
 
 -- Quantifier in specification
 node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
 let
-  A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
-  ok[i] = A[i] = -1 or A[i] = s or (false -> pre ok[i]);
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
+  ok = (A[i] = -1 or A[i] = s or (false -> pre ok[i]) foreach i)^n;
 
   --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
 tel

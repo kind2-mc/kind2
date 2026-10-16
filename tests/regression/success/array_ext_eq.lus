@@ -5,7 +5,7 @@ node main(const n:int; A, B: int^n) returns (ok: bool);
 *)
 var S: int^n;
 let
-  S[k] = if A = B then A[k] - B[k] else A[k] + B[k];
+  S = (if A = B then A[k] - B[k] else A[k] + B[k] foreach k)^n;
   ok = S[0] = S[1];
   --%PROPERTY A = B => ok;
 tel;

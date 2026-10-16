@@ -1,0 +1,4 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+datatype A = C(r: R) | D;
+node M(const a: A; x: int) returns (z: int); let z = x; tel
+node N(y: int) returns (z: int); let z = M(C(R { f = 100 }), y); check z = y; tel

@@ -1393,12 +1393,12 @@ let export_system_defs
      TransSys.define_and_declare_of_bounds *)
   let has_fun_defs =
     TS.fold_subsystems ~include_top:true
-      (fun acc t -> acc || TS.get_fun_defs t <> []) false sys
+      (fun acc t -> acc || TS.get_rec_fun_defs t <> []) false sys
   in
   if has_fun_defs then (
     add_section fmt "Recursive function definitions";
     TS.fold_subsystems ~include_top:true
-      (fun defined t -> TS.define_fun_defs t defined (define_funs_rec fmt))
+      (fun defined t -> TS.define_rec_fun_defs t defined (define_funs_rec fmt))
       UfSymbol.UfSymbolSet.empty sys
     |> ignore
   ) ;
