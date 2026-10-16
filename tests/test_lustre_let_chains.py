@@ -38,19 +38,20 @@ def answers(path, *extra, timeout=60):
     }
 
 
-# Locals on three levels of dependency, written out of order, and one of
-# them, c, also taken at the previous instant, which the transition
-# relation binds as well
+# Stateless locals on three levels of dependency, a, b and c, written out
+# of order, and d, on the first level, defined with a pre of the input. A
+# local under a pre, or passed to a node call, is stateful and not
+# let-bound, so c and d are only used in the equation of the output
 levels = """
 node main (x: int) returns (y: int);
 var a, b, c, d: int;
 let
   y = c + d;
-  d = 0 -> pre c;
+  d = 0 -> pre x;
   c = b - a;
   b = a * 2;
   a = x + 1;
-  check "holds" y = (x + 1) + (0 -> pre (x + 1));
+  check "holds" y = (x + 1) + (0 -> pre x);
   check "fails" y <> 3;
 tel
 """
