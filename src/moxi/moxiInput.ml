@@ -132,6 +132,22 @@ let moxi_names = UfSymbol.UfSymbolHashtbl.create 7
 
 let moxi_name_of_uf uf = UfSymbol.UfSymbolHashtbl.find_opt moxi_names uf
 
+(* The names of the subsystem calls, by the scope of the caller and the uid
+   of the instance, since the instances of a transition system have none *)
+let call_names : (Scope.t * int, string) Hashtbl.t = Hashtbl.create 7
+
+(* Every call is named as it is built, so a missing name is a bug of kmoxi's
+   rather than of the model: fail naming it, instead of with Not_found deep
+   in whatever prints a response *)
+let call_name caller inst =
+  let scope = TS.scope_of_trans_sys caller in
+  match Hashtbl.find_opt call_names (scope, inst.TS.uid) with
+  | Some name -> name
+  | None ->
+    failwith
+      (Format.asprintf "No name for the call %d of %a" inst.TS.uid
+         Scope.pp_print_scope_internal scope)
+
 let unsupported span msg =
   raise (Unsupported_feature (Lib.start_pos span, msg))
 
@@ -726,6 +742,8 @@ let mk_subsystem_calls enums local_map sys_name init_flag systems subsys =
     let sub_init_flag = TS.init_flag_state_var sub in
     let map_up = SVM.add sub_init_flag init_flag map_up in
     let map_down = SVM.add init_flag sub_init_flag map_down in
+    Hashtbl.replace call_names ([sys_name], uid)
+      (string_of_symbol instance_name) ;
     let inst =
       TS.{
         uid ;
