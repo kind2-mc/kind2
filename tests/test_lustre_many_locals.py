@@ -15,6 +15,11 @@ number of locals:
 A node with 6000 locals summed in one equation took about 200 s; it now
 takes about 30 s. The cost going from quadratic to linear, the test uses
 enough locals for the time limit to sit well between the two.
+
+Those times are on a fast machine. The slowest CI runner (macOS on
+x86_64) takes about three times as long, about 90 s, and the time limit
+leaves room for it. A quadratic translation takes over three times the
+limit there, and still exceeds it on a fast machine.
 """
 
 import json
@@ -42,7 +47,7 @@ tel
 def test_many_locals_in_one_equation(tmp_path):
     path = tmp_path / "sum.lus"
     path.write_text(flat_sum(6000))
-    timeout = 90
+    timeout = 180
     args = common_args | {"--timeout": str(timeout)}
     arg_list = [arg for pair in args.items() for arg in pair]
     proc = run_kind2(

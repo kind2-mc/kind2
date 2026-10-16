@@ -870,16 +870,18 @@ let pp_print_trace_xml
 
     | trace ->
       (
-        (* Slice trace and transitions system to property *)
-        let trans_sys', _, trace', input_sys' =
-          slice_trans_sys_and_cex_to_property
-            input_sys analysis trans_sys prop_name trace
-        in
+        (* Open the element before slicing: a timeout during the slicing
+           is caught below, and the handler closes the element. *)
+        Format.fprintf ppf "@[<hv 2>\ <%s>" tag ;
         try
+          (* Slice trace and transitions system to property *)
+          let trans_sys', _, trace', input_sys' =
+            slice_trans_sys_and_cex_to_property
+              input_sys analysis trans_sys prop_name trace
+          in
           (* Output trace *)
           Format.fprintf ppf
-            "@[<hv 2>\ <%s>%a@]@,</%s>"
-            tag
+            "%a@]@,</%s>"
             (InputSystem.pp_print_path_xml ?prop_name input_sys' trans_sys' disproved)
             (Model.path_of_list trace')
             tag
@@ -1237,17 +1239,19 @@ let pp_print_trace_json
 
     | trace ->
       (
-        (* Slice trace and transitions system to property *)
-        let trans_sys', _, trace', input_sys' =
-          slice_trans_sys_and_cex_to_property
-            input_sys analysis trans_sys prop_name trace
-        in
-
+        (* Print the name of the field before slicing: a timeout during
+           the slicing is caught below, and the handler gives the field
+           a value and closes the object. *)
+        Format.fprintf ppf "\"%s\" :" object_name ;
         try
+          (* Slice trace and transitions system to property *)
+          let trans_sys', _, trace', input_sys' =
+            slice_trans_sys_and_cex_to_property
+              input_sys analysis trans_sys prop_name trace
+          in
           (* Output trace *)
           Format.fprintf ppf
-            "\"%s\" :%a"
-            object_name
+            "%a"
             (InputSystem.pp_print_path_json ?prop_name input_sys' trans_sys' disproved)
             (Model.path_of_list trace')
         with TimeoutWall -> (
