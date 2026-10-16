@@ -142,6 +142,18 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
+  mk_test "test unbound identifier in contract import type argument" (fun () ->
+    match load_file "./lustreSyntaxChecks/contract_import_type_arg_unbound_id.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test unbound identifier in contract import type argument within a contract" (fun () ->
+    match load_file "./lustreSyntaxChecks/nested_contract_import_type_arg_unbound_id.lus" with
+    | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
+    | _ -> false);
+  mk_test "test temporal operator in contract import type argument of a function" (fun () ->
+    match load_file "./lustreSyntaxChecks/contract_import_type_arg_pre_in_function.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    | _ -> false);
   mk_test "unbounded inner index of a bounded comprehension" (fun () ->
     match load_file "./lustreSyntaxChecks/comprehension_unbounded_inner.lus" with
     | Error (`LustreSyntaxChecksError (_, UnboundedComprehensionIndex _)) -> true
@@ -343,6 +355,14 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
   mk_test "test contract invalid dependency of mode on output" (fun () ->
     match load_file "./lustreAstDependencies/cocospec_out_assume.lus" with
     | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
+  mk_test "test contract import type argument depending on current output" (fun () ->
+    match load_file "./lustreAstDependencies/contract_import_type_arg_current_output.lus" with
+    | Error (`LustreAstDependenciesError (_, ContractDependencyOnCurrentOutput _)) -> true
+    | _ -> false);
+  mk_test "test recursion through a contract import type argument" (fun () ->
+    match load_file "./lustreAstDependencies/contract_import_type_arg_recursion.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
   mk_test "test unequal equation widths" (fun () ->
     match load_file "./lustreAstDependencies/test_add_tuples.lus" with
@@ -1223,6 +1243,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ite_guarantee_wrong_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnificationFailed (Bool _, Int _))) -> true
     | _ -> false);
+  mk_test "test undeclared type in contract import type argument" (fun () ->
+    match load_file "./lustreTypeChecker/contract_import_type_arg_undeclared_type.lus" with
+    | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
+    | _ -> false);
+  mk_test "test polymorphic datatype at the wrong arity in contract import type argument" (fun () ->
+    match load_file "./lustreTypeChecker/contract_import_type_arg_wrong_arity.lus" with
+    | Error (`LustreTypeCheckerError (_, InvalidPolymorphicCall _)) -> true
+    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1354,6 +1382,14 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
   mk_test "test non-exhaustive match in global constant declaration" (fun () ->
     match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_global_const.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match in contract import type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_in_contract_import_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant match in contract import type argument" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_in_contract_import_type_argument.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
 ])
 

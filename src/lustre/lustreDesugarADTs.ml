@@ -749,7 +749,7 @@ let desugar_contract_item ctx adt_map item =
     let r3 (p, n, e) = (p, n, r e) in
     LA.Mode (p, n, List.map r3 requires, List.map r3 ensures)
   | LA.ContractCall (p, name, ty_args, inputs, outputs) ->
-    LA.ContractCall (p, name, ty_args, List.map r inputs, outputs)
+    LA.ContractCall (p, name, List.map (dt p) ty_args, List.map r inputs, outputs)
   | LA.GhostConst cd -> LA.GhostConst (desugar_const_decl ctx adt_map cd)
   | LA.GhostVars (p, LA.GhostVarDec (p2, tis), e) ->
     let tis' = List.map (fun (p, id, ty) -> (p, id, dt p ty)) tis in

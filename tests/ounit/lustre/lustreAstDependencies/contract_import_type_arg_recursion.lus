@@ -1,0 +1,5 @@
+contract C<T>(a: T) returns (r: bool);
+let guarantee true; tel
+function g(x: int) returns (y: bool);
+(*@contract import C@<subtype { w: int | w >= (if g(0) then 1 else 0) }>(0) returns (y); *)
+let y = true; tel

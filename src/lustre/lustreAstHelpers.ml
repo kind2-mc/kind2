@@ -1588,7 +1588,9 @@ let rec vars_of_struct_item = function
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
 
-let rec vars_of_type = function 
+let rec vars_of_type ?(into_ty_args = false) ty =
+  let vars_of_type = vars_of_type ~into_ty_args in
+  match ty with
   | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars_without_node_call_ids e)
   | TupleType (_, tys) | GroupType (_, tys) -> 
     List.fold_left SI.union SI.empty (List.map vars_of_type tys)
@@ -1603,7 +1605,11 @@ let rec vars_of_type = function
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
-  | Int _ | Bool _ | Real _ | UserType _ | AbstractType _ | EnumType _ 
+  | UserType (_, ty_args, _) ->
+    if into_ty_args then
+      List.fold_left SI.union SI.empty (List.map vars_of_type ty_args)
+    else SI.empty
+  | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _
   | SBitVector _ | UBitVector _ -> SI.empty
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in

@@ -185,6 +185,115 @@ let is_self_call node_decls_map caller_nname node_id ty_args =
   )
   | _ -> false
 
+(* Rename identifiers in the expressions of a type. Unlike LH.apply_subst_in_type
+   this reaches every type form, and a refinement binder shadows the renaming
+   within its predicate *)
+let rec rename_in_ty ren ty =
+  let r = rename_in_ty ren in
+  let re ren e =
+    LH.apply_subst_in_expr
+      (List.map (fun (i, j) -> (i, A.Ident (Lib.dummy_pos, j))) ren) e
+  in
+  match ty with
+  | A.RefinementType (p, (p2, i, ty'), e) ->
+    let ren' = List.filter (fun (v, _) -> not (HString.equal v i)) ren in
+    A.RefinementType (p, (p2, i, r ty'), re ren' e)
+  | A.ArrayType (p, (ty', e)) -> A.ArrayType (p, (r ty', re ren e))
+  | A.TupleType (p, tys) -> A.TupleType (p, List.map r tys)
+  | A.GroupType (p, tys) -> A.GroupType (p, List.map r tys)
+  | A.RecordType (p, id, tis) ->
+    A.RecordType (p, id, List.map (fun (p, i, ty') -> (p, i, r ty')) tis)
+  | A.Map (p, kt, vt) -> A.Map (p, r kt, r vt)
+  | A.Set (p, ty') -> A.Set (p, r ty')
+  | A.TArr (p, ty1, ty2) -> A.TArr (p, r ty1, r ty2)
+  | A.UserType (p, ty_args, id) -> A.UserType (p, List.map r ty_args, id)
+  | A.History (p, id) ->
+    A.History (p, match List.assoc_opt id ren with Some j -> j | None -> id)
+  | A.ADT (p, id, cons) ->
+    A.ADT (p, id, List.map (fun (c, flds) ->
+      (c, List.map (fun (f, ty') -> (f, r ty')) flds)) cons)
+  | A.Int _ | A.Bool _ | A.Real _ | A.SBitVector _ | A.UBitVector _
+  | A.EnumType _ | A.AbstractType _ -> ty
+
+(* The identifiers a contract item binds in the rest of the contract *)
+let bound_by_contract_item = function
+  | A.GhostConst (A.FreeConst (_, id, _))
+  | A.GhostConst (A.UntypedConst (_, id, _))
+  | A.GhostConst (A.TypedConst (_, id, _, _)) -> [id]
+  | A.GhostVars (_, A.GhostVarDec (_, tis), _) -> List.map (fun (_, id, _) -> id) tis
+  (* The indices bind only over the right-hand side, so they are not names the
+     contract makes available to a type argument *)
+  | A.GhostVars (_, A.GhostArrayDef (_, (_, id, _), _), _) -> [id]
+  | A.Assume _ | A.Guarantee _ | A.Mode _ | A.ContractCall _
+  | A.AssumptionVars _ | A.Decreases _ -> []
+
+(* Rename identifiers throughout a contract item *)
+let rename_in_ci ren ci =
+  let re e =
+    LH.apply_subst_in_expr
+      (List.map (fun (i, j) -> (i, A.Ident (Lib.dummy_pos, j))) ren) e
+  in
+  let rt = rename_in_ty ren in
+  let rid id = match List.assoc_opt id ren with Some j -> j | None -> id in
+  match ci with
+  | A.Assume (p, n, b, e) -> A.Assume (p, n, b, re e)
+  | A.Guarantee (p, n, b, e) -> A.Guarantee (p, n, b, re e)
+  | A.Decreases (p, e) -> A.Decreases (p, re e)
+  | A.Mode (p, n, reqs, ens) ->
+    let r3 (p, n, e) = (p, n, re e) in
+    A.Mode (p, n, List.map r3 reqs, List.map r3 ens)
+  | A.GhostConst (A.FreeConst (p, id, ty)) ->
+    A.GhostConst (A.FreeConst (p, rid id, rt ty))
+  | A.GhostConst (A.UntypedConst (p, id, e)) ->
+    A.GhostConst (A.UntypedConst (p, rid id, re e))
+  | A.GhostConst (A.TypedConst (p, id, e, ty)) ->
+    A.GhostConst (A.TypedConst (p, rid id, re e, rt ty))
+  | A.GhostVars (p, A.GhostVarDec (p2, tis), e) ->
+    let tis = List.map (fun (p, id, ty) -> (p, rid id, rt ty)) tis in
+    A.GhostVars (p, A.GhostVarDec (p2, tis), re e)
+  (* The indices are bound over the right-hand side, so a renaming they shadow
+     does not apply there *)
+  | A.GhostVars (p, A.GhostArrayDef (p2, (p3, id, ty), is), e) ->
+    let ren = List.filter (fun (i, _) -> not (List.mem i is)) ren in
+    let e =
+      LH.apply_subst_in_expr
+        (List.map (fun (i, j) -> (i, A.Ident (Lib.dummy_pos, j))) ren) e
+    in
+    A.GhostVars (p, A.GhostArrayDef (p2, (p3, rid id, rt ty), is), e)
+  | A.ContractCall (p, name, ty_args, ins, outs) ->
+    A.ContractCall (p, name, List.map rt ty_args, List.map re ins, List.map rid outs)
+  | A.AssumptionVars (p, ids) ->
+    A.AssumptionVars (p, List.map (fun (p, id) -> (p, rid id)) ids)
+
+(* The expressions embedded in a contract import's type arguments are written in
+   the importing scope, so a name the imported contract binds itself would
+   capture them once the arguments are substituted into the specialized copy.
+   Alpha-rename the contract's binder instead, which is invisible to the import *)
+let avoid_ty_arg_capture ty_args ips ops c =
+  let fv =
+    List.fold_left
+      (fun acc ty -> A.SI.union acc (LH.vars_of_type ~into_ty_args:true ty))
+      A.SI.empty ty_args
+  in
+  let bound =
+    List.map (fun (_, id, _, _, _) -> id) ips
+    @ List.map (fun (_, id, _, _) -> id) ops
+    @ (match c with
+       | None -> []
+       | Some (_, cis) -> List.concat_map bound_by_contract_item cis)
+  in
+  let ren =
+    List.sort_uniq HString.compare (List.filter (fun id -> A.SI.mem id fv) bound)
+    |> List.map (fun id -> (id, LH.fresh_bound_ident id))
+  in
+  match ren with
+  | [] -> ips, ops, c
+  | _ ->
+    let rid id = match List.assoc_opt id ren with Some j -> j | None -> id in
+    List.map (fun (p, id, ty, cl, const) -> (p, rid id, rename_in_ty ren ty, cl, const)) ips,
+    List.map (fun (p, id, ty, cl) -> (p, rid id, rename_in_ty ren ty, cl)) ops,
+    Option.map (fun (p, cis) -> (p, List.map (rename_in_ci ren) cis)) c
+
 (* The generated identifiers of each polymorphic declaration, as they were
    before this pass rewrote the calls they contain. An instantiation is
    generated from the declaration as it was before this pass too (the one in
@@ -254,6 +363,12 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     | A.AnnotMain _ -> false 
     | _ -> true
     ) nis in
+    (* A contract import's type arguments may mention variables of the importing
+       scope, so the contract's own names must not capture them *)
+    let ips, ops, c =
+      if is_contract then avoid_ty_arg_capture ty_args ips ops c
+      else ips, ops, c
+    in
     (* Instantiate type variables *)
     let nis = List.map (instantiate_type_variables_ni ctx node_id ty_args) nis in
     let locs = List.map (instantiate_type_variables_loc ctx node_id ty_args) locs in

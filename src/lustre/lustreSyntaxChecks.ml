@@ -543,13 +543,21 @@ let build_global_ctx (decls:LustreAst.t) =
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
       (stateful', imports)
-    | ContractCall (_, node_id, _, ins, _) ->
+    | ContractCall (_, node_id, ty_args, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
           (fun acc e -> acc || has_stateful_op ctx e)
           false ins
       in
-      (stateful || arg_has_stateful_op ins,
+      (* A type argument carries expressions of its own, which are part of the
+         contract just as the arguments are *)
+      let ty_arg_has_stateful_op ty_args =
+        List.fold_left
+          (fun acc ty ->
+            acc || LAH.fold_lustre_ty ~into_ty_args:true (has_stateful_op ctx) false (||) ty)
+          false ty_args
+      in
+      (stateful || arg_has_stateful_op ins || ty_arg_has_stateful_op ty_args,
        StringSet.add (NI.get_internal_name node_id) imports
       )
     | AssumptionVars _ ->
@@ -1476,11 +1484,14 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
         let* warnings2 = check_const_expr_decl i ctx e in
         Ok (warnings1 @ warnings2)
     )
-    | ContractCall (pos, node_id, _, args, outputs) -> (
+    | ContractCall (pos, node_id, ty_args, args, outputs) -> (
       if StringMap.mem (NI.get_internal_name node_id) ctx.contracts then (
+        (* The expressions a type argument embeds are checked nowhere else *)
+        let* warnings1 = Res.seq (List.map (check_ty ctx f) ty_args) in
         Res.seqM (fun x _ -> x) () (List.map
            (no_a_dangling_identifier ctx pos) outputs) >>
-        check_expr_list ctx f args
+        let* warnings2 = check_expr_list ctx f args in
+        Ok (List.flatten warnings1 @ warnings2)
       )
       else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
@@ -1516,8 +1527,13 @@ and check_ty ctx f = function
 | RecordType (_, _, tis) -> 
   let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
+(* The type arguments of a user type are written at the use site, so they are
+   checked here rather than at the declaration of the type *)
+| UserType (_, ty_args, _) ->
+  let* warnings = Res.seq (List.map (check_ty ctx f) ty_args) in
+  Res.ok (List.flatten warnings)
 | Int _ | Bool _ | SBitVector _ | UBitVector _ 
-| Real _ | AbstractType _ | UserType _ | EnumType _
+| Real _ | AbstractType _ | EnumType _
 | History _ -> Res.ok []
 | ADT (_, _, cons) ->
   let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
