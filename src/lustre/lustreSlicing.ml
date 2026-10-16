@@ -189,9 +189,8 @@ let rec node_state_var_dependencies' init output_input_deps
                own, as merging a map of one would rebuild the whole
                map. *)
             let has_select =
-              (if init then expr.E.expr_init else expr.E.expr_step :> Term.t)
-              |> Term.select_symbols_of_term
-              |> Symbol.SymbolSet.is_empty |> not
+              Term.has_select
+                (if init then expr.E.expr_init else expr.E.expr_step :> Term.t)
             in
             SVS.fold (fun sv acc ->
                 let indexes =

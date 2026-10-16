@@ -701,6 +701,9 @@ val uf_symbols_of_term : t -> UfSymbol.UfSymbolSet.t
 (** Return the select symbols occurring in the term *)
 val select_symbols_of_term : t -> Symbol.SymbolSet.t
 
+(** Return true if a select occurs in the term, without rebuilding it *)
+val has_select : t -> bool
+
 (** Return the terms of the form (select ...) that appear in a term *)
 val select_terms : t -> TermSet.t
 

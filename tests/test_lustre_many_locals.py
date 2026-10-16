@@ -12,8 +12,9 @@ number of locals:
   generated so far, rather than keeping the variables it had already
   found.
 
-A node with 4000 locals summed in one equation took 87 s before any
-engine started; it now takes about 10 s.
+A node with 6000 locals summed in one equation took about 200 s; it now
+takes about 30 s. The cost going from quadratic to linear, the test uses
+enough locals for the time limit to sit well between the two.
 """
 
 import json
@@ -40,8 +41,8 @@ tel
 
 def test_many_locals_in_one_equation(tmp_path):
     path = tmp_path / "sum.lus"
-    path.write_text(flat_sum(4000))
-    timeout = 60
+    path.write_text(flat_sum(6000))
+    timeout = 90
     args = common_args | {"--timeout": str(timeout)}
     arg_list = [arg for pair in args.items() for arg in pair]
     proc = run_kind2(

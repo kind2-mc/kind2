@@ -2242,14 +2242,12 @@ module MBounds = Map.Make (struct
    transition relation in [term], added to [svs]. [None] stands for all
    state variables, when the term does not let them be told apart *)
 let add_pre_state_vars svs term =
-  match svs with
-  | None -> None
-  | Some svs ->
+  Option.bind svs (fun svs ->
     try
       Term.state_vars_at_offset_of_term
         Numeral.(TransSys.trans_base |> pred) term
       |> SVS.union svs |> Option.some
-    with Invalid_argument _ -> None
+    with Invalid_argument _ -> None)
 
 (* Add constraints from equations to initial state constraint and
    transition relation

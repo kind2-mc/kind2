@@ -1877,6 +1877,30 @@ let select_symbols_of_term term =
   |> ignore;
   !selm
 
+(* Return true if a select occurs in the term, as [select_symbols_of_term]
+   would find one, without rebuilding the term: each shared subterm is
+   visited once, and the traversal stops at the first select *)
+let has_select term =
+  let exception Found in
+  let visited = Hashtbl.create 97 in
+  let rec has t =
+    let tag = T.tag_of_t t in
+    if not (Hashtbl.mem visited tag) then (
+      Hashtbl.add visited tag ();
+      match node_of_term t with
+      | T.FreeVar _ | T.BoundVar _ | T.Leaf _ -> ()
+      | T.Node (s, args) ->
+        if Symbol.is_select s then raise Found;
+        List.iter has args
+      | T.Let (l, args) -> has_lambda l; List.iter has args
+      | T.Exists l | T.Forall l -> has_lambda l
+      | T.Annot (t, _) -> has t)
+  and has_lambda l =
+    let T.L (_, t) = T.node_of_lambda l in
+    has t
+  in
+  try has term; false with Found -> true
+
 (* Return the uninterpreted function symbols applied in a term; a symbol of
    arity zero is applied as a constant, i.e. a leaf *)
 let uf_symbols_of_term term =
