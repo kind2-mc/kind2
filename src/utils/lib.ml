@@ -834,6 +834,20 @@ let discarding = ref false
    holds this lock. The channel underneath has a lock of its own. *)
 let out_lock = Mutex.create ()
 
+(* Set once Kind 2 is on its way out, see [tolerate_closed_output] *)
+let exiting = Atomic.make false
+
+let tolerate_closed_output () = Atomic.set exiting true
+
+(* From now on the output goes to the null device. The descriptor of the
+   channel is redirected rather than the channel replaced, so that the
+   writes still pending in the channel, and those made to it through
+   other formatters, succeed as well. *)
+let silence_output () =
+  let null = Unix.openfile Filename.null [ Unix.O_WRONLY ] 0 in
+  Fun.protect ~finally:(fun () -> Unix.close null) (fun () ->
+    Unix.dup2 null (Unix.descr_of_out_channel !out_channel))
+
 (* Current formatter for output *)
 let log_ppf =
   ref
@@ -843,10 +857,22 @@ let log_ppf =
             Buffer.add_substring out_buffer s pos len))
        (fun () ->
           Mutex.protect out_lock (fun () ->
-            if not !discarding then
-              output_string !out_channel (Buffer.contents out_buffer) ;
-            Buffer.clear out_buffer ;
-            flush !out_channel)))
+            let write () =
+              if not !discarding then
+                output_string !out_channel (Buffer.contents out_buffer) ;
+              Buffer.clear out_buffer ;
+              flush !out_channel
+            in
+            (* The reader of the output may have closed it, as the Java
+               API does when it stops a run. SIGPIPE is ignored, so the
+               write raises [Sys_error]. On the way out, that must not
+               cut the exit short before it kills the solvers, which
+               would outlive Kind 2: the output is silenced, and the exit
+               goes on as if it had been written. *)
+            try write () with
+            | Sys_error _ when Atomic.get exiting ->
+              silence_output () ;
+              write ())))
 
 (* Empties the buffer of the output without writing it: what a record
    interrupted by an exception left there. The tokens the formatter holds
