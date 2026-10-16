@@ -16,12 +16,15 @@ from conftest import run_kmoxi
 quoted = """(set-logic QF_LIA)
 (declare-enum-sort |traffic light| (|go now| stop))
 (declare-const |my k| Int)
+(define-system |the sub| :input () :output ((|s v| Int))
+  :init (= |s v| 0) :trans (= |s v|' (+ |s v| 1)))
 (define-system |the sys| :input () :output ((|x y| Int) (l |traffic light|))
-  :local ((|2t| Int))
+  :local ((|2t| Int) (w Int))
+  :subsys (|the call| (|the sub| w))
   :init (and (= |x y| 0) (= |2t| 0) (= l |go now|))
   :trans (and (= |x y|' (+ |x y| |my k|)) (= |2t|' (+ |2t| 1)) (= l' stop)))
 (check-system |the sys| :input () :output ((|x y| Int) (l |traffic light|))
-  :local ((|2t| Int))
+  :local ((|2t| Int) (w Int))
   :reachable (|reach it| (and (= |2t| 2) (= |x y| 4) (= l stop)))
   :query (|q 1| (|reach it|)))
 """
@@ -38,6 +41,8 @@ def test_symbols_quoted(tmp_path):
         "(|x y| 0)",
         "(l |go now|)",
         "(|2t| 0)",
+        # A path is one symbol, quoted when a name along it needs it
+        "(|the call::s v| 0)",
         "(|reach it| true)",
     ]:
         assert text in out, out + err

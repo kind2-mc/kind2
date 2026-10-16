@@ -110,17 +110,19 @@ let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) =
 ) StateVar.StateVarMap.empty (SVM.bindings sys_to_subsys)
 
 (* The name of a variable of a call, as a symbol: the path of the call names
-   down to it, as in c1::c2::x *)
+   down to it, as in c1::c2::x. The namespace is flat, so a segment that
+   contains :: itself, or a check variable whose name is a path, can alias. *)
 let path_name path name = quote (String.concat "::" (path @ [ name ]))
 
-(* The variables a system declares, rather than the hidden copies of the
-   locals of its calls or the variables of kmoxi's own *)
+(* Whether a variable is one a system declares, rather than a hidden copy of
+   a local of one of its calls or a variable of kmoxi's own encoding *)
+let is_declared_state_var sv =
+  match StateVar.scope_of_state_var sv with
+  | [ _ ; s ] -> s = List.hd LustreIdent.user_scope
+  | _ -> false
+
 let declared_state_vars sys =
-  let usr = List.hd LustreIdent.user_scope in
-  TransSys.state_vars sys |> List.filter (fun sv ->
-    match StateVar.scope_of_state_var sv with
-    | [ _ ; s ] -> s = usr
-    | _ -> false)
+  List.filter is_declared_state_var (TransSys.state_vars sys)
 
 (* The name and value at step k of a variable of a call at a path, with
    whether it changed, read from the top system variable the map maps it to *)
@@ -140,7 +142,7 @@ let state_var_val_at_k model_assoc_list k map path sv =
     var_name, string_of_value ty value, state_value_changed
   | Model.Map _ ->
     var_name, "[...]", true
-  | _ ->
+  | Model.Lambda _ ->
     failwith (Format.asprintf "Received unexpected model value. Unable to construct counterexample.")
 
 (* The calls of a system, in the order they are declared in *)
@@ -166,10 +168,14 @@ let get_state_var_vals_at_k_all trans_sys model_assoc_list k =
     List.fold_left (fun map sv -> SVM.add sv sv map)
       SVM.empty (TransSys.state_vars trans_sys)
   in
-  List.map (value top_map []) (declared_state_vars trans_sys)
-  @ List.concat_map (fun (sub, inst) ->
-    vals_of_calls [] sub (join_maps top_map inst.TransSys.map_up))
-    (calls_of trans_sys)
+  (* A check wraps the system it checks in a system whose only call is of
+     that system, so the paths below start empty, at the check itself *)
+  match calls_of trans_sys with
+  | [ (sub, inst) ] ->
+    List.map (value top_map []) (declared_state_vars trans_sys)
+    @ vals_of_calls [] sub (join_maps top_map inst.TransSys.map_up)
+  | [] | _ :: _ :: _ ->
+    failwith "The system of a check must call the system it checks once."
 
 let pp_print_str_var_val ppf (state_var, value, changed) =
   if changed then 
@@ -389,7 +395,7 @@ let cert_name_of_state_var sv =
   let usr = List.hd LustreIdent.user_scope in
   match StateVar.scope_of_state_var sv with
   | _ when StateVar.is_const sv -> quote name
-  | [ _ ; s ] when s = usr -> quote name
+  | _ when is_declared_state_var sv -> quote name
   | _ :: "ins" :: _ :: rest ->
     (* The instances, each after an "ins", and the scope of the variable in
        the last one *)

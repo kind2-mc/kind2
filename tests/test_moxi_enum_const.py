@@ -191,7 +191,8 @@ def test_answers(tmp_path, name, model, expected, engine):
 
 def test_trail_names_values(tmp_path):
     _, out = run(tmp_path, trail, ["--enable", "BMC"])
-    steps = re.findall(r"\(s (\w+)\)", out)
+    # s is the only variable of the check, so it opens each step of the trail
+    steps = re.findall(r"^\s*\(\d+ \(s (\w+)\)", out, re.M)
     assert steps == ["red", "green", "blue"], out
 
 

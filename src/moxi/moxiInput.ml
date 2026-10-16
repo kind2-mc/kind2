@@ -136,8 +136,17 @@ let moxi_name_of_uf uf = UfSymbol.UfSymbolHashtbl.find_opt moxi_names uf
    of the instance, since the instances of a transition system have none *)
 let call_names : (Scope.t * int, string) Hashtbl.t = Hashtbl.create 7
 
+(* Every call is named as it is built, so a missing name is a bug of kmoxi's
+   rather than of the model: fail naming it, instead of with Not_found deep
+   in whatever prints a response *)
 let call_name caller inst =
-  Hashtbl.find call_names (TS.scope_of_trans_sys caller, inst.TS.uid)
+  let scope = TS.scope_of_trans_sys caller in
+  match Hashtbl.find_opt call_names (scope, inst.TS.uid) with
+  | Some name -> name
+  | None ->
+    failwith
+      (Format.asprintf "No name for the call %d of %a" inst.TS.uid
+         Scope.pp_print_scope_internal scope)
 
 let unsupported span msg =
   raise (Unsupported_feature (Lib.start_pos span, msg))

@@ -16,6 +16,7 @@ The arrays here have 17-bit indices, 2^17 elements: reading them element by
 element would be slow rather than too large for memory.
 """
 
+import re
 import time
 
 import pytest
@@ -70,9 +71,14 @@ def test_state_array(tmp_path, engines):
     out = res.stdout
     assert ":query (q sat" in out, out + res.stderr
     # The value of the array, whole: a constant array, possibly with stores,
-    # with the value the reachability condition reads at index 5
-    step = [l for l in out.splitlines() if l.strip().startswith("(3 ")][0]
-    value = step.split("(a ", 1)[1]
+    # with the value the reachability condition reads at index 5. The entry
+    # of a is matched from the start of the step, so that only the entry of
+    # the step can match it.
+    entry = re.compile(r"\s*\(3 \(n \S+\) \(a ")
+    steps = [m for m in map(entry.match, out.splitlines()) if m]
+    assert len(steps) == 1, out
+    step = steps[0].string
+    value = step[steps[0].end():]
     assert value.startswith(("(store ", "((as const")), step
     assert f"(as const {sort})" in value and "#b00000111" in value, step
 
