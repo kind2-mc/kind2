@@ -2499,6 +2499,66 @@ let constraints_of_arrays init terms eq_bounds =
 
     ) eq_bounds terms 
 
+(* The term [t] in the scope of the nested lets [lets], the outermost
+   first, built as one simultaneous let per level of dependency: 1 for a
+   binding whose term mentions no variable of [lets], otherwise 1 + the
+   highest level of those it mentions; the lowest level is outermost.
+
+   A node binds each of its stateless variables in a let of its own, and
+   the lets of a model generated from Simulink, a lookup table for
+   instance, number in the thousands. Built one at a time, each let
+   traverses and rebuilds the lets inside it, and every subterm along the
+   chain keeps the indexes of the bound variables it contains: the time
+   and the memory grow with the square of the length of the chain. A few
+   lets of independent bindings, built with one traversal of each term,
+   take neither.
+
+   Each variable of [lets] is bound once, and the term of a binding only
+   mentions variables of the lets around it, the equations being ordered
+   by dependency, so moving a binding to another let changes what no
+   variable refers to. Should a term mention a variable of its own let or
+   of one inside it, or a variable be bound twice, the lets are built as
+   they are, nested, and a debug message says so for the node [node_id].
+
+   [vars_of] gives the variables of the term of a binding. *)
+let mk_let_levels node_id vars_of lets t =
+  let exception Not_leveled in
+  (* The level of each variable of [lets], 0 until its let is reached *)
+  let levels = Var.VarHashtbl.create 97 in
+  List.iter (List.iter (fun (v, _) -> Var.VarHashtbl.replace levels v 0)) lets;
+  try
+    let leveled =
+      List.concat_map (fun binds ->
+        let leveled =
+          List.map (fun (v, d) ->
+            let level =
+              Var.VarSet.fold (fun w l ->
+                match Var.VarHashtbl.find_opt levels w with
+                | Some 0 -> raise Not_leveled
+                | Some l' -> max l (l' + 1)
+                | None -> l)
+                (vars_of d) 1
+            in
+            level, (v, d))
+            binds
+        in
+        List.iter (fun (level, (v, _)) ->
+          if Var.VarHashtbl.find levels v <> 0 then raise Not_leveled;
+          Var.VarHashtbl.replace levels v level)
+          leveled;
+        leveled)
+        lets
+    in
+    let depth = List.fold_left (fun d (l, _) -> max d l) 0 leveled in
+    let at_level = Array.make depth [] in
+    List.iter (fun (l, b) -> at_level.(l - 1) <- b :: at_level.(l - 1)) leveled;
+    Term.mk_let_chain (Array.to_list at_level |> List.map List.rev) t
+  with Not_leveled ->
+    Log.log L_debug
+      "Lets of node %a not leveled: building %d nested lets"
+      NI.pp_print_node_id_user_name node_id (List.length lets);
+    Term.mk_let_chain lets t
+
 (* The one-state part of a list of constraints, let-bound like them *)
 let one_state_term_of_conjuncts f terms bind_lets =
   f terms |> Term.mk_and |> bind_lets
@@ -2521,9 +2581,21 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
      much as possible *)
   let terms, definition_set = constraints_of_arrays init (terms, definition_set) eq_bounds in
 
+  (* The variables of the term of a binding, computed once for the
+     bindings of [bind_lets_used] and both calls to [mk_let_levels] *)
+  let vars_of =
+    let vars = Term.TermHashtbl.create 97 in
+    fun d ->
+      match Term.TermHashtbl.find_opt vars d with
+      | Some s -> s
+      | None ->
+        let s = Term.vars_of_term d in
+        Term.TermHashtbl.add vars d s;
+        s
+  in
+
   let bind_lets t =
-    List.fold_left (fun t binds -> Term.mk_let binds t) t (List.rev lets)
-    |> Term.convert_select
+    mk_let_levels node.N.node_id vars_of lets t |> Term.convert_select
   in
 
   (* As [bind_lets], but leaving out the bindings the term does not use.
@@ -2538,24 +2610,24 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
      term says, but it is still part of the term, and asserting the term
      at a bound then mentions variables one instant before it. *)
   let bind_lets_used t0 =
-    let _, t =
+    let _, used =
       List.fold_left
-        (fun (needed, t) binds ->
+        (fun (needed, used) binds ->
           match
             List.filter (fun (v, _) -> Var.VarSet.mem v needed) binds
           with
-          | [] -> needed, t
+          | [] -> needed, used
           | binds ->
             let needed =
               List.fold_left
-                (fun acc (_, d) -> Var.VarSet.union acc (Term.vars_of_term d))
+                (fun acc (_, d) -> Var.VarSet.union acc (vars_of d))
                 needed binds
             in
-            needed, Term.mk_let binds t)
-        (Term.vars_of_term t0, t0)
+            needed, binds :: used)
+        (Term.vars_of_term t0, [])
         (List.rev lets)
     in
-    Term.convert_select t
+    mk_let_levels node.N.node_id vars_of used t0 |> Term.convert_select
   in
 
   let one_state_term =
