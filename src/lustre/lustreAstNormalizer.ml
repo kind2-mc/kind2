@@ -31,8 +31,8 @@
   but the actual definition is not added to the AST. Instead it is recoreded in
   the generated_identifiers record.
 
-  pre operators are explicitly guarded in the AST by an oracle variable
-  if they were originally unguarded
+  pre operators are explicitly guarded in the AST by an oracle variable,
+  so that an expression keeps its initial value wherever a later pass moves it
     e.g. pre expr => oracle -> pre expr
 
   The following parts of the AST are abstracted by locals:
@@ -3067,31 +3067,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       in
     let info = { info with pre_depth = info.pre_depth + 1 } in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
-    let guard, gids2, warnings2, previously_guarded = match guard with
-      | Some guard -> guard, empty (), [], true
-      | None ->
-        let guard, _, gids = mk_fresh_oracle ty nexpr in
-        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
-        guard, gids, warnings, false
+    (* The 'pre' gets an initial value of its own even inside an arrow that
+       already supplies one, so that it stays well defined wherever a later
+       pass moves it. [guard] then only says whether the user wrote one. *)
+    let oracle, _, gids2 = mk_fresh_oracle ty nexpr in
+    let warnings2 = match guard with
+      | Some _ -> []
+      | None -> [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))]
     in
     let gids = union gids1 gids2 in
     let warnings = warnings1 @ warnings2 in
-    if previously_guarded then
-      let rec process_expr nexpr = 
-        match nexpr with
-        | A.IndexAccess (pos2, expr1, expr2, kind) ->
-          A.IndexAccess (pos2, process_expr expr1, expr2, kind)
-        | e -> Pre (pos, e)
-      in 
-      process_expr nexpr, gids, warnings
-    else
-      let rec process_expr nexpr = 
-        match nexpr with
-        | A.IndexAccess (pos2, expr1, expr2, kind) ->
-          A.IndexAccess (pos2, process_expr expr1, expr2, kind)
-        | e -> A.Arrow (pos, guard, Pre (pos, e))
-      in 
-      process_expr nexpr, gids, warnings
+    (* A local generalized to an array equation is read as l[i]; 'pre' has to
+       sit under the index access, as it does everywhere else in the AST *)
+    let rec process_expr nexpr =
+      match nexpr with
+      | A.IndexAccess (pos2, expr1, expr2, kind) ->
+        A.IndexAccess (pos2, process_expr expr1, expr2, kind)
+      | e -> A.Arrow (pos, oracle, Pre (pos, e))
+    in
+    process_expr nexpr, gids, warnings
   (* ************************************************************************ *)
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
