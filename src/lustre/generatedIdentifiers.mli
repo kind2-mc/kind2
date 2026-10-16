@@ -200,6 +200,14 @@ val clocked_call_output : string
    the when-block guard (see lustreDesugarIfBlocks.ml). *)
 val clocked_call_tie : string
 
+(* String constant used as the suffix of the fresh locals a match block binds
+   its scrutinee to (see lustreGenNodes.ml). *)
+val match_scrutinee : string
+
+(** Checks if a variable name is the AST name of a bound match block scrutinee,
+    ['<n>_mscrut'], as opposed to a user name such as ['my_mscrut'] *)
+val var_is_match_scrutinee: HString.t -> bool
+
 (* String constant used as the suffix of the fresh boolean locals capturing an
    if/when-block guard that contains a node call
    (see lustreRemoveMultAssign.ml). *)

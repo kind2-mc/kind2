@@ -1,0 +1,10 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd (x: int) returns (t: T);
+
+node main () returns (ok: bool);
+var y: subtype { z: int | (match nd (z) with | A (v) : v | B (w) : w end) = z };
+let
+  y = 1;
+  ok = y = 1;
+tel

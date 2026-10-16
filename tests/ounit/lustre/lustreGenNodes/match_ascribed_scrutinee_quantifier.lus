@@ -1,0 +1,7 @@
+datatype T = A (v: int) | B (w: int);
+
+node main (u: T) returns (ok: bool);
+let
+  ok = true;
+  check forall (q: int) ((match (u : T) with | A (v) : v + 0*q | B (w) : w + 0*q end) >= 0);
+tel

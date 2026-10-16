@@ -67,10 +67,14 @@ type eq_or_framecond =
 let pos_list_map : (Lib.position * eq_or_framecond) list NI.Hashtbl.t = 
   NI.Hashtbl.create 20
 
+(* The local a match block binds its scrutinee to is read only in the branch
+   that defines it, so its stuttering value is never observed and the warning
+   would be about a variable the user did not write. *)
 let warn_unguarded_pres nis pos = 
   List.map (fun ni -> match ni with
-    | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) -> 
-      if AH.has_unguarded_pre_no_warn expr then [(mk_warning pos (UninitializedVariableWarning id))] else []
+    | A.Body (Equation (_, StructDef(_, [SingleIdent(_, id)]), expr)) ->
+      if AH.has_unguarded_pre_no_warn expr && not (GI.var_is_match_scrutinee id)
+      then [(mk_warning pos (UninitializedVariableWarning id))] else []
     | _ -> []
   ) nis
 

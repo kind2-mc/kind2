@@ -310,14 +310,6 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/match_block_assign_pattern_var.lus" with
     | Error (`LustreSyntaxChecksError (_, AssignmentToPatternVariable _)) -> true
     | _ -> false);
-  mk_test "Node call in a match block scrutinee" (fun () ->
-    match load_file "./lustreSyntaxChecks/match_block_node_call_scrutinee.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
-    | _ -> false);
-  mk_test "'any' operator in a match block scrutinee" (fun () ->
-    match load_file "./lustreSyntaxChecks/match_block_any_scrutinee.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
-    | _ -> false);
 ])
 
 (* *************************************************************************** *)
@@ -1289,6 +1281,10 @@ let _ = run_test_tt_main ("frontend LustreDesugarFrameBlocks and LustreDesugarIf
     match load_file "./lustreSyntaxChecks/when_block_missing_definition.lus" with
     | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
     | _ -> false);
+  mk_test "When block variable named like a generated scrutinee missing in branch" (fun () ->
+    match load_file "./lustreSyntaxChecks/when_block_missing_definition_mscrut.lus" with
+    | Error (`LustreDesugarIfBlocksError (_, MissingDefinitionInBranchError _)) -> true
+    | _ -> false);
   mk_test "When block variable omitted in branch within frame block is accepted" (fun () ->
     match load_file "./lustreSyntaxChecks/when_block_omitted_in_frame.lus" with
     | Ok _ -> true
@@ -1515,6 +1511,28 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
   mk_test "test pattern variable shadowing a node output" (fun () ->
     match load_file "./lustreDesugarMatchBlocks/pattern_variable_shadows_output.lus" with
     | Error (`LustreDesugarMatchBlocksError (_, ShadowingPatternVariable _)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
+(*                            Lustre Gen Nodes Checks                          *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
+  mk_test "test quantified variable in an arm of a shared-scrutinee match" (fun () ->
+    match load_file "./lustreGenNodes/match_arm_quantified_var.lus" with
+    | Error (`LustreGenNodesError (_, MatchScrutineeQuantifiedVariable _)) -> true
+    | _ -> false);
+  mk_test "test match block with a shared scrutinee under a restart" (fun () ->
+    match load_file "./lustreGenNodes/match_block_scrutinee_under_restart.lus" with
+    | Error (`LustreGenNodesError (_, RestartMatchScrutinee)) -> true
+    | _ -> false);
+  mk_test "test shared scrutinee in the type of a local declaration" (fun () ->
+    match load_file "./lustreGenNodes/match_scrutinee_in_local_type.lus" with
+    | Error (`LustreGenNodesError (_, MatchScrutineeInLocalDecl)) -> true
+    | _ -> false);
+  mk_test "test ascribed scrutinee under a quantifier is accepted" (fun () ->
+    match load_file "./lustreGenNodes/match_ascribed_scrutinee_quantifier.lus" with
+    | Ok _ -> true
     | _ -> false);
 ])
 

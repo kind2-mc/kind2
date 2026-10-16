@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported pn<S> (x: S) returns (t: T);
+(*@contract guarantee t = A (1) or t = B (2); *)
+
+node main (n: int) returns (ok: bool);
+var y: int;
+let
+  y = match pn@<int> (n) with
+      | A (v) : v
+      | B (w) : w
+      end;
+  ok = y = 1 or y = 2;
+  check "shared scrutinee" ok;
+tel

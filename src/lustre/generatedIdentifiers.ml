@@ -243,6 +243,17 @@ let clocked_call_tie = "wbtie"
    nondeterministic call must be bound to a single local first. *)
 let block_guard = "bguard"
 
+(* String constant used in lustreGenNodes.ml as the suffix of the fresh locals a
+   match block binds its scrutinee to (e.g. '4_mscrut'). Desugaring copies the
+   scrutinee into every constructor tester and field projection, so one that
+   calls a node must name a single instance of it. *)
+let match_scrutinee = "mscrut"
+
+(* Checks if a variable name is the AST name of a bound match block scrutinee,
+   '<n>_mscrut', as opposed to a user name such as 'my_mscrut', which the
+   passes below must not exempt from the checks a user variable must meet. *)
+let var_is_match_scrutinee = is_generated_ast_name match_scrutinee
+
 (* String constant used in lustreDesugarArrayComprehensions.ml as the suffix of
    the fresh locals holding the value of an array comprehension
    (e.g. '4_gcomp'). *)

@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd (x: int) returns (t: T);
+
+node main (x: int; r: bool) returns (ok: bool);
+var y: int;
+let
+  restart
+    match nd (x) with
+    | A (v) : y = v;
+    | B (w) : y = w;
+    end
+  every r end
+  ok = y >= 0;
+tel

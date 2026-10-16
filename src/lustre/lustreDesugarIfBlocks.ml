@@ -90,12 +90,19 @@ let get_lhs_var lhs = match lhs with
   | A.StructDef (pos, [SingleIdent (_, i)]) -> (i, pos)
   | _ -> assert false
 
-(** Fresh local variables introduced to capture the discarded results of a call
-    statement (e.g. a lemma call like 'double(n-1);', see lustreNameCalls.ml)
-    are not required to be defined in every branch. *)
-let is_discarded_lhs lhs =
+(** The discarded result of a call statement (e.g. a lemma call like
+    'double(n-1);', see lustreNameCalls.ml) is not required to be defined in
+    every branch. *)
+let is_discarded_output_lhs lhs =
   let (var, _) = get_lhs_var lhs in
   GI.var_is_discarded_output var
+
+(** A when block may also define the local a match block binds its scrutinee to
+    (see lustreGenNodes.ml), which is only read in the branch defining it. A
+    match block cannot appear in an if block, so this is specific to when. *)
+let is_kind2_generated_lhs lhs =
+  let (var, _) = get_lhs_var lhs in
+  is_discarded_output_lhs lhs || GI.var_is_match_scrutinee var
 
 (** Create a new oracle for use with if blocks. *)
 let mk_fresh_ib_oracle pos expr_type =
@@ -392,7 +399,7 @@ let extract_equations_from_if node_id ctx ib in_frame_block =
     else
       let lhss = List.map fst lhss_poss in
       R.seq_ (List.map2 (fun lhs tree ->
-        if has_leaf_none tree && not (is_discarded_lhs lhs) then
+        if has_leaf_none tree && not (is_discarded_output_lhs lhs) then
           let (var, pos) = get_lhs_var lhs in
           mk_error pos (MissingDefinitionInBranchError var)
         else R.ok ()
@@ -616,7 +623,7 @@ let extract_equations_from_when node_id ctx gids nis frame_nes wb in_frame_block
     else
       let lhss = List.map fst lhss_poss in
       R.seq_ (List.map2 (fun lhs tree ->
-        if has_leaf_none tree && not (is_discarded_lhs lhs) then
+        if has_leaf_none tree && not (is_kind2_generated_lhs lhs) then
           let (var, pos) = get_lhs_var lhs in
           mk_error pos (MissingDefinitionInBranchError var)
         else R.ok ()
