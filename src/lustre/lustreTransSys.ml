@@ -2238,10 +2238,28 @@ module MBounds = Map.Make (struct
   end)
 
 
+(* The state variables that occur at the previous instant of the
+   transition relation in [term], added to [svs]. [None] stands for all
+   state variables, when the term does not let them be told apart *)
+let add_pre_state_vars svs term =
+  Option.bind svs (fun svs ->
+    try
+      Term.state_vars_at_offset_of_term
+        Numeral.(TransSys.trans_base |> pred) term
+      |> SVS.union svs |> Option.some
+    with Invalid_argument _ -> None)
+
 (* Add constraints from equations to initial state constraint and
-   transition relation *)
+   transition relation
+
+   [stateful_vars] is the set of stateful state variables, and [pre_svs]
+   the state variables that occur at the previous instant in [terms]
+   (see [add_pre_state_vars]): kept along with [terms], rather than
+   computed from them again for each equation, which made the
+   translation of a node take a time quadratic in its number of
+   equations *)
 let rec constraints_of_equations_wo_arrays transfer_defs node
-    eq_bounds init stateful_vars terms (lets, lets_dependencies) definition_set = function
+    eq_bounds init stateful_vars (terms, pre_svs) (lets, lets_dependencies) definition_set = function
   (* Constraints for all equations generated *)
   | [] -> terms, lets, eq_bounds, definition_set
 
@@ -2251,7 +2269,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
   | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
     when
       (Flags.slice_nodes () != `Experimental) &&
-      (List.exists (StateVar.equal_state_vars state_var) stateful_vars) ->
+      (SVS.mem state_var stateful_vars) ->
 
     (* Equation for stateful variable *)
     let def = 
@@ -2270,7 +2288,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Add terms of equation *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
+      eq_bounds init stateful_vars
+      (def :: terms, add_pre_state_vars pre_svs def)
+      (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
 
   (* Can define state variable with a let binding *)
   (* Let binding optimization is not performed when experimental slicing is
@@ -2335,12 +2355,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
             (if
               (* Does the state variable occur at the previous
                 instant? *)
-              try
-              Term.state_vars_at_offset_of_term
-                Numeral.(TransSys.trans_base |> pred)
-                (Term.mk_and terms)
-              |> SVS.mem state_var
-              with Invalid_argument _ -> true
+              match pre_svs with
+              | Some svs -> SVS.mem state_var svs
+              | None -> true
 
             then
               ((* Definition must not contain a [pre] operator, otherwise we'd
@@ -2358,7 +2375,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Start with singleton lists of let-bound terms *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (let_binds :: lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars (terms, pre_svs) (let_binds :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
@@ -2369,7 +2386,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
 
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars (terms, pre_svs) (lets, lets_dependencies) definition_set tl
 
 
 (* create quantified (or no) constraints for recursive arrays definitions *)
@@ -2573,8 +2590,15 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
     let transfer_defs =
       Flags.IVC.compute_ivc () || List.mem `MCS (Flags.enabled ())
     in
+    (* Only the transition relation binds variables at the previous
+       instant *)
+    let pre_svs =
+      if init then None
+      else List.fold_left add_pre_state_vars (Some SVS.empty) terms
+    in
     constraints_of_equations_wo_arrays transfer_defs node
-      MBounds.empty init stateful_vars terms ([], SVM.empty) definition_set equations
+      MBounds.empty init (SVS.of_list stateful_vars) (terms, pre_svs)
+      ([], SVM.empty) definition_set equations
     in
 
   (* then make constraints for recursive arrays so as to merge quantifiers as
