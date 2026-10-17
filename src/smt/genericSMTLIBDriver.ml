@@ -110,6 +110,33 @@ type expr_of_string_sexpr_conv =
   }
 
 
+module HSS = HString.HStringSet
+
+(* The atoms of an S-expression that are not bound by a let or a quantifier
+   in it, added to [acc]: a superset of the symbols it takes from the
+   enclosing scope, since operators and constants are atoms too *)
+let rec free_atoms bound acc = function
+  | HStringSExpr.Atom a -> if HSS.mem a bound then acc else HSS.add a acc
+  | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.List v; t]
+    when s == s_let || s == s_forall || s == s_exists ->
+    let acc =
+      if s == s_let then
+        List.fold_left (fun acc -> function
+          | HStringSExpr.List [_; e] -> free_atoms bound acc e
+          | e -> free_atoms bound acc e)
+          acc v
+      else acc
+    in
+    let bound =
+      List.fold_left (fun bound -> function
+        | HStringSExpr.List (HStringSExpr.Atom n :: _) -> HSS.add n bound
+        | _ -> bound)
+        bound v
+    in
+    free_atoms bound acc t
+  | HStringSExpr.List l -> List.fold_left (free_atoms bound) acc l
+
+
 (* Convert a list of typed variables *)
 let rec gen_bound_vars_of_string_sexpr
     ({ type_of_sexpr } as conv)
@@ -186,17 +213,9 @@ let gen_expr_of_string_sexpr'
        thousands of lets of one binding each. Built one at a time, the
        lets take a time that grows faster than the square of their
        number, since a let is built by traversing its body; the chain is
-       built at once with [Term.mk_let_chain]. Its bindings are grouped
-       into as few lets as their dependencies allow, since a subterm of a
-       chain records the variables bound around it that it mentions, a
-       memory that grows with the square of the length of the chain: a
-       binding goes to the let of its level, 1 if it depends on no
-       binding of the chain, and otherwise 1 + the highest level of
-       those it depends on. This keeps what every symbol refers to as
-       long as the chain binds each symbol once and binds no symbol that
-       a term of the chain takes from the enclosing scope, which
-       includes a symbol a binding takes from its own let; a chain that
-       does not is built with one let per level, as written. *)
+       built at once with [Term.mk_let_chain], its bindings regrouped by
+       dependency level (see [LetChain]). A let on its own is one level
+       as it is. *)
     | HStringSExpr.List 
         ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
       when s == s_let -> 
@@ -207,18 +226,6 @@ let gen_expr_of_string_sexpr'
         | t -> List.rev acc, t
       in
       let lets, body = chain [v] t in
-
-      (* The level of each symbol the chain has bound so far, the
-         symbols the terms so far take from the enclosing scope (any
-         atom not bound so far, a superset), and whether the chain is
-         regular *)
-      let levels = HString.HStringHashtbl.create 97 in
-      let outer = HString.HStringHashtbl.create 97 in
-      let regular = ref true in
-      let rec atoms f = function
-        | HStringSExpr.Atom a -> f a
-        | HStringSExpr.List l -> List.iter (atoms f) l
-      in
       let binding = function
         | HStringSExpr.List [HStringSExpr.Atom name; e] -> name, e
         | e ->
@@ -226,49 +233,21 @@ let gen_expr_of_string_sexpr'
             ("Invalid expression in let binding: " ^
              (string_of_t HStringSExpr.pp_print_sexpr e))
       in
-      let leveled =
-        List.mapi (fun j v ->
-          let bindings = List.map binding v in
-          let leveled =
-            List.map (fun (name, e) ->
-              let level = ref 1 in
-              atoms (fun a ->
-                match HString.HStringHashtbl.find_opt levels a with
-                | Some l -> level := max !level (l + 1)
-                | None -> HString.HStringHashtbl.replace outer a ())
-                e;
-              name, !level, e)
-              bindings
-          in
-          List.iter (fun (name, level, _) ->
-            if HString.HStringHashtbl.mem levels name
-               || HString.HStringHashtbl.mem outer name
-            then regular := false;
-            HString.HStringHashtbl.replace levels name level)
-            leveled;
-          (* As written, the [j]th let is the level [j + 1] *)
-          if !regular then leveled
-          else List.map (fun (name, _, e) -> name, j + 1, e) leveled)
-          lets
+      let levels =
+        match List.map (List.map binding) lets with
+        | [bindings] -> [bindings]
+        | chain ->
+          LetChain.segments ~name:Fun.id ~free:(free_atoms HSS.empty HSS.empty)
+            chain
+          |> LetChain.levels
       in
-      let leveled =
-        if !regular then leveled
-        else List.mapi (fun j -> List.map (fun (name, _, e) -> name, j + 1, e)) leveled
-      in
-
-      (* The bindings of each level, in their order *)
-      let depth = List.fold_left (List.fold_left (fun d (_, l, _) -> max d l)) 0 leveled in
-      let at_level = Array.make depth [] in
-      List.iter (List.iter (fun (name, l, e) ->
-        at_level.(l - 1) <- (name, e) :: at_level.(l - 1)))
-        leveled;
 
       (* Convert the bindings of each level in the scope of the levels
          before it *)
       let bound_vars, lets =
-        Array.fold_left (fun (bound_vars, lets) bindings ->
+        List.fold_left (fun (bound_vars, lets) bindings ->
           let bindings =
-            List.rev_map (fun (name, e) ->
+            List.map (fun (name, e) ->
               let e = expr_of_string_sexpr conv bound_vars e in
               Var.mk_free_var name (Term.type_of_term e), e)
               bindings
@@ -279,7 +258,7 @@ let gen_expr_of_string_sexpr'
               bound_vars bindings
           in
           bound_vars, bindings :: lets)
-          (bound_vars, []) at_level
+          (bound_vars, []) levels
       in
 
       Term.mk_let_chain (List.rev lets) (expr_of_string_sexpr conv bound_vars body)

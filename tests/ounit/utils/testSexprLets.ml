@@ -60,24 +60,48 @@ let test_simultaneous _ =
   assert_value 9
     "(let ((a 1) (b 2)) (let ((c (+ a b)) (d (* a b))) (+ c d (* 2 b))))"
 
-(* A chain as long as a solver writes, each binding on the one before:
-   d_i = d_(i-1) + 1 *)
-let test_long_chain _ =
-  let n = 5000 in
+(* A chain of [n] lets, each binding [d_i] to a term of [x]: one let, as
+   the bindings are independent, or if [dependent] to [d_(i-1)]: one let
+   per binding *)
+let chain ~dependent n =
   let buf = Buffer.create (64 * n) in
   Buffer.add_string buf "(let ((d1 1)) " ;
   for i = 2 to n do
-    Buffer.add_string buf (Printf.sprintf "(let ((d%d (+ d%d 1))) " i (i - 1))
+    Buffer.add_string buf
+      (if dependent then Printf.sprintf "(let ((d%d (+ d%d 1))) " i (i - 1)
+       else Printf.sprintf "(let ((d%d %d)) " i i)
   done ;
   Buffer.add_string buf (Printf.sprintf "(+ d%d d1)" n) ;
   Buffer.add_string buf (String.make n ')') ;
-  let start = Unix.gettimeofday () in
-  let t = term_of_string (Buffer.contents buf) in
-  let elapsed = Unix.gettimeofday () -. start in
-  assert_bool
-    (Printf.sprintf "%d nested lets took %.1f s" n elapsed)
-    (elapsed < 10.) ;
+  Buffer.contents buf
+
+let timed f = let start = Unix.gettimeofday () in let r = f () in r, Unix.gettimeofday () -. start
+
+(* Independent bindings are regrouped into one let *)
+let test_independent _ =
+  let n = 5000 in
+  let t = term_of_string (chain ~dependent:false n) in
+  (match Term.node_of_term t with
+   | Term.T.Let (_, bound) ->
+     assert_equal ~printer:string_of_int ~msg:"bindings of the one let"
+       n (List.length bound)
+   | _ -> assert_failure "not a let") ;
   assert_equal ~printer:string_of_int (n + 1) (value t)
+
+(* A chain of dependent bindings is converted in a time that grows with
+   its length, not with its square: twice the lets take less than three
+   times the time *)
+let test_dependent_chain _ =
+  let n = 2500 in
+  let s1, s2 = chain ~dependent:true n, chain ~dependent:true (2 * n) in
+  let time s = snd (timed (fun () -> term_of_string s)) in
+  let time s = min (time s) (time s) in
+  let t1, t2 = time s1, time s2 in
+  assert_bool
+    (Printf.sprintf "%d lets: %.2f s, %d lets: %.2f s" n t1 (2 * n) t2)
+    (t2 < 3. *. t1 +. 0.05) ;
+  assert_equal ~printer:string_of_int (2 * n + 1)
+    (value (term_of_string s2))
 
 let suite =
   "sexpr lets" >::: [
@@ -85,7 +109,8 @@ let suite =
     "shadowing" >:: test_shadowing ;
     "own let" >:: test_own_let ;
     "simultaneous" >:: test_simultaneous ;
-    "long chain" >:: test_long_chain ;
+    "independent" >:: test_independent ;
+    "dependent chain" >:: test_dependent_chain ;
   ]
 
 let () = run_test_tt_main suite

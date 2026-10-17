@@ -45,16 +45,24 @@ let chain n =
   in
   Term.mk_let_chain levels (plus [v (d n); v (d 1)])
 
+let timed f = let start = Unix.gettimeofday () in let r = f () in r, Unix.gettimeofday () -. start
+
+(* Imported in the domain that built it, the term is the very term; and
+   twice the lets take less than three times the time: the import is
+   linear in the length of the chain *)
 let test_long_chain _ =
-  let n = 5000 in
-  let t = chain n in
-  let start = Unix.gettimeofday () in
-  let t' = Term.import t in
-  let elapsed = Unix.gettimeofday () -. start in
+  let n = 2500 in
+  let t1, t2 = chain n, chain (2 * n) in
+  let time t =
+    let t', s = timed (fun () -> Term.import t) in
+    assert_bool "the imported term is the term" (t' == t) ;
+    s
+  in
+  let time t = min (time t) (time t) in
+  let s1, s2 = time t1, time t2 in
   assert_bool
-    (Printf.sprintf "importing %d nested lets took %.1f s" n elapsed)
-    (elapsed < 10.) ;
-  assert_bool "the imported term is the term" (t' == t)
+    (Printf.sprintf "%d lets: %.2f s, %d lets: %.2f s" n s1 (2 * n) s2)
+    (s2 < 3. *. s1 +. 0.05)
 
 let test_quantifier _ =
   let x = var "x" in

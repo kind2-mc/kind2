@@ -1023,38 +1023,25 @@ let is_lambda_identity l =
   with Invalid_argument _ -> false
 
 
+(* One traversal, with the term of each let binding evaluated once for
+   all its uses: destructing every node would distribute each let over
+   its body, from every let of a chain down, as a solver writes a formula
+   with shared subterms. The atoms of a subterm are a set, empty under an
+   application that is not Boolean. *)
 let get_atoms t =
-  let rec loop acc t =
-    match T.destruct t with
-    | T.Const _ -> (
-      if type_of_term t == Type.mk_bool () then
-        TermSet.add t acc
-      else
-        acc
-    )
-    | T.Var v -> (
-      if Var.type_of_var v == Type.mk_bool () then
-        TermSet.add t acc
-      else
-        acc
-    )
-    | T.App (_, l) -> (
-      if type_of_term t == Type.mk_bool () then
-        let atoms =
-          List.fold_left
-            (fun acc t -> loop acc t)
-            TermSet.empty
-            l
-        in
-        if TermSet.is_empty atoms then
-          TermSet.add t acc
-        else
-          TermSet.union acc atoms
-      else
-        TermSet.empty
-    )
-  in
-  loop TermSet.empty t
+  let is_bool t = type_of_term t == Type.mk_bool () in
+  eval_t
+    (fun flat atoms ->
+      let t = T.construct flat in
+      match flat with
+      | T.Const _ | T.Var _ ->
+        if is_bool t then TermSet.singleton t else TermSet.empty
+      | T.App _ ->
+        if is_bool t then
+          let atoms = List.fold_left TermSet.union TermSet.empty atoms in
+          if TermSet.is_empty atoms then TermSet.singleton t else atoms
+        else TermSet.empty)
+    t
 
 
 (* Is the term a Boolean atom? *)
