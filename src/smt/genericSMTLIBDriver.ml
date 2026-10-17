@@ -18,6 +18,8 @@
 
 open Lib
 
+module HSM = HString.HStringMap
+
 (* ********************************************************************** *)
 (* Dummy and default values                                               *)
 (* ********************************************************************** *)
@@ -84,7 +86,7 @@ type expr_of_string_sexpr_conv =
     prime_symbol : HString.t option;
 
     (* Conversion of an S-expression atom to a term *)
-    const_of_atom : (HString.t * Var.t) list -> HString.t -> Term.t;
+    const_of_atom : Var.t HSM.t -> HString.t -> Term.t;
 
     (* Conversion of a string to a symbol *)
     symbol_of_atom : HString.t -> Symbol.t;
@@ -95,52 +97,17 @@ type expr_of_string_sexpr_conv =
     (* Conversion of an S-expression to an expression *)
     expr_of_string_sexpr : 
       expr_of_string_sexpr_conv -> 
-      (HString.t * Var.t) list -> 
+      Var.t HSM.t ->
       HStringSExpr.t -> 
       Term.t;
 
     (* Conversion of an S-expression to a lambda abstraction *)
     expr_or_lambda_of_string_sexpr : 
       expr_of_string_sexpr_conv -> 
-      (HString.t * Var.t) list -> 
+      Var.t HSM.t ->
       HStringSExpr.t -> 
       (HString.t * Model.value)
   }
-
-
-(* Convert a list of bindings *)
-let rec gen_bindings_of_string_sexpr
-    ({ expr_of_string_sexpr } as conv) 
-    b 
-    accum = 
-
-  function 
-
-    (* All bindings consumed: return accumulator in original order *)
-    | [] -> List.rev accum
-
-    (* Take first binding *)
-    | HStringSExpr.List [HStringSExpr.Atom var; expr] :: tl -> 
-
-      (* Convert to an expression *)
-      let expr = expr_of_string_sexpr conv b expr in
-
-      (* Get the type of the expression *)
-      let expr_type = Term.type_of_term expr in
-
-      (* Create a variable of the identifier and the type of
-         the expression *)
-      let tvar = Var.mk_free_var var expr_type in
-
-      (* Add bound expresssion to accumulator *)
-      gen_bindings_of_string_sexpr conv b ((tvar, expr) :: accum) tl
-
-    (* Expression must be a pair *)
-    | e :: _ -> 
-
-      failwith 
-        ("Invalid expression in let binding: " ^
-         (string_of_t HStringSExpr.pp_print_sexpr e))
 
 
 (* Convert a list of typed variables *)
@@ -213,27 +180,109 @@ let gen_expr_of_string_sexpr'
 
       expr_of_string_sexpr conv bound_vars e
 
-    (* A let binding *)
+    (* A let binding, and the chain of lets directly nested in it.
+
+       A solver writes a formula with shared subterms as a chain of
+       thousands of lets of one binding each. Built one at a time, the
+       lets take a time that grows faster than the square of their
+       number, since a let is built by traversing its body; the chain is
+       built at once with [Term.mk_let_chain]. Its bindings are grouped
+       into as few lets as their dependencies allow, since a subterm of a
+       chain records the variables bound around it that it mentions, a
+       memory that grows with the square of the length of the chain: a
+       binding goes to the let of its level, 1 if it depends on no
+       binding of the chain, and otherwise 1 + the highest level of
+       those it depends on. This keeps what every symbol refers to as
+       long as the chain binds each symbol once and binds no symbol that
+       a term of the chain takes from the enclosing scope, which
+       includes a symbol a binding takes from its own let; a chain that
+       does not is built with one let per level, as written. *)
     | HStringSExpr.List 
         ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
       when s == s_let -> 
 
-      (* Convert bindings and obtain a list of bound variables *)
-      let bindings = gen_bindings_of_string_sexpr conv bound_vars [] v in
+      let rec chain acc = function
+        | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.List v; t]
+          when s == s_let -> chain (v :: acc) t
+        | t -> List.rev acc, t
+      in
+      let lets, body = chain [v] t in
 
-      (* Convert bindings to an association list from strings to
-         variables *)
-      let bound_vars' = 
-        List.map 
-          (function (v, _) -> (Var.hstring_of_free_var v, v))
-          bindings 
+      (* The level of each symbol the chain has bound so far, the
+         symbols the terms so far take from the enclosing scope (any
+         atom not bound so far, a superset), and whether the chain is
+         regular *)
+      let levels = HString.HStringHashtbl.create 97 in
+      let outer = HString.HStringHashtbl.create 97 in
+      let regular = ref true in
+      let rec atoms f = function
+        | HStringSExpr.Atom a -> f a
+        | HStringSExpr.List l -> List.iter (atoms f) l
+      in
+      let binding = function
+        | HStringSExpr.List [HStringSExpr.Atom name; e] -> name, e
+        | e ->
+          failwith
+            ("Invalid expression in let binding: " ^
+             (string_of_t HStringSExpr.pp_print_sexpr e))
+      in
+      let leveled =
+        List.mapi (fun j v ->
+          let bindings = List.map binding v in
+          let leveled =
+            List.map (fun (name, e) ->
+              let level = ref 1 in
+              atoms (fun a ->
+                match HString.HStringHashtbl.find_opt levels a with
+                | Some l -> level := max !level (l + 1)
+                | None -> HString.HStringHashtbl.replace outer a ())
+                e;
+              name, !level, e)
+              bindings
+          in
+          List.iter (fun (name, level, _) ->
+            if HString.HStringHashtbl.mem levels name
+               || HString.HStringHashtbl.mem outer name
+            then regular := false;
+            HString.HStringHashtbl.replace levels name level)
+            leveled;
+          (* As written, the [j]th let is the level [j + 1] *)
+          if !regular then leveled
+          else List.map (fun (name, _, e) -> name, j + 1, e) leveled)
+          lets
+      in
+      let leveled =
+        if !regular then leveled
+        else List.mapi (fun j -> List.map (fun (name, _, e) -> name, j + 1, e)) leveled
       in
 
-      (* Parse the subterm, giving an association list of bound
-         variables and return a let bound term *)
-      Term.mk_let 
-        bindings
-        (expr_of_string_sexpr conv (bound_vars @ bound_vars') t)
+      (* The bindings of each level, in their order *)
+      let depth = List.fold_left (List.fold_left (fun d (_, l, _) -> max d l)) 0 leveled in
+      let at_level = Array.make depth [] in
+      List.iter (List.iter (fun (name, l, e) ->
+        at_level.(l - 1) <- (name, e) :: at_level.(l - 1)))
+        leveled;
+
+      (* Convert the bindings of each level in the scope of the levels
+         before it *)
+      let bound_vars, lets =
+        Array.fold_left (fun (bound_vars, lets) bindings ->
+          let bindings =
+            List.rev_map (fun (name, e) ->
+              let e = expr_of_string_sexpr conv bound_vars e in
+              Var.mk_free_var name (Term.type_of_term e), e)
+              bindings
+          in
+          let bound_vars =
+            List.fold_left (fun bound_vars (v, _) ->
+              HSM.add (Var.hstring_of_free_var v) v bound_vars)
+              bound_vars bindings
+          in
+          bound_vars, bindings :: lets)
+          (bound_vars, []) at_level
+      in
+
+      Term.mk_let_chain (List.rev lets) (expr_of_string_sexpr conv bound_vars body)
 
 
     (* A universal or existential quantifier *)
@@ -248,10 +297,10 @@ let gen_expr_of_string_sexpr'
 
       (* Convert bindings to an association list from strings to
          variables *)
-      let bound_vars' = 
-        List.map 
-          (function v -> (Var.hstring_of_free_var v, v))
-          quantified_vars
+      let bound_vars' =
+        List.fold_left
+          (fun bound_vars v -> HSM.add (Var.hstring_of_free_var v) v bound_vars)
+          bound_vars quantified_vars
       in
 
       (* Parse the subterm, giving an association list of bound variables
@@ -260,7 +309,7 @@ let gen_expr_of_string_sexpr'
        else if s == s_exists then Term.mk_exists
        else assert false)
         quantified_vars
-        (expr_of_string_sexpr conv (bound_vars @ bound_vars') t)
+        (expr_of_string_sexpr conv bound_vars' t)
 
 
     (* Parse (/ n d) as rational constant *)
@@ -533,10 +582,10 @@ let gen_expr_or_lambda_of_string_sexpr'
 
       (* Convert bindings to an association list from strings to
          variables *)
-      let bound_vars' = 
-        List.map 
-          (function v -> (Var.hstring_of_free_var v, v))
-          vars
+      let bound_vars' =
+        List.fold_left
+          (fun bound_vars v -> HSM.add (Var.hstring_of_free_var v) v bound_vars)
+          bound_vars vars
       in
 
       (* Register the new symbol with its type if it does not exist *)
@@ -553,7 +602,7 @@ let gen_expr_or_lambda_of_string_sexpr'
        Model.Lambda
          (Term.mk_lambda
             vars
-            (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)))
+            (gen_expr_of_string_sexpr' conv bound_vars' t)))
 
 
     (* delcare-fun f () ty *)
@@ -585,11 +634,11 @@ let gen_expr_or_lambda_of_string_sexpr'
 
 (* Call function with an empty list of bound variables and no prime symbol *)
 let gen_expr_of_string_sexpr conv =
-  gen_expr_of_string_sexpr' conv [] 
+  gen_expr_of_string_sexpr' conv HSM.empty
 
 (* Call function with an empty list of bound variables *)      
 let gen_expr_or_lambda_of_string_sexpr conv = 
-  gen_expr_or_lambda_of_string_sexpr' conv [] 
+  gen_expr_or_lambda_of_string_sexpr' conv HSM.empty
 
 
 (* ********************************************************************** *)
@@ -940,7 +989,7 @@ let const_of_smtlib_atom b t =
                 with Invalid_argument _ -> 
                   try 
                     (* Return bound symbol *)
-                    Term.mk_var (List.assq t b)
+                    Term.mk_var (HSM.find t b)
                   (* String is not a bound variable *)
                   with Not_found -> 
                     try 

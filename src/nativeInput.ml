@@ -147,10 +147,14 @@ let state_var_of_sexpr = function
 
 
 (* Convert an s-expression to a term *)
-let term_of_sexpr s = conv_term_of_sexpr [] s
+let term_of_sexpr s = conv_term_of_sexpr HString.HStringMap.empty s
 
 (* Convert an s-expression to a term with bound free varaibles *)
-let term_of_sexpr_bound_vars bvars s = conv_term_of_sexpr bvars s
+let term_of_sexpr_bound_vars bvars s =
+  conv_term_of_sexpr
+    (List.fold_left (fun m (k, v) -> HString.HStringMap.add k v m)
+       HString.HStringMap.empty bvars)
+    s
 
 
 
