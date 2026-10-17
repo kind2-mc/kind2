@@ -320,73 +320,11 @@ let rec let_chain acc = function
     let_chain (List.map (fun (_, s, t) -> s, t) bindings :: acc) t
   | t -> List.rev acc, t
 
-(* The chain of lets [chain] (see [let_chain]) split into segments, each a
-   list of lets whose bindings carry a level: 1 for a binding whose term
-   depends on no binding of the segment, and otherwise 1 + the highest
-   level of those it depends on. In a segment, each binding can be moved to
-   the let of its level without changing what any symbol refers to, since
-   the lets of a segment
-
-   - bind each symbol once,
-   - bind no symbol that a term of an earlier let of the segment takes
-     from the enclosing scope, and
-   - have no term that refers to a symbol of its own let, which it takes
-     from the enclosing scope as well.
-
-   A let that breaks the first or the second condition starts a new
-   segment, and one that breaks the third, or binds a symbol twice, is a
-   segment of its own *)
+(* The chain of lets [chain] (see [let_chain]) split into segments by
+   dependency level, see [LetChain.segments] *)
 let let_segments chain =
-  let close segments segment =
-    if segment = [] then segments else List.rev segment :: segments
-  in
-  (* [segment] is the current segment, its lets in reverse order, [levels]
-     the levels of its symbols, and [outer] the symbols its terms take from
-     the enclosing scope *)
-  let rec split segments segment levels outer = function
-    | [] -> List.rev (close segments segment)
-    | lets :: chain ->
-      let names = List.map (fun (s, _) -> hstring_of_symbol s) lets in
-      let refs =
-        List.map (fun (_, t) -> free_symbols HSS.empty HSS.empty t) lets
-      in
-      let own = HSS.of_list names in
-      if HSS.cardinal own <> List.length names
-         || List.exists (fun r -> not (HSS.disjoint r own)) refs
-      then
-        let alone = List.map (fun (s, t) -> s, 1, t) lets in
-        split ([alone] :: close segments segment) [] HSM.empty HSS.empty chain
-      else if
-        segment <> []
-        && List.exists (fun n -> HSM.mem n levels || HSS.mem n outer) names
-      then
-        split (close segments segment) [] HSM.empty HSS.empty (lets :: chain)
-      else
-        let leveled =
-          List.map2 (fun (s, t) r ->
-            let level =
-              HSS.fold (fun n l ->
-                match HSM.find_opt n levels with
-                | Some l' -> max l (l' + 1)
-                | None -> l)
-                r 1
-            in
-            s, level, t)
-            lets refs
-        in
-        let outer =
-          List.fold_left (fun outer r ->
-            HSS.union outer (HSS.filter (fun n -> not (HSM.mem n levels)) r))
-            outer refs
-        in
-        let levels =
-          List.fold_left (fun levels (s, l, _) ->
-            HSM.add (hstring_of_symbol s) l levels)
-            levels leveled
-        in
-        split segments (leveled :: segment) levels outer chain
-  in
-  split [] [] HSM.empty HSS.empty chain
+  LetChain.segments ~name:hstring_of_symbol
+    ~free:(free_symbols HSS.empty HSS.empty) chain
 
 (* Translate a term in the environment [env] *)
 let rec kind2_term env = function
