@@ -67,10 +67,37 @@ let test_linear _ =
     (Printf.sprintf "%d lets: %.2f s, %d lets: %.2f s" n s1 (2 * n) s2)
     (s2 < 3. *. s1 +. 0.05)
 
+(* d1 = a + 1; d_i = d_(i-1) + d_(i-1) in d_n > 0: the one atom is a tree
+   of 2^n leaves, and is returned with lets for its shared subterms, as
+   compact as the chain, and the same formula *)
+let test_shared _ =
+  let n = 18 in
+  let d i = var (Printf.sprintf "e%d" i) t_int in
+  let levels =
+    List.init n (fun i ->
+      let i = i + 1 in
+      [d i, (if i = 1 then Term.mk_plus [t_a; num 1]
+             else Term.mk_plus [v (d (i - 1)); v (d (i - 1))])])
+  in
+  let t = Term.mk_let_chain levels (Term.mk_gt [v (d n); num 0]) in
+  let atoms = Term.get_atoms t in
+  assert_equal ~printer:string_of_int 1 (Term.TermSet.cardinal atoms) ;
+  let atom = Term.TermSet.choose atoms in
+  let printed = Format.asprintf "%a" Term.pp_print_term atom in
+  let input = Format.asprintf "%a" Term.pp_print_term t in
+  assert_bool
+    (Printf.sprintf "the atom prints in %d characters, the term in %d"
+       (String.length printed) (String.length input))
+    (String.length printed < 4 * String.length input) ;
+  let expand = Term.eval_t (fun flat _ -> Term.construct flat) in
+  assert_bool "the atom with its lets substituted is the formula"
+    (expand atom == expand t)
+
 let suite =
   "get_atoms" >::: [
     "atoms" >:: test_atoms ;
     "linear" >:: test_linear ;
+    "shared" >:: test_shared ;
   ]
 
 let () = run_test_tt_main suite

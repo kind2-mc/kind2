@@ -1023,11 +1023,66 @@ let is_lambda_identity l =
   with Invalid_argument _ -> false
 
 
+(* The subterms of a term without lets that it uses more than once, each
+   counted once *)
+let count_uses t =
+  let uses = TermHashtbl.create 97 in
+  let rec count t =
+    match T.destruct t with
+    | T.App (_, args) ->
+      let n = try TermHashtbl.find uses t with Not_found -> 0 in
+      TermHashtbl.replace uses t (n + 1) ;
+      if n = 0 then List.iter count args
+    | _ -> ()
+  in
+  count t ;
+  uses
+
+let share_subterms t =
+  let uses = count_uses t in
+  if not (TermHashtbl.fold (fun _ n shared -> shared || n > 1) uses false)
+  then t
+  else (
+    (* Rebuild the term bottom up with a variable for each shared subterm,
+       bound at the level after the levels of the shared subterms it
+       uses, so that each is in the scope of the ones it needs *)
+    let rebuilt = TermHashtbl.create 97 in
+    let bindings = ref [] in
+    let rec rebuild t =
+      match TermHashtbl.find_opt rebuilt t with
+      | Some r -> r
+      | None ->
+        let r =
+          match T.destruct t with
+          | T.App (s, args) ->
+            let args = List.map rebuild args in
+            let level = List.fold_left (fun l (l', _) -> max l l') 0 args in
+            let t' = mk_app s (List.map snd args) in
+            if TermHashtbl.find uses t > 1 then (
+              let v = Var.mk_fresh_var (type_of_term t) in
+              bindings := (level, v, t') :: !bindings ;
+              level + 1, mk_var v
+            )
+            else level, t'
+          | _ -> 0, t
+        in
+        TermHashtbl.add rebuilt t r ;
+        r
+    in
+    let depth, body = rebuild t in
+    let at_level = Array.make depth [] in
+    List.iter (fun (l, v, t') -> at_level.(l) <- (v, t') :: at_level.(l))
+      !bindings ;
+    mk_let_chain (Array.to_list at_level) body
+  )
+
 (* One traversal, with the term of each let binding evaluated once for
    all its uses: destructing every node would distribute each let over
    its body, from every let of a chain down, as a solver writes a formula
    with shared subterms. The atoms of a subterm are a set, empty under an
-   application that is not Boolean. *)
+   application that is not Boolean. The evaluation substitutes the lets,
+   so an atom is given its lets back for the subterms it shares, as
+   compact to write as it was read. *)
 let get_atoms t =
   let is_bool t = type_of_term t == Type.mk_bool () in
   eval_t
@@ -1039,7 +1094,8 @@ let get_atoms t =
       | T.App _ ->
         if is_bool t then
           let atoms = List.fold_left TermSet.union TermSet.empty atoms in
-          if TermSet.is_empty atoms then TermSet.singleton t else atoms
+          if TermSet.is_empty atoms then TermSet.singleton (share_subterms t)
+          else atoms
         else TermSet.empty)
     t
 
