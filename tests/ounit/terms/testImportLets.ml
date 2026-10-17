@@ -45,24 +45,30 @@ let chain n =
   in
   Term.mk_let_chain levels (plus [v (d n); v (d 1)])
 
-let timed f = let start = Unix.gettimeofday () in let r = f () in r, Unix.gettimeofday () -. start
+(* The bytes [f] allocates: a measure of its work that does not depend on
+   the machine, unlike its time *)
+let allocated f =
+  let before = Gc.allocated_bytes () in
+  let r = f () in
+  r, Gc.allocated_bytes () -. before
 
 (* Imported in the domain that built it, the term is the very term; and
-   twice the lets take less than three times the time: the import is
-   linear in the length of the chain *)
+   twice the lets allocate less than three times the bytes: the import is
+   linear in the length of the chain (one that imports the body of each
+   let again allocates four times) *)
 let test_long_chain _ =
   let n = 2500 in
   let t1, t2 = chain n, chain (2 * n) in
-  let time t =
-    let t', s = timed (fun () -> Term.import t) in
+  let import t =
+    let t', a = allocated (fun () -> Term.import t) in
     assert_bool "the imported term is the term" (t' == t) ;
-    s
+    a
   in
-  let time t = min (time t) (time t) in
-  let s1, s2 = time t1, time t2 in
+  let a1, a2 = import t1, import t2 in
   assert_bool
-    (Printf.sprintf "%d lets: %.2f s, %d lets: %.2f s" n s1 (2 * n) s2)
-    (s2 < 3. *. s1 +. 0.05)
+    (Printf.sprintf "%d lets: %.0f MB, %d lets: %.0f MB"
+       n (a1 /. 1e6) (2 * n) (a2 /. 1e6))
+    (a2 < 3. *. a1 +. 1e6)
 
 let test_quantifier _ =
   let x = var "x" in

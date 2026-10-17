@@ -75,7 +75,12 @@ let chain ~dependent n =
   Buffer.add_string buf (String.make n ')') ;
   Buffer.contents buf
 
-let timed f = let start = Unix.gettimeofday () in let r = f () in r, Unix.gettimeofday () -. start
+(* The bytes [f] allocates: a measure of its work that does not depend on
+   the machine, unlike its time *)
+let allocated f =
+  let before = Gc.allocated_bytes () in
+  let r = f () in
+  r, Gc.allocated_bytes () -. before
 
 (* Independent bindings are regrouped into one let *)
 let test_independent _ =
@@ -88,20 +93,19 @@ let test_independent _ =
    | _ -> assert_failure "not a let") ;
   assert_equal ~printer:string_of_int (n + 1) (value t)
 
-(* A chain of dependent bindings is converted in a time that grows with
-   its length, not with its square: twice the lets take less than three
-   times the time *)
+(* A chain of dependent bindings is converted with a work that grows with
+   its length, not with its square: twice the lets allocate less than
+   three times the bytes (a quadratic conversion allocates four times) *)
 let test_dependent_chain _ =
   let n = 2500 in
   let s1, s2 = chain ~dependent:true n, chain ~dependent:true (2 * n) in
-  let time s = snd (timed (fun () -> term_of_string s)) in
-  let time s = min (time s) (time s) in
-  let t1, t2 = time s1, time s2 in
+  let _, a1 = allocated (fun () -> term_of_string s1) in
+  let t2, a2 = allocated (fun () -> term_of_string s2) in
   assert_bool
-    (Printf.sprintf "%d lets: %.2f s, %d lets: %.2f s" n t1 (2 * n) t2)
-    (t2 < 3. *. t1 +. 0.05) ;
-  assert_equal ~printer:string_of_int (2 * n + 1)
-    (value (term_of_string s2))
+    (Printf.sprintf "%d lets: %.0f MB, %d lets: %.0f MB"
+       n (a1 /. 1e6) (2 * n) (a2 /. 1e6))
+    (a2 < 3. *. a1 +. 1e6) ;
+  assert_equal ~printer:string_of_int (2 * n + 1) (value t2)
 
 let suite =
   "sexpr lets" >::: [

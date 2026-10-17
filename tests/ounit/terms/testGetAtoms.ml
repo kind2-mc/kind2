@@ -44,7 +44,12 @@ let chain n =
   in
   Term.mk_let_chain levels (v (d n))
 
-let timed f = let start = Unix.gettimeofday () in let r = f () in r, Unix.gettimeofday () -. start
+(* The bytes [f] allocates: a measure of its work that does not depend on
+   the machine, unlike its time *)
+let allocated f =
+  let before = Gc.allocated_bytes () in
+  let r = f () in
+  r, Gc.allocated_bytes () -. before
 
 let test_atoms _ =
   let n = 200 in
@@ -55,17 +60,17 @@ let test_atoms _ =
       (Term.TermSet.mem (Term.mk_gt [t_a; num i]) atoms)
   done
 
-(* Twice the lets take less than three times the time: linear, not
-   quadratic or cubic *)
+(* Twice the lets allocate less than three times the bytes: linear, not
+   quadratic or worse *)
 let test_linear _ =
   let n = 1000 in
   let t1, t2 = chain n, chain (2 * n) in
-  let time t = snd (timed (fun () -> Term.get_atoms t)) in
-  let time t = min (time t) (time t) in
-  let s1, s2 = time t1, time t2 in
+  let work t = snd (allocated (fun () -> Term.get_atoms t)) in
+  let a1, a2 = work t1, work t2 in
   assert_bool
-    (Printf.sprintf "%d lets: %.2f s, %d lets: %.2f s" n s1 (2 * n) s2)
-    (s2 < 3. *. s1 +. 0.05)
+    (Printf.sprintf "%d lets: %.0f MB, %d lets: %.0f MB"
+       n (a1 /. 1e6) (2 * n) (a2 /. 1e6))
+    (a2 < 3. *. a1 +. 1e6)
 
 (* d1 = a + 1; d_i = d_(i-1) + d_(i-1) in d_n > 0: the one atom is a tree
    of 2^n leaves, and is returned with lets for its shared subterms, as
