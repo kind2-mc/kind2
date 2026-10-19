@@ -59,4 +59,4 @@ def test_const_array_equality(tmp_path, solver, width, expected):
     stdout, stderr = run_kmoxi(
         path, "--smt_solver", solver, "--enable", "BMC", "--enable", "IND"
     )
-    assert f":query (q {expected}" in stdout, stdout + stderr
+    assert f":query (q :result {expected}" in stdout, stdout + stderr

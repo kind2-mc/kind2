@@ -60,5 +60,5 @@ def test_ic3ia_answer(tmp_path, model, answer, solver_args):
     path.write_text(model)
     args = [arg for pair in ic3ia_args.items() for arg in pair]
     out, err = run_kmoxi(path, *args, *solver_args)
-    assert f":query (q {answer}" in out, out + err
+    assert f":query (q :result {answer}" in out, out + err
     assert "rror" not in out + err, out + err

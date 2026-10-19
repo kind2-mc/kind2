@@ -186,7 +186,7 @@ def test_answers(tmp_path, name, model, expected, engine):
     if shutil.which("z3") is None:
         pytest.skip("z3 is not installed")
     _, out = run(tmp_path, model, ["--smt_solver", "Z3", *engines[engine]])
-    assert f":query (q {expected}" in out, out
+    assert f":query (q :result {expected}" in out, out
 
 
 def test_trail_names_values(tmp_path):
@@ -339,7 +339,7 @@ shadowing = f"""
 
 def test_bound_variables_shadow(tmp_path):
     _, out = run(tmp_path, shadowing, ["--enable", "BMC"])
-    assert ":query (q sat" in out, out
+    assert ":query (q :result sat" in out, out
 
 
 @pytest.mark.parametrize("case", errors, ids=errors)

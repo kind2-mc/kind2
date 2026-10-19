@@ -130,4 +130,4 @@ answered = {
 @pytest.mark.parametrize("case", answered, ids=answered)
 def test_answered(tmp_path, case):
     code, out, err = run(tmp_path, head + answered[case], ["--enable", "BMC"])
-    assert code == 0 and ":query (q sat" in out, out + err
+    assert code == 0 and ":query (q :result sat" in out, out + err

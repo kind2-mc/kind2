@@ -74,7 +74,7 @@ def run_kmoxi(tmp_path, shims, logic, extra=(), set_logic=None, stdin=False):
     stdout = run_kmoxi_process(
         None if stdin else path, *extra, env=env, input=text if stdin else ""
     ).stdout
-    assert ":query (q sat" in stdout, stdout
+    assert ":query (q :result sat" in stdout, stdout
     return set(log.read_text().split()) if log.exists() else set()
 
 

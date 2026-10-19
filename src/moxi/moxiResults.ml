@@ -592,7 +592,9 @@ let pp_print_prop_result _ppf prop =
   | PropKTrue _ 
   | PropUnknown -> "unknown"
   in
-  Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ %s %s)@]@]@]@,"
+  (* As in the format of responses of the MoXI paper (SPIN 2024, Fig. 2):
+     [:query (q :result sat :model m :trace t)] *)
+  Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ :result %s %s)@]@]@]@,"
     (quote prop_name) result
     (prop_result_info prop_name prop_result)
 

@@ -53,7 +53,7 @@ def run(tmp_path, model):
     out = res.stdout.decode("utf-8", errors="replace")
     assert res.returncode == 0, out
     assert elapsed < limit + teardown, f"{elapsed:.1f}s\n{out}"
-    return re.findall(r":query \((\w+) (\w+)", out), out
+    return re.findall(r":query \((\w+) :result (\w+)", out), out
 
 
 @pytest.mark.parametrize("checks, answers", [

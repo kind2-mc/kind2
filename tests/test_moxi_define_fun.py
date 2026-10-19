@@ -129,7 +129,7 @@ def test_define_fun_answers(tmp_path, name, model, expected, solver):
     smt_solver = "Bitwuzla" if solver == "bitwuzla" else "Z3"
     _, out = run(tmp_path, model,
                  ["--smt_solver", smt_solver, "--enable", "BMC", "--enable", "IND"])
-    assert f":query (q {expected}" in out, out
+    assert f":query (q :result {expected}" in out, out
 
 
 # A function applied through another, and one applied by no system
@@ -152,7 +152,7 @@ def test_definition_given_to_solver(tmp_path):
     _, out = run(tmp_path, applied,
                  ["--enable", "BMC", "--enable", "IND",
                   "--smt_trace", "--output_dir", str(trace_dir)])
-    assert ":query (q unsat" in out, out
+    assert ":query (q :result unsat" in out, out
     # The trace of BMC: k-induction declares a logic with uninterpreted
     # functions whatever the system, for the functions of its compression,
     # and which trace a directory listing gives first varies

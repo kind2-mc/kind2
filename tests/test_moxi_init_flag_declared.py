@@ -54,4 +54,4 @@ def test_query_unsat_without_solver_error(tmp_path, engines):
         timeout=run_timeout,
     )
     assert "SMT solver failed" not in run.stdout, run.stdout
-    assert ":query (q unsat" in run.stdout, run.stdout
+    assert ":query (q :result unsat" in run.stdout, run.stdout

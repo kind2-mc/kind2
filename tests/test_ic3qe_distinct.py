@@ -61,4 +61,4 @@ def test_ic3qe_distinct(tmp_path, case):
     stdout, stderr = run_kmoxi(path, "-v", "--enable", "IC3QE")
     out = re.sub(r"\x1b\[[0-9;]*m", "", stdout + stderr)
     assert "Assertion failed" not in out, out
-    assert f":query (q {expected}" in out, out
+    assert f":query (q :result {expected}" in out, out

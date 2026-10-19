@@ -44,7 +44,7 @@ def test_bmc_stopped_at_the_limit(tmp_path):
     text = out + err
     assert "Stopping bounded model checking: its solvers use" in text, text
     # The analysis goes on to its response, without an answer for q
-    assert ":query (q unknown" in text, text
+    assert ":query (q :result unknown" in text, text
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"),
@@ -61,7 +61,7 @@ def test_dependents_of_a_stopped_engine_stop(tmp_path):
     text = res.stdout + res.stderr
     assert "Stopping bounded model checking: its solvers use" in text, text
     assert "Terminating useless inductive step" in text, text
-    assert ":query (q unknown" in text, text
+    assert ":query (q :result unknown" in text, text
     assert "Wallclock timeout" not in text, text
 
 
