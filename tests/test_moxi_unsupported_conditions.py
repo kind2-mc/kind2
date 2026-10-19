@@ -14,7 +14,7 @@ import subprocess
 
 import pytest
 
-from conftest import kill_tree, kmoxi_args, kmoxi_bin
+from conftest import kill_tree, kmoxi_args, kmoxi_bin, query_answer
 
 # Exit code of a parse or type error
 PARSE_ERROR = 3
@@ -130,4 +130,4 @@ answered = {
 @pytest.mark.parametrize("case", answered, ids=answered)
 def test_answered(tmp_path, case):
     code, out, err = run(tmp_path, head + answered[case], ["--enable", "BMC"])
-    assert code == 0 and ":query (q :result sat" in out, out + err
+    assert code == 0 and query_answer(out) == "sat", out + err

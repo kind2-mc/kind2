@@ -14,7 +14,7 @@ import subprocess
 
 import pytest
 
-from conftest import kind2_bin, kmoxi_bin, run_timeout
+from conftest import kind2_bin, kmoxi_bin, run_timeout, query_answer
 
 model = """
 (set-logic QF_LIA)
@@ -77,10 +77,10 @@ def test_kmoxi_rejects_kind2_only_flag(tmp_path):
     # A flag kmoxi keeps still parses: the run goes on to the analysis, and
     # BMC finds the state at depth 3
     code, out = run(kmoxi_bin, ["--timeout", "20", "--enable", "BMC", str(path)])
-    assert code == 0 and ":query (q :result sat" in out, out
+    assert code == 0 and query_answer(out) == "sat", out
     # C2I runs on MoXI systems, so its flags are registered
     code, out = run(
         kmoxi_bin,
         ["--timeout", "20", "--enable", "BMC", "--enable", "C2I", "--c2i_dnf", "2", str(path)],
     )
-    assert code == 0 and ":query (q :result sat" in out, out
+    assert code == 0 and query_answer(out) == "sat", out

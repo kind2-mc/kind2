@@ -10,12 +10,11 @@ The time limit holds for the whole run: a check answered before it does
 not stop the clock for the checks after it.
 """
 
-import re
 import time
 
 import pytest
 
-from conftest import LustreTimeout, kmoxi_args, kmoxi_bin, kmoxi_slack, run_kind2
+from conftest import LustreTimeout, kmoxi_args, kmoxi_bin, kmoxi_slack, run_kind2, query_answers
 
 # How long kmoxi runs, and how long it may take past it to stop and print
 limit = 3
@@ -53,7 +52,7 @@ def run(tmp_path, model):
     out = res.stdout.decode("utf-8", errors="replace")
     assert res.returncode == 0, out
     assert elapsed < limit + teardown, f"{elapsed:.1f}s\n{out}"
-    return re.findall(r":query \((\w+) :result (\w+)", out), out
+    return query_answers(out), out
 
 
 @pytest.mark.parametrize("checks, answers", [

@@ -593,10 +593,15 @@ let pp_print_prop_result _ppf prop =
   | PropUnknown -> "unknown"
   in
   (* As in the format of responses of the MoXI paper (SPIN 2024, Fig. 2):
-     [:query (q :result sat :model m :trace t)] *)
-  Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ :result %s %s)@]@]@]@,"
-    (quote prop_name) result
-    (prop_result_info prop_name prop_result)
+     [:query (q :result sat :model m :trace t)], and [:query (q :result
+     unknown)] for an answer with no other attribute *)
+  let info =
+    match prop_result_info prop_name prop_result with
+    | "" -> ""
+    | info -> " " ^ info
+  in
+  Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ :result %s%s)@]@]@]@,"
+    (quote prop_name) result info
 
 let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit 
 = fun trans_sys in_sys props ->

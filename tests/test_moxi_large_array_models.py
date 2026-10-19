@@ -20,7 +20,7 @@ import time
 
 import pytest
 
-from conftest import run_kmoxi_process
+from conftest import run_kmoxi_process, query_answer
 
 sort = "(Array (_ BitVec 17) (_ BitVec 8))"
 
@@ -68,7 +68,7 @@ def run(tmp_path, model, *args):
 def test_state_array(tmp_path, engines):
     res = run(tmp_path, state, *[a for e in engines for a in ("--enable", e)])
     out = res.stdout
-    assert ":query (q :result sat" in out, out + res.stderr
+    assert query_answer(out) == "sat", out + res.stderr
     # The value of the array, whole: a constant array, possibly with stores,
     # with the value the reachability condition reads at index 5
     step = [l for l in out.splitlines() if l.strip().startswith("(3 ")][0]
@@ -80,7 +80,7 @@ def test_state_array(tmp_path, engines):
 def test_constant_in_model(tmp_path):
     res = run(tmp_path, constant, "--enable", "BMC")
     out = res.stdout
-    assert ":query (q :result sat" in out, out + res.stderr
+    assert query_answer(out) == "sat", out + res.stderr
     model = out.split(":model", 1)[1].split(":trail", 1)[0]
     assert f"(define-fun t () {sort} (store" in model, model
     # The values the reachability condition reads

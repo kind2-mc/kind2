@@ -15,7 +15,7 @@ import shutil
 
 import pytest
 
-from conftest import ic3ia_args, ic3ia_solver, run_kmoxi
+from conftest import ic3ia_args, ic3ia_solver, run_kmoxi, query_answer
 
 model = """(set-logic QF_BV)
 (define-system main
@@ -46,4 +46,4 @@ def test_ic3ia_finds_the_reachable_state(tmp_path):
     path.write_text(model)
     args = [arg for pair in ic3ia_args.items() for arg in pair]
     out, err = run_kmoxi(path, *args)
-    assert ":query (q :result sat" in out, out + err
+    assert query_answer(out) == "sat", out + err

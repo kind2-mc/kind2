@@ -24,7 +24,7 @@ have the right value and not that one.
 
 import pytest
 
-from conftest import run_kmoxi
+from conftest import run_kmoxi, query_answer
 
 
 def model(trans, value):
@@ -85,11 +85,11 @@ def test_let_chain_scoping(tmp_path, name):
     path = tmp_path / "right.moxi"
     path.write_text(model(trans, value))
     out, err = run_kmoxi(path, "--enable", "BMC")
-    assert ":query (q :result sat" in out, out + err
+    assert query_answer(out) == "sat", out + err
     path = tmp_path / "wrong.moxi"
     path.write_text(model(trans, wrong))
     out, err = run_kmoxi(path, "--enable", "BMC", "--enable", "IND")
-    assert ":query (q :result unsat" in out, out + err
+    assert query_answer(out) == "unsat", out + err
 
 
 def long_chain(n):
@@ -107,4 +107,4 @@ def test_long_let_chain(tmp_path):
     path = tmp_path / "chain.moxi"
     path.write_text(model(long_chain(5000), 1))
     out, err = run_kmoxi(path, "--enable", "BMC", timeout=60)
-    assert ":query (q :result sat" in out, out + err
+    assert query_answer(out) == "sat", out + err

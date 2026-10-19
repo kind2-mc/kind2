@@ -11,7 +11,7 @@ system named |the sys| as __node_init_the sys, which they rejected.
 
 import pytest
 
-from conftest import run_kmoxi
+from conftest import run_kmoxi, query_answer
 
 quoted = """(set-logic QF_LIA)
 (declare-enum-sort |traffic light| (|go now| stop))
@@ -65,4 +65,4 @@ def test_system_names(tmp_path, case):
     path = tmp_path / "model.moxi"
     path.write_text(names[case])
     out, err = run_kmoxi(path, "--enable", "BMC")
-    assert ":query (q :result sat" in out, out + err
+    assert query_answer(out) == "sat", out + err
