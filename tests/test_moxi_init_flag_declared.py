@@ -16,7 +16,7 @@ import subprocess
 
 import pytest
 
-from conftest import kmoxi_args, kmoxi_bin, run_timeout
+from conftest import kmoxi_args, kmoxi_bin, run_timeout, query_answer
 
 model = """
 (set-logic QF_LIA)
@@ -54,4 +54,4 @@ def test_query_unsat_without_solver_error(tmp_path, engines):
         timeout=run_timeout,
     )
     assert "SMT solver failed" not in run.stdout, run.stdout
-    assert ":query (q unsat" in run.stdout, run.stdout
+    assert query_answer(run.stdout) == "unsat", run.stdout

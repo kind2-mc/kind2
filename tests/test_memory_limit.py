@@ -19,7 +19,7 @@ import sys
 
 import pytest
 
-from conftest import run_kmoxi, run_kmoxi_process
+from conftest import run_kmoxi, run_kmoxi_process, query_answer
 
 gcd = """(set-logic QF_BV)
 (define-system main :input ((i (_ BitVec 32)) (j (_ BitVec 32)))
@@ -43,8 +43,9 @@ def test_bmc_stopped_at_the_limit(tmp_path):
                          "--memory_limit", "500", "-v", timeout=60)
     text = out + err
     assert "Stopping bounded model checking: its solvers use" in text, text
-    # The analysis goes on to its response, without an answer for q
-    assert ":query (q unknown" in text, text
+    # The analysis goes on to its response, without an answer for q: an
+    # unknown answer has no other attribute
+    assert ":query (q :result unknown)" in text, text
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"),
@@ -61,7 +62,7 @@ def test_dependents_of_a_stopped_engine_stop(tmp_path):
     text = res.stdout + res.stderr
     assert "Stopping bounded model checking: its solvers use" in text, text
     assert "Terminating useless inductive step" in text, text
-    assert ":query (q unknown" in text, text
+    assert query_answer(text) == "unknown", text
     assert "Wallclock timeout" not in text, text
 
 

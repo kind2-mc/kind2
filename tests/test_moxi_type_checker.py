@@ -18,7 +18,7 @@ import subprocess
 
 import pytest
 
-from conftest import kmoxi_args, kmoxi_bin, run_timeout
+from conftest import kmoxi_args, kmoxi_bin, run_timeout, query_answer
 
 # Exit code of a parse or type error
 PARSE_ERROR = 3
@@ -438,4 +438,4 @@ def test_well_typed_model_is_checked(tmp_path, name):
     args = kmoxi_args | {"--timeout": "30"}
     arg_list = [arg for pair in args.items() for arg in pair]
     run = kmoxi(path, *arg_list, "--enable", "BMC", "--enable", "IND")
-    assert f":query (q {answer}" in run.stdout, run.stdout + run.stderr
+    assert query_answer(run.stdout) == answer, run.stdout + run.stderr

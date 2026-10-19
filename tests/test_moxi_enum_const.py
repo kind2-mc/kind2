@@ -24,7 +24,7 @@ import subprocess
 
 import pytest
 
-from conftest import kill_tree, kmoxi_args, kmoxi_bin
+from conftest import kill_tree, kmoxi_args, kmoxi_bin, query_answer
 
 # Exit code of a parse or type error
 PARSE_ERROR = 3
@@ -186,7 +186,7 @@ def test_answers(tmp_path, name, model, expected, engine):
     if shutil.which("z3") is None:
         pytest.skip("z3 is not installed")
     _, out = run(tmp_path, model, ["--smt_solver", "Z3", *engines[engine]])
-    assert f":query (q {expected}" in out, out
+    assert query_answer(out) == expected, out
 
 
 def test_trail_names_values(tmp_path):
@@ -339,7 +339,7 @@ shadowing = f"""
 
 def test_bound_variables_shadow(tmp_path):
     _, out = run(tmp_path, shadowing, ["--enable", "BMC"])
-    assert ":query (q sat" in out, out
+    assert query_answer(out) == "sat", out
 
 
 @pytest.mark.parametrize("case", errors, ids=errors)

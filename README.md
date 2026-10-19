@@ -333,7 +333,7 @@ that proves it as a certificate, or `sat`, with a witnessing trace:
 ```
 (check-system-response
  :verbosity full
- :query (reach_ten sat :model reach_ten_model :trace reach_ten_trace)
+ :query (reach_ten :result sat :model reach_ten_model :trace reach_ten_trace)
  :trace (reach_ten_trace :prefix reach_ten_prefix)
  :model (reach_ten_model ())
  :trail

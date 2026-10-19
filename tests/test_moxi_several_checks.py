@@ -8,11 +8,10 @@ now has a system of its own, numbered, under a name that no system of the
 script has, and the responses follow the order of the script.
 """
 
-import re
 
 import pytest
 
-from conftest import run_kmoxi
+from conftest import run_kmoxi, query_answers
 
 system = """(set-logic QF_LIA)
 (define-system main :input () :output ((x Int)) :local ((t Int))
@@ -41,7 +40,7 @@ def test_each_check_answered(tmp_path, second):
     model = (system + check("r", "(< x 0)", "q1")
              + check(second, "(and (= t 2) (= x 4))", "q2"))
     out = run(tmp_path, model)
-    answers = re.findall(r":query \((\w+) (\w+)", out)
+    answers = query_answers(out)
     assert answers == [("q1", "unsat"), ("q2", "sat")], out
 
 
@@ -63,5 +62,5 @@ clashing = """(set-logic QF_LIA)
 
 def test_check_names_are_fresh(tmp_path):
     out = run(tmp_path, clashing)
-    answers = re.findall(r":query \((\w+) (\w+)", out)
+    answers = query_answers(out)
     assert answers == [("q1", "sat"), ("q2", "unsat"), ("q3", "unsat")], out

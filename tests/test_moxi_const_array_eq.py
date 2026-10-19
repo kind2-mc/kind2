@@ -15,7 +15,7 @@ import shutil
 
 import pytest
 
-from conftest import run_kmoxi
+from conftest import run_kmoxi, query_answer
 
 # mem starts as the constant array 0; a step writes 1 at index 1 when w holds
 system = """
@@ -59,4 +59,4 @@ def test_const_array_equality(tmp_path, solver, width, expected):
     stdout, stderr = run_kmoxi(
         path, "--smt_solver", solver, "--enable", "BMC", "--enable", "IND"
     )
-    assert f":query (q {expected}" in stdout, stdout + stderr
+    assert query_answer(stdout) == expected, stdout + stderr

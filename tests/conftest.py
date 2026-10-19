@@ -1,5 +1,6 @@
 import itertools
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -423,6 +424,26 @@ def run_kmoxi_process(
         res.stdout.decode("utf-8", errors="replace"),
         res.stderr.decode("utf-8", errors="replace"),
     )
+
+
+# The answer to a query in a check-system response, as kmoxi prints it:
+# `:query (q :result sat :model q_model :trace q_trace)`. The query's name may
+# be a quoted symbol.
+query_answer_re = re.compile(
+    r":query \((\|[^|]*\||[^\s()|]+) :result (sat|unsat|unknown)\b"
+)
+
+
+def query_answers(out):
+    """The (query, result) pairs of the check-system responses in `out`, in
+    their order"""
+    return query_answer_re.findall(out)
+
+
+def query_answer(out, query="q"):
+    """The result of the query named `query` in `out`, or None if `out`
+    answers no such query"""
+    return next((r for q, r in query_answers(out) if q == query), None)
 
 
 def run_kmoxi(path, *extra, timeout: int = 30):
