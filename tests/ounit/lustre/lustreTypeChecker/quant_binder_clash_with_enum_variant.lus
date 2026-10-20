@@ -3,5 +3,5 @@ type E = enum { A, B };
 node main (e: E) returns (ok: bool);
 let
   ok = true;
-  check forall (A: int) ((match e with | A : 1 end) = 1);
+  check forall (A: int) (A >= 0);
 tel

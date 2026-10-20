@@ -466,6 +466,30 @@ and default_adt_term ctx adt_map pos name ty_args ctors =
       List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields)
   | None -> assert false
 
+(* Rewrite only the expressions a type holds -- the predicate of a refinement,
+   the size of an array -- leaving the type structure alone, so that a name
+   standing for another datatype keeps it and resolves through that datatype's
+   own rewritten declaration. *)
+and desugar_type_exprs ctx adt_map ty =
+  let r = desugar_type_exprs ctx adt_map in
+  let re = desugar_expr ctx adt_map in
+  match ty with
+  | LA.RefinementType (p, (p2, id, t), e) ->
+    LA.RefinementType (p, (p2, id, r t), re e)
+  | LA.ArrayType (p, (t, n)) -> LA.ArrayType (p, (r t, re n))
+  | LA.Map (p, kt, vt) -> LA.Map (p, r kt, r vt)
+  | LA.Set (p, t) -> LA.Set (p, r t)
+  | LA.TArr (p, t1, t2) -> LA.TArr (p, r t1, r t2)
+  | LA.TupleType (p, ts) -> LA.TupleType (p, List.map r ts)
+  | LA.GroupType (p, ts) -> LA.GroupType (p, List.map r ts)
+  | LA.RecordType (p, n, fields) ->
+    LA.RecordType (p, n, List.map (fun (fp, fn, ft) -> (fp, fn, r ft)) fields)
+  | LA.ADT (p, n, cons) ->
+    LA.ADT (p, n, List.map (fun (c, fs) -> (c, List.map (fun (fn, ft) -> (fn, r ft)) fs)) cons)
+  | LA.UserType (p, args, n) -> LA.UserType (p, List.map r args, n)
+  | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
+  | LA.AbstractType _ | LA.EnumType _ | LA.History _ -> ty
+
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
   match ty with
@@ -854,6 +878,16 @@ let desugar_contract_node ctx adt_map (id, params, inputs, outputs, (p, body)) =
    List.map do_ outputs,
    (p, List.map (desugar_contract_item ctx adt_map) body))
 
+(* The record encoding is built from the constructor field types as declared,
+   so nothing else reaches the expressions inside them. *)
+let desugar_adt_field_types ctx adt_map =
+  let field (fname, fty) = (fname, desugar_type_exprs ctx adt_map fty) in
+  HStringMap.map (fun info ->
+    { info with
+      ctor_fields = HStringMap.map (List.map field) info.ctor_fields;
+      all_payload_fields = List.map field info.all_payload_fields }
+  ) adt_map
+
 (* Desugar ADTs: TypeDecls → enum + record TypeDecls; ADTTerm/Match → RecordExpr/ITE.
    Returns transformed type/const decls, transformed node/contract decls, and updated context. *)
 let desugar_adts ctx type_and_const_decls node_contract_decls =
@@ -861,6 +895,7 @@ let desugar_adts ctx type_and_const_decls node_contract_decls =
   if HStringMap.is_empty adt_map then
     (type_and_const_decls, node_contract_decls, ctx, adt_map)
   else
+    let adt_map = desugar_adt_field_types ctx adt_map in
     let ctx' = update_context adt_map ctx in
     let type_and_const_decls' = List.concat_map (fun decl ->
       match decl with

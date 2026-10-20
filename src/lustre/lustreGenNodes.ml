@@ -123,17 +123,15 @@ type scrutinee = Known of A.lustre_type | Illtyped | Unknown
 let resolve_arm: Ctx.tc_context -> scrutinee -> A.pattern
   -> Ctx.tc_context * A.pattern * (HString.t * A.expr) list =
 fun ctx scrut pat ->
+  (* Only a global constant is renamed away: it is in scope everywhere, so it
+     is the one thing a generated node cannot take a parameter for. A binder
+     may not share a constructor's name at all, so none is renamed for that. A
+     variable of the enclosing node keeps its name, which a match block's own
+     shadowing check still reports. *)
   let is_global_const id =
     match Ctx.lookup_const ctx id with
     | Some (_, _, Ctx.Global) -> true
     | Some (_, _, (Ctx.Input | Ctx.Output | Ctx.Local | Ctx.Ghost)) | None -> false
-  in
-  (* Only a globally scoped name is renamed away: it is in scope everywhere, so
-     it is the one thing a generated node cannot take a parameter for.  A
-     variable of the enclosing node keeps its name, which a match block's own
-     shadowing check still reports. *)
-  let shadows_global id =
-    is_global_const id || Ctx.lookup_constructor ctx id |> Option.is_some
   in
   (* Which variable patterns are binders is type-directed: a bare name is a
      constructor pattern only when it names a constructor of its own position's
@@ -148,7 +146,7 @@ fun ctx scrut pat ->
     match scrut with
     | Known scrut_ty ->
       (match Chk.bind_pattern_ty ctx scrut_ty pat with
-      | Ok (_, resolved) -> resolved, shadows_global
+      | Ok (_, resolved) -> resolved, is_global_const
       | Error _ -> pat, blind_rule)
     | Illtyped | Unknown -> pat, blind_rule
   in

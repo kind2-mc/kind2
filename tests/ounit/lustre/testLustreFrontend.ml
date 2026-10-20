@@ -1101,6 +1101,22 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/any_binder_clash_with_enum_variant.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
     | _ -> false);
+  mk_test "test quantifier binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashQuantifierBinder))) -> true
+    | _ -> false);
+  mk_test "test refinement type binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashRefinementBinder))) -> true
+    | _ -> false);
+  mk_test "test pattern binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/pattern_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashPatternBinder))) -> true
+    | _ -> false);
+  mk_test "test array comprehension index clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/array_index_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
+    | _ -> false);
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true
@@ -1400,20 +1416,6 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     | _ -> false);
   mk_test "test redundant arm in match on an enum" (fun () ->
     match load_file "./lustreCheckMatchExpressions/redundant_enum.lus" with
-    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
-    | _ -> false);
-  (* A quantifier, refinement-type or pattern binder shadows a constructor of
-     its name, so a pattern in its scope is a binder and covers everything. *)
-  mk_test "test variant shadowed by a quantifier binder is a pattern binder" (fun () ->
-    match load_file "./lustreCheckMatchExpressions/shadowed_variant_pattern_in_quantifier.lus" with
-    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
-    | _ -> false);
-  mk_test "test variant shadowed by a refinement binder is a pattern binder" (fun () ->
-    match load_file "./lustreCheckMatchExpressions/shadowed_variant_pattern_in_refinement.lus" with
-    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
-    | _ -> false);
-  mk_test "test variant shadowed by an array index is a pattern binder" (fun () ->
-    match load_file "./lustreCheckMatchExpressions/shadowed_variant_pattern_in_array_index.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
   mk_test "test non-exhaustive match block" (fun () ->

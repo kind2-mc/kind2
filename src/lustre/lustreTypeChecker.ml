@@ -39,6 +39,8 @@ let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_
 
 (* The kind of declaration a datatype constructor name was found to clash with *)
 type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter | ClashBinder
+  | ClashQuantifierBinder | ClashRefinementBinder | ClashPatternBinder
+  | ClashArrayIndex
 
 type error_kind = Unknown of string
   | Impossible of string
@@ -291,7 +293,11 @@ let error_message kind = match kind with
        | ClashNode -> "a declared node"
        | ClashFunction -> "a declared function"
        | ClashFormalParameter -> "a declared formal parameter"
-       | ClashBinder -> "the binder of this 'any' or 'choose' operator")
+       | ClashBinder -> "the binder of this 'any' or 'choose' operator"
+       | ClashQuantifierBinder -> "this quantified variable"
+       | ClashRefinementBinder -> "the binder of this refinement type"
+       | ClashPatternBinder -> "a variable bound by this pattern"
+       | ClashArrayIndex -> "an index of this array comprehension")
   | NonWellFoundedDatatype ty_name ->
     "Datatype '" ^ HString.string_of_hstring ty_name
     ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
@@ -1146,6 +1152,7 @@ let rec bind_pattern_ty ctx field_ty pat =
     (* A pattern variable denotes a constructor field, not a global value, so
        its binding hides a constant or constructor of the same name *)
     let as_binder () =
+      let* () = check_no_constructor_clash pos ctx ClashPatternBinder id in
       R.ok (add_ty (shadow_value (remove_const ctx id) id) id field_ty, pat)
     in
     (* A bare name is a constructor pattern only if it names a constructor of
@@ -1548,6 +1555,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.Quantifier (p, q, qs, e) ->
     let* qs, warnings1, extn_ctx =
       (Res.seq_chain (fun (acc_q, acc_w, acc_ctx) (p, id, ty) ->
+        let* () = check_no_constructor_clash p acc_ctx ClashQuantifierBinder id in
         let* ty, warnings = check_type_well_formed acc_ctx Local nname true ty in 
         (* bound variables shadow global constants and constructors *)
         let acc_ctx = shadow_value acc_ctx id in
@@ -1570,6 +1578,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
      they shadow the constants of the same name, and the sizes are checked as
      the sizes of an array constructor *)
   | LA.ArrayComprehension (p, bs, e) ->
+    let* () =
+      R.seq_ (List.map (fun (ip, id, _) ->
+        check_no_constructor_clash ip ctx ClashArrayIndex id) bs)
+    in
     let extn_ctx = List.fold_left (fun acc_ctx (ip, id, _) ->
       add_ty (shadow_const acc_ctx id) id (LA.Int ip)
     ) ctx bs in
@@ -3248,6 +3260,7 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.ArrayType (p, (b_ty, s)), warnings1 @ warnings2)
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
+      let* () = check_no_constructor_clash p2 ctx ClashRefinementBinder i in
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
       (* The bound variable shadows any global value of the same name *)
       let ctx = add_ty (shadow_value ctx i) i ty' in
