@@ -1,0 +1,9 @@
+type E = enum { A, B };
+type R = struct {e: E; t: [int, bool]};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node main(l: L) returns (ok: bool);
+let
+  ok = Cons?(l) ==> (l.hd.e = A or l.hd.t[1]);
+  check ok;
+tel

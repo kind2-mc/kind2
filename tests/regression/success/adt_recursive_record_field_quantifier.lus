@@ -1,0 +1,10 @@
+type R = struct {x: int; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node main(a: L^3) returns ();
+let
+  check forall (l: L) Cons?(l) ==> l = Cons(l.hd, l.tl);
+  check exists (l: L) Cons?(l) and then l.hd.x = 7 and then not l.hd.y;
+  check forall (r: R; t: L) Cons(r, t).hd = r;
+  check forall (i: int) (0 <= i and i < 3 and Cons?(a[i])) ==> a[i] = Cons(a[i].hd, a[i].tl);
+tel

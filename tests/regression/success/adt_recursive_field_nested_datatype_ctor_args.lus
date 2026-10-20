@@ -1,0 +1,23 @@
+datatype Opt<T> = None | Some (v: T);
+datatype P<T> = PN | PS (w: T);
+type R = struct {a: Opt<int>};
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node mk<T>(x: T) returns (y: L<P<Opt<T>>>);
+let
+  y = Cons(PS(Some(x)), Nil@<P<Opt<T>>>);
+tel
+
+node main(i: int; b: bool; r: R) returns (ok: bool);
+var l: L<P<Opt<int>>>; k: L<P<Opt<bool>>>;
+let
+  l = mk(i);
+  k = mk(b);
+  ok = (Cons?(l) and then PS?(l.hd) and then Some?(l.hd.w) and then l.hd.w.v = i)
+       and (Cons?(k) and then PS?(k.hd) and then Some?(k.hd.w) and then k.hd.w.v = b)
+       and Cons(Some(PS(i)), Nil@<Opt<P<int>>>).hd = Some(PS(i))
+       and Cons(Some(Some(i)), Nil@<Opt<Opt<int>>>).hd.v = Some(i)
+       and Cons(Some(r), Nil@<Opt<R>>).hd.v = r
+       and Cons('(Some(PS(i)), 1), Nil@<[Opt<P<int>>, int]>).hd[0] = Some(PS(i));
+  check ok;
+tel

@@ -1,0 +1,5 @@
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+node main(l: L<[int, int^2]>) returns (ok: bool);
+let
+  ok = true;
+tel

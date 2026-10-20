@@ -1,0 +1,15 @@
+type P<U> = struct {a: U; b: int};
+type S = struct {p: real; q: int};
+type W = [S, bool];
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node main(l: L<[int, bool]>; m: L<L<[int, bool]>>; k: L<S>; j: L<W>; i: L<P<bool>>)
+returns (ok: bool);
+let
+  ok = (Cons?(l) ==> l = Cons(l.hd, l.tl))
+       and (Cons?(m) ==> (m = Cons(m.hd, m.tl) and (Cons?(m.hd) ==> m.hd.hd[1] = m.hd.hd[1])))
+       and (Cons?(k) ==> (Cons(k.hd, k.tl) = k and Cons(k.hd, k.tl).hd.p = k.hd.p))
+       and (Cons?(j) ==> (Cons(j.hd, j.tl) = j and Cons(j.hd, j.tl).hd[0].q = j.hd[0].q))
+       and (Cons?(i) ==> (Cons(i.hd, i.tl) = i and Cons(i.hd, i.tl).hd.a = i.hd.a));
+  check ok;
+tel

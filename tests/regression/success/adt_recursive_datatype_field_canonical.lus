@@ -1,0 +1,16 @@
+type Ab;
+type E = enum { P, Q };
+type R = struct {e: E; x: real};
+datatype M = MN | MC (v: D0, m: M);
+datatype D0 = Z (z: E) | W (w: uint8);
+datatype D2 = X (r: R) | Y (k: int);
+datatype D = A (ab: Ab, m: M, d2: D2, r: R, e: E, t: [bool, int]) | B (n: int);
+datatype L = Nil | Cons (hd: D, tl: L);
+node main(l: L; d: D; t: L) returns (ok: bool);
+let
+  ok = ((Cons?(l) and then B?(l.hd) and then B?(d) and then l.hd.n = d.n) ==> l.hd = d)
+   and Cons(d, t).hd = d
+   and ((Cons?(l) and then A?(l.hd)) ==> l.hd = A(l.hd.ab, l.hd.m, l.hd.d2, l.hd.r, l.hd.e, l.hd.t))
+   and ((Cons?(l) and then B?(l.hd)) ==> l.hd = B(l.hd.n));
+  check ok;
+tel

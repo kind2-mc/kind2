@@ -1,0 +1,29 @@
+datatype D = A (x: int) | B;
+type D2 = D;
+datatype Opt<T> = None | Some (v: T);
+type Opt3 = Opt<int>;
+type Opt4 = Opt3;
+type Q<T> = Opt<T>;
+type Pr<T> = [T, T];
+type Pr3 = Pr<int>;
+type Pr2 = Pr<Opt<int>>;
+type S = struct {a: int; b: bool};
+type S2 = S;
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node main(a: L<D2>; b: L<Opt4>; c: L<Q<int>>; d: L<Pr3>; e: L<[Opt3, int]>; f: L<Pr2>; g: L<S2>)
+returns (ok: bool);
+let
+  ok = (Cons?(a) ==> a = Cons(a.hd, a.tl))
+       and (Cons?(b) ==> b = Cons(b.hd, b.tl))
+       and (Cons?(c) ==> c = Cons(c.hd, c.tl))
+       and (Cons?(d) ==> d = Cons(d.hd, d.tl))
+       and (Cons?(e) ==> e = Cons(e.hd, e.tl))
+       and (Cons?(g) ==> g = Cons(g.hd, g.tl))
+       and Cons('(Some(1), None@<int>), f) = Cons('(Some(1), None@<int>), f)
+       and (b = Nil@<Opt<int>>) = Nil?(b)
+       and (c = Nil@<Opt4>) = Nil?(c)
+       and (d = Nil@<[int, int]>) = Nil?(d)
+       and (a = Nil@<D>) = Nil?(a);
+  check ok;
+tel

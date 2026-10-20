@@ -1,0 +1,6 @@
+type R = struct {a: subrange [0, 3] of int};
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+node main(l: L<[int, R]>) returns (ok: bool);
+let
+  ok = true;
+tel

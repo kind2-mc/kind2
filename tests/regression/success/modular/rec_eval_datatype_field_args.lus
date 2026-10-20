@@ -1,0 +1,12 @@
+datatype D = A (a: int) | B (b: bool);
+datatype L = Nil | Cons (hd: D, tl: L);
+function rec SumA(l: L) returns (s: int)
+con decreases l; noc
+let
+  s = match l with | Nil : 0 | Cons (A(n), t) : n + SumA(t) | Cons (B(_), t) : SumA(t) end;
+tel
+node main(x: int) returns (ok: bool);
+let
+  ok = SumA(Cons(A(3), Cons(B(true), Nil))) = 3;
+  check ok;
+tel

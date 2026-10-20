@@ -35,6 +35,7 @@ module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
 module LDAT = LustreDesugarADTs
+module RFS = LustreRecAdtFieldSort
 module LDF = LustreDesugarFrameBlocks
 module LDI = LustreDesugarIfBlocks
 module NI = NodeId
@@ -859,15 +860,6 @@ let field_name_to_index adt_map field_hs =
   | Some idx -> idx
   | None -> X.RecordIndex field_str
 
-(* SMT symbol of a datatype's name: angle brackets are legal in an SMT-LIB
-   simple symbol, so they are kept, and any character that is not is mangled *)
-let smt_name_of_adt_name name =
-  String.map (function
-    | ('a'..'z' | 'A'..'Z' | '0'..'9'
-      | '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '_' | '-' | '+' | '='
-      | '<' | '>' | '.' | '?' | '/') as c -> c
-    | _ -> '$') name
-
 (* SMT symbol of a constructor of the datatype of the given name: each
    instantiation declares constructors of its own, named after itself *)
 let ctor_sym_of name ctor =
@@ -910,58 +902,6 @@ let resolve_datatype_ref dt ft =
   if Type.is_datatype_ref ft
      && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
   then dt else ft
-
-(* An enum is an integer everywhere else, but a datatype field of integer sort
-   lets a model read a value outside the enum out of a free datatype value: a
-   field is pinned by its constructor, so no range constraint can be put on one
-   after the fact. An enum-typed field of a recursive datatype is given a sort
-   of its own instead, a datatype with one nullary constructor per enum value,
-   which holds nothing else; the integer encoding is restored where a field is
-   read ([decode_enum_field]) and where one is built ([encode_enum_field]). *)
-let enum_field_ctor_sym sort_name ctor = sort_name ^ "$" ^ ctor
-
-let enum_field_sort ty =
-  let name = "enum$" ^ smt_name_of_adt_name (Type.name_of_enum ty) in
-  let ctors = Type.constructors_of_enum ty in
-  let sort =
-    Type.mk_enum_field_sort name
-      (List.map (fun c -> (enum_field_ctor_sym name c, [])) ctors) ty
-  in
-  (* A model may mention any of them, so declare every one *)
-  List.iter (fun c ->
-    ignore (UfSymbol.mk_uf_symbol (enum_field_ctor_sym name c) [] sort)
-  ) ctors;
-  sort
-
-(* The constructor of the sort [sort] holding each value of the enum it stands
-   for, paired with that value *)
-let enum_field_values sort =
-  List.combine
-    (List.map fst (Type.constructors_of_datatype sort))
-    (Type.constructors_of_enum (Type.enum_of_field_sort sort))
-
-(* The value of the sort an enum field has, as an if-then-else chain over its
-   values; the last is the unconditional branch *)
-let rec enum_field_ite cond value = function
-  | [] -> assert false
-  | [v] -> value v
-  | v :: rest -> E.mk_ite (cond v) (value v) (enum_field_ite cond value rest)
-
-(* The integer-encoded enum value the field [e] of sort [sort] holds *)
-let decode_enum_field sort e =
-  let ety = Type.enum_of_field_sort sort in
-  enum_field_ite
-    (fun (sym, _) -> E.mk_is_constructor sym e)
-    (fun (_, v) -> E.mk_constr v ety)
-    (enum_field_values sort)
-
-(* The value of sort [sort] the integer-encoded enum expression [e] denotes *)
-let encode_enum_field sort e =
-  let ety = Type.enum_of_field_sort sort in
-  enum_field_ite
-    (fun (_, v) -> E.mk_eq e (E.mk_constr v ety))
-    (fun (sym, _) -> E.mk_uf (UfSymbol.uf_symbol_of_string sym) sort [])
-    (enum_field_values sort)
 
 let rec compile ctx gids adt_map scc_map decls =
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
@@ -1147,19 +1087,17 @@ and compile_ast_type
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
   | A.ADT (_, ident, ctors) ->
-    let smt_name = smt_name_of_adt_name (HString.string_of_hstring ident) in
-    let compile_field_type ty =
+    let smt_name = RFS.smt_name_of_adt_name (HString.string_of_hstring ident) in
+    let compile_field_type c fn ty =
       if AH.is_direct_self_reference ident ty then
         Type.mk_datatype_ref smt_name
       else
-        match X.bindings (compile_ast_type cstate ctx map ty) with
-        | [(idx, t)] when idx = X.empty_index ->
-          if Type.is_enum t then enum_field_sort t else t
-        | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
+        RFS.field_sort smt_name (Type.source_ctor_name (HString.string_of_hstring c))
+          (HString.string_of_hstring fn) (compile_ast_type cstate ctx map ty)
     in
     let ctors' = List.map (fun (c, fields) ->
       (ctor_sym_of smt_name c,
-       List.map (fun (_, ty) -> compile_field_type ty) fields)
+       List.map (fun (fn, ty) -> compile_field_type c fn ty) fields)
     ) ctors in
     let adt_type = Type.mk_datatype smt_name ctors' in
     (* Declare every constructor, not only the ones the program builds a term
@@ -1925,12 +1863,7 @@ and compile_ast_expr
       let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
       let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
       let sel = E.mk_selector selector_name result_type e' in
-      let sel =
-        if Type.is_enum_field_sort result_type then
-          decode_enum_field result_type sel
-        else sel
-      in
-      X.singleton X.empty_index sel
+      RFS.decode (default_of_type cstate.abstract_type_defaults) result_type sel
     | None ->
       let unguarded_adt = match pk with
         | A.Selector (_, A.UserType (_, _, ty_name), _) ->
@@ -2012,26 +1945,24 @@ and compile_ast_expr
     let adt_type =
       X.find X.empty_index (StringMap.find ty_name cstate.type_alias)
     in
-    let compiled_args = List.map
-      (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
-      arg_exprs
+    let compiled_args =
+      List.map (compile_ast_expr cstate ctx bounds map) arg_exprs
     in
     let ctor_name = compiled_ctor_sym adt_type ctor in
-    (* The sorts the datatype declares, which for an enum-typed field is not
-       the compiled type of the field's source type (see [enum_field_sort]) *)
-    let arg_types =
+    (* The sorts the datatype declares, which for a field of enum, tuple or
+       record type is not the compiled type of the field's source type *)
+    let arg_types, compiled_args =
       if Type.is_datatype adt_type then
-        List.assoc ctor_name (Type.constructors_of_datatype adt_type)
-        |> List.map (resolve_datatype_ref adt_type)
+        let arg_types =
+          List.assoc ctor_name (Type.constructors_of_datatype adt_type)
+          |> List.map (resolve_datatype_ref adt_type)
+        in
+        arg_types, List.map2 RFS.encode arg_types compiled_args
       else
         List.map
           (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
-          field_tys
-    in
-    let compiled_args =
-      List.map2 (fun at e ->
-        if Type.is_enum_field_sort at then encode_enum_field at e else e
-      ) arg_types compiled_args
+          field_tys,
+        List.map (X.find X.empty_index) compiled_args
     in
     let ctor_sym = UfSymbol.mk_uf_symbol ctor_name arg_types adt_type in
     X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
@@ -3905,23 +3836,8 @@ and compile_type_decl pos ctx cstate = function
        use names an instantiation. A datatype is declared once however many names
        alias it. *)
     let recursive_datatypes = match ps, X.bindings t with
-      | [], [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty
-                             && not (List.exists (Type.equal_types ty)
-                                       cstate.recursive_datatypes) ->
-        (* The sort of an enum-typed field is a datatype of its own, declared
-           before the datatype whose field has it *)
-        let enum_sorts =
-          Type.constructors_of_datatype ty
-          |> List.concat_map snd
-          |> List.filter Type.is_enum_field_sort
-          |> List.fold_left (fun acc s ->
-               if List.exists (Type.equal_types s) acc
-                  || List.exists (Type.equal_types s) cstate.recursive_datatypes
-               then acc else s :: acc)
-               []
-          |> List.rev
-        in
-        cstate.recursive_datatypes @ enum_sorts @ [ty]
+      | [], [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty ->
+        RFS.declaration_order cstate.recursive_datatypes ty
       | _ -> cstate.recursive_datatypes
     in
     { cstate with

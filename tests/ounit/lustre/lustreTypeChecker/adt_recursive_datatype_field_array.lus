@@ -1,0 +1,2 @@
+datatype D = A (a: int^2) | B;
+datatype L = Nil | Cons (hd: D, tl: L);

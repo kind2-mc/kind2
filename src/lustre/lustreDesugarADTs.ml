@@ -433,9 +433,21 @@ and default_adt_term ctx adt_map pos name ty_args ctors =
 and desugar_type pos ctx adt_map ty =
   match ty with
   | LA.ADT (_, name, cons) ->
-    if is_directly_recursive name cons then 
-      ty 
-    else 
+    (* The declaration says whether a datatype is recursive: an instance such as
+       Opt<Opt<int>> mentions its own name without being so *)
+    let is_recursive = match HStringMap.find_opt name adt_map with
+      | Some info -> info.is_recursive
+      | None -> is_directly_recursive name cons
+    in
+    (* An expansion's payloads may hold expansions of datatypes in turn *)
+    let cons =
+      List.map (fun (c, fields) ->
+        (c, List.map (fun (f, fty) -> (f, desugar_type pos ctx adt_map fty)) fields)
+      ) cons
+    in
+    if is_recursive then
+      LA.ADT (pos, name, cons)
+    else
       let info = build_adt_info name [] cons ~is_recursive:false in
       record_type_of_adt pos info
   | LA.RefinementType (p, (p2, id, t), e) ->
@@ -627,7 +639,8 @@ and desugar_expr ctx adt_map expr =
       |> (function Some i -> i | None -> assert false)
     in
     if adt_info.is_recursive then
-      LA.ADTTerm (pos, ty_args, ctor, args')
+      (* A type argument names its instantiation by its record once desugared *)
+      LA.ADTTerm (pos, List.map (desugar_type pos ctx adt_map) ty_args, ctor, args')
     else
     let ty_args' = List.map (desugar_type pos ctx adt_map) ty_args in
     let subst =

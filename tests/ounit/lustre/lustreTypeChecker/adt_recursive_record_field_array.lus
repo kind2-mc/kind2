@@ -1,0 +1,2 @@
+type R = struct {x: int^3; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);

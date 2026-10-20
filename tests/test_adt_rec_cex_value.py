@@ -96,3 +96,19 @@ def test_enum_field_witness_is_its_value():
     found = witnesses("adt_recursive_enum_field_false.lus")
     assert constructor(found["x"]) == "LC", found
     assert found["x"]["args"][0] == "B", found
+
+
+def test_record_field_witness_holds_its_components():
+    # `Cons?(l) => (l.hd.e = A or l.hd.t[1])` is false only for a `Cons` whose
+    # head holds the other value of `E`, which the record's value carries
+    found = witnesses("adt_recursive_record_field_false.lus")
+    assert constructor(found["l"]) == "Cons", found
+    assert "B" in found["l"]["args"][0]["args"], found
+
+
+def test_datatype_field_witness_is_its_constructor():
+    # `(Cons?(l) and then A?(l.hd)) ==> l.hd = A(x)` is false only for a
+    # `Cons` whose head is an `A`, which prints under its own name
+    found = witnesses("adt_recursive_datatype_field_false.lus")
+    assert constructor(found["l"]) == "Cons", found
+    assert constructor(found["l"]["args"][0]) == "A", found

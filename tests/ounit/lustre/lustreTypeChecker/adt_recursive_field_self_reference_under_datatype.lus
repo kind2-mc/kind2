@@ -1,0 +1,2 @@
+datatype Opt<T> = None | Some (v: T);
+datatype L = Nil | Cons (hd: Opt<L>, tl: L);

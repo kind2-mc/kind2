@@ -1,0 +1,19 @@
+type R = struct {x: int; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node sub(l: L) returns (r: R);
+(*@contract
+  assume Cons?(l);
+  guarantee r = l.hd;
+*)
+let
+  r = l.hd;
+tel
+
+node main(l: L) returns (ok: bool);
+var r: R;
+let
+  r = sub(Cons(R {x = 5; y = true}, l));
+  ok = r.x = 5 and r.y;
+  check ok;
+tel

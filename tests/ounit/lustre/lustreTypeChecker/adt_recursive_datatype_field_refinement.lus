@@ -1,0 +1,5 @@
+type P = subtype {x: int | x > 0};
+datatype D2 = X (p: P) | Y;
+type R = struct {d: D2};
+datatype D = A (r: R) | B;
+datatype L = Nil | Cons (hd: D, tl: L);

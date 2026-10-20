@@ -1,0 +1,3 @@
+datatype D2 = X (s: set<int>);
+datatype D = A (a: D2) | B;
+datatype L = Nil | Cons (hd: [D, int], tl: L);

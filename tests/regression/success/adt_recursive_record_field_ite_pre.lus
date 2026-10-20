@@ -1,0 +1,11 @@
+type R = struct {x: int; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node main(c: bool; r1, r2: R) returns (ok: bool);
+var l: L; r: R;
+let
+  r = if c then r1 else r2;
+  l = Cons(if c then r1 else r2, Nil) -> Cons(pre r, Nil);
+  ok = true -> (l.hd.x = pre r.x and l.hd = pre r);
+  check ok;
+tel

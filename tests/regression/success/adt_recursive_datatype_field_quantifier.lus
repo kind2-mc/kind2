@@ -1,0 +1,8 @@
+datatype D = A (a: int) | B (b: bool);
+datatype L = Nil | Cons (hd: D, tl: L);
+node main(s: set<L>; mp: map<L, int>) returns ();
+let
+  check forall (l: L) (Cons?(l) and then A?(l.hd)) ==> l.hd = A(l.hd.a);
+  check exists (l: L) Cons?(l) and then B?(l.hd) and then l.hd.b;
+  check forall (l: L) (l in s and Cons?(l) and then B?(l.hd)) ==> Cons(B(l.hd.b), l.tl) in s;
+tel

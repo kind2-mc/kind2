@@ -1,0 +1,22 @@
+datatype D = A (a: int) | B (b: bool) | C;
+datatype L = Nil | Cons (hd: D, tl: L);
+node sub(l: L) returns (d: D);
+(*@contract
+  assume Cons?(l);
+  guarantee d = l.hd;
+*)
+let
+  d = l.hd;
+tel
+node main(l: L; x: int) returns (ok: bool);
+var d: D; v: int;
+let
+  d = sub(Cons(A(x), l));
+  match Cons(d, l) with
+  | Cons (A(n), _) : v = n;
+  | Cons (_, _) : v = 0;
+  | Nil : v = 1;
+  end
+  ok = A?(d) and d.a = x and v = x;
+  check ok;
+tel

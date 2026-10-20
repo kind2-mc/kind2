@@ -1,0 +1,13 @@
+datatype D = A (a: int) | B (b: bool) | C;
+datatype L = Nil | Cons (hd: D, tl: L);
+node main(l: L; d1, d2: D; t: L; x: int) returns (ok: bool);
+let
+  ok = (Cons?(l) ==> l = Cons(l.hd, l.tl))
+   and ((Cons(d1, t) = Cons(d2, t)) => d1 = d2)
+   and (Cons?(l) ==> (A?(l.hd) or B?(l.hd) or C?(l.hd)))
+   and Cons(A(x), t).hd = A(x)
+   and ((Cons?(l) and then A?(l.hd) and then l.hd.a = x) ==> l.hd = A(x))
+   and ((Cons?(l) and then C?(l.hd)) ==> l.hd = C)
+   and Cons(A(x), t).hd.a = x;
+  check ok;
+tel
