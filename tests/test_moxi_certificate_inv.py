@@ -145,7 +145,7 @@ def test_inv_is_smtlib_term(tmp_path, case, engines, mentioned):
     out = re.sub(r"\s+", " ", out)
     query = "|q 1|" if case == "quoted" else "q"
     cert = "|q 1_cert|" if case == "quoted" else "q_cert"
-    assert f":query ({query} unsat :certificate {cert})" in out, out + err
+    assert f":query ({query} :result unsat :certificate {cert})" in out, out + err
     prefix = f":certificate ({cert} :inv "
     assert prefix in out, out + err
     inv, rest = parse(out.split(prefix, 1)[1])

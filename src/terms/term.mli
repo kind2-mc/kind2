@@ -473,7 +473,18 @@ val has_quantifier : t -> bool
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
+(** The atoms of a term: its maximal Boolean subterms with no Boolean
+    subterm of their own, each with lets for the subterms it shares (see
+    {!share_subterms}). The atoms of an application that is not Boolean
+    are not reported. *)
 val get_atoms : t -> TermSet.t
+
+(** [share_subterms t] is [t], which has no let, with each subterm it uses
+    more than once bound to a variable by a let, in as few lets as the
+    dependencies between them allow: the term is then written as compactly
+    as it is stored, where its tree could be exponentially larger. *)
+val share_subterms : t -> t
+
 
 (** Return true if the term is a simple Boolean atom, that is, has
     type Boolean and does not contain subterms of type Boolean *)

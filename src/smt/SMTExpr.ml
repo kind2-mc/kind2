@@ -177,7 +177,15 @@ struct
   let term_of_smtexpr term =
 
     Term.map
-      (function _ -> function t -> 
+      (function _ -> function t ->
+         (* A let binding is left as it is: destructing it to look at
+            its top symbol would distribute it over the arguments of
+            its body, and in the chains of lets a solver writes a
+            formula with shared subterms, from every let of the chain
+            down, for a time and a memory that grow with the square of
+            the length of the chain. The variables it binds are
+            converted where they are used. *)
+         if Term.is_let t then t else
          try var_term_of_smtexpr t with Invalid_argument _ -> t)
       term
 

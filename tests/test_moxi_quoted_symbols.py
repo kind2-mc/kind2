@@ -11,17 +11,20 @@ system named |the sys| as __node_init_the sys, which they rejected.
 
 import pytest
 
-from conftest import run_kmoxi
+from conftest import run_kmoxi, query_answer
 
 quoted = """(set-logic QF_LIA)
 (declare-enum-sort |traffic light| (|go now| stop))
 (declare-const |my k| Int)
+(define-system |the sub| :input () :output ((|s v| Int))
+  :init (= |s v| 0) :trans (= |s v|' (+ |s v| 1)))
 (define-system |the sys| :input () :output ((|x y| Int) (l |traffic light|))
-  :local ((|2t| Int))
+  :local ((|2t| Int) (w Int))
+  :subsys (|the call| (|the sub| w))
   :init (and (= |x y| 0) (= |2t| 0) (= l |go now|))
   :trans (and (= |x y|' (+ |x y| |my k|)) (= |2t|' (+ |2t| 1)) (= l' stop)))
 (check-system |the sys| :input () :output ((|x y| Int) (l |traffic light|))
-  :local ((|2t| Int))
+  :local ((|2t| Int) (w Int))
   :reachable (|reach it| (and (= |2t| 2) (= |x y| 4) (= l stop)))
   :query (|q 1| (|reach it|)))
 """
@@ -32,12 +35,14 @@ def test_symbols_quoted(tmp_path):
     path.write_text(quoted)
     out, err = run_kmoxi(path, "--enable", "BMC")
     for text in [
-        ":query (|q 1| sat :model |q 1_model| :trace |q 1_trace|)",
+        ":query (|q 1| :result sat :model |q 1_model| :trace |q 1_trace|)",
         ":trace (|q 1_trace| :prefix |q 1_prefix|)",
         "(define-fun |my k| () Int 2)",
-        "(|the sys|::|x y| 0)",
-        "(|the sys|::l |go now|)",
-        "(|the sys|::|2t| 0)",
+        "(|x y| 0)",
+        "(l |go now|)",
+        "(|2t| 0)",
+        # A path is one symbol, quoted when a name along it needs it
+        "(|the call::s v| 0)",
         "(|reach it| true)",
     ]:
         assert text in out, out + err
@@ -65,4 +70,4 @@ def test_system_names(tmp_path, case):
     path = tmp_path / "model.moxi"
     path.write_text(names[case])
     out, err = run_kmoxi(path, "--enable", "BMC")
-    assert ":query (q sat" in out, out + err
+    assert query_answer(out) == "sat", out + err
