@@ -863,12 +863,9 @@ let log_ppf =
               Buffer.clear out_buffer ;
               flush !out_channel
             in
-            (* The reader of the output may have closed it, as the Java
-               API does when it stops a run. SIGPIPE is ignored, so the
-               write raises [Sys_error]. On the way out, that must not
-               cut the exit short before it kills the solvers, which
-               would outlive Kind 2: the output is silenced, and the exit
-               goes on as if it had been written. *)
+            (* The reader of the output may have closed it. SIGPIPE is 
+               ignored, so the write raises [Sys_error]. On the way out, 
+               that must not cut the exit short before it kills the solvers. *)
             try write () with
             | Sys_error _ when Atomic.get exiting ->
               silence_output () ;
