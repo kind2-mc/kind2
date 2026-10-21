@@ -27,6 +27,7 @@ type error_kind =
   | RestartUnknownVariable of HString.t
   | RestartQuantifiedVariable of HString.t
   | RestartPolymorphic
+  | TemporalBranchQuantifiedVariable of HString.t
 
 let error_message = function
   | RestartUnknownVariable id ->
@@ -38,12 +39,16 @@ let error_message = function
     ^ "' is not allowed under a restart"
   | RestartPolymorphic ->
     "A restart cannot apply to values of a type parameter"
+  | TemporalBranchQuantifiedVariable id ->
+    "Quantified variable '" ^ HString.string_of_hstring id
+    ^ "' is not allowed in a branch of a lazy construct that uses a \
+       temporal operator"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
 ]
 
-exception Restart_error of Lib.position * error_kind
+exception Gen_nodes_error of Lib.position * error_kind
 
 let inserted_ascription_infix = ".subtype_"
 
@@ -583,7 +588,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
        branch of a when-then-else expression (see below) *)
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids gen_nodes2 e2 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes2 e2 in
     BinaryOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2 @ gen_nodes2'
   | BinaryOp (pos, op, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -597,8 +602,8 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_split e2 in
     let e3, gen_nodes3 = rec_split e3 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids gen_nodes2 e2 in
-    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name fun_ids gen_nodes3 e3 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes2 e2 in
+    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes3 e3 in
     TernaryOp (pos, LazyIte, e1, e2, e3),
     gen_nodes1 @ gen_nodes2 @ gen_nodes2' @ gen_nodes3 @ gen_nodes3'
   | TernaryOp (pos, op, e1, e2, e3) ->
@@ -742,7 +747,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
       let arm_e, gen_nodes =
         desugar_expr ~insert:split_insert ~bound ~quant ?const_pos arm_ctx node_name fun_ids arm_e
       in
-      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids gen_nodes arm_e in
+      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids quant gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
     Match (pos, e, arms, ty_opt), gen_nodes1 @ List.flatten gen_nodes2
@@ -861,16 +866,24 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
    'pre'), abstract it into a call to a fresh internal node, so that its
    temporal behavior is driven by the guard. If the branch cannot be abstracted
    here, it is returned as it came in, and the later type-checking pass reports
-   the error, if any. *)
+   the error, if any. The call lies outside the scope of any quantifier around
+   the branch, so the branch cannot mention a variable in [quant]; this is
+   checked once the branch is known to be well typed, so that a type error in
+   the branch is reported as such. *)
 and abstract_temporal_branch:
-  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.t list -> Ctx.SI.t -> A.declaration list -> A.expr
   -> A.expr * A.declaration list =
-fun ctx node_name fun_ids gen_decls orig_e ->
+fun ctx node_name fun_ids quant gen_decls orig_e ->
   match AH.has_pre_or_arrow orig_e with
   | None -> orig_e, []
   | Some _ ->
     match abstract_into_node ctx node_name fun_ids ClockedExpr gen_decls orig_e with
-    | Abstracted (call, decls) -> call, decls
+    | Abstracted (call, decls) -> (
+      let vars = AH.vars_without_node_call_ids orig_e in
+      match Ctx.SI.min_elt_opt (Ctx.SI.inter vars quant) with
+      | Some id ->
+        raise (Gen_nodes_error (AH.pos_of_expr orig_e, TemporalBranchQuantifiedVariable id))
+      | None -> call, decls)
     | UnknownVariable _ | Untyped -> orig_e, []
 
 (* 'restart e every r': abstract [e] into a call to a fresh internal node, and
@@ -889,12 +902,12 @@ fun ctx node_name fun_ids quant gen_decls pos e r ->
   else
   let vars = Ctx.SI.union (AH.vars_without_node_call_ids e) (AH.vars_without_node_call_ids r) in
   match Ctx.SI.min_elt_opt (Ctx.SI.inter vars quant) with
-  | Some id -> raise (Restart_error (pos, RestartQuantifiedVariable id))
+  | Some id -> raise (Gen_nodes_error (pos, RestartQuantifiedVariable id))
   | None ->
   match abstract_into_node ctx node_name fun_ids Restarted gen_decls e with
   | Abstracted (A.Call (_, [], node_id, args), decls) ->
     A.RestartEvery (pos, node_id, args, r), decls
-  | Abstracted _ -> raise (Restart_error (pos, RestartPolymorphic))
+  | Abstracted _ -> raise (Gen_nodes_error (pos, RestartPolymorphic))
   | UnknownVariable _ | Untyped -> A.Restart (pos, e, r), []
 
 (* 'restart items every r end': abstract the items into a fresh internal node,
@@ -921,11 +934,11 @@ fun ctx node_name fun_ids pos items r ->
   in
   let lookup_ty i = match Ctx.lookup_ty ctx i with
     | Some ty -> ty
-    | None -> raise (Restart_error (pos, RestartUnknownVariable i))
+    | None -> raise (Gen_nodes_error (pos, RestartUnknownVariable i))
   in
   let tys = List.map lookup_ty (inputs @ outputs) in
   if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
-  then raise (Restart_error (pos, RestartPolymorphic));
+  then raise (Gen_nodes_error (pos, RestartPolymorphic));
   let input_decls, gen_nodes1 = List.map (fun i ->
     let ty, gen_nodes = desugar_type ctx node_name fun_ids (lookup_ty i) in
     let is_const = Option.is_some (Ctx.lookup_const ctx i) in
@@ -1061,7 +1074,7 @@ fun ctx node_name fun_ids ni ->
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
-        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids Ctx.SI.empty gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
     in
@@ -1080,7 +1093,7 @@ fun ctx node_name fun_ids ni ->
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
-        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids Ctx.SI.empty gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
       | A.RestartBlock _ | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _
@@ -1240,4 +1253,4 @@ fun ctx decls ->
 let gen_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list, [> error]) result =
 fun ctx decls ->
   try Ok (gen_nodes_of_decls ctx decls)
-  with Restart_error (pos, kind) -> Error (`LustreGenNodesError (pos, kind))
+  with Gen_nodes_error (pos, kind) -> Error (`LustreGenNodesError (pos, kind))
