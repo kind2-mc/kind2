@@ -1,0 +1,9 @@
+-- Nor can a temporal arm of a match expression (issue #1757).
+
+datatype T = A (v: int) | B (w: int);
+
+node main (n: int; t: T) returns (ok: bool);
+let
+  ok = true;
+  check forall (q: int) ((match t with | A (v) : (0 -> pre v) + 0*q | B (w) : w + 0*q end) >= 0);
+tel

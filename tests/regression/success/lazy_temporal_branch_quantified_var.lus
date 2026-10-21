@@ -1,0 +1,19 @@
+-- A quantified variable is allowed in a branch of a lazy construct that has
+-- no temporal operator, and so is not abstracted into a call to a node, and a
+-- temporal branch may mention a pattern variable that shadows it (issue #1757).
+
+datatype T = A (v: int) | B (w: int);
+
+node main (x: int; t: T) returns ();
+let
+  -- A branch without a temporal operator is not abstracted
+  check "stateless" forall (k: int) x > 0 ==> k + x = x + k;
+  -- A temporal branch that does not mention the quantified variable
+  check "no_quant" forall (k: int) k = k and (x > 0 ==> (true -> x = x));
+  -- A pattern variable shadows a quantified variable of the same name
+  check "shadow" forall (v: int)
+    (match t with | A (v) : (0 -> v) | B (w) : 0 end) >= 0
+    or (match t with | A (v) : v < 0 | B (w) : false end);
+  -- The refinement type form of the quantifier
+  check "refinement" forall (k: int | k > 0) (true -> k + x = k + x);
+tel
