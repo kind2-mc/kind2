@@ -1,10 +1,12 @@
 -- A quantified variable is allowed in a branch of a lazy construct that has
 -- no temporal operator, and so is not abstracted into a call to a node, and a
 -- temporal branch may mention a pattern variable that shadows it (issue #1757).
+-- The same holds for the index of an array comprehension whose size is not
+-- constant.
 
 datatype T = A (v: int) | B (w: int);
 
-node main (x: int; t: T) returns ();
+node main (const n: int; x: int; t: T; a: int^n) returns (b: bool^n; d: int^n);
 let
   -- A branch without a temporal operator is not abstracted
   check "stateless" forall (k: int) x > 0 ==> k + x = x + k;
@@ -14,6 +16,16 @@ let
   check "shadow" forall (v: int)
     (match t with | A (v) : (0 -> v) | B (w) : 0 end) >= 0
     or (match t with | A (v) : v < 0 | B (w) : false end);
-  -- The refinement type form of the quantifier
-  check "refinement" forall (k: int | k > 0) (true -> k + x = k + x);
+  -- The bound variable of a refinement type, under a guard, is not mentioned
+  -- by the temporal branch
+  check "refinement" forall (k: int | k > 0) x > 0 ==> (true -> x = x);
+  -- Nor by the temporal operands of 'and then' and 'or else'
+  check "and_then" forall (k: int) k = k and ((x > 0 and then (true -> x > 0)) = (x > 0));
+  check "or_else" forall (k: int) k = k and (x > 0 or else (true -> x <= 0));
+
+  -- A branch without a temporal operator, over a symbolic index
+  b = ((x > 0 ==> a[i] > 0) foreach i < n);
+  check "symbolic_stateless" forall (j: int) 0 <= j and j < n ==> (b[j] = (x > 0 ==> a[j] > 0));
+  -- A pattern variable shadows a symbolic index of the same name
+  d = ((match t with | A (i) : (0 -> i) | B (w) : w end) foreach i < n);
 tel

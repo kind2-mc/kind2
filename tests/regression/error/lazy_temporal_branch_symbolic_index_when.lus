@@ -1,0 +1,6 @@
+-- Neither can a temporal branch of a when-then-else expression.
+
+node main (const n: int; c: bool; a: int^n) returns (b: int^n);
+let
+  b = ((when c then (0 -> a[i]) else 0) foreach i < n);
+tel

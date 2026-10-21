@@ -867,7 +867,9 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
    temporal behavior is driven by the guard. If the branch cannot be abstracted
    here, it is returned as it came in, and the later type-checking pass reports
    the error, if any. The call lies outside the scope of any quantifier around
-   the branch, so the branch cannot mention a variable in [quant]. *)
+   the branch, so the branch cannot mention a variable in [quant]; this is
+   checked once the branch is known to be well typed, so that a type error in
+   the branch is reported as such. *)
 and abstract_temporal_branch:
   Ctx.tc_context -> NI.t -> NI.t list -> Ctx.SI.t -> A.declaration list -> A.expr
   -> A.expr * A.declaration list =
@@ -875,13 +877,13 @@ fun ctx node_name fun_ids quant gen_decls orig_e ->
   match AH.has_pre_or_arrow orig_e with
   | None -> orig_e, []
   | Some _ ->
-    let vars = AH.vars_without_node_call_ids orig_e in
-    match Ctx.SI.min_elt_opt (Ctx.SI.inter vars quant) with
-    | Some id ->
-      raise (Gen_nodes_error (AH.pos_of_expr orig_e, TemporalBranchQuantifiedVariable id))
-    | None ->
     match abstract_into_node ctx node_name fun_ids ClockedExpr gen_decls orig_e with
-    | Abstracted (call, decls) -> call, decls
+    | Abstracted (call, decls) -> (
+      let vars = AH.vars_without_node_call_ids orig_e in
+      match Ctx.SI.min_elt_opt (Ctx.SI.inter vars quant) with
+      | Some id ->
+        raise (Gen_nodes_error (AH.pos_of_expr orig_e, TemporalBranchQuantifiedVariable id))
+      | None -> call, decls)
     | UnknownVariable _ | Untyped -> orig_e, []
 
 (* 'restart e every r': abstract [e] into a call to a fresh internal node, and

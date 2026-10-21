@@ -1,0 +1,9 @@
+-- A temporal branch of a lazy construct is abstracted into a call to a node,
+-- so, as an argument of a node call, it cannot mention an index of an array
+-- comprehension whose size is not constant: the call has no known number of
+-- instances to be expanded into.
+
+node main (const n: int; c: bool; a: int^n) returns (b: bool^n);
+let
+  b = ((c ==> (true -> a[i] > 0)) foreach i < n);
+tel
