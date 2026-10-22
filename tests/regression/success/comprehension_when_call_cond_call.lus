@@ -1,0 +1,29 @@
+-- A node call under a lazy construct whose condition makes a node call of its
+-- own, which does not mention the index variable of the comprehension (#1750):
+-- each instance of the guarded call is activated by the instance of the
+-- condition for its own index
+node Count() returns (c: int);
+let
+  c = 1 -> pre c + 1;
+tel
+
+node Pos(x: int) returns (b: bool);
+let
+  b = x > 0;
+tel
+
+node F(x: int) returns (y: int);
+let
+  y = x;
+tel
+
+node main(m: int) returns (A: int^3; B: int^3; C: bool^3);
+let
+  A = (when Pos(m) then F(i) else 0 foreach i)^3;
+  B = (when Pos(m) then Count() else 0 foreach i)^3;
+  C = (Pos(m) and then F(i) = i foreach i)^3;
+  check "value" m > 0 => A[2] = 2;
+  check "else" m <= 0 => A[1] = 0;
+  check "count" B[0] = B[2] and B[1] >= 0;
+  check "and_then" C[1] = (m > 0);
+tel
