@@ -1,3 +1,4 @@
 (tests
-  (names testGraph testLib testSolverExit testSolverPipes testSolverStdin)
+  (names testGraph testLib testSolverExit testSolverPipes testSolverStdin
+   testFunEvalKilled testSolverDeleteRace testSexprLets)
   (libraries ounit2 unix kind2dev))

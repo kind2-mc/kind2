@@ -1,0 +1,8 @@
+-- A restart over a stateful expression is abstracted into a call to a node,
+-- which lies outside the scope of the quantifier, so the expression cannot
+-- mention a quantified variable (issue #1738).
+
+node f (r: bool) returns ();
+let
+  check forall (k: int) (restart (k -> k + 1) every r) >= k;
+tel

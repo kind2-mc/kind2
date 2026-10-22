@@ -1,0 +1,9 @@
+type Nat = subrange [0,*] of int;
+type S = struct { g: Nat };
+type W<T> = struct { f: T };
+const k: W<S> = W@<S> { f = S { g = 1 } };
+node N(x: int) returns (y: bool)
+let
+  y = k.f.g = 1;
+  check y;
+tel

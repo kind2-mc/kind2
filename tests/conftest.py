@@ -1,5 +1,6 @@
 import itertools
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -21,6 +22,10 @@ common_args = {
     "--color": "false",
     "--check_subproperties": "true",
 }
+
+# The default arguments for every kmoxi run: those of common_args that kmoxi
+# accepts (--check_subproperties concerns the Lustre front end only)
+kmoxi_args = {"--timeout": "84", "--color": "false"}
 
 # How long we let a single Kind 2 run take before killing it, in seconds.
 #
@@ -86,6 +91,31 @@ skipped_tests = {
     ),
 }
 
+# Arguments that regression tests need on top of those of their directory,
+# relative to the regression tree. A concrete computation with a recursive
+# function that is not evaluated, outside of a modular analysis, unrolls the
+# function as deep as the computation goes, and needs --rec_unrollings at
+# least as high: at the default, the run gives up early and exits 30.
+rec_unrollings_3 = {"--rec_unrollings": "3"}
+rec_unrollings_4 = {"--rec_unrollings": "4"}
+rec_unrollings_5 = {"--rec_unrollings": "5"}
+test_args = {
+    "success/compositional/rec_no_contract_unrolled.lus": rec_unrollings_5,
+    "success/match_block_rec_function.lus": rec_unrollings_3,
+    "success/poly_rec_function.lus": rec_unrollings_4,
+    "success/poly_rec_function_ground_arg.lus": rec_unrollings_3,
+    "success/poly_rec_function_refinement_arg.lus": rec_unrollings_3,
+    "success/rec_def_adt_sum.lus": rec_unrollings_4,
+    "success/rec_def_contract.lus": rec_unrollings_4,
+    "success/rec_def_even_odd_value.lus": rec_unrollings_4,
+    "success/rec_def_factorial_value.lus": rec_unrollings_5,
+    "success/rec_def_helper_calls_rec.lus": rec_unrollings_4,
+    "success/rec_def_helper_inlined.lus": rec_unrollings_4,
+    "success/rec_def_mutual_uninterpreted_callee.lus": rec_unrollings_3,
+    "success/rec_def_transparent_contract.lus": rec_unrollings_4,
+    "success/rec_shared_call.lus": {"--rec_unrollings": "8"},
+}
+
 # Extra files to test with a fixed expected result, as (path, expected) pairs
 extra_files = [
     (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
@@ -149,6 +179,10 @@ log_dir = Path("logs")
 # Where kind2 lives
 kind2_exe = "kind2.exe" if os.name == "nt" else "kind2"
 kind2_bin = (Path("../bin") / kind2_exe).resolve()
+
+# Where kmoxi lives, when it is built (`make kmoxi`)
+kmoxi_exe = "kmoxi.exe" if os.name == "nt" else "kmoxi"
+kmoxi_bin = (Path("../bin") / kmoxi_exe).resolve()
 
 ######################
 # Test running logic #
@@ -230,6 +264,12 @@ def pytest_collection_modifyitems(session, items):
 # the first comes in around the budget, the second only after the grace
 # those add to it. Both exit 30, and the output that would tell them apart
 # is printed only when a test fails.
+#
+# Kind 2 also exits 30 when it gives up on its own, with properties it could
+# not settle, such as at the limit of the unrollings of a recursive function.
+# That is no timeout: it happens the same way on every machine, however fast,
+# and the time it takes tells it apart, as Kind 2 cannot run out of time
+# before its budget. It is a failure.
 unfinished_runs = []
 
 
@@ -282,9 +322,33 @@ def kill_tree(proc: Popen):
     proc.kill()
 
 
-def run_kind2(command) -> CompletedProcess:
-    """Run Kind 2, capturing its output, and give up on it after
-    `run_timeout` seconds. Raises `LustreTimeout` if we had to give up."""
+def kill_and_communicate(proc: Popen, timeout: float = kill_timeout):
+    """Kill `proc` and every process it spawned, and read the rest of its
+    output, giving up on it after `timeout` seconds.
+
+    Returns `(stdout, stderr)`, which hold only what was read before we gave
+    up, if we did. `kill_tree` makes a best effort only, and a process it could not reach, such as one that
+    left the process group of the run, may still hold the pipes: reading
+    them without a timeout would wait forever for an end that never comes.
+    """
+    kill_tree(proc)
+    try:
+        return proc.communicate(timeout=timeout)
+    except TimeoutExpired as e:
+        # Report what we have rather than wait for the rest forever: the
+        # reader threads are daemons, and they do not keep the session alive.
+        # On POSIX the exception holds everything read so far, across every
+        # call to `communicate`; on Windows it holds nothing.
+        return e.output or b"", e.stderr or b""
+
+
+def run_kind2(
+    command, timeout: float = run_timeout, env=None, cwd=None, input=None
+) -> CompletedProcess:
+    """Run Kind 2, capturing its output, and give up on it after `timeout`
+    seconds. Raises `LustreTimeout` if we had to give up. `env` and `cwd`
+    are those of the run, and `input`, in bytes, is given to its standard
+    input, which is inherited otherwise."""
     popen_args = {}
     if os.name != "nt":
         # Put the run in a process group of its own, so that the solvers it
@@ -298,10 +362,13 @@ def run_kind2(command) -> CompletedProcess:
     # without them in its report cannot be told apart from a run that never
     # got that far. It is kept apart from standard output, which is checked
     # to be JSON matching the schema, and shown with it when a test fails.
-    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+    proc = Popen(
+        command, stdin=None if input is None else PIPE, stdout=PIPE,
+        stderr=PIPE, env=env, cwd=cwd, **popen_args
+    )
 
     try:
-        output, errors = proc.communicate(timeout=run_timeout)
+        output, errors = proc.communicate(input, timeout=timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -311,17 +378,79 @@ def run_kind2(command) -> CompletedProcess:
         # the question with our own signal.
         status = proc.poll()
 
-        kill_tree(proc)
-        try:
-            output, errors = proc.communicate(timeout=kill_timeout)
-        except TimeoutExpired:
-            # Some process we could not kill still holds the pipes. Report
-            # what we have rather than wait for the rest forever: the reader
-            # threads are daemons, and they do not keep the session alive.
-            output, errors = b"", b""
+        output, errors = kill_and_communicate(proc)
         raise LustreTimeout(output, errors, status)
 
     return CompletedProcess(command, proc.returncode, output, errors)
+
+
+# How much longer than its own `--timeout` we let a kmoxi run take before
+# killing it, in seconds
+kmoxi_slack = 30
+
+
+def run_kmoxi_process(
+    path, *extra, timeout: int = 30, env=None, cwd=None, input=None
+) -> CompletedProcess:
+    """Run kmoxi on `path` with `extra` arguments and a `--timeout` of
+    `timeout` seconds, and return the completed run, with its standard
+    output and error decoded. With `path` None, kmoxi reads the model from
+    `input`, a string; `env` and `cwd` are those of the run.
+
+    Skips the test if kmoxi is not built. Fails it if kmoxi gives no answer
+    within `timeout` and `kmoxi_slack` seconds, showing what kmoxi said and
+    whether it was still running then (see `run_kind2`).
+    """
+    if not kmoxi_bin.exists():
+        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
+    args = kmoxi_args | {"--timeout": str(timeout)}
+    arg_list = [arg for pair in args.items() for arg in pair]
+    command = [kmoxi_bin, *arg_list, *extra, *([] if path is None else [path])]
+    try:
+        res = run_kind2(
+            command, timeout=timeout + kmoxi_slack, env=env, cwd=cwd,
+            input=None if input is None else input.encode("utf-8"),
+        )
+    except LustreTimeout as e:
+        state = "still running" if e.status is None else f"exited with {e.status}"
+        pytest.fail(
+            f"no answer from kmoxi ({state}):\n"
+            f"{e.output.decode('utf-8', errors='replace')}"
+            f"{e.errors.decode('utf-8', errors='replace')}"
+        )
+    return CompletedProcess(
+        command,
+        res.returncode,
+        res.stdout.decode("utf-8", errors="replace"),
+        res.stderr.decode("utf-8", errors="replace"),
+    )
+
+
+# The answer to a query in a check-system response, as kmoxi prints it:
+# `:query (q :result sat :model q_model :trace q_trace)`. The query's name may
+# be a quoted symbol.
+query_answer_re = re.compile(
+    r":query \((\|[^|]*\||[^\s()|]+) :result (sat|unsat|unknown)\b"
+)
+
+
+def query_answers(out):
+    """The (query, result) pairs of the check-system responses in `out`, in
+    their order"""
+    return query_answer_re.findall(out)
+
+
+def query_answer(out, query="q"):
+    """The result of the query named `query` in `out`, or None if `out`
+    answers no such query"""
+    return next((r for q, r in query_answers(out) if q == query), None)
+
+
+def run_kmoxi(path, *extra, timeout: int = 30):
+    """Run kmoxi as `run_kmoxi_process` does, and return its standard output
+    and error"""
+    res = run_kmoxi_process(path, *extra, timeout=timeout)
+    return res.stdout, res.stderr
 
 
 class LustreItem(pytest.Item):
@@ -351,6 +480,8 @@ class LustreItem(pytest.Item):
         if modular_dir_name in self._regression_parts():
             args |= modular_args
 
+        args |= test_args.get(self._regression_name(), {})
+
         arg_list = list(itertools.chain.from_iterable(args.items()))
         # JSON, so that the output of every run is checked against the
         # schema (see `output_schema.py`)
@@ -364,6 +495,9 @@ class LustreItem(pytest.Item):
             return self.path.relative_to(regression_dir).parts
         except ValueError:
             return ()
+
+    def _regression_name(self):
+        return "/".join(self._regression_parts())
 
     def _is_ic3ia(self):
         return ic3ia_dir_name in self._regression_parts()
@@ -381,7 +515,7 @@ class LustreItem(pytest.Item):
         )
 
     def runtest(self):
-        skip_reason = skipped_tests.get("/".join(self._regression_parts()))
+        skip_reason = skipped_tests.get(self._regression_name())
         if skip_reason is not None:
             pytest.skip(skip_reason)
 
@@ -418,9 +552,15 @@ class LustreItem(pytest.Item):
                 raise LustreException
             return
 
-        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`
+        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`. A
+        # run that gave up before its budget did not time out: see
+        # `unfinished_runs`.
         result = code_to_expected.get(self.res.returncode)
-        if result == "timeout" and not self._is_ic3ia():
+        if (
+            result == "timeout"
+            and not self._is_ic3ia()
+            and self.elapsed >= float(common_args["--timeout"])
+        ):
           unfinished_runs.append((self.nodeid, self.elapsed))
           return
 
@@ -472,6 +612,12 @@ class LustreItem(pytest.Item):
                 return_code,
                 f"Unknown return code: {return_code}",
             )
+            if actual == "timeout":
+                actual = (
+                    f"exit 30 after {self.elapsed:.1f}s, before the "
+                    f"{common_args['--timeout']}s budget: Kind 2 gave up "
+                    "on some properties"
+                )
             return "\n".join(
                 [
                     f"Expected: {self.expected}, got {actual}",

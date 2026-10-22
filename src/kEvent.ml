@@ -231,17 +231,6 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-(* Ensure that the names printed are properly formatted *)
-let name_wrapper s =
-  let re =
-    Str.regexp "^.+\\.\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
-    if Str.string_match re s 0 then
-      let kind = "TypeAscription" in
-      let loc = Str.matched_group 2 s in
-      kind ^ "[" ^ loc ^"]"
-    else
-      s
-      
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
@@ -280,7 +269,6 @@ let proved_pt mdl level trans_sys k prop =
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
-    let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
@@ -361,7 +349,7 @@ let unknown_pt mdl level trans_sys prop =
       warning_tag
       (if TransSys.is_candidate trans_sys prop then
          "Candidate" else "Property")
-      (name_wrapper prop)
+      prop
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
@@ -522,7 +510,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        (name_wrapper prop)
+        prop
         (
           match disproved, kind with
             | true, Property.Invariant ->
@@ -594,7 +582,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text (name_wrapper prop)
+      div_by_zero_text prop
       |> printf_pt L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -732,7 +720,7 @@ let prop_status_pt level trans_sys prop_status_kind =
       ppf
       "@[<v>@{<blue_b>%s@}: %a\
       %a"
-      (name_wrapper name)
+      name
       pp_print_status_of_prop
       (status, kind)
       pp_expr sexpr
@@ -866,9 +854,23 @@ let unknown_xml mdl level trans_sys prop_name =
       (Stat.get_float Stat.analysis_time)
       pp_print_kind_module_xml_src mdl
 
-(* Pretty-print a trace *)
+(* Pretty-print a trace already sliced to the property *)
+let pp_print_sliced_trace_xml
+    ?(tag = "CounterExample") input_sys trans_sys prop_name disproved ppf trace
+=
+  Format.fprintf ppf
+    "@[<hv 2>\ <%s>%a@]@,</%s>"
+    tag
+    (InputSystem.pp_print_path_xml ?prop_name input_sys trans_sys disproved)
+    (Model.path_of_list trace)
+    tag
+
+(* Pretty-print a trace
+
+   The trace is sliced before anything is printed, so that a timeout
+   during the slicing leaves the output of the caller as it was. *)
 let pp_print_trace_xml
-    ?(tag = "CounterExample")
+    ?tag
     input_sys
     analysis
     trans_sys
@@ -883,22 +885,12 @@ let pp_print_trace_xml
     | trace ->
       (
         (* Slice trace and transitions system to property *)
-        let trans_sys', _, trace', input_sys' =
+        let trans_sys, _, trace, input_sys =
           slice_trans_sys_and_cex_to_property
             input_sys analysis trans_sys prop_name trace
         in
-        try
-          (* Output trace *)
-          Format.fprintf ppf
-            "@[<hv 2>\ <%s>%a@]@,</%s>"
-            tag
-            (InputSystem.pp_print_path_xml ?prop_name input_sys' trans_sys' disproved)
-            (Model.path_of_list trace')
-            tag
-        with TimeoutWall -> (
-          Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag ;
-          raise TimeoutWall
-        )
+        pp_print_sliced_trace_xml
+          ?tag input_sys trans_sys prop_name disproved ppf trace
       )
 
 
@@ -965,9 +957,24 @@ let cex_xml
       | Property.Reachable _ -> "Witness"
     in
 
+    (* Slice trace and transition system to property before printing
+       anything: a timeout during the slicing then prints nothing, and
+       the property stays unknown. Nothing is sliced when the output is
+       ignored. *)
+    let sliced_cex =
+      match cex with
+      | [] -> None
+      | _ when not (output_on_level level) -> None
+      | cex ->
+        Some (
+          slice_trans_sys_and_cex_to_property
+            input_sys analysis trans_sys (Some prop_name) cex
+        )
+    in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
-      !log_ppf 
+      !log_ppf
       ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
@@ -998,9 +1005,19 @@ let cex_xml
              wa_model
          )
       )
-      (pp_print_trace_xml
-        ~tag input_sys analysis trans_sys (Some prop_name) disproved)
-      cex ;
+      (fun ppf -> function
+         | None -> ()
+         | Some (trans_sys', _, cex', input_sys') -> (
+           try
+             pp_print_sliced_trace_xml
+               ~tag input_sys' trans_sys' (Some prop_name) disproved ppf cex'
+           with TimeoutWall -> (
+             Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag ;
+             raise TimeoutWall
+           )
+         )
+      )
+      sliced_cex ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
@@ -1233,9 +1250,23 @@ let unknown_json mdl level trans_sys prop =
       (Stat.get_float Stat.analysis_time)
       (short_name_of_kind_module mdl)
 
-(* Pretty-print a counterexample *)
-let pp_print_trace_json
+(* Pretty-print a counterexample already sliced to the property *)
+let pp_print_sliced_trace_json
     ?(object_name = "counterExample")
+    input_sys trans_sys prop_name disproved ppf trace
+=
+  Format.fprintf ppf
+    "\"%s\" :%a"
+    object_name
+    (InputSystem.pp_print_path_json ?prop_name input_sys trans_sys disproved)
+    (Model.path_of_list trace)
+
+(* Pretty-print a counterexample
+
+   The trace is sliced before anything is printed, so that a timeout
+   during the slicing leaves the output of the caller as it was. *)
+let pp_print_trace_json
+    ?object_name
     input_sys
     analysis
     trans_sys
@@ -1250,22 +1281,12 @@ let pp_print_trace_json
     | trace ->
       (
         (* Slice trace and transitions system to property *)
-        let trans_sys', _, trace', input_sys' =
+        let trans_sys, _, trace, input_sys =
           slice_trans_sys_and_cex_to_property
             input_sys analysis trans_sys prop_name trace
         in
-
-        try
-          (* Output trace *)
-          Format.fprintf ppf
-            "\"%s\" :%a"
-            object_name
-            (InputSystem.pp_print_path_json ?prop_name input_sys' trans_sys' disproved)
-            (Model.path_of_list trace')
-        with TimeoutWall -> (
-          Format.fprintf ppf " []@.}@.";
-          raise TimeoutWall
-        )
+        pp_print_sliced_trace_json
+          ?object_name input_sys trans_sys prop_name disproved ppf trace
       )
 
 
@@ -1294,6 +1315,21 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       match kind with
       | Property.Invariant -> "counterExample"
       | Property.Reachable _ -> "witness"
+    in
+
+    (* Slice trace and transition system to property before printing
+       anything: a timeout during the slicing then prints nothing, and
+       the property stays unknown. Nothing is sliced when the output is
+       ignored. *)
+    let sliced_cex =
+      match cex with
+      | [] -> None
+      | _ when not (output_on_level level) -> None
+      | cex ->
+        Some (
+          slice_trans_sys_and_cex_to_property
+            input_sys analysis trans_sys (Some prop) cex
+        )
     in
 
     (* Output cex. *)
@@ -1343,14 +1379,24 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
              wa_model
          )
       )
-      (pp_print_trace_json
-        ~object_name input_sys analysis trans_sys (Some prop) disproved)
-      cex
+      (fun ppf -> function
+         | None -> ()
+         | Some (trans_sys', _, cex', input_sys') -> (
+           try
+             pp_print_sliced_trace_json
+               ~object_name input_sys' trans_sys' (Some prop) disproved ppf cex'
+           with TimeoutWall -> (
+             Format.fprintf ppf " []@.}@.";
+             raise TimeoutWall
+           )
+         )
+      )
+      sliced_cex
       ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text (name_wrapper prop)
+      div_by_zero_text prop
       |> printf_json mdl L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")

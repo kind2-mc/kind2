@@ -13,11 +13,9 @@ con
   guarantee "Size has increased by one" size(s_out)=size(s_in)+1;
   guarantee "The top element is 'e'" top(s_out)=e;
 noc
-var new_items: T^MAX_SIZE;
 let
-  new_items[i] = if i=s_in.top_pos+1 then e else s_in.items[i];
   s_out = Stack@<T> {
-    items = new_items;
+    items = s_in.items[s_in.top_pos+1 := e];
     top_pos = s_in.top_pos + 1;
   };
 tel

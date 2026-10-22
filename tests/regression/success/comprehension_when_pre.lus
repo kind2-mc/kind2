@@ -1,0 +1,11 @@
+-- A sliding window: the branch of the 'when' expression is temporal, so it is
+-- abstracted into a call, made under a guard that mentions the index variable
+-- of the comprehension. The comprehension is expanded into one instance per
+-- index, each made under the guard for its index.
+node main(s: int) returns (A: int^3);
+let
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i)^3;
+  check "first" A[0] = s;
+  check "second" true -> A[1] = pre s;
+  check "third" A[2] = (-1 -> pre A[1]);
+tel

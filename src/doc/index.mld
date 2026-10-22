@@ -173,16 +173,6 @@ Source files live in subdirectory [SMTSolver]
   Z3Driver
 }
 
-{3:yices Yices Interface}
-
-{!modules:
-  YicesDriver
-  YicesLexer
-  YicesParser
-  YicesNative
-  YicesResponse
-}
-
 {2:sexpr S-expressions}
 
 {!modules:

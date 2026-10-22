@@ -1,0 +1,6 @@
+-- An array comprehension cannot mention a variable bound around it, which
+-- its body would otherwise capture
+node N (A: int^3) returns ();
+let
+  check forall (k: int) ((A[i] + k foreach i)^3)[0] = A[0] + k;
+tel

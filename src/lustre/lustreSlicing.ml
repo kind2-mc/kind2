@@ -180,12 +180,27 @@ let rec node_state_var_dependencies' init output_input_deps
             let state_vars =
               state_vars_of_bounds bnds |> SVS.union state_vars in
             
-            (* add indexes *)
+            (* add indexes. They come from the selects of the
+               expression, and finding those of a state variable takes
+               a traversal of the expression: an expression with no
+               select, the most common by far, gives every state
+               variable no indexes, without a traversal for each of
+               them. Each state variable is added to the map on its
+               own, as merging a map of one would rebuild the whole
+               map. *)
+            let has_select =
+              Term.has_select
+                (if init then expr.E.expr_init else expr.E.expr_step :> Term.t)
+            in
             SVS.fold (fun sv acc ->
                 let indexes =
-                  if init then E.indexes_of_state_vars_in_init sv expr
+                  if not has_select then []
+                  else if init then E.indexes_of_state_vars_in_init sv expr
                   else E.indexes_of_state_vars_in_step sv expr in
-                SVM.merge merge_deps (SVM.singleton sv indexes) acc
+                SVM.update sv (function
+                    | None -> Some indexes
+                    | Some i -> Some (indexes @ i))
+                  acc
               ) state_vars accum
 
         ) SVM.empty
@@ -742,7 +757,7 @@ let roots_of_inlined_calls prop calls =
    discarded) result of a call statement, e.g. a lemma application like
    'double(n-1);' (see lustreNameCalls.ml). *)
 let is_discarded_output_svar sv =
-  GI.var_is_discarded_output
+  GI.svar_is_discarded_output
     (StateVar.name_of_state_var sv |> HString.mk_hstring)
 
 (* Add discarded call-statement results as roots so that the corresponding

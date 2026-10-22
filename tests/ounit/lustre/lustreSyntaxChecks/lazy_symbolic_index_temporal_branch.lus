@@ -1,0 +1,9 @@
+-- A temporal branch of a 'when' expression is abstracted into a call, made
+-- under a guard that mentions the index variable of the comprehension. The
+-- size of the comprehension is not known, so the call cannot be expanded into
+-- one instance per index.
+
+node slide (const n: int; s: int) returns (A: int^n);
+let
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
+tel

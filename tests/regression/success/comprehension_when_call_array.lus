@@ -1,0 +1,23 @@
+-- A node call of an array type under a guard that mentions the index variable
+-- of the comprehension: the instance for each index is selected as an element
+-- of the array of the instances, and indexed by the index variable of the
+-- element
+node G(x: int) returns (c: int^2);
+let
+  c = [x, x + 1];
+tel
+
+type row = int^2;
+
+node H(x: int) returns (c: row);
+let
+  c = [x, 2 * x];
+tel
+
+node main(m: int) returns (B: int^2^3; R: row^3);
+let
+  B = (when m <> i then G(i) else [0, 0] foreach i)^3;
+  R = (when m = i then H(i) else [0, 0] foreach i)^3;
+  check "b" m <> 2 => B[2] = [2, 3];
+  check "r" m = 2 => R[2] = [2, 4];
+tel

@@ -62,17 +62,13 @@ type error = [
 val error_message: error_kind -> string
 (** Returns an message describing the error kind *)
 
-type node_summary_entry = { imported: bool ; dependencies : ((int list) IntMap.t)}
-
-type node_summary = node_summary_entry NodeId.Map.t
-
 val sort_globals: LA.t -> (LA.t, [> error]) result
 (** Returns a topological order to resolve forward references of globals. 
     This step processes 1. type declarations, and 2. constant declarations *)  
                      
 val sort_and_check_nodes_contracts:
   LA.t -> 
-  ((LA.t * LA.ident list * int IMap.t * node_summary),
+  ((LA.t * LA.ident list * int IMap.t),
    [> error]) result
 (** Returns a topological order of declarations to resolve all forward references,
     with a list of toplevel nodes.

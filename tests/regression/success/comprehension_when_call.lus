@@ -1,0 +1,20 @@
+-- A node call under a guard that mentions the index variable of the
+-- comprehension: each instance of the call is activated by the guard for its
+-- own index, and so counts the steps where that guard holds
+node Count() returns (c: int);
+let
+  c = 1 -> pre c + 1;
+tel
+
+node main(m, k: int) returns (A: int^3; M: int^2^2);
+var n1, n01: int;
+let
+  A = (when m = i then Count() else 0 foreach i)^3;
+  M = (when m = i and k = j then Count() else 0 foreach i, j)^2^2;
+  n1 = (if m = 1 then 1 else 0) -> pre n1 + (if m = 1 then 1 else 0);
+  n01 = (if m = 0 and k = 1 then 1 else 0)
+    -> pre n01 + (if m = 0 and k = 1 then 1 else 0);
+  check "row" m = 1 => A[1] = n1;
+  check "other" m <> 2 => A[2] = 0;
+  check "matrix" (m = 0 and k = 1) => M[0][1] = n01;
+tel

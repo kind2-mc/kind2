@@ -1,0 +1,3 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+node M(x: int; w: int) returns (z: int); let z = x + w; tel
+node N(c: bool; y: int) returns (z: int); let z = M(when c then (y, (R { f = y }).f) else (y, y)); check z = y + y; tel

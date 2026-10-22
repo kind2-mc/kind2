@@ -340,7 +340,6 @@ let bitvector_of_term t = match destruct t with
       let num = Symbol.numeral_of_symbol s in
       let width = sufficiently_large_bit_width (num |> Numeral.to_int) |> Numeral.of_int in
       Bitvector.num_to_ubv width num
-  (* For Yices 1 native *)
 
   | _ -> invalid_arg "bitvector_of_term"
 
@@ -693,10 +692,12 @@ let rec type_of_term' t = match T.destruct t with
            | a :: _ -> Type.elem_type_of_array (type_of_term' a)
            | _ -> assert false)
 
-        | `CONST_ARRAY _ (* ty_array *) ->
+        (* The array type of a constant array, not the type of its
+           value *)
+        | `CONST_ARRAY ty_array ->
 
           (match l with
-           | [v] -> (type_of_term' v)
+           | [_] -> ty_array
            | _ -> assert false)
 
         (* Bitvector-valued function *)
@@ -780,6 +781,7 @@ let rec type_of_term' t = match T.destruct t with
         | `BVSDIV
         | `BVUREM
         | `BVSREM
+        | `BVSMOD
         | `BVSHL
         | `BVLSHR 
         | `BVASHR ->
@@ -977,6 +979,9 @@ let mk_lambda = T.mk_lambda
 (* Return a hashconsed let binding *)
 let mk_let  = T.mk_let
 
+(* Return a hashconsed chain of let bindings *)
+let mk_let_chain = T.mk_let_chain
+
 
 (* Return a hashconsed existentially quantified term *)
 let mk_exists ?(fundef=false) vars t =
@@ -1018,38 +1023,81 @@ let is_lambda_identity l =
   with Invalid_argument _ -> false
 
 
-let get_atoms t =
-  let rec loop acc t =
+(* The subterms of a term without lets that it uses more than once, each
+   counted once *)
+let count_uses t =
+  let uses = TermHashtbl.create 97 in
+  let rec count t =
     match T.destruct t with
-    | T.Const _ -> (
-      if type_of_term t == Type.mk_bool () then
-        TermSet.add t acc
-      else
-        acc
-    )
-    | T.Var v -> (
-      if Var.type_of_var v == Type.mk_bool () then
-        TermSet.add t acc
-      else
-        acc
-    )
-    | T.App (_, l) -> (
-      if type_of_term t == Type.mk_bool () then
-        let atoms =
-          List.fold_left
-            (fun acc t -> loop acc t)
-            TermSet.empty
-            l
-        in
-        if TermSet.is_empty atoms then
-          TermSet.add t acc
-        else
-          TermSet.union acc atoms
-      else
-        TermSet.empty
-    )
+    | T.App (_, args) ->
+      let n = try TermHashtbl.find uses t with Not_found -> 0 in
+      TermHashtbl.replace uses t (n + 1) ;
+      if n = 0 then List.iter count args
+    | _ -> ()
   in
-  loop TermSet.empty t
+  count t ;
+  uses
+
+let share_subterms t =
+  let uses = count_uses t in
+  if not (TermHashtbl.fold (fun _ n shared -> shared || n > 1) uses false)
+  then t
+  else (
+    (* Rebuild the term bottom up with a variable for each shared subterm,
+       bound at the level after the levels of the shared subterms it
+       uses, so that each is in the scope of the ones it needs *)
+    let rebuilt = TermHashtbl.create 97 in
+    let bindings = ref [] in
+    let rec rebuild t =
+      match TermHashtbl.find_opt rebuilt t with
+      | Some r -> r
+      | None ->
+        let r =
+          match T.destruct t with
+          | T.App (s, args) ->
+            let args = List.map rebuild args in
+            let level = List.fold_left (fun l (l', _) -> max l l') 0 args in
+            let t' = mk_app s (List.map snd args) in
+            if TermHashtbl.find uses t > 1 then (
+              let v = Var.mk_fresh_var (type_of_term t) in
+              bindings := (level, v, t') :: !bindings ;
+              level + 1, mk_var v
+            )
+            else level, t'
+          | _ -> 0, t
+        in
+        TermHashtbl.add rebuilt t r ;
+        r
+    in
+    let depth, body = rebuild t in
+    let at_level = Array.make depth [] in
+    List.iter (fun (l, v, t') -> at_level.(l) <- (v, t') :: at_level.(l))
+      !bindings ;
+    mk_let_chain (Array.to_list at_level) body
+  )
+
+(* One traversal, with the term of each let binding evaluated once for
+   all its uses: destructing every node would distribute each let over
+   its body, from every let of a chain down, as a solver writes a formula
+   with shared subterms. The atoms of a subterm are a set, empty under an
+   application that is not Boolean. The evaluation substitutes the lets,
+   so an atom is given its lets back for the subterms it shares, as
+   compact to write as it was read. *)
+let get_atoms t =
+  let is_bool t = type_of_term t == Type.mk_bool () in
+  eval_t
+    (fun flat atoms ->
+      let t = T.construct flat in
+      match flat with
+      | T.Const _ | T.Var _ ->
+        if is_bool t then TermSet.singleton t else TermSet.empty
+      | T.App _ ->
+        if is_bool t then
+          let atoms = List.fold_left TermSet.union TermSet.empty atoms in
+          if TermSet.is_empty atoms then TermSet.singleton (share_subterms t)
+          else atoms
+        else TermSet.empty)
+    t
 
 
 (* Is the term a Boolean atom? *)
@@ -1308,6 +1356,12 @@ let mk_bvsrem = function
   | [a] -> a
   | a -> mk_app_of_symbol_node `BVSREM a
 
+(* Hashcons a signed bitvector remainder with the sign of the divisor *)
+let mk_bvsmod = function
+  | [] -> invalid_arg "Term.mk_bvsmod"
+  | [a] -> a
+  | a -> mk_app_of_symbol_node `BVSMOD a
+
 (* Hashcons a bitvector conjunction *)
 let mk_bvand = function
   | [] -> invalid_arg "Term.mk_bvand"
@@ -1482,6 +1536,9 @@ let mk_bvextract i j t = mk_app_of_symbol_node (`BVEXTRACT (i, j)) [t]
 
 (* Hashcons a BV sign extension *)
 let mk_bvsignext i t = mk_app_of_symbol_node (`BVSIGNEXT i) [t]
+
+(* Hashcons a zero extension of a bitvector by [i] bits *)
+let mk_bvzeroext i t = mk_app_of_symbol_node (`BVZEROEXT i) [t]
 
 (* Hashcons a unary conversion from unsigned bitvector to an integer numeral *)
 let mk_ubv_to_int t = 
@@ -1862,6 +1919,30 @@ let select_symbols_of_term term =
     ) term
   |> ignore;
   !selm
+
+(* Return true if a select occurs in the term, as [select_symbols_of_term]
+   would find one, without rebuilding the term: each shared subterm is
+   visited once, and the traversal stops at the first select *)
+let has_select term =
+  let exception Found in
+  let visited = Hashtbl.create 97 in
+  let rec has t =
+    let tag = T.tag_of_t t in
+    if not (Hashtbl.mem visited tag) then (
+      Hashtbl.add visited tag ();
+      match node_of_term t with
+      | T.FreeVar _ | T.BoundVar _ | T.Leaf _ -> ()
+      | T.Node (s, args) ->
+        if Symbol.is_select s then raise Found;
+        List.iter has args
+      | T.Let (l, args) -> has_lambda l; List.iter has args
+      | T.Exists l | T.Forall l -> has_lambda l
+      | T.Annot (t, _) -> has t)
+  and has_lambda l =
+    let T.L (_, t) = T.node_of_lambda l in
+    has t
+  in
+  try has term; false with Found -> true
 
 (* Return the uninterpreted function symbols applied in a term; a symbol of
    arity zero is applied as a constant, i.e. a leaf *)

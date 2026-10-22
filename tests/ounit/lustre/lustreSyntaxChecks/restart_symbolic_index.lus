@@ -1,0 +1,8 @@
+-- A restart in the body of an array comprehension whose size is not known
+-- cannot mention the index variable: the restarted call would be expanded
+-- into one instance per element, and the number of elements is not known.
+
+node Sym (const n: int; a: int; r: bool) returns (b: int^n);
+let
+  b = (restart (0 -> pre a + i) every r foreach i)^n;
+tel

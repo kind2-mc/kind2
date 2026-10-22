@@ -1,0 +1,7 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+function G(n: int) returns (y: int); let y = (R { f = n }).f; tel
+function rec F(n: int) returns (y: int);
+(*@contract decreases n; *)
+let y = when n <= 98 then 0 else F(n - 1) + 0 * G(n); tel
+node N(x: int) returns (y: bool);
+let assert x = 100; y = (F(x) = 0); check y; tel

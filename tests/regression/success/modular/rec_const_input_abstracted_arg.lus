@@ -1,0 +1,23 @@
+-- The actual argument of a constant input that the measure of a recursive
+-- function mentions need not be a constant state variable: the abstraction
+-- of 'n + 1' is shared with its occurrence in the call to G, whose input is
+-- not constant. Lifting the termination checks of the recursive call to the
+-- caller used to fail with Invalid_argument("mk_const_state_var").
+
+function G (m: int) returns (r: int);
+let
+  r = m;
+tel
+
+function rec R (const n: int; k: int) returns (r: int);
+(*@contract
+  decreases n - k;
+*)
+let
+  r = G(n + 1) + (when k >= n then 0 else R(n + 1, k + 2));
+tel
+
+node N (const n: int; k: int) returns ();
+let
+  check R(n, k) >= 0 or true;
+tel

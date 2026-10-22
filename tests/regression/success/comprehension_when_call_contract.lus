@@ -1,0 +1,9 @@
+-- A ghost variable defined by a comprehension with a temporal 'when' branch
+node main(s: int) returns (y: int);
+(*@contract
+  var A: int^3 = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i)^3;
+  guarantee true -> A[1] = pre s;
+*)
+let
+  y = s;
+tel

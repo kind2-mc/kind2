@@ -421,6 +421,9 @@ and mk_graph_expr ?(only_modes = false)
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
      List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e) 
        (List.map (mk_graph_type) tys)
+  | LA.ArrayComprehension (_, bs, e) ->
+    List.fold_left union_dependency_analysis_data (mk_graph_expr ~only_modes e)
+      (List.map (fun (_, _, n) -> mk_graph_expr ~only_modes n) bs)
   | LA.TypeAscription (_, e, ty) ->
     union_dependency_analysis_data (mk_graph_expr ~only_modes e) (mk_graph_type ty)
   | _ -> empty_dependency_analysis_data
@@ -488,6 +491,9 @@ let rec get_node_call_from_expr: LA.expr -> (LA.ident * Lib.position) list
   | LA.IndexAccess (_, e1, e2, _) -> (get_node_call_from_expr e1) @ (get_node_call_from_expr e2)
   (* Quantified expressions *)
   | LA.Quantifier (_, _, _, e) -> get_node_call_from_expr e 
+  | LA.ArrayComprehension (_, bs, e) ->
+    List.concat_map (fun (_, _, n) -> get_node_call_from_expr n) bs
+    @ get_node_call_from_expr e
   (* A restart is left in place by LustreGenNodes only when the type of its
      body cannot be inferred, which the type checker reports *)
   | LA.Restart (_, e1, e2) -> get_node_call_from_expr e1 @ get_node_call_from_expr e2
@@ -527,8 +533,9 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | Map (_, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
+  | UserType (_, ty_args, _) -> List.concat_map extract_node_calls_type ty_args
   | Int _ | SBitVector _ | UBitVector _ | Bool _ | Real _  
-  | UserType _ | AbstractType _ | EnumType _ | History _ -> []
+  | AbstractType _ | EnumType _ | History _ -> []
   | ADT (_, _, cons) ->
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.map extract_node_calls_type tys |> List.flatten
@@ -540,12 +547,17 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
   | LA.Decreases (_, e) ->
     List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
-  | LA.ContractCall (pos, node_id, _, es, _) ->
+  | LA.ContractCall (pos, node_id, ty_args, es, _) ->
+     (* A type argument may call a node in the expressions it embeds, which is a
+        dependency of the importing node just as a call in an argument is *)
+     let node_refs =
+       List.flatten (List.map get_node_call_from_expr es)
+       @ List.flatten (List.map extract_node_calls_type ty_args)
+     in
      union_dependency_analysis_data
        (singleton_dependency_analysis_data contract_prefix (NI.get_internal_name node_id) pos)
        (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
-          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p)
-             (List.flatten (List.map get_node_call_from_expr es))))
+          (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) node_refs))
   | LA.Assume (_, _, _, e) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (fun (i, p) -> singleton_dependency_analysis_data node_prefix i p) (get_node_call_from_expr e))
@@ -572,6 +584,7 @@ let mk_graph_contract_node_eqn: HString.t -> LA.contract_node_equation -> depend
                             (singleton_dependency_analysis_data node_prefix nr p) node_name pos))
         ad node_refs
     )
+    | LA.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
     | LA.GhostVars (_, GhostVarDec(_, tis), e) ->
       let handle_one_lhs (pos, _, ty) = (
         let node_refs = extract_node_calls_type ty in
@@ -781,6 +794,12 @@ let rec vars_with_flattened_nodes: node_summary -> int -> LA.expr -> LA.SI.t
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) ->
     SI.diff (r e) (SI.flatten (List.map LH.vars_of_ty_ids qs))
+  (* The index variables are bound in the body, and the sizes of the
+     dimensions are constant expressions *)
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten
+      (SI.diff (r e) (SI.of_list (List.map (fun (_, i, _) -> i) bs))
+       :: List.map (fun (_, _, n) -> r n) bs)
 
   (* 'Any/Choose' operator *)
   | AnyOp _ -> assert false (* Already desugared in lustreDesugarAnyChooseOps *)
@@ -866,6 +885,7 @@ let rec mk_contract_eqn_map: LA.contract_node_equation option IMap.t -> LA.contr
             let* m'' = (check_and_add m' pos empty_hs i None) in
             add_identifiers_to_map (LA.GhostVarDec(pos, tis)) m''
           | LA.GhostVarDec(_, []) -> R.ok m'
+          | LA.GhostArrayDef _ -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
       in 
       let* m'' = add_identifiers_to_map (GhostVarDec(pos2, tail)) m' in
       mk_contract_eqn_map m'' eqns
@@ -946,6 +966,22 @@ let rec mk_graph_expr2: node_summary -> LA.expr -> (dependency_analysis_data lis
      mk_graph_expr2 m e2 >>= fun g2 -> 
      R.ok [List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (g1 @ g2)] 
   | LA.IndexAccess (_, e1, _, _) -> mk_graph_expr2 m e1
+  (* The value of an array comprehension depends on its body, where its index
+     variables are bound, and on the sizes of its dimensions *)
+  | LA.ArrayComprehension (_, bs, e) ->
+    let bound_ids = List.map (fun (_, i, _) -> i) bs in
+    let* g = mk_graph_expr2 m e in
+    let g =
+      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data g
+    in
+    let g =
+      { g with
+        graph_data = G.remove_vertices g.graph_data bound_ids;
+        graph_data2 = G.remove_vertices g.graph_data2 bound_ids;
+        id_pos_data = List.fold_left (fun m i -> IMap.remove i m) g.id_pos_data bound_ids }
+    in
+    let* gs = R.seq (List.map (fun (_, _, n) -> mk_graph_expr2 m n) bs) in
+    R.ok [List.fold_left union_dependency_analysis_data g (List.concat gs)]
 
   | LA.GroupExpr (_, ExprList, es) ->
     R.seq (List.map (mk_graph_expr2 m) es) >>= fun gs -> R.ok (List.concat gs)
@@ -1134,10 +1170,17 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
   = fun ad ->
   function
   | LA.AssumptionVars _ -> R.ok ad
-  | LA.ContractCall (pos, node_id, _, es, _) ->
-    R.ok (connect_g_pos 
-      (List.fold_left union_dependency_analysis_data ad
-        (List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es))
+  | LA.ContractCall (pos, node_id, ty_args, es, _) ->
+    (* The variables a type argument mentions are read by the import, as those
+       of an argument are *)
+    let graphs =
+      List.map (fun e -> mk_graph_expr (LH.abstract_pre_subexpressions e)) es
+      @ List.map
+          (fun ty -> mk_graph_type (LH.map_lustre_ty LH.abstract_pre_subexpressions ty))
+          ty_args
+    in
+    R.ok (connect_g_pos
+      (List.fold_left union_dependency_analysis_data ad graphs)
       (HString.concat2 contract_prefix (NI.get_internal_name node_id)) pos)
   | LA.Assume (_, _, _, e)
   | LA.Guarantee (_, _, _, e) 
@@ -1169,6 +1212,7 @@ let mk_graph_contract_node_eqn2: dependency_analysis_data -> LA.contract_node_eq
       let ad = connect_g_pos_biased false (List.fold_left union ad effective_vars) i pos in
       R.ok (connect_g_pos_biased true (List.fold_left union ad effective_vars2) i pos)
     )
+  | LA.GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
   | LA.GhostVars (pos, (GhostVarDec (_, tis)), e) ->
     let union g v = 
       union_dependency_analysis_data g (singleton_dependency_analysis_data empty_hs v pos)
@@ -1213,8 +1257,15 @@ let validate_contract_equation: LA.SI.t -> dependency_analysis_data -> LA.contra
   function
   | LA.Assume (_, _, _, e) ->
     check_eqn_no_current_vals ids ad e
-  | LA.ContractCall (_, _, _, es, _ ) ->
-    R.seq_ (List.map (fun e -> check_eqn_no_current_vals ids ad e) es)
+  | LA.ContractCall (_, _, ty_args, es, _ ) ->
+    (* A type argument constrains the imported contract's variables, so naming
+       a current output in one is an assumption on that output *)
+    let ty_arg_exprs =
+      List.concat_map
+        (LH.fold_lustre_ty ~into_ty_args:true (fun e -> [e]) [] (@))
+        ty_args
+    in
+    R.seq_ (List.map (fun e -> check_eqn_no_current_vals ids ad e) (es @ ty_arg_exprs))
   (* | LA.Mode (_, _, reqs, _) ->
      let req_es = List.map (fun (_, _, e) -> e) reqs in
      R.seq_ (List.map (check_eqn_no_current_vals ids ad) req_es) *)
@@ -1591,15 +1642,9 @@ let mk_graph_eqn: node_summary
     = fun rhs_g lhs ->
     match lhs with
     | LA.SingleIdent (p, i) -> connect_g_pos rhs_g i p 
-    | LA.ArrayDef (p, arr, is) ->
-      let hs_dollar = HString.mk_hstring "$" in
-      let arr' = HString.concat hs_dollar
-        [arr;(List.fold_left
-          (fun acc i -> HString.concat hs_dollar [acc;i])
-          empty_hs
-          is)]
-      in 
-      connect_g_pos (List.fold_left (fun g i -> remove g i) rhs_g is)  arr' p
+    (* Rejected by LustreSyntaxChecks in the source, and only introduced for
+       array comprehensions after this pass *)
+    | LA.ArrayDef _ -> assert false
     (* None of these items below are supported at parsing yet. *)
     | LA.TupleStructItem (p, _)
       | LA.TupleSelection (p, _, _)
@@ -1835,7 +1880,7 @@ let sort_and_check_nodes_contracts decls =
     \n============\n%a\n============\n"
     LA.pp_print_program final_decls;
   
-  R.ok (final_decls, toplevel_nodes, scc_map, analysis_data.nsummary)
+  R.ok (final_decls, toplevel_nodes, scc_map)
 (** Returns a topological order of declarations to resolve all forward refernce. 
     It also reorders contract equations and checks for circularity of node equations *)  
 

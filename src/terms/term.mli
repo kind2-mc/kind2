@@ -168,6 +168,10 @@ val mk_bvurem : t list -> t
 (** Create a signed bitvector modulus *)
 val mk_bvsrem : t list -> t
 
+(** Hashcons a signed bitvector remainder with the sign of the divisor
+    ([bvsmod] of SMT-LIB) *)
+val mk_bvsmod : t list -> t
+
 (** Create a bitvector conjunction *)
 val mk_bvand : t list -> t
 
@@ -288,6 +292,9 @@ val mk_bvconcat : t -> t -> t
 (** Create a BV sign extension *)
 val mk_bvsignext : Numeral.t -> t -> t
 
+(** Zero extension of a bitvector by the given number of bits *)
+val mk_bvzeroext : Numeral.t -> t -> t
+
 (** Create a predicate for coincidence of a real with an integer *)
 val mk_is_int : t -> t
 
@@ -329,6 +336,12 @@ val mk_var : Var.t -> t
 
 (** Create a binding of symbols to terms *)
 val mk_let : (Var.t * t) list -> t -> t
+
+(** [mk_let_chain [b_1; ...; b_n] t] is [mk_let b_1 (mk_let b_2 (...
+    (mk_let b_n t)))]: the terms of [b_j] may contain the variables of
+    [b_1] to [b_(j-1)]. It traverses each term once, where the nested
+    lets traverse their body once for every let. *)
+val mk_let_chain : (Var.t * t) list list -> t -> t
 
 (** Return a hashconsed existentially quantified term *)
 val mk_exists : ?fundef:bool -> Var.t list -> t -> t
@@ -460,7 +473,18 @@ val has_quantifier : t -> bool
 (** Convert a flat term to a term *)
 val construct : T.flat -> t
 
+(** The atoms of a term: its maximal Boolean subterms with no Boolean
+    subterm of their own, each with lets for the subterms it shares (see
+    {!share_subterms}). The atoms of an application that is not Boolean
+    are not reported. *)
 val get_atoms : t -> TermSet.t
+
+(** [share_subterms t] is [t], which has no let, with each subterm it uses
+    more than once bound to a variable by a let, in as few lets as the
+    dependencies between them allow: the term is then written as compactly
+    as it is stored, where its tree could be exponentially larger. *)
+val share_subterms : t -> t
+
 
 (** Return true if the term is a simple Boolean atom, that is, has
     type Boolean and does not contain subterms of type Boolean *)
@@ -687,6 +711,9 @@ val uf_symbols_of_term : t -> UfSymbol.UfSymbolSet.t
 
 (** Return the select symbols occurring in the term *)
 val select_symbols_of_term : t -> Symbol.SymbolSet.t
+
+(** Return true if a select occurs in the term, without rebuilding it *)
+val has_select : t -> bool
 
 (** Return the terms of the form (select ...) that appear in a term *)
 val select_terms : t -> TermSet.t

@@ -1,0 +1,16 @@
+(* The node and the contract it imports quantify over the histories of two
+   variables named a. The contract's a is bound to the input b, so they are
+   the histories of different variables: P is falsifiable *)
+contract C(a: int) returns ();
+let
+  guarantee "G" forall (z: history(a)) z >= 0;
+tel
+
+node N(a: int; b: int) returns ();
+(*@contract
+  assume b >= 0;
+  import C(b) returns ();
+*)
+let
+  check "P" forall (z: history(a)) z >= 0;
+tel

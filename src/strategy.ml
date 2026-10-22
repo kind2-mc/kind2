@@ -26,6 +26,9 @@ type info = {
   has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
   rec_group: int option ; (** The recursive group of a recursive function *)
+  is_internal: bool ;  (** Is the system an internal artifact of the
+                           translation, only analyzed as part of the systems
+                           that call it? *)
 }
 
 (* Merges two abstractions with the following semantics. First abstraction is
@@ -313,8 +316,9 @@ let assumptions_of_refined results (prev_abstraction, prev_unrollings) (abstract
       | exception Not_found -> acc
   ) abstraction A.assumptions_empty
 
-let is_candidate_for_analysis { has_impl ; has_modes } =
-  (has_modes && Flags.Contracts.check_modes ()) || has_impl
+let is_candidate_for_analysis { has_impl ; has_modes ; is_internal } =
+  not is_internal &&
+  ((has_modes && Flags.Contracts.check_modes ()) || has_impl)
 
 (* Returns an option of the parameter for the first analysis of a system. *)
 let first_param_of ass results all_nodes scope =

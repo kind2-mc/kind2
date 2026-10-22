@@ -34,8 +34,12 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
+  | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -51,7 +55,12 @@ type error_kind = Unknown of string
   | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
-  | MultAssignArrayDef
+  | MissingComprehensionSize of HString.t
+  | UnboundedComprehensionIndex of HString.t
+  | DuplicateComprehensionIndex of HString.t
+  | ComprehensionSizeMentionsIndex of HString.t * HString.t
+  | BooleanComprehensionSize of HString.t * LustreAst.expr
+  | ArrayDefinition of HString.t * HString.t list * LustreAst.expr list option
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock

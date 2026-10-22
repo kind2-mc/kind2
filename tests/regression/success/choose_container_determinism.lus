@@ -19,7 +19,7 @@ let
   t = if b then {1, 2} else {3};
   u = if b then {A(1)} else {B(true)};
   m = if b then map[Red := 1] else map[Green := 2];
-  arr[i] = if b then 0 else 1;
+  arr = (if b then 0 else 1)^2;
   r = choose { x: int | x in t };
   q = choose { x: int | x > c };
 

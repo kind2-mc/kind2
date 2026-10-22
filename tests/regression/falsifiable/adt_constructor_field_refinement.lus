@@ -1,0 +1,3 @@
+datatype A = C(f: subtype { w: int | w >= 100 }) | D;
+node N(x: int) returns (y: bool);
+let y = (C(x) <> D); check y; tel

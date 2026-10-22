@@ -47,7 +47,7 @@ given enough time and resources).
 
 `--timeout <int>` (default `0` = none) -- Run for the given number of seconds of wall clock time
 
-`--smt_solver {Bitwuzla|cvc5|MathSAT|OpenSMT|SMTInterpol|Yices|Yices2|Z3}` (default `Z3`) -- Select SMT solver
+`--smt_solver {Bitwuzla|cvc5|MathSAT|OpenSMT|SMTInterpol|Yices2|Z3}` (default `Z3`) -- Select SMT solver
 
 `--bitwuzla_bin <file>` -- Executable for Bitwuzla
 
@@ -58,8 +58,6 @@ given enough time and resources).
 `--opensmt_bin <file>` -- Executable for OpenSMT
 
 `--smtinterpol_jar <file>` -- JAR of SMTInterpol
-
-`--yices_bin <file>` -- Executable for Yices 1 (native input)
 
 `--yices2_bin <file>` -- Executable for Yices 2 (SMT input)
 
@@ -92,8 +90,7 @@ To run Kind 2 the following software must be installed on your computer:
   - [MathSAT 5](http://mathsat.fbk.eu/index.html),
   - [OpenSMT](https://verify.inf.usi.ch/opensmt) (v2.8.0),
   - [SMTInterpol](https://ultimate.informatik.uni-freiburg.de/smtinterpol/),
-  - [Yices 2](http://yices.csl.sri.com/),
-  - [Yices 1](https://yices.csl.sri.com/old/download-yices1.html), or
+  - [Yices 2](http://yices.csl.sri.com/), or
   - [Z3](https://github.com/Z3Prover/z3)
 
 Z3 is the presently recommended SMT solver and the default option.
@@ -280,6 +277,120 @@ dune install --sections=bin --prefix <DIR>
 to install the Kind 2 binary into `<DIR>/bin`.
 
 You need a supported SMT solver in your PATH environment variable when running `kind2`.
+
+## kMoXI
+
+kMoXI (`kmoxi`) is a model checker for [MoXI](https://doi.org/10.1007/978-3-031-66149-5_2),
+the Model eXchange Interlingua, a language for symbolic model checking of
+transition systems built on SMT-LIB. It is a second executable built from
+the Kind 2 sources: a MoXI front end on top of the engines of Kind 2
+(bounded model checking, k-induction, IC3 with quantifier elimination or
+with implicit abstraction, and invariant generation), which run in parallel
+on the transition system of the model.
+
+### Building
+
+kMoXI is not distributed with the Kind 2 releases or through OPAM; build it
+from a clone of this repository, with the same dependencies as Kind 2:
+
+``` bash
+make kmoxi
+```
+
+This builds and installs `bin/kmoxi`. `make test` builds it as well, and runs
+its tests with those of Kind 2.
+
+kMoXI has a version of its own, independent of that of Kind 2.
+`kmoxi --version` prints it with the Kind 2 build it comes from, for
+example `kMoXI v0.1.0 (Kind 2 v3.0.0-292-g700d64f)`.
+
+### Usage
+
+``` bash
+kmoxi [options] model.moxi
+```
+
+A model declares its logic, defines one or more systems and checks the
+system `main` (or any other one) with a `check-system` command that names
+the conditions of its query. The answer is a MoXI `check-system-response`:
+`unsat` when no execution satisfies the query, with the inductive invariant
+that proves it as a certificate, or `sat`, with a witnessing trace:
+
+``` lisp
+(set-logic QF_LIA)
+(define-system counter
+  :input ((reset Bool))
+  :output ((c Int))
+  :init (= c 0)
+  :trans (= c' (ite reset 0 (+ c 1))))
+(check-system counter
+  :input ((reset Bool))
+  :output ((c Int))
+  :reachable (ten (= c 10))
+  :query (reach_ten (ten)))
+```
+
+```
+(check-system-response
+ :verbosity full
+ :query (reach_ten :result sat :model reach_ten_model :trace reach_ten_trace)
+ :trace (reach_ten_trace :prefix reach_ten_prefix)
+ :model (reach_ten_model ())
+ :trail
+   (reach_ten_prefix (
+                      (0 (reset false) (c 0)  (ten false) )
+                      (1 (reset false) (c 1)  (ten false) )
+                      ...
+                      (10 (reset false) (c 10)  (ten true) )
+                      )
+   )
+ )
+```
+
+The invariant of a certificate, `:certificate (q_cert :inv I :k k)`, is an
+SMT-LIB term over the variables of the check, which the MoXI definition
+leaves the format of open. A variable of a subsystem instance is named by
+the path of the instances down to it, as `|C1::l|`. A variable of kMoXI's
+own encoding is named after an `@`, which SMT-LIB reserves for solvers: the
+one a reachability condition `r` is encoded by, `@r`, holds in the initial
+state and in each state whose predecessor does not satisfy `r`. A trail
+names the variables it shows the same way, and shows a reachability
+condition under the name `r` the check declares it with rather than as
+`@r`.
+
+The exit code is 0 when the analysis completes, whatever the answer; it is
+3 when the model does not parse or type check, and `--only_parse true`
+stops after that check. Useful options, all shared with Kind 2:
+
+- `--timeout <seconds>`: wall-clock timeout of the analysis;
+- `--enable <engine>`: run only the given engines, for example
+  `--enable BMC --enable IND`;
+- `--smt_solver`, `--smt_itp_solver`, `--smt_qe_solver`: the main,
+  interpolating and quantifier-elimination solvers, with `--z3_bin`,
+  `--bitwuzla_bin`, `--mathsat_bin` and the like to locate them. Without
+  these, kMoXI picks them among the solvers it finds on the path as `kind2`
+  does, except that it prefers Bitwuzla as the main solver when the model
+  sets the logic `QF_BV`.
+
+`kmoxi --help` lists the options, and `kmoxi --help_of all` those of the
+engines.
+
+### Supported subset of MoXI
+
+kMoXI reads native MoXI (the S-expression syntax) with the logics `QF_BV`,
+`QF_ABV`, `QF_LIA`, `QF_LRA` and `QF_NIA`, and checks every model against
+the MoXI language definition before analyzing it. Its restrictions:
+
+- a `check-system` command has exactly one `:query`, over `:reachable` and
+  `:assumption` conditions; `:fairness` (liveness) and `:current` are not
+  supported;
+- arrays are indexed by bit-vectors, and their elements are not of an
+  enumeration sort;
+- the values of an enumeration sort (`declare-enum-sort`) stand for
+  integers, so a model with one needs a solver with integer arithmetic,
+  such as Z3, even in `QF_BV`;
+- uninterpreted sorts and functions (`declare-sort`, `declare-fun`) are not
+  supported; constants (`declare-const`) are.
 
 ## Development
 

@@ -147,10 +147,14 @@ let state_var_of_sexpr = function
 
 
 (* Convert an s-expression to a term *)
-let term_of_sexpr s = conv_term_of_sexpr [] s
+let term_of_sexpr s = conv_term_of_sexpr HString.HStringMap.empty s
 
 (* Convert an s-expression to a term with bound free varaibles *)
-let term_of_sexpr_bound_vars bvars s = conv_term_of_sexpr bvars s
+let term_of_sexpr_bound_vars bvars s =
+  conv_term_of_sexpr
+    (List.fold_left (fun m (k, v) -> HString.HStringMap.add k v m)
+       HString.HStringMap.empty bvars)
+    s
 
 
 
@@ -367,20 +371,29 @@ let node_def_of_sexpr = function
 
     (* Create state variables *)
     let state_vars_b = List.map state_var_of_sexpr v in
-    let state_vars = List.map fst state_vars_b in
-    let init_flag = match List.filter snd state_vars_b with
-      | [init_flag, _] -> init_flag
+    let listed_state_vars = List.map fst state_vars_b in
+    let init_flag, state_vars = match List.filter snd state_vars_b with
+      | [init_flag, _] -> init_flag, listed_state_vars
       | _ ->
-        (* there may be no init flag (for jkind systems), we make one up *)
-        StateVar.mk_init_flag [HString.string_of_hstring node_name]
+        (* there may be no init flag (for jkind systems), we make one up;
+           it is a state variable of the system like any other, and must be
+           declared with them (see [TransSys.mk_trans_sys]) *)
+        let init_flag =
+          StateVar.mk_init_flag [HString.string_of_hstring node_name]
+        in
+        init_flag, init_flag :: listed_state_vars
         (* failwith "No init flag in native definition" *)
     in
 
+    (* The predicates take the variables the file lists, and only those: a
+       caller applies them to the arguments of its own definition, which
+       does not know about a flag made up here *)
+
     (* Arguments of initial state predicate *)
-    let init_args = init_args_of_state_vars state_vars in
-    
+    let init_args = init_args_of_state_vars listed_state_vars in
+
     (* Arguments of transition relation predicate *)
-    let trans_args = trans_args_of_state_vars state_vars in
+    let trans_args = trans_args_of_state_vars listed_state_vars in
     
     (* Types of initial state predicate arguments *)
     let init_args_types = List.map Var.type_of_var init_args in
@@ -440,6 +453,7 @@ let rec mk_subsystem map sys =
       has_contract = false;
       has_impl = true;
       rec_group = None;
+      is_internal = false;
       has_modes = false;
       map;
       subsystems =

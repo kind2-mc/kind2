@@ -1,0 +1,7 @@
+datatype Opt<T> = N | S (val: T);
+node main() returns (ok: bool);
+(*@contract
+  var g: set<Opt<Opt<set<int>>>> = {}@<Opt<Opt<set<int>>>>;
+  guarantee ok;
+*)
+let ok = true; tel

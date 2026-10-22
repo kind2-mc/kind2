@@ -1,0 +1,17 @@
+-- The node generated for a temporal branch, or for a restart block, takes the
+-- variables it uses as inputs, and also the constant their types mention
+node N (const n: int; c: bool; X: int^n) returns (A: int^n);
+let
+  A = when c then (X -> pre X) else X;
+  check "first" n > 0 => (c => (true -> pre false) => A[0] = X[0]);
+  check "else" n > 0 => (not c => A[0] = X[0]);
+tel
+
+node R (const n: int; r: bool; X: int^n) returns (A: int^n);
+let
+  restart
+    A = X -> pre A;
+  every r
+  end
+  check "restarted" n > 0 => (r => A[0] = X[0]);
+tel

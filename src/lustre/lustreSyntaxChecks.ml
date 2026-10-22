@@ -54,8 +54,12 @@ type error_kind = Unknown of string
   | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
+  | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -71,7 +75,12 @@ type error_kind = Unknown of string
   | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
-  | MultAssignArrayDef
+  | MissingComprehensionSize of HString.t
+  | UnboundedComprehensionIndex of HString.t
+  | DuplicateComprehensionIndex of HString.t
+  | ComprehensionSizeMentionsIndex of HString.t * HString.t
+  | BooleanComprehensionSize of HString.t * LustreAst.expr
+  | ArrayDefinition of HString.t * HString.t list * LustreAst.expr list option
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
@@ -130,12 +139,20 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
+  | SymbolicArrayIndexInRestart idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' is not allowed under a restart"
   | QuantifiedVariableInLazyGuardedNodeCall (var, node) -> "Quantified variable or refinement type bound variable '"
     ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
     ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
   | SymbolicArrayIndexInLazyGuardedNodeCall (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
     ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
+  | QuantifiedVariableInLazyGuardedTemporalBranch var -> "Quantified variable or refinement type bound variable '"
+    ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
+  | SymbolicArrayIndexInTemporalBranch idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' is not allowed in a branch of a lazy construct that uses a temporal operator"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -156,7 +173,38 @@ let error_message kind = match kind with
   | IllegalRestartBlock variant -> "Illegal restart block, " ^ variant ^ " cannot have state"
   | UnsupportedParametricDeclaration -> "Parametric nodes and functions are not supported"
   | UnsupportedAssignment -> "Assignment not supported"
-  | MultAssignArrayDef -> "Inductive array definition within multiple assignment is not supported"
+  | MissingComprehensionSize i -> "The index '" ^ HString.string_of_hstring i
+    ^ "' of an array comprehension has no size: an array comprehension is"
+    ^ " followed by one size per index, the innermost index first, as in"
+    ^ " '(e foreach i, j)^m^n' for an array of n arrays of size m, or each"
+    ^ " index is bounded by its size, as in '(e foreach i < n, j < m)'"
+  | UnboundedComprehensionIndex i -> "The index '" ^ HString.string_of_hstring i
+    ^ "' of an array comprehension has no bound, unlike the other indices: the"
+    ^ " indices of a comprehension are all bounded by their sizes, as in"
+    ^ " '(e foreach i < m, j < n)', or the sizes all follow the comprehension,"
+    ^ " as in '(e foreach i, j)^n^m'"
+  | DuplicateComprehensionIndex i -> "The index '" ^ HString.string_of_hstring i
+    ^ "' appears more than once in the same array comprehension"
+  | ComprehensionSizeMentionsIndex (i, j) -> "The size of the index '"
+    ^ HString.string_of_hstring i ^ "' of an array comprehension mentions the"
+    ^ " index '" ^ HString.string_of_hstring j ^ "' of the same comprehension: the"
+    ^ " sizes of a comprehension are constant, and the indices are not in"
+    ^ " scope in them"
+  | BooleanComprehensionSize (i, n) -> "The size of the index '"
+    ^ HString.string_of_hstring i ^ "' of an array comprehension, '"
+    ^ LA.string_of_expr n ^ "', is not an integer: the bound of an index extends"
+    ^ " to the next ',' or ')' of the comprehension"
+  | ArrayDefinition (id, inds, sizes) ->
+    let id = HString.string_of_hstring id in
+    let inds = String.concat ", " (List.map HString.string_of_hstring inds) in
+    let sizes, note = match sizes with
+      | Some sizes ->
+        String.concat "" (List.map (fun n -> "^" ^ LA.string_of_expr n) sizes), ""
+      | None -> "^...", ", with one size per index variable, the innermost first"
+    in
+    "The element-wise definition of the array '" ^ id ^ "' is not supported:"
+    ^ " define the array with an array comprehension instead, as in '"
+    ^ id ^ " = (e foreach " ^ inds ^ ")" ^ sizes ^ "'" ^ note
   | AssumptionVariablesInContractNode -> "Assumption variables not supported in contract nodes"
   | MisplacedVarInFrameBlock id -> "Variable '" ^ HString.string_of_hstring id ^ "' is defined in the frame block but not declared in the frame block header"
   | MisplacedAssertInFrameBlock -> "Assertion not allowed in frame block initialization"
@@ -164,7 +212,7 @@ let error_message kind = match kind with
   | LemmaWithoutContract n -> "Lemma '" ^ HString.string_of_hstring n ^ "' has no contract to state a fact with"
   | TransparentWithoutBody n -> "A transparent annotation found for an imported node/function: " ^ HString.string_of_hstring n
   | IllegalHistoryVar id -> "History type constructor uses illegal quantified variable '" ^ HString.string_of_hstring id ^ "'"
-  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional inductive array equation"
+  | InductiveVarsWithArrayConstr e -> "Array constructor expression '" ^ LA.string_of_expr e ^ "' not supported within multi-dimensional array comprehension"
   | DuplicatePatternVariable id -> "Variable '"
     ^ HString.string_of_hstring id ^ "' is bound more than once in this pattern"
   | AssignmentToPatternVariable id -> "Cannot reassign value to a match block "
@@ -266,6 +314,10 @@ type context = {
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
+  (* The bound variables, among [quant_vars], of the refinement types of type
+     ascriptions. Such a variable is not quantified: it is the input of the
+     node the ascription is abstracted into (see [LustreGenNodes]). *)
+  ascription_vars : StringSet.t;
   pattern_vars : LustreAst.lustre_type option StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
@@ -284,6 +336,7 @@ let empty_ctx () = {
     consts = StringMap.empty;
     locals = StringMap.empty;
     quant_vars = StringMap.empty;
+    ascription_vars = StringSet.empty;
     pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
@@ -324,8 +377,13 @@ let ctx_add_local ctx i ty = {
   }
 
 let ctx_add_quant_var ctx i ty = {
-    ctx with quant_vars = StringMap.add i ty ctx.quant_vars
+    ctx with quant_vars = StringMap.add i ty ctx.quant_vars;
+    ascription_vars = StringSet.remove i ctx.ascription_vars
   }
+
+let ctx_add_ascription_var ctx i ty =
+  let ctx = ctx_add_quant_var ctx i ty in
+  { ctx with ascription_vars = StringSet.add i ctx.ascription_vars }
 
 let ctx_add_pattern_var ctx i ty = {
     ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
@@ -356,6 +414,19 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
   in
   ctx_add_lazy_cond_vars ctx lazy_vars
 
+(* A quantified variable, or a symbolic array index, that a guard of the
+   enclosing lazy constructs mentions *)
+let quant_var_in_lazy_guard ?(ascription_vars_allowed=false) ctx =
+  List.find_opt
+    (fun v ->
+      StringMap.mem v ctx.quant_vars
+      && not (ascription_vars_allowed && StringSet.mem v ctx.ascription_vars))
+    (LA.SI.elements ctx.lazy_cond_vars)
+
+let symbolic_index_in_lazy_guard ctx =
+  List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+    (LA.SI.elements ctx.lazy_cond_vars)
+
 (* Expression contains a pre, an arrow, or a call to a node *)
 let rec has_stateful_op ctx =
 function
@@ -376,7 +447,7 @@ function
 
 | FieldProject (_, e, _, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) 
-| Quantifier (_, _, _, e) | Extract (_, e, _, _) ->
+| Quantifier (_, _, _, e) | ArrayComprehension (_, _, e) | Extract (_, e, _, _) ->
   has_stateful_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
@@ -475,13 +546,21 @@ let build_global_ctx (decls:LustreAst.t) =
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
       (stateful', imports)
-    | ContractCall (_, node_id, _, ins, _) ->
+    | ContractCall (_, node_id, ty_args, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
           (fun acc e -> acc || has_stateful_op ctx e)
           false ins
       in
-      (stateful || arg_has_stateful_op ins,
+      (* A type argument carries expressions of its own, which are part of the
+         contract just as the arguments are *)
+      let ty_arg_has_stateful_op ty_args =
+        List.fold_left
+          (fun acc ty ->
+            acc || LAH.fold_lustre_ty ~into_ty_args:true (has_stateful_op ctx) false (||) ty)
+          false ty_args
+      in
+      (stateful || arg_has_stateful_op ins || ty_arg_has_stateful_op ty_args,
        StringSet.add (NI.get_internal_name node_id) imports
       )
     | AssumptionVars _ ->
@@ -525,50 +604,13 @@ let build_local_ctx ctx locals inputs outputs =
   let ctx = List.fold_left over_inputs ctx inputs in
   List.fold_left over_outputs ctx outputs
 
-let unwrap = function 
-| Result.Ok r -> r 
-| Error _ -> assert false
-
-let build_equation_ctx ctx tc_ctx = function
-  | LA.StructDef (_, items) ->
-    let over_items ctx = function
-      | LA.ArrayDef (_, i, indices) ->
-        let output_type_opt = StringMap.find_opt i ctx.locals |> Lib.join in
-        let is_symbolic = match output_type_opt with
-          | Some ty -> 
-            (* Chase type aliases if we have proper type context *)
-            let ty = match tc_ctx with 
-            | Some tc_ctx -> 
-              LustreTypeChecker.expand_type_syn_reftype_history tc_ctx ty |> unwrap 
-            | None -> ty 
-            in
-            (match ty with
-              | ArrayType (_, (_, e)) ->
-                let vars = LAH.vars_without_node_call_ids e in
-                let check_var e = StringMap.mem e ctx.free_consts
-                  || StringMap.mem e ctx.locals
-                in
-                LA.SI.exists check_var vars
-              | _ -> false)
-          | None -> false
-        in
-        let over_indices acc id =
-          if is_symbolic
-          then ctx_add_symbolic_array_index acc id output_type_opt
-          else ctx_add_array_index acc id output_type_opt
-        in
-        List.fold_left over_indices ctx indices
-      | _ -> ctx
-    in
-    List.fold_left over_items ctx items
-    
 let rec find_var_def_count_lhs id = function
   | LA.SingleIdent (pos, id')
   | TupleSelection (pos, id', _)
   | FieldSelection (pos, id', _)
   | ArraySliceStructItem (pos, id', _)
-  | ArrayDef (pos, id', _)
     -> if id = id' then [pos] else []
+  | ArrayDef _ -> assert false (* rejected by [no_array_definitions] *)
   | TupleStructItem (_, items) ->
     List.map (find_var_def_count_lhs id) items |> List.flatten
   
@@ -696,6 +738,55 @@ let no_assignment_to_pattern_var ctx pos i =
   if StringMap.mem i ctx.pattern_vars && not (StringMap.mem i ctx.locals)
   then syntax_error pos (AssignmentToPatternVariable i)
   else Ok ()
+
+(* Array comprehensions replace the element-wise definitions of arrays
+   'x[i] = e', which the parser still recognizes to report them. The other
+   checks of this module only see the source, so they never meet one: the
+   definitions that LustreDesugarArrayComprehensions introduces for
+   comprehensions come after them. *)
+(* An expression whose operator makes a Boolean, and so cannot be the size of
+   an array *)
+let is_boolean_operation = function
+  | LA.BinaryOp (_, (LA.And | Or | Xor | Impl | AndThen | OrElse | LazyImpl), _, _)
+  | CompOp _ | UnaryOp (_, Not, _) -> true
+  | _ -> false
+
+let no_array_definitions outputs locals items =
+  (* The sizes of the dimensions of [id] that the indices [inds] range over,
+     innermost first as in the type, when its declared type is written as an
+     array type *)
+  let sizes id inds =
+    let declared =
+      List.find_map (fun (_, id', ty, _) -> if id = id' then Some ty else None) outputs
+      |> function
+      | Some ty -> Some ty
+      | None ->
+        List.find_map (function
+          | LA.NodeVarDecl (_, (_, id', ty, _)) when id = id' -> Some ty
+          | _ -> None) locals
+    in
+    let rec outer_sizes k ty =
+      if k = 0 then Some []
+      else match ty with
+        | LA.ArrayType (_, (ty, n)) ->
+          Option.map (fun ns -> n :: ns) (outer_sizes (k - 1) ty)
+        | _ -> None
+    in
+    Option.bind declared (outer_sizes (List.length inds)) |> Option.map List.rev
+  in
+  let rec over_struct_item = function
+    | LA.ArrayDef (pos, id, inds) ->
+      syntax_error pos (ArrayDefinition (id, inds, sizes id inds))
+    | TupleStructItem (_, items) -> over_struct_items items
+    | SingleIdent _ | TupleSelection _ | FieldSelection _
+    | ArraySliceStructItem _ -> Ok ()
+  and over_struct_items items =
+    List.fold_left (fun acc item -> acc >> over_struct_item item) (Ok ()) items
+  in
+  List.concat_map LAH.extract_node_equation items
+  |> List.fold_left
+    (fun acc (LA.StructDef (_, items), _) -> acc >> over_struct_items items)
+    (Ok ())
 
 let no_dangling_identifiers ctx = function
   | LA.Ident (pos, i) -> 
@@ -1080,6 +1171,8 @@ and check_local_items: context -> LA.node_local_decl -> ([> warning] list, [> er
   | NodeVarDecl (_, (pos, i, _, _)) -> syntax_error pos (UnsupportedClockedLocal i)
 
 and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) =
+  (* First, so that no other check meets an element-wise definition *)
+  let* () = no_array_definitions outputs locals items in
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
   let decl = LA.NodeDecl
@@ -1109,6 +1202,8 @@ and check_node_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   (Ok (warnings1 @ List.flatten warnings2 @ warnings3, decl))
 
 and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, locals, items, contract) is_rec =
+  (* First, so that no other check meets an element-wise definition *)
+  let* () = no_array_definitions outputs locals items in
   no_invalid_underscore (NI.get_user_name node_id) span.start_pos >> 
   let props = StringSet.empty in
   let ctx =
@@ -1204,7 +1299,6 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
   let check_item: context -> Ctx.tc_context option -> (context -> LA.expr -> ([> warning] list, ([> error] as 'a)) result) ->
     LA.node_item -> ([> warning] list, 'a) result = fun ctx tc_ctx f -> function
     | LA.Body (Equation (_, lhs, e)) ->
-      let ctx' = build_equation_ctx ctx tc_ctx lhs in
       let StructDef (_, struct_items) = lhs in
       (match struct_items, e with
        (* A call statement (empty left-hand side, see lustreParser.mly) is the
@@ -1216,10 +1310,10 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
           else syntax_error cpos
             (CallStatementCallsNonLemma (NI.get_user_name node_id)))
          >> check_struct_items ctx struct_items
-         >> check_expr_list ctx' f args
+         >> check_expr_list ctx f args
        | _ ->
          check_struct_items ctx struct_items
-           >> check_expr ctx' f e)
+           >> check_expr ctx f e)
     | LA.IfBlock (_, e, l1, l2) ->
       let* warnings1 = check_expr ctx f e in
       let* (warnings2, props) = (check_items ctx ~tc_ctx ~in_lemma f l1 props) in
@@ -1300,12 +1394,9 @@ and check_struct_items ctx items =
   let r items = check_struct_items ctx items in
   match items with
   | [] -> Ok ()
-  | LA.ArrayDef (pos, _, _) :: _ :: _ 
-  | _ :: ArrayDef (pos, _, _) :: _ ->  syntax_error pos MultAssignArrayDef
   | (SingleIdent (pos, id)) :: tail ->
     no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
-  | (ArrayDef (pos, id, _)) :: tail ->
-    no_assignment_to_pattern_var ctx pos id >> no_a_dangling_identifier ctx pos id >> r tail
+  | ArrayDef _ :: _ -> assert false (* rejected by [no_array_definitions] *)
   | (TupleStructItem (pos, _)) :: _
   | (TupleSelection (pos, _, _)) :: _
   | (FieldSelection (pos, _, _)) :: _
@@ -1367,6 +1458,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
       let* warnings1 = check_list rs in
       let* warnings2 = check_list gs in 
       Ok (List.flatten warnings1 @ List.flatten warnings2)
+    | GhostVars (_, GhostArrayDef _, _) -> assert false (* introduced after this pass, by lustreDesugarArrayComprehensions *)
     | GhostVars (_, GhostVarDec (_, l), e) ->
       let* warnings1 = Res.seq (List.map (fun (p, id, ty) -> 
         no_invalid_underscore id p >>
@@ -1395,11 +1487,14 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
         let* warnings2 = check_const_expr_decl i ctx e in
         Ok (warnings1 @ warnings2)
     )
-    | ContractCall (pos, node_id, _, args, outputs) -> (
+    | ContractCall (pos, node_id, ty_args, args, outputs) -> (
       if StringMap.mem (NI.get_internal_name node_id) ctx.contracts then (
+        (* The expressions a type argument embeds are checked nowhere else *)
+        let* warnings1 = Res.seq (List.map (check_ty ctx f) ty_args) in
         Res.seqM (fun x _ -> x) () (List.map
            (no_a_dangling_identifier ctx pos) outputs) >>
-        check_expr_list ctx f args
+        let* warnings2 = check_expr_list ctx f args in
+        Ok (List.flatten warnings1 @ warnings2)
       )
       else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
@@ -1435,8 +1530,13 @@ and check_ty ctx f = function
 | RecordType (_, _, tis) -> 
   let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
+(* The type arguments of a user type are written at the use site, so they are
+   checked here rather than at the declaration of the type *)
+| UserType (_, ty_args, _) ->
+  let* warnings = Res.seq (List.map (check_ty ctx f) ty_args) in
+  Res.ok (List.flatten warnings)
 | Int _ | Bool _ | SBitVector _ | UBitVector _ 
-| Real _ | AbstractType _ | UserType _ | EnumType _
+| Real _ | AbstractType _ | EnumType _
 | History _ -> Res.ok []
 | ADT (_, _, cons) ->
   let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
@@ -1476,6 +1576,10 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Extract (_, e, _, _)
     | Pre (_, e) -> 
       check_expr ctx f e 
+    | TypeAscription (_, e, LA.RefinementType (_, (_, i, ty), pred)) ->
+      let* warnings1 = check_expr ctx f e in
+      let* warnings2 = check_expr (ctx_add_ascription_var ctx i (Some ty)) f pred in
+      Res.ok (warnings1 @ warnings2)
     | TypeAscription (_, e, ty) ->
       let* warnings1 = check_expr ctx f e in
       let* warnings2 = check_ty ctx f ty in
@@ -1488,6 +1592,71 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* (warnings, ctx) = Res.seq_chain over_vars ([], ctx) vars in
       let* _ = check_quantified_vars ctx vars in
       let* warnings2 = check_expr ctx f e in 
+      Res.ok (warnings @ warnings2)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (_, i, _) ->
+             List.length (List.filter (fun (_, j, _) -> HString.equal i j) bs) > 1) bs ->
+      let (pos, i, _) =
+        List.find (fun (_, i, _) ->
+          List.length (List.filter (fun (_, j, _) -> HString.equal i j) bs) > 1) bs
+      in
+      syntax_error pos (DuplicateComprehensionIndex i)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (_, _, n) -> LA.is_unbounded_size n) bs ->
+      let (pos, i, _) = List.find (fun (_, _, n) -> LA.is_unbounded_size n) bs in
+      syntax_error pos (UnboundedComprehensionIndex i)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (_, _, n) -> LA.is_missing_size n) bs ->
+      let (pos, i, _) = List.find (fun (_, _, n) -> LA.is_missing_size n) bs in
+      syntax_error pos (MissingComprehensionSize i)
+    (* A bound extends over the operators of lower precedence than '<', such
+       as 'and', which make a Boolean: '(x foreach i < 3 and x)' bounds 'i' by
+       '3 and x' *)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (p, _, n) -> LA.is_bounded_index p && is_boolean_operation n) bs ->
+      let (pos, i, n) =
+        List.find (fun (p, _, n) -> LA.is_bounded_index p && is_boolean_operation n) bs
+      in
+      syntax_error pos (BooleanComprehensionSize (i, n))
+    (* A size is outside the scope of the index variables, which a bound such
+       as 'j < i' would suggest otherwise. A size after the comprehension, as in
+       '(e foreach i, k)^i^2', is clearly outside it, and may name a constant
+       that has the name of an index variable. *)
+    | ArrayComprehension (_, bs, _)
+      when List.exists (fun (p, _, n) ->
+             LA.is_bounded_index p
+             && List.exists (fun (_, j, _) ->
+                  LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs ->
+      let (pos, i, n) =
+        List.find (fun (p, _, n) ->
+          LA.is_bounded_index p
+          && List.exists (fun (_, j, _) ->
+               LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs) bs
+      in
+      let (_, j, _) =
+        List.find (fun (_, j, _) -> LA.SI.mem j (LAH.vars_without_node_call_ids n)) bs
+      in
+      syntax_error pos (ComprehensionSizeMentionsIndex (i, j))
+    | ArrayComprehension (_, bs, e) ->
+      (* The index variables are subject to the restrictions of the indices of
+         an array definition, which the comprehension is compiled to. An index
+         is symbolic when the size of its dimension mentions a free constant or
+         a local, such as a constant input. *)
+      let over_binders (warnings, ctx) (_, i, n) =
+        let* warnings2 = check_expr ctx f n in
+        let is_symbolic =
+          LA.SI.exists
+            (fun v -> StringMap.mem v ctx.free_consts || StringMap.mem v ctx.locals)
+            (LAH.vars_without_node_call_ids n)
+        in
+        let ctx =
+          if is_symbolic then ctx_add_symbolic_array_index ctx i None
+          else ctx_add_array_index ctx i None
+        in
+        Res.ok (warnings @ warnings2, ctx)
+      in
+      let* (warnings, ctx) = Res.seq_chain over_binders ([], ctx) bs in
+      let* warnings2 = check_expr ctx f e in
       Res.ok (warnings @ warnings2)
     | BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
       (* The right operand is evaluated lazily, like a branch of a
@@ -1591,6 +1760,9 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | Match (_, e, arms, _) ->
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
       let* warnings1 = check_expr ctx f e in
+      (* Arms are evaluated lazily, so the scrutinee plays the role of the
+         guard, as for a match block *)
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
       let pat_vars pat =
         let rec collect = function
           | LA.VarPat (_, id) ->
@@ -1601,7 +1773,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings2 = Res.seq (List.map (fun (pat, body) ->
         let ctx' = List.fold_left
           (fun c v -> ctx_add_pattern_var c v None)
-          ctx (pat_vars pat)
+          ctx_lazy (pat_vars pat)
         in
         let* warnings = check_expr ctx' f body in 
         let* warnings' = check_expr ctx' lazy_match body in 
@@ -1624,6 +1796,36 @@ and check_expr_list ctx f l =
   Ok(List.flatten warnings)
 
 and ovq_check_expr inlinable_funcs tc_ctx ctx = function
+(* A restart is abstracted into a call to a node (see LustreGenNodes), which
+   is expanded into one instance per index when an index variable appears in
+   the expression or the restart condition. A symbolic array index has no
+   known number of values to expand over. The restart is only dropped when
+   the expression has no state and the condition calls nothing (see
+   [LustreGenNodes.droppable_condition]). *)
+| LA.Restart (pos, e, r) when
+    Option.is_some (LAH.has_pre_or_arrow e) || Ctx.expr_contains_node_call tc_ctx e
+    || not (NI.Set.is_empty (LAH.calls_of_expr r)) ->
+  let vars =
+    LA.SI.union (LAH.vars_without_node_call_ids e) (LAH.vars_without_node_call_ids r)
+  in
+  (match
+    List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+      (LA.SI.elements vars)
+  with
+  | Some v -> syntax_error pos (SymbolicArrayIndexInRestart v)
+  | None -> Ok [])
+(* A temporal branch of a lazy construct is abstracted into a call to a node
+   (see [LustreGenNodes.abstract_temporal_branch]), which is subject to the
+   same restrictions as an explicit call under a lazy guard (see below) *)
+| LA.TernaryOp (_, LazyIte, c, e2, e3) ->
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [[], e2; [], e3]
+| LA.BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [[], e2]
+| LA.Match (_, e, arms, _) ->
+  let arm (pat, body) =
+    List.map fst (LAH.pat_bound_vars_with_pos pat), body
+  in
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map arm arms)
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
     ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
@@ -1669,15 +1871,13 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
     if not is_non_inlinable || LA.SI.is_empty ctx.lazy_cond_vars then
       Ok []
     else
-      let vars = LA.SI.elements ctx.lazy_cond_vars in
       match
-        if quant_vars_allowed then None
-        else List.find_opt (fun v -> StringMap.mem v ctx.quant_vars) vars
+        if quant_vars_allowed then None else quant_var_in_lazy_guard ctx
       with
       | Some v ->
         syntax_error pos (QuantifiedVariableInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
       | None -> (
-        match List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices) vars with
+        match symbolic_index_in_lazy_guard ctx with
         | Some v ->
           syntax_error pos (SymbolicArrayIndexInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
         | None -> Ok []
@@ -1717,6 +1917,36 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   List.fold_left (>>) (Ok []) check
 
 | _ -> Ok []
+
+(* Each branch comes with the variables its pattern binds, if any *)
+and check_temporal_branches ctx branches =
+  let check_branch (pat_vars, e) =
+    match LAH.has_pre_or_arrow e with
+    | None -> Ok []
+    | Some pos -> (
+      (* The branch lies inside the node an ascription is abstracted into, so
+         the bound variable of the ascription is not quantified there *)
+      match quant_var_in_lazy_guard ~ascription_vars_allowed:true ctx with
+      | Some v -> syntax_error pos (QuantifiedVariableInLazyGuardedTemporalBranch v)
+      | None -> (
+        match symbolic_index_in_lazy_guard ctx with
+        | Some v -> syntax_error pos (SymbolicArrayIndexInLazyGuardedTemporalBranch v)
+        | None -> (
+          (* As for an argument of a node call, a symbolic array index in the
+             branch has no known number of values to expand the call over. A
+             quantified variable in the branch is rejected when the branch is
+             abstracted (see [LustreGenNodes.abstract_temporal_branch]). *)
+          let vars =
+            LA.SI.diff (LAH.vars_without_node_call_ids e) (LA.SI.of_list pat_vars)
+          in
+          match
+            List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+              (LA.SI.elements vars)
+          with
+          | Some v -> syntax_error (LAH.pos_of_expr e) (SymbolicArrayIndexInTemporalBranch v)
+          | None -> Ok [])))
+  in
+  List.fold_left (>>) (Ok []) (List.map check_branch branches)
 
 (* Check types for quantified variables in calls to non-inlinable functions. 
    In particular, refinement type bound variables that refer to array/map/set elements 

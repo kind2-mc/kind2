@@ -1,10 +1,13 @@
 """The nodes generated for restarts.
 
 A restart of an expression with state, such as a node call, is turned into a
-call to a generated node, which a modular analysis reports as a system named
-after its position. A restart only resets state, so 'restart e every r' is 'e'
-when 'e' has no temporal operator and calls only functions, and the same for a
-block of equations: no node is generated for it.
+call to a generated node, named after its position. The node is internal: a
+modular analysis does not analyze it on its own, but checks its properties in
+the calling node, and they are named as in the generated node, without its
+name. The node only shows in the transition systems that '--debug parse'
+prints. A restart only resets state, so 'restart e every r' is 'e' when 'e'
+has no temporal operator and calls only functions, and the same for a block
+of equations: no node is generated for it.
 
 The outputs of a generated node have the base types of the values they stand
 for, without the constraints of their refinement types: a constraint is
@@ -32,43 +35,50 @@ let
 tel
 """
 
+# The selector is a property of the generated node, which only holds under
+# the guard of the when expression
 stateful = """
-node Cnt () returns (y: int);
-let y = 0 -> pre y + 1; tel
+datatype O = N | S (v: int);
 
-node top (r: bool) returns ();
+node top (a: O; r: bool) returns ();
 var x: int;
 let
-  x = restart Cnt() every r;
-  check "reset" r => x = 0;
+  x = when S?(a) then restart (0 -> pre a.v) every r else 0;
+  check "reset" r and S?(a) => x = 0;
 tel
 """
 
 
-def run_modular(tmp_path, model):
+def run_modular(tmp_path, model, *extra):
     path = tmp_path / "model.lus"
     path.write_text(model)
     args = common_args | {"--timeout": "10", "--modular": "true"}
     arg_list = [arg for pair in args.items() for arg in pair]
     proc = subprocess.run(
-        [kind2_bin, *arg_list, str(path)],
+        [kind2_bin, *arg_list, *extra, str(path)],
         capture_output=True,
         text=True,
         timeout=run_timeout,
     )
-    return proc.stdout
+    return proc.stdout + proc.stderr
+
+
+def has_generated_node(tmp_path, model):
+    return ".restart_" in run_modular(tmp_path, model, "--debug", "parse")
 
 
 def test_stateless_restart_generates_no_node(tmp_path):
     out = run_modular(tmp_path, stateless)
     assert "values: valid" in out, out
-    assert ".restart_" not in out, out
+    assert not has_generated_node(tmp_path, stateless)
 
 
 def test_stateful_restart_generates_a_node(tmp_path):
     out = run_modular(tmp_path, stateful)
     assert "reset: valid" in out, out
-    assert ".restart_" in out, out
+    assert "Selector[L7C42]: valid" in out, out
+    assert ".restart_" not in out, out
+    assert has_generated_node(tmp_path, stateful)
 
 
 refined = """
@@ -82,7 +92,7 @@ tel
 
 
 def test_refinement_type_checked_once(tmp_path):
+    assert has_generated_node(tmp_path, refined)
     out = run_modular(tmp_path, refined)
-    assert "SubType" in out, out
-    subtypes = [l for l in out.splitlines() if "SubType" in l and ": valid" in l]
-    assert subtypes and all(".restart_" not in l for l in subtypes), out
+    subtypes = [l for l in out.splitlines() if l.startswith("SubType")]
+    assert len(subtypes) == 1 and ": valid" in subtypes[0], out

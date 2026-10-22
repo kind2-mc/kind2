@@ -19,6 +19,6 @@ tel
 
 node CallInIndexArrayDef(x: int^3; v: int) returns (y: int^3);
 let
-  y[i] = (x[Id(i) := v])[i];
+  y = ((x[Id(i) := v])[i] foreach i)^3;
   check forall (k: int) ((k >= 0 and k < 3) => (y[k] = v));
 tel

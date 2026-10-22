@@ -721,6 +721,7 @@ and desugar_expr ctx adt_map expr =
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map (desugar_type p ctx adt_map) ty_args, id, rlist es)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
+  | LA.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | LA.Quantifier (p, k, idents, e) ->
     (* A bound variable of a type involving an ADT ranges over the canonical
        values of that type; LustreNodeGen.compile_quantifier restricts it, so
@@ -748,11 +749,13 @@ let desugar_contract_item ctx adt_map item =
     let r3 (p, n, e) = (p, n, r e) in
     LA.Mode (p, n, List.map r3 requires, List.map r3 ensures)
   | LA.ContractCall (p, name, ty_args, inputs, outputs) ->
-    LA.ContractCall (p, name, ty_args, List.map r inputs, outputs)
+    LA.ContractCall (p, name, List.map (dt p) ty_args, List.map r inputs, outputs)
   | LA.GhostConst cd -> LA.GhostConst (desugar_const_decl ctx adt_map cd)
   | LA.GhostVars (p, LA.GhostVarDec (p2, tis), e) ->
     let tis' = List.map (fun (p, id, ty) -> (p, id, dt p ty)) tis in
     LA.GhostVars (p, LA.GhostVarDec (p2, tis'), r e)
+  | LA.GhostVars (p, LA.GhostArrayDef (p2, (p3, id, ty), is), e) ->
+    LA.GhostVars (p, LA.GhostArrayDef (p2, (p3, id, dt p3 ty), is), r e)
   | LA.AssumptionVars _ as a -> a
 
 let rec desugar_node_item ctx adt_map item =
@@ -1050,6 +1053,9 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map rewrite_type ty_args, id, rlist es)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
+  (* Restored for printing by [LustreDesugarArrayComprehensions.restore] *)
+  | LA.ArrayComprehension (p, bs, e) ->
+    LA.ArrayComprehension (p, List.map (fun (ip, i, n) -> (ip, i, r n)) bs, r e)
   | LA.Quantifier (p, k, idents, e) ->
     (* Rename generated bound variables to "$n", substituting the new name for the
        old one in the body before recursing into it. *)

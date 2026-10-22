@@ -1,7 +1,7 @@
 node N(i, j: int^4) returns (A3, A4: int^4);
 let
   frame (A3)
-    A3[i] = 0;
+    A3 = (0 foreach i)^4;
   let
     A3 = pre i;
   tel
@@ -10,7 +10,7 @@ let
   frame (A4)
     A4 = i;
   let
-    A4[i] = pre 0;
+    A4 = (pre 0 foreach i)^4;
   tel
   check true -> A4[0] = 0;
   check true -> A4[0] = 0;
@@ -19,9 +19,9 @@ tel
 node M(i, j: int) returns (A5: int^4);
 let
   frame (A5)
-    A5[i] = j + i; 
+    A5 = (j + i foreach i)^4;
   let
-    A5[j] = pre (i + j);
+    A5 = (pre (i + j) foreach j)^4;
     -- A5[fresh] = (j + fresh) -> pre (i + fresh)
   tel
   check true -> A5[0] = 0;

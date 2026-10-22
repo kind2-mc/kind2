@@ -195,6 +195,29 @@ let lift_term state_var_map term =
               variable at the same offset *)
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 
+         (* A constant input of the called node, such as the size of an
+            array, appears in the termination checks of a recursive
+            function. Global constants are shared and not in the map.
+
+            The actual argument need not be a constant state variable: the
+            abstraction of an argument such as [n + 1] is shared with the
+            other occurrences of the expression, also those passed to a
+            non-constant input. Such a variable is taken at the offset of the
+            lifted terms, which are all stated at [TransSys.prop_base];
+            [Var.mk_state_var_instance] returns a constant state variable
+            for a constant one. *)
+         else if Var.is_const_state_var var then (
+
+           let state_var = Var.state_var_of_state_var_instance var in
+
+           match SVM.find_opt state_var state_var_map with
+           | Some state_var' ->
+             Term.mk_var
+               (Var.mk_state_var_instance state_var' TransSys.prop_base)
+           | None -> term
+
+         )
+
          else
 
            (* No change if free variable is not an instance of a state
@@ -216,9 +239,58 @@ let lift_term state_var_map term =
 let pp_print_call_instance ppf instance =
   List.iter (Format.fprintf ppf "[%d]") instance
 
+(* Lift the name of a property in an internal node (see
+   [NodeId.is_internal]).
+
+   The name of the node means nothing to the user, and the position of its
+   call is the position of the expression it stands for, which the names of
+   its properties already carry: a property is named as in the node, with the
+   indices of the instance of the call right after the first position in the
+   name. The call of the internal node is transparent, so these are the outer
+   indices of the instance of the first call in the name, before its own ones,
+   as for a call in a comprehension over several indices. A name with no
+   position takes the indices at its end.
+
+   Every instance of a call has as many indices, so the names lifted from the
+   instances of a call stay distinct. *)
+let lift_internal_prop_name instance prop_name =
+  let indices = string_of_t pp_print_call_instance instance in
+  let len = String.length prop_name in
+  (* The index right after the digits from [i] on, if there is one *)
+  let rec digits_end i =
+    if i < len && prop_name.[i] >= '0' && prop_name.[i] <= '9' then
+      digits_end (i + 1)
+    else i
+  in
+  let digits_after i = let j = digits_end i in if j > i then Some j else None in
+  (* The index right after a position "[LnCm]" that starts at [i], if any *)
+  let position_end i =
+    if i + 1 < len && prop_name.[i] = '[' && prop_name.[i + 1] = 'L' then
+      match digits_after (i + 2) with
+      | Some j when j < len && prop_name.[j] = 'C' -> (
+        match digits_after (j + 1) with
+        | Some k when k < len && prop_name.[k] = ']' -> Some (k + 1)
+        | _ -> None)
+      | _ -> None
+    else None
+  in
+  let rec first_position_end i =
+    if i >= len then None
+    else
+      match position_end i with
+      | Some j -> Some j
+      | None -> first_position_end (i + 1)
+  in
+  match first_position_end 0 with
+  | Some i ->
+    String.sub prop_name 0 i ^ indices ^ String.sub prop_name i (len - i)
+  | None -> prop_name ^ indices
+
 (* Lift the name of a property in a subnode by adding the position of
    the node call, and the indices of the instance if any *)
-let lift_prop_name node_name pos instance prop_name =
+let lift_prop_name ~internal node_name pos instance prop_name =
+
+  if internal then lift_internal_prop_name instance prop_name else
 
   (* Pretty-print a position as attributes *)
   let pp_print_pos ppf pos = 
@@ -396,6 +468,25 @@ let subrequirements_of_contract
       in
       let prop_name =
         match name with
+        | _ when NI.is_internal node_id ->
+          let name =
+            match name with
+            | None -> Format.asprintf "assume%a" pp_print_line_and_column pos
+            | Some n -> n
+          in
+          (* The subtype check of an ascription the user wrote is reported as
+             a type ascription *)
+          let subtype = "SubType" in
+          let name =
+            if LustreGenNodes.is_user_ascription node_id
+               && Lib.string_starts_with name subtype
+            then
+              "TypeAscription"
+              ^ String.sub name (String.length subtype)
+                  (String.length name - String.length subtype)
+            else name
+          in
+          lift_internal_prop_name call_instance name
         | None -> (
           Format.asprintf "%a%a%a%tassume%a"
             NI.pp_print_node_id_user_name node_id
@@ -670,7 +761,34 @@ let add_constraints_of_type init terms state_var =
       :: terms 
     | None, None -> Term.mk_bool true :: terms
   )
-                 
+
+
+(* The variables of the free constants, in the order of their
+   declarations *)
+let vars_of_free_constants globals =
+  List.concat_map
+    (fun (_, vt, _) -> D.fold (fun _ v acc -> v :: acc) vt [] |> List.rev)
+    globals.G.free_constants
+
+(* The constraints on the free constants: their refinements and subranges,
+   the canonical forms [adt_constraints] of those of a type with an ADT, and
+   the ranges of those of an enumerated type *)
+let constraints_of_free_constants globals adt_constraints =
+  let enum_consts =
+    vars_of_free_constants globals
+    |> List.map Var.state_var_of_state_var_instance
+    |> List.filter (fun state_var ->
+      let ty = StateVar.type_of_state_var state_var in
+      Type.is_enum
+        (if Type.is_array ty then Type.last_elem_type_of_array ty else ty))
+  in
+  List.fold_left
+    (add_constraints_of_type true)
+    (List.map
+       (E.base_term_of_t TransSys.init_base)
+       (globals.G.global_constraints @ adt_constraints))
+    enum_consts
+
 
 
 (* ********************************************************************** *)
@@ -926,6 +1044,14 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     @ node_crt_svars
   in
 
+  (* An internal node is not analyzed on its own in a modular analysis (see
+     [Strategy.is_candidate_for_analysis]), and it stands for a part of the
+     body of the calling node: its properties may only hold under the
+     condition its call is guarded by, so they are checked in the calling node
+     in any case *)
+  let internal = NI.is_internal call_node_id in
+  let lift = internal || not (Flags.modular ()) in
+
   (* Instantiate properties of the called node in this node *)
   let node_props =
     properties
@@ -934,15 +1060,15 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       | P.Assumption _ -> true
       (* Candidate invariants are lifted so that, once proven, they can
          strengthen the analysis of the calling node *)
-      | P.Candidate _ -> not (Flags.modular ())
-      | _ -> Flags.check_subproperties () && not (Flags.modular ())
+      | P.Candidate _ -> lift
+      | _ -> internal || (Flags.check_subproperties () && lift)
     )
     |> List.fold_left (
       fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
 
         (* Lift name of property *)
         let prop_name =
-          lift_prop_name
+          lift_prop_name ~internal
             (NI.get_name call_node_id |> I.of_hstring) call_pos call_instance n
         in
 
@@ -1481,14 +1607,17 @@ let rec constraints_of_node_calls
 
           else
 
-            (* Create fresh shadow variable for input *)
+            (* Create fresh shadow variable for input. The instances a call
+               in an array equation expands into share its position, so the
+               name tells them apart by the identifier of the call. *)
             let shadow_sv =
               let name =
                 let row, col = row_col_of_pos call_pos in
-                Format.asprintf "shw_%a_l%dc%d_%a"
+                Format.asprintf "shw_%a_l%dc%d_%a_%d"
                   (I.pp_print_ident true) (NI.get_internal_name call_node_id |> I.of_hstring)
                   row col
                   StateVar.pp_print_state_var formal_sv
+                  call_id
               in
               mk_fresh_state_var
                 ?is_const:None
@@ -1584,10 +1713,11 @@ let rec constraints_of_node_calls
     let has_ticked =
       let name =
         let row, col = row_col_of_pos call_pos in
-        Format.asprintf "tck_%a_l%dc%d_%a"
+        Format.asprintf "tck_%a_l%dc%d_%a_%d"
           (I.pp_print_ident true) (NI.get_internal_name call_node_id |> I.of_hstring)
           row col 
           StateVar.pp_print_state_var clock
+          call_id
       in
       mk_fresh_state_var
         ?is_const:None
@@ -2108,10 +2238,28 @@ module MBounds = Map.Make (struct
   end)
 
 
+(* The state variables that occur at the previous instant of the
+   transition relation in [term], added to [svs]. [None] stands for all
+   state variables, when the term does not let them be told apart *)
+let add_pre_state_vars svs term =
+  Option.bind svs (fun svs ->
+    try
+      Term.state_vars_at_offset_of_term
+        Numeral.(TransSys.trans_base |> pred) term
+      |> SVS.union svs |> Option.some
+    with Invalid_argument _ -> None)
+
 (* Add constraints from equations to initial state constraint and
-   transition relation *)
+   transition relation
+
+   [stateful_vars] is the set of stateful state variables, and [pre_svs]
+   the state variables that occur at the previous instant in [terms]
+   (see [add_pre_state_vars]): kept along with [terms], rather than
+   computed from them again for each equation, which made the
+   translation of a node take a time quadratic in its number of
+   equations *)
 let rec constraints_of_equations_wo_arrays transfer_defs node
-    eq_bounds init stateful_vars terms (lets, lets_dependencies) definition_set = function
+    eq_bounds init stateful_vars (terms, pre_svs) (lets, lets_dependencies) definition_set = function
   (* Constraints for all equations generated *)
   | [] -> terms, lets, eq_bounds, definition_set
 
@@ -2121,7 +2269,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
   | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
     when
       (Flags.slice_nodes () != `Experimental) &&
-      (List.exists (StateVar.equal_state_vars state_var) stateful_vars) ->
+      (SVS.mem state_var stateful_vars) ->
 
     (* Equation for stateful variable *)
     let def = 
@@ -2140,7 +2288,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Add terms of equation *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
+      eq_bounds init stateful_vars
+      (def :: terms, add_pre_state_vars pre_svs def)
+      (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
 
   (* Can define state variable with a let binding *)
   (* Let binding optimization is not performed when experimental slicing is
@@ -2205,12 +2355,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
             (if
               (* Does the state variable occur at the previous
                 instant? *)
-              try
-              Term.state_vars_at_offset_of_term
-                Numeral.(TransSys.trans_base |> pred)
-                (Term.mk_and terms)
-              |> SVS.mem state_var
-              with Invalid_argument _ -> true
+              match pre_svs with
+              | Some svs -> SVS.mem state_var svs
+              | None -> true
 
             then
               ((* Definition must not contain a [pre] operator, otherwise we'd
@@ -2228,7 +2375,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Start with singleton lists of let-bound terms *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (let_binds :: lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars (terms, pre_svs) (let_binds :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
@@ -2239,7 +2386,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
 
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars (terms, pre_svs) (lets, lets_dependencies) definition_set tl
 
 
 (* create quantified (or no) constraints for recursive arrays definitions *)
@@ -2369,6 +2516,66 @@ let constraints_of_arrays init terms eq_bounds =
 
     ) eq_bounds terms 
 
+(* The term [t] in the scope of the nested lets [lets], the outermost
+   first, built as one simultaneous let per level of dependency: 1 for a
+   binding whose term mentions no variable of [lets], otherwise 1 + the
+   highest level of those it mentions; the lowest level is outermost.
+
+   A node binds each of its stateless variables in a let of its own, and
+   the lets of a model generated from Simulink, a lookup table for
+   instance, number in the thousands. Built one at a time, each let
+   traverses and rebuilds the lets inside it, and every subterm along the
+   chain keeps the indexes of the bound variables it contains: the time
+   and the memory grow with the square of the length of the chain. A few
+   lets of independent bindings, built with one traversal of each term,
+   take neither.
+
+   Each variable of [lets] is bound once, and the term of a binding only
+   mentions variables of the lets around it, the equations being ordered
+   by dependency, so moving a binding to another let changes what no
+   variable refers to. Should a term mention a variable of its own let or
+   of one inside it, or a variable be bound twice, the lets are built as
+   they are, nested, and a debug message says so for the node [node_id].
+
+   [vars_of] gives the variables of the term of a binding. *)
+let mk_let_levels node_id vars_of lets t =
+  let exception Not_leveled in
+  (* The level of each variable of [lets], 0 until its let is reached *)
+  let levels = Var.VarHashtbl.create 97 in
+  List.iter (List.iter (fun (v, _) -> Var.VarHashtbl.replace levels v 0)) lets;
+  try
+    let leveled =
+      List.concat_map (fun binds ->
+        let leveled =
+          List.map (fun (v, d) ->
+            let level =
+              Var.VarSet.fold (fun w l ->
+                match Var.VarHashtbl.find_opt levels w with
+                | Some 0 -> raise Not_leveled
+                | Some l' -> max l (l' + 1)
+                | None -> l)
+                (vars_of d) 1
+            in
+            level, (v, d))
+            binds
+        in
+        List.iter (fun (level, (v, _)) ->
+          if Var.VarHashtbl.find levels v <> 0 then raise Not_leveled;
+          Var.VarHashtbl.replace levels v level)
+          leveled;
+        leveled)
+        lets
+    in
+    let depth = List.fold_left (fun d (l, _) -> max d l) 0 leveled in
+    let at_level = Array.make depth [] in
+    List.iter (fun (l, b) -> at_level.(l - 1) <- b :: at_level.(l - 1)) leveled;
+    Term.mk_let_chain (Array.to_list at_level |> List.map List.rev) t
+  with Not_leveled ->
+    Log.log L_debug
+      "Lets of node %a not leveled: building %d nested lets"
+      NI.pp_print_node_id_user_name node_id (List.length lets);
+    Term.mk_let_chain lets t
+
 (* The one-state part of a list of constraints, let-bound like them *)
 let one_state_term_of_conjuncts f terms bind_lets =
   f terms |> Term.mk_and |> bind_lets
@@ -2383,17 +2590,36 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
     let transfer_defs =
       Flags.IVC.compute_ivc () || List.mem `MCS (Flags.enabled ())
     in
+    (* Only the transition relation binds variables at the previous
+       instant *)
+    let pre_svs =
+      if init then None
+      else List.fold_left add_pre_state_vars (Some SVS.empty) terms
+    in
     constraints_of_equations_wo_arrays transfer_defs node
-      MBounds.empty init stateful_vars terms ([], SVM.empty) definition_set equations
+      MBounds.empty init (SVS.of_list stateful_vars) (terms, pre_svs)
+      ([], SVM.empty) definition_set equations
     in
 
   (* then make constraints for recursive arrays so as to merge quantifiers as
      much as possible *)
   let terms, definition_set = constraints_of_arrays init (terms, definition_set) eq_bounds in
 
+  (* The variables of the term of a binding, computed once for the
+     bindings of [bind_lets_used] and both calls to [mk_let_levels] *)
+  let vars_of =
+    let vars = Term.TermHashtbl.create 97 in
+    fun d ->
+      match Term.TermHashtbl.find_opt vars d with
+      | Some s -> s
+      | None ->
+        let s = Term.vars_of_term d in
+        Term.TermHashtbl.add vars d s;
+        s
+  in
+
   let bind_lets t =
-    List.fold_left (fun t binds -> Term.mk_let binds t) t (List.rev lets)
-    |> Term.convert_select
+    mk_let_levels node.N.node_id vars_of lets t |> Term.convert_select
   in
 
   (* As [bind_lets], but leaving out the bindings the term does not use.
@@ -2408,24 +2634,24 @@ let constraints_of_equations ?one_state node init stateful_vars terms equations 
      term says, but it is still part of the term, and asserting the term
      at a bound then mentions variables one instant before it. *)
   let bind_lets_used t0 =
-    let _, t =
+    let _, used =
       List.fold_left
-        (fun (needed, t) binds ->
+        (fun (needed, used) binds ->
           match
             List.filter (fun (v, _) -> Var.VarSet.mem v needed) binds
           with
-          | [] -> needed, t
+          | [] -> needed, used
           | binds ->
             let needed =
               List.fold_left
-                (fun acc (_, d) -> Var.VarSet.union acc (Term.vars_of_term d))
+                (fun acc (_, d) -> Var.VarSet.union acc (vars_of d))
                 needed binds
             in
-            needed, Term.mk_let binds t)
-        (Term.vars_of_term t0, t0)
+            needed, binds :: used)
+        (Term.vars_of_term t0, [])
         (List.rev lets)
     in
-    Term.convert_select t
+    mk_let_levels node.N.node_id vars_of used t0 |> Term.convert_select
   in
 
   let one_state_term =
@@ -2509,11 +2735,9 @@ let function_congruence_group globals inputs uf_symbols
        also refer to global free constants; any other state variable makes it
        unusable. *)
     let global_consts =
-      List.fold_left (fun acc (_, vt, _) ->
-        D.fold (fun _ v acc ->
-          SVS.add (Var.state_var_of_state_var_instance v) acc
-        ) vt acc
-      ) SVS.empty globals.G.free_constants
+      vars_of_free_constants globals
+      |> List.map Var.state_var_of_state_var_instance
+      |> SVS.of_list
     in
     let input_vars =
       List.fold_left (fun acc (_, sv, _, a, _) -> SVM.add sv a acc)
@@ -2697,7 +2921,8 @@ type mk_evaluator =
   logic:TermLib.logic -> timeout_ms:int ->
   (declare_sort:(Type.t -> unit) ->
    declare_fun:(UfSymbol.t -> unit) ->
-   define_rec:(LustreFunDefs.def list -> unit) -> unit) ->
+   define_rec:(LustreFunDefs.def list -> unit) ->
+   assert_term:(Term.t -> unit) -> unit) ->
   evaluator
 
 (* Evaluating takes a solver, which this module cannot start: the solver
@@ -2769,32 +2994,113 @@ let evaluator_of_definitions globals mk_evaluator nodes node_id =
   else
     let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
     let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
+    let constraints =
+      constraints_of_free_constants globals globals.G.adt_global_constraints
+      |> List.map Term.convert_select
+    in
+    (* Without the theory of arrays, the definitions and the constraints
+       apply the select symbols of the arrays, which the definitions do not
+       declare (see [TransSys.declare_selects]). They are taken now, after
+       the constraints made those they apply: the symbols are private to the
+       domain that made them. Only those applied are declared below. *)
+    let selects =
+      if Flags.Arrays.smt () then [] else StateVar.get_select_ufs ()
+    in
+    (* The constraints of the system on the free constants, but those that
+       apply symbols the solver is not given *)
+    let constraints =
+      let given =
+        List.concat_map (List.map (fun (uf, _, _) -> uf)) blocks
+        @ selects @ ufs
+      in
+      constraints
+      |> List.filter (fun c ->
+        Term.uf_symbols_of_term c
+        |> UfSymbol.UfSymbolSet.for_all (fun uf ->
+          List.exists (UfSymbol.equal_uf_symbols uf) given))
+      |> List.map (fun c ->
+        c, SVS.filter StateVar.is_const (Term.state_vars_of_term c))
+    in
+    (* The free constants the definitions read, and those the constraints
+       on them relate them to, with these constraints. The others cannot
+       change a value, and would only weigh on a solver that starts again
+       after each evaluation it gives up on. *)
+    let read, constraints =
+      let rec close read taken = function
+        | [] -> read, List.rev taken
+        | constraints ->
+          match
+            List.partition
+              (fun (_, svs) -> not (SVS.disjoint svs read)) constraints
+          with
+          | [], _ -> read, List.rev taken
+          | relating, others ->
+            close
+              (List.fold_left (fun acc (_, svs) -> SVS.union acc svs)
+                 read relating)
+              (List.rev_append (List.map fst relating) taken)
+              others
+      in
+      let read =
+        List.fold_left
+          (List.fold_left (fun acc (_, _, body) ->
+             SVS.union acc (Term.state_vars_of_term body)))
+          SVS.empty blocks
+      in
+      close read [] constraints
+    in
+    let global_consts =
+      vars_of_free_constants globals
+      |> List.filter (fun v ->
+        SVS.mem (Var.state_var_of_state_var_instance v) read)
+    in
+    (* The selects applied, whose array arguments are of the sort FArray *)
+    let selects =
+      let applied =
+        List.fold_left
+          (fun acc c ->
+             UfSymbol.UfSymbolSet.union acc (Term.uf_symbols_of_term c))
+          UfSymbol.UfSymbolSet.empty
+          (constraints
+           @ List.concat_map (List.map (fun (_, _, body) -> body)) blocks)
+      in
+      List.filter (fun uf -> UfSymbol.UfSymbolSet.mem uf applied) selects
+    in
+    (* The sorts of the constants and of the arguments of the selects
+       count: without the theory of arrays, an array is of the sort FArray,
+       which the solver declares only under a logic with arrays *)
     let logic =
+      let of_var v = TermLib.logic_of_sort (Var.type_of_var v) in
       let of_def (uf, formals, body) =
         TermLib.sup_logics
           (TermLib.logic_of_term [] body
            :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
-           :: List.map (fun v -> TermLib.logic_of_sort (Var.type_of_var v))
-             formals)
+           :: List.map of_var formals)
       in
       `Inferred
         TermLib.FeatureSet.(
-          TermLib.sup_logics (List.concat_map (List.map of_def) blocks)
+          TermLib.sup_logics
+            (List.map of_var global_consts
+             @ List.concat_map
+               (fun uf ->
+                  List.map TermLib.logic_of_sort
+                    (UfSymbol.arg_type_of_uf_symbol uf))
+               selects
+             @ List.map (TermLib.logic_of_term []) constraints
+             @ List.concat_map (List.map of_def) blocks)
           |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
     in
     (* The sorts, then the symbols the definitions apply, then the
-       definitions, which are in dependency order *)
-    let define ~declare_sort ~declare_fun ~define_rec =
-      Type.get_all_abstr_types () |>
-      List.iter (fun ty -> match Type.node_of_type ty with
-        | Type.Abstr _ -> declare_sort ty
-        | _ -> ());
-      globals.G.recursive_datatypes |>
-      List.iter (fun ty -> match Type.node_of_type ty with
-        | Type.Datatype _ -> declare_sort ty
-        | _ -> ());
+       definitions, which are in dependency order, and the constraints.
+       The constants are free but for these, as in the system: a value that
+       depends on them is not unique, and the call is then not evaluated. *)
+    let define ~declare_sort ~declare_fun ~define_rec ~assert_term =
+      TransSys.declare_sorts declare_sort globals.G.recursive_datatypes ;
+      List.iter declare_fun selects ;
+      Var.declare_constant_vars declare_fun global_consts ;
       List.iter declare_fun ufs ;
-      List.iter define_rec blocks
+      List.iter define_rec blocks ;
+      List.iter assert_term constraints
     in
     Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
 
@@ -2960,15 +3266,13 @@ let facts_of_calls
       CallTbl.replace values (uf, args) value ;
       value
   in
-  (* The constructors of the datatypes are the only uninterpreted symbols
-     of a value *)
+  (* The constructors of the datatypes are the only uninterpreted symbols of a
+     value, and are stored under the names their symbols are declared with *)
   let is_constructor uf =
     let ty = UfSymbol.res_type_of_uf_symbol uf in
     Type.is_datatype ty
     && Type.constructors_of_datatype ty |> List.exists (fun (ctor, _) ->
-      Type.qualified_ctor_name (Type.name_of_datatype ty)
-        (Type.source_ctor_name ctor)
-      = UfSymbol.name_of_uf_symbol uf)
+      String.equal ctor (UfSymbol.name_of_uf_symbol uf))
   in
   (* A term without variables or uninterpreted symbols, such as a free
      constant of the system, other than constructors *)
@@ -4018,16 +4322,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               trans_terms
           in
 
-          let global_consts =
-            (* Format.eprintf "Global constants: %d@." *)
-            (*   (List.length globals.G.free_constants); *)
-            List.fold_left (fun acc (_, vt, _) ->
-                D.fold (fun _ v acc ->
-                    (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
-                    v :: acc) vt acc
-              ) [] globals.G.free_constants
-            |> List.rev
-          in
+          let global_consts = vars_of_free_constants globals in
           
           let global_const_svars =
             List.map Var.state_var_of_state_var_instance global_consts
@@ -4060,17 +4355,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
           in
 
           let global_constraints =
-            List.map
-              (E.base_term_of_t TransSys.init_base)
-              (globals.G.global_constraints @ adt_global_constraints)
-          in
-
-          let global_constraints =
-            let enum_consts = filter_enum_svars global_const_svars in
-            List.fold_left
-              (add_constraints_of_type true)
-              global_constraints
-              enum_consts
+            constraints_of_free_constants globals adt_global_constraints
           in
 
           let stateful_vars =
@@ -4449,7 +4734,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               ?one_state_trans
               ~datatype_types:globals.G.recursive_datatypes
               ~fn_congruence_groups
-              ~fun_defs:(
+              ~rec_fun_defs:(
                 if is_defined then LustreFunDefs.blocks_of_node fun_defs node_id
                 else [])
               ?rec_cutoff:(
@@ -4498,10 +4783,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               properties
               mode_requires
               node_invariants
-              (NI.get_node_type node_id <> NodeId.FreeConstant &&
-               NI.get_node_type node_id <> NodeId.TypeAscription &&
-               NI.get_node_type node_id <> NodeId.ClockedExpr &&
-               NI.get_node_type node_id <> NodeId.Restarted)
+              (not (NI.is_internal node_id))
           in
           trans_sys_of_node'
             options

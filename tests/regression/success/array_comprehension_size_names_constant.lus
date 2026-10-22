@@ -1,0 +1,10 @@
+-- A size after an array comprehension is outside the scope of its index
+-- variables, so it may name a constant that has the name of one of them
+
+const i: int = 3;
+
+node main (x: int) returns (B: int^3^2);
+let
+  B = (x foreach i, k)^i^2;
+  check B[1][2] = x;
+tel
