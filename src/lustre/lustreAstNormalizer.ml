@@ -2550,26 +2550,39 @@ and call_context_depends_on_quant_vars info =
    the arguments do not mention. A call applied to them in the guard is
    replaced by a call to the same callee applied to the constants, which
    stays applied to the variables of the quantifiers of the guard itself. The
-   constants being unconstrained, the obligations hold at the instance if and
-   only if they hold for all the values of the variables that satisfy the
-   guard. Nested quantifiers bind distinct names (see [normalize_expr]), so a
+   constants being unconstrained, but for the constraints of the types of the
+   variables, which are conjoined to the guard, the obligations hold at the
+   instance if and only if they hold for all the values of the variables that
+   satisfy the guard. Nested quantifiers bind distinct names (see [normalize_expr]), so a
    name in the guard denotes the variable of the call's quantifiers with that
    name, if any *)
 and close_guard info vmap conj =
-  let deps = quant_deps info conj in
   let is_outer v =
     List.exists (fun (_, q, _) -> HString.equal v q) info.quantified_variables
   in
-  let vmap, info, gids =
-    List.fold_left
-      (fun (vmap, info, gids) (pos_v, v, ty) ->
-        if A.SI.mem v deps && not (List.mem_assoc v vmap) then
-          let nexpr, id, gids' = mk_fresh_constant pos_v "_quant_arg" ty in
-          (v, nexpr) :: vmap, add_ty_to_info info id ty, union gids gids'
-        else vmap, info, gids)
-      (vmap, info, empty ())
-      info.quantified_variables
+  (* The constraints of the type of a variable are conjoined to the guard
+     (see [mk_quant_arg_constant]), and may depend on more of the variables,
+     each bound by an enclosing quantifier *)
+  let rec close_vars conj vmap info gids =
+    let deps = quant_deps info conj in
+    match
+      List.find_opt
+        (fun (_, v, _) -> A.SI.mem v deps && not (List.mem_assoc v vmap))
+        info.quantified_variables
+    with
+    | None -> conj, vmap, info, gids
+    | Some (pos_v, v, ty) ->
+      let nexpr, id, base_ty, constraints, gids' =
+        mk_quant_arg_constant info pos_v (A.Ident (pos_v, v)) ty
+      in
+      let conj =
+        List.fold_left (fun acc c -> A.BinaryOp (dpos, A.And, c, acc))
+          conj constraints
+      in
+      close_vars conj ((v, nexpr) :: vmap) (add_ty_to_info info id base_ty)
+        (union gids gids')
   in
+  let conj, vmap, info, gids = close_vars conj vmap info (empty ()) in
   let gids = ref gids in
   let info = ref info in
   let rec close e =
@@ -2609,6 +2622,22 @@ and close_guard info vmap conj =
   in
   let conj = close conj in
   conj, !info, !gids
+
+(* The free constant that stands for a variable bound by an enclosing
+   quantifier, or the index variable of a comprehension, of type [ty], in the
+   arguments or the guard of an instance retained outside of them, and the
+   constraints of [ty] on it, in terms of [var] (the variable as it occurs).
+   The constant is of the base type of [ty]: a refinement of it may mention
+   an input or a local of the node, which is out of scope where the range of
+   a free constant is asserted (see #1820). Asserting the range would also
+   restrict the inputs to those for which the type is not empty. The
+   constraints gate the instance instead, as a guard, so that its obligations
+   hold for all the values of the type *)
+and mk_quant_arg_constant info pos_v var ty =
+  let base_ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+  let nexpr, id, gids = mk_fresh_constant pos_v "_quant_arg" base_ty in
+  let constraints = mk_ref_type_expr info.adt_map info.context None var ty in
+  nexpr, id, base_ty, constraints, gids
 
 (* [inlined] marks the instance of a call that is inlined, or compiled to an
    application of the functional symbol of the callee, which is the case of
@@ -2879,7 +2908,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         with
         | Some (_, q, _) -> raise (Quantified_call_not_callable (pos, q, id))
         | None -> () ) ;
-    let info, vmap, gids0 =
+    let info, vmap, quant_arg_constraints, gids0 =
       if is_inlinable || is_uf_callable then
         (* Only generate variables if the call can be inlined or compiled to
            an application of the functional symbol of the callee *)
@@ -2901,23 +2930,23 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           else info.quantified_variables @ ind_vars
         in
         List.fold_left
-          (fun (info, vmap, gids) (pos_v, v, ty) ->
+          (fun (info, vmap, constraints, gids) (pos_v, v, ty) ->
             if A.SI.mem v args_vars then
-              let nexpr, id, gids' =
-                mk_fresh_constant pos_v "_quant_arg" ty
+              let nexpr, id, base_ty, cs, gids' =
+                mk_quant_arg_constant info pos_v (A.Ident (pos_v, v)) ty
               in
               let info =
-                let ctx = Ctx.add_ty info.context id ty in
+                let ctx = Ctx.add_ty info.context id base_ty in
                 { info with context = ctx }
               in
-              (info, (v, nexpr) :: vmap, union gids gids')
+              (info, (v, nexpr) :: vmap, cs @ constraints, union gids gids')
             else
-              (info, vmap, gids)
+              (info, vmap, constraints, gids)
           )
-          (info, [], (empty ()))
+          (info, [], [], (empty ()))
           vars
       else
-        (info, [], empty())
+        (info, [], [], empty())
     in
     let handle_call ?(inlined=false) vmap args =
       let flags = NI.Map.find id info.node_is_input_const in
@@ -2929,6 +2958,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let info =
         if vmap = [] then info
         else { info with emit_selector_obligations = false }
+      in
+      (* The constraints of the types of the variables gate the instance (see
+         [mk_quant_arg_constant]) *)
+      let info, gids0 =
+        List.fold_left
+          (fun (info, gids) c ->
+            let nc, gids', _ = normalize_expr info node_id map c in
+            { info with
+              call_context = (nc, c, info.pre_depth) :: info.call_context },
+            union gids gids')
+          (info, empty ())
+          (if vmap = [] then [] else quant_arg_constraints)
       in
       (* The instance a call in a decreases measure retains is an instance
          like any other, whose arguments are not part of the measure *)
@@ -2947,7 +2988,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         else
           gids2
       in
-      nexpr, call_name, union gids1 gids2, warnings
+      nexpr, call_name, union_list [gids0; gids1; gids2], warnings
     in
     (* Once a call is inlined, we inline the remaining calls in the body of
      * the inlined function as well. Otherwise, calls inside the inlined
