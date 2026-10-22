@@ -3830,9 +3830,10 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
-(* [expr], a lazy construct whose condition mentions [var] or a call whose
-   operands make calls, as a conditional over the indices of [var] selecting
-   the instance of [expr] for each index (see [expand_node_calls_in_place]) *)
+(* [expr], a lazy construct whose condition mentions [var] or makes a call,
+   or a call whose operands make calls, as a conditional over the indices of
+   [var] selecting the instance of [expr] for each index (see
+   [expand_node_calls_in_place]) *)
 and expand_per_index info node_id var count expr =
   let ty = infer_type info (Some node_id) expr in
   select_instance info var count ty (fun k ->
