@@ -81,6 +81,7 @@ module LDAT = LustreDesugarADTs
 type error = [
   | `LustreAstNormalizerError
   | `LustreSyntaxChecksError of Lib.position * LustreSyntaxChecks.error_kind
+  | `LustreTypeCheckerError of Lib.position * LustreTypeChecker.error_kind
 ]
 
 (* A call to a function applied to quantified variables that can neither be
@@ -95,6 +96,10 @@ exception Call_in_measure_not_supported of Lib.position * NI.t
 (* A measure of a decreases clause whose normalization introduces a variable
    other than an input of the function (see [normalize_contract]) *)
 exception Measure_not_supported of Lib.position
+
+(* A type error only an instantiation of a polymorphic node reveals, e.g. a
+   quantified variable whose type parameter is instantiated with an array *)
+exception Instantiation_type_error of Lib.position * Chk.error_kind
 
 type warning_kind = 
   | UnguardedPreWarning of A.expr
@@ -117,10 +122,19 @@ let mk_warning pos kind = `LustreAstNormalizerWarning (pos, kind)
 
 let unwrap result = match result with
   | Ok r -> r
+  | Error (`LustreTypeCheckerError (pos, kind)) ->
+    raise (Instantiation_type_error (pos, kind))
   | Error e ->
     let msg = LustreErrors.error_message e in
     Log.log L_debug "(Lustre AST Normalizer Internal Error: %s)" msg;
     assert false
+
+(* The type checker rejects a set element or map key type that is a recursive
+   datatype with refinement types, but an instantiation of a type parameter can
+   still produce one; its constraint would quantify over that datatype *)
+let reject_wf_adt_key ctx pos ty =
+  if Ctx.type_contains_wf_adt ctx ty then
+    raise (Instantiation_type_error (pos, Chk.UnsupportedRefinedRecursiveAdtMapType ty))
 
 (* Structural equality of expressions, ignoring positions. Beyond [depth], if
    given, expressions are conservatively treated as unequal. *)
@@ -832,6 +846,7 @@ and mk_ref_type_expr
     ) exprs
   | Set (_, ty) -> 
     let pos = AH.pos_of_expr expr in
+    reject_wf_adt_key ctx pos ty;
     let dummy_index = mk_fresh_dummy_index () in
     let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index ty in 
@@ -850,6 +865,7 @@ and mk_ref_type_expr
     ) exprs1
   | Map (_, kt, vt) -> 
     let pos = AH.pos_of_expr expr in
+    reject_wf_adt_key ctx pos kt;
     let dummy_index = mk_fresh_dummy_index () in
     let idx = A.Ident (pos, dummy_index) in
     let ctx = Ctx.add_ty ctx dummy_index kt in 
@@ -875,6 +891,21 @@ and mk_ref_type_expr
       ) exprs2
     in
     exprs1 @ exprs2
+
+  | ADT (p, ty_name, ctors) ->
+    (* A recursive ADT is unbounded, so its field constraints cannot be
+       enumerated structurally; a generated well-formedness predicate carries them *)
+    if AH.is_directly_recursive_adt ty_name ctors then
+      let pred_id = LDAT.wf_pred_id ty_name in
+      (* The predicate's own argument is not constrained by the predicate *)
+      let defines_this_type =
+        match node_id with
+        | Some id -> NI.equal id pred_id
+        | None -> false
+      in
+      if defines_this_type || not (Ctx.type_contains_ref ctx ty) then []
+      else [A.Call (p, [], pred_id, [expr])]
+    else assert false (* desugared to records in lustreDesugarADTs *)
 
   | _ -> []
 
@@ -1402,6 +1433,8 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     Error
       (`LustreSyntaxChecksError
          (pos, LustreSyntaxChecks.UnsupportedDecreasesMeasure))
+  | exception Instantiation_type_error (pos, kind) ->
+    Error (`LustreTypeCheckerError (pos, kind))
   | ast, map, warnings ->
   let ast = List.rev ast in
   

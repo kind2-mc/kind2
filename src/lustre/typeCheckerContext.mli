@@ -328,6 +328,11 @@ val type_contains_abstract : tc_context -> tc_type -> bool
 val type_contains_array: tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains an array *)
 
+val type_contains_wf_adt: tc_context -> tc_type -> bool
+(** True if the type mentions a recursive ADT carrying a refinement type. Such a
+    type is constrained by a generated recursive predicate, which cannot be
+    applied to a quantifier-bound variable. *)
+
 val type_contains_map_or_set: tc_context -> tc_type -> bool
 (** Returns true if the lustre type expression contains a map or set *)
 

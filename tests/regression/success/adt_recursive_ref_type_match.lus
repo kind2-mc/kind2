@@ -1,0 +1,11 @@
+type Nat = subtype { x: int | x >= 0 };
+datatype NatList = Nil | Cons (hd: Nat, tl: NatList);
+
+node top(l: NatList) returns (r: int);
+let
+  r = match l with
+      | Nil : 0
+      | Cons (h, t) : h
+      end;
+  check "P" r >= 0;
+tel

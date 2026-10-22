@@ -889,6 +889,34 @@ let rec type_contains_abstract ctx = function
   | Bool _ | Int _ | Real _ | EnumType _  
   | AbstractType _ | SBitVector _ | UBitVector _ -> false
 
+(* A recursive ADT carrying a refinement type is constrained by a generated
+   recursive predicate rather than by a structural expansion. That predicate is
+   not inlinable, so it cannot be applied to a quantifier-bound variable. *)
+let type_contains_wf_adt ctx ty =
+  let rec aux seen = function
+    | LA.ADT (_, name, cons) as ty ->
+      (LH.is_directly_recursive_adt name cons && type_contains_ref ctx ty)
+      || List.exists
+           (fun (_, flds) -> List.exists (fun (_, ty) -> aux seen ty) flds)
+           cons
+    | UserType (_, ty_args, id) ->
+      if SI.mem id seen then false
+      else (match lookup_ty_syn ctx id ty_args with
+            | Some ty -> aux (SI.add id seen) ty
+            | None -> false)
+    | TupleType (_, tys) | GroupType (_, tys) ->
+      List.exists (aux seen) tys
+    | RecordType (_, _, tys) -> List.exists (fun (_, _, ty) -> aux seen ty) tys
+    | ArrayType (_, (ty, _)) | Set (_, ty) | RefinementType (_, (_, _, ty), _) ->
+      aux seen ty
+    | Map (_, ty1, ty2) | TArr (_, ty1, ty2) -> aux seen ty1 || aux seen ty2
+    | History (_, id) ->
+      (match lookup_ty ctx id with Some ty -> aux seen ty | None -> false)
+    | Bool _ | Int _ | Real _ | EnumType _
+    | AbstractType _ | SBitVector _ | UBitVector _ -> false
+  in
+  aux SI.empty ty
+
 let rec type_contains_map_or_set ctx = function
   | LA.Map _ 
   | Set _ -> true 

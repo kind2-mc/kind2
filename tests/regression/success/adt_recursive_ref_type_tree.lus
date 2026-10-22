@@ -1,0 +1,7 @@
+type Nat = subtype { x: int | x >= 0 };
+datatype Tree = Leaf | Node (v: Nat, lft: Tree, rgt: Tree);
+
+node top(t: Tree) returns ();
+let
+  check "P" (not Node?(t)) or else (t.v >= 0);
+tel

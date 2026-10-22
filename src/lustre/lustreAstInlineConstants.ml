@@ -463,7 +463,19 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     StructUpdate (p, simplify_expr ~ind_vars ~is_guarded ctx e, lois, e_opt) 
   | FieldProject (p, e, id, pk) ->
     FieldProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id, pk)
-  | e -> e
+  | ConvOp (p, op, e) -> ConvOp (p, op, simplify_expr ~ind_vars ~is_guarded ctx e)
+  | Extract (p, e, i, j) -> Extract (p, simplify_expr ~ind_vars ~is_guarded ctx e, i, j)
+  | ADTTerm (p, ty_args, ctor, es) ->
+    let ty_args = List.map (inline_constants_of_lustre_type ~ind_vars ctx) ty_args in
+    ADTTerm (p, ty_args, ctor, List.map (simplify_expr ~ind_vars ~is_guarded ctx) es)
+  | ADTTester (p, e, ctor) -> ADTTester (p, simplify_expr ~ind_vars ~is_guarded ctx e, ctor)
+  | Restart (p, e1, e2) ->
+    Restart (p, simplify_expr ~ind_vars ctx e1, simplify_expr ~ind_vars ctx e2)
+  | RestartEvery (p, id, es, e) ->
+    let es = List.map (simplify_expr ~ind_vars ctx) es in
+    RestartEvery (p, id, es, simplify_expr ~ind_vars ctx e)
+  | ModeRef _ | Last _ | AbstractSymConst _ | EmptySet (_, None) | EmptyMap (_, None)
+  | AnyOp _ | ChooseOp _ as e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)
 

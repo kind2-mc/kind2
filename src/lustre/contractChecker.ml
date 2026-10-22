@@ -342,6 +342,7 @@ let node_kind_description in_sys scope node_id =
   | ClockedExpr -> "clocked expression"
   | Restarted -> "restart"
   | Choose -> "'Choose' operator"
+  | WellFormedness -> "Well-formedness predicate"
 
 let pp_print_realizability_result_pt
   analyze in_sys param sys fmt result =

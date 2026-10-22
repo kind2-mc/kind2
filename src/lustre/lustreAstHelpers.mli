@@ -28,6 +28,9 @@ val expr_is_id : expr -> bool
 val expr_is_const : expr -> bool
 (** Returns whether or not the expression is a Const variant *)
 
+val mk_conj : Lib.position -> expr list -> expr
+(** Conjoin a list of constraints; the empty conjunction is [true]. *)
+
 val expr_is_true : expr -> bool
 (** Returns whether or not the expression is a Bool Const variant with the True value *)
 

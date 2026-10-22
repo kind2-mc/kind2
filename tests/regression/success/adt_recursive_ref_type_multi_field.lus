@@ -1,0 +1,9 @@
+type Nat = subtype { x: int | x >= 0 };
+type Pos = subtype { y: int | y > 0 };
+datatype Rec = Base (a: Nat) | Step (b: Pos, c: Nat, d: Rec);
+
+node top(r: Rec) returns ();
+let
+  check "P1" (not Base?(r)) or else (r.a >= 0);
+  check "P2" (not Step?(r)) or else (r.b > 0 and r.c >= 0);
+tel

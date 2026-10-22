@@ -1,0 +1,10 @@
+type Nat = subtype { x: int | x >= 0 };
+datatype NatList = Nil | Cons (hd: Nat, tl: NatList);
+node G<T>(x: T) returns (s: set<T>);
+let
+  s = {x};
+tel
+node top(l: NatList) returns ();
+let
+  check l in G(l);
+tel

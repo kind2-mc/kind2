@@ -45,6 +45,7 @@ module LDAC = LustreDesugarArrayComprehensions
 module LNC = LustreNameCalls
 module RMA = LustreRemoveMultAssign
 module LGN = LustreGenNodes 
+module LGWF = LustreGenWfPredicates
 module LFR = LustreFlattenRefinementTypes
 module LGI = LustreGenRefTypeImpNodes
 module LIP = LustreInstantiatePolyNodes
@@ -279,6 +280,23 @@ let type_check declarations =
          const_inlined_type_and_consts, const_inlined_nodes_and_contracts =
       LIP.instantiate_polymorphic_adts inlined_global_ctx gids
         const_inlined_type_and_consts const_inlined_nodes_and_contracts
+    in
+
+    (* Step 20b. Generate a recursive well-formedness predicate for each
+       monomorphic recursive ADT carrying a refinement type. Runs after ADT
+       instantiation, which makes every recursive datatype monomorphic. *)
+    let inlined_global_ctx, wf_preds =
+      LGWF.gen_wf_predicates inlined_global_ctx adt_map const_inlined_type_and_consts
+    in
+    let const_inlined_nodes_and_contracts = wf_preds @ const_inlined_nodes_and_contracts in
+    (* Each predicate is its own recursive group *)
+    let scc_map =
+      let next = LDAT.HStringMap.fold (fun _ i acc -> max (i + 1) acc) scc_map 0 in
+      List.filter_map LH.node_id_of_decl wf_preds
+      |> List.fold_left (fun (next, acc) node_id ->
+           next + 1, LDAT.HStringMap.add (NI.get_internal_name node_id) next acc
+         ) (next, scc_map)
+      |> snd
     in
 
     (* Step 21. Flatten refinement types *)

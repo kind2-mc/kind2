@@ -914,6 +914,30 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/quantified_map.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedVariable _)) -> true
     | _ -> false);
+  mk_test "test quantifying over a recursive ADT with refined fields is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_quantified.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedRefinedRecursiveAdt _)) -> true
+    | _ -> false);
+  mk_test "test quantifying over a type parameter instantiated with a recursive ADT with refined fields is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_generic_quantified.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedRefinedRecursiveAdt _)) -> true
+    | _ -> false);
+  mk_test "test quantifying over a type parameter instantiated with an array is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/generic_quantified_array_instance.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedQuantifiedVariable _)) -> true
+    | _ -> false);
+  mk_test "test set of a recursive ADT with refined fields is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_set_element.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinedRecursiveAdtMapType _)) -> true
+    | _ -> false);
+  mk_test "test map keyed by a recursive ADT with refined fields is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_map_key.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinedRecursiveAdtMapType _)) -> true
+    | _ -> false);
+  mk_test "test set of a type parameter instantiated with a recursive ADT with refined fields is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_generic_set_element.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinedRecursiveAdtMapType _)) -> true
+    | _ -> false);
   mk_test "test map with unsupported array key type" (fun () ->
     match load_file "./lustreTypeChecker/map_array_key_type.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedMapType _)) -> true
@@ -1062,8 +1086,8 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_unsupported_recursive_unrelated_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test recursive ADT with a refinement-typed field is rejected" (fun () ->
-    match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
+  mk_test "test refinement type on a recursive ADT's self-referential field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_refinement_self_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
   mk_test "test recursive ADT with a polymorphic datatype field is rejected" (fun () ->
@@ -1108,11 +1132,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test ADT instantiation at a refinement type is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_refinement_arg.lus" with
-    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtInstantiation _)) -> true
     | _ -> false);
   mk_test "test ADT instantiation at a subrange type is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_subrange_arg.lus" with
-    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtInstantiation _)) -> true
     | _ -> false);
   mk_test "test ADT instantiation at a refinement type not reaching a field is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_phantom_refinement_arg.lus" with

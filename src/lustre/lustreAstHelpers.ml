@@ -36,6 +36,11 @@ let expr_is_const = function
   | Const (_, _) -> true
   | _ -> false
 
+(* Conjoin a list of constraints; the empty conjunction is 'true'. *)
+let mk_conj pos = function
+  | [] -> Const (pos, True)
+  | e :: es -> List.fold_left (fun acc e -> BinaryOp (pos, And, acc, e)) e es
+
 let expr_is_true = function
   | Const (_, True) -> true
   | _ -> false

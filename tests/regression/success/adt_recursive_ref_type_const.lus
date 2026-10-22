@@ -1,0 +1,8 @@
+type Nat = subtype { x: int | x >= 0 };
+datatype NatList = Nil | Cons (hd: Nat, tl: NatList);
+const C: NatList = Cons(1, Nil);
+
+node top() returns ();
+let
+  check "P" Cons?(C);
+tel

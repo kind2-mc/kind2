@@ -17,7 +17,7 @@
 
 (** @author Rob Lorch *)
 
-type node_type = Component | Contract | Environment | Type | Any | Choose | TypeAscription | ClockedExpr | Restarted | DefinedConstant | FreeConstant
+type node_type = Component | Contract | Environment | Type | Any | Choose | TypeAscription | ClockedExpr | Restarted | DefinedConstant | FreeConstant | WellFormedness
 
 type t
 

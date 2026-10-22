@@ -1,0 +1,7 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+type R = subtype { l: L | Cons?(l) };
+
+node top() returns (c: R);
+let
+  c = Cons(1, Nil);
+tel

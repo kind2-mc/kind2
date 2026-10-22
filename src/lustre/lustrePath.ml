@@ -1315,6 +1315,7 @@ let rec pp_print_lustre_path_pt' ?(full_contract=false) is_top const_map const_f
     | ClockedExpr -> "clocked expression"
     | Restarted -> "restart"
     | TypeAscription -> "Type ascription operator"
+    | WellFormedness -> "Well-formedness predicate"
   in
   
   (* Remove first dimension from index *)

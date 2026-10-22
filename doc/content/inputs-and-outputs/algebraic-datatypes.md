@@ -179,3 +179,28 @@ let
   ok = Some?(xi) and Some?(xr);
 tel
 ```
+
+## Refinement Types in Fields
+
+The fields of a recursive ADT, including a polymorphic one, may have
+[refinement types]({{< relref "/inputs-and-outputs/refinement-types" >}}):
+
+```lustre
+type Nat = subtype { x: int | x >= 0 };
+datatype NatList = Nil | Cons (hd: Nat, tl: NatList);
+datatype Tagged<T> = Done | Step (count: Nat, val: T, rest: Tagged<T>);
+```
+
+The refinement constrains the field at every depth of a value: a value of
+`NatList` is assumed to have non-negative elements throughout when it is an
+input, and this is checked when it is an output.
+
+The following are not supported:
+
+* A refinement type that reaches a recursive ADT through a type argument,
+  as in `Tagged<Nat>`.
+* A refinement type on a field whose type is the datatype itself.
+* Quantifying over such a datatype (`forall (l: NatList) ...`), or using it
+  as a set element or map key type.
+* Calling a function whose output type includes such a datatype with an
+  argument that mentions a quantified variable.

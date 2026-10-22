@@ -53,6 +53,12 @@ type adt_map = adt_info HStringMap.t
     must not itself be restricted to canonical values. *)
 val is_canonical_bound_var : HString.t -> bool
 
+val wf_pred_id : HString.t -> NodeId.t
+(** Identifier of the generated well-formedness predicate for a recursive ADT,
+    tagged {!NodeId.WellFormedness}. The tag disambiguates it from any user
+    declaration of the same name and is how the predicate is recognized by the
+    passes that must treat it specially. *)
+
 (** [mk_canonical_exprs ctx adt_map pos expr ty] is the list of constraints
     stating that every ADT value reachable from [expr], of type [ty], is in
     canonical form: the payload fields of the constructors other than the

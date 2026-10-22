@@ -1394,7 +1394,7 @@ let rec is_scalar_field_type ctx ty =
   | A.Set _ | A.Map _ | A.TArr _ | A.History _ -> false
 
 (* True iff a type is or contains a refinement type. A datatype is not looked
-   inside: a refinement on its own fields is rejected where it is declared. *)
+   inside: a refinement on its own fields is checked where it is declared. *)
 let rec has_refinement ctx ty =
   let r = has_refinement ctx in
   match ty with
@@ -1428,22 +1428,19 @@ let check_instantiation ctx mono_name inst =
     Chk.type_error inst.use_pos
       (Chk.UnsupportedRecursiveAdtField (mono_name, fname))
   | None ->
-    match List.find_opt (fun (_, ty) -> has_refinement ctx ty) fields with
-    | Some (fname, _) ->
+    (* A refinement is erased when two types are compared, so an argument
+       carrying one would let values cross between two distinct datatypes.
+       A refinement the declaration writes on a field is checked where it is
+       declared. *)
+    match inst.body with
+    | A.ADT _ when List.exists (has_refinement ctx) inst.ty_args ->
       Chk.type_error inst.use_pos
-        (Chk.UnsupportedRefinementInRecursiveAdtField (mono_name, fname))
-    | None ->
-      (* A refinement is erased when two types are compared, so an argument
-         carrying one would let values cross between two distinct datatypes *)
-      match inst.body with
-      | A.ADT _ when List.exists (has_refinement ctx) inst.ty_args ->
-        Chk.type_error inst.use_pos
-          (Chk.UnsupportedRefinementInRecursiveAdtInstantiation mono_name)
-      | A.ADT _ | A.UserType _ | A.AbstractType _ | A.TupleType _
-      | A.GroupType _ | A.RecordType _ | A.ArrayType _ | A.EnumType _
-      | A.RefinementType _ | A.History _ | A.TArr _ | A.Set _ | A.Map _
-      | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ ->
-        R.ok ()
+        (Chk.UnsupportedRefinementInRecursiveAdtInstantiation mono_name)
+    | A.ADT _ | A.UserType _ | A.AbstractType _ | A.TupleType _
+    | A.GroupType _ | A.RecordType _ | A.ArrayType _ | A.EnumType _
+    | A.RefinementType _ | A.History _ | A.TArr _ | A.Set _ | A.Map _
+    | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _ ->
+      R.ok ()
 
 (* The datatypes a declared name reaches, when it names a datatype that is not an
    instantiation. Those are declared once, so a cycle through one of them still
