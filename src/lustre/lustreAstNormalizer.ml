@@ -2563,8 +2563,7 @@ and close_guard info vmap conj =
   (* The constraints of the type of a variable are conjoined to the guard
      (see [mk_quant_arg_constant]), and may depend on more of the variables,
      each bound by an enclosing quantifier *)
-  let rec close_vars conj vmap info gids =
-    let deps = quant_deps info conj in
+  let rec close_vars conj deps vmap info gids =
     match
       List.find_opt
         (fun (_, v, _) -> A.SI.mem v deps && not (List.mem_assoc v vmap))
@@ -2575,14 +2574,19 @@ and close_guard info vmap conj =
       let nexpr, id, base_ty, constraints, gids' =
         mk_quant_arg_constant info pos_v (A.Ident (pos_v, v)) ty
       in
-      let conj =
-        List.fold_left (fun acc c -> A.BinaryOp (dpos, A.And, c, acc))
-          conj constraints
+      let conj, deps =
+        List.fold_left
+          (fun (conj, deps) c ->
+            A.BinaryOp (dpos, A.And, c, conj),
+            A.SI.union deps (quant_deps info c))
+          (conj, deps) constraints
       in
-      close_vars conj ((v, nexpr) :: vmap) (add_ty_to_info info id base_ty)
-        (union gids gids')
+      close_vars conj deps ((v, nexpr) :: vmap)
+        (add_ty_to_info info id base_ty) (union gids gids')
   in
-  let conj, vmap, info, gids = close_vars conj vmap info (empty ()) in
+  let conj, vmap, info, gids =
+    close_vars conj (quant_deps info conj) vmap info (empty ())
+  in
   let gids = ref gids in
   let info = ref info in
   let rec close e =
@@ -2960,16 +2964,20 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         else { info with emit_selector_obligations = false }
       in
       (* The constraints of the types of the variables gate the instance (see
-         [mk_quant_arg_constant]) *)
+         [mk_quant_arg_constant]), and so do they the calls in its arguments,
+         which are applied to the same constants. They are written in terms of
+         the constants: a call in the arguments would close the variables with
+         constants of its own, which the constraints would then not be on *)
       let info, gids0 =
         List.fold_left
           (fun (info, gids) c ->
+            let c = AH.apply_subst_in_expr vmap c in
             let nc, gids', _ = normalize_expr info node_id map c in
             { info with
               call_context = (nc, c, info.pre_depth) :: info.call_context },
             union gids gids')
           (info, empty ())
-          (if vmap = [] then [] else quant_arg_constraints)
+          quant_arg_constraints
       in
       (* The instance a call in a decreases measure retains is an instance
          like any other, whose arguments are not part of the measure *)
