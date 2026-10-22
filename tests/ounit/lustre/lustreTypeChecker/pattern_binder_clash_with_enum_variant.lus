@@ -1,0 +1,7 @@
+type E = enum { A, B };
+datatype P = MkP (c: int);
+
+node main (p: P) returns (ok: bool);
+let
+  ok = match p with | MkP (A) : A > 0 end;
+tel

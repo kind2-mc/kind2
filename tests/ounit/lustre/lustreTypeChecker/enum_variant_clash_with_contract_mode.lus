@@ -1,0 +1,15 @@
+type color = enum { Red, Green };
+
+contract C (c: color) returns (ok: bool);
+let
+  mode Red (
+    require c = Green;
+    ensure ok;
+  );
+tel
+
+node main (c: color) returns (ok: bool);
+(*@contract import C(c) returns (ok); *)
+let
+  ok = true;
+tel

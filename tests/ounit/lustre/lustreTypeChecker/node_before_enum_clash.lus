@@ -1,0 +1,6 @@
+node A (x: int) returns (y: int);
+let
+  y = x;
+tel
+
+type E = enum { A, B };

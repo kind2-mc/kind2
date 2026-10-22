@@ -1,0 +1,8 @@
+datatype E = A | B;
+datatype P = MkP (c: subtype { z: E | z = B });
+
+node main (p: P) returns (ok: bool);
+let
+  ok = p.c = B;
+  check ok;
+tel

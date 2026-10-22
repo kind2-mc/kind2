@@ -1,0 +1,8 @@
+datatype P = Q | MkP (c: int);
+type r = struct { P_tag: int; MkP_c: int };
+
+node main (p: P; x: r) returns (ok: bool);
+let
+  ok = Q?(p) and x.P_tag = 0 and x.MkP_c = 0;
+  check ok;
+tel

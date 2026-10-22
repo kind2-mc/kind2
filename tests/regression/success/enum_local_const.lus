@@ -1,0 +1,19 @@
+type my_enum = enum { A, B };
+
+node top (e: my_enum) returns (ok: bool);
+const k: my_enum = A;
+let
+  ok = e = k or e = B;
+tel
+
+function f (e: my_enum) returns (r: bool);
+const k: my_enum = A;
+let
+  r = e = k or e = B;
+tel
+
+node main (e: my_enum) returns (ok: bool);
+let
+  ok = top(e) and f(e);
+  check ok;
+tel

@@ -1,0 +1,7 @@
+datatype color = Red | Green | Blue;
+
+node main (c: color) returns (ok: bool);
+let
+  ok = c = Red;
+  check ok;
+tel
