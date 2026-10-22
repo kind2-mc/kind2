@@ -215,8 +215,23 @@ let qcalls_by_name : qcall_entry StringMap.t ref = ref StringMap.empty
 let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
   SelectorCache.create 20
 
+(* The types of the identifiers generated in the node being normalized, which
+   the locals generated for an expression do not always record: a local
+   reused from [local_cache], an oracle, or the output of a call, is not
+   among them. The
+   type of the output of a call is only inferred when it is needed. The body
+   of an inlined call is typed with the types of the identifiers in its
+   normalized arguments (see [normalize_expr]) *)
+let generated_types : A.lustre_type Lazy.t HString.HStringHashtbl.t =
+  HString.HStringHashtbl.create 20
+
+let add_generated_type id ty =
+  if not (HString.HStringHashtbl.mem generated_types id) then
+    HString.HStringHashtbl.add generated_types id ty
+
 let clear_cache () =
   LocalCache.clear local_cache;
+  HString.HStringHashtbl.clear generated_types;
   NodeArgCache.clear node_arg_cache;
   shared_calls := [];
   qcalls_by_name := StringMap.empty;
@@ -867,7 +882,9 @@ let mk_fresh_oracle expr_type expr =
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { (empty ()) with
     oracles = [name, expr_type, expr]; }
-  in nexpr, name, gids
+  in
+  add_generated_type name (Lazy.from_val expr_type);
+  nexpr, name, gids
 
 let mk_fresh_local force info pos ind_vars expr_type expr =
   match (LocalCache.find_opt local_cache expr, force) with
@@ -883,6 +900,7 @@ let mk_fresh_local force info pos ind_vars expr_type expr =
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
   LocalCache.add local_cache expr nexpr;
+  add_generated_type name (Lazy.from_val expr_type);
   nexpr, gids
 
 (* A 'pre' guarded by an enclosing '->' is left bare by the normalization, and
@@ -1034,6 +1052,19 @@ let get_expr_ty info map node_id expr =
     in
     Chk.infer_type_expr ctx node_id expr |> unwrap |> (fun (ty, _, _) -> ty) in
   Chk.expand_type_syn_reftype_history info.context ty |> unwrap
+
+(* Record the type of [nexpr], the identifier a call [call] is abstracted to,
+   which stands for the output of the call projected by
+   [info.local_group_projection], if any *)
+let add_call_output_type info map node_id call nexpr =
+  match nexpr with
+  | A.Ident (_, id) ->
+    add_generated_type id (lazy (
+      match get_expr_ty info map node_id call with
+      | A.GroupType (_, tys) when info.local_group_projection >= 0 ->
+        List.nth tys info.local_group_projection
+      | ty -> ty))
+  | _ -> ()
 
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
@@ -3027,7 +3058,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         args
       in
       let expr = get_inline_func_expr info.inlinable_funcs id nargs in
-      let inlined_info = { info with inlined_expr_ctx = true } in
+      (* The normalized arguments may refer to identifiers generated in the
+         node (e.g., for an array constructor or a call), whose types the
+         normalization of the body may need to infer *)
+      let inlined_info =
+        let ids =
+          List.fold_left
+            (fun acc e -> A.SI.union acc (AH.vars_without_node_call_ids e))
+            A.SI.empty
+            nargs
+        in
+        A.SI.fold
+          (fun id acc ->
+            if Ctx.member_ty acc.context id then acc
+            else
+              match HString.HStringHashtbl.find_opt generated_types id with
+              | Some ty -> add_ty_to_info acc id (Lazy.force ty)
+              | None -> acc)
+          ids { info with inlined_expr_ctx = true }
+      in
       let nexpr, gids2, warnings2 =
         normalize_expr ?guard inlined_info node_id map expr
       in
@@ -3063,10 +3112,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         args
       in
       let nexpr, gids3 = mk_fresh_qcall info id inst_name pos nargs in
+      add_call_output_type info map node_id call nexpr;
       nexpr, union_list [gids0; gids1; gids2; gids3], warnings1 @ warnings2
     )
     else (
       let nexpr, _, gids, warnings = handle_call vmap args in
+      add_call_output_type info map node_id call nexpr;
       nexpr, gids, warnings
     )
   | RestartEvery (pos, id, args, restart) as call ->
@@ -3086,6 +3137,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr, _, gids3 =
       mk_fresh_call ~instance info id pos cond nrestart nargs None
     in
+    add_call_output_type info map node_id call nexpr;
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   (* ************************************************************************ *)
@@ -3155,6 +3207,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids2 =
       let locals =
         let expr_type = infer_type info node_id e in
+        add_generated_type name (Lazy.from_val expr_type);
         StringMap.singleton name expr_type
       in
       let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
