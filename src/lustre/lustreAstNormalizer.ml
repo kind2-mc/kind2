@@ -2867,11 +2867,48 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr then
-      let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-      ty
-    else 
-      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
+    let ty =
+      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in
+    match get_inductive_vars ivars expr, nexpr with
+    | (_ :: _) as vars, A.GroupExpr (_, ArrayExpr, nexprs) when nexprs <> [] ->
+      (* A literal that mentions index variables of the enclosing array
+         equation is defined element by element, over those variables and a
+         fresh index [k], as in [l[i][k] = if k = 0 then e0 else e1], rather
+         than from the expanded literal (see #1748) *)
+      i := !i + 1;
+      let prefix = HString.mk_hstring (string_of_int !i) in
+      let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
+      let k = HString.concat2 prefix (HString.mk_hstring "_idx") in
+      let rev_nexprs = List.rev nexprs in
+      let _, rhs =
+        List.fold_left
+          (fun (n, acc) e ->
+            let cond = A.CompOp (dpos, A.Eq, A.Ident (dpos, k), mk_index n) in
+            n - 1, A.TernaryOp (dpos, A.Ite, cond, e, acc))
+          (List.length nexprs - 2, List.hd rev_nexprs)
+          (List.tl rev_nexprs)
+      in
+      let local_ty =
+        List.fold_right
+          (fun id acc ->
+            let (_, size, _, _) = StringMap.find id ivars in
+            A.ArrayType (pos, (acc, size)))
+          vars ty
+      in
+      let eq_lhs = A.StructDef (dpos, [ArrayDef (dpos, name, vars @ [k])]) in
+      let gids = { (empty ()) with
+        locals = StringMap.singleton name local_ty;
+        equations =
+          [(info.quantified_variables, info.contract_scope, eq_lhs, rhs, None)]; }
+      in
+      add_generated_type name (Lazy.from_val local_ty);
+      let nexpr =
+        List.fold_left
+          (fun acc v -> A.IndexAccess (dpos, acc, A.Ident (dpos, v), Array))
+          (A.Ident (pos, name)) vars
+      in
+      nexpr, gids
+    | _ ->
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
       match nexpr with
