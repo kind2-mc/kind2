@@ -1,11 +1,13 @@
-"""A 'pre' in the right operand of an arrow must be well defined on its own.
+"""An expression moved out from under an arrow must be well defined at the
+initial instant.
 
-The normalizer used to let such a 'pre' skip its oracle, on the grounds that
-the arrow supplies the initial instant. That holds only while the expression
-stays under the arrow: a later pass that lifts it out -- a hoisted local, a
-generated selector obligation -- leaves a reference to the instant before the
-first one, and the solver rejects the query. Each model below reaches one of
-those passes; none may produce a solver failure.
+A 'pre' in the right operand of an arrow is left bare by the normalization,
+since the arrow supplies the initial instant. That holds only while the
+expression stays under the arrow: a pass that moves it out -- a hoisted lazy
+guard, a restart condition, the local abstracting the scrutinee of a selector
+-- leaves a reference to the instant before the first one, and the solver
+rejects the query. Each model below reaches one of those passes; none may
+produce a solver failure.
 """
 
 import subprocess
@@ -14,8 +16,8 @@ import pytest
 
 from conftest import common_args, kind2_bin, run_timeout
 
-# A selector whose scrutinee is read through a 'pre': the generated obligation
-# is emitted outside the arrow
+# A selector whose scrutinee is read through a 'pre': the local abstracting
+# the scrutinee is defined outside the arrow
 selector = """
 datatype D = A (v: int) | B;
 node main(i: int) returns (ok: bool);

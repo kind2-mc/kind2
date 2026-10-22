@@ -2762,18 +2762,17 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
       (* The variable the oracle stands in for, which names it in IVC/MCS
-         output, printed invariants and certificates *)
+         output, printed invariants and certificates. An array local is read
+         through one index access per dimension *)
       let closed_sv =
-        (* An array local is read through one index access per dimension *)
         let rec base expr =
           match expr with
           | A.Ident (_, id') -> Some id'
-          | A.IndexAccess (_, e, _, _) -> base e
-          | A.Const (_, _) -> None
-          | _ -> assert false
+          | A.IndexAccess (_, e, _, _) | A.Pre (_, e) -> base e
+          (* An expression of several variables, or a constant compiled to a
+             value, has no single state variable to be named after *)
+          | _ -> None
         in
-        (* A constant compiled to a value has no state variable to be named
-           after *)
         match base expr with
         | Some id' -> H.find_opt !map.state_var (mk_ident id')
         | None -> None
