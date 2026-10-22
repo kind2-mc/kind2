@@ -3027,7 +3027,14 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         args
       in
       let expr = get_inline_func_expr info.inlinable_funcs id nargs in
-      let inlined_info = { info with inlined_expr_ctx = true } in
+      (* The normalized arguments may refer to locals generated for them
+         (e.g., for an array constructor), whose types the normalization of
+         the body may need to infer *)
+      let inlined_info =
+        StringMap.fold
+          (fun id ty acc -> add_ty_to_info acc id ty)
+          gids1.locals { info with inlined_expr_ctx = true }
+      in
       let nexpr, gids2, warnings2 =
         normalize_expr ?guard inlined_info node_id map expr
       in
