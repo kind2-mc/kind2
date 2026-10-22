@@ -1,0 +1,18 @@
+datatype T = A (v: int) | B;
+
+node two (x: int) returns (p, q: int);
+let
+  p = x;
+  q = x + 1;
+tel
+
+node main (n: int) returns (y, z: int);
+var t: T;
+let
+  t = A(n);
+  y, z = match t with
+         | A (v) : (0, 0) -> two(v)
+         | B : (0, 0)
+         end;
+  --%PROPERTY y = (0 -> n) and z = (0 -> n + 1);
+tel

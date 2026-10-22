@@ -1,0 +1,8 @@
+datatype Opt<T> = ON | OS (x: T);
+datatype Tree<T> = Leaf | Node (kids: Opt<Tree<Opt<T>>>);
+
+node main(t: Tree<int>) returns (ok: bool);
+let
+  ok = true;
+  check ok;
+tel

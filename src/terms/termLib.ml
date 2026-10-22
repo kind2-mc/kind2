@@ -68,7 +68,7 @@ let rec default_of_type t =
     | Type.Real -> Term.mk_dec Decimal.zero
 
     (* Apply the first non-self-recursive constructor with default field values *)
-    | Type.Datatype (_, ctors) ->
+    | Type.Datatype (_, ctors, _) ->
       let is_self_recursive ty = Type.is_datatype_ref ty in
       let ctor_name, fields =
         match List.find_opt (fun (_, fs) -> not (List.exists is_self_recursive fs)) ctors with
@@ -99,6 +99,7 @@ let rec default_of_type t =
 (* A feature of a logic fragment for terms *)
 type feature =
   | Q  (* Quantifiers *)
+  | RF (* Recursive function definitions *)
   | UF (* Equality over uninterpreted functions *)
   | A  (* Arrays *)
   | DT (* Algebraic datatypes *)
@@ -146,7 +147,7 @@ let rec logic_of_sort ty =
     union (logic_of_sort ta) (logic_of_sort tr)
     |> add A
 
-  | Datatype (_, ctors) ->
+  | Datatype (_, ctors, _) ->
     let field_logic =
       List.concat_map snd ctors
       |> List.fold_left (fun acc t -> FeatureSet.union acc (logic_of_sort t)) empty
@@ -249,9 +250,25 @@ let check_add_Q t l =
                                                         
 (* Returns the logic fragment used by a term *)
 let logic_of_term fun_symbols t =
+  (* The sorts of the bound variables, which the body of a quantifier
+     may not mention: a variable may be unused, or shadowed by a later
+     binder of the same quantifier *)
+  let binder_logic = ref FeatureSet.empty in
+  let remove_quantifier _ t =
+    (match Term.T.node_of_t t with
+     | Term.T.Forall lam | Term.T.Exists lam ->
+       binder_logic :=
+         Term.T.sorts_of_lambda lam
+         |> List.map logic_of_sort
+         |> sup_logics
+         |> FeatureSet.union !binder_logic
+     | _ -> ());
+    remove_top_level_quantifier t
+  in
   t
-  |> Term.map (fun _ -> remove_top_level_quantifier)
+  |> Term.map remove_quantifier
   |> Term.eval_t ~fail_on_quantifiers:false (logic_of_flat fun_symbols)
+  |> FeatureSet.union !binder_logic
   |> check_add_Q t
 
 
@@ -285,8 +302,11 @@ type logic = [ `None | `Inferred of features | `SMTLogic of string ]
 let pp_print_logic ?(enforce_logic=false) fmt = function
   | `None -> pp_print_string fmt "ALL"
   | `Inferred l ->
+      (* Recursive function definitions are accepted by the solvers under
+         an erratic subset of the named logics only (Z3 takes them in
+         UFLIA and AUFNIA but not in UFNIA or AUFLIA, for instance) *)
       if (L.mem BV l && (L.mem IA l || L.mem RA l))
-         || L.mem DT l then
+         || L.mem DT l || L.mem RF l then
         pp_print_string fmt "ALL"
       else pp_print_features ~enforce_logic fmt l
   | `SMTLogic s -> pp_print_string fmt (if s = "" then "ALL" else s)
@@ -510,6 +530,117 @@ module Signals = struct
       unset_timeout ()
 
   end
+
+
+(* ********************************************************************** *)
+(* Values of arrays                                                       *)
+(* ********************************************************************** *)
+
+(* A type as the solvers know it: a range of integers, or an enumeration,
+   is an integer *)
+let rec solver_type ty = match Type.node_of_type ty with
+  | Type.IntRange _ | Type.Enum _ -> Type.t_int
+  | Type.Array (e, i) -> Type.mk_array (solver_type e) (solver_type i)
+  | _ -> ty
+
+(* The number of values of an index type, if it is finite and small *)
+let index_values ty = match Type.node_of_type ty with
+  | Type.Bool -> Some [ Term.t_false ; Term.t_true ]
+  | Type.UBV w | Type.BV w when w < 20 ->
+    let mk = if Type.is_ubitvector ty then Term.mk_ubv else Term.mk_bv in
+    Some (List.init (1 lsl w) (fun i ->
+      mk (Bitvector.num_to_ubv (Numeral.of_int w) (Numeral.of_int i))))
+  | _ -> None
+
+let domain_size ty = match Type.node_of_type ty with
+  | Type.Bool -> Some 2
+  | Type.UBV w | Type.BV w when w < 62 -> Some (1 lsl w)
+  | _ -> None
+
+let rec canonical_array_value ty t =
+  let ty = solver_type ty in
+  let index_ty = Type.index_type_of_array ty in
+  let elem_ty = Type.elem_type_of_array ty in
+  let value ty t =
+    if Type.is_array ty then canonical_array_value ty t
+    else if Type.is_ubitvector ty then Term.mk_ubv (Term.bitvector_of_term t)
+    else if Type.is_bitvector ty then Term.mk_bv (Term.bitvector_of_term t)
+    else if Term.is_numeral t && Type.is_real ty then
+      Term.mk_dec
+        (Decimal.of_big_int (Numeral.to_big_int (Term.numeral_of_term t)))
+    else if Term.is_numeral t || Term.is_decimal t || Term.is_bool t then t
+    else raise Not_found
+  in
+  (* The stores from the outermost one, which overrides the inner ones of
+     the same index, and the value of the constant array *)
+  let rec walk seen acc t =
+    match Term.destruct t with
+    | Term.T.App (sym, [a; i; v]) when Symbol.node_of_symbol sym = `STORE ->
+      let i = value index_ty i in
+      if Term.TermSet.mem i seen then walk seen acc a
+      else walk (Term.TermSet.add i seen) ((i, value elem_ty v) :: acc) a
+    | Term.T.App (sym, [d]) -> (
+      match Symbol.node_of_symbol sym with
+      | `CONST_ARRAY _ -> acc, value elem_ty d
+      | _ -> raise Not_found )
+    | _ -> raise Not_found
+  in
+  let stores, default =
+    try walk Term.TermSet.empty [] t
+    with Invalid_argument _ | Failure _ -> raise Not_found
+  in
+  let stores = List.filter (fun (_, v) -> not (Term.equal v default)) stores in
+  (* Over an index type of n values, a value with fewer than n/2 stores has
+     its default as the value of most indices, so no other representation
+     of the array has fewer stores with another default. With more stores,
+     the default is the most frequent value of the elements. *)
+  let stores, default =
+    match domain_size index_ty with
+    | Some n when 2 * List.length stores >= n ->
+      let indices =
+        match index_values index_ty with Some l -> l | None -> raise Not_found
+      in
+      let stored = Term.TermHashtbl.create 17 in
+      List.iter (fun (j, v) -> Term.TermHashtbl.replace stored j v) stores ;
+      let values =
+        List.map (fun i ->
+          i, try Term.TermHashtbl.find stored i with Not_found -> default)
+          indices
+      in
+      let counts = Term.TermHashtbl.create 17 in
+      List.iter (fun (_, v) ->
+        let c = try Term.TermHashtbl.find counts v with Not_found -> 0 in
+        Term.TermHashtbl.replace counts v (c + 1)) values ;
+      (* The most frequent value, the least one among those as frequent *)
+      let default =
+        Term.TermHashtbl.fold (fun v c (best, cb) ->
+          if c > cb || (c = cb && Term.compare v best < 0) then (v, c)
+          else (best, cb)) counts (default, 0)
+        |> fst
+      in
+      List.filter (fun (_, v) -> not (Term.equal v default)) values, default
+    | _ -> stores, default
+  in
+  stores
+  |> List.sort (fun (i, _) (j, _) -> Term.compare i j)
+  |> List.fold_left (fun a (i, v) -> Term.mk_store a i v)
+       (Term.mk_const_array ty default)
+
+(* Whether a term is an array value: a constant array with stores of
+   constant indices and values *)
+let rec is_array_value t =
+  let is_value t =
+    Term.is_numeral t || Term.is_decimal t || Term.is_bool t
+    || Term.is_bitvector t || is_array_value t
+  in
+  match Term.destruct t with
+  | Term.T.App (sym, [a; i; v]) when Symbol.node_of_symbol sym = `STORE ->
+    is_array_value a && is_value i && is_value v
+  | Term.T.App (sym, [d]) -> (
+    match Symbol.node_of_symbol sym with
+    | `CONST_ARRAY _ -> is_value d
+    | _ -> false )
+  | _ -> false
 
 
 (* Add quantifiers to logic *)

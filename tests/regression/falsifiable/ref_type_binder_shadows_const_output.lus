@@ -1,0 +1,6 @@
+const k: int = 7;
+
+node main (p: int) returns (y: subtype { k: int | k > 0 });
+let
+  y = p;
+tel

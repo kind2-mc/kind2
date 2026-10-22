@@ -1,0 +1,6 @@
+datatype L = Nil | One (v: int);
+node N(x: L) returns (y: bool);
+let
+  y = {}@<subtype { w: int | w >= (match x with | Nil : 0 end) }> =
+      {}@<subtype { w: int | w >= (match x with | Nil : 0 end) }>;
+tel

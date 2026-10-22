@@ -1,0 +1,16 @@
+-- The type argument of a call to a polymorphic recursive function applied to a
+-- quantified variable is an inline refinement type, which the output of the
+-- instantiation then has. The call is rejected; a compositional analysis used
+-- to fail an assertion (issue #1627; see
+-- error/quant_var_in_poly_rec_func_call_refinement_instance.lus).
+
+function rec Id<T>(x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else Id(x, n - 1);
+tel
+
+node Test(a: subrange [0,10] of int) returns ();
+let
+  check forall (k: int) k <= 0 => Id@<subrange [0,10] of int>(a, k) = a;
+tel

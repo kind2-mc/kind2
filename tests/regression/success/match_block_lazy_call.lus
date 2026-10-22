@@ -1,0 +1,21 @@
+datatype T = A (v: int) | B (w: int);
+
+node counter () returns (c: int);
+let
+  c = 0 -> pre c + 1;
+tel
+
+node main (t: T) returns (r: int);
+var n: int;
+let
+  n = 0 -> pre n + 1;
+  assert (n = 0) => B?(t);
+  assert (n = 1) => A?(t);
+  match t with
+  | A (v):
+    r = counter();
+  | B (w):
+    r = -1;
+  end
+  --%PROPERTY not (n = 1 and r = 1);
+tel

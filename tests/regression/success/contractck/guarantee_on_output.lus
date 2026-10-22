@@ -1,0 +1,6 @@
+-- A guarantee on the output alone can always be met.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y > 0;
+*)

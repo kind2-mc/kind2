@@ -1,0 +1,9 @@
+-- The assumption implies the guarantee on inputs at every step after the
+-- first one.
+
+node imported F(x: int) returns (y: int);
+(*@contract
+  assume true -> x > pre x;
+  guarantee true -> x > pre x;
+  guarantee y = x;
+*)

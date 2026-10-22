@@ -233,6 +233,18 @@ let compute_unviable_trace_and_core analyze in_sys param sys u_result =
 
 let core_desc = "conflicting constraints"
 
+(* Compute a deadlocking trace and the print data of the conflicting
+   constraints, with the time taken to compute them. The conflicting
+   constraints are a minimal unsat core, hence not approximate. *)
+let compute_unviable_trace_and_core_data analyze in_sys param sys u_result =
+  let start = Unix.gettimeofday () in
+  let trace, core =
+    compute_unviable_trace_and_core analyze in_sys param sys u_result
+  in
+  let time = Unix.gettimeofday () -. start in
+  let cpd = ME.loc_core_to_print_data in_sys sys core_desc (Some time) core in
+  trace, ME.attach_approx_to_print_data cpd false
+
 let pp_print_viable_states in_sys param fmt fp =
   if fp = Term.t_true then
     Format.fprintf fmt "@[<hov>true@]"
@@ -314,6 +326,23 @@ let pp_print_viable_states in_sys param fmt fp =
     Format.fprintf fmt "@[<hov>%a@]"
       (LE.pp_print_term_as_expr_pvar false pvar) fp
 
+(* Description of the kind of node being checked, for result messages *)
+let node_kind_description in_sys scope node_id =
+  match NI.get_node_type node_id with
+  | Environment -> "Environment of"
+  | Contract -> "Contract of"
+  | Type -> "Type"
+  | Component ->
+    if ISys.is_lemma in_sys scope then "Contract of lemma"
+    else "Contract of imported node"
+  | Any -> "'Any' operator"
+  | TypeAscription -> "Type ascription operator"
+  | DefinedConstant -> "Global constant"
+  | FreeConstant -> "Global constant"
+  | ClockedExpr -> "clocked expression"
+  | Restarted -> "restart"
+  | Choose -> "'Choose' operator"
+
 let pp_print_realizability_result_pt
   analyze in_sys param sys fmt result =
   (* Update time *)
@@ -326,17 +355,7 @@ let pp_print_realizability_result_pt
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match (NI.get_node_type node_id) with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | Component -> "Contract of imported node"
-      | Any -> "'Any' operator"
-      | TypeAscription -> "Type ascription operator"
-      | DefinedConstant -> "Global constant"
-      | FreeConstant -> "Global constant"
-      | ClockedExpr -> "clocked expression"
-      | Choose -> "'Choose' operator")
+      (node_kind_description in_sys scope node_id)
       NI.pp_print_node_id_user_name node_id
       (Realizability.result_to_string result)
       (Stat.get_float Stat.analysis_time) 
@@ -364,12 +383,9 @@ let pp_print_realizability_result_pt
 
     if Flags.Contracts.print_deadlock () || Flags.Contracts.dump_deadlock () then (
       KEvent.log L_note "Computing deadlocking trace and conflict..." ;
-      let trace, core =
-        compute_unviable_trace_and_core
+      let trace, cpd =
+        compute_unviable_trace_and_core_data
           analyze in_sys param sys u_res
-      in
-      let cpd =
-        ME.loc_core_to_print_data in_sys sys core_desc None core
       in
       (* Store dump_cex value *)
       let dump_cex = Flags.dump_cex () in 
@@ -418,14 +434,11 @@ let pp_print_realizability_result_json
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
         try (
-          let trace, core =
-            compute_unviable_trace_and_core
+          let trace, cpd =
+            compute_unviable_trace_and_core_data
               analyze in_sys param sys u_res
           in
           (fun fmt ->
-            let cpd =
-              ME.loc_core_to_print_data in_sys sys core_desc None core
-            in
             Format.fprintf
             fmt
             ",@,%a,@,\
@@ -482,14 +495,11 @@ let pp_print_realizability_result_xml
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
         try (
-          let trace, core =
-            compute_unviable_trace_and_core
+          let trace, cpd =
+            compute_unviable_trace_and_core_data
               analyze in_sys param sys u_res
           in
           (fun fmt ->
-            let cpd =
-              ME.loc_core_to_print_data in_sys sys core_desc None core
-            in
             Format.fprintf
             fmt
             "@,%a@,%a"
@@ -571,17 +581,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       "@[<hov>%t Could not determine whether the %s \
         %a is satisfiable or not after %.3fs.@]@."
       Pretty.warning_tag
-      (match (NI.get_node_type node_id) with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | Component -> "Contract of imported node"
-      | Any -> "'Any' operator"
-      | TypeAscription -> "Type ascription operator"
-      | DefinedConstant -> "Global constant"
-      | FreeConstant -> "Global constant"
-      | ClockedExpr -> "clocked expression"
-      | Choose -> "'Choose' operator")
+      (node_kind_description in_sys scope node_id)
       NI.pp_print_node_id_user_name node_id
       (Stat.get_float Stat.analysis_time)
   )
@@ -596,17 +596,7 @@ let pp_print_satisfiability_result_pt in_sys param fmt result =
       fmt
       "@[<hov>%t %s %a was proven %s after %.3fs.@]@.@."
       tag
-      (match (NI.get_node_type node_id) with 
-      | Environment -> "Environment of"
-      | Contract -> "Contract of"
-      | Type -> "Type"
-      | Component -> "Contract of imported node"
-      | Any -> "'Any' operator"
-      | TypeAscription -> "Type ascription operator"
-      | DefinedConstant -> "Global constant"
-      | FreeConstant -> "Global constant"
-      | ClockedExpr -> "clocked expression"
-      | Choose -> "'Choose' operator")
+      (node_kind_description in_sys scope node_id)
       NI.pp_print_node_id_user_name node_id
       (satisfiability_result_to_string result)
       (Stat.get_float Stat.analysis_time)

@@ -1,0 +1,42 @@
+-- Quantified calls to recursive functions that call other functions: a
+-- recursive function of another group that meets the conditions of a call
+-- applied to quantified variables, an inlinable function, and, through a
+-- polymorphic function, an instantiation of a polymorphic recursive function.
+-- All of them are defined at the SMT level, and the properties are proved by
+-- unfolding the definitions (see the error tests quant_var_in_rec_func_call_*
+-- for callees that rule the call out).
+
+function rec G (n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then 0 else G(n - 1);
+tel
+
+function H (a: int) returns (r: int);
+let
+  r = a + 0;
+tel
+
+function rec F (a: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then H(a) + G(0) else F(a, n - 1);
+tel
+
+function rec Gp<T> (x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else Gp(x, n - 1);
+tel
+
+function rec Fp<T> (x: T; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then (if Gp(x, 0) = x then 0 else 1) else Fp(x, n - 1);
+tel
+
+node Test (a: int) returns ();
+let
+  check "other group and inlinable" forall (k: int) k <= 0 => F(a, k) = a;
+  check "polymorphic callee" forall (k: int) k <= 0 => Fp@<int>(a, k) = 0;
+tel

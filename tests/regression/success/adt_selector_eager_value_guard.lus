@@ -1,0 +1,28 @@
+-- An eager construct does not discharge a selector's proof obligation (its
+-- operands are evaluated whatever the condition), but the value of the
+-- operand only matters where the condition holds, so the selector is
+-- compiled as the payload itself there. The obligations here hold because
+-- every selector is also under a lazy guard, or under an assumption.
+
+datatype D = A (a: int) | B (b: bool) | C;
+
+node EagerExprs(x: D; i: int) returns (ok: bool);
+let
+  check "if expression"  A?(x) ==> ((if A?(x) then x.a else 0) = x.a);
+  check "and"            A?(x) ==> ((A?(x) and x.a = i) = (x.a = i));
+  check "or"             A?(x) ==> ((not A?(x) or x.a = i) = (x.a = i));
+  check "implication"    A?(x) ==> ((A?(x) => x.a = i) = (x.a = i));
+  check "negated tester" B?(x) ==> ((not C?(x) and not A?(x)) => x.b = x.b);
+  ok = true;
+tel
+
+node IfBlock(x: D) returns (v: int);
+(*@contract assume A?(x); *)
+let
+  frame (v)
+    v = 0;
+  let
+    if A?(x) then v = x.a; else v = 0; fi
+  tel
+  check "if block" A?(x) ==> v = x.a;
+tel

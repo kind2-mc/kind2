@@ -258,7 +258,10 @@ let rec parse acc = function
          t == s_T ->
 
     let argsv = vars_of_args [] args in
-    let bvars = List.map (fun v -> Var.hstring_of_free_var v, v) argsv in
+    let bvars =
+      List.fold_left (fun m v -> HString.HStringMap.add (Var.hstring_of_free_var v) v m)
+        HString.HStringMap.empty argsv
+    in
     let lamb = Term.mk_lambda argsv (conv_term_of_sexpr bvars hdef) in
     
     parse { acc with jk_trans_lambda = Some lamb } r

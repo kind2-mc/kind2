@@ -1,0 +1,7 @@
+-- No input satisfies the assumption.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  assume x > 0 and x < 0;
+  guarantee y = x;
+*)

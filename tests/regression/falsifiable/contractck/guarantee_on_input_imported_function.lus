@@ -1,0 +1,9 @@
+-- A guarantee that constrains only an input cannot be met: the environment
+-- picks x, and the function has no say in it. Its only constraint was a
+-- definition of the guarantee, which quantifier elimination with Z3 5.1.0
+-- turned into true, so the contract was reported realizable.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee x > 0;
+*)

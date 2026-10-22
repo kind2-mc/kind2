@@ -1,0 +1,10 @@
+-- Keeping ADT values canonical must not restrict their active constructor
+-- or payload: free inputs still range over all constructors and payloads.
+
+datatype D = A (a: int) | B (b: bool) | C;
+
+node main(x, y: D) returns (ok: bool);
+let
+  ok = (A?(x) and A?(y)) => x = y;
+  check ok;
+tel

@@ -1,0 +1,13 @@
+-- A non-recursive ADT with a payload field of a recursive ADT type: the
+-- counterexample of the failing selector obligation must be reconstructed
+-- (the recursive payload is a single datatype-sorted variable, not a record
+-- with a tag of its own), and the property itself is valid.
+
+datatype L = Nil | Cons (hd: int, tl: L);
+datatype W = P (l: L) | Q (n: int);
+
+node main(w: W) returns (ok: bool);
+let
+  ok = Q?(w) => w.n = w.n;
+  check ok;
+tel

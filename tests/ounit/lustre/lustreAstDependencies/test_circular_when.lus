@@ -1,0 +1,5 @@
+
+node M(c: bool) returns (z:bool);
+let
+  z = when z then true else false;
+tel

@@ -1,0 +1,6 @@
+node Top(a: int^3; v: int) returns ();
+var b: int^3;
+let
+  b = a[5 := v];
+  check b[0] = a[0] and b[1] = a[1] and b[2] = a[2];
+tel

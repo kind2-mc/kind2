@@ -1,0 +1,12 @@
+-- A value with a different active constructor or payload is not a member.
+
+datatype Inner = X (s1: int) | Y (s2: bool);
+datatype Outer = A (s3: Inner) | B (s4: real);
+
+node main(i: int) returns (ok: bool);
+var s: set<Outer>;
+let
+  s = { A(X(i)) };
+  ok = A(Y(true)) in s;
+  check ok;
+tel

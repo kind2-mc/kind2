@@ -60,6 +60,7 @@ let fresh_lhs_and_decls pos ty =
     with the new local declarations it introduces. *)
 let rec name_calls_item ctx node_id ni =
   match ni with
+  | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body (A.Equation (pos, A.StructDef (lpos, []), rhs)) ->
     let* ty, _, _ = Chk.infer_type_expr ctx (Some node_id) rhs in
     let items_and_decls = fresh_lhs_and_decls lpos ty in
@@ -77,7 +78,9 @@ let rec name_calls_item ctx node_id ni =
     (* Frame block equations (nes) always have an explicit left-hand side. *)
     let* nis, d = name_calls_items ctx node_id nis in
     R.ok (A.FrameBlock (pos, vars, nes, nis), d)
-  | _ -> R.ok (ni, [])
+  | A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
+  | A.Body (A.Equation _) | A.Body (A.Assert _)
+  | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ -> R.ok (ni, [])
 
 and name_calls_items ctx node_id nis =
   let* res = R.seq (List.map (name_calls_item ctx node_id) nis) in

@@ -60,6 +60,9 @@ let mk_span start_pos end_pos =
 (* Command names *)
 %token CHECK_SYSTEM
 %token DEFINE_SYSTEM
+%token DEFINE_FUN
+%token DECLARE_CONST
+%token DECLARE_ENUM_SORT
 %token SET_LOGIC
 
 (* Keywords *)
@@ -76,6 +79,9 @@ let mk_span start_pos end_pos =
 %token ASSUMPTION_KW
 %token REACHABLE_KW
 %token QUERY_KW
+%token QUERIES_KW
+%token FAIRNESS_KW
+%token CURRENT_KW
 
 (* Symbols *)
 %token <HString.t>QUOTED_SYMBOL
@@ -105,6 +111,9 @@ script: cmds=command* EOF { cmds }
 command:
   | c=check_system { c }
   | c=define_system { c }
+  | c=define_fun { c }
+  | c=declare_const { c }
+  | c=declare_enum_sort { c }
   | c=set_logic { c }
 
 set_logic:
@@ -128,22 +137,59 @@ check_system:
       input;
       output;
       local;
-      attrs;
+      attrs = List.concat attrs;
     }
   }
 
+(* An attribute, or the queries of a :queries attribute *)
 check_system_attribute:
   | ASSUMPTION_KW "(" s=symbol t=term ")"
   {
-    A.FormulaAttr (Assumption, (s, t))
+    [A.FormulaAttr (Assumption, (s, t))]
   } 
   | REACHABLE_KW "(" s=symbol t=term ")"
   {
-    A.FormulaAttr (Reachable, (s, t))
+    [A.FormulaAttr (Reachable, (s, t))]
   }
-  | QUERY_KW "(" s=symbol "(" l=symbol+ ")" ")"
+  | FAIRNESS_KW "(" s=symbol t=term ")"
+  {
+    [A.FormulaAttr (Fairness, (s, t))]
+  }
+  | CURRENT_KW "(" s=symbol t=term ")"
+  {
+    [A.FormulaAttr (Current, (s, t))]
+  }
+  | QUERY_KW q=query
+  {
+    [q]
+  }
+  | QUERIES_KW "(" qs=query+ ")"
+  {
+    qs
+  }
+
+query:
+  "(" s=symbol "(" l=symbol+ ")" ")"
   {
     A.QueryAttr (s, l)
+  }
+
+define_fun:
+  "(" DEFINE_FUN name=symbol "(" params=sorted_var* ")" sort=sort body=term ")"
+  {
+    A.DefineFunCmd { loc = mk_span $startpos $endpos; name; params; sort; body }
+  }
+
+declare_const:
+  "(" DECLARE_CONST name=symbol sort=sort ")"
+  {
+    A.DeclareConstCmd { loc = mk_span $startpos $endpos; name; sort }
+  }
+
+declare_enum_sort:
+  "(" DECLARE_ENUM_SORT name=symbol "(" values=symbol+ ")" ")"
+  {
+    A.DeclareEnumSortCmd { loc = mk_span $startpos $endpos; name; values }
   }
 
 define_system:

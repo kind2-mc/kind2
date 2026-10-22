@@ -1,0 +1,8 @@
+-- Nor can a temporal arm of a match expression.
+
+datatype T = A (v: int) | B (w: int);
+
+node main (const n: int; t: T; a: int^n) returns (b: int^n);
+let
+  b = ((match t with | A (v) : (0 -> pre v) + a[i] | B (w) : w end) foreach i < n);
+tel

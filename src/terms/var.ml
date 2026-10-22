@@ -404,6 +404,80 @@ let mk_fresh_var var_type =
   mk_free_var v var_type 
 
 
+(* The binding depths a type has been asked for *)
+module DepthMap = Map.Make (Int)
+
+
+(* Variables standing for the variables of a binder, keyed by the type of the
+   variable and then by the binding depth of the binder.
+
+   Private to each domain, copied from the parent at spawn, for the same
+   reason as the counter above.
+
+   The depths of a type are held in a map and not in a second table, because
+   [Type.TypeHashtbl.copy] copies the outer table alone. Were its values
+   tables, every domain would go on sharing the ones its parent made: they
+   would write to them at the same time, and a domain would be handed
+   variables that its own [is_binder_vars] below had never been told about,
+   which is to say variables [is_binder_var] does not know are binder
+   variables. A map is immutable, so copying the outer table is enough. *)
+let binder_vars_key =
+  Domain.DLS.new_key ~split_from_parent:Type.TypeHashtbl.copy
+    (fun () -> Type.TypeHashtbl.create 7)
+
+let binder_vars () = Domain.DLS.get binder_vars_key
+
+
+(* The variables [mk_binder_var] has made, so that they can be told apart from
+   the variables of a term. Its values are immutable, so the shallow copy the
+   split makes of it is a copy in full. *)
+let is_binder_vars_key =
+  Domain.DLS.new_key ~split_from_parent:VarHashtbl.copy
+    (fun () -> VarHashtbl.create 7)
+
+let is_binder_vars () = Domain.DLS.get is_binder_vars_key
+
+
+(* Return the variable standing for the variable of the given type of a binder
+   at the given binding depth.
+
+   Opening a binder replaces the variable it binds by a free variable, so that
+   a term under a binder can be handled as if it had none. The variable this
+   returns is memoized rather than fresh, so that opening the same binder
+   twice returns the same one: a caller that folds a term to the set of its
+   variables must get the same set every time it is asked. It is obtained from
+   [mk_fresh_var] the first time, so it is a name no term already uses.
+
+   Two binders at the same depth binding a variable of the same type share
+   this variable. That is sound because they are separate scopes: their bodies
+   never mention both. *)
+let mk_binder_var var_type depth =
+  let by_depth =
+    try Type.TypeHashtbl.find (binder_vars ()) var_type
+    with Not_found -> DepthMap.empty
+  in
+  match DepthMap.find_opt depth by_depth with
+  | Some v -> v
+  | None ->
+    let v = mk_fresh_var var_type in
+    Type.TypeHashtbl.replace (binder_vars ()) var_type
+      (DepthMap.add depth v by_depth);
+    VarHashtbl.replace (is_binder_vars ()) v ();
+    v
+
+
+(* Return true if the variable was made by [mk_binder_var], and so stands for
+   the variable of an opened binder rather than for a variable of the term
+   that binder occurs in.
+
+   Asked of every variable of every term folded to its variables, so answer
+   the common case -- a term with no binder in it anywhere, which has left
+   this table empty -- without hashing the variable. *)
+let is_binder_var v =
+  VarHashtbl.length (is_binder_vars ()) > 0
+  && VarHashtbl.mem (is_binder_vars ()) v
+
+
 (* ********************************************************************* *)
 (* Changing offsets and state variables                                  *)
 (* ********************************************************************* *)

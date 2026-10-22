@@ -188,7 +188,16 @@ end
 (* TODO: Make the graph-based approach for invariant generation work when
    terms include divisions. Currently, a Division_by_zero exception may
    raise during graph stabilization if a model assigns zero to a divisor.
-*)
+
+   A datatype selector is left out as well: applied to a value built with
+   another constructor, its value is not determined by the model (the
+   solver picks one), so a candidate containing it cannot be evaluated
+   during graph stabilization.
+
+   An uninterpreted function is left out whether it has arguments or not:
+   the models only give values to variables, so a constant such as the
+   __function_of_inputs of an abstracted function without inputs cannot be
+   evaluated either. *)
 let filter_terms_with_unsupported_symbols candidates =
   let rec includes_unsupported_symbol term =
     match Term.destruct term with
@@ -197,8 +206,14 @@ let filter_terms_with_unsupported_symbols candidates =
       match Symbol.node_of_symbol s with
       | `UF _
       | `DIV
-      | `INTDIV -> true
+      | `INTDIV
+      | `Selector _ -> true
       | _ -> List.exists includes_unsupported_symbol l
+    )
+    | Term.T.Const s -> (
+      match Symbol.node_of_symbol s with
+      | `UF _ -> true
+      | _ -> false
     )
     | _ -> false
   in
@@ -218,6 +233,11 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
     (* Association list between systems and their candidate terms. *)
     let rec mk_sys_map result = function
       | sys :: tail ->
+        (* Mining is where the generator spends its first seconds on a
+           large system, before it ever asks a solver: it must notice a
+           termination request here, or it holds the end of the analysis
+           until the supervisor gives up on it *)
+        KEvent.check_termination () ;
         let scope = Sys.scope_of_trans_sys sys in
 
         if List.mem_assoc sys result then
@@ -284,6 +304,7 @@ module MakeCandGen (Rules: RulesSig) : CandGen = struct
               if Flags.Invgen.lift_candidates () then
                 Set.fold (
                   fun term map ->
+                    KEvent.check_termination () ;
                     Sys.instantiate_term_all_levels
                       top_sys TransSys.trans_base scope term two_state
                     |> fun (top, others) -> top :: others
@@ -559,6 +580,9 @@ let generic_octagons mk_plus mk_minus oct3 f =
      (*  Format.printf "  oct 2 %a (%d)@."
         fmt_term term'
         (List.length tail) ; *)
+      (* Quadratic in the terms, cubic with [oct3]: the bulk of the mining
+         of a system with many arithmetic terms *)
+      KEvent.check_termination () ;
       let oterms =
         let pair = [ term ; term' ] in
         [
@@ -917,6 +941,75 @@ end
 
 (** Real candidate term miner. *)
 module Real = MakeCandGen (RealRules)
+
+
+(* |===| What a domain has to mine. *)
+
+(* Types [IntRules] relates. Enumerations are not among them: they are
+integers as far as [TermLib.logic_of_sort] is concerned, but the integer
+rules skip enum-typed state variables and subterms. *)
+let is_int_type ty =
+  match Type.node_of_type ty with
+  | Type.Int | Type.IntRange _ -> true
+  | _ -> false
+
+(* Types [RealRules] relates. *)
+let is_real_type ty =
+  match Type.node_of_type ty with
+  | Type.Real -> true
+  | _ -> false
+
+(* Is this flat term a literal of its domain? *)
+let is_literal is_lit_symbol = function
+  | Term.T.Const sym -> is_lit_symbol (Symbol.node_of_symbol sym)
+  | _ -> false
+
+let is_int_literal =
+  is_literal (function `NUMERAL _ -> true | _ -> false)
+
+let is_real_literal =
+  is_literal (function `DECIMAL _ -> true | _ -> false)
+
+(* [has_mineable is_type is_lit sys] is [true] when [sys] or one of its
+subsystems has a state variable, or a subterm of its init or transition
+predicate, of a type [is_type] accepts that is not a literal.
+
+This is what [mine] walks for the domains whose [comp_set] is empty --
+[Int] and [Real]: the state variables of each system in the subsystem map,
+and the flat subterms of its [init] and [trans]. Literals are left out
+because [post_rules] injects constants of its own no matter what is found,
+so a system whose only integers are the numerals in an array index has
+nothing the miner can relate to anything else. *)
+let has_mineable is_type is_lit sys =
+  let exception Found in
+  let check_term term =
+    try
+      Term.eval_t ~fail_on_quantifiers:true (
+        fun flat _ ->
+          if is_type (to_term flat |> Term.type_of_term) && not (is_lit flat)
+          then raise Found
+      ) term
+    with Invalid_argument _ ->
+      (* Quantified: the miner will not look inside it, but neither have we. *)
+      raise Found
+  in
+  try
+    sys |> Sys.iter_subsystems ~include_top:true (
+      fun sys ->
+        if Sys.state_vars sys |> List.exists (
+          fun svar -> SVar.type_of_state_var svar |> is_type
+        ) then raise Found ;
+        check_term (Sys.init_of_bound None sys zero) ;
+        check_term (Sys.trans_of_bound None sys zero)
+    ) ;
+    false
+  with Found -> true
+
+(** Is there anything for the integer candidate term miner to work on? *)
+let has_mineable_int_terms sys = has_mineable is_int_type is_int_literal sys
+
+(** Is there anything for the real candidate term miner to work on? *)
+let has_mineable_real_terms sys = has_mineable is_real_type is_real_literal sys
 
 
 

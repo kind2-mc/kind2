@@ -1,0 +1,19 @@
+datatype B = T | F;
+datatype P = Q | MkP (l: B, r: B);
+
+node arm(x: P) returns (y: int);
+let
+  y = match x with
+      | MkP(T, v) : 0
+      | Q : 1
+      | MkP(F, T) : 2
+      | v : 3
+      end;
+tel
+
+node main() returns (ok: bool);
+let
+  ok = arm(Q) = 1 and arm(MkP(T, T)) = 0 and arm(MkP(T, F)) = 0
+       and arm(MkP(F, T)) = 2 and arm(MkP(F, F)) = 3;
+  check ok;
+tel

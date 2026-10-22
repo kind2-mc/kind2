@@ -1,0 +1,9 @@
+node F(c: bool) returns (r: bool);
+let
+  r = c;
+tel
+
+node N(c: bool) returns (x: int);
+let
+  x = F(c);
+tel

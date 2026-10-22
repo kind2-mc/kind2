@@ -255,7 +255,7 @@ let printf_json mdl level fmt =
 let parse_log_json level pos msg =
   let pp_print_fname ppf fname =
     if fname = "" then () else
-    Format.fprintf ppf "\"file\" : \"%s\",@," fname
+    Format.fprintf ppf "\"file\" : \"%s\",@," (Lib.escape_json_string fname)
   in
   let pp_print_line_col ppf pos =
     try

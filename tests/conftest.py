@@ -1,11 +1,16 @@
 import itertools
 import os
+import re
+import shutil
 import signal
 import subprocess
+import time
 from pathlib import Path
 from subprocess import PIPE, CompletedProcess, Popen, TimeoutExpired
 
 import pytest
+
+from output_schema import jsonschema_available, violations_in_output
 
 ##########
 # Config #
@@ -16,8 +21,11 @@ common_args = {
     "--timeout": "84",
     "--color": "false",
     "--check_subproperties": "true",
-    "--check_sat_assume": "false",
 }
+
+# The default arguments for every kmoxi run: those of common_args that kmoxi
+# accepts (--check_subproperties concerns the Lustre front end only)
+kmoxi_args = {"--timeout": "84", "--color": "false"}
 
 # How long we let a single Kind 2 run take before killing it, in seconds.
 #
@@ -30,6 +38,9 @@ run_timeout = float(common_args["--timeout"]) + 120
 
 # How long we wait for the output of a run we had to kill
 kill_timeout = 30
+
+# How many schema violations a failed test shows
+max_problems_shown = 20
 
 # The test conditions that are always enabled. These override common_args if
 # there is a disagreement.
@@ -70,10 +81,97 @@ def enabled_test_cases(config):
 # Where to find the regression tests
 regression_dir = Path("regression").absolute()
 
+# Regression tests that are skipped, relative to the regression tree, with
+# the reason. Each is a test that a released solver cannot run; remove it
+# once a release fixes the solver.
+skipped_tests = {
+    "falsifiable/msg_enc_commutative.lus": (
+        "Z3 5.1.0 crashes on it (https://github.com/Z3Prover/z3/issues/10969,"
+        " fixed upstream but not released yet)"
+    ),
+}
+
+# Arguments that regression tests need on top of those of their directory,
+# relative to the regression tree. A concrete computation with a recursive
+# function that is not evaluated, outside of a modular analysis, unrolls the
+# function as deep as the computation goes, and needs --rec_unrollings at
+# least as high: at the default, the run gives up early and exits 30.
+rec_unrollings_3 = {"--rec_unrollings": "3"}
+rec_unrollings_4 = {"--rec_unrollings": "4"}
+rec_unrollings_5 = {"--rec_unrollings": "5"}
+test_args = {
+    "success/compositional/rec_no_contract_unrolled.lus": rec_unrollings_5,
+    "success/match_block_rec_function.lus": rec_unrollings_3,
+    "success/poly_rec_function.lus": rec_unrollings_4,
+    "success/poly_rec_function_ground_arg.lus": rec_unrollings_3,
+    "success/poly_rec_function_refinement_arg.lus": rec_unrollings_3,
+    "success/rec_def_adt_sum.lus": rec_unrollings_4,
+    "success/rec_def_contract.lus": rec_unrollings_4,
+    "success/rec_def_even_odd_value.lus": rec_unrollings_4,
+    "success/rec_def_factorial_value.lus": rec_unrollings_5,
+    "success/rec_def_helper_calls_rec.lus": rec_unrollings_4,
+    "success/rec_def_helper_inlined.lus": rec_unrollings_4,
+    "success/rec_def_mutual_uninterpreted_callee.lus": rec_unrollings_3,
+    "success/rec_def_transparent_contract.lus": rec_unrollings_4,
+    "success/rec_shared_call.lus": {"--rec_unrollings": "8"},
+}
+
 # Extra files to test with a fixed expected result, as (path, expected) pairs
 extra_files = [
     (Path("../examples/syntax-test.lus").resolve(), "falsifiable"),
 ]
+
+# Tests under a directory with this name pin the engine to IC3IA, so that they
+# exercise IC3IA itself instead of whichever engine happens to answer first.
+#
+# They also pin the interpolating solver. IC3IA reaches arrays only through an
+# interpolating solver that can represent them: the ones driven by quantifier
+# elimination turn the engine off for such systems, so leaving the choice to
+# auto-detection would make these tests vacuous wherever MathSAT is missing.
+# They are skipped instead, which says so rather than reporting a run that
+# never finished.
+#
+# These models are tiny and settle in milliseconds, so the allowance that lets
+# any other test exit 30 does not apply to them: with one engine and one solver
+# pinned, a 30 means IC3IA turned the system down, not that it ran out of time.
+# It is therefore a failure here, which is what makes these tests notice the
+# engine losing the ability to answer for such a system.
+#
+# The exception is the tests under `ic3ia_declined_dir_name`, which pin down
+# what IC3IA must *not* say about systems it cannot reason about soundly. All
+# they require is that the property is not reported falsifiable; declining to
+# answer is the outcome expected today.
+ic3ia_dir_name = "ic3ia"
+ic3ia_declined_dir_name = "declined"
+ic3ia_args = {"--enable": "IC3IA", "--smt_itp_solver": "MathSAT"}
+ic3ia_solver = "mathsat"
+
+# Tests under a directory with this name run the contract checker rather than
+# the verification engines, which is the only way to reach the realizability
+# path from the regression tree. A `success` case there means every contract
+# was found realizable; `falsifiable` means some contract, or the environment
+# of some contract, was found unrealizable; `error` means Kind 2 rejected the
+# model before getting that far.
+contractck_dir_name = "contractck"
+contractck_args = {"--enable": "CONTRACTCK"}
+
+# Tests under this directory inside `contractck_dir_name` pin what the contract
+# checker must *not* do with a model it cannot handle: decline it, rather than
+# fail in the solver. Declining leaves a node undetermined, so the run exits 30
+# (`incomplete_analysis`); 0 covers the check one day being able to answer.
+# Anything else -- a crash, a solver error -- is a failure, which is what makes
+# these tests notice the check losing the ability to turn a model down.
+contractck_declined_dir_name = "declined"
+
+# Tests under a directory with this name run with compositional reasoning on,
+# and tests under a directory with this name run in modular mode; a test under
+# both (`compositional/modular/`) runs with both. These are the analyses that
+# abstract a node or function by its contract and refine it, which the default
+# arguments never reach.
+compositional_dir_name = "compositional"
+compositional_args = {"--compositional": "true"}
+modular_dir_name = "modular"
+modular_args = {"--modular": "true"}
 
 # Where to write log files
 log_dir = Path("logs")
@@ -81,6 +179,10 @@ log_dir = Path("logs")
 # Where kind2 lives
 kind2_exe = "kind2.exe" if os.name == "nt" else "kind2"
 kind2_bin = (Path("../bin") / kind2_exe).resolve()
+
+# Where kmoxi lives, when it is built (`make kmoxi`)
+kmoxi_exe = "kmoxi.exe" if os.name == "nt" else "kmoxi"
+kmoxi_bin = (Path("../bin") / kmoxi_exe).resolve()
 
 ######################
 # Test running logic #
@@ -95,6 +197,18 @@ return_codes = (
 
 expected_to_code = {expected: code for expected, code in return_codes}
 code_to_expected = {code: expected for expected, code in return_codes}
+
+# What a declined run is allowed to exit with: 30 is Kind 2's
+# `incomplete_analysis`, which is what turning the system down looks like, and
+# 0 covers IC3IA one day being able to answer. Every other code -- a crash, a
+# usage error, a solver it could not start -- is a failure rather than a
+# decline, and naming them keeps the test honest about what it pins down.
+ic3ia_declined_codes = (expected_to_code["success"], expected_to_code["timeout"])
+
+# What a declined contract check is allowed to exit with, for the same reasons:
+# 30 is `incomplete_analysis`, which is what a node left undetermined looks
+# like, and 0 covers the check one day being able to answer.
+contractck_declined_codes = ic3ia_declined_codes
 
 def pytest_collect_file(parent, file_path: Path):
     try:
@@ -144,17 +258,35 @@ def pytest_collection_modifyitems(session, items):
 # `falsifiable` and `error` cases. It is accepted anyway, since a large model
 # on a slow machine may legitimately run out of time, but accepting it
 # silently means a run that stops making progress passes without a trace.
-# Collect them so that the session reports them at the end.
+# Collect them, with how long each took, so that the session reports them at
+# the end. The elapsed time is what separates a run the polling loop of the
+# supervisor ended at its own timeout from one a last resort had to kill:
+# the first comes in around the budget, the second only after the grace
+# those add to it. Both exit 30, and the output that would tell them apart
+# is printed only when a test fails.
+#
+# Kind 2 also exits 30 when it gives up on its own, with properties it could
+# not settle, such as at the limit of the unrollings of a recursive function.
+# That is no timeout: it happens the same way on every machine, however fast,
+# and the time it takes tells it apart, as Kind 2 cannot run out of time
+# before its budget. It is a failure.
 unfinished_runs = []
 
 
 class LustreException(Exception): ...
 
 
-class LustreTimeout(Exception):
-    def __init__(self, stdout: bytes, status):
+class LustreSchemaViolation(Exception):
+    def __init__(self, problems):
         super().__init__()
-        self.stdout = stdout
+        self.problems = problems
+
+
+class LustreTimeout(Exception):
+    def __init__(self, output: bytes, errors: bytes, status):
+        super().__init__()
+        self.output = output
+        self.errors = errors
         # Exit status of Kind 2 when we gave up on it, or None if it was
         # still running then
         self.status = status
@@ -190,19 +322,53 @@ def kill_tree(proc: Popen):
     proc.kill()
 
 
-def run_kind2(command) -> CompletedProcess:
-    """Run Kind 2, capturing its output, and give up on it after
-    `run_timeout` seconds. Raises `LustreTimeout` if we had to give up."""
+def kill_and_communicate(proc: Popen, timeout: float = kill_timeout):
+    """Kill `proc` and every process it spawned, and read the rest of its
+    output, giving up on it after `timeout` seconds.
+
+    Returns `(stdout, stderr)`, which hold only what was read before we gave
+    up, if we did. `kill_tree` makes a best effort only, and a process it could not reach, such as one that
+    left the process group of the run, may still hold the pipes: reading
+    them without a timeout would wait forever for an end that never comes.
+    """
+    kill_tree(proc)
+    try:
+        return proc.communicate(timeout=timeout)
+    except TimeoutExpired as e:
+        # Report what we have rather than wait for the rest forever: the
+        # reader threads are daemons, and they do not keep the session alive.
+        # On POSIX the exception holds everything read so far, across every
+        # call to `communicate`; on Windows it holds nothing.
+        return e.output or b"", e.stderr or b""
+
+
+def run_kind2(
+    command, timeout: float = run_timeout, env=None, cwd=None, input=None
+) -> CompletedProcess:
+    """Run Kind 2, capturing its output, and give up on it after `timeout`
+    seconds. Raises `LustreTimeout` if we had to give up. `env` and `cwd`
+    are those of the run, and `input`, in bytes, is given to its standard
+    input, which is inherited otherwise."""
     popen_args = {}
     if os.name != "nt":
         # Put the run in a process group of its own, so that the solvers it
         # spawns can be killed along with it
         popen_args["start_new_session"] = True
 
-    proc = Popen(command, stdout=PIPE, stderr=PIPE, **popen_args)
+    # Standard error is read as well, into a pipe of its own: what Kind 2
+    # says when its exit goes wrong goes to standard error and nowhere else
+    # -- the last-resort "did not exit in time" line, an uncaught exception,
+    # a warning that clearing handle inheritance failed. A run that hangs
+    # without them in its report cannot be told apart from a run that never
+    # got that far. It is kept apart from standard output, which is checked
+    # to be JSON matching the schema, and shown with it when a test fails.
+    proc = Popen(
+        command, stdin=None if input is None else PIPE, stdout=PIPE,
+        stderr=PIPE, env=env, cwd=cwd, **popen_args
+    )
 
     try:
-        stdout, _ = proc.communicate(timeout=run_timeout)
+        output, errors = proc.communicate(input, timeout=timeout)
     except TimeoutExpired:
         # Whether Kind 2 is still running says where the run is stuck, and
         # the two cases have nothing in common. Still running: it did not
@@ -212,17 +378,79 @@ def run_kind2(command) -> CompletedProcess:
         # the question with our own signal.
         status = proc.poll()
 
-        kill_tree(proc)
-        try:
-            stdout, _ = proc.communicate(timeout=kill_timeout)
-        except TimeoutExpired:
-            # Some process we could not kill still holds the pipes. Report
-            # what we have rather than wait for the rest forever: the reader
-            # threads are daemons, and they do not keep the session alive.
-            stdout = b""
-        raise LustreTimeout(stdout, status)
+        output, errors = kill_and_communicate(proc)
+        raise LustreTimeout(output, errors, status)
 
-    return CompletedProcess(command, proc.returncode, stdout, None)
+    return CompletedProcess(command, proc.returncode, output, errors)
+
+
+# How much longer than its own `--timeout` we let a kmoxi run take before
+# killing it, in seconds
+kmoxi_slack = 30
+
+
+def run_kmoxi_process(
+    path, *extra, timeout: int = 30, env=None, cwd=None, input=None
+) -> CompletedProcess:
+    """Run kmoxi on `path` with `extra` arguments and a `--timeout` of
+    `timeout` seconds, and return the completed run, with its standard
+    output and error decoded. With `path` None, kmoxi reads the model from
+    `input`, a string; `env` and `cwd` are those of the run.
+
+    Skips the test if kmoxi is not built. Fails it if kmoxi gives no answer
+    within `timeout` and `kmoxi_slack` seconds, showing what kmoxi said and
+    whether it was still running then (see `run_kind2`).
+    """
+    if not kmoxi_bin.exists():
+        pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
+    args = kmoxi_args | {"--timeout": str(timeout)}
+    arg_list = [arg for pair in args.items() for arg in pair]
+    command = [kmoxi_bin, *arg_list, *extra, *([] if path is None else [path])]
+    try:
+        res = run_kind2(
+            command, timeout=timeout + kmoxi_slack, env=env, cwd=cwd,
+            input=None if input is None else input.encode("utf-8"),
+        )
+    except LustreTimeout as e:
+        state = "still running" if e.status is None else f"exited with {e.status}"
+        pytest.fail(
+            f"no answer from kmoxi ({state}):\n"
+            f"{e.output.decode('utf-8', errors='replace')}"
+            f"{e.errors.decode('utf-8', errors='replace')}"
+        )
+    return CompletedProcess(
+        command,
+        res.returncode,
+        res.stdout.decode("utf-8", errors="replace"),
+        res.stderr.decode("utf-8", errors="replace"),
+    )
+
+
+# The answer to a query in a check-system response, as kmoxi prints it:
+# `:query (q :result sat :model q_model :trace q_trace)`. The query's name may
+# be a quoted symbol.
+query_answer_re = re.compile(
+    r":query \((\|[^|]*\||[^\s()|]+) :result (sat|unsat|unknown)\b"
+)
+
+
+def query_answers(out):
+    """The (query, result) pairs of the check-system responses in `out`, in
+    their order"""
+    return query_answer_re.findall(out)
+
+
+def query_answer(out, query="q"):
+    """The result of the query named `query` in `out`, or None if `out`
+    answers no such query"""
+    return next((r for q, r in query_answers(out) if q == query), None)
+
+
+def run_kmoxi(path, *extra, timeout: int = 30):
+    """Run kmoxi as `run_kmoxi_process` does, and return its standard output
+    and error"""
+    res = run_kmoxi_process(path, *extra, timeout=timeout)
+    return res.stdout, res.stderr
 
 
 class LustreItem(pytest.Item):
@@ -240,16 +468,100 @@ class LustreItem(pytest.Item):
         if self.expected == "error":
             args |= {"--lus_strict": "true"}
 
+        if self._is_ic3ia():
+            args |= ic3ia_args
+
+        if self._is_contractck():
+            args |= contractck_args
+
+        if compositional_dir_name in self._regression_parts():
+            args |= compositional_args
+
+        if modular_dir_name in self._regression_parts():
+            args |= modular_args
+
+        args |= test_args.get(self._regression_name(), {})
+
         arg_list = list(itertools.chain.from_iterable(args.items()))
-        return [kind2_bin, *arg_list, self.path]
+        # JSON, so that the output of every run is checked against the
+        # schema (see `output_schema.py`)
+        return [kind2_bin, "-json", *arg_list, self.path]
+
+    def _regression_parts(self):
+        # Relative to the regression tree: an absolute path would also match a
+        # checkout that happens to sit under a directory of the same name, and
+        # pin the whole suite to IC3IA. `extra_files` live outside the tree.
+        try:
+            return self.path.relative_to(regression_dir).parts
+        except ValueError:
+            return ()
+
+    def _regression_name(self):
+        return "/".join(self._regression_parts())
+
+    def _is_ic3ia(self):
+        return ic3ia_dir_name in self._regression_parts()
+
+    def _is_contractck(self):
+        return contractck_dir_name in self._regression_parts()
+
+    def _ic3ia_declines(self):
+        return self._is_ic3ia() and ic3ia_declined_dir_name in self._regression_parts()
+
+    def _contractck_declines(self):
+        return (
+            self._is_contractck()
+            and contractck_declined_dir_name in self._regression_parts()
+        )
 
     def runtest(self):
-        self.res = run_kind2(self._command())
+        skip_reason = skipped_tests.get(self._regression_name())
+        if skip_reason is not None:
+            pytest.skip(skip_reason)
 
-        # Timeout is OK
+        if self._is_ic3ia() and shutil.which(ic3ia_solver) is None:
+            pytest.skip(f"{ic3ia_solver} is not installed")
+
+        started = time.monotonic()
+        try:
+            self.res = run_kind2(self._command())
+        finally:
+            self.elapsed = time.monotonic() - started
+
+        self._check_return_code()
+
+        # Whatever the exit code, a run that exited on its own printed all its
+        # output, which has to match the schema
+        if jsonschema_available():
+            problems = violations_in_output(
+                self.res.stdout.decode("utf-8", errors="replace")
+            )
+            if problems:
+                raise LustreSchemaViolation(problems)
+
+    def _check_return_code(self):
+        if self._ic3ia_declines():
+            # Answering is allowed, answering `falsifiable` is not
+            if self.res.returncode not in ic3ia_declined_codes:
+                raise LustreException
+            return
+
+        if self._contractck_declines():
+            # Turning the model down is allowed, failing on it is not
+            if self.res.returncode not in contractck_declined_codes:
+                raise LustreException
+            return
+
+        # Timeout is OK, except for the IC3IA tests: see `ic3ia_dir_name`. A
+        # run that gave up before its budget did not time out: see
+        # `unfinished_runs`.
         result = code_to_expected.get(self.res.returncode)
-        if result == "timeout":
-          unfinished_runs.append(self.nodeid)
+        if (
+            result == "timeout"
+            and not self._is_ic3ia()
+            and self.elapsed >= float(common_args["--timeout"])
+        ):
+          unfinished_runs.append((self.nodeid, self.elapsed))
           return
 
         if self.res.returncode != expected_to_code[self.expected]:
@@ -275,7 +587,22 @@ class LustreItem(pytest.Item):
                     f"on its own, although it was given {common_args['--timeout']}s",
                     stuck,
                     " ".join(map(str, self._command())),
-                    excinfo.value.stdout.decode("utf-8"),
+                    excinfo.value.output.decode("utf-8", errors="replace"),
+                    excinfo.value.errors.decode("utf-8", errors="replace"),
+                ]
+            )
+
+        if isinstance(excinfo.value, LustreSchemaViolation):
+            problems = excinfo.value.problems
+            shown = problems[:max_problems_shown]
+            return "\n".join(
+                [
+                    f"The JSON output does not match the schema"
+                    f" ({len(problems)} problems):",
+                    " ".join(map(str, self._command())),
+                    *shown,
+                    *(["..."] if len(problems) > len(shown) else []),
+                    self.res.stderr.decode("utf-8", errors="replace"),
                 ]
             )
 
@@ -285,19 +612,34 @@ class LustreItem(pytest.Item):
                 return_code,
                 f"Unknown return code: {return_code}",
             )
+            if actual == "timeout":
+                actual = (
+                    f"exit 30 after {self.elapsed:.1f}s, before the "
+                    f"{common_args['--timeout']}s budget: Kind 2 gave up "
+                    "on some properties"
+                )
             return "\n".join(
                 [
                     f"Expected: {self.expected}, got {actual}",
                     " ".join(map(str, self._command())),
-                    self.res.stdout.decode("utf-8"),
+                    self.res.stdout.decode("utf-8", errors="replace"),
+                    self.res.stderr.decode("utf-8", errors="replace"),
                 ]
             )
 
         return super().repr_failure(excinfo, style)
 
 
-# Report the runs that gave up, which pass and would otherwise leave no trace
+# Report the runs that gave up, which pass and would otherwise leave no trace,
+# and that the output was not checked, which would not either
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if not jsonschema_available():
+        terminalreporter.section("JSON output not checked")
+        terminalreporter.write_line(
+            "jsonschema is not installed, so the output of the regression"
+            " tests was not checked against schemas/kind2-output.json"
+        )
+
     if not unfinished_runs:
         return
 
@@ -306,8 +648,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         f"{len(unfinished_runs)} test(s) exited 30 after the "
         f"{common_args['--timeout']}s budget (not counted as failures):"
     )
-    for nodeid in unfinished_runs:
-        terminalreporter.write_line(f"  {nodeid}")
+    for nodeid, elapsed in unfinished_runs:
+        terminalreporter.write_line(f"  {elapsed:6.1f}s  {nodeid}")
 
 
 # Log test failures

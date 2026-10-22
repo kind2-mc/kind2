@@ -1,0 +1,12 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+type Arr = L<int>^2;
+datatype W = WA (x: Arr) | WB (n: int);
+
+node f(w: W) returns (b: bool);
+let b = WB?(w); tel
+
+node main(i: int) returns (ok: bool);
+let
+  ok = f(WB(i));
+  check ok;
+tel

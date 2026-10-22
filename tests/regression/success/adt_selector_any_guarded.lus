@@ -1,0 +1,7 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(x: int) returns (o: IntOpt);
+let
+  o = any { m: IntOpt | Some?(m) and then m.val > 0 };
+  check Some?(o);
+tel

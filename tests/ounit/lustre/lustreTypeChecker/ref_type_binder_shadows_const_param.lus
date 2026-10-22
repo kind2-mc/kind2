@@ -1,0 +1,8 @@
+const k: int = 7;
+
+function imported f (const n: int) returns (y: bool);
+
+node main (p: subtype { k: int | f(k) }) returns (y: int);
+let
+  y = p;
+tel

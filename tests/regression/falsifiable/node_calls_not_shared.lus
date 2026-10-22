@@ -1,0 +1,14 @@
+-- Two calls of a node with the same arguments are two instances: a node is
+-- not a function of its arguments, and an imported node in particular may
+-- return any outputs its contract allows, different ones at each call. Only
+-- calls of functions with the same arguments share an instance.
+node imported N (x: int) returns (y: int) ;
+con
+  guarantee y >= x ;
+noc
+
+node main (x: int) returns (u: bool) ;
+let
+  u = true ;
+  check "same_outputs" N(x) = N(x) ;
+tel

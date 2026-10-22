@@ -1,0 +1,38 @@
+-- Lemmas without a body state properties of an uninterpreted function, and
+-- a lemma proves another by induction from them. The modular analysis
+-- proves the guarantee of LenNonNeg; the others have no body to analyze.
+datatype L = Nil | Cons (hd: int, tl: L);
+
+function imported len (l: L) returns (n: int);
+
+lemma len_nil ()
+con
+  guarantee len(Nil) = 0;
+noc
+
+lemma len_cons (h: int; t: L)
+con
+  guarantee len(Cons(h, t)) = 1 + len(t);
+noc
+
+lemma LenNonNeg (l: L)
+con
+  guarantee len(l) >= 0;
+  decreases l;
+noc
+let
+  match l with
+  | Nil:
+    len_nil();
+  | Cons (h, t):
+    len_cons(h, t);
+    LenNonNeg(t);
+  end
+tel
+
+node main (l: L) returns (ok: bool);
+let
+  LenNonNeg(l);
+  ok = len(l) >= 0;
+  check ok;
+tel

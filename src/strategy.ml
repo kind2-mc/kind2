@@ -25,6 +25,10 @@ type info = {
   has_contract: bool ; (** Does the system have a contract? *)
   has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
+  rec_group: int option ; (** The recursive group of a recursive function *)
+  is_internal: bool ;  (** Is the system an internal artifact of the
+                           translation, only analyzed as part of the systems
+                           that call it? *)
 }
 
 (* Merges two abstractions with the following semantics. First abstraction is
@@ -38,9 +42,91 @@ let merge_abstractions =
     | _ -> assert false
   )
 
+(* A recursive function a compositional analysis abstracts by its contract
+   is refined in steps, when the analysis of the function itself proved its
+   contract: its body is unrolled once, its recursive calls abstracted by the
+   contract; then one more time, up to the limit below.
+   [Analysis.info.unrollings] holds the current number of unrollings of each
+   function so refined; a concrete recursive function that is not in it is
+   unrolled once. The top system and the functions of its recursive group
+   are never in it: their recursive calls keep the contract as the induction
+   hypothesis of the recursion. *)
+
+(* The number of unrollings a refinement goes up to *)
+let unrolling_limit () = Flags.Contracts.rec_unrollings ()
+
+(* Merges the unrollings of the previous analysis with those of the analysis
+   that proved the refined system: a function unrolled in both keeps the
+   larger number of unrollings *)
+let merge_unrollings unr_1 unr_2 =
+  Scope.Map.merge (fun _ n_1 n_2 ->
+    match n_1, n_2 with
+    | Some n, None | None, Some n -> Some n
+    | Some n, Some n' -> Some (max n n')
+    | None, None -> None
+  ) unr_1 unr_2
+
+(* The unrollings after refining the concrete recursive function [scope] one
+   step further: one more unrolling, up to the limit. [None] if the function
+   cannot be refined further: it is at the limit, or it is the top system or
+   a function of its group. *)
+let next_unrollings unrollings scope =
+  match Scope.Map.find_opt scope unrollings with
+  | Some n when n < unrolling_limit () ->
+    Some (Scope.Map.add scope (n + 1) unrollings)
+  | Some _ | None -> None
+
+(* Whether the last analysis of [scope] proved its contract, i.e. its
+   contract holds of its implementation (see [A.result_is_contract_proved]).
+   A refinement keeps what was proved under the abstraction of [scope], and
+   the checks of its body and the other properties of its analysis are not
+   what the abstraction assumed. An imported node has no analysis. *)
+let proved_correct results scope =
+  match A.results_find scope results with
+  | result :: _ -> A.result_is_contract_proved result
+  | [] -> failwith "unreachable"
+  | exception Not_found -> false
+
+(* The recursive functions of [all_nodes] whose last analysis proved valid
+   every termination check it had, with the positions of the calls of those
+   checks (see [A.result_termination_checks]). In a modular analysis,
+   compositional or not, a call to one of them at constant arguments is
+   evaluated, and its value given to the solver (see [LustreTransSys]); in
+   any other, the analysis of the function does not run, its termination is
+   not known, and the call is left to the unrolling of the function, so no
+   function is listed. *)
+let terminating_functions results all_nodes =
+  if not (Flags.modular ()) then
+    Scope.Map.empty
+  else
+    List.fold_left (fun acc (scope, { rec_group }) ->
+      match rec_group, A.results_find scope results with
+      | Some _, result :: _ -> (
+        match A.result_termination_checks result with
+        | Some positions -> Scope.Map.add scope positions acc
+        | None -> acc
+      )
+      | _ -> acc
+      | exception Not_found -> acc
+    ) Scope.Map.empty all_nodes
+
+(* Makes the abstract system [scope] concrete: the abstraction and the
+   unrollings are updated with those its own analysis proved it under, and a
+   recursive function gets one unrolling *)
+let make_concrete results (abstraction, unrollings) scope rec_group =
+  let info = A.info_of_param (A.results_last scope results).A.param in
+  let abstraction' = Scope.Map.add scope false abstraction in
+  (* Updating with the abstraction used to prove [scope]. *)
+  let abstraction' = merge_abstractions abstraction' info.A.abstraction_map in
+  let unrollings' = merge_unrollings unrollings info.A.unrollings in
+  let unrollings' =
+    if rec_group <> None then Scope.Map.add scope 1 unrollings' else unrollings'
+  in
+  abstraction', unrollings'
+
 (* Try to refine every refineable subsystem of the system [result] corresponds
    to. Traversal of the subsystems is breadth first. Return an option of the
-   the new abstraction, if any, or [None] otherwise. *)
+   the new abstraction and unrollings, if any, or [None] otherwise. *)
 let get_reachability_abstraction results subs_of_scope result =
 
   (* Input is a list of list of scope / whatever pairs. Initially input
@@ -49,43 +135,41 @@ let get_reachability_abstraction results subs_of_scope result =
      In addition, appends the subsystems of all refined systems and
      not abstracted systems to the input. The function looks at
      the subsystems previously appended to the input recursively. *)
-  let rec loop refined abstraction = function
-  | ( (system, { opacity } ) :: tail ) :: lower -> (
+  let rec loop seen refined ((abstraction, unrollings) as maps) = function
+  | ( (system, { opacity ; rec_group } ) :: tail ) :: lower -> (
+    (* A system reached before, through another caller or through a
+       recursive call of itself, has been looked at already; without this
+       the traversal never ends on a recursive function, whose subsystems
+       include itself *)
+    if Scope.Set.mem system seen then
+      tail :: lower |> loop seen refined maps
+    else
+    let seen = Scope.Set.add system seen in
     (* Is system currently abstracted? *)
     if Scope.Map.find system abstraction then
-      (* Is system refineable? *)
-      if (opacity <> Opaque) then (
-        try match A.results_find system results with
-        | ({ A.param } as result) :: _ ->
-          (* It is if everything was proved in the last analysis. *)
-          if A.result_is_all_inv_proved result then (
-            let info = A.info_of_param param in
-            let sub = info.A.top in
-            (* System is now concrete. *)
-            let abstraction = Scope.Map.add sub false abstraction in
-            (* Updating with the abstraction used to prove [sub]. *)
-            let abstraction =
-              merge_abstractions abstraction info.A.abstraction_map
-            in
-            (tail :: lower) @ [ subs_of_scope system ]
-            |> loop true abstraction
-          )
-          (* Otherwise keep going. *)
-          else tail :: lower |> loop refined abstraction
-        | [] -> failwith "unreachable"
-        with Not_found -> (* Case of imported nodes (they have no result) *)
-          tail :: lower |> loop refined abstraction
-      )
-      else (
-        tail :: lower |> loop refined abstraction
-      )
-    else (* System is not abstracted, remembering its subsystems and
-            looping. *)
+      (* It is refineable if it is not opaque and its contract was proved in
+         its last analysis. *)
+      if opacity <> Opaque && proved_correct results system then
+        (tail :: lower) @ [ subs_of_scope system ]
+        |> loop seen true (make_concrete results maps system rec_group)
+      (* Otherwise keep going. *)
+      else tail :: lower |> loop seen refined maps
+    else (* System is not abstracted: a recursive function may be refined a
+            step further; remembering its subsystems and looping. *)
+      let refined, maps =
+        match rec_group with
+        | Some _ when opacity <> Opaque && proved_correct results system -> (
+          match next_unrollings unrollings system with
+          | Some unrollings -> true, (abstraction, unrollings)
+          | None -> refined, maps
+        )
+        | _ -> refined, maps
+      in
       (tail :: lower) @ [ subs_of_scope system ]
-      |> loop refined abstraction
+      |> loop seen refined maps
   )
-  | [] :: lower -> loop refined abstraction lower
-  | [] -> if refined then Some abstraction else None
+  | [] :: lower -> loop seen refined maps lower
+  | [] -> if refined then Some maps else None
   in
 
   if Flags.Contracts.refinement () && A.result_is_some_reach_proved result then
@@ -93,84 +177,151 @@ let get_reachability_abstraction results subs_of_scope result =
     let info = A.info_of_param result.A.param in
     let sys = info.A.top in
     let subs = subs_of_scope sys in
-    let abstraction = info.A.abstraction_map in
 
-    loop false abstraction [ subs ]
+    loop
+      (Scope.Set.singleton sys) false
+      (info.A.abstraction_map, info.A.unrollings) [ subs ]
   )
   else
     None
 
 (* Looks for the first refineable subsystem of the system [result] corresponds
    to. Traversal of the subsystems is breadth first. Returns an option of the
-   scope of the system refined, and the new abstraction. *)
+   scope of the system refined, and the new abstraction and unrollings. *)
+(* Whether refining the recursive functions of the system [result]
+   corresponds to may prove an invariant property its analysis left
+   unproved: one is unknown, or falsified by a counterexample that may rely
+   on outputs the contracts of the functions allow but the functions do not
+   have. A property the functions as they are falsify (see
+   [A.result.genuine]) is falsified again in any refinement of them, which
+   only replaces their contracts by their bodies. *)
+let recursive_refinement_useful { A.sys ; A.genuine } =
+  TransSys.get_prop_status_and_kind_all_nocands sys
+  |> List.exists (function
+    | _, Property.PropInvariant _, _ -> false
+    | name, Property.PropFalse _, Property.Invariant ->
+      not (List.mem name genuine)
+    | _, _, Property.Invariant -> true
+    | _ -> false)
+
 let get_refinement_abstraction results subs_of_scope result =
   let info = A.info_of_param result.A.param in
   let sys = info.A.top in
   let subs = subs_of_scope sys in
 
-  match result.A.requirements_valid with
-  | Some false -> (* Requirements could not be proved, aborting. *)
-    None
-  | _ -> (
-    let abstraction = info.A.abstraction_map in
+  (* A refinement is attempted even when the assumptions of some callee could
+     not be proved. The guarantees of an abstracted callee are only asserted
+     while its assumptions have held so far (its "sofar" flag), and the
+     properties proved in the analysis of a concrete callee are asserted
+     under the same flag. What was proved under the abstraction therefore
+     holds of the implementation of a callee that was proved correct, even on
+     a trace that violates its assumptions, and it can be kept after the
+     refinement. A refinement can also prove the assumptions themselves: a
+     callee abstracted by a contract too weak to establish them may establish
+     them once it is concrete. *)
+  let abstraction = info.A.abstraction_map in
+  let unrollings = info.A.unrollings in
 
-    (* Input is a list of list of scope / whatever pairs. Initially input
-       only contains [subs]. Function looks at them as candidates and
-       returns the first refineable system from [subs], more precisely the
-       [result] corresponding to the system. When a non-refineable system
-       is encountered, it is discarded and its subsystems are appended to
-       the input. If no refineable system is found in [subs] function goes
-       looks at the subsystems previously appended to the input
-       recursively. *)
-    let rec loop = function
-      | ( (candidate, { opacity }) :: tail ) :: lower -> (
-        (* Is candidate currently abstracted? *)
+  (* Input is a list of list of scope / whatever pairs. Initially input
+     only contains [subs]. Function looks at them as candidates and
+     returns the first one [pick] refines, with the new abstraction and
+     unrollings. When a candidate is not refined, it is discarded if it is
+     abstract, and its subsystems are appended to the input otherwise. If no
+     candidate is refined in [subs] function goes looks at the subsystems
+     previously appended to the input recursively. *)
+  let rec loop pick seen = function
+    | ( (candidate, sinfo) :: tail ) :: lower -> (
+      (* A candidate reached before, through another caller or through a
+         recursive call of itself, has been looked at already; without
+         this the traversal never ends on a recursive function, whose
+         subsystems include itself *)
+      if Scope.Set.mem candidate seen then
+        tail :: lower |> loop pick seen
+      else
+      let seen = Scope.Set.add candidate seen in
+      match pick candidate sinfo with
+      | Some maps -> Some (candidate, maps)
+      | None ->
         if Scope.Map.find candidate abstraction then
-          (* Is candidate refineable? *)
-          if (opacity <> O.Opaque) then (
-            try match A.results_find candidate results with
-            | result :: _ ->
-              (* It is if everything was proved in the last analysis. *)
-              if A.result_is_all_inv_proved result then Some result
-              (* Otherwise keep going. *)
-              else tail :: lower |> loop
-            | [] -> failwith "unreachable"
-            with Not_found -> (* Case of imported nodes (they have no result) *)
-              tail :: lower |> loop
-          )
-          else (
-            tail :: lower |> loop
-          )
-        else (* Candidate is not abstracted, remembering its subsystems and
-                looping. *)
-          (tail :: lower) @ [ subs_of_scope candidate ] |> loop
-      )
-      | [] :: lower -> loop lower
-      | [] -> None
+          tail :: lower |> loop pick seen
+        else
+          (tail :: lower) @ [ subs_of_scope candidate ] |> loop pick seen
+    )
+    | [] :: lower -> loop pick seen lower
+    | [] -> None
+  in
+
+  (* An abstract system that is not opaque and was proved correct is made
+     concrete *)
+  let recursive = recursive_refinement_useful result in
+
+  (* A recursive function is refined only if that may prove a property *)
+  let pick_abstract candidate { opacity ; rec_group } =
+    if (recursive || rec_group = None)
+       && Scope.Map.find candidate abstraction
+       && opacity <> O.Opaque && proved_correct results candidate
+    then Some (make_concrete results (abstraction, unrollings) candidate rec_group)
+    else None
+  in
+  (* A concrete recursive function that was proved correct is refined a step
+     further, if it can be *)
+  let pick_unrolled candidate { opacity ; rec_group } =
+    match rec_group with
+    | Some _
+      when recursive
+           && not (Scope.Map.find candidate abstraction)
+           && opacity <> O.Opaque && proved_correct results candidate -> (
+      match next_unrollings unrollings candidate with
+      | Some unrollings -> Some (abstraction, unrollings)
+      | None -> None
+    )
+    | _ -> None
+  in
+
+  (* The abstract systems first: making one concrete is the cheaper step,
+     and it may be what the properties need. Only when every system is as
+     concrete as it can be is a recursive function unrolled further. *)
+  match loop pick_abstract (Scope.Set.singleton sys) [ subs ] with
+  | Some _ as refinement -> refinement
+  | None -> loop pick_unrolled (Scope.Set.singleton sys) [ subs ]
+
+(* The invariants that the last analysis of each system a refinement makes
+   concrete, or refines a step further, established, to be assumed in the
+   refinement.
+
+   The assumptions of an analysis are the invariants of the analysis before
+   it (see [last_assumptions]). The one before a refinement is the analysis
+   of the same system in which the refined systems were abstract, and an
+   abstract system is given no assumptions: the invariants established by
+   the analysis of a refined system, its guarantees among them, are not
+   passed on. The invariants of a contract check are left out, as they were
+   established assuming the contract. *)
+let assumptions_of_refined results (prev_abstraction, prev_unrollings) (abstraction, unrollings) =
+  Scope.Map.fold (fun scope is_abstract acc ->
+    let was_abstract =
+      match Scope.Map.find_opt scope prev_abstraction with
+      | Some b -> b
+      | None -> false
     in
+    let unrolled_further =
+      Scope.Map.find_opt scope unrollings
+      <> Scope.Map.find_opt scope prev_unrollings
+    in
+    if is_abstract || not (was_abstract || unrolled_further) then acc
+    else
+      match A.results_find scope results with
+      | { A.param = A.First _ | A.Refinement _ ; A.sys } :: _ ->
+        A.assumptions_merge (A.assumptions_of_sys sys) acc
+      | _ -> acc
+      | exception Not_found -> acc
+  ) abstraction A.assumptions_empty
 
-    match loop [ subs ] with
-    (* No refinement possible. *)
-    | None -> None
-    | Some { A.param } ->
-      (* Refinement found, need to update abstraction and lift invariants. *)
-      let info = A.info_of_param param in
-      let sub = info.A.top in
-      (* System is now concrete. *)
-      let abstraction = Scope.Map.add sub false abstraction in
-      (* Updating with the abstraction used to prove [sub]. *)
-      let abstraction =
-        merge_abstractions abstraction info.A.abstraction_map
-      in
-
-      Some (sub, abstraction)
-  )
-
-let is_candidate_for_analysis { has_impl ; has_modes } =
-  (has_modes && Flags.Contracts.check_modes ()) || has_impl
+let is_candidate_for_analysis { has_impl ; has_modes ; is_internal } =
+  not is_internal &&
+  ((has_modes && Flags.Contracts.check_modes ()) || has_impl)
 
 (* Returns an option of the parameter for the first analysis of a system. *)
-let first_param_of ass _results all_nodes scope =
+let first_param_of ass results all_nodes scope =
 
   let rec loop abstraction = function
     | (sys, { opacity; has_impl ; has_contract ; has_modes }) :: tail -> (
@@ -226,6 +377,9 @@ let first_param_of ass _results all_nodes scope =
         { A.top = scope ;
           A.uid = A.get_uid () ;
           A.abstraction_map = abstraction ;
+          A.unrollings = Scope.Map.empty ;
+          A.terminating = terminating_functions results all_nodes ;
+          A.learned = [] ;
           A.assumptions = ass }
       in
       if Scope.Map.find scope abstraction then
@@ -307,6 +461,37 @@ let last_assumptions () =
   | None -> A.assumptions_empty
   | Some sys -> A.assumptions_of_sys sys
 
+(* The values of calls of [learned], followed by those of [learned'] that
+   are not among them *)
+let merge_learned learned learned' =
+  let same (f, a, _) (g, b, _) =
+    UfSymbol.equal_uf_symbols f g && List.equal Term.equal a b
+  in
+  learned
+  @ List.filter (fun l -> not (List.exists (same l) learned)) learned'
+
+(* The parameter of the refinement of [sys] with the abstraction and
+   unrollings [maps], after [result] *)
+let refinement_of results all_nodes sys result (abstraction, unrollings) =
+  let prev = A.info_of_param result.A.param in
+  A.Refinement (
+    { A.top = sys ;
+      A.uid = A.get_uid () ;
+      A.abstraction_map = abstraction ;
+      A.unrollings = unrollings ;
+      A.terminating = terminating_functions results all_nodes ;
+      (* The values of calls evaluated by the checks of the counterexamples
+         of the previous analyses of [sys], which showed them spurious *)
+      A.learned = merge_learned prev.A.learned result.A.learned ;
+      A.assumptions =
+        A.assumptions_merge
+          (assumptions_of_refined results
+            (prev.A.abstraction_map, prev.A.unrollings)
+            (abstraction, unrollings))
+          (last_assumptions ()) ; },
+    result
+  )
+
 let next_modular_analysis results subs_of_scope = function
   | [] -> failwith "[strategy] \
     no system to analyze (empty list of scopes)\
@@ -363,31 +548,13 @@ let next_modular_analysis results subs_of_scope = function
                 (* Going up. *)
                 go_up prefix
               )
-              | Some abs -> (
-                Some (
-                  A.Refinement (
-                    { A.top = sys ;
-                      A.uid = A.get_uid () ;
-                      A.abstraction_map = abs ;
-                      A.assumptions = last_assumptions () ; },
-                    result
-                  )
-                )
-              )
+              | Some maps -> Some (refinement_of results all_syss sys result maps)
             ) else if Flags.Contracts.refinement () then (
               match get_refinement_abstraction results subs_of_scope result with
               | None -> (* Cannot refine, going up. *)
                 go_up prefix
-              | Some (_, abs) -> (* Refinement found. *)
-                Some (
-                  A.Refinement (
-                    { A.top = sys ;
-                      A.uid = A.get_uid () ;
-                      A.abstraction_map = abs ;
-                      A.assumptions = last_assumptions () ; },
-                    result
-                  )
-                )
+              | Some (_, maps) -> (* Refinement found. *)
+                Some (refinement_of results all_syss sys result maps)
             ) else go_up prefix
         ) with Not_found ->
           (* Format.printf "|> not the last system, going down@." ; *)

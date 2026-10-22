@@ -77,6 +77,35 @@ type info = {
   assumptions : assumptions ;
   (** Properties that can be assumed invariant in subsystems *)
 
+  unrollings : int Scope.Map.t ;
+  (** The number of times the body of each recursive function is unrolled
+      along a chain of recursive calls, once when the function is not in
+      the map. In a compositional analysis, the calls past the unrollings
+      are abstracted by the contract of the function, and a refinement adds
+      an unrolling (see {!Strategy}); in any other analysis they are left
+      unconstrained, and an unrolling is added when a counterexample
+      reaches one (see {!RecUnrolling}). *)
+
+  terminating : Lib.position list Scope.Map.t ;
+  (** The recursive functions whose own analysis proved valid every
+      termination check it had, each with the positions of the calls of
+      those checks, which are looked up by call: a call whose checks the
+      analysis did not have is not taken as terminating. In a compositional
+      and modular analysis, a call to one of
+      them at constant arguments is evaluated, and its value given to the
+      solver, when the checks of all its recursive calls are among them (see
+      {!LustreTransSys}). *)
+
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** Values of calls to recursive functions, each a functional symbol of
+      an output of the function with the concrete arguments of the call and
+      its value, that earlier analyses of the top system evaluated while
+      checking their counterexamples, which these values showed to be
+      spurious (see [RecUnrolling.check_abstractions]). Those of the
+      functions proved terminating (see [terminating]) are given to the
+      solver as facts (see [LustreTransSys]), so that a refinement knows
+      them without unrolling the functions as deep as the calls go. *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
      refinement. *)
@@ -123,11 +152,25 @@ and result = {
   (** [None] if system analyzed has not sub-requirements,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
+
+  genuine : string list ;
+  (** The properties falsified by a counterexample that the recursive
+      functions as they are violate, rather than their contracts that
+      abstract them in the system (see [RecUnrolling.check_abstractions]):
+      refining the recursive functions cannot prove them. *)
+
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** The values of calls to recursive functions that the checks of the
+      counterexamples of the analysis evaluated, when they showed a
+      counterexample to be spurious (see [info.learned]). *)
 }
 
 
 (** Clones an [info], only changes its [uid]. *)
 val info_clone : info -> info
+
+(** Applies a function to the info of a param. *)
+val map_info : (info -> info) -> param -> param
 
 (** Clones a [param], only changes its [uid]. *)
 val param_clone : param -> param
@@ -142,6 +185,10 @@ val shrink_param_to_sys : param -> TransSys.t -> param
    a [param]. Default to [false] if the node is not in the map. *)
 val param_scope_is_abstract : param -> Scope.t -> bool
 
+(** The number of unrollings of a recursive function in the analysis of a
+    [param], if a refinement set one (see [info]) *)
+val param_unrollings_of_scope : param -> Scope.t -> int option
+
 (** Return [true] if no system is flagged abstract
     in the [abstraction_map] of a [param]. *)
 val no_system_is_abstract : ?include_top:bool -> param -> bool
@@ -150,7 +197,9 @@ val no_system_is_abstract : ?include_top:bool -> param -> bool
 val param_assumptions_of_scope : param -> Scope.t -> Invs.t
 
 (** Returns a result from an analysis. *)
-val mk_result : param -> TransSys.t -> float -> result
+val mk_result :
+  ?genuine:string list -> ?learned:(UfSymbol.t * Term.t list * Term.t) list ->
+  param -> TransSys.t -> float -> result
 
 (** Returns true if all properties in the system
     in a [result] have been proved. *)
@@ -159,6 +208,22 @@ val result_is_all_proved : result -> bool
 (** Returns true if all invariant properties in the system
     in a [result] have been proved. *)
 val result_is_all_inv_proved : result -> bool
+
+(** Returns true if the contract of the system in a [result] was proved:
+    every guarantee and mode property is valid, and so is every termination
+    check of the system, when it is a recursive function. What a refinement
+    of a caller needs of the system (see {!Strategy}). *)
+val result_is_contract_proved : result -> bool
+
+(** Returns true if every termination check of the system in a [result]
+    was proved valid. The system of a function that is not recursive has
+    none. *)
+val result_is_termination_proved : result -> bool
+
+(** The positions of the calls whose termination checks the analysis of a
+    [result] proved, if it proved every termination check of the system,
+    [None] otherwise *)
+val result_termination_checks : result -> Lib.position list option
 
 (** Returns true if some properties in the system
     in a [result] have been falsified. *)

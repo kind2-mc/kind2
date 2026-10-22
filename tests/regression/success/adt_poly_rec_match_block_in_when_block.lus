@@ -1,0 +1,21 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node f (x: List<int>; c: bool) returns (y: int);
+let
+  when c then
+    match x with
+    | Nil:
+      y = 0;
+    | Cons (a, r):
+      y = a;
+    end
+  else
+    y = -1;
+  end
+tel
+
+node main (i: int) returns (ok: bool);
+let
+  ok = f(Cons(i, Nil@<int>), true) = i and f(Nil@<int>, false) = -1;
+  check ok;
+tel

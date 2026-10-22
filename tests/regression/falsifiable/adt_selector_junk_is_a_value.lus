@@ -1,0 +1,15 @@
+-- The arbitrary value of a selector read outside of its constructor is a
+-- value of the field's type: for an ADT-typed field it is a canonical ADT
+-- value, whose tag names a constructor. (A refinement type's predicate is a
+-- constraint on the variables of that type, not on such a value.) The
+-- falsifiable properties are the obligations of the unguarded reads.
+
+datatype Inner = X (s: int) | Y (u: bool);
+datatype D = A (a: Inner) | B (c: int) | C (e: Inner);
+
+node main(d: D) returns (ok: bool);
+let
+  check "junk ADT value is a value" exists (v: Inner) (v = d.a);
+  check "junk ADT value is fixed" d.e = d.e;
+  ok = true;
+tel

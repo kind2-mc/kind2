@@ -1,0 +1,18 @@
+datatype B = T | F;
+datatype P = MkP (l: B, r: B) | Other;
+
+node f (p: P) returns (y: int);
+let
+  frame (y)
+    y = 9;
+  let
+    match p with
+    | MkP (a, b):
+      match a with
+      | T:
+        y = 1;
+      end
+    end
+  tel
+  --%PROPERTY (Other?(p) => y = (9 -> pre y));
+tel

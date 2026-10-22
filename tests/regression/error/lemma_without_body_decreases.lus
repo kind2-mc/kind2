@@ -1,0 +1,14 @@
+-- A lemma without a body cannot invoke itself, so a decreases clause would
+-- have no recursive call to justify.
+lemma L (n: int)
+con
+  guarantee n = n;
+  decreases n;
+noc
+
+node main (x: int) returns (ok: bool);
+let
+  L(x);
+  ok = true;
+  check ok;
+tel

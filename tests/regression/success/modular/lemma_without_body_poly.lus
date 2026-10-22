@@ -1,0 +1,24 @@
+-- A polymorphic lemma without a body, instantiated in the body of a
+-- polymorphic lemma that is itself proved for its instance.
+function imported g <T> (x: T) returns (y: T);
+
+lemma g_idempotent <T> (x: T)
+con
+  guarantee g@<T>(g@<T>(x)) = g@<T>(x);
+noc
+
+lemma g_thrice <T> (x: T)
+con
+  guarantee g@<T>(g@<T>(g@<T>(x))) = g@<T>(x);
+noc
+let
+  g_idempotent@<T>(x);
+  g_idempotent@<T>(g@<T>(x));
+tel
+
+node main (x: int) returns (ok: bool);
+let
+  g_thrice@<int>(x);
+  ok = g@<int>(g@<int>(g@<int>(x))) = g@<int>(x);
+  check ok;
+tel

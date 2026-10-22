@@ -71,6 +71,11 @@ module Hashtbl : Hashtbl.S with type key = t
     list. *)
 type pred_def = UfSymbol.t * (Var.t list * Term.t)
 
+(** Definition of a function symbol: the symbol, its formal parameters and
+    its body, which may apply the symbol itself (or another one of the same
+    block of definitions) recursively *)
+type fun_def = UfSymbol.t * Var.t list * Term.t
+
 (** Functional congruence group of an (abstracted) function with
     container-typed arguments: a quantifier-free template over one pair of
     free variables per function argument, together with the argument state
@@ -117,6 +122,11 @@ type instance =
         [guard_clock t] assumes that [t] is a Boolean term and returns
         the term [c => t] where [c] is the clock of the subsystem
         instance. *)
+
+    active : Numeral.t -> Term.t;
+    (** The call is executed at the offset: the clock of a call with an
+        activation condition, the branch of a call in a [when] block, [true]
+        for an unconditional call; in the state variables of this system *)
 
     assumes: (Term.t list * Term.t) option;
     (** [None] if there is no assumption associated to the call. Otherwise,
@@ -192,6 +202,12 @@ val init_formals : t -> Var.t list
 
 (** Variables in the transition relation *)
 val trans_formals : t -> Var.t list
+
+(** Of the given conjuncts of a transition relation, those that only
+    constrain the current state; an unconditional call of the transition
+    relation of one of the given subsystems contributes the same part of
+    the subsystem, with its formal parameters bound to the actual ones. *)
+val one_state_conjuncts : (t * instance list) list -> Term.t list -> Term.t list
 
 
 (** Builds a call to the initial function on state [k]. *)
@@ -275,11 +291,30 @@ val mk_trans_sys :
   (* Start value for fresh instance identifiers *)
   ?instance_var_id_start:int ->
 
+  (* The part of the transition relation that only constrains the current
+     state, see [one_state_conjuncts]; computed from the transition
+     relation if not given *)
+  ?one_state_trans:Term.t ->
+
   (* Recursive ADTs used anywhere in this system, in dependency order *)
   ?datatype_types:Type.t list ->
 
   (* Functional congruence groups of the system's subtree *)
   ?fn_congruence_groups:fn_congruence_group list ->
+
+  (* Definitions of the recursive functions of the system, as blocks of
+     mutually recursive definitions in dependency order *)
+  ?rec_fun_defs:fun_def list list ->
+
+  (* Definitions of the non-recursive functions the system applies, in
+     definition order *)
+  ?fun_defs:fun_def list ->
+  ?check_defs:fun_def list list ->
+  ?check_ufs:UfSymbol.t list ->
+  ?check_helpers:UfSymbol.t list ->
+  ?rec_cutoff:Scope.t ->
+  ?rec_abstracted:Scope.t ->
+  ?rec_cutoff_io:(StateVar.t list * (StateVar.t * UfSymbol.t) list) ->
 
   (* Name of the transition system *)
   Scope.t ->
@@ -496,10 +531,20 @@ val declare_const_vars : t -> (UfSymbol.t -> unit) -> unit
 *)
 val declare_init_flag_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
+(** [declare_sorts declare_sort datatypes] declares the uninterpreted sorts,
+    then the algebraic datatypes [datatypes], which are in dependency order,
+    with [declare_sort]: a datatype's fields may have an uninterpreted
+    sort *)
+val declare_sorts : (Type.t -> unit) -> Type.t list -> unit
+
 (** Declare the sorts, uninterpreted functions and const variables
-   of this system and its subsystems. *)
+    of this system and its subsystems, and define their recursive
+    functions with [define_rec], whose signature is that of
+    {!SMTSolver.define_funs_rec} partially evaluated with its first
+    argument. *)
 val declare_sorts_ufs_const :
   t ->
+  define_rec:(fun_def list -> unit) ->
   (UfSymbol.t -> unit) ->
   (Type.t -> unit) -> unit
 
@@ -531,12 +576,20 @@ val define_subsystems :
     their state variables between and including [l] and [u]. Thus the
     subsystems can be run in parallel to the top system.
 
-    The signatures of [f] and [g] are those of {!SMTSolver.define_fun}
-    and {!SMTSolver.declare_fun}, repsectively, partially evaluated
+    The recursive functions of every system are defined with
+    [define_rec], each block of mutually recursive definitions once,
+    after the uninterpreted functions of the system and before its
+    predicates.
+
+    The signatures of [f], [define_rec] and [g] are those of
+    {!SMTSolver.define_fun}, {!SMTSolver.define_funs_rec} and
+    {!SMTSolver.declare_fun}, respectively, partially evaluated
     with their first argument. *)
 val define_and_declare_of_bounds :
-  ?declare_sub_vars:bool -> t ->
+  ?declare_sub_vars:bool -> ?with_check_defs:bool -> ?with_check_ufs:bool ->
+  t ->
   (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  define_rec:(fun_def list -> unit) ->
   (UfSymbol.t -> unit) ->
   (Type.t -> unit) ->
   Numeral.t -> Numeral.t -> unit
@@ -565,6 +618,29 @@ val uf_defs : t -> pred_def list
     uninterpreted symbols of state variables and the init and trans
     predicates. *)
 val get_ufs : t -> UfSymbol.t list
+
+(** Return the definitions of the recursive functions of this system, as
+    blocks of mutually recursive definitions in dependency order *)
+val get_rec_fun_defs : t -> fun_def list list
+
+(** Return the definitions of the non-recursive functions this system
+    applies, in definition order. They are given to the solvers as
+    definitions, before the predicates of the systems, and to the
+    evaluation of terms in a model with {!uf_defs}. *)
+val get_fun_defs : t -> fun_def list
+
+(** Return [true] if the system or one of its subsystems has a recursive
+    function defined at the SMT level (see [LustreFunDefs]) *)
+val subsystem_includes_rec_fun_def : t -> bool
+
+(** [define_rec_fun_defs t defined define_rec] evaluates [define_rec] with each
+    block of recursive function definitions of [t] whose symbols are not in
+    [defined], and returns [defined] extended with the symbols defined.
+    The signature of [define_rec] is that of {!SMTSolver.define_funs_rec}
+    partially evaluated with its first argument. *)
+val define_rec_fun_defs :
+  t -> UfSymbol.UfSymbolSet.t -> (fun_def list -> unit) ->
+  UfSymbol.UfSymbolSet.t
 
 (** {1 Properties} *)
 
@@ -736,6 +812,75 @@ val instantiate_term_all_levels:
   t -> Numeral.t -> Scope.t -> Term.t -> bool ->
   (t * Term.t list) * ((t * Term.t list) list) 
 
+
+(** The recursive functions a cutoff of which the counterexample reaches:
+    an instance of the function past its unrollings, whose outputs are left
+    unconstrained, is executed at some step of the counterexample, which may
+    therefore be spurious *)
+val cutoffs_reached : t -> (StateVar.t * Model.value list) list -> Scope.t list
+
+(** The recursive functions with a cutoff in the system *)
+val cutoff_functions : t -> Scope.t list
+
+(** The definitions of the recursive functions the systems of [t] carry
+    for the supervisor (see [define_check_defs]), each once: the symbol, its
+    formal parameters and its body *)
+val check_definitions : t -> fun_def list
+
+(** The symbols among [check_definitions] that define functions that are
+    neither recursive nor imported, each once. The definitions that call
+    such a function apply these symbols rather than inline its body (see
+    [LustreFunDefs]), and the supervisor expands them where it instantiates
+    a defining equation. *)
+val check_helper_symbols : t -> UfSymbol.t list
+
+(** [define_check_defs t ~define_rec declare declare_sort] declares the
+    sorts and the global constants of [t], which the definitions may read,
+    and gives the definitions of the recursive functions its systems carry
+    for the supervisor to evaluate the calls past the unrollings of a
+    counterexample with (see [LustreFunDefs.compute_all]), and nothing
+    else: a solver to evaluate the functions at concrete arguments *)
+val define_check_defs :
+  t ->
+  define_rec:(fun_def list -> unit) ->
+  (UfSymbol.t -> unit) ->
+  (Type.t -> unit) -> unit
+
+(** The instances of the cutoffs in the system: for each, its function, the
+    term stating at offset zero that the chain of calls from the top system
+    down to it is executed, its inputs in the order of the arguments of its
+    functional symbols, and its outputs with their functional symbols, all
+    in the variables of the top system *)
+val cutoff_instances :
+  t -> (Scope.t * Term.t * StateVar.t list * (StateVar.t * UfSymbol.t) list) list
+
+(** The recursive functions with a cutoff in the system whose systems carry
+    definitions for the supervisor to evaluate their calls with, which
+    [define_and_declare_of_bounds ~with_check_defs:true] gives the solver *)
+val evaluable_functions : t -> Scope.t list
+
+(** The instances of the recursive functions that their contracts abstract
+    in the system, as [cutoff_instances] gives the cutoffs: an abstract
+    instance in a compositional analysis, or one past the unrollings of its
+    function when the contract stands in for its body. Their outputs are
+    tied to the functional symbols of the function, and constrained by its
+    contract only. *)
+val abstracted_instances :
+  t -> (Scope.t * Term.t * StateVar.t list * (StateVar.t * UfSymbol.t) list) list
+
+(** The recursive functions with an abstracted instance in the system whose
+    systems carry definitions for the supervisor to evaluate their calls
+    with *)
+val abstracted_evaluable_functions : t -> Scope.t list
+
+(** The number of instances of the recursive function of the given scope
+    in the system, the instances of its unrollings included *)
+val count_instances : t -> Scope.t -> int
+
+(** Carries the statuses of the properties and the invariants of the first
+    system over to the second, which is the first built again with a
+    recursive function unrolled further *)
+val transfer_results : from:t -> into:t -> unit
 
 (** Return arrays bounds of state variables of array type used in the system *)
 val get_state_var_bounds : t ->

@@ -1,0 +1,9 @@
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var x: List<set<int>>;
+let
+  x = Nil@<set<int>>;
+  ok = Nil?(x);
+  check ok;
+tel

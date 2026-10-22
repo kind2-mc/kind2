@@ -1,0 +1,7 @@
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node main(l: List) returns (o: int);
+let
+  o = when not Nil?(l) then pre (l.hd) else 0;
+  check Nil?(l) => o = 0;
+tel

@@ -1,0 +1,15 @@
+-- Arithmetic on a quantified variable in a guard (issue #1519): the guard
+-- holds for some value of the variable, and the property does not.
+
+datatype Message = Atomic (v: int) | Pair (fst: Message, snd: Message);
+
+function rec Size (m: Message) returns (r: int)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : 1 + Size(f) + Size(s) | _ : 1 end;
+tel
+
+node L (m: Message) returns ()
+let
+  check forall (n: int) n + 1 > 0 ==> Size(m) = 1;
+tel

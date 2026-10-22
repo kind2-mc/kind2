@@ -1,0 +1,9 @@
+datatype Opt<T> = N | S (val: T);
+
+node main(a: Opt<bool>) returns (ok: bool);
+var y: Opt<int>;
+let
+  y = a;
+  ok = match y with | N : true | S(v) : v > 0 end;
+  check ok;
+tel

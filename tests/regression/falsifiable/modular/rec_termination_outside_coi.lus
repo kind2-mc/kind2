@@ -1,0 +1,16 @@
+-- The guarantee of G does not depend on its recursive call, which does not
+-- terminate on odd arguments. The analysis of G still checks the termination
+-- of the call, and the bounded check is falsified. Slicing used to remove
+-- the call, and with it the check; with the two outputs of the call, it
+-- also left the system ill-sorted, and the solvers failed.
+function rec G(n: int) returns (a, b: int);
+(*@contract
+  guarantee "a" a = 0;
+  decreases n;
+*)
+var x, y: int;
+let
+  a = 0;
+  x, y = when n = 0 then (0, 0) else G(n - 2);
+  b = y;
+tel

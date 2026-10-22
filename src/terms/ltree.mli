@@ -98,6 +98,11 @@ sig
 
   val mk_fresh_var : sort -> var
 
+  (** [mk_binder_var s d] is the variable of sort [s] used to open a binder at
+      binding depth [d]. Must be deterministic: the same [s] and [d] always
+      give the same variable, and it must be one no term uses free. *)
+  val mk_binder_var : sort -> int -> var
+
   val import_symbol : symbol -> symbol
 
   val import_var : var -> var
@@ -210,6 +215,11 @@ sig
 
   (** Constructor for a let binding *)
   val mk_let : (var * t) list -> t -> t
+
+  (** [mk_let_chain [b_1; ...; b_n] t] is [mk_let b_1 (mk_let b_2 (...
+      (mk_let b_n t)))], built with one traversal of each term instead of
+      one of the body for every let *)
+  val mk_let_chain : (var * t) list list -> t -> t
 
   (** Constructor for a let binding *)
   val mk_let_elim : (var * t) list -> t -> t

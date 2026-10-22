@@ -43,6 +43,14 @@ val pos_of_expr : expr -> Lib.position
 val id_of_expr : expr -> HString.t option
 (** Return a lustre id if the expression is an Ident variant or None otherwise *)
 
+val expr_is_droppable : expr -> bool
+(** Checks whether the expression can be deleted from the AST without losing a
+    proof obligation. The check is a conservative whitelist: an expression form
+    it does not explicitly recognize as droppable, including any form added
+    later, is reported as not droppable. Answering [false] is always sound, so
+    a new expression form only needs to be listed as droppable if the caller
+    should be allowed to delete it. *)
+
 val expr_contains_call : expr -> bool
 (** Checks if the expression contains a call to a node *)
 
@@ -55,19 +63,35 @@ val type_arity : lustre_type -> int * int
     every other type has arity `(0, 0)` *)
 
 val substitute_naive : HString.t -> expr -> expr -> expr
-(** Substitute second param for first param in third param. 
-    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+(** Substitute second param for first param in third param.
+    Bound variables introduced by match arms, quantifiers and [any]/[choose] are
+    alpha-renamed when needed to avoid capture. *)
 
 val apply_subst_in_expr : (HString.t * expr) list -> expr -> expr
 (** [apply_subst_in_expr s e] applies the substitution defined by association list [s]
-    to the expression [e]
-    AnyOp and Quantifier are not supported due to introduction of bound variables. *)
+    to the expression [e], including the expressions of the types it carries
+    (e.g. explicit type arguments), as {!subst_in_type_exprs} does.
+    Bound variables introduced by match arms, quantifiers and [any]/[choose] are
+    alpha-renamed when needed to avoid capture. *)
+
+val apply_subst_in_node_item : (HString.t * expr) list -> node_item -> node_item
+(** [apply_subst_in_node_item s i] applies the substitution defined by association
+    list [s] to every expression of the node item [i], leaving the left-hand sides
+    of its equations alone.
+    Bound variables introduced by match block arms and by the indices of an array
+    definition shadow [s] over the expressions they scope, and those of a match
+    block arm are alpha-renamed when needed to avoid capture. *)
 
 val apply_subst_in_type : (HString.t * expr) list -> lustre_type -> lustre_type
 (** [apply_subst_in_type s t] applies the substitution defined by association list [s]
     to the expressions of (possibly dependent) type [t]
     AnyOp and Quantifier are not supported due to introduction of bound variables. *)
     
+val subst_in_type_exprs : (HString.t * expr) list -> lustre_type -> lustre_type
+(** [subst_in_type_exprs s t] applies the substitution [s] to every expression of
+    type [t]. A refinement type's binder shadows [s] in its predicate, and is
+    alpha-renamed when a substituted expression would be captured by it. *)
+
 val apply_type_subst_in_type : (HString.t * lustre_type) list -> lustre_type -> lustre_type
 (** [apply_type_subst_in_type s t] applies the (type-level) substitution defined by association list [s]
     to type [t]. *)
@@ -92,9 +116,16 @@ val node_local_decl_has_pre_or_arrow : node_local_decl -> Lib.position option
 val node_item_has_pre_or_arrow : node_item -> Lib.position option
 (** Checks whether a node equation has a `pre` or a `->`. *)
 
+val lazy_construct: expr -> (expr * expr list) option
+(** [lazy_construct e] returns the condition of [e] and the operands it
+    guards, if [e] is a lazy construct: a [when] expression, [and then],
+    [or else] or [==>] *)
+
 val vars_of_node_calls: expr -> SI.t
 (** [vars_of_node_calls e] returns all variable identifiers within arguments of node calls that
-    appear in the expression [e] (while excluding node call identifiers) *)
+    appear in the expression [e] (while excluding node call identifiers),
+    within the restart conditions of restarted node calls, and within the
+    conditions of the lazy constructs that guard node calls *)
 
 val vars_without_node_call_ids: expr -> SI.t
 (** [vars_without_node_call_ids e] returns all variable identifiers that appear in the expression [e]
@@ -103,6 +134,14 @@ val vars_without_node_call_ids: expr -> SI.t
 val vars_without_node_call_ids_current: expr -> SI.t
 (** [vars_without_node_call_ids_current e] is like vars_without_node_call_ids, 
     but only those vars that are not under a 'pre' expression *)
+
+val expr_is_time_invariant: (ident -> bool) -> expr -> bool
+(** [expr_is_time_invariant is_invariant_var e] holds when [e] contains no
+    'pre', '->' or node call, and every variable of [e] satisfies
+    [is_invariant_var]. The normalizer rewrites 'pre (a[i])' to '(pre a)[i]'
+    only when this holds for [i], and the syntax checks exempt such an index
+    from the ban on quantified variables under 'pre', so [is_invariant_var]
+    in the syntax checks must not accept a variable the normalizer rejects *)
 
 val vars_of_struct_item_with_pos: struct_item -> (Lib.position * index) list
 (** returns all variables that appear in a [struct_item] (the lhs of an equation) with associated positions *)
@@ -119,9 +158,19 @@ val vars_of_ty_ids: typed_ident -> SI.t
 val calls_of_expr: expr -> NodeId.Set.t 
 (** [calls_of_expr e] returns all node/function names for those nodes/functions called in [e] *)
 
-val vars_of_type: lustre_type -> SI.t
+val vars_of_type: ?into_ty_args:bool -> lustre_type -> SI.t
 (** [vars_of_type ty] returns all variable identifiers that appear in the type [ty]
-    while excluding node call identifiers and refinement type bound variables *)
+    while excluding node call identifiers and refinement type bound variables.
+    [into_ty_args] also descends into the type arguments of a user type *)
+
+val rename_self_referencing_binders :
+  ?expand:(lustre_type -> lustre_type) ->
+  (Lib.position * ident * lustre_type) list -> expr ->
+  (Lib.position * ident * lustre_type) list * expr
+(** [rename_self_referencing_binders ~expand tis e] alpha-renames, in the
+    quantifier binders [tis] and body [e], each variable whose name occurs in a
+    binder type, after expansion by [expand], where it does not denote the
+    quantified variable *)
 
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)
@@ -154,10 +203,6 @@ val split_program: declaration list -> (declaration list * declaration list)
 val abstract_pre_subexpressions: expr -> expr
 (** Abstracts out the pre expressions into a constant so that the built graph does not create a cycle.*)
 
-val replace_idents: index list -> index list -> expr -> expr
-(** For every identifier, if that identifier is position n in locals1,
-   replace it with position n in locals2 *)
-  
 val extract_node_equation: node_item -> (eq_lhs * expr) list
 (** Extracts out all the node equations as an associated list of rhs and lhs of the equation *)
 
@@ -189,6 +234,11 @@ val hash : int option -> expr -> int
     the same hash value is assigned to every sub expression. This function does not include position
     information in the hash. *)
 
+val name_mode_refs : expr -> expr * (ident * Lib.position * ident list) list
+(** [name_mode_refs e] replaces each mode reference in [e] by an identifier of the
+    same name, and returns the references that were replaced, each with the
+    position and path it was written at. *)
+
 val rename_contract_vars : expr -> expr
 (** Rename contract variables from internal names (with format #_contract_var) to syntax names *)
 
@@ -197,7 +247,7 @@ val name_of_prop : Lib.position -> HString.t option -> LustreAst.prop_kind -> HS
 
 val get_const_num_value : expr -> int option
 
-val fold_lustre_ty : (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
+val fold_lustre_ty : ?into_ty_args:bool -> (expr -> 'a) -> 'a -> ('a -> 'a -> 'a) -> lustre_type -> 'a
 (** `fold_lustre_ty f init op ty` folds over the type `ty` with initial value `init`,
     combining sub-results with `op` and collecting (sub-)results from Lustre expressions within the types
     with `f` *)
@@ -215,6 +265,10 @@ val map_lustre_ty : (expr -> expr) -> lustre_type -> lustre_type
 val constants_to_calls: ident list -> expr -> expr
 (** `constants_to_calls const_func_ids expr` converts each constant `C` in `expr` to a call `C()`, 
      provided that `C` is in `const_func_ids` *)
+
+val constants_to_calls_in_type: ident list -> lustre_type -> lustre_type
+(** `constants_to_calls_in_type const_func_ids ty` applies {!constants_to_calls} to the
+     expressions of `ty`, except where a refinement type's bound variable shadows a constant *)
 
 val contains_subtype_satisfying: (lustre_type -> bool) -> lustre_type -> bool
 (** `contains_subtype_satisfying p ty` returns true iff `ty` contains some subtype satisfying `p ty` *)
@@ -236,3 +290,15 @@ val node_id_of_decl: declaration -> NodeId.t option
 val is_recursive_function : declaration -> bool
 
 val pat_bound_vars : pattern -> LustreAst.SI.t
+
+val pat_bound_vars_with_pos : pattern -> (LustreAst.ident * Lib.position) list
+(** The variables a pattern binds, each with the position it is bound at. *)
+
+val rename_pat_var : LustreAst.ident -> LustreAst.ident -> pattern -> pattern
+(** [rename_pat_var i i' pat] renames the variable [i] bound by [pat] to [i'].
+    Before type checking a variable pattern may name a nullary constructor
+    rather than a binder, so a caller running that early must pass an [i] it
+    knows is a binder. *)
+
+val fresh_bound_ident : LustreAst.ident -> LustreAst.ident
+(** A fresh name for an alpha-renamed binder, derived from its current name *)

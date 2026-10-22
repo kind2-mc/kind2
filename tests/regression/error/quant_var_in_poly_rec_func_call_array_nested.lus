@@ -1,0 +1,23 @@
+-- A call to a polymorphic recursive function applied to a quantified variable
+-- in the body of a polymorphic node, with a type parameter of the node as type
+-- argument. The type of the output of the function is only known once the node
+-- is instantiated, and may be an array type, as it is here: the call is
+-- rejected, whatever the instantiations of the node (see
+-- error/quant_var_in_poly_rec_func_call_array_instance.lus).
+
+function rec Id<T>(x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else Id(x, n - 1);
+tel
+
+node Wrap<U>(x: U) returns (ok: bool);
+let
+  ok = true;
+  check forall (k: int) k <= 0 => Id@<U>(x, k) = x;
+tel
+
+node Test(a: int^2) returns (ok: bool);
+let
+  ok = Wrap@<int^2>(a);
+tel

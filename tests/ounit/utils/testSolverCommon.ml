@@ -1,0 +1,47 @@
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2026 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License.
+
+*)
+
+(* Shared by the tests that need a solver of their own to look at. *)
+
+let new_solver () = SMTSolver.create_instance `None `Z3_SMTLIB
+
+(* Whether the solver [new_solver] asks for can be found. The rest of
+   the unit suite needs nothing installed, and a checkout without a
+   solver should not start failing it. CI installs Z3 on every platform
+   it tests, so skipping on this costs no coverage there. *)
+let solver_missing () =
+  match Lib.find_on_path (Flags.Smt.z3_bin ()) with
+  | _ -> false
+  | exception Not_found -> true
+
+(* The warnings logged while [f] runs *)
+let warnings_of f =
+  let buffer = Buffer.create 256 in
+  let ppf = !Lib.log_ppf in
+  let level = Lib.get_log_level () in
+  Lib.log_ppf := Format.formatter_of_buffer buffer ;
+  Lib.set_log_level L_warn ;
+  let result =
+    Fun.protect
+      ~finally:(fun () ->
+        Format.pp_print_flush !Lib.log_ppf () ;
+        Lib.log_ppf := ppf ;
+        Lib.set_log_level level)
+      f
+  in
+  result, Buffer.contents buffer

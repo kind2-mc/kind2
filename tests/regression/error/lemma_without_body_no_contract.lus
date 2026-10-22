@@ -1,0 +1,9 @@
+-- A lemma without a body or a contract states nothing.
+lemma L (n: int);
+
+node main (x: int) returns (ok: bool);
+let
+  L(x);
+  ok = true;
+  check ok;
+tel

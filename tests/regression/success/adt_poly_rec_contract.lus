@@ -1,0 +1,10 @@
+datatype Msg<T> = Atomic (s1: T) | Enc (s2: Msg<T>, s3: Msg<T>);
+
+node main(m: Msg<int>) returns (ok: bool);
+(*@contract
+  guarantee not (Atomic?(m) and Enc?(m));
+*)
+let
+  ok = true;
+  check ok;
+tel

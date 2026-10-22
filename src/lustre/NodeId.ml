@@ -25,6 +25,7 @@ type node_type =
   | Choose (* Generated for node corresponding to a 'choose' operator *)
   | TypeAscription (* Generated for node corresponding to a type ascription operator *)
   | ClockedExpr (* Generated for a temporal expression abstracted out of a when branch *)
+  | Restarted (* Generated for an expression or a block under a restart *)
   | DefinedConstant (* Defined global constant converted to function without args *)
   | FreeConstant (* Free global constant converted to function without args *)
   | WellFormedness (* Generated recursive predicate for a recursive ADT's refinement types *)
@@ -49,6 +50,7 @@ let pp_print_node_type ppf node_type =
       | Any -> ".any_"
       | TypeAscription -> ".type_ascription_"
       | ClockedExpr -> ".clocked_expr_"
+      | Restarted -> ".restart_"
       | FreeConstant -> ".free_constant_"
       | DefinedConstant -> ".def_constant_"
       | Choose -> ".choose_"
@@ -88,6 +90,12 @@ let get_user_name node_id = node_id.user_name
 let get_internal_name node_id = node_id.internal_name 
 
 let get_node_type node_id = node_id.node_type 
+
+let is_internal node_id =
+  match node_id.node_type with
+  | FreeConstant | TypeAscription | ClockedExpr | Restarted | WellFormedness -> true
+  | Component | Contract | Environment | Type | Any | Choose
+  | DefinedConstant -> false
 
 let get_monomorphization node_id = node_id.monomorphization
 

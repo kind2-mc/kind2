@@ -1,0 +1,11 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(p: IntOpt) returns (o: int);
+let
+  when Some?(p) then
+    o = p.val;
+  else
+    o = 0;
+  end
+  check None?(p) => o = 0;
+tel

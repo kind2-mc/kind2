@@ -102,8 +102,10 @@ and prop_source =
   | TerminationCheck of Lib.position
   (** Termination check *)
 
-  | Candidate of prop_source option
-  (** User supplied candidate invariant *)
+  | Candidate of { source : prop_source option ; report : bool }
+  (** Candidate invariant, only there to help prove other properties. Its
+      outcome is written to the output iff [report]: a candidate Kind 2
+      generates for itself is silent, one the user supplies is reported *)
 
 
 val copy : t -> t
@@ -116,6 +118,10 @@ val is_candidate : t -> bool
 
 (** Returns true iff the input property is not a candidate property *)
 val is_real : t -> bool
+
+(** Returns true iff the outcome of the input property is written to the
+    output: false for a candidate property that is not to be reported *)
+val is_reported : t -> bool
 
 (** Pretty-prints a property status. *)
 val pp_print_prop_status : Format.formatter -> prop_status -> unit

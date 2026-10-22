@@ -1,0 +1,11 @@
+datatype T = A (v: int);
+
+node f (u: int) returns (y: int);
+var s: T;
+let
+  s = A(y);
+  match s with
+  | A (v):
+    y = v + u;
+  end
+tel

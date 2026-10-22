@@ -1,0 +1,59 @@
+-- A recursive call of a polymorphic function with a type argument that has no
+-- type parameter: Ground<bool> calls Ground<int>, which calls itself. Only
+-- Ground<int> is recursive, so Ground<bool> must not be taken for a member of
+-- its recursive group (see poly_rec_function.lus).
+function rec Ground<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else Ground@<int>(n - 1, 0);
+tel
+
+-- Type arguments that are named types without a type parameter are accepted
+-- too (they used to make the check of recursive calls crash)
+type Color = enum { Red, Green };
+datatype Tree = Leaf | Node (l: Tree, r: Tree);
+type Abstract;
+type Alias = int;
+
+function rec GroundEnum<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else GroundEnum@<Color>(n - 1, Red);
+tel
+
+function rec GroundDatatype<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else GroundDatatype@<Tree>(n - 1, Leaf);
+tel
+
+function rec GroundAbstract<T> (n: int; d: T; a: Abstract) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else GroundAbstract@<Abstract>(n - 1, a, a);
+tel
+
+function rec GroundAlias<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else GroundAlias@<Alias>(n - 1, 0);
+tel
+
+node main (b: bool; a: Abstract) returns ()
+let
+  check "ground_nonneg" Ground@<bool>(3, b) >= 0;
+  check "enum_nonneg" GroundEnum@<bool>(3, b) >= 0;
+  check "datatype_nonneg" GroundDatatype@<bool>(3, b) >= 0;
+  check "abstract_nonneg" GroundAbstract@<bool>(3, b, a) >= 0;
+  check "alias_nonneg" GroundAlias@<bool>(3, b) >= 0;
+tel

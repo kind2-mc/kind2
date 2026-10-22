@@ -52,15 +52,8 @@ let translate_contracts_lustre = ContractsToProps.translate_file
 let read_input_native input_file = Native (NativeInput.of_file input_file)
 
 let read_input_moxi input_file =
-  match MoxiInput.of_file input_file with
-  | Ok system_checks -> Some (Moxi system_checks)
-  | Error (MoxiInput.UnexpectedChar (pos, c)) ->
-    Format.eprintf "%a: error: unexpected character ‘%c’@."
-      Lib.pp_print_position pos c;
-    None
-  | Error (MoxiInput.SyntaxError pos) ->
-    Format.eprintf "%a: syntax error@." Lib.pp_print_position pos;
-    None
+  MoxiInput.of_file input_file
+  |> Result.map (fun (system_checks, logic) -> Moxi system_checks, logic)
 
 (*let read_input_horn input_file = assert false*)
 
@@ -120,7 +113,7 @@ let get_testgen_uid () =
   uid
 
 (** Returns the analysis param for [top] that abstracts all its abstractable
-    subsystems if [top] has a contract. *)
+    subsystems if [top] has a contract with modes. *)
 let maximal_abstraction_for_testgen (type s)
 : s t -> Scope.t -> A.assumptions -> A.param option = function
 
@@ -137,12 +130,14 @@ let maximal_abstraction_for_testgen (type s)
     let rec get_abstraction_for_top = function
       | sub :: tail ->
         if sub.S.scope = top then
-          (* Sub is the system we're looking for. *)
-          if sub.S.has_contract then
-            (* System has contracts, collecting subsystems. *)
+          (* Sub is the system we're looking for. Test generation explores
+             the modes of its contract, whose activation only depends on
+             their requires, so modes without ensures are enough. *)
+          if sub.S.has_modes then
+            (* System has modes, collecting subsystems. *)
             collect (Scope.Map.add sub.S.scope false Scope.Map.empty) tail
           else
-            (* System has no contracts. *)
+            (* System has no modes. *)
             None
         else
           (* Sub is not the system we're looking for, skipping. *)
@@ -167,6 +162,9 @@ let maximal_abstraction_for_testgen (type s)
         A.top = top ;
         A.uid = get_testgen_uid () ;
         A.abstraction_map = map ;
+        A.unrollings = Scope.Map.empty ;
+        A.terminating = Scope.Map.empty ;
+        A.learned = [] ;
         A.assumptions = assumptions ;
       }
     )
@@ -266,6 +264,9 @@ let moxi_params (type s) (input_system : s t) =
       A.top = sub.S.scope ;
       A.uid = A.get_uid () ;
       A.abstraction_map = Scope.Map.empty ;
+      A.unrollings = Scope.Map.empty ;
+      A.terminating = Scope.Map.empty ;
+      A.learned = [] ;
       A.assumptions = Scope.Map.empty ;
     }
   in
@@ -295,6 +296,9 @@ let mcs_params (type s) (input_system : s t) =
       A.top = scope ;
       A.uid = A.get_uid () ;
       A.abstraction_map = abstraction_map ;
+      A.unrollings = Scope.Map.empty ;
+      A.terminating = Scope.Map.empty ;
+      A.learned = [] ;
       A.assumptions = Scope.Map.empty ;
     }
   in
@@ -345,6 +349,9 @@ let contract_check_params (type s) (input_system : s t) =
           )
           (Scope.Map.singleton scope true)
           subsystems;
+      A.unrollings = Scope.Map.empty ;
+      A.terminating = Scope.Map.empty ;
+      A.learned = [] ;
       A.assumptions = Scope.Map.empty ;
     }, sub.S.has_contract)
   in
@@ -396,6 +403,9 @@ let interpreter_param (type s) (input_system : s t) =
     A.top = scope ;
     A.uid = A.get_uid () ;
     A.abstraction_map = abstraction_map ;
+    A.unrollings = Scope.Map.empty ;
+    A.terminating = Scope.Map.empty ;
+    A.learned = [] ;
     A.assumptions = Scope.Map.empty ;
   }
 
@@ -429,6 +439,23 @@ let contain_partially_defined_system (type s) (in_sys : s t) (top : Scope.t) =
   | Native _ -> failwith "Unsupported input system: Native"
   | Horn _ -> failwith "Unsupported input system: Native"
 
+(* A call applied to quantified variables is compiled to an application of the
+   functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]) rather
+   than to an instance of it. The analyses that build their system without
+   functional constraints neither declare that symbol nor give it a definition,
+   and they rest on quantifier elimination, which does not take an
+   uninterpreted function: they have nothing to interpret such a call with. *)
+let contain_call_applied_to_quant_vars (type s) (in_sys : s t) (top : Scope.t) =
+  match in_sys with
+  | Lustre _ -> (
+    retrieve_lustre_nodes_of_scope in_sys top
+    |> List.exists (fun { N.calls } ->
+         List.exists (fun { N.call_uf_applied } -> call_uf_applied) calls)
+  )
+  | Moxi _ -> failwith "Unsupported input system: MoXI"
+  | Native _ -> failwith "Unsupported input system: Native"
+  | Horn _ -> failwith "Unsupported input system: Native"
+
 let get_lustre_node (type s) (input_system : s t) scope =
   match input_system with
   | Lustre (main_subs, _, _) -> (
@@ -454,6 +481,11 @@ let get_node_id in_sys scope =
   | Some { node_id; } -> node_id
   | None -> 
     NI.mk_node_id (Lib.string_of_t Scope.pp_print_scope_internal scope |> HString.mk_hstring)
+
+let is_lemma in_sys scope =
+  match get_lustre_node in_sys scope with
+  | Some { comp_type = N.Function { N.is_lemma } } -> is_lemma
+  | _ -> false
 
 let pp_print_subsystems_debug (type s) : Format.formatter -> s t -> unit =
   (fun fmt in_sys ->
@@ -530,7 +562,7 @@ let trans_sys_of_analysis (type s)
 
 
 let pp_print_path_pt
-(type s) ?(full_contract = false) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?(full_contract = false) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
   match input_system with 
 
   | Lustre (main_subs, globals, _) ->
@@ -538,7 +570,7 @@ let pp_print_path_pt
       let scope = TransSys.scope_of_trans_sys trans_sys in
       S.find_subsystem_of_list main_subs scope
     in
-    LustrePath.pp_print_path_pt ~full_contract:full_contract trans_sys globals sub first_is_init ppf model
+    LustrePath.pp_print_path_pt ~full_contract:full_contract ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_pt not implemented for MoXI input@.";
@@ -553,7 +585,7 @@ let pp_print_path_pt
 
 
 let pp_print_path_xml
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
 
   match input_system with 
 
@@ -563,7 +595,7 @@ let pp_print_path_xml
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_xml
-      trans_sys globals sub first_is_init ppf model
+      ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_xml not implemented for MoXI input@.";
@@ -602,7 +634,7 @@ let pp_print_path_json_testgen
 
 
 let pp_print_path_json
-(type s) (input_system : s t) trans_sys first_is_init ppf model =
+(type s) ?prop_name (input_system : s t) trans_sys first_is_init ppf model =
 
   match input_system with
 
@@ -612,7 +644,7 @@ let pp_print_path_json
       S.find_subsystem_of_list main_subs scope
     in
     LustrePath.pp_print_path_json
-      trans_sys globals sub first_is_init ppf model
+      ?prop_name trans_sys globals sub first_is_init ppf model
 
   | Moxi _ ->
     Format.eprintf "pp_print_path_json not implemented for MoXI input@.";
@@ -1218,6 +1250,9 @@ let monitor_param (type s) (input_system : s t) =
     A.top = scope ;
     A.uid = A.get_uid () ;
     A.abstraction_map = abstraction_map ; 
+    A.unrollings = Scope.Map.empty ;
+    A.terminating = Scope.Map.empty ;
+    A.learned = [] ;
     A.assumptions = Scope.Map.empty ;
   }
 

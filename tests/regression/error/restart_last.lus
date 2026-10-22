@@ -1,0 +1,11 @@
+-- 'last x' is replaced with a local defined outside the restart, which the
+-- restart would not reset, so 'last' cannot be used under a restart.
+
+node f (a: int; r: bool) returns (b: int);
+let
+  frame (b)
+    b = 0;
+  let
+    b = restart (last b + a) every r;
+  tel
+tel

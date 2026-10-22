@@ -107,6 +107,10 @@ type node_call = {
   (* Position of node call in input file *)
   call_pos : position;
 
+  (* Indices of the instance, if the call is one of the instances a call in
+     an array equation expands into, empty otherwise *)
+  call_instance : int list;
+
   (* Name of called node *)
   call_node_id : NI.t;
     
@@ -135,6 +139,10 @@ type node_call = {
 
   (* Whether this call was inlined or not *)
   call_inlined : bool;
+
+  (* Whether this call is the instance retained for a call compiled to an
+     application of the functional symbol of the callee (see LustreNode.mli) *)
+  call_uf_applied : bool;
 
   (* Source-level rendering of the decrease constraint generated for a
      recursive call (e.g. "(n - 1 < n)"), used as the displayed expression of
@@ -219,6 +227,8 @@ type t = {
 
   (* Assertions of node *)
   asserts : (position * StateVar.t) list;
+
+  adt_constraints : LustreExpr.t list;
 
   (* Proof obligations for node *)
   props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
@@ -1058,10 +1068,13 @@ let rec ident_of_top = function
   | _ :: tl -> ident_of_top tl
 
 
-(* Node has a contract if it has at least one guarantee or one mode *)
+(* Node has a contract if it has at least one guarantee or one mode with an
+   ensure. A mode without ensures only contributes [requires => true] to the
+   abstraction of the node, which says nothing about its outputs. *)
 let has_effective_contract = function
 | { contract = None } -> false
-| { contract = Some { C.guarantees;  C.modes } } -> guarantees != [] || modes != []
+| { contract = Some { C.guarantees;  C.modes } } ->
+  guarantees != [] || List.exists (fun { C.ensures } -> ensures != []) modes
 
 let has_modes = function
 | { contract = None } -> false
@@ -1104,6 +1117,13 @@ let rec subsystem_of_nodes' map nodes top =
   (* Does node have an implementation? *)
   let has_impl = not node.is_extern in
 
+  (* The recursive group of a recursive function *)
+  let rec_group =
+    match node.comp_type with
+    | Function { rec_info = Some (scc_id, _) } -> Some scc_id
+    | _ -> None
+  in
+
   let sub =
     { SubSystem.scope = scope;
       source = node;
@@ -1111,6 +1131,8 @@ let rec subsystem_of_nodes' map nodes top =
       has_contract;
       has_modes;
       has_impl;
+      rec_group;
+      is_internal = NodeId.is_internal top;
       map;
       subsystems
     }
@@ -1160,6 +1182,7 @@ type fold_stack =
 
 let rec fold_node_calls_with_trans_sys' 
     nodes
+    keep_call
     (f : t -> TransSys.t ->
      (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a)
     accum = 
@@ -1183,7 +1206,11 @@ let rec fold_node_calls_with_trans_sys'
 
       let tl' =
         List.fold_left
-          (fun a { call_pos; call_node_id; call_cond; call_defaults } ->
+          (fun a ({ call_pos; call_node_id; call_cond; call_defaults } as call) ->
+
+             (* Calls the caller is not interested in are left out, along with
+                everything below them *)
+             if not (keep_call call) then a else
 
              (* Find subsystem of this node by name, and the instance of this
                 node call by position.
@@ -1235,6 +1262,7 @@ let rec fold_node_calls_with_trans_sys'
 
       fold_node_calls_with_trans_sys'
         nodes
+        keep_call
         f 
         ([] :: accum)
         tl'
@@ -1247,6 +1275,7 @@ let rec fold_node_calls_with_trans_sys'
           
           fold_node_calls_with_trans_sys' 
             nodes
+            keep_call
             f
             (((f n t i a) :: b) :: c) 
             tl
@@ -1257,9 +1286,10 @@ let rec fold_node_calls_with_trans_sys'
 
 
 
-let fold_node_calls_with_trans_sys nodes f node trans_sys =
+let fold_node_calls_with_trans_sys ?(keep_call = fun _ -> true) nodes f node trans_sys =
 
-  fold_node_calls_with_trans_sys' nodes f [[]] [FDown (node, trans_sys, [])]
+  fold_node_calls_with_trans_sys'
+    nodes keep_call f [[]] [FDown (node, trans_sys, [])]
 
 
 (* ********************************************************************** *)

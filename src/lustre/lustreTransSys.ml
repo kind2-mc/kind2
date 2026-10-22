@@ -195,6 +195,29 @@ let lift_term state_var_map term =
               variable at the same offset *)
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 
+         (* A constant input of the called node, such as the size of an
+            array, appears in the termination checks of a recursive
+            function. Global constants are shared and not in the map.
+
+            The actual argument need not be a constant state variable: the
+            abstraction of an argument such as [n + 1] is shared with the
+            other occurrences of the expression, also those passed to a
+            non-constant input. Such a variable is taken at the offset of the
+            lifted terms, which are all stated at [TransSys.prop_base];
+            [Var.mk_state_var_instance] returns a constant state variable
+            for a constant one. *)
+         else if Var.is_const_state_var var then (
+
+           let state_var = Var.state_var_of_state_var_instance var in
+
+           match SVM.find_opt state_var state_var_map with
+           | Some state_var' ->
+             Term.mk_var
+               (Var.mk_state_var_instance state_var' TransSys.prop_base)
+           | None -> term
+
+         )
+
          else
 
            (* No change if free variable is not an instance of a state
@@ -207,9 +230,67 @@ let lift_term state_var_map term =
     term
 
 
+(* Pretty-print the indices of the instance a node call stands for, if it is
+   one of the instances a call in an array equation expands into.
+
+   The instances share the position of the call, and property statuses are
+   matched by name: the indices keep the names of the properties lifted from
+   the instances distinct. *)
+let pp_print_call_instance ppf instance =
+  List.iter (Format.fprintf ppf "[%d]") instance
+
+(* Lift the name of a property in an internal node (see
+   [NodeId.is_internal]).
+
+   The name of the node means nothing to the user, and the position of its
+   call is the position of the expression it stands for, which the names of
+   its properties already carry: a property is named as in the node, with the
+   indices of the instance of the call right after the first position in the
+   name. The call of the internal node is transparent, so these are the outer
+   indices of the instance of the first call in the name, before its own ones,
+   as for a call in a comprehension over several indices. A name with no
+   position takes the indices at its end.
+
+   Every instance of a call has as many indices, so the names lifted from the
+   instances of a call stay distinct. *)
+let lift_internal_prop_name instance prop_name =
+  let indices = string_of_t pp_print_call_instance instance in
+  let len = String.length prop_name in
+  (* The index right after the digits from [i] on, if there is one *)
+  let rec digits_end i =
+    if i < len && prop_name.[i] >= '0' && prop_name.[i] <= '9' then
+      digits_end (i + 1)
+    else i
+  in
+  let digits_after i = let j = digits_end i in if j > i then Some j else None in
+  (* The index right after a position "[LnCm]" that starts at [i], if any *)
+  let position_end i =
+    if i + 1 < len && prop_name.[i] = '[' && prop_name.[i + 1] = 'L' then
+      match digits_after (i + 2) with
+      | Some j when j < len && prop_name.[j] = 'C' -> (
+        match digits_after (j + 1) with
+        | Some k when k < len && prop_name.[k] = ']' -> Some (k + 1)
+        | _ -> None)
+      | _ -> None
+    else None
+  in
+  let rec first_position_end i =
+    if i >= len then None
+    else
+      match position_end i with
+      | Some j -> Some j
+      | None -> first_position_end (i + 1)
+  in
+  match first_position_end 0 with
+  | Some i ->
+    String.sub prop_name 0 i ^ indices ^ String.sub prop_name i (len - i)
+  | None -> prop_name ^ indices
+
 (* Lift the name of a property in a subnode by adding the position of
-   the node call *)
-let lift_prop_name node_name pos prop_name =
+   the node call, and the indices of the instance if any *)
+let lift_prop_name ~internal node_name pos instance prop_name =
+
+  if internal then lift_internal_prop_name instance prop_name else
 
   (* Pretty-print a position as attributes *)
   let pp_print_pos ppf pos = 
@@ -227,9 +308,10 @@ let lift_prop_name node_name pos prop_name =
     (fun ppf prop_name ->
        Format.fprintf
          ppf
-         "%s%a%t%s"
+         "%s%a%a%t%s"
          node_name
          pp_print_pos pos
+         pp_print_call_instance instance
          Lib.StringValues.pp_print_scope_sep
          prop_name)
     prop_name
@@ -259,7 +341,8 @@ let property_of_expr
   let prop_term = E.cur_term_of_expr TransSys.prop_base expr_step in
 
   let prop_source =
-    if candidate then P.Candidate (Some prop_source) else prop_source
+    if candidate then P.Candidate { source = Some prop_source ; report = false }
+    else prop_source
   in
 
   (* Return property *)
@@ -373,7 +456,9 @@ let guarantees_of_contract scope { C.guarantees ; C.modes } =
   guarantees |> List.map guarantee_of_svar |> implications_of_modes modes
 
 (* The assumptions of a contract as properties. *)
-let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
+let subrequirements_of_contract
+  call_pos call_instance scope node_id svar_map { C.assumes }
+=
   assumes |> List.map (
     fun { C.pos ; C.name ; C.svar ; C.src_expr} ->
       let prop_term =
@@ -383,17 +468,38 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
       in
       let prop_name =
         match name with
+        | _ when NI.is_internal node_id ->
+          let name =
+            match name with
+            | None -> Format.asprintf "assume%a" pp_print_line_and_column pos
+            | Some n -> n
+          in
+          (* The subtype check of an ascription the user wrote is reported as
+             a type ascription *)
+          let subtype = "SubType" in
+          let name =
+            if LustreGenNodes.is_user_ascription node_id
+               && Lib.string_starts_with name subtype
+            then
+              "TypeAscription"
+              ^ String.sub name (String.length subtype)
+                  (String.length name - String.length subtype)
+            else name
+          in
+          lift_internal_prop_name call_instance name
         | None -> (
-          Format.asprintf "%a%a%tassume%a"
+          Format.asprintf "%a%a%a%tassume%a"
             NI.pp_print_node_id_user_name node_id
             pp_print_line_and_column call_pos
+            pp_print_call_instance call_instance
             Lib.StringValues.pp_print_scope_sep
             pp_print_line_and_column pos
         )
         | Some n -> (
-          Format.asprintf "%a%a%t%s"
+          Format.asprintf "%a%a%a%t%s"
             NI.pp_print_node_id_user_name node_id
-            pp_print_line_and_column call_pos 
+            pp_print_line_and_column call_pos
+            pp_print_call_instance call_instance
             Lib.StringValues.pp_print_scope_sep n
         )
       in
@@ -407,17 +513,18 @@ let subrequirements_of_contract call_pos scope node_id svar_map { C.assumes } =
         P.prop_expr = Some src_expr}
   )
 
-let bounded_check call_pos caller_rf =
+let bounded_check call_pos call_instance caller_rf =
   let prop_name =
-    Format.asprintf "bounded_check%a" pp_print_line_and_column call_pos
+    Format.asprintf "bounded_check%a%a"
+      pp_print_line_and_column call_pos
+      pp_print_call_instance call_instance
   in
   (* Lexicographic termination requires the measure to be bounded below, i.e.
      each component is non-negative. *)
   let prop_term =
-    List.map (fun e ->
-      Term.mk_leq [Term.mk_num Numeral.zero; E.base_term_of_expr TransSys.prop_base e])
-      caller_rf
-    |> Term.mk_and
+    List.map (E.base_term_of_expr TransSys.prop_base) caller_rf
+    |> LustreFunDefs.bounded_below
+    |> Term.convert_select
   in
   let prop_expr =
     List.map (fun e -> Format.asprintf "(0 <= %a)" (E.pp_print_expr false) e) caller_rf
@@ -433,9 +540,11 @@ let bounded_check call_pos caller_rf =
     P.prop_expr = Some prop_expr
   }
 
-let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
+let decrease_check call_pos call_instance svar_map src_expr caller_rf callee_rf =
   let prop_name =
-    Format.asprintf "decrease_check%a" pp_print_line_and_column call_pos
+    Format.asprintf "decrease_check%a%a"
+      pp_print_line_and_column call_pos
+      pp_print_call_instance call_instance
   in
   let callee_rf_terms =
     List.map (fun e ->
@@ -444,25 +553,10 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
   let caller_rf_terms =
     List.map (E.base_term_of_expr TransSys.prop_base) caller_rf
   in
-  (* The measure strictly decreases in the lexicographic order: some component
-     decreases while all earlier components stay equal. For a single component
-     this reduces to the ordinary "callee < caller". When the two measures have
-     different arities (possible for mutually recursive functions), their common
-     prefix is compared. *)
+  (* The measure strictly decreases in the lexicographic order (see
+     [LustreFunDefs.lex_lt]) *)
   let prop_term =
-    let rec lex cs ds =
-      match cs, ds with
-      | [c], [d] -> Term.mk_lt [c; d]
-      | c :: cs', d :: ds' ->
-        Term.mk_or [
-          Term.mk_lt [c; d];
-          Term.mk_and [Term.mk_eq [c; d]; lex cs' ds']
-        ]
-      | _ -> assert false
-    in
-    let n = min (List.length callee_rf_terms) (List.length caller_rf_terms) in
-    let take l = List.filteri (fun i _ -> i < n) l in
-    lex (take callee_rf_terms) (take caller_rf_terms)
+    LustreFunDefs.lex_lt callee_rf_terms caller_rf_terms |> Term.convert_select
   in
   (* Prefer the source-level rendering reconstructed during node generation
      (e.g. "n - 1 < n"); fall back to the normalized term otherwise. *)
@@ -488,11 +582,14 @@ let decrease_check call_pos svar_map src_expr caller_rf callee_rf =
    established statically instead (LustreCheckADTDecreases). Caller and callee
    are always empty together, since MixedDecreasesKindsInScc rejects an SCC
    that mixes the two kinds of measure. *)
-let termination_checks call_pos svar_map src_expr caller_rf callee_rf =
+let termination_checks
+  call_pos call_instance svar_map src_expr caller_rf callee_rf
+=
   if caller_rf = [] || callee_rf = [] then []
   else
-    [bounded_check call_pos caller_rf;
-     decrease_check call_pos svar_map src_expr caller_rf callee_rf]
+    [bounded_check call_pos call_instance caller_rf;
+     decrease_check
+       call_pos call_instance svar_map src_expr caller_rf callee_rf]
 
 (* Builds the abstraction of a node given its contract.
 If the contract is [(a, g, {r_i, e_i})], then the abstraction is
@@ -664,7 +761,34 @@ let add_constraints_of_type init terms state_var =
       :: terms 
     | None, None -> Term.mk_bool true :: terms
   )
-                 
+
+
+(* The variables of the free constants, in the order of their
+   declarations *)
+let vars_of_free_constants globals =
+  List.concat_map
+    (fun (_, vt, _) -> D.fold (fun _ v acc -> v :: acc) vt [] |> List.rev)
+    globals.G.free_constants
+
+(* The constraints on the free constants: their refinements and subranges,
+   the canonical forms [adt_constraints] of those of a type with an ADT, and
+   the ranges of those of an enumerated type *)
+let constraints_of_free_constants globals adt_constraints =
+  let enum_consts =
+    vars_of_free_constants globals
+    |> List.map Var.state_var_of_state_var_instance
+    |> List.filter (fun state_var ->
+      let ty = StateVar.type_of_state_var state_var in
+      Type.is_enum
+        (if Type.is_array ty then Type.last_elem_type_of_array ty else ty))
+  in
+  List.fold_left
+    (add_constraints_of_type true)
+    (List.map
+       (E.base_term_of_t TransSys.init_base)
+       (globals.G.global_constraints @ adt_constraints))
+    enum_consts
+
 
 
 (* ********************************************************************** *)
@@ -713,6 +837,7 @@ let add_subsystem
     map_up
     map_down
     guard_clock
+    active
     assumes
     subsystems =
 
@@ -722,6 +847,7 @@ let add_subsystem
       TransSys.map_up; 
       TransSys.map_down; 
       TransSys.guard_clock;
+      TransSys.active;
       TransSys.assumes }
   in
 
@@ -780,6 +906,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
+      N.call_instance  ;
       N.call_context   ;
       N.call_inputs    ;
       N.call_oracles   ;
@@ -917,6 +1044,14 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     @ node_crt_svars
   in
 
+  (* An internal node is not analyzed on its own in a modular analysis (see
+     [Strategy.is_candidate_for_analysis]), and it stands for a part of the
+     body of the calling node: its properties may only hold under the
+     condition its call is guarded by, so they are checked in the calling node
+     in any case *)
+  let internal = NI.is_internal call_node_id in
+  let lift = internal || not (Flags.modular ()) in
+
   (* Instantiate properties of the called node in this node *)
   let node_props =
     properties
@@ -925,15 +1060,16 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       | P.Assumption _ -> true
       (* Candidate invariants are lifted so that, once proven, they can
          strengthen the analysis of the calling node *)
-      | P.Candidate _ -> not (Flags.modular ())
-      | _ -> Flags.check_subproperties () && not (Flags.modular ())
+      | P.Candidate _ -> lift
+      | _ -> internal || (Flags.check_subproperties () && lift)
     )
     |> List.fold_left (
       fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
 
         (* Lift name of property *)
         let prop_name =
-          lift_prop_name (NI.get_name call_node_id |> I.of_hstring) call_pos n
+          lift_prop_name ~internal
+            (NI.get_name call_node_id |> I.of_hstring) call_pos call_instance n
         in
 
         (* Lift state variable of property
@@ -974,6 +1110,7 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     | Some contract -> (
       subrequirements_of_contract
         call_pos
+        call_instance
         (I.to_scope (NI.get_internal_name call_node_id |> I.of_hstring))
         call_node_id
         state_var_map_up
@@ -987,7 +1124,8 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
     | N.Function { rec_info = Some (caller_id, caller_rf) },
       N.Function { rec_info = Some (callee_id, callee_rf) } when caller_id = callee_id -> (
       termination_checks
-        call_pos state_var_map_up call_rec_decrease_expr caller_rf callee_rf
+        call_pos call_instance state_var_map_up call_rec_decrease_expr
+        caller_rf callee_rf
       |> List.map (add_call_context_to_prop call_context)
     )
     | _ -> []
@@ -1043,6 +1181,58 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
           Some (assume_terms, sofar_term)
       )
     )
+  in
+
+  (* Candidate invariant: the assumptions of the call have held so far.
+
+     The guarantees of a node abstracted by its contract are asserted under
+     its 'sofar' flag, the history of its assumptions. Proving an assumption
+     obligation of the callee therefore needs the guarantees, which need the
+     flag, which needs the obligation at every earlier step. k-induction sees
+     the flag as a free variable at the start of its window and cannot close
+     that loop, whereas the one-state invariant generator discovers that the
+     flag is invariant and does. Stating the flag as a candidate property,
+     proven before it is used, makes the history visible to k-induction, in
+     the same way the when-block ties make the hold semantics of a clocked
+     call visible to it.
+
+     The candidate is a property of the callee lifted into this node, so it
+     joins the other lifted properties here and goes through the same
+     instantiation and guarding as they do. A call may expand into several
+     instances (an array-indexed call, for instance), each with its own
+     'sofar' flag, and property statuses are matched by name: the name
+     carries the lifted flag so that the candidates of the instances stay
+     distinct. *)
+  let node_props =
+    if node_assume_props = [] then node_props
+    else
+      match contract with
+      | None -> node_props
+      | Some { C.sofar_assump = None } -> node_props
+      | Some { C.sofar_assump = Some sofar_assump } ->
+        let lifted_sofar = lift_state_var state_var_map_up sofar_assump in
+        let sofar_term =
+          Var.mk_state_var_instance lifted_sofar TransSys.prop_base
+          |> Term.mk_var
+        in
+        let row, col = row_col_of_pos call_pos in
+        let prop =
+          { P.prop_name =
+              Format.asprintf
+                "Assumptions of call at l%dc%d have held so far (%a)"
+                row col StateVar.pp_print_state_var lifted_sofar;
+            P.prop_source =
+              P.Candidate {
+                source =
+                  Some (P.Generated (Some call_pos, [lifted_sofar], P.Body)) ;
+                report = false } ;
+            P.prop_term = sofar_term;
+            P.prop_status = P.PropUnknown;
+            P.prop_kind = P.Invariant;
+            P.prop_expr = None;
+          }
+        in
+        add_call_context_to_prop call_context prop :: node_props
   in
 
   (* Return actual parameters of initial state constraint at bound in
@@ -1229,6 +1419,12 @@ let rec constraints_of_node_calls
            this node instance does not have an activation
            condition *)
         (fun _ t -> t)
+        (* The call is executed when the branch of the when block it is in
+           is, always otherwise *)
+        (fun i ->
+           match call_context with
+           | Some sv -> Term.mk_var (Var.mk_state_var_instance sv i)
+           | None -> Term.t_true)
         node_assumes
         subsystems
     in
@@ -1272,12 +1468,16 @@ let rec constraints_of_node_calls
       with Not_found -> assert false
     in
 
-    let state_var_map_up, state_var_map_down, node_locals, node_props, node_hist_svars,
+    (* Only the properties lifted from this call are guarded with its
+       restart condition below, so the accumulator of properties lifted
+       from previous calls is not handed to [call_terms_of_node_call]
+       but appended afterwards. *)
+    let state_var_map_up, state_var_map_down, node_locals, call_props, node_hist_svars,
         node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
         mk_fresh_state_var globals comp_type node_call node_locals
-        node_props node_hist_svars node_crt_svars node_def
+        [] node_hist_svars node_crt_svars node_def
     in
 
     (* Guard lifted property with restart conditions of node *)
@@ -1295,7 +1495,8 @@ let rec constraints_of_node_calls
              { p with
                P.prop_term =
                  Term.mk_implies [Term.negate restart_prop; prop_term] })
-        node_props
+        call_props
+      @ node_props
     in
 
     
@@ -1307,6 +1508,8 @@ let rec constraints_of_node_calls
              [Var.mk_state_var_instance restart i |> Term.mk_var
               |> Term.mk_not;
               t])
+        (* The call is executed at every step, restarted or not *)
+        (fun _ -> Term.t_true)
         node_assumes
         subsystems
     in
@@ -1392,10 +1595,11 @@ let rec constraints_of_node_calls
            propagate_inputs_trans, 
            interpolate_inputs) ->
 
-          (* Skip over constant formal inputs *)
-          if StateVar.is_const formal_sv then 
+          (* A constant input needs no shadow variable: the actual
+             parameter is passed as is *)
+          if StateVar.is_const formal_sv then
 
-            (D.add formal_idx formal_sv shadow_inputs, 
+            (D.add formal_idx actual_sv shadow_inputs,
              node_locals,
              propagate_inputs_init, 
              propagate_inputs_trans, 
@@ -1403,14 +1607,17 @@ let rec constraints_of_node_calls
 
           else
 
-            (* Create fresh shadow variable for input *)
+            (* Create fresh shadow variable for input. The instances a call
+               in an array equation expands into share its position, so the
+               name tells them apart by the identifier of the call. *)
             let shadow_sv =
               let name =
                 let row, col = row_col_of_pos call_pos in
-                Format.asprintf "shw_%a_l%dc%d_%a"
+                Format.asprintf "shw_%a_l%dc%d_%a_%d"
                   (I.pp_print_ident true) (NI.get_internal_name call_node_id |> I.of_hstring)
                   row col
                   StateVar.pp_print_state_var formal_sv
+                  call_id
               in
               mk_fresh_state_var
                 ?is_const:None
@@ -1460,7 +1667,7 @@ let rec constraints_of_node_calls
       state_var_map_up, 
       state_var_map_down, 
       node_locals, 
-      node_props,
+      call_props,
       node_hist_svars,
       node_crt_svars,
       node_assumes,
@@ -1469,6 +1676,10 @@ let rec constraints_of_node_calls
       init_term_trans, 
       trans_term =
 
+      (* Only the properties lifted from this call are guarded with its
+         activation condition below, so the accumulator of properties
+         lifted from previous calls is not handed to
+         [call_terms_of_node_call] but appended afterwards. *)
       call_terms_of_node_call
         mk_fresh_state_var
         globals
@@ -1476,7 +1687,7 @@ let rec constraints_of_node_calls
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
-        node_props
+        []
         node_hist_svars
         node_crt_svars
         node_def
@@ -1502,10 +1713,11 @@ let rec constraints_of_node_calls
     let has_ticked =
       let name =
         let row, col = row_col_of_pos call_pos in
-        Format.asprintf "tck_%a_l%dc%d_%a"
+        Format.asprintf "tck_%a_l%dc%d_%a_%d"
           (I.pp_print_ident true) (NI.get_internal_name call_node_id |> I.of_hstring)
           row col 
           StateVar.pp_print_state_var clock
+          call_id
       in
       mk_fresh_state_var
         ?is_const:None
@@ -1701,7 +1913,8 @@ let rec constraints_of_node_calls
            { p with
              P.prop_term =
                Term.mk_implies [guard_prop is_one_state; prop_term] })
-        node_props
+        call_props
+      @ node_props
     in
 
     (* Candidate invariants from when-block ties: once the activation clock
@@ -1726,7 +1939,9 @@ let rec constraints_of_node_calls
           let tie_prop = E.cur_term_of_state_var TransSys.prop_base tie_sv in
           { P.prop_name = name;
             P.prop_source =
-              P.Candidate (Some (P.Generated (Some call_pos, [tie_sv], P.Body)));
+              P.Candidate {
+                source = Some (P.Generated (Some call_pos, [tie_sv], P.Body)) ;
+                report = false } ;
             P.prop_term = Term.mk_implies [guard; tie_prop];
             P.prop_status = P.PropUnknown;
             P.prop_kind = P.Invariant;
@@ -1778,6 +1993,8 @@ let rec constraints_of_node_calls
         state_var_map_up
         state_var_map_down
         guard_clock
+        (* The call is executed when its clock is true *)
+        (fun i -> Var.mk_state_var_instance clock i |> Term.mk_var)
         node_assumes
         subsystems
     in
@@ -2021,10 +2238,28 @@ module MBounds = Map.Make (struct
   end)
 
 
+(* The state variables that occur at the previous instant of the
+   transition relation in [term], added to [svs]. [None] stands for all
+   state variables, when the term does not let them be told apart *)
+let add_pre_state_vars svs term =
+  Option.bind svs (fun svs ->
+    try
+      Term.state_vars_at_offset_of_term
+        Numeral.(TransSys.trans_base |> pred) term
+      |> SVS.union svs |> Option.some
+    with Invalid_argument _ -> None)
+
 (* Add constraints from equations to initial state constraint and
-   transition relation *)
+   transition relation
+
+   [stateful_vars] is the set of stateful state variables, and [pre_svs]
+   the state variables that occur at the previous instant in [terms]
+   (see [add_pre_state_vars]): kept along with [terms], rather than
+   computed from them again for each equation, which made the
+   translation of a node take a time quadratic in its number of
+   equations *)
 let rec constraints_of_equations_wo_arrays transfer_defs node
-    eq_bounds init stateful_vars terms (lets, lets_dependencies) definition_set = function
+    eq_bounds init stateful_vars (terms, pre_svs) (lets, lets_dependencies) definition_set = function
   (* Constraints for all equations generated *)
   | [] -> terms, lets, eq_bounds, definition_set
 
@@ -2034,7 +2269,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
   | ((state_var, []), { E.expr_init; E.expr_step }) :: tl 
     when
       (Flags.slice_nodes () != `Experimental) &&
-      (List.exists (StateVar.equal_state_vars state_var) stateful_vars) ->
+      (SVS.mem state_var stateful_vars) ->
 
     (* Equation for stateful variable *)
     let def = 
@@ -2053,7 +2288,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Add terms of equation *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars (def :: terms) (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
+      eq_bounds init stateful_vars
+      (def :: terms, add_pre_state_vars pre_svs def)
+      (lets, lets_dependencies) (Term.TermSet.add def definition_set) tl
 
   (* Can define state variable with a let binding *)
   (* Let binding optimization is not performed when experimental slicing is
@@ -2105,10 +2342,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
       List.iter transfer_defs_to_eq_if_needed node.N.equations
     ) ;
 
-    (* Let binding for stateless variable, in closure form *)
-    let let_closure =
-      Term.mk_let
-        (if init then
+    (* Let binding for stateless variable *)
+    let let_binds =
+      (if init then
             (* Binding for the variable at the base instant only *)
             [(E.base_var_of_state_var TransSys.init_base state_var,
               E.base_term_of_expr TransSys.init_base expr_init)]
@@ -2119,12 +2355,9 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
             (if
               (* Does the state variable occur at the previous
                 instant? *)
-              try
-              Term.state_vars_at_offset_of_term
-                Numeral.(TransSys.trans_base |> pred)
-                (Term.mk_and terms)
-              |> SVS.mem state_var
-              with Invalid_argument _ -> true
+              match pre_svs with
+              | Some svs -> SVS.mem state_var svs
+              | None -> true
 
             then
               ((* Definition must not contain a [pre] operator, otherwise we'd
@@ -2142,7 +2375,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
 
     (* Start with singleton lists of let-bound terms *)
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (let_closure :: lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars (terms, pre_svs) (let_binds :: lets, lets_dependencies) definition_set tl
 
   (* Array state variable *)
   | (((_, bounds), _) as eq) :: tl -> 
@@ -2153,7 +2386,7 @@ let rec constraints_of_equations_wo_arrays transfer_defs node
     let eq_bounds = MBounds.add bounds (eq :: other_eqs) eq_bounds in
 
     constraints_of_equations_wo_arrays transfer_defs node
-      eq_bounds init stateful_vars terms (lets, lets_dependencies) definition_set tl
+      eq_bounds init stateful_vars (terms, pre_svs) (lets, lets_dependencies) definition_set tl
 
 
 (* create quantified (or no) constraints for recursive arrays definitions *)
@@ -2283,27 +2516,154 @@ let constraints_of_arrays init terms eq_bounds =
 
     ) eq_bounds terms 
 
-let constraints_of_equations node init stateful_vars terms equations definition_set =
+(* The term [t] in the scope of the nested lets [lets], the outermost
+   first, built as one simultaneous let per level of dependency: 1 for a
+   binding whose term mentions no variable of [lets], otherwise 1 + the
+   highest level of those it mentions; the lowest level is outermost.
+
+   A node binds each of its stateless variables in a let of its own, and
+   the lets of a model generated from Simulink, a lookup table for
+   instance, number in the thousands. Built one at a time, each let
+   traverses and rebuilds the lets inside it, and every subterm along the
+   chain keeps the indexes of the bound variables it contains: the time
+   and the memory grow with the square of the length of the chain. A few
+   lets of independent bindings, built with one traversal of each term,
+   take neither.
+
+   Each variable of [lets] is bound once, and the term of a binding only
+   mentions variables of the lets around it, the equations being ordered
+   by dependency, so moving a binding to another let changes what no
+   variable refers to. Should a term mention a variable of its own let or
+   of one inside it, or a variable be bound twice, the lets are built as
+   they are, nested, and a debug message says so for the node [node_id].
+
+   [vars_of] gives the variables of the term of a binding. *)
+let mk_let_levels node_id vars_of lets t =
+  let exception Not_leveled in
+  (* The level of each variable of [lets], 0 until its let is reached *)
+  let levels = Var.VarHashtbl.create 97 in
+  List.iter (List.iter (fun (v, _) -> Var.VarHashtbl.replace levels v 0)) lets;
+  try
+    let leveled =
+      List.concat_map (fun binds ->
+        let leveled =
+          List.map (fun (v, d) ->
+            let level =
+              Var.VarSet.fold (fun w l ->
+                match Var.VarHashtbl.find_opt levels w with
+                | Some 0 -> raise Not_leveled
+                | Some l' -> max l (l' + 1)
+                | None -> l)
+                (vars_of d) 1
+            in
+            level, (v, d))
+            binds
+        in
+        List.iter (fun (level, (v, _)) ->
+          if Var.VarHashtbl.find levels v <> 0 then raise Not_leveled;
+          Var.VarHashtbl.replace levels v level)
+          leveled;
+        leveled)
+        lets
+    in
+    let depth = List.fold_left (fun d (l, _) -> max d l) 0 leveled in
+    let at_level = Array.make depth [] in
+    List.iter (fun (l, b) -> at_level.(l - 1) <- b :: at_level.(l - 1)) leveled;
+    Term.mk_let_chain (Array.to_list at_level |> List.map List.rev) t
+  with Not_leveled ->
+    Log.log L_debug
+      "Lets of node %a not leveled: building %d nested lets"
+      NI.pp_print_node_id_user_name node_id (List.length lets);
+    Term.mk_let_chain lets t
+
+(* The one-state part of a list of constraints, let-bound like them *)
+let one_state_term_of_conjuncts f terms bind_lets =
+  f terms |> Term.mk_and |> bind_lets
+
+(* [one_state] selects, among the constraints, those that only concern
+   the current state; if given, the conjunction of its result is returned
+   as well, wrapped in the same let bindings as the constraints. *)
+let constraints_of_equations ?one_state node init stateful_vars terms equations definition_set =
 
   (* make constraints for equations which do not redefine arrays first *)
   let terms, lets, eq_bounds, definition_set =
     let transfer_defs =
       Flags.IVC.compute_ivc () || List.mem `MCS (Flags.enabled ())
     in
+    (* Only the transition relation binds variables at the previous
+       instant *)
+    let pre_svs =
+      if init then None
+      else List.fold_left add_pre_state_vars (Some SVS.empty) terms
+    in
     constraints_of_equations_wo_arrays transfer_defs node
-      MBounds.empty init stateful_vars terms ([], SVM.empty) definition_set equations
+      MBounds.empty init (SVS.of_list stateful_vars) (terms, pre_svs)
+      ([], SVM.empty) definition_set equations
     in
 
   (* then make constraints for recursive arrays so as to merge quantifiers as
      much as possible *)
   let terms, definition_set = constraints_of_arrays init (terms, definition_set) eq_bounds in
 
-  if lets = [] then terms, definition_set
+  (* The variables of the term of a binding, computed once for the
+     bindings of [bind_lets_used] and both calls to [mk_let_levels] *)
+  let vars_of =
+    let vars = Term.TermHashtbl.create 97 in
+    fun d ->
+      match Term.TermHashtbl.find_opt vars d with
+      | Some s -> s
+      | None ->
+        let s = Term.vars_of_term d in
+        Term.TermHashtbl.add vars d s;
+        s
+  in
+
+  let bind_lets t =
+    mk_let_levels node.N.node_id vars_of lets t |> Term.convert_select
+  in
+
+  (* As [bind_lets], but leaving out the bindings the term does not use.
+
+     The constraints are wrapped in the bindings of every stateless
+     variable of the node, and a binding the term does not mention is
+     harmless there: it binds a variable that does not occur. It is not
+     harmless in a one-state term. The transition relation binds such a
+     variable at the previous instant as well as the current one, and that
+     binding carries the previous state into a term that is otherwise
+     about one state; nothing reads it, so it does not change what the
+     term says, but it is still part of the term, and asserting the term
+     at a bound then mentions variables one instant before it. *)
+  let bind_lets_used t0 =
+    let _, used =
+      List.fold_left
+        (fun (needed, used) binds ->
+          match
+            List.filter (fun (v, _) -> Var.VarSet.mem v needed) binds
+          with
+          | [] -> needed, used
+          | binds ->
+            let needed =
+              List.fold_left
+                (fun acc (_, d) -> Var.VarSet.union acc (vars_of d))
+                needed binds
+            in
+            needed, binds :: used)
+        (Term.vars_of_term t0, [])
+        (List.rev lets)
+    in
+    mk_let_levels node.N.node_id vars_of used t0 |> Term.convert_select
+  in
+
+  let one_state_term =
+    match one_state with
+    | None -> None
+    | Some f -> Some (one_state_term_of_conjuncts f terms bind_lets_used)
+  in
+
+  if lets = [] then terms, definition_set, one_state_term
   else
     (* Apply let bindings *)
-    [List.fold_left (fun t let_bind -> let_bind t)
-       (Term.mk_and terms) (List.rev lets)
-     |> Term.convert_select], definition_set
+    [bind_lets (Term.mk_and terms)], definition_set, one_state_term
 
 
 (* Functional congruence template for the UF symbols of a function with
@@ -2338,8 +2698,9 @@ let constraints_of_equations node init stateful_vars terms equations definition_
    array bound taken from the bounds table when the index type is
    unbounded), and the value arrays of a map are compared only at keys
    present in the map (guarded by its domain array). *)
-let function_congruence_group state_var_bounds inputs uf_symbols
+let function_congruence_group globals inputs uf_symbols
     constrained_outputs =
+  let state_var_bounds = globals.G.state_var_bounds in
   let bindings = D.bindings inputs in
   if constrained_outputs = [] ||
      not (
@@ -2366,6 +2727,40 @@ let function_congruence_group state_var_bounds inputs uf_symbols
         Term.mk_uf (StateVar.encode_select sv) (Term.mk_var v :: iterms)
     in
     let args_a = List.map (fun (_, _, _, a, _) -> Term.mk_var a) arg_vars in
+    (* A bound of a dimension may refer to constant inputs of the function
+       (e.g. the size [n] of an argument of type [int^n]), which are not in
+       the scope of its callers. Express it in terms of the free variables
+       of the first argument tuple: if the two applications differ in such an
+       input, the instance already holds by its scalar disjunct. A bound can
+       also refer to global free constants; any other state variable makes it
+       unusable. *)
+    let global_consts =
+      vars_of_free_constants globals
+      |> List.map Var.state_var_of_state_var_instance
+      |> SVS.of_list
+    in
+    let input_vars =
+      List.fold_left (fun acc (_, sv, _, a, _) -> SVM.add sv a acc)
+        SVM.empty arg_vars
+    in
+    let instantiate_bound t =
+      if Term.var_offsets_of_term t <> (None, None) then None
+      else
+        let usable = ref true in
+        let t =
+          Term.map_vars (fun v ->
+            if Var.is_const_state_var v then
+              let sv = Var.state_var_of_state_var_instance v in
+              match SVM.find_opt sv input_vars with
+              | Some a -> a
+              | None ->
+                if not (SVS.mem sv global_consts) then usable := false ;
+                v
+            else v
+          ) t
+        in
+        if !usable then Some t else None
+    in
     let args_b = List.map (fun (_, _, _, _, b) -> Term.mk_var b) arg_vars in
     (* The domain prefixes of a leaf index: for every MapValue-tagged entry,
        the index up to that position with the MapDomain tag instead (cf.
@@ -2422,9 +2817,7 @@ let function_congruence_group state_var_bounds inputs uf_symbols
             | bounds when List.length bounds = List.length idx_tys ->
               bounds |> List.map (function
                 | E.Bound e | E.Fixed e ->
-                  let t = E.unsafe_term_of_expr e in
-                  if Term.var_offsets_of_term t = (None, None) then Some t
-                  else None
+                  instantiate_bound (E.unsafe_term_of_expr e)
                 | E.Unbound _ -> None)
             | _ | exception Not_found ->
               List.map (fun _ -> None) idx_tys
@@ -2502,8 +2895,571 @@ let function_congruence_group state_var_bounds inputs uf_symbols
     )
   )
 
-let rec trans_sys_of_node' options globals top_name analysis_param
-  trans_sys_defs output_input_dep nodes definition_set = function
+(* The definitions of the recursive functions the supervisor evaluates the
+   calls past the unrollings of a counterexample with (see
+   [LustreFunDefs.compute_all]), set by [trans_sys_of_nodes] for the
+   systems it builds *)
+let check_fun_defs = ref LustreFunDefs.empty
+
+(* The evaluation of the calls to recursive functions at constant arguments,
+   in a compositional and modular analysis. A function whose own analysis
+   proved its termination checks, and those of the recursive functions it
+   calls, is total: a call at constant arguments has the one value its
+   definition unfolds to, which it is evaluated to (see [FunEval]). The
+   value is given to the solver as a fact on the functional symbols of the
+   function, to which every instance of the function ties its outputs,
+   whether the contract abstracts the function or not: the caller is then
+   spared the refinements that unroll the function as deep as the call
+   needs. A call that cannot be evaluated in time is left as it was. *)
+
+type evaluator = {
+  evaluate : UfSymbol.t -> Term.t list -> Term.t option ;
+  delete : unit -> unit ;
+}
+
+type mk_evaluator =
+  logic:TermLib.logic -> timeout_ms:int ->
+  (declare_sort:(Type.t -> unit) ->
+   declare_fun:(UfSymbol.t -> unit) ->
+   define_rec:(LustreFunDefs.def list -> unit) ->
+   assert_term:(Term.t -> unit) -> unit) ->
+  evaluator
+
+(* Evaluating takes a solver, which this module cannot start: the solver
+   modules depend on it *)
+let mk_evaluator : mk_evaluator option Atomic.t = Atomic.make None
+
+let set_mk_evaluator mk = Atomic.set mk_evaluator (Some mk)
+
+(* A call by functional symbol and arguments *)
+module CallTbl = Hashtbl.Make (struct
+  type t = UfSymbol.t * Term.t list
+  let equal (f, a) (g, b) =
+    UfSymbol.equal_uf_symbols f g && List.equal Term.equal a b
+  let hash (f, a) =
+    Hashtbl.hash (UfSymbol.hash_uf_symbol f, List.map Term.hash a)
+end)
+
+type evaluation = {
+  (* The nodes of the system before slicing *)
+  eval_nodes : N.t list;
+  (* The recursive functions proved terminating, with every recursive
+     function they may call: those whose calls are evaluated *)
+  candidates : NI.Set.t;
+  (* The evaluator of each candidate a call at constant arguments was found
+     to, with the definitions of the functions its own depends on, or
+     [None] if they cannot be defined. The definitions are only built for
+     the functions a call needs: inlining the functions a definition calls
+     can make it large (see [LustreFunDefs]). *)
+  mutable evaluators : evaluator option NI.Map.t;
+  mk_evaluator : NI.t -> evaluator option;
+  (* The values of the calls evaluated so far, by functional symbol and
+     arguments, or [None] for a call without a unique value *)
+  values : Term.t option CallTbl.t;
+  (* The facts that the values of calls learned by earlier analyses of the
+     top system give, for the functions among [candidates] (see
+     [Analysis.info.learned]) *)
+  learned : Term.t list;
+}
+
+(* The time given to the solver to evaluate a call, in milliseconds *)
+let evaluation_timeout = 1000
+
+(* The scope of the system of a node, without the tag of an unrolling *)
+let base_scope_of_node_id node_id =
+  [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+
+(* The evaluator of the calls to [node_id], made on the first call that
+   needs it *)
+let evaluator_of evaluation node_id =
+  match NI.Map.find_opt node_id evaluation.evaluators with
+  | Some evaluator -> evaluator
+  | None ->
+    let evaluator = evaluation.mk_evaluator node_id in
+    evaluation.evaluators <-
+      NI.Map.add node_id evaluator evaluation.evaluators ;
+    evaluator
+
+let delete_evaluation { evaluators } =
+  NI.Map.iter (fun _ -> Option.iter (fun { delete } -> delete ())) evaluators
+
+(* An evaluator of [node_id] with its definition, and those of the functions
+   it may call, if they can be defined *)
+let evaluator_of_definitions globals mk_evaluator nodes node_id =
+  let eval_defs =
+    LustreFunDefs.compute_evaluable
+      ~adt_junk_ufs:globals.G.adt_junk_ufs (NI.Set.singleton node_id) nodes
+  in
+  if not (LustreFunDefs.is_defined eval_defs node_id) then None
+  else
+    let blocks = LustreFunDefs.blocks_of_node eval_defs node_id in
+    let ufs = LustreFunDefs.ufs_of_node eval_defs node_id in
+    let constraints =
+      constraints_of_free_constants globals globals.G.adt_global_constraints
+      |> List.map Term.convert_select
+    in
+    (* Without the theory of arrays, the definitions and the constraints
+       apply the select symbols of the arrays, which the definitions do not
+       declare (see [TransSys.declare_selects]). They are taken now, after
+       the constraints made those they apply: the symbols are private to the
+       domain that made them. Only those applied are declared below. *)
+    let selects =
+      if Flags.Arrays.smt () then [] else StateVar.get_select_ufs ()
+    in
+    (* The constraints of the system on the free constants, but those that
+       apply symbols the solver is not given *)
+    let constraints =
+      let given =
+        List.concat_map (List.map (fun (uf, _, _) -> uf)) blocks
+        @ selects @ ufs
+      in
+      constraints
+      |> List.filter (fun c ->
+        Term.uf_symbols_of_term c
+        |> UfSymbol.UfSymbolSet.for_all (fun uf ->
+          List.exists (UfSymbol.equal_uf_symbols uf) given))
+      |> List.map (fun c ->
+        c, SVS.filter StateVar.is_const (Term.state_vars_of_term c))
+    in
+    (* The free constants the definitions read, and those the constraints
+       on them relate them to, with these constraints. The others cannot
+       change a value, and would only weigh on a solver that starts again
+       after each evaluation it gives up on. *)
+    let read, constraints =
+      let rec close read taken = function
+        | [] -> read, List.rev taken
+        | constraints ->
+          match
+            List.partition
+              (fun (_, svs) -> not (SVS.disjoint svs read)) constraints
+          with
+          | [], _ -> read, List.rev taken
+          | relating, others ->
+            close
+              (List.fold_left (fun acc (_, svs) -> SVS.union acc svs)
+                 read relating)
+              (List.rev_append (List.map fst relating) taken)
+              others
+      in
+      let read =
+        List.fold_left
+          (List.fold_left (fun acc (_, _, body) ->
+             SVS.union acc (Term.state_vars_of_term body)))
+          SVS.empty blocks
+      in
+      close read [] constraints
+    in
+    let global_consts =
+      vars_of_free_constants globals
+      |> List.filter (fun v ->
+        SVS.mem (Var.state_var_of_state_var_instance v) read)
+    in
+    (* The selects applied, whose array arguments are of the sort FArray *)
+    let selects =
+      let applied =
+        List.fold_left
+          (fun acc c ->
+             UfSymbol.UfSymbolSet.union acc (Term.uf_symbols_of_term c))
+          UfSymbol.UfSymbolSet.empty
+          (constraints
+           @ List.concat_map (List.map (fun (_, _, body) -> body)) blocks)
+      in
+      List.filter (fun uf -> UfSymbol.UfSymbolSet.mem uf applied) selects
+    in
+    (* The sorts of the constants and of the arguments of the selects
+       count: without the theory of arrays, an array is of the sort FArray,
+       which the solver declares only under a logic with arrays *)
+    let logic =
+      let of_var v = TermLib.logic_of_sort (Var.type_of_var v) in
+      let of_def (uf, formals, body) =
+        TermLib.sup_logics
+          (TermLib.logic_of_term [] body
+           :: TermLib.logic_of_sort (UfSymbol.res_type_of_uf_symbol uf)
+           :: List.map of_var formals)
+      in
+      `Inferred
+        TermLib.FeatureSet.(
+          TermLib.sup_logics
+            (List.map of_var global_consts
+             @ List.concat_map
+               (fun uf ->
+                  List.map TermLib.logic_of_sort
+                    (UfSymbol.arg_type_of_uf_symbol uf))
+               selects
+             @ List.map (TermLib.logic_of_term []) constraints
+             @ List.concat_map (List.map of_def) blocks)
+          |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
+    in
+    (* The sorts, then the symbols the definitions apply, then the
+       definitions, which are in dependency order, and the constraints.
+       The constants are free but for these, as in the system: a value that
+       depends on them is not unique, and the call is then not evaluated. *)
+    let define ~declare_sort ~declare_fun ~define_rec ~assert_term =
+      TransSys.declare_sorts declare_sort globals.G.recursive_datatypes ;
+      List.iter declare_fun selects ;
+      Var.declare_constant_vars declare_fun global_consts ;
+      List.iter declare_fun ufs ;
+      List.iter define_rec blocks ;
+      List.iter assert_term constraints
+    in
+    Some (mk_evaluator ~logic ~timeout_ms:evaluation_timeout define)
+
+(* The evaluation of the calls of the analysis to the recursive functions
+   proved terminating, if any, and to the functions that are not recursive,
+   whose evaluation does not depend on the termination of another function.
+   The termination of a function is only known once its own analysis has
+   run, so a call is only evaluated in a modular analysis, whether
+   compositional or not; with no recursive function proved terminating,
+   no evaluator is made, the calls to the functions that are not recursive
+   being evaluated through their bodies (see [facts_of_calls]). *)
+let evaluation_of_param globals options analysis_param nodes =
+  let { A.terminating ; A.learned } = A.info_of_param analysis_param in
+  match Atomic.get mk_evaluator with
+  | None -> None
+  | Some _ when
+      not options.add_functional_constraints
+      || not (Flags.modular ()) -> None
+  | Some mk_evaluator ->
+    let rec_info_of node_id =
+      match N.node_of_node_id node_id nodes with
+      | { N.comp_type = N.Function { N.rec_info } } -> rec_info
+      | _ -> None
+      | exception Not_found -> None
+    in
+    (* A recursive function is proved terminating when its own analysis
+       proved the termination checks of each of its recursive calls. They
+       are looked up by call, so that a call whose checks the analysis did
+       not have is not taken as terminating. A call on an ADT measure has
+       none, its decrease being established statically. *)
+    let proved_terminating ({ N.node_id ; N.calls } as node) =
+      match rec_info_of node_id with
+      | None -> not (N.is_recursive node)
+      | Some (scc_id, caller_rf) ->
+        match
+          Scope.Map.find_opt (base_scope_of_node_id node_id) terminating
+        with
+        | None -> false
+        | Some positions ->
+          List.for_all
+            (fun { N.call_node_id ; N.call_pos } ->
+               match rec_info_of call_node_id with
+               | Some (scc_id', callee_rf)
+                 when scc_id' = scc_id && caller_rf <> [] && callee_rf <> [] ->
+                 List.exists (Lib.equal_pos call_pos) positions
+               | _ -> true)
+            calls
+    in
+    (* A function is evaluated when every recursive function its body may
+       call, itself included, is proved terminating. The nodes that may
+       call one that is not, or one that is not known, are found by
+       following the calls backwards from those, each node once. *)
+    let is_known node_id =
+      List.exists (fun { N.node_id = id } -> NI.equal id node_id) nodes
+    in
+    let callers =
+      List.fold_left
+        (fun acc { N.node_id ; N.calls } ->
+           List.fold_left
+             (fun acc { N.call_node_id } ->
+                let callers =
+                  Option.value ~default:[] (NI.Map.find_opt call_node_id acc)
+                in
+                NI.Map.add call_node_id (node_id :: callers) acc)
+             acc calls)
+        NI.Map.empty nodes
+    in
+    let rec not_terminating acc = function
+      | [] -> acc
+      | node_id :: tl when NI.Set.mem node_id acc -> not_terminating acc tl
+      | node_id :: tl ->
+        let callers =
+          Option.value ~default:[] (NI.Map.find_opt node_id callers)
+        in
+        not_terminating (NI.Set.add node_id acc) (callers @ tl)
+    in
+    let not_terminating =
+      List.filter_map
+        (fun ({ N.node_id ; N.calls } as node) ->
+           if proved_terminating node
+           && List.for_all (fun { N.call_node_id } -> is_known call_node_id) calls
+           then None
+           else Some node_id)
+        nodes
+      |> not_terminating NI.Set.empty
+    in
+    let candidates =
+      List.fold_left
+        (fun acc ({ N.node_id } as node) ->
+           if N.is_recursive node && not (NI.Set.mem node_id not_terminating)
+           then NI.Set.add node_id acc else acc)
+        NI.Set.empty nodes
+    in
+    (* The values learned for the outputs of the candidates: their value
+       is the value of the function, which is proved terminating, as for
+       an evaluated call *)
+    let candidate_ufs =
+      NI.Set.fold
+        (fun node_id acc ->
+           match N.node_of_node_id node_id nodes with
+           | { N.comp_type = N.Function { N.uf_symbols } } ->
+             SVM.fold (fun _ uf acc -> uf :: acc) uf_symbols acc
+           | _ -> acc
+           | exception Not_found -> acc)
+        candidates []
+    in
+    let learned =
+      List.filter_map
+        (fun (uf, args, value) ->
+           if List.exists (UfSymbol.equal_uf_symbols uf) candidate_ufs
+           then Some (Term.mk_eq [ Term.mk_uf uf args ; value ])
+           else None)
+        learned
+    in
+    Some {
+      eval_nodes = nodes ;
+      candidates ;
+      evaluators = NI.Map.empty ;
+      mk_evaluator = evaluator_of_definitions globals mk_evaluator nodes ;
+      values = CallTbl.create 16 ;
+      learned ;
+    }
+
+(* The facts on the functional symbols of the functions evaluated that the
+   calls of a node at constant arguments give: the value of each output of
+   the call. An argument is constant when the variable it is bound to is
+   defined by an equation whose initial and step values are the same
+   ground term, once the variables it depends on that are constant are
+   replaced by their values; this includes the outputs of an unconditional
+   call evaluated in turn, as the inner call of [F(F(3))].
+
+   A call to a function that is not recursive is evaluated as well, by the
+   same propagation through the equations of its body, before slicing, with
+   its inputs bound to the arguments: its outputs are constant then, as the
+   inner call of [F(G(3))], when the calls of its body are. Its facts are
+   only given for the outputs that the instances of the function in the
+   system [nodes] leave undefined, when its contract abstracts it: only
+   those are tied to its functional symbols (see [trans_sys_of_node']), and
+   the outputs of a concrete instance are defined by its body already. *)
+let facts_of_calls
+    ({ eval_nodes ; candidates ; values } as evaluation)
+    nodes equations calls =
+  (* The functional symbols of the outputs of the callee, if its calls are
+     evaluated *)
+  let evaluated_outputs { N.call_node_id } =
+    if not (NI.Set.mem call_node_id candidates) then None
+    else
+      match N.node_of_node_id call_node_id eval_nodes with
+      | { N.outputs ; N.comp_type = N.Function { N.uf_symbols } } ->
+        Some (D.values outputs |> List.map (fun sv -> SVM.find sv uf_symbols))
+      | _ -> None
+      | exception Not_found -> None
+  in
+  let evaluate node_id uf args =
+    match CallTbl.find_opt values (uf, args) with
+    | Some value -> value
+    | None ->
+      let value =
+        match evaluator_of evaluation node_id with
+        | Some { evaluate } -> evaluate uf args
+        | None -> None
+      in
+      CallTbl.replace values (uf, args) value ;
+      value
+  in
+  (* The constructors of the datatypes are the only uninterpreted symbols of a
+     value, and are stored under the names their symbols are declared with *)
+  let is_constructor uf =
+    let ty = UfSymbol.res_type_of_uf_symbol uf in
+    Type.is_datatype ty
+    && Type.constructors_of_datatype ty |> List.exists (fun (ctor, _) ->
+      String.equal ctor (UfSymbol.name_of_uf_symbol uf))
+  in
+  (* A term without variables or uninterpreted symbols, such as a free
+     constant of the system, other than constructors *)
+  let is_ground t =
+    let applies_uf = ref false in
+    Term.map
+      (fun _ t ->
+         ( match Term.node_of_term t with
+           | Term.T.Leaf s | Term.T.Node (s, _)
+             when Symbol.is_uf s && not (is_constructor (Symbol.uf_of_symbol s)) ->
+             applies_uf := true
+           | _ -> () ) ;
+         t)
+      t
+    |> ignore ;
+    Var.VarSet.is_empty (Term.vars_of_term t) && not !applies_uf
+  in
+  (* The functional symbols of the outputs of a function that is not
+     recursive and has a body, with the values of its outputs at constant
+     arguments, memoized by functional symbol and arguments as the values
+     of evaluated calls are, or [None] if it has none *)
+  let rec outputs_of_function node_id args =
+    match N.node_of_node_id node_id eval_nodes with
+    | { N.is_extern = false ; N.inputs ; N.outputs ; N.equations ; N.calls ;
+        N.comp_type = N.Function { N.rec_info = None ; N.uf_symbols } } ->
+      let ufs = D.values outputs |> List.map (fun sv -> SVM.find sv uf_symbols) in
+      let outputs =
+        if List.for_all (fun uf -> CallTbl.mem values (uf, args)) ufs then
+          List.map (fun uf -> CallTbl.find values (uf, args)) ufs
+        else
+          let inputs =
+            List.fold_left2
+              (fun acc sv value -> SVM.add sv (Some value) acc)
+              SVM.empty (D.values inputs) args
+          in
+          let value_of_svar, _ = valuation inputs equations calls in
+          let outputs = D.values outputs |> List.map value_of_svar in
+          List.iter2 (fun uf value -> CallTbl.replace values (uf, args) value)
+            ufs outputs ;
+          outputs
+      in
+      Some (List.combine ufs outputs)
+    | _ -> None
+    | exception Not_found -> None
+  (* The value of each output of a call at constant arguments, by the
+     functional symbol of the output, if its callee is evaluated *)
+  and outputs_of_call ({ N.call_node_id } as call) args =
+    match evaluated_outputs call with
+    | Some ufs ->
+      Some (List.map (fun uf -> uf, lazy (evaluate call_node_id uf args)) ufs)
+    | None ->
+      outputs_of_function call_node_id args
+      |> Option.map (List.map (fun (uf, value) -> uf, Lazy.from_val value))
+  (* The constant value of each variable of the equations and calls of a
+     node, or [None], with the values [constants] the inputs are bound to *)
+  and valuation constants equations calls =
+    let equation_of_svar =
+      List.fold_left
+        (fun acc ((sv, bounds), e) ->
+           if bounds = [] then SVM.add sv e acc else acc)
+        SVM.empty equations
+    in
+    let call_of_output =
+      List.fold_left
+        (fun acc ({ N.call_outputs } as call) ->
+           D.fold (fun _ sv acc -> SVM.add sv call acc) call_outputs acc)
+        SVM.empty calls
+    in
+    (* Memoized; a variable being visited has none, which only matters for
+       a cycle through [pre] *)
+    let constants = ref constants in
+    let rec value_of_svar sv =
+      match SVM.find_opt sv !constants with
+      | Some value -> value
+      | None ->
+        constants := SVM.add sv None !constants ;
+        let value =
+          match SVM.find_opt sv equation_of_svar, SVM.find_opt sv call_of_output with
+          | Some e, _ ->
+            (* The value of an expression at offset zero, with the
+               variables of the same instant replaced by their values *)
+            let value_of_expr term_of expr =
+              let term = term_of Numeral.zero expr in
+              let subst =
+                Var.VarSet.fold
+                  (fun v acc ->
+                     match acc with
+                     | None -> None
+                     | Some subst ->
+                       if Var.is_state_var_instance v
+                       && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
+                       then
+                         match value_of_svar (Var.state_var_of_state_var_instance v) with
+                         | Some value -> Some ((v, value) :: subst)
+                         | None -> None
+                       else None)
+                  (Term.vars_of_term term) (Some [])
+              in
+              match subst with
+              | None -> None
+              | Some subst ->
+                let term = Term.apply_subst subst term |> Simplify.simplify_term [] in
+                if is_ground term then Some term else None
+            in
+            ( match
+                value_of_expr E.base_term_of_expr (E.init_expr e),
+                value_of_expr E.cur_term_of_expr (E.step_expr e)
+              with
+              | Some init, Some step when Term.equal init step -> Some init
+              | _ -> None )
+          | None, Some ({ N.call_cond = [] ; N.call_context = None ;
+                          N.call_defaults = None ; N.call_outputs } as call) ->
+            ( match values_of_call call with
+              | None -> None
+              | Some args ->
+                match outputs_of_call call args with
+                | None -> None
+                | Some outputs ->
+                  D.values call_outputs
+                  |> List.combine outputs
+                  |> List.find_map (fun ((_, value), out) ->
+                    if StateVar.equal_state_vars out sv
+                    then Lazy.force value
+                    else None) )
+          | None, _ -> None
+        in
+        constants := SVM.add sv value !constants ;
+        value
+    and values_of_call { N.call_inputs } =
+      List.fold_right
+        (fun sv acc ->
+           match acc, value_of_svar sv with
+           | Some args, Some value -> Some (value :: args)
+           | _ -> None)
+        (D.values call_inputs) (Some [])
+    in
+    value_of_svar, values_of_call
+  in
+  (* The outputs of the instances of a function that is not recursive that
+     are left undefined in the system: those abstracted by its contract *)
+  let undefined_outputs node_id =
+    match N.node_of_node_id node_id nodes with
+    | { N.outputs ; N.equations } ->
+      D.values outputs
+      |> List.filter (fun sv ->
+        not (List.exists (fun ((sv', _), _) -> StateVar.equal_state_vars sv sv')
+               equations))
+    | exception Not_found -> []
+  in
+  let _, values_of_call = valuation SVM.empty equations calls in
+  List.concat_map
+    (fun ({ N.call_node_id } as call) ->
+       match values_of_call call with
+       | None -> []
+       | Some args ->
+         let facts outputs =
+           List.filter_map
+             (fun (uf, value) ->
+                Lazy.force value
+                |> Option.map (fun value ->
+                  Term.mk_eq [ Term.mk_uf uf args ; value ]))
+             outputs
+         in
+         match evaluated_outputs call with
+         | Some _ ->
+           Option.fold ~none:[] ~some:facts (outputs_of_call call args)
+         | None ->
+           match undefined_outputs call_node_id with
+           | [] -> []
+           | undefined ->
+             match outputs_of_call call args with
+             | None -> []
+             | Some outputs ->
+               (* The outputs of the callee, by position in the call *)
+               let callee_outputs =
+                 match N.node_of_node_id call_node_id nodes with
+                 | { N.outputs } -> D.values outputs
+               in
+               List.combine callee_outputs outputs
+               |> List.filter_map (fun (sv, output) ->
+                 if List.exists (StateVar.equal_state_vars sv) undefined
+                 then Some output else None)
+               |> facts)
+    calls
+
+let rec trans_sys_of_node' options globals fun_defs evaluation top_name
+  analysis_param trans_sys_defs output_input_dep nodes definition_set = function
 
   (* Transition system for all nodes created *)
   | [] -> trans_sys_defs
@@ -2517,8 +3473,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
-        options globals top_name analysis_param trans_sys_defs output_input_dep
-        nodes definition_set tl
+        options globals fun_defs evaluation top_name analysis_param trans_sys_defs
+        output_input_dep nodes definition_set tl
 
     (* Transition system has not been created *)
     else
@@ -2542,10 +3498,59 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
       in
         
+      (* The number of times the body of a recursive function is unrolled
+         along a chain of recursive calls before a call is abstracted by its
+         contract (or, for a defined function, left to its definition): once,
+         unless a refinement set more (see [Analysis.info.unrollings]). In
+         the analysis of the function itself, or of a function of its
+         recursive group, when the contract abstracts the recursive calls,
+         as many times as [--rec_contract_unrollings] says: the contract is
+         then the induction hypothesis of the proof of the contract, and a
+         guarantee may only follow from it some levels down. *)
+      let unrolling_depth node_id =
+        let scope =
+          [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+        in
+        match A.param_unrollings_of_scope analysis_param scope with
+        | Some depth -> depth
+        | None ->
+          let scc_of n =
+            match n.N.comp_type with
+            | N.Function { N.rec_info = Some (scc, _) } -> Some scc
+            | _ -> None
+          in
+          match
+            N.node_of_node_id node_id nodes, N.node_of_node_id top_name nodes
+          with
+          | callee, top
+            when scc_of callee <> None
+              && scc_of callee = scc_of top
+              && LustreFunDefs.contract_abstracts callee ->
+            Flags.Contracts.rec_contract_unrollings ()
+          | _ -> 1
+          | exception Not_found -> 1
+      in
+
       let reached_limit =
         match NI.Map.find_opt node_id num_unrollings with
-        | Some n -> n >= 1
+        | Some n -> n >= unrolling_depth node_id
         | None -> false
+      in
+
+      (* An instance past the unrollings of its function is a cutoff. It is
+         abstracted by the contract of the function, the induction
+         hypothesis of the recursion, when the function has one to abstract
+         it with and is opaque, or translucent in a compositional analysis
+         (see [LustreFunDefs.contract_abstracts]). Otherwise its outputs
+         are left unconstrained, tied to the functional symbols of the
+         function only: a counterexample that reaches it may be spurious,
+         and the function is then unrolled further, up to a limit (see
+         [TransSys.cutoffs_reached] and [Kind2Flow]); unless the function
+         is defined at the SMT level, for the calls applied to quantified
+         variables, which ties the cutoff to the body of the function (see
+         [LustreFunDefs]). *)
+      let free_cutoff =
+        reached_limit && not (LustreFunDefs.contract_abstracts node)
       in
 
       let { N.init_flag;
@@ -2556,6 +3561,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             N.equations;
             N.calls;
             N.asserts;
+            N.adt_constraints;
             N.props;
             N.history_svars;
             N.contract;
@@ -2567,16 +3573,36 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           node
       in
 
+      let base_scope =
+        [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
+      in
       let scope, suffix =
-        let base_scope =
-          [I.string_of_ident false (NI.get_internal_name node_id |> I.of_hstring)]
-        in
         if N.is_recursive node && not (NI.Map.is_empty num_unrollings) then
           let node_num_id = get_node_num_id () in
           let rec_tag = get_rec_tag node_num_id in
           rec_tag :: base_scope, Format.sprintf "_%s" rec_tag
         else
           base_scope, ""
+      in
+
+      (* Whether the node is abstracted by its contract in this analysis. The
+         abstraction map is keyed by the scope of the node, without the tag
+         of an unrolling: an instance of a recursive function that is called
+         from a recursive function carries a tag from its first unrolling on,
+         and looking it up by its tagged scope would take it for concrete
+         although its body was sliced away, leaving its outputs unconstrained *)
+      let is_abstract = A.param_scope_is_abstract analysis_param base_scope in
+
+      (* Whether this is the system of the top node itself. An unrolling of the
+         top node, when it is a recursive function, has the same identifier
+         but is an instance of it called by the top system: the contract
+         assumption of the top node is asserted in the top system, while its
+         recursive calls are proof obligations of their caller; and what was
+         established by analyses of the top node, where its assumptions were
+         asserted, only holds of an unrolling while its assumptions have
+         held. *)
+      let is_top_instance =
+        NI.equal node_id top_name && NI.Map.is_empty num_unrollings
       in
 
       (* Create a fresh state variable *)
@@ -2654,7 +3680,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
              let reached_limit =
                match NI.Map.find_opt call_node_id num_unrollings'' with
-               | Some n -> n >= 2
+               | Some n -> n >= unrolling_depth call_node_id + 1
                | None -> false
              in
 
@@ -2702,6 +3728,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           trans_sys_of_node'
             options
             globals
+            fun_defs
+            evaluation
             top_name
             analysis_param
             trans_sys_defs
@@ -2721,6 +3749,27 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             in
             let is_undefined svar = SVS.mem svar defined_svars |> not in
             List.filter is_undefined (D.values outputs)
+          in
+
+          (* Is the node a recursive function defined at the SMT level? Its
+             definitions are only of use with the functional constraints
+             that tie its instances to its functional symbols, and the
+             uninterpreted symbols they apply are declared with those. *)
+          let is_defined =
+            options.add_functional_constraints
+            && LustreFunDefs.is_defined fun_defs node_id
+          in
+
+          (* Is the node an instance of a recursive function that its
+             contract abstracts, rather than its body? Its outputs are tied
+             to the functional symbols of the function, so the supervisor
+             can tell whether a counterexample relies on outputs the
+             function does not have (see [RecUnrolling]). *)
+          let is_abstracted_rec =
+            options.add_functional_constraints
+            && N.is_recursive node
+            && (is_abstract || (reached_limit && not free_cutoff))
+            && not is_defined
           in
 
           (* If node is a function, for each undefined output,
@@ -2743,12 +3792,36 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 if rec_info <> None then D.values outputs
                 else undefined_outputs
               in
-              let function_ufs =
-                constrained_outputs |> List.map (fun sv ->
+              (* The functional symbols take every input, but slicing may
+                 remove the inputs of the top node that its contract does
+                 not depend on. This only happens for an imported function
+                 at the top, when the deadlocking trace of an unrealizable
+                 contract is computed (see [Realizability]): recursive
+                 functions keep their whole signature, and the outputs of
+                 other functions are defined. An output may depend on the
+                 inputs removed, so it is not a function of the others *)
+              let constrained_outputs =
+                constrained_outputs |> List.filter (fun sv ->
                   match SVM.find_opt sv uf_symbols with
-                  | Some uf -> uf
-                  | None -> assert false
-                )
+                  | Some uf ->
+                    List.length (UfSymbol.arg_type_of_uf_symbol uf)
+                    = D.cardinal inputs
+                  | None -> true)
+              in
+              (* The functional symbols of a recursive function defined at
+                 the SMT level are not declared but defined, by the blocks
+                 of definitions the system carries (see below); what is
+                 declared instead are the uninterpreted symbols those
+                 definitions apply *)
+              let function_ufs =
+                if is_defined then
+                  LustreFunDefs.ufs_of_node fun_defs node_id
+                else
+                  constrained_outputs |> List.map (fun sv ->
+                    match SVM.find_opt sv uf_symbols with
+                    | Some uf -> uf
+                    | None -> assert false
+                  )
               in
               let constraints =
                 let term_0_of svar =
@@ -2769,9 +3842,11 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                 )
               in
               let congruence_group, witness_ufs =
+                (* A defined function is congruent by definition *)
+                if is_defined then None, [] else
                 match
                   function_congruence_group
-                    globals.G.state_var_bounds inputs uf_symbols
+                    globals inputs uf_symbols
                     constrained_outputs
                 with
                 | Some (group, wufs) -> Some group, wufs
@@ -2786,13 +3861,19 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           in
 
 
-          (* Filter assumptions for this node's assumptions *)
+          (* Filter assumptions for this node's assumptions. They are looked
+             up by the scope of the node without the tag of an unrolling, as
+             whether it is abstract is: the invariants a refinement is given
+             for a node it makes concrete are those of the node's own analysis,
+             where it is the top system and has no tag, whereas an instance of
+             a recursive function called from a recursive function has a tag
+             that is fresh in every system. *)
           let node_assumptions =
             (* No assumptions if abstract. *)
-            if A.param_scope_is_abstract analysis_param scope then
+            if is_abstract then
               Invs.empty ()
             else
-              A.param_assumptions_of_scope analysis_param scope
+              A.param_assumptions_of_scope analysis_param base_scope
           in
 
 
@@ -2812,7 +3893,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               in
 
               let include_assumption =
-                NI.equal node_id top_name && not interpreter_mode
+                is_top_instance && not interpreter_mode
               in
 
               (* Add requirements to invariants if node is the top node *)
@@ -2822,7 +3903,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
                     abstract. *)
-                  if A.param_scope_is_abstract analysis_param scope then
+                  if is_abstract then
                     List.rev_append
                       (mode_non_vacuity_checks scope contract)
                       (one_mode_active scope contract)
@@ -2834,12 +3915,38 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               (* Add mode implications to invariants if node is abstract,
                  otherwise add ensures as properties *)
               (*Want to be in else branch with new interpreter param mode*)
-              match analysis_param, (reached_limit || A.param_scope_is_abstract analysis_param scope) with
+
+              (* The contract of a function defined at the SMT level is never
+                 assumed in place of its body, at the recursion cutoff or
+                 anywhere else: its functional symbols already have a
+                 definition, which says exactly what the function is, so
+                 assuming its guarantees on top of it adds nothing when they
+                 hold of that definition and contradicts it when they do not.
+                 An inconsistent transition system makes every property
+                 vacuously valid, the guarantees themselves included.
+
+                 A defined function (a transparent one, or, outside of
+                 compositional analyses, any recursive function; see
+                 [LustreFunDefs]) is therefore verified from its body alone:
+                 its guarantees stay proof obligations at every instance,
+                 without the inductive hypothesis the contract abstraction
+                 provides, and one that needs induction over the recursion is
+                 left to a compositional analysis, or to a lemma. *)
+              let use_contract_as_abstraction =
+                (is_abstract || (reached_limit && not free_cutoff))
+                && not is_defined
+              in
+
+              match analysis_param, use_contract_as_abstraction with
               | A.ContractMonitor _, _ 
               | _, false ->  
                 (*First is assertions, second are proof obligations, want contract to go in proof obligation*)
                 contract_asserts,
-                guarantees_of_contract scope contract @ properties
+                (* The guarantees are not obligations of a free cutoff:
+                   its outputs are unconstrained, and the obligations are
+                   those of the unrolled instances *)
+                (if free_cutoff then properties
+                 else guarantees_of_contract scope contract @ properties)
               | _, true -> 
                 abstraction_of_contract include_assumption contract :: contract_asserts,
                 properties
@@ -2886,6 +3993,53 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             (List.concat (List.map D.values locals))
           in
 
+          (* Canonical-form constraints of the ADT values held by the node's
+             variables, for the variables the current system has (slicing
+             and abstraction by contract remove locals). Constants (global
+             free constants and the defaults of abstract types) are not
+             state variables of the node. *)
+          let adt_constraints =
+            let svars = SVS.of_list all_state_vars in
+            adt_constraints |> List.filter (fun e ->
+              E.state_vars_of_expr e |> SVS.for_all (fun sv ->
+                StateVar.is_const sv || SVS.mem sv svars))
+          in
+
+          let init_terms =
+            List.rev_append
+              (List.map (fun e ->
+                 E.base_term_of_t TransSys.init_base e |> Term.convert_select)
+                 adt_constraints)
+              init_terms
+          in
+
+          let trans_terms =
+            List.rev_append
+              (List.map (fun e ->
+                 E.cur_term_of_t TransSys.trans_base e |> Term.convert_select)
+                 adt_constraints)
+              trans_terms
+          in
+
+          (* The values of the calls of the node at constant arguments to
+             the recursive functions proved terminating: facts on the
+             functional symbols of the functions, whatever the state; and,
+             in the system of the top node, the values that the checks of
+             the counterexamples of earlier analyses learned *)
+          let init_terms, trans_terms =
+            match evaluation with
+            | None -> init_terms, trans_terms
+            | Some ({ learned } as evaluation) ->
+              let facts = facts_of_calls evaluation nodes equations calls in
+              let facts =
+                if NI.equal node_id top_name && NI.Map.is_empty num_unrollings
+                then List.rev_append learned facts
+                else facts
+              in
+              List.rev_append facts init_terms,
+              List.rev_append facts trans_terms
+          in
+
           (* Only keep assumptions that are defined given the current sys. *)
           let node_assumptions =
             node_assumptions |> Invs.filter (
@@ -2895,6 +4049,47 @@ let rec trans_sys_of_node' options globals top_name analysis_param
                   fun svar -> List.mem svar all_state_vars
                 )
             )
+          in
+
+          (* The invariants this node is given were established by an analysis
+             of the node as the top system, where its assumptions are asserted:
+             they hold while its assumptions have held, and not on a trace of
+             its caller that violates them. They are guarded by the history of
+             the assumptions (its "sofar" flag), as its guarantees are when it
+             is abstracted, before they become invariants of its system: the
+             invariant generator checks its candidates against them and lifts
+             what it proves into the caller. The history flag at the current
+             step also covers the previous step of a two-state invariant. A
+             function has no history flag, and is guarded by its assumptions
+             at the steps an invariant is about: the current step, and for a
+             two-state invariant the previous step as well. The properties of
+             the node found among them are asserted under the same guard
+             below. *)
+          let node_invariants =
+            match contract with
+            | Some { C.assumes = (_ :: _) as assumes ; C.sofar_assump }
+              when not is_top_instance ->
+              let at offset svar =
+                Term.mk_var (Var.mk_state_var_instance svar offset)
+              in
+              let guard two_state =
+                match sofar_assump with
+                | Some sofar -> at TransSys.prop_base sofar
+                | None ->
+                  let offsets =
+                    if two_state then
+                      [ Numeral.pred TransSys.prop_base ; TransSys.prop_base ]
+                    else [ TransSys.prop_base ]
+                  in
+                  offsets
+                  |> List.concat_map (fun offset ->
+                    List.map (fun { C.svar } -> at offset svar) assumes)
+                  |> Term.mk_and
+              in
+              Invs.map
+                (fun two_state inv -> Term.mk_implies [guard two_state; inv])
+                node_assumptions
+            | _ -> node_assumptions
           in
 
           let filter_enum_svars =
@@ -2930,7 +4125,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             *)
             let subrange_state_vars =
               let svars =
-                if A.param_scope_is_abstract analysis_param scope then
+                if is_abstract then
                   oracles
                 else
                   List.rev_append undefined_outputs oracles
@@ -3069,7 +4264,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             init_terms,
             trans_terms
           =
-            if NI.equal node_id top_name then
+            if is_top_instance then
               constraints_of_history_congruence
                 mk_fresh_state_var
                 history_svars
@@ -3121,22 +4316,13 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           in
 
           let trans_terms =
-            if NI.equal node_id top_name then
+            if is_top_instance then
               constraints_of_ctr ctr_svars trans_terms
             else
               trans_terms
           in
 
-          let global_consts =
-            (* Format.eprintf "Global constants: %d@." *)
-            (*   (List.length globals.G.free_constants); *)
-            List.fold_left (fun acc (_, vt, _) ->
-                D.fold (fun _ v acc ->
-                    (* Format.eprintf "Gobal constant: %a@." Var.pp_print_var v; *)
-                    v :: acc) vt acc
-              ) [] globals.G.free_constants
-            |> List.rev
-          in
+          let global_consts = vars_of_free_constants globals in
           
           let global_const_svars =
             List.map Var.state_var_of_state_var_instance global_consts
@@ -3151,18 +4337,25 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             )
           ;
 
-          let global_constraints =
-            List.map
-              (E.base_term_of_t TransSys.init_base)
-              globals.G.global_constraints
+          (* The canonical-form constraints of the free constants some node
+             mentions; the others cannot matter and would only burden the
+             solver (a quantified one turns IC3IA off) *)
+          let adt_global_constraints =
+            let mentioned =
+              List.fold_left (fun acc n ->
+                List.fold_left (fun acc (_, e) ->
+                  SVS.union acc (E.state_vars_of_expr e)
+                ) acc n.N.equations
+              ) SVS.empty nodes
+            in
+            let consts = SVS.of_list global_const_svars in
+            globals.G.adt_global_constraints |> List.filter (fun e ->
+              E.state_vars_of_expr e |> SVS.for_all (fun sv ->
+                not (SVS.mem sv consts) || SVS.mem sv mentioned))
           in
 
           let global_constraints =
-            let enum_consts = filter_enum_svars global_const_svars in
-            List.fold_left
-              (add_constraints_of_type true)
-              global_constraints
-              enum_consts
+            constraints_of_free_constants globals adt_global_constraints
           in
 
           let stateful_vars =
@@ -3176,7 +4369,7 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order initial state equations by dependency and
              generate terms *)
-          let (init_terms, definition_set), svar_dep_init, node_output_input_dep_init =
+          let (init_terms, definition_set, _), svar_dep_init, node_output_input_dep_init =
             S.order_equations true output_input_dep node
               |> (fun (e, sv_d, io_d) ->
                constraints_of_equations
@@ -3191,10 +4384,12 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           (* Order transition relation equations by dependency and
              generate terms *)
-          let (trans_terms, definition_set ), svar_dep_trans, node_output_input_dep_trans =
+          let (trans_terms, definition_set, one_state_trans), svar_dep_trans, node_output_input_dep_trans =
             S.order_equations false output_input_dep node
               |> (fun (e, sv_d, io_d) ->
-               constraints_of_equations node
+               constraints_of_equations
+                    ~one_state:(TransSys.one_state_conjuncts subsystems)
+                    node
                     false stateful_vars trans_terms (List.rev e) definition_set, sv_d, io_d)
           in
 
@@ -3291,8 +4486,8 @@ let rec trans_sys_of_node' options globals top_name analysis_param
 
           let assumption =
             if
-              not (NI.equal node_id top_name) &&
-              not (A.param_scope_is_abstract analysis_param scope) &&
+              not is_top_instance &&
+              not is_abstract &&
               valid_prop_terms <> []
             then
               match contract with
@@ -3431,8 +4626,29 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               Type.t_bool
           in
 
-          (* UFs of the system. *)
-          let ufs = function_ufs in
+          (* UFs of the system: those of its functions, and the ones giving
+             selectors their value outside of their constructor that its own
+             terms apply *)
+          let ufs =
+            let applied =
+              List.fold_left (fun acc t ->
+                let acc = ref acc in
+                Term.map (fun _ t ->
+                  (match Term.node_of_term t with
+                   (* A symbol of arity zero is applied as a constant,
+                      i.e. a leaf *)
+                   | Term.T.Leaf s | Term.T.Node (s, _) when Symbol.is_uf s ->
+                     acc := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !acc
+                   | _ -> ());
+                  t
+                ) t |> ignore;
+                !acc
+              ) UfSymbol.UfSymbolSet.empty (init_terms @ trans_terms)
+            in
+            function_ufs
+            @ List.filter (fun uf -> UfSymbol.UfSymbolSet.mem uf applied)
+                globals.G.adt_junk_ufs
+          in
           
           (* let ty_args_opt = match node_id with 
           | (_, tags) -> Lib.find_map (fun tag -> match tag with 
@@ -3515,8 +4731,38 @@ let rec trans_sys_of_node' options globals top_name analysis_param
           (* Create transition system *)
           let trans_sys, _ =
             TransSys.mk_trans_sys
+              ?one_state_trans
               ~datatype_types:globals.G.recursive_datatypes
               ~fn_congruence_groups
+              ~rec_fun_defs:(
+                if is_defined then LustreFunDefs.blocks_of_node fun_defs node_id
+                else [])
+              ?rec_cutoff:(
+                if free_cutoff && not is_defined then Some base_scope
+                else None)
+              ?rec_abstracted:(
+                if is_abstracted_rec then Some base_scope else None)
+              ~rec_cutoff_io:(
+                match comp_type with
+                | N.Function { uf_symbols }
+                  when (free_cutoff || is_abstracted_rec) && not is_defined ->
+                  D.values inputs,
+                  List.filter_map
+                    (fun sv ->
+                       match SVM.find_opt sv uf_symbols with
+                       | Some uf -> Some (sv, uf)
+                       | None -> None)
+                    (D.values outputs)
+                | _ -> [], [])
+              ~check_defs:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.blocks_of_node !check_fun_defs node_id)
+              ~check_ufs:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.ufs_of_node !check_fun_defs node_id)
+              ~check_helpers:(
+                if is_defined || not options.add_functional_constraints then []
+                else LustreFunDefs.helper_ufs_of_node !check_fun_defs node_id)
               scope
               None (* instance_state_var *)
               init_flag
@@ -3536,14 +4782,14 @@ let rec trans_sys_of_node' options globals top_name analysis_param
               subsystems
               properties
               mode_requires
-              node_assumptions
-              (NI.get_node_type node_id <> NodeId.FreeConstant &&
-               NI.get_node_type node_id <> NodeId.TypeAscription &&
-               NI.get_node_type node_id <> NodeId.ClockedExpr)
+              node_invariants
+              (not (NI.is_internal node_id))
           in
           trans_sys_of_node'
             options
             globals
+            fun_defs
+            evaluation
             top_name
             analysis_param
             (NodeInstanceMap.add 
@@ -3566,6 +4812,46 @@ let rec trans_sys_of_node' options globals top_name analysis_param
             nodes
             definition_set
             tl
+
+(* Functions already warned about by [warn_undefined_uf_applications]. The same
+   model is compiled once per analysis, but the warning is about the model *)
+let uf_applied_warned = ref NI.Set.empty
+
+(* A call applied to quantified variables is compiled to an application of the
+   functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]). Such
+   a call is only accepted for a function [LustreUserFunctions] finds a
+   definition is to be built for, together with the functions of its recursive
+   group and the functions they call, but the definition can still be left out
+   here: the solver or logic does not take definitions, which the check of the
+   call does not depend on, or a body is not a total function of its inputs in
+   a way the check does not see. The symbol is then
+   uninterpreted and tied to the outputs of the instances of the function only,
+   so under the quantifier it is an arbitrary function and a property that does
+   hold of the function can be reported falsifiable. Say so. *)
+let warn_undefined_uf_applications fun_defs nodes =
+  nodes |> List.iter (fun { N.calls } ->
+    calls |> List.iter (fun { N.call_uf_applied; N.call_node_id } ->
+      if call_uf_applied
+         && not (LustreFunDefs.is_defined fun_defs call_node_id)
+         && not (NI.Set.mem call_node_id !uf_applied_warned)
+      then (
+        uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
+        Log.log L_warn
+          "@[<hov>Function %a is applied to quantified variables but has \
+           no definition at the SMT level, %s.@ Under the quantifier it is \
+           an arbitrary function of its inputs,@ so a property that does \
+           hold of it may be reported falsifiable.@]"
+          NI.pp_print_node_id_user_name call_node_id
+          (if LustreFunDefs.enabled () then
+             "because its body, or the body of a function of its recursive \
+              group or of a function it calls, is not a total function of its \
+              inputs that the solver can be given"
+           else
+             "because recursive functions are not defined at the SMT level \
+              with the current solver or logic")
+      )
+    )
+  )
 
 let trans_sys_of_nodes
     ?(options=default_settings)
@@ -3608,6 +4894,10 @@ let trans_sys_of_nodes
 
   let subsystem' = SubSystem.find_subsystem_of_list subsystems top in
 
+  (* The nodes before slicing, which still have the bodies of the functions
+     the contracts abstract, to be evaluated with *)
+  let unsliced_nodes = N.nodes_of_subsystem subsystem' in
+
   let { SubSystem.source = { N.node_id = top_name } } as subsystem' =
 
   if options.slice_nodes != `Experimental then
@@ -3622,19 +4912,56 @@ let trans_sys_of_nodes
       S.slice_to_abstraction_and_property
         ~preserve_sig analysis_param prop subsystem'
   else
-    subsystem'
+    (* The experimental slicing reduces the system to the cone of
+       influence of the properties later, on the transition system, but it
+       does not replace the implementation of the abstract nodes by their
+       contracts. Do it here, without reducing the nodes to the cone of
+       influence. *)
+    S.slice_to_abstraction
+      ~preserve_sig:options.preserve_sig false analysis_param subsystem'
   in
 
   let nodes = N.nodes_of_subsystem subsystem' in
+
+  (* Recursive functions are unrolled a bounded number of times in the
+     transition system (see [free_cutoff] in [trans_sys_of_node']) rather
+     than defined at the SMT level, which would leave the unrolling of the
+     recursion to the solver, out of Kind 2's control. The functions that
+     calls applied to quantified variables apply are the exception: they
+     have no instance to be unrolled, and are defined (see
+     [LustreFunDefs]). *)
+  let fun_defs =
+    LustreFunDefs.compute ~adt_junk_ufs:globals.G.adt_junk_ufs nodes
+  in
+  (* From the nodes before slicing, which have the bodies of the functions
+     that the contracts abstract *)
+  check_fun_defs :=
+    LustreFunDefs.compute_all
+      ~adt_junk_ufs:globals.G.adt_junk_ufs unsliced_nodes ;
+
+  warn_undefined_uf_applications fun_defs nodes;
+
+  (* The calls at constant arguments to the recursive functions proved
+     terminating are evaluated while the systems are built *)
+  let evaluation =
+    evaluation_of_param globals options analysis_param unsliced_nodes
+  in
 
   let { trans_sys; definition_set} =
 
     try
 
+      Fun.protect
+        ~finally:(fun () ->
+          Option.iter delete_evaluation evaluation)
+      @@ fun () ->
+
       (* Create a transition system for each node *)
       trans_sys_of_node'
         options
         globals
+        fun_defs
+        evaluation
         top_name
         analysis_param
         NodeInstanceMap.empty
@@ -3654,7 +4981,20 @@ let trans_sys_of_nodes
   ( match analysis_param with
     | A.Refinement (_,result) ->
       (* The analysis that's going to run is a refinement. *)
+      (* The system may be sliced to a single property, as IC3IA builds its
+         own for each property it checks (see [IC3IA.main]). The properties
+         outside of the cone of that property, such as those lifted from a
+         call it does not depend on, are then not in the system, and their
+         statuses have nothing to be carried over to. *)
+      let has_prop =
+        let names =
+          TransSys.get_properties trans_sys
+          |> List.map (fun { P.prop_name } -> prop_name)
+        in
+        fun name -> List.mem name names
+      in
       TransSys.get_prop_status_all_nocands result.A.sys
+      |> List.filter (fun (name, _) -> has_prop name)
       |> List.iter (function
         | _, P.PropUnknown -> (* Unknown is still unknown, do nothing. *)
           ()

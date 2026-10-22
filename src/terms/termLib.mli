@@ -45,6 +45,25 @@ type cexs = cex list
     in this case. *)
 val default_of_type : Type.t -> Term.t
 
+(** [canonical_array_value ty t] is the array value [t], a constant array
+    with stores of constant indices and values, as solvers give the value
+    of an array, in a canonical form for the array type [ty]: two values
+    are equal exactly if their canonical forms are the same term.
+
+    A store that an outer store of the same index overrides is dropped, and
+    so is a store of the value of the constant array. Over a finite index
+    type whose indices the stores cover at least half of, the value of the
+    constant array is the most frequent value of the elements. The stores
+    are in the order of their indices. The indices and values are of the
+    types of [ty], a range of integers or an enumeration being an integer,
+    as for the solvers: they do not tell signed and unsigned bit-vectors
+    apart. Raises [Not_found] for a term of another form. *)
+val canonical_array_value : Type.t -> Term.t -> Term.t
+
+(** Whether a term is an array value: a constant array with stores of
+    constant indices and values *)
+val is_array_value : Term.t -> bool
+
 (** [abstract_type_default name ty] returns the canonical free constant used
     as the default value for the abstract type [ty] named [name]. The same
     constant is returned for every call with the same [name] (from any
@@ -58,6 +77,7 @@ val abstract_type_default : string -> Type.t -> Var.t
 (** A feature of a logic fragment for terms *)
 type feature =
   | Q  (** Quantifiers *)
+  | RF (** Recursive function definitions *)
   | UF (** Equality over uninterpreted functions *)
   | A  (** Arrays *)
   | DT (** Algebraic datatypes *)

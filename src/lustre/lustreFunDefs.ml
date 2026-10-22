@@ -1,0 +1,871 @@
+(* This file is part of the Kind 2 model checker.
+
+   Copyright (c) 2026 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License.
+
+*)
+
+module N = LustreNode
+module E = LustreExpr
+module D = LustreIndex
+module NI = NodeId
+
+module SVS = StateVar.StateVarSet
+module SVM = StateVar.StateVarMap
+module UFS = UfSymbol.UfSymbolSet
+
+type def = UfSymbol.t * Var.t list * Term.t
+
+type block = def list
+
+(* What a defined function's system needs: the blocks of definitions its
+   own depends on followed by its own, and the uninterpreted symbols they
+   apply *)
+type node_defs = {
+  blocks : block list;
+  ufs : UfSymbol.t list;
+  (* The symbols of the definitions of the functions that are neither
+     recursive nor imported among the blocks *)
+  helper_ufs : UfSymbol.t list;
+}
+
+type t = node_defs NI.Map.t
+
+let empty = NI.Map.empty
+
+let enabled () =
+  (* Only the solvers that accept recursive function definitions *)
+  (match Flags.Smt.solver () with
+   | `cvc5_SMTLIB | `Z3_SMTLIB -> true
+   | _ -> false)
+  &&
+  (* Only a logic inferred from the system, the default. A logic set with
+     --smt_logic is sent to the solver as it was written, and both solvers
+     refuse a recursive definition under most of the named logics (Z3 takes
+     one in UFLIA but not in UFNIA); the definitions are left out rather
+     than overriding what was asked for. It is also only an inferred logic
+     that carries the [TermLib.RF] feature, which is how the solver drivers
+     learn that the system defines recursive functions and pass the options
+     they need to handle them. *)
+  Flags.Smt.logic () = `detect
+
+let is_defined t node_id = NI.Map.mem node_id t
+
+let blocks_of_node t node_id =
+  match NI.Map.find_opt node_id t with
+  | Some { blocks } -> blocks
+  | None -> []
+
+let ufs_of_node t node_id =
+  match NI.Map.find_opt node_id t with
+  | Some { ufs } -> ufs
+  | None -> []
+
+let helper_ufs_of_node t node_id =
+  match NI.Map.find_opt node_id t with
+  | Some { helper_ufs } -> helper_ufs
+  | None -> []
+
+
+(* ********************************************************************** *)
+(* Termination conditions                                                 *)
+(* ********************************************************************** *)
+
+(* Lexicographic termination requires the measure to be bounded below, i.e.
+   each component is non-negative. *)
+let bounded_below ms =
+  List.map (fun m -> Term.mk_leq [Term.mk_num Numeral.zero; m]) ms
+  |> Term.mk_and
+
+(* The measure strictly decreases in the lexicographic order: some component
+   decreases while all earlier components stay equal. For a single component
+   this reduces to the ordinary "callee < caller". When the two measures have
+   different arities (possible for mutually recursive functions), their common
+   prefix is compared. *)
+let lex_lt callee caller =
+  let rec lex cs ds =
+    match cs, ds with
+    | [c], [d] -> Term.mk_lt [c; d]
+    | c :: cs', d :: ds' ->
+      Term.mk_or [
+        Term.mk_lt [c; d];
+        Term.mk_and [Term.mk_eq [c; d]; lex cs' ds']
+      ]
+    | _ -> Term.t_true
+  in
+  let n = min (List.length callee) (List.length caller) in
+  let take l = List.filteri (fun i _ -> i < n) l in
+  lex (take callee) (take caller)
+
+
+(* ********************************************************************** *)
+(* Eligibility                                                            *)
+(* ********************************************************************** *)
+
+let func_info { N.comp_type } =
+  match comp_type with
+  | N.Function info -> Some info
+  | N.Node -> None
+
+let scc_of_node node =
+  match func_info node with
+  | Some { N.rec_info = Some (scc_id, _) } -> Some scc_id
+  | _ -> None
+
+let is_lemma node =
+  match func_info node with
+  | Some { N.is_lemma } -> is_lemma
+  | None -> false
+
+(* Whether the contract of a recursive function stands in for its body past
+   its unrollings, in which case the function is not defined: its functional
+   symbols are left uninterpreted, and the transition system constrains them
+   by the contract at every cutoff of the function.
+
+   A contract abstracts the function through its guarantees and the ensures
+   of its modes, be they explicit or from a refinement type of an output. An
+   assumption (explicit, or from a refinement or subrange type of an input)
+   is an obligation of the callers instead, which the transition system keeps
+   at every call: it does not stand in the way of a definition. A function
+   with nothing to abstract it with, or declared transparent, is never
+   abstracted; an opaque function with a contract always is; and the contract
+   of a translucent function stands in for its body in a compositional
+   analysis only. *)
+let contract_abstracts node =
+  N.has_effective_contract node
+  && (match node.N.opacity with
+      | Opacity.Transparent -> false
+      | Opacity.Opaque -> true
+      | Opacity.Translucent -> Flags.Contracts.compositional ())
+
+(* A recursive function is eligible for a definition if its contract does not
+   abstract it in the current analysis *)
+let eligible node = not (contract_abstracts node)
+
+(* Type ascriptions *)
+
+(* A type ascription (e : T) is a call to a generated node whose output is
+   its first input, of type T, and whose other inputs are the variables of T
+   (see [LustreGenNodes]). T only gives an obligation on e, which is an
+   assumption of the node, an obligation of its callers that the transition
+   system keeps at every call: in a definition, the call is the identity on
+   e (see [ascription_is_identity]). *)
+let is_type_ascription node_id =
+  NI.get_node_type node_id = NI.TypeAscription
+
+(* The state variables of the first input of a node. The inputs are always
+   indexed by their position; the output of a node with a single output is
+   not. *)
+let first_input inputs =
+  match D.find_prefix [D.ListIndex 0] inputs with
+  | svars -> svars
+  | exception Not_found -> D.empty
+
+(* The array an equation copies whole, if it is one: [y[i1]...[in] =
+   x[i1]...[in]] for all the indexes of [y], with [x] a state variable or a
+   constant of the type of [y]. Such an equation defines [y] as [x], which a
+   definition can be built from. *)
+let whole_array_copy ((sv, bounds), e) =
+  let n = List.length bounds in
+  if n = 0 || not (List.for_all (function E.Bound _ -> true | _ -> false) bounds)
+  then None
+  else
+    let t = E.base_term_of_expr Numeral.zero (E.init_expr e) in
+    if not (Term.is_select t) then None
+    else
+      let v, idxs = Term.indexes_and_var_of_select t in
+      (* The [k]-th index of the select is the [k]-th index variable *)
+      let rec are_index_vars k = function
+        | [] -> true
+        | t :: ts ->
+          Term.is_free_var t
+          && Term.equal t
+            (E.mk_array_index_var k (Term.type_of_term t)
+             |> E.init_expr |> E.base_term_of_expr Numeral.zero)
+          && are_index_vars (k + 1) ts
+      in
+      if List.length idxs = n
+         && are_index_vars 0 idxs
+         && not (Var.is_free_var v)
+         && Type.equal_types (Var.type_of_var v) (StateVar.type_of_state_var sv)
+      then Some v
+      else None
+
+(* The definitions of the state variables of a node, from its equations and
+   calls. A state variable is [Unsupported] when its equations are not ones a
+   definition can be built from: more than one equation, as for the indexes
+   of an array, or an equation for every index that is not a whole-array
+   copy. *)
+type svar_def =
+  | Eq of E.t
+  | Copy of Var.t
+  | Call of N.node_call
+  | Unsupported
+
+let defs_of_node { N.equations; N.calls } =
+  let defs =
+    List.fold_left
+      (fun acc (((sv, bounds), e) as eq) ->
+         if SVM.mem sv acc then SVM.add sv Unsupported acc
+         else
+           match bounds, whole_array_copy eq with
+           | [], _ -> SVM.add sv (Eq e) acc
+           | _, Some v -> SVM.add sv (Copy v) acc
+           | _, None -> SVM.add sv Unsupported acc)
+      SVM.empty
+      equations
+  in
+  List.fold_left
+    (fun acc ({ N.call_outputs } as call) ->
+       D.fold (fun _ sv acc -> SVM.add sv (Call call) acc) call_outputs acc)
+    defs
+    calls
+
+(* The state variables a definition depends on *)
+let deps_of_def = function
+  | Eq e -> E.state_vars_of_expr e
+  | Copy v -> SVS.singleton (Var.state_var_of_state_var_instance v)
+  | Call { N.call_node_id; N.call_inputs; N.call_context } ->
+    (* A type ascription only reads its first input in a definition *)
+    let inputs =
+      if is_type_ascription call_node_id then first_input call_inputs
+      else call_inputs
+    in
+    let deps = D.values inputs |> SVS.of_list in
+    (match call_context with
+     | Some sv -> SVS.add sv deps
+     | None -> deps)
+  | Unsupported -> SVS.empty
+
+(* Whether a type ascription node outputs its first input: its output has
+   the indexes of the input, and each of its state variables is defined by a
+   single equation as the state variable of the input at the same index, or
+   as a whole-array copy of it *)
+let ascription_is_identity ({ N.inputs; N.outputs; N.asserts; N.oracles } as node) =
+  let input = first_input inputs in
+  let in_keys = D.keys input in
+  let out_keys = D.keys outputs in
+  asserts = [] && oracles = []
+  && List.length in_keys = List.length out_keys
+  && List.for_all2 D.equal_index in_keys out_keys
+  &&
+  let defs = defs_of_node node in
+  let is_input sv sv' = StateVar.equal_state_vars sv sv' in
+  D.fold2
+    (fun _ out_sv in_sv ok ->
+       ok
+       && match SVM.find_opt out_sv defs with
+       | Some (Eq e) -> E.is_var e && is_input (E.state_var_of_expr e) in_sv
+       | Some (Copy v) ->
+         (* A copy of the input at the current instant, not of its previous
+            value or of a constant *)
+         Var.is_state_var_instance v
+         && Numeral.(equal (Var.offset_of_state_var_instance v) zero)
+         && is_input (Var.state_var_of_state_var_instance v) in_sv
+       | Some (Call _ | Unsupported) | None -> false)
+    outputs input true
+
+(* Whether the body of a function is a total function of its inputs that a
+   definition can be built from: no assertion or oracle; every state variable
+   defined by a single equation, which is an equation for every index only if
+   it copies an array whole, or by a call; every output defined, through
+   these equations and calls only, from the inputs (and global constants);
+   and every callee recursive, imported, or itself definable
+   (memoized in [memo]; a function in progress is not definable, which only
+   matters for a call cycle, and a call cycle is a recursive group) *)
+let rec definable nodes memo node =
+  let node_id = node.N.node_id in
+  match NI.Map.find_opt node_id !memo with
+  | Some b -> b
+  | None ->
+    memo := NI.Map.add node_id false !memo;
+    let b = definable' nodes memo node in
+    memo := NI.Map.add node_id b !memo;
+    b
+
+and definable' nodes memo ({ N.inputs; N.outputs; N.calls } as node) =
+  let callee_ok { N.call_node_id } =
+    match N.node_of_node_id call_node_id nodes with
+    | exception Not_found -> false
+    | callee when is_type_ascription call_node_id -> ascription_is_identity callee
+    | callee ->
+      N.is_function callee
+      && not (is_lemma callee)
+      && (N.is_recursive callee
+          || callee.N.is_extern
+          || definable nodes memo callee)
+  in
+  (* A call may have a context (the branch of a conditional it is in):
+     its constraints only hold under it, and the definition leaves its value
+     undefined outside of it *)
+  let call_ok ({ N.call_node_id; N.call_cond; N.call_defaults; N.call_oracles } as call) =
+    (* An ascription in a lazy branch is a call that the guard of the branch
+       activates, with no defaults. Its output is only read where it is
+       active, where it is its input, so the activation does not change its
+       definition. *)
+    let lazy_branch_ascription =
+      is_type_ascription call_node_id
+      && List.for_all (function N.CActivate _ -> true | N.CRestart _ -> false) call_cond
+    in
+    (call_cond = [] || lazy_branch_ascription) && call_defaults = None
+    && call_oracles = [] && callee_ok call
+  in
+  let defs = defs_of_node node in
+  let input_svars = D.values inputs |> SVS.of_list in
+  (* Every output is defined from the inputs *)
+  let rec defined visited sv =
+    if SVS.mem sv visited || SVS.mem sv input_svars || StateVar.is_const sv
+    then true, visited
+    else
+      match SVM.find_opt sv defs with
+      | None -> false, visited
+      | Some def ->
+        SVS.fold
+          (fun sv' (ok, visited) ->
+             if ok then defined visited sv' else ok, visited)
+          (deps_of_def def)
+          (true, SVS.add sv visited)
+  in
+  N.is_function node
+  && not (is_lemma node)
+  && not node.N.is_extern
+  && node.N.oracles = []
+  && node.N.asserts = []
+  && not (SVM.exists (fun _ -> function Unsupported -> true | _ -> false) defs)
+  && List.for_all call_ok calls
+  && (D.values outputs
+      |> List.fold_left
+        (fun (ok, visited) sv -> if ok then defined visited sv else ok, visited)
+        (true, SVS.empty)
+      |> fst)
+
+
+(* ********************************************************************** *)
+(* Definitions                                                            *)
+(* ********************************************************************** *)
+
+let var_of_svar sv = Var.mk_state_var_instance sv Numeral.zero
+
+let term_of_svar sv = Term.mk_var (var_of_svar sv)
+
+let term_of_expr e = E.base_term_of_expr Numeral.zero e
+
+(* The symbol giving a recursive call its value when its termination checks
+   fail *)
+let undefined_call_symbol node_id inputs output =
+  let type_of = StateVar.type_of_state_var in
+  let name =
+    Format.asprintf "%a.%s.%s"
+      HString.pp_print_hstring (NI.get_internal_name node_id)
+      (StateVar.name_of_state_var output)
+      Lib.ReservedIds.undefined_call
+  in
+  UfSymbol.mk_uf_symbol
+    name (List.map type_of (D.values inputs)) (type_of output)
+
+(* The symbol of the definition of an output of a function that is neither
+   recursive nor imported, which the definitions that call the function
+   apply. It is a symbol of its own rather than the functional symbol of the
+   function, which the transition system ties to the instances of the
+   function, where a contract may abstract it. *)
+let helper_symbol node_id inputs output =
+  let type_of = StateVar.type_of_state_var in
+  let name =
+    Format.asprintf "%a.%s.%s"
+      HString.pp_print_hstring (NI.get_internal_name node_id)
+      (StateVar.name_of_state_var output)
+      Lib.ReservedIds.function_definition
+  in
+  UfSymbol.mk_uf_symbol
+    name (List.map type_of (D.values inputs)) (type_of output)
+
+(* Context of the construction of the bindings of a function's body *)
+type ctx = {
+  nodes : N.t list;
+  (* The recursive group being defined, if any: none for a function that is
+     not recursive *)
+  scc_id : int option;
+  (* The measure of the function being defined, over its inputs *)
+  caller_rf : E.expr list;
+  (* Symbols giving the recursive calls of the group their value when their
+     termination checks fail, by callee output *)
+  undefined_calls : UfSymbol.t SVM.t;
+  (* The functions that are neither recursive nor imported that the
+     bindings apply the definitions of *)
+  helpers : NI.Set.t ref;
+}
+
+(* The bindings of the state variables defined in the body of [node], in
+   reverse dependency order (a binding follows the bindings it depends on),
+   prepended to [acc] *)
+let rec bindings_of_node ctx node acc =
+  let defs = defs_of_node node in
+  let input_svars = D.values node.N.inputs |> SVS.of_list in
+  (* Visit the definitions in dependency order, each once ([visited] holds
+     the state variables whose definition was emitted) *)
+  let rec visit (visited, acc) sv =
+    if SVS.mem sv visited || SVS.mem sv input_svars || StateVar.is_const sv
+    then visited, acc
+    else
+      match SVM.find_opt sv defs with
+      | None -> assert false (* Checked by [definable] *)
+      | Some def ->
+        let visited, acc =
+          SVS.fold
+            (fun sv' acc -> visit acc sv')
+            (deps_of_def def)
+            (visited, acc)
+        in
+        match def with
+        | Eq e ->
+          SVS.add sv visited,
+          (var_of_svar sv, term_of_expr (E.init_expr e)) :: acc
+        | Copy v ->
+          SVS.add sv visited,
+          (var_of_svar sv, Term.mk_var v) :: acc
+        | Unsupported -> assert false (* Checked by [definable] *)
+        | Call ({ N.call_outputs } as call) ->
+          D.fold (fun _ sv -> SVS.add sv) call_outputs visited,
+          bindings_of_call ctx call acc
+  in
+  D.values node.N.outputs
+  |> List.fold_left visit (SVS.empty, acc)
+  |> snd
+
+(* The bindings of the outputs of a call *)
+and bindings_of_call
+    ctx ({ N.call_node_id; N.call_inputs; N.call_outputs; N.call_context }) acc =
+  let callee = N.node_of_node_id call_node_id ctx.nodes in
+  if is_type_ascription call_node_id then
+    (* The output of a type ascription is its first input (checked by
+       [ascription_is_identity]) *)
+    D.fold2
+      (fun _ call_out call_in acc ->
+         (var_of_svar call_out, term_of_svar call_in) :: acc)
+      call_outputs
+      (first_input call_inputs)
+      acc
+  else
+  let args = D.values call_inputs |> List.map term_of_svar in
+  let uf_symbols =
+    match func_info callee with
+    | Some { N.uf_symbols } -> uf_symbols
+    | None -> assert false (* Checked by [definable] *)
+  in
+  let bind_outputs term_of_output acc =
+    D.fold2
+      (fun _ callee_out call_out acc ->
+         (var_of_svar call_out, term_of_output callee_out) :: acc)
+      callee.N.outputs
+      call_outputs
+      acc
+  in
+  match scc_of_node callee with
+  | Some scc_id when Some scc_id = ctx.scc_id ->
+    (* A recursive call of the group: apply the symbol of the callee under
+       the guard of the termination checks of the call (and of its context,
+       if any), and leave the value of the call undefined otherwise. Whether
+       or not the measure actually decreases, the recursion of the
+       definitions is then well founded, so they have a model. *)
+    let callee_rf =
+      match func_info callee with
+      | Some { N.rec_info = Some (_, rf) } -> rf
+      | _ -> assert false
+    in
+    let termination_guard =
+      (* An empty measure is an ADT measure, whose decrease is established
+         statically (LustreCheckADTDecreases) *)
+      if ctx.caller_rf = [] || callee_rf = [] then []
+      else
+        let caller_terms = List.map term_of_expr ctx.caller_rf in
+        (* The measure of the callee at the arguments of the call *)
+        let sigma =
+          List.combine
+            (D.values callee.N.inputs |> List.map var_of_svar)
+            args
+        in
+        let callee_terms =
+          List.map
+            (fun e -> term_of_expr e |> Term.apply_subst sigma)
+            callee_rf
+        in
+        [bounded_below caller_terms; lex_lt callee_terms caller_terms]
+    in
+    let context_guard =
+      match call_context with
+      | Some sv -> [term_of_svar sv]
+      | None -> []
+    in
+    let guard =
+      match context_guard @ termination_guard with
+      | [] -> None
+      | conjuncts -> Some (Term.mk_and conjuncts)
+    in
+    bind_outputs
+      (fun callee_out ->
+         let app = Term.mk_uf (SVM.find callee_out uf_symbols) args in
+         match guard with
+         | None -> app
+         | Some guard ->
+           Term.mk_ite guard app
+             (Term.mk_uf (SVM.find callee_out ctx.undefined_calls) args))
+      acc
+  | Some _ ->
+    (* A recursive function of another group: its functional symbol is
+       defined by its own block, or uninterpreted (and tied to its instances
+       by the transition system) *)
+    bind_outputs
+      (fun callee_out -> Term.mk_uf (SVM.find callee_out uf_symbols) args)
+      acc
+  | None when callee.N.is_extern ->
+    (* An imported function: its functional symbol is uninterpreted, and
+       tied to its instances by the transition system *)
+    bind_outputs
+      (fun callee_out -> Term.mk_uf (SVM.find callee_out uf_symbols) args)
+      acc
+  | None ->
+    (* Any other function has a definition of its own (see
+       [block_of_helper]), which is applied. Inlining its body instead would
+       copy it at every call, and the body of a function that calls
+       another twice, which calls another twice, and so on, would grow
+       exponentially with the depth of the calls. *)
+    ctx.helpers := NI.Set.add call_node_id !(ctx.helpers) ;
+    bind_outputs
+      (fun callee_out ->
+         Term.mk_uf (helper_symbol call_node_id callee.N.inputs callee_out) args)
+      acc
+
+(* The body of the definition of [output] from the bindings of the body of
+   its function, in reverse dependency order: the bindings the output
+   depends on, nested in dependency order, around the output variable *)
+let body_of_output bindings output =
+  let output_var = var_of_svar output in
+  (* Keep the bindings the output depends on, going backwards *)
+  let _, kept =
+    List.fold_left
+      (fun (needed, kept) ((v, t) as binding) ->
+         if Var.VarSet.mem v needed then
+           Var.VarSet.union needed (Term.vars_of_term t),
+           binding :: kept
+         else needed, kept)
+      (Var.VarSet.singleton output_var, [])
+      bindings
+  in
+  (* [kept] is in dependency order: nest the bindings from the innermost
+     (last) one. Without the theory of arrays, a select of an array is
+     encoded as the application of its select symbol, as in the transition
+     relation. The selects are encoded in each binding before the bindings
+     are nested: once nested, a select of an array local would apply to a
+     bound variable, which the encoding does not take. *)
+  List.fold_right
+    (fun (v, t) body -> Term.mk_let [v, Term.convert_select t] body)
+    kept
+    (Term.mk_var output_var)
+
+(* The block of definitions of a recursive group *)
+let block_of_scc nodes helpers scc_id members =
+  let undefined_calls =
+    List.fold_left
+      (fun acc ({ N.node_id; N.inputs; N.outputs }) ->
+         D.fold
+           (fun _ output acc ->
+              SVM.add output (undefined_call_symbol node_id inputs output) acc)
+           outputs
+           acc)
+      SVM.empty
+      members
+  in
+  List.concat_map
+    (fun node ->
+       let caller_rf, uf_symbols =
+         match func_info node with
+         | Some { N.rec_info = Some (_, rf); N.uf_symbols } -> rf, uf_symbols
+         | _ -> assert false
+       in
+       let ctx =
+         { nodes; scc_id = Some scc_id; caller_rf; undefined_calls; helpers }
+       in
+       let formals = D.values node.N.inputs |> List.map var_of_svar in
+       let bindings = bindings_of_node ctx node [] in
+       D.values node.N.outputs
+       |> List.map (fun output ->
+           SVM.find output uf_symbols,
+           formals,
+           body_of_output bindings output))
+    members
+
+
+(* The block of the definition of a function that is neither recursive nor
+   imported, one definition for each of its outputs. It calls no function of
+   the recursive group that applies it, or it would be part of the group. *)
+let block_of_helper nodes helpers ({ N.node_id; N.inputs; N.outputs } as node) =
+  let ctx =
+    { nodes; scc_id = None; caller_rf = []; undefined_calls = SVM.empty;
+      helpers }
+  in
+  let formals = D.values inputs |> List.map var_of_svar in
+  let bindings = bindings_of_node ctx node [] in
+  D.values outputs
+  |> List.map (fun output ->
+    helper_symbol node_id inputs output,
+    formals,
+    body_of_output bindings output)
+
+
+(* ********************************************************************** *)
+(* All definitions                                                        *)
+(* ********************************************************************** *)
+
+module IMap = Map.Make (Int)
+
+(* A block of definitions: that of a recursive group, or that of a function
+   that is neither recursive nor imported *)
+module Key = struct
+  type t = Group of int | Helper of NI.t
+  let compare k k' =
+    match k, k' with
+    | Group g, Group g' -> Int.compare g g'
+    | Helper n, Helper n' -> NI.compare n n'
+    | Group _, Helper _ -> -1
+    | Helper _, Group _ -> 1
+end
+module KMap = Map.Make (Key)
+
+(* The definitions of the recursive groups of the functions [applied], and
+   of the groups their definitions call, whose functions are all [eligible]
+   and definable *)
+let compute_for ?(eligible = eligible) ~adt_junk_ufs applied nodes =
+
+  if not (enabled ()) || NI.Set.is_empty applied then empty else
+
+    (* The recursive groups, by identifier *)
+    let sccs =
+      List.fold_left
+        (fun acc node ->
+           match scc_of_node node with
+           | Some scc_id ->
+             let members =
+               match IMap.find_opt scc_id acc with
+               | Some l -> l
+               | None -> []
+             in
+             IMap.add scc_id (node :: members) acc
+           | None -> acc)
+        IMap.empty
+        nodes
+    in
+
+    (* The groups the applied functions and their definitions call, by
+       following the calls of the nodes from the applied functions *)
+    let needed_sccs =
+      let rec visit (seen, sccs) node_id =
+        if NI.Set.mem node_id seen then seen, sccs
+        else
+          match N.node_of_node_id node_id nodes with
+          | exception Not_found -> seen, sccs
+          | node ->
+            let sccs =
+              match scc_of_node node with
+              | Some scc_id -> scc_id :: sccs
+              | None -> sccs
+            in
+            List.fold_left
+              (fun acc { N.call_node_id } -> visit acc call_node_id)
+              (NI.Set.add node_id seen, sccs)
+              node.N.calls
+      in
+      NI.Set.fold (fun node_id acc -> visit acc node_id) applied
+        (NI.Set.empty, [])
+      |> snd
+    in
+
+    (* The groups to define: needed, and every function of the group
+       eligible and definable *)
+    let memo = ref NI.Map.empty in
+    let defined_sccs =
+      IMap.filter
+        (fun scc_id members ->
+           List.mem scc_id needed_sccs
+           && List.for_all
+             (fun node -> eligible node && definable nodes memo node)
+             members)
+        sccs
+    in
+
+    if IMap.is_empty defined_sccs then empty else
+
+      (* The blocks of the groups, then those of the functions they apply
+         the definitions of, and of the functions those apply in turn *)
+      let helpers = ref NI.Set.empty in
+      let blocks =
+        IMap.fold
+          (fun scc_id members acc ->
+             KMap.add (Key.Group scc_id)
+               (block_of_scc nodes helpers scc_id members) acc)
+          defined_sccs KMap.empty
+      in
+      let rec add_helpers blocks =
+        let missing =
+          NI.Set.filter
+            (fun node_id -> not (KMap.mem (Key.Helper node_id) blocks))
+            !helpers
+        in
+        if NI.Set.is_empty missing then blocks
+        else
+          NI.Set.fold
+            (fun node_id acc ->
+               KMap.add (Key.Helper node_id)
+                 (block_of_helper nodes helpers
+                    (N.node_of_node_id node_id nodes))
+                 acc)
+            missing blocks
+          |> add_helpers
+      in
+      let blocks = add_helpers blocks in
+
+      (* The symbols each block defines and applies *)
+      let defined_of_block block =
+        List.fold_left (fun acc (uf, _, _) -> UFS.add uf acc) UFS.empty block
+      in
+      let applied_of_block block =
+        List.fold_left
+          (fun acc (_, _, body) -> UFS.union acc (Term.uf_symbols_of_term body))
+          UFS.empty
+          block
+      in
+      let all_defined =
+        KMap.fold
+          (fun _ block acc -> UFS.union acc (defined_of_block block))
+          blocks
+          UFS.empty
+      in
+
+      (* The uninterpreted symbols a block may apply: the functional symbols
+         of the functions that are not defined, the symbols of the
+         undefined recursive calls, and the ADT junk symbols. Anything else
+         (a constructor, a select) is declared elsewhere. *)
+      let declarable =
+        let function_ufs =
+          List.concat_map
+            (fun node ->
+               match func_info node with
+               | Some { N.uf_symbols } -> SVM.bindings uf_symbols |> List.map snd
+               | None -> [])
+            nodes
+        in
+        let undefined_calls =
+          IMap.fold
+            (fun _ members acc ->
+               List.fold_left
+                 (fun acc { N.node_id; N.inputs; N.outputs } ->
+                    D.fold
+                      (fun _ output acc ->
+                         undefined_call_symbol node_id inputs output :: acc)
+                      outputs
+                      acc)
+                 acc
+                 members)
+            defined_sccs
+            []
+        in
+        function_ufs @ undefined_calls @ adt_junk_ufs
+        |> List.filter (fun uf -> not (UFS.mem uf all_defined))
+        |> UFS.of_list
+      in
+
+      (* Blocks in dependency order (a block after the ones defining the
+         symbols it applies), each with the uninterpreted symbols it applies *)
+      let block_info =
+        KMap.map
+          (fun block ->
+             let applied = applied_of_block block in
+             let deps =
+               KMap.fold
+                 (fun key block' acc ->
+                    if UFS.is_empty (UFS.inter applied (defined_of_block block'))
+                    then acc
+                    else key :: acc)
+                 blocks
+                 []
+             in
+             block, deps, UFS.inter applied declarable)
+          blocks
+      in
+
+      (* The blocks a group's own depends on, followed by its own, the
+         symbols they apply, and the symbols of the definitions of functions
+         that are neither recursive nor imported among them *)
+      let rec closure ((order, seen, ufs, helper_ufs) as acc) key =
+        if List.exists (fun k -> Key.compare k key = 0) seen then acc
+        else
+          let block, deps, applied = KMap.find key block_info in
+          let order, seen, ufs, helper_ufs =
+            List.fold_left closure (order, key :: seen, ufs, helper_ufs) deps
+          in
+          let helper_ufs =
+            match key with
+            | Key.Helper _ -> UFS.union helper_ufs (defined_of_block block)
+            | Key.Group _ -> helper_ufs
+          in
+          order @ [block], seen, UFS.union ufs applied, helper_ufs
+      in
+
+      IMap.fold
+        (fun scc_id members acc ->
+           let blocks, _, ufs, helper_ufs =
+             closure ([], [], UFS.empty, UFS.empty) (Key.Group scc_id)
+           in
+           let node_defs =
+             { blocks; ufs = UFS.elements ufs;
+               helper_ufs = UFS.elements helper_ufs }
+           in
+           List.fold_left
+             (fun acc { N.node_id } -> NI.Map.add node_id node_defs acc)
+             acc
+             members)
+        defined_sccs
+        NI.Map.empty
+
+
+let compute ~adt_junk_ufs nodes =
+  (* The recursive functions a call applied to quantified variables applies
+     the functional symbol of *)
+  let applied =
+    List.fold_left
+      (fun acc { N.calls } ->
+         List.fold_left
+           (fun acc { N.call_uf_applied; N.call_node_id } ->
+              if call_uf_applied then NI.Set.add call_node_id acc else acc)
+           acc calls)
+      NI.Set.empty nodes
+  in
+  compute_for ~adt_junk_ufs applied nodes
+
+let compute_all ~adt_junk_ufs nodes =
+  let recursive =
+    List.fold_left
+      (fun acc node ->
+         if N.is_recursive node then NI.Set.add node.N.node_id acc else acc)
+      NI.Set.empty nodes
+  in
+  (* The definitions are only given to the supervisor's solvers, so a
+     contract that abstracts a function in the analysis does not stand in
+     the way *)
+  compute_for ~eligible:(fun _ -> true) ~adt_junk_ufs recursive nodes
+
+let compute_evaluable ~adt_junk_ufs applied nodes =
+  (* The definitions are only given to the solver that evaluates the
+     functions, so a contract that abstracts a function in the analysis
+     does not stand in the way *)
+  compute_for ~eligible:(fun _ -> true) ~adt_junk_ufs applied nodes

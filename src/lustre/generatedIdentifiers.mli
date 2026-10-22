@@ -33,6 +33,14 @@ type source =
       the (polarity-adjusted) conjunction of the enclosing when-block guards.
       Node calls in such an equation must be activated on that clock. *)
 
+(* A generated equation *)
+type equation =
+  LustreAst.typed_ident list (* quantified variables *)
+  * (Lib.position * NodeId.t) list (* contract scope  *)
+  * LustreAst.eq_lhs
+  * LustreAst.expr
+  * source option (* Record the source of the equation if generated before normalization step *)
+
 type t = {
   node_args : (HString.t (* abstracted variable name *)
     * bool (* whether the variable is constant *)
@@ -60,11 +68,37 @@ type t = {
     * (LustreAst.expr list option) (* node argument defaults *)
     * bool) (* Was call inlined? *)
     list;
+  (* Indices of the instance each call stands for, when it is one of the
+     instances a call in an array equation expands into (see
+     [LustreAstNormalizer.expand_node_call]), by abstracted output. The
+     instances share the position of the call. *)
+  call_instances : int list StringMap.t;
+  (* Calls to a function that are applied to enclosing quantified variables,
+     and are therefore compiled to an application of the functional symbol of
+     the callee rather than to a node instance (see [LustreNodeGen]). The
+     abstracted output is the name the application is bound to. The call still
+     generates a node instance, listed in [calls], whose arguments have the
+     quantified variables replaced by free constants (see [mk_fresh_qcall]);
+     the instance is named so that [LustreNodeGen] can flag it as one slicing
+     must not drop *)
+  qcalls : (
+    LustreAst.typed_ident list (* quantified variables *)
+    * HString.t (* abstracted output *)
+    * HString.t (* abstracted output of the node instance the call retains *)
+    * NodeId.t (* function name *)
+    * (LustreAst.expr list) (* function arguments *)
+  ) list;
   refinement_type_constraints: (source
     * Lib.position
     * HString.t (* Generated name for refinement type constraint *)
     * LustreAst.expr
     * NodeId.t option) (* Node ID for type ascription substitution *)
+    list;
+  (* Proof obligations that the constructor owning a user-written ADT selector
+     is active where the selector is read *)
+  selector_obligations: (Lib.position
+    * HString.t (* Generated name for the obligation *)
+    * LustreAst.expr) (* Obligation expression, for display *)
     list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
@@ -93,13 +127,7 @@ type t = {
     LustreAst.binary_operator * 
     LustreAst.lustre_type) list;
   expanded_variables : StringSet.t;
-  equations :
-    (LustreAst.typed_ident list (* quantified variables *)
-    * (Lib.position * NodeId.t) list (* contract scope  *)
-    * LustreAst.eq_lhs
-    * LustreAst.expr
-    * source option) (* Record the source of the equation if generated before normalization step *)
-    list;
+  equations : equation list;
   nonvacuity_props: StringSet.t;
   clocked_call_ties:
     (HString.t * HString.t option * HString.t * HString.t) list;
@@ -112,8 +140,16 @@ type t = {
       held variable to the (frozen) call output. *)
   array_literal_vars: StringSet.t; (* Variables equal to an array literal *)
   expr_source_map: LustreAst.expr StringMap.t;
+  prop_source_map: LustreAst.expr StringMap.t;
   type_ascription_exprs: LustreAst.expr NodeId.Map.t;
   history_vars: HString.t StringMap.t;
+  history_defs: (LustreAst.lustre_type * equation) StringMap.t;
+  (* The type and the equation of each history variable, by name. A history
+     variable is named after the variable it records, as renamed in the scope
+     of its quantifier, so every property quantifying over the history of the
+     same variable yields the same definition. They are kept apart from
+     [locals] and [equations], and are declared once per node (see
+     [LustreAstNormalizer.normalize_node]). *)
 }
 
 (* String constant used in lustreDesugarIfBlocks.ml and lustreDesugarFrameBlocks.ml
@@ -124,21 +160,35 @@ val iboracle : string
 of reachability queries with timestep bounds. *)
 val ctr_id : HString.t
 
-(** Checks if a variable name corresponds to an iboracle *)
+(** Checks if a variable name is the AST name of an iboracle, ['<n>_iboracle'] *)
 val var_is_iboracle: HString.t -> bool
 
 (* String constant used as the suffix of fresh locals capturing the discarded
    results of a call statement (see lustreNameCalls.ml). *)
 val discarded_output : string
 
-(** Checks if a variable name corresponds to a discarded call-statement result *)
+(** Suffix of the fresh locals holding the value of an array comprehension *)
+val array_comprehension : string
+
+(** Checks if a variable name is the AST name of the local of an array
+    comprehension, ['<n>_gcomp'] *)
+val var_is_array_comprehension: HString.t -> bool
+
+(** Checks if a variable name is the AST name of a discarded call-statement
+    result, ['<n>_discard'] *)
 val var_is_discarded_output: HString.t -> bool
+
+(** Checks if a state variable name is the one of a discarded call-statement
+    result, ['discard_<n>'] *)
+val svar_is_discarded_output: HString.t -> bool
 
 (* String constant used as a segment of fresh locals introduced to desugar the
    'last' operator (see lustreDesugarLast.ml). *)
 val last_local : string
 
-(** Checks if a variable name corresponds to a 'last'-operator local *)
+(** Checks if a variable name is the AST name of a 'last'-operator local,
+    ['<n>_glast_<x>'] or ['<n>_glast_init_<x>']. A state variable name, where
+    the number is moved to an index, does not match. *)
 val var_is_last_local: HString.t -> bool
 
 (* String constant used as the suffix of fresh locals capturing the output of

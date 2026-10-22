@@ -1,0 +1,7 @@
+datatype Msg = Ping | Data (payload: int);
+
+node main(x: int) returns (ok: bool);
+let
+  ok = true;
+  check forall (m: Msg) m.payload = m.payload;
+tel

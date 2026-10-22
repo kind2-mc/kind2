@@ -667,8 +667,29 @@ let extract uf_defs env term =
 
           )
 
-        (* TODO: Boolean exclusive disjunction to be true *)
-        | `DISTINCT ->  assert false
+        (* Pairwise distinctness to be true: every two arguments differ *)
+        | `DISTINCT when polarity ->
+
+          (accum, [(Simplify.pairwise_disequalities l, true)])
+
+        (* Pairwise distinctness to be false: two arguments are equal in the
+           model, the first such pair found, evaluating each argument once *)
+        | `DISTINCT ->
+
+          let values =
+            List.map (fun t -> t, Eval.term_of_value (eval_term t)) l
+          in
+          let rec equal_pair = function
+            | [] ->
+              raise (Invalid_argument "Extract on unsatisfiable formula")
+            | (a, va) :: tl -> (
+              match List.find_opt (fun (_, vb) -> Term.equal va vb) tl with
+              | Some (b, _) -> Term.mk_eq [a; b]
+              | None -> equal_pair tl
+            )
+          in
+
+          (accum, [(equal_pair values, true)])
 
         (* if-then-else *)
         | `ITE -> 
@@ -779,11 +800,14 @@ let extract uf_defs env term =
 
           )
 
-        (* Boolean atoms *)
+        (* Boolean atoms, including a tester or a Boolean selector of an
+           algebraic datatype *)
         | `IS_INT 
         | `TO_REAL
         | `TO_INT 
-        | `DIVISIBLE _ ->
+        | `DIVISIBLE _
+        | `IsConstructor _
+        | `Selector _ ->
 
           (match l with 
 

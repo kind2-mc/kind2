@@ -1,0 +1,24 @@
+-- The recursive calls of F and G pass an argument to an input that nothing
+-- reads. The analysis of each function keeps its recursive call, for its
+-- termination checks, and so its inputs as well: slicing used to remove the
+-- unused input, and the call then had more arguments than the function had
+-- inputs, which failed the construction of the transition system. It
+-- happened to G on main already, whose guarantee depends on the call. The
+-- guarantee of G needs induction over the recursion, which a compositional
+-- analysis gives.
+function rec F(n: int; k: int) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F(n - 1, 5);
+tel
+
+function rec G(n: int; k: int) returns (r: int);
+(*@contract
+  guarantee "zero" r = 0;
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else G(n - 1, 5);
+tel

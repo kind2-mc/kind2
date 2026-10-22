@@ -1,0 +1,28 @@
+-- A modular analysis must analyze B before A, since A calls B. Main lists
+-- A before B, and B was skipped when A was reached as a subsystem of main,
+-- because it was already queued as the next subsystem of main: A was
+-- analyzed first. B had no result yet, so the call to B in A could not be
+-- refined, and "a" stayed falsified. B's contract does not give y = x.
+--
+-- The run is falsifiable in either order, as "a" is falsified under B's
+-- contract, so test_modular_order.py checks the order of the analyses and
+-- the answer of the refinement.
+node B (x: int) returns (y: int);
+(*@contract
+  guarantee "g" y >= x;
+*)
+let
+  y = x;
+tel
+
+node A (x: int) returns (y: int);
+let
+  y = B(x);
+  check "a" y = x;
+tel
+
+node main (x: int) returns (y: int);
+let
+  y = A(x) + B(x);
+  check "m" y >= 2 * x;
+tel

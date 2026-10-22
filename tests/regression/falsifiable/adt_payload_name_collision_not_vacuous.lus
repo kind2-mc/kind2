@@ -1,0 +1,14 @@
+-- The internal record field names of the payloads of A_B(x) and A(B_x) must
+-- differ: were they the same slot, the canonical-form constraints on it would
+-- make every value of the type unreachable and every property vacuously
+-- valid. The free input b is the falsifiable property.
+
+datatype T = A_B (x: int) | A (B_x: int) | C;
+
+node main(t: T; b: bool) returns (ok: bool);
+let
+  check "not vacuous" b;
+  check "A_B is reachable" not A_B?(t);
+  check "A is reachable" not A?(t);
+  ok = true;
+tel

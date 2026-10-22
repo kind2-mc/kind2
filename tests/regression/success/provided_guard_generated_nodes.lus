@@ -1,0 +1,24 @@
+-- Issue #1620: 'any'/'choose' operators and type ascriptions in the 'provided'
+-- guard of a property, which are abstracted into generated nodes
+
+type Nat = subtype { x: int | x >= 0 };
+
+const K: int = 3;
+
+node main (n: int) returns (y: int);
+let
+  y = n;
+  check y = n provided ((any { v: int | v = 0 }) = 0);
+  check y = n provided ((0 : int) = 0);
+  check y = n provided ((any { v: Nat | true }) >= 0);
+  check y = n provided ((choose { v: int | v = n }) = n);
+  check y = n provided ((K : Nat) = 3);
+  check y = n provided (((any { v: Nat | true }) : Nat) >= 0 and K > 2);
+  check y = n provided (Id(n) = n);
+tel
+
+-- A user node, declared after its only caller, called only from a guard
+node Id (x: int) returns (r: int);
+let
+  r = x;
+tel

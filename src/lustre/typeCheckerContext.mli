@@ -95,7 +95,25 @@ val lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
     If it is user type then chases it (recursively looks up) 
     the actual type. This chasing is necessary to check type equality 
     between user defined types. *)
-    
+
+val map_types:
+  in_definition:(LA.ident list -> tc_type -> tc_type) ->
+  in_use:(tc_type -> tc_type) -> tc_context -> tc_context
+(** The context with every type it records rewritten. A pass that changes the
+    types of a program has to change the context that types it too, or the two
+    spellings of a type are compared against each other later. The type a
+    declaration is defined as is rewritten by [in_definition], which is given the
+    type parameters that declaration binds; every other type is a use, and is
+    rewritten by [in_use]. The values of constants are left alone: they are
+    propagated before any such pass runs. *)
+
+val lookup_ty_syn_body: tc_context -> LA.ident -> tc_type list -> tc_type option
+(** The definition of a type synonym, with its type parameters substituted by
+    the given type arguments. Unlike {!lookup_ty_syn}, a definition that is
+    itself a named type is returned as such rather than chased, so that the
+    caller sees each link of an alias chain and the type arguments it passes
+    on. *)
+
 val expand_type_syn: tc_context -> tc_type -> tc_type
 (** Chases the type (and nested types) to its base form to resolve type synonyms *)
 
@@ -175,6 +193,15 @@ val remove_ty: tc_context -> LA.ident -> tc_context
 val remove_const: tc_context -> LA.ident -> tc_context
 (** Removes a constant variable *)
 
+val shadow_const: tc_context -> LA.ident -> tc_context
+(** [shadow_const ctx i] marks the constant [i] as shadowed by a bound variable
+    of the same name, so that a plain reference to [i] in the bound variable's
+    scope is not a constant. The constant's value stays available to types
+    declared outside that scope. *)
+
+val is_shadowed_const: tc_context -> LA.ident -> bool
+(** Checks if the constant is shadowed by a bound variable in scope *)
+
 val remove_ty_ctx: tc_context -> tc_context
                   
 val add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
@@ -249,6 +276,11 @@ val pp_print_tc_context: Format.formatter -> tc_context -> unit
 
 val arity_of_expr: tc_context -> LA.expr -> int
 (** Return the arity of a Lustre expression given a context *)
+
+val split_by_arity: tc_context -> LA.expr list -> 'a list -> 'a list list option
+(** [split_by_arity ctx es items] splits [items] into consecutive slices, one
+    per expression of [es] with as many items as its arity (see {!arity_of_expr}).
+    Returns [None] if the arities of [es] do not add up to the length of [items]. *)
 
 val traverse_group_expr_list: (int -> LA.expr -> 'a) -> tc_context -> int -> LA.expr list -> 'a
 (** Traverse a group expr list *)

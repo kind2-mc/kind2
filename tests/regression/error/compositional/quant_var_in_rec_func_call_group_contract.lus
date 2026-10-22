@@ -1,0 +1,26 @@
+-- A call to a recursive function applied to a quantified variable is rejected
+-- when another function of its recursive group has a contract that abstracts
+-- it. The functions of a group are defined at the SMT level together or not
+-- at all, so the symbol of Even would be an arbitrary function under the
+-- quantifier. The call used to be accepted, and this property, which holds,
+-- was reported falsifiable in a compositional analysis.
+
+function rec Even (n: int) returns (r: bool);
+con decreases n; noc
+let
+  r = when n <= 0 then true else Odd(n - 1);
+tel
+
+function rec Odd (n: int) returns (r: bool);
+con
+  decreases n;
+  guarantee r or not r;
+noc
+let
+  r = when n <= 0 then false else Even(n - 1);
+tel
+
+node Test () returns ();
+let
+  check forall (k: int) k = 0 => Even(k);
+tel

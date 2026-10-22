@@ -1,0 +1,15 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node f (u: int) returns (y: int);
+var l: L;
+let
+  l = if y > 0 then Nil else Cons(u, Nil);
+  frame (y)
+    y = 0;
+  let
+    match l with
+    | Nil:
+      y = 1;
+    end
+  tel
+tel

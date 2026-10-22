@@ -90,6 +90,7 @@ let mk_span start_pos end_pos =
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
+%token FOREACH
 %token CARET
 %token DOTDOT
 %token BAR
@@ -203,14 +204,8 @@ let mk_span start_pos end_pos =
 %token CONCAT
 
 (* Tokens for clocks *)
-%token CURRENT
-%token CONDACT
-%token ACTIVATE
-%token INITIAL
-%token DEFAULT
 %token EVERY
 %token RESTART
-%token MERGE
 
 (* Tokens for temporal operators *)
 %token PRE
@@ -230,9 +225,9 @@ let mk_span start_pos end_pos =
        
 (* Priorities and associativity of operators, lowest first *)
 %nonassoc UINT8 UINT16 UINT32 UINT64 INT8 INT16 INT32 INT64 
-%nonassoc WHEN CURRENT BAR
+%nonassoc BAR
 %nonassoc MATCH_ARM_BODY  (* resolves shift/reduce: match arm body ends before next | *)
-%nonassoc ELSE
+%nonassoc ELSE EVERY
 %right ARROW
 %nonassoc prec_forall prec_exists
 %right IMPL LAZY_IMPL
@@ -246,6 +241,7 @@ let mk_span start_pos end_pos =
 %left BVOR
 %left BVAND
 %nonassoc LSH RSH
+%right FBY
 %nonassoc PRE
 %nonassoc INT REAL
 %nonassoc NOT
@@ -296,11 +292,16 @@ decl:
     let (l, e) = def in
     [A.FuncDecl (mk_span $startpos($2) $endpos, (n, false, opac, p, i, o, l, e, r), { is_lemma = false; is_rec })]
   }
-  | LEMMA; decl = lemma_decl ; def = node_def {
+  (* A lemma without a body has nothing to prove its contract with: its
+     contract is assumed. Without a body, it cannot be recursive. *)
+  | LEMMA; decl = lemma_decl ; def = option(lemma_def) {
     let (n, p, i, r) = decl in
     let o = [mk_pos $startpos, HString.mk_hstring ".out", A.Bool (mk_pos $startpos), A.ClockTrue] in
-    let (l, e) = def in
-    [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
+    match def with
+    | Some (l, e) ->
+      [A.FuncDecl (mk_span $startpos($1) $endpos, (n, false, A.Opaque, p, i, o, l, e, r), { is_lemma = true; is_rec = true })]
+    | None ->
+      [A.FuncDecl (mk_span $startpos($1) $endpos, (n, true, A.Opaque, p, i, o, [], [], r), { is_lemma = true; is_rec = false })]
   }
   | opac = opacity_modifier ; NODE ; IMPORTED ; decl = node_decl {
     let (n, p, i, o, r) = decl in
@@ -573,6 +574,24 @@ lemma_decl:
     (NI.mk_node_id n, p, List.flatten i, r)
   }
 
+(* A lemma definition (locals + body). Its locals are variables only: a
+   constant declaration, local or not, starts with the same keyword, so after
+   a lemma without a body it could not be told apart from the next top-level
+   declaration. *)
+lemma_def:
+  l = list(lemma_local_decl);
+  LET;
+  e = list(node_item);
+  TEL
+  option(node_sep)
+
+  { (List.flatten l, e) }
+
+lemma_local_decl:
+  | v = var_decls { List.map 
+                      (function e -> A.NodeVarDecl (mk_pos $startpos, e)) 
+                      v }
+
 (* A node definition (locals + body). *)
 node_def:
   l = list(node_local_decl);
@@ -838,6 +857,8 @@ check:
 node_item:
   | i = node_if_block { i }
   | i = node_when_block { i }
+  | i = node_match_block { i }
+  | i = node_restart_block { i }
   | f = node_frame_block { f }
   | e = node_equation { A.Body e }
   | a = main_annot { a }
@@ -922,6 +943,22 @@ node_cond_case_colon:
     { (e, l) }
 
 
+(* The state of the items is reset at every step where the condition is true *)
+node_restart_block:
+  | RESTART; l = nonempty_list(node_item); EVERY; r = expr; END
+    { A.RestartBlock (mk_pos $startpos, l, r) }
+
+
+node_match_block:
+  | MATCH; e = expr; WITH; arms = nonempty_list(match_block_arm); END;
+    { A.MatchBlock (mk_pos $startpos, e, arms, None) }
+
+
+(* A single arm of a match block: a pattern and the items it defines *)
+match_block_arm:
+  | BAR; p = pat; COLON; l = nonempty_list(node_item) { (p, l) }
+
+
 node_frame_block:
   | FRAME; LPAREN; l1 = ident_list_pos; RPAREN;
     l2 = list(node_equation);
@@ -969,7 +1006,8 @@ struct_item:
   | s = ident
       { A.SingleIdent (mk_pos $startpos, s) }
           
-  (* Recursive array definition *)
+  (* Element-wise array definition, no longer supported: LustreSyntaxChecks
+     reports it and suggests an array comprehension *)
   | s = ident; l = nonempty_list(index_var)
      { A.ArrayDef (mk_pos $startpos, s, l) }
 
@@ -1103,7 +1141,20 @@ pexpr(Q):
   | LSQBRACKET; l = pexpr_list(Q); RSQBRACKET { A.GroupExpr (mk_pos $startpos, A.ArrayExpr, l) }
 
   (* An array constructor (not quantified) *)
-  | e1 = pexpr(Q); CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
+  | e1 = pexpr(Q); CARET; e2 = expr
+    { match e1 with
+      (* The innermost index of a comprehension without a size gets it *)
+      | A.ArrayComprehension (p, bs, e)
+        when List.exists (fun (_, _, n) -> A.is_missing_size n) bs ->
+        let rec give = function
+          | [] -> []
+          | (ip, i, n) :: rest when A.is_missing_size n
+              && not (List.exists (fun (_, _, n) -> A.is_missing_size n) rest) ->
+            (ip, i, e2) :: rest
+          | b :: rest -> b :: give rest
+        in
+        A.ArrayComprehension (p, give bs, e)
+      | _ -> A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
   (* Empty map *)
   | MAP; LSQBRACKET; RSQBRACKET;
@@ -1160,9 +1211,9 @@ pexpr(Q):
   | c = ident; QUESTION; LPAREN; e = pexpr(Q); RPAREN
     { A.ADTTester (mk_pos $startpos, e, c) }
 
-  (* A record field projection (not quantified) *)
+  (* A record field projection or an ADT selector (not quantified) *)
   | s = pexpr(Q); DOT; t = ident
-    { A.FieldProject (mk_pos $startpos($2), s, t, None) }
+    { A.FieldProject (mk_pos $startpos($2), s, t, A.Unresolved) }
 
   (* A record (not quantified) *)
   | t = ident; ps = call_static_params;
@@ -1222,7 +1273,19 @@ pexpr(Q):
         fail_at_position
           pos "Quantifiers not allowed in this position";
       A.Quantifier (pos, A.Exists, List.flatten vars, e) }
-                                                                       
+
+  (* An array comprehension. Its sizes are given by the carets after it, or
+     they bound its index variables: '(e foreach i < m, j < n)' is
+     '(e foreach i, j)^n^m'. An index variable without a bound among bounded
+     ones gets a size that no caret fills, which LustreSyntaxChecks reports. *)
+  | LPAREN; e = pexpr(Q); FOREACH;
+    bs = separated_nonempty_list(COMMA, comprehension_index(Q)); RPAREN
+    { let bounded = List.exists (fun (_, _, n) -> Option.is_some n) bs in
+      let size p = if bounded then A.unbounded_size p else A.missing_size p in
+      A.ArrayComprehension (mk_pos $startpos,
+        List.map (fun (p, i, n) ->
+          (p, i, match n with Some n -> n | None -> size p)) bs, e) }
+
   (* A relation *)
   | e1 = pexpr(Q); LT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Lt, e1, e2) }
   | e1 = pexpr(Q); GT; e2 = pexpr(Q) { A.CompOp (mk_pos $startpos, A.Gt, e1, e2) }
@@ -1243,144 +1306,9 @@ pexpr(Q):
     { let pos = mk_pos $startpos in
       fail_at_position pos "Recursive node calls are not supported" }
 
-  (* when operator on qexpression  *)
-  | e1 = pexpr(Q); WHEN; e2 = clock_expr { A.When (mk_pos $startpos, e1, e2) }
-
-  (* current operator on qexpression *)
-  | CURRENT; pexpr(Q) {
-    let pos = mk_pos $startpos in
-    fail_at_position pos "Unsupported operator: current"
-   }
-
-  (* condact call with defaults *)
-  | CONDACT 
-    LPAREN; 
-    e1 = pexpr(Q); 
-    COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    COMMA; 
-    d = pexpr_list(Q)
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, e1, A.Const (pos, A.False), NodeId.mk_node_id s, a, d) } 
-
-  (* condact call may have no return values and therefore no defaults *)
-  | CONDACT 
-    LPAREN; 
-    c = pexpr(Q); 
-    COMMA; 
-    s = ident; LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), NodeId.mk_node_id s, a, []) } 
-
-  (* condact call with defaults and restart *)
-  | CONDACT LPAREN;
-    c = pexpr(Q); 
-    COMMA;
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    COMMA; 
-    d = pexpr_list(Q);
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) } 
-
-  (* condact call with no return values and restart *)
-  | CONDACT ; LPAREN;
-    c = pexpr(Q); 
-    COMMA; 
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    RPAREN
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, []) } 
-
-  (* [(activate N every h initial default (d1, ..., dn)) (e1, ..., en)] 
-     is an alias for [condact(h, N(e1, ..., en), d1, ,..., dn) ]*)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
-    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, A.Const (pos, A.False), NodeId.mk_node_id s, a, d) }
-    
-  (* activate operator without initial defaults
-
-     Only supported inside a merge *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, NodeId.mk_node_id s, c, A.Const (pos, A.False), a) }
-
-  (* activate restart *)
-  | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
-    EVERY; c = pexpr(Q); 
-    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q)); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) }
-    
-  (* alternative syntax for activate restart *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q); 
-    INITIAL DEFAULT; d = separated_list(COMMA, pexpr(Q));
-    RESTART EVERY; r = pexpr(Q); RPAREN;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Condact (pos, c, r, NodeId.mk_node_id s, a, d) }
-    
-  (* activate operator without initial defaults and restart
-
-     Only supported inside a merge *)
-  | LPAREN; ACTIVATE;
-    LPAREN RESTART; s = ident; EVERY; r = pexpr(Q); RPAREN;
-    EVERY; c = pexpr(Q); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, NodeId.mk_node_id s, c, r, a) }
-    
-  (* alternative syntax of previous construct  *)
-  | LPAREN; ACTIVATE; s = ident; EVERY; c = pexpr(Q);
-    RESTART EVERY; r = pexpr(Q); RPAREN;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { let pos = mk_pos $startpos in
-      A.Activate (pos, NodeId.mk_node_id s, c, r, a) }
-
-    
-  (* restart node call *)
-  (*| RESTART; s = ident;
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN;
-    EVERY; c = clock_expr
-
-    { A.RestartEvery (mk_pos $startpos, s, a, c) }
-   *)
-    
-  (* alternative syntax for restart node call *)
-  | LPAREN; RESTART; s = ident; EVERY; c = pexpr(Q); RPAREN; 
-    LPAREN; a = separated_list(COMMA, pexpr(Q)); RPAREN
-
-    { A.RestartEvery (mk_pos $startpos, NodeId.mk_node_id s, a, c) }
-    
-        
-  (* Binary merge operator *)
-  | MERGE; LPAREN;
-    c = ident; SEMICOLON;
-    pos = pexpr(Q); SEMICOLON;
-    neg = pexpr(Q); RPAREN 
-    { A.Merge (mk_pos $startpos, c, [HString.mk_hstring "true", pos; HString.mk_hstring "false", neg]) }
-
-  (* N-way merge operator *)
-  | MERGE; 
-    c = ident;
-    l = nonempty_list(merge_case);
-    { A.Merge (mk_pos $startpos, c, l) }
+  (* Restart: the state of e is reset at every step where r is true *)
+  | RESTART; e = pexpr(Q); EVERY; r = pexpr(Q)
+    { A.Restart (mk_pos $startpos, e, r) }
 
   (* Type ascription *) 
   | LPAREN; e = pexpr(Q); COLON; ty = lustre_type; RPAREN; { A.TypeAscription (mk_pos $startpos, e, ty) }
@@ -1393,9 +1321,7 @@ pexpr(Q):
   | PRE; e = pexpr(Q) { A.Pre (mk_pos $startpos, e) }
   (* The 'last' operator (only valid inside frame blocks; desugared away early) *)
   | LAST; i = ident { A.Last (mk_pos $startpos, i) }
-  | FBY LPAREN; pexpr(Q) COMMA; NUMERAL; COMMA; pexpr(Q) RPAREN
-    { let pos = mk_pos $startpos in
-      fail_at_position pos "Unsupported operator: fby" }
+  | e1 = pexpr(Q); FBY; e2 = pexpr(Q) { A.Fby (mk_pos $startpos, e1, e2) }
 
   | e1 = pexpr(Q); ARROW; e2 = pexpr(Q) { A.Arrow (mk_pos $startpos, e1, e2) }
 
@@ -1447,15 +1373,6 @@ clock_expr:
   | cs = ident; LPAREN; c = ident; RPAREN { A.ClockConstr (cs, c) } 
   | TRUE { A.ClockTrue }
 
-merge_case_id:
-  | TRUE { HString.mk_hstring "true" }
-  | FALSE { HString.mk_hstring "false" }
-  | c = ident { c }
-
-merge_case :
-  | LPAREN; c = merge_case_id; ARROW; e = expr; RPAREN { c, e }
-
-    
 (* ********************************************************************** *)
 
 (* An identifier *)
@@ -1482,6 +1399,13 @@ ident_list:
 lustre_type_list:
   | l = separated_nonempty_list(COMMA, lustre_type) { l }
   
+
+(* An index variable of an array comprehension, with the size of its
+   dimension when it is bounded by it *)
+comprehension_index(Q):
+  | i = ident { (mk_pos $startpos, i, None) }
+  | i = ident; LT; n = pexpr(Q)
+    { let pos = mk_pos $startpos in A.mark_bounded_index pos; (pos, i, Some n) }
 
 (* A comma-separated list of identifiers with position information *)
 ident_list_pos :

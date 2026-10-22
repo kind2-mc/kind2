@@ -1,0 +1,8 @@
+type S = struct { f: bool };
+type R = subtype { r: S | r.f or not r.f };
+type B = subtype { x: bool | x or not x };
+node N(d: B; r: R) returns (y: int);
+let
+  y = 0;
+  check if d then r.f or true else (if d then false else true);
+tel

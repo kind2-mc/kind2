@@ -1,0 +1,7 @@
+-- IC3IA over an array whose elements are read at constant indices.
+node Top(x: int) returns (a: int^3);
+let
+  a = [x, x + 1, x + 2];
+  check a[1] = a[0] + 1;
+  check a[2] = a[0] + 2;
+tel

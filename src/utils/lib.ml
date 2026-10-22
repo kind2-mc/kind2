@@ -621,21 +621,42 @@ let width_of_string s =
       max max_width (String.length s)
     ) 0 lines
 
+(* Escape a string so that it is legal as the contents of a JSON string
+   literal (RFC 8259): the two characters JSON gives a meaning to, and the
+   control characters, which a JSON string may not carry raw. Bytes at or
+   above 0x80 are left alone, so UTF-8 input passes through as itself. *)
 let escape_json_string s =
-  let backslash = Str.regexp "\\" in
-  let double_quotes = Str.regexp "\"" in
-  let newline = Str.regexp "\n" in
-  s |> Str.global_replace backslash "\\\\"
-    |> Str.global_replace double_quotes "\'"
-    |> Str.global_replace newline "\\n"
+  let buf = Buffer.create (String.length s + 16) in
+  String.iter
+    (function
+      | '"' -> Buffer.add_string buf "\\\""
+      | '\\' -> Buffer.add_string buf "\\\\"
+      | '\b' -> Buffer.add_string buf "\\b"
+      | '\012' -> Buffer.add_string buf "\\f"
+      | '\n' -> Buffer.add_string buf "\\n"
+      | '\r' -> Buffer.add_string buf "\\r"
+      | '\t' -> Buffer.add_string buf "\\t"
+      | c when Char.code c < 0x20 ->
+        Buffer.add_string buf (Printf.sprintf "\\u%04x" (Char.code c))
+      | c -> Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
 
+(* Escape a string so that it is legal both as XML character data and as the
+   contents of a double-quoted XML attribute value. Substituting one
+   character at a time is what keeps the ampersands this introduces from
+   being escaped again in their turn. *)
 let escape_xml_string s =
-  let ltr = Str.regexp "<" in
-  let gtr = Str.regexp ">" in
-  let ampr = Str.regexp "&" in
-  s |> Str.global_replace ltr "&lt;"
-    |> Str.global_replace gtr "&gt;"
-    |> Str.global_replace ampr "&amp;"
+  let buf = Buffer.create (String.length s + 16) in
+  String.iter
+    (function
+      | '&' -> Buffer.add_string buf "&amp;"
+      | '<' -> Buffer.add_string buf "&lt;"
+      | '>' -> Buffer.add_string buf "&gt;"
+      | '"' -> Buffer.add_string buf "&quot;"
+      | c -> Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
 
 
 (* ********************************************************************** *)
@@ -759,12 +780,85 @@ let ignore_or_kfprintf level =
   if output_on_level level then kfprintf else ikfprintf
 
 (* ********************************************************************** *)
+(* SMT-LIB symbols                                                        *)
+(* ********************************************************************** *)
+
+(* A name as an SMT-LIB symbol: the name itself when it is a simple symbol
+   and not a reserved word, the name quoted otherwise. The name has no bar
+   or backslash, which no quoted symbol can contain. *)
+let smtlib_symbol name =
+  let symbol_char = function
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9'
+    | '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '_' | '-' | '+' | '='
+    | '<' | '>' | '.' | '?' | '/' -> true
+    | _ -> false
+  in
+  let reserved =
+    ["_"; "!"; "as"; "let"; "exists"; "forall"; "match"; "par"; "true";
+     "false"; "BINARY"; "DECIMAL"; "HEXADECIMAL"; "NUMERAL"; "STRING"]
+  in
+  if name <> ""
+  && String.for_all symbol_char name
+  && not (name.[0] >= '0' && name.[0] <= '9')
+  && not (List.mem name reserved)
+  then name
+  else "|" ^ name ^ "|"
+
+(* The name a symbol stands for: without the bars of a quoted symbol *)
+let unquote_smtlib_symbol s =
+  let n = String.length s in
+  if n >= 2 && s.[0] = '|' && s.[n - 1] = '|' then String.sub s 1 (n - 2)
+  else s
+
+
+(* ********************************************************************** *)
 (* Output target                                                          *)  
 (* ********************************************************************** *)
 
 
+(* The output goes through a buffer that reaches the channel when the
+   formatter is flushed, which every record of the output ends with. An
+   exception can interrupt the supervisor at any allocation, in the middle
+   of a record it is writing piece by piece -- the wall clock timeout first
+   of all -- and what had been written of the record was followed on the
+   output by the records of the exit, inside its string or in place of its
+   closing brace, which left the JSON and XML output unparsable. The piece
+   of a record that was interrupted stays in the buffer, and the exit drops
+   it (see [drop_partial_output]) before it writes anything. *)
+let out_buffer = Buffer.create 4096
+let out_channel = ref stdout
+let discarding = ref false
+
+(* The buffer is not safe to share between domains, and a write to it
+   racing with the resizing of it would corrupt the heap: whoever writes
+   holds this lock. The channel underneath has a lock of its own. *)
+let out_lock = Mutex.create ()
+
 (* Current formatter for output *)
-let log_ppf = ref std_formatter
+let log_ppf =
+  ref
+    (Format.make_formatter
+       (fun s pos len ->
+          Mutex.protect out_lock (fun () ->
+            Buffer.add_substring out_buffer s pos len))
+       (fun () ->
+          Mutex.protect out_lock (fun () ->
+            if not !discarding then
+              output_string !out_channel (Buffer.contents out_buffer) ;
+            Buffer.clear out_buffer ;
+            flush !out_channel)))
+
+(* Empties the buffer of the output without writing it: what a record
+   interrupted by an exception left there. The tokens the formatter holds
+   back are flushed into the buffer first, so that its boxes are closed
+   and its state is clean. *)
+let drop_partial_output () =
+  discarding := true ;
+  ( try Format.pp_print_flush !log_ppf () with _ -> () ) ;
+  discarding := false
+
+(* What the buffer holds at exit reaches the channel *)
+let () = at_exit (fun () -> try Format.pp_print_flush !log_ppf () with _ -> ())
 
 
 (* Set file to write log messages to *)
@@ -776,12 +870,17 @@ let log_to_file f =
       | Sys_error _ -> failwith "Could not open logfile"
   in 
   
-  (* Create and store formatter for logfile *)
-  log_ppf := formatter_of_out_channel oc
+  (* The same formatter, with its configuration, writes to the logfile;
+     without the colors of a terminal *)
+  Format.pp_print_flush !log_ppf () ;
+  out_channel := oc ;
+  Format.pp_set_mark_tags !log_ppf false
 
 
 (* Write messages to standard output *)
-let log_to_stdout () = log_ppf := std_formatter
+let log_to_stdout () =
+  Format.pp_print_flush !log_ppf () ;
+  out_channel := stdout
 
 
 (* ********************************************************************** *)
@@ -1016,6 +1115,65 @@ let minisleep sec =
 
       (* Cannot find out signal number *)
       raise (Signal 0)
+
+
+(* A pipe for a child process to be given one end of.
+
+   Both ends are closed on exec, so that the only process to get one is
+   the child it is meant for, and nothing Kind 2 starts later inherits
+   it. The child still gets its end: [Unix.create_process] duplicates
+   the three it is given onto the standard descriptors of the child,
+   and a duplicate does not carry the flag.
+
+   Unless the end already is the standard descriptor it would be
+   duplicated onto. There is nothing to duplicate then, so the flag
+   stays and the exec closes it, leaving the child without the
+   descriptor it was given: a solver started that way finds its
+   standard input closed, reads an end of file and exits, and the first
+   thing Kind 2 writes to it raises [Sys_error "Broken pipe"]. Reading
+   the input from standard input is enough to get there -- the lexer
+   closes the channel it has read to the end, descriptor 0 is free from
+   then on, and the first pipe made for a solver takes it.
+
+   So keep the ends off the standard descriptors, and leave
+   [Unix.create_process] a duplication to make.
+
+   Nothing to do on Windows, where a descriptor is a handle rather than
+   a number the kernel picks as the lowest free one, and the standard
+   descriptors of Kind 2 are not what a new pipe is made out of. *)
+let pipe_for_child () =
+
+  let is_standard fd =
+    fd = Unix.stdin || fd = Unix.stdout || fd = Unix.stderr
+  in
+
+  (* A duplicate of [fd] that is not a standard descriptor. One that is
+     keeps that descriptor taken while the next duplicate is made, so
+     it is closed only once one has landed elsewhere; with three
+     standard descriptors there are at most three of them. *)
+  let rec dup_off_standard fd =
+    let fd' = Unix.dup ~cloexec:true fd in
+    if is_standard fd' then (
+      let res = dup_off_standard fd in
+      Unix.close fd' ;
+      res
+    )
+    else fd'
+  in
+
+  let off_standard fd =
+    if is_standard fd then (
+      let fd' = dup_off_standard fd in
+      Unix.close fd ;
+      fd'
+    )
+    else fd
+  in
+
+  let read, write = Unix.pipe ~cloexec:true () in
+
+  if Sys.win32 then (read, write)
+  else (off_standard read, off_standard write)
 
 
 (* Return full path to executable, search PATH environment variable
@@ -1429,6 +1587,12 @@ module ReservedIds = struct
   let trans_uf_string = "__node_trans"
   let index_ident_string = "__index"
   let function_of_inputs = "__function_of_inputs"
+  (* Value of a recursive call whose termination checks fail, in the SMT-level
+     definition of a recursive function *)
+  let undefined_call = "__undefined_call"
+  (* Definition of an output of a function that is neither recursive nor
+     imported, in the SMT-level definition of a recursive function *)
+  let function_definition = "__function_definition"
   
   (* Init flag string. *)
   let init_flag_string = "__init_flag"
@@ -1442,6 +1606,8 @@ module ReservedIds = struct
     depth_input_string ;
     max_depth_input_string ;
     function_of_inputs ;
+    undefined_call ;
+    function_definition ;
 
     abs_ident_string ;
     oracle_ident_string ;

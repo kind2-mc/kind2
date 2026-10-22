@@ -5,7 +5,7 @@ tel
 
 node mod3_counter (reset: bool) returns (c: int);
 let
-  c = (restart bounded_counter every reset)(3);
+  c = restart bounded_counter(3) every reset;
 tel
 
 node counter () returns (t: int);
@@ -16,5 +16,5 @@ tel
 
 node test_node (reset: bool) returns (c:int);
 let
-  c = (restart counter every reset)();  
+  c = restart counter() every reset;
 tel;

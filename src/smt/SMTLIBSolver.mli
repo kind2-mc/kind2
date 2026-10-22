@@ -23,6 +23,11 @@
 
  *)
 
+(** Raised by a command to a solver whose process is gone, when the
+    command fails on it: on a reply cut short or a closed pipe. The
+    message says how the process ended. *)
+exception Died of string
+
 val trace_suffix : string ref Domain.DLS.key
 
 module type SMTLIBSolverDriver = sig

@@ -1,0 +1,13 @@
+-- IC3IA over a map with enum keys. The map is encoded as an array, but every
+-- access is a select on a literal index, which IC3IA handles: it used to be
+-- turned away by a check that disabled the engine for any system whose logic
+-- mentioned arrays at all.
+type ABC = enum {A, B, C};
+
+node Top() returns (m: map<ABC,int>);
+let
+  m = map[A := 1; B := 2; C := 3];
+  check A in m;
+  check B in m;
+  check C in m;
+tel

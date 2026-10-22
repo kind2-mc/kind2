@@ -1,0 +1,11 @@
+node N(s1, s2: set<int>) returns (ok: bool);
+let
+  ok = true;
+  (* Nothing forces one of two arbitrary sets to be included in the other *)
+  check "subset" s1 <= s2;
+  check "proper subset" s1 < s2;
+  check "superset" s1 >= s2;
+  check "proper superset" s1 > s2;
+  (* A set is included in itself, but not properly *)
+  check "proper reflexivity" s1 < s1;
+tel

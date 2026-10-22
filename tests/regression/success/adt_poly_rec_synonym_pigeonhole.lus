@@ -1,0 +1,9 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+type Box<T> = struct { a: L<T> };
+
+node main(p: Box<bool>; q: Box<bool>; r: Box<bool>) returns (ok: bool);
+let
+  ok = (LC?(p.a) and then LC?(q.a) and then LC?(r.a))
+       ==> ((p.a.h = q.a.h) or (p.a.h = r.a.h) or (q.a.h = r.a.h));
+  check ok;
+tel

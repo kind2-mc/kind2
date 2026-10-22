@@ -1,0 +1,21 @@
+function Double(n: int) returns (d: int);
+(*@contract
+  guarantee "even" d = 2 * n;
+*)
+let
+  d = n + n;
+tel
+
+function rec SumDouble(n: int) returns (s: int);
+(*@contract
+  decreases n;
+*)
+let
+  s = when n <= 0 then 0 else Double(n) + SumDouble(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = SumDouble(3);
+  check "sumdouble3" y = 12;
+tel

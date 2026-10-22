@@ -1,0 +1,10 @@
+-- The contract of a node with a body is checked the same way: the guarantee
+-- constrains only an input, so no implementation can meet it.
+
+node F(x: int) returns (y: int);
+(*@contract
+  guarantee x > 0;
+*)
+let
+  y = x;
+tel

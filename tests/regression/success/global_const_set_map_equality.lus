@@ -1,0 +1,12 @@
+const R : set<int>;
+const M : map<int, int>;
+const A : int^3;
+
+node N () returns ()
+let
+  check "empty_has_no_member" (R = {}@<int>) => not (0 in R);
+  check "member_implies_nonempty" (0 in R) => (R <> {}@<int>);
+  check "set_self_equality" R = R;
+  check "map_self_equality" M = M;
+  check "array_self_equality" A = A;
+tel

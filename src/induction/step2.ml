@@ -106,6 +106,7 @@ let mk_ctx in_sys param sys =
   Sys.define_and_declare_of_bounds
     sys
     (Smt.define_fun solver)
+    ~define_rec:(Smt.define_funs_rec solver)
     (Smt.declare_fun solver)
     (Smt.declare_sort solver)
     Numeral.zero Numeral.(succ one) ;

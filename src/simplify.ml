@@ -182,6 +182,15 @@ let term_of_dec_polynomial =
     Term.mk_dec
 
 
+(* The conjunction of the disequalities of every two of [terms], which is
+   what [(distinct t1 ... tn)] means *)
+let pairwise_disequalities terms =
+  let rec pairs = function
+    | [] -> []
+    | a :: tl -> List.map (fun b -> Term.mk_not (Term.mk_eq [a; b])) tl @ pairs tl
+  in
+  Term.mk_and (pairs terms)
+
 (* Convert a normal form to a term *)
 let term_of_nf = function 
   | Num p -> term_of_num_polynomial p
@@ -772,7 +781,9 @@ let rec negate_nnf term = match Term.destruct term with
       | `UF _, _
       | `SELECT _, _
       | `CONST_ARRAY _, _
-      | `STORE, _ -> Term.mk_not term
+      | `STORE, _
+      | `IsConstructor _, _
+      | `Selector _, _ -> Term.mk_not term
 
       (* Negate both cases of ite term *)
       | `ITE, [p; l; r] -> 
@@ -816,6 +827,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSDIV, _
       | `BVUREM, _
       | `BVSREM, _
+      | `BVSMOD, _
       | `BVSHL, _
       | `BVLSHR, _
       | `BVASHR, _
@@ -834,9 +846,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVEXTRACT _, _ 
       | `BVCONCAT, _ 
       | `BVSIGNEXT _ , _
-      | `BVZEROEXT _ , _ 
-      | `IsConstructor _, _ 
-      | `Selector _, _ -> assert false
+      | `BVZEROEXT _ , _ -> assert false
     )
 
   (* | Term.T.Attr (t, _) -> t *)
@@ -1183,7 +1193,55 @@ let const_array ty_array = function
 
  | _ -> assert false
 
+(* The value of a constant array, if the term is one *)
+let const_array_value t =
+  match Term.destruct t with
+  | Term.T.App (sym, [v]) -> (
+    match Symbol.node_of_symbol sym with
+    | `CONST_ARRAY _ -> Some v
+    | _ -> None )
+  | _ -> None
+
 let select simplify_term_node model fterm = function
+
+  (* Select from a constant array: its value *)
+  | [a; _] when const_array_value (term_of_nf a) <> None ->
+    Term.eval_t simplify_term_node
+      (Option.get (const_array_value (term_of_nf a)))
+
+  (* Select from a store: the stored value if the indexes are equal, a select
+     from the array stored into otherwise *)
+  | [a; i] when Term.is_store (term_of_nf a) -> (
+    match Term.destruct (term_of_nf a) with
+    | Term.T.App (_, [a'; j; v]) ->
+      let i = term_of_nf i in
+      Term.eval_t
+        simplify_term_node
+        (Term.mk_ite (Term.mk_eq [i; j]) v (Term.mk_select a' i))
+    | _ -> assert false
+  )
+
+  (* Select from an array that is chosen by a condition the model does not
+     decide, e.g. an element of an array of arrays read from a store: the
+     select from either array under the condition *)
+  | [a; i] when Term.is_ite (term_of_nf a) -> (
+    match Term.destruct (term_of_nf a) with
+    | Term.T.App (_, [c; t; e]) ->
+      let i = term_of_nf i in
+      Term.eval_t
+        simplify_term_node
+        (Term.mk_ite c (Term.mk_select t i) (Term.mk_select e i))
+    | _ -> assert false
+  )
+
+  (* Without the theory of arrays, a select from a multi-dimensional array is
+     encoded as an application of its select symbol to all of its indexes
+     (see [Term.convert_select]): evaluate it as the nested selects it
+     stands for *)
+  | a :: (_ :: _ :: _ as indexes) ->
+    Term.eval_t
+      simplify_term_node
+      (List.fold_left Term.mk_select (term_of_nf a) (List.map term_of_nf indexes))
 
   (* Arguments are array and index *)
   | [a; i] ->
@@ -1260,8 +1318,10 @@ let select simplify_term_node model fterm = function
               simplify_term_node
               value
 
-        (* Variable must not evaluate to a term *)
-        | Model.Term _ -> assert false
+        (* The value of an array as a term: the select from it *)
+        | Model.Term t ->
+          Term.eval_t simplify_term_node
+            (List.fold_left Term.mk_select t i')
 
        (* Free variable without assignment in model *)
        with Not_found ->
@@ -1565,6 +1625,50 @@ let binary_equivalence simplify_term_node' a b =
     [Bool term_a'; Bool term_b']
 
 
+
+(* The constructor and arguments of a term that is a datatype value, i.e. an
+   application of a constructor, whose symbol is the uninterpreted function
+   named after it (see LustreNodeGen) *)
+let datatype_value_of_term t =
+  if not (Type.is_datatype (Term.type_of_term t)) then None
+  else
+    match Term.destruct t with
+    | Term.T.App (s, args) when Symbol.is_uf s ->
+      Some (UfSymbol.name_of_uf_symbol (Symbol.uf_of_symbol s), args)
+    | Term.T.Const s when Symbol.is_uf s ->
+      Some (UfSymbol.name_of_uf_symbol (Symbol.uf_of_symbol s), [])
+    | _ -> None
+    | exception Invalid_argument _ -> None
+
+(* A tester applied to a datatype value evaluates to a Boolean, a selector to
+   the normal form of the argument it selects ([nf_of_term] simplifies a
+   term to its normal form); either applied to any other term stays an
+   atom *)
+let is_constructor_of_nf ctor a =
+  let t = term_of_nf a in
+  match datatype_value_of_term t with
+  | Some (c, _) -> Bool (if String.equal c ctor then Term.t_true else Term.t_false)
+  | None -> atom_of_term (Term.mk_is_constructor ctor t)
+
+let selector_of_nf nf_of_term selector ty a =
+  let t = term_of_nf a in
+  let selected =
+    match datatype_value_of_term t with
+    | Some (c, args) ->
+      (* The selector of the i-th field of constructor C is named C_i *)
+      let prefix = c ^ "_" in
+      let n = String.length prefix in
+      if String.length selector > n && String.sub selector 0 n = prefix then
+        (match int_of_string_opt (String.sub selector n (String.length selector - n)) with
+         | Some i -> List.nth_opt args i
+         | None -> None)
+      else None
+    | None -> None
+  in
+  match selected with
+  | Some t -> nf_of_term t
+  | None -> atom_of_term (Term.mk_selector selector ty t)
+
 let if_then_else = function
 
   (* Choose left branch if predicate is true *)
@@ -1593,6 +1697,13 @@ let if_then_else = function
             p
             (term_of_dec_polynomial l)
             (term_of_dec_polynomial r)))
+
+  (* Branches of another sort: the predicate is not constant, so the
+     conditional stays *)
+  | [Bool p; Abstr l; Abstr r] -> Abstr (Term.mk_ite p l r)
+  | [Bool p; ADT l; ADT r] -> ADT (Term.mk_ite p l r)
+  | [Bool p; BV l; BV r] -> BV (Term.mk_ite p l r)
+  | [Bool p; Array l; Array r] -> Array (Term.mk_ite p l r)
 
   (* Not well-typed or wrong arity *)
   | _ -> assert false
@@ -1711,7 +1822,13 @@ let integer_division args =
 let modulus = function
 
   (* Evaluate to a polynomial if both arguments are constant *)
-  | [Num (n, []); Num (m, [])] -> Num (Numeral.(n mod m), [])
+  | [Num (n, []); Num (m, [])] ->
+    if Numeral.(m = zero) then (
+      Domain.DLS.get division_by_zero := true ;
+      (* TODO: Compute a value consistent with the model, as for division *)
+      Num (Numeral.zero, [])
+    )
+    else Num (Numeral.(n mod m), [])
 
   (* Non-constant polynomial arguments *)
   | [a; b] ->
@@ -2097,11 +2214,26 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
                   (simplify_term_node default_of_var uf_defs model)
                   a b
 
-              | [Abstr a; Abstr b] ->
-                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
-
-              | [ADT a; ADT b] ->
-                Bool (if Term.equal a b then Term.t_true else Term.mk_eq [a; b])
+              (* Equation between arrays, ADTs or abstract values,
+                 true if all arguments are syntactically equal *)
+              | (Array _ | ADT _ | Abstr _) :: _ ->
+                let args' = List.map term_of_nf args in
+                (match args' with
+                 | a :: tl when List.for_all (Term.equal a) tl ->
+                   Bool Term.t_true
+                 (* Array values: equal exactly if their canonical forms
+                    are the same, whatever the stores they are built
+                    with *)
+                 | a :: _ when List.for_all TermLib.is_array_value args' -> (
+                   let ty = Term.type_of_term a in
+                   match
+                     List.map (TermLib.canonical_array_value ty) args'
+                   with
+                   | c :: tl when List.for_all (Term.equal c) tl ->
+                     Bool Term.t_true
+                   | _ -> Bool Term.t_false
+                   | exception Not_found -> Bool (Term.mk_eq args') )
+                 | _ -> Bool (Term.mk_eq args'))
 
               (* Equation between integers or reals *)
               | [Num _ as a; Num _ as b] 
@@ -2205,8 +2337,11 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           (* Coincidence of real with integer not implemented *)
           | `IS_INT -> assert false
 
-          (* Distinct not implemented *)
-          | `DISTINCT -> assert false
+          (* Distinct is the conjunction of pairwise disequalities *)
+          | `DISTINCT ->
+            List.map term_of_nf args
+            |> pairwise_disequalities
+            |> Term.eval_t (simplify_term_node default_of_var uf_defs model)
 
           | `BVAND -> binary_bv_op Bitvector.bv_and args
 
@@ -2235,6 +2370,8 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
           | `BVUREM -> binary_bv_op Bitvector.ubv_rem args
 
           | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
+
+          | `BVSMOD -> binary_bv_op Bitvector.sbv_mod args
 
           | `BVULT ->
 
@@ -2312,12 +2449,15 @@ let rec simplify_term_node ?(split_eq=false) default_of_var uf_defs model fterm 
 
           | `IsConstructor s ->
             (match args with
-             | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+             | [a] -> is_constructor_of_nf s a
              | _ -> assert false)
 
           | `Selector (s, ty) ->
             (match args with
-             | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+             | [a] ->
+               selector_of_nf
+                 (Term.eval_t (simplify_term_node default_of_var uf_defs model))
+                 s ty a
              | _ -> assert false)
 
           (* Constant symbols *)
@@ -2916,6 +3056,8 @@ let rec remove_ite' fterm args =
 
         | `BVSREM -> binary_bv_op Bitvector.sbv_rem args
 
+        | `BVSMOD -> binary_bv_op Bitvector.sbv_mod args
+
         | `BVULT ->
 
           bv_relation
@@ -2985,8 +3127,11 @@ let rec remove_ite' fterm args =
         (* Coincidence of real with integer (not implemented) *)
         | `IS_INT -> assert false
 
-        (* Distinct (not implemented) *)
-        | `DISTINCT -> assert false
+        (* Distinct is the conjunction of pairwise disequalities *)
+        | `DISTINCT ->
+          List.map term_of_nf args
+          |> pairwise_disequalities
+          |> Term.eval_t remove_ite'
 
         (* Normal form for an uninterpreted function *)
         | `UF u -> atom_of_term (Term.mk_uf u (List.map term_of_nf args))
@@ -3001,12 +3146,12 @@ let rec remove_ite' fterm args =
 
         | `IsConstructor s ->
           (match args with
-           | [a] -> atom_of_term (Term.mk_is_constructor s (term_of_nf a))
+           | [a] -> is_constructor_of_nf s a
            | _ -> assert false)
 
         | `Selector (s, ty) ->
           (match args with
-           | [a] -> atom_of_term (Term.mk_selector s ty (term_of_nf a))
+           | [a] -> selector_of_nf (Term.eval_t remove_ite') s ty a
            | _ -> assert false)
 
         (* Constant symbols *)

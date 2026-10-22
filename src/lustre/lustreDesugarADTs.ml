@@ -25,7 +25,24 @@
                  C1_0: t1_0; C1_1: t1_1;
                  C2_0: t2_0 }
     where the enum tag field encodes the active constructor and the
-    payload fields for non-selected constructors carry junk values.
+    payload fields for non-selected constructors carry the default value of
+    their type.  Every ADT value is kept in this canonical form: constructor
+    applications fill the inactive payload slots with defaults, and free
+    values (inputs, oracles, undefined outputs, free constants, quantified
+    variables) are constrained with [mk_canonical_exprs].  Equality and
+    set/map membership on ADT values can therefore be plain structural
+    operations on the record.
+
+    A selector [e.f] applied to a value built with a constructor other than
+    the one declaring [f] yields an arbitrary value that is fixed for a given
+    ADT value; it is not the default the record holds.  The selector stays
+    marked as such ([LA.Selector]); the normalizer, which knows the enclosing
+    lazy guards of every selector, turns it into a plain record projection
+    when a guard establishes its constructor, and LustreNodeGen compiles the
+    other ones into a projection guarded by the tag, with an uninterpreted
+    function of the value in the other case.  The projections a match arm
+    substitutes for its pattern variables are plain: the arm establishes the
+    constructor.
 
     ADTTerm expressions and Match expressions are desugared during
     normalization: ADTTerm becomes a RecordExpr, and Match becomes
@@ -58,9 +75,12 @@ type adt_info = {
   (* constructor name -> ordered list of (payload_field_name, field_type) *)
   ctor_fields : (HString.t * LA.lustre_type) list HStringMap.t;
 
-  (* all payload fields across all constructors, in declaration order,
-     deduplicated by field name *)
+  (* all payload fields across all constructors, in declaration order *)
   all_payload_fields : (HString.t * LA.lustre_type) list;
+
+  (* every payload field as (constructor, user-written name, internal record
+     field name) *)
+  field_names : (HString.t * HString.t * HString.t) list;
 
   (* true iff the ADT directly references itself in a constructor field *)
   is_recursive : bool;
@@ -71,8 +91,56 @@ type adt_map = adt_info HStringMap.t
 let disc_field_name type_name =
   HString.mk_hstring (HString.string_of_hstring type_name ^ "_tag")
 
-let payload_field_name_of ctor user_fname =
-  HString.mk_hstring (HString.string_of_hstring ctor ^ "_" ^ HString.string_of_hstring user_fname)
+(* The internal record field names of the payload fields of an ADT, as
+   (constructor, user-written name, internal name, type): the constructor's
+   name and the field's joined by "_", made unique when two such names
+   coincide (A_B(x) and A(B_x) both give "A_B_x") by a numeric suffix that
+   no other field's name carries. *)
+let payload_field_names ctors =
+  let naive ctor fld =
+    HString.string_of_hstring ctor ^ "_" ^ HString.string_of_hstring fld
+  in
+  let fields =
+    List.concat_map (fun (ctor, fields) ->
+      List.map (fun (fld, ty) -> (ctor, fld, ty, naive ctor fld)) fields
+    ) ctors
+  in
+  let naive_names = List.map (fun (_, _, _, n) -> n) fields in
+  let taken = Hashtbl.create 7 in
+  List.map (fun (ctor, fld, ty, name) ->
+    let rec unique k =
+      let cand = if k = 0 then name else name ^ "_" ^ string_of_int k in
+      if Hashtbl.mem taken cand || (k > 0 && List.mem cand naive_names)
+      then unique (k + 1)
+      else cand
+    in
+    let name = unique 0 in
+    Hashtbl.add taken name ();
+    (ctor, fld, HString.mk_hstring name, ty)
+  ) fields
+
+(* Internal record field name of the payload field [user_fname] of [ctor] *)
+let payload_field_name_of info ctor user_fname =
+  match
+    List.find_opt (fun (c, u, _) ->
+      HString.equal c ctor && HString.equal u user_fname
+    ) info.field_names
+  with
+  | Some (_, _, internal) -> internal
+  | None -> assert false
+
+(* The constructor whose payload field has the internal name [fname], if
+   any (the discriminant field has none) *)
+let ctor_of_payload_field info fname =
+  List.find_map (fun (c, _, i) ->
+    if HString.equal i fname then Some c else None
+  ) info.field_names
+
+(* User-written name of the payload field with internal name [fname] *)
+let user_field_name_of info fname =
+  match List.find_opt (fun (_, _, i) -> HString.equal i fname) info.field_names with
+  | Some (_, user, _) -> user
+  | None -> assert false
 
 let wf_pred_id type_name =
   HString.mk_hstring ("wf_" ^ HString.string_of_hstring type_name)
@@ -82,19 +150,21 @@ let build_adt_info type_name type_params ctors ~is_recursive =
   let disc_field = disc_field_name type_name in
   let disc_enum = disc_field_name type_name in
   let ctor_variants = List.map fst ctors in
+  let named = payload_field_names ctors in
   let ctor_fields =
-    List.fold_left (fun m (ctor, fields) ->
+    List.fold_left (fun m (ctor, _) ->
       let named_fields =
-        List.map (fun (user_fname, ty) -> (payload_field_name_of ctor user_fname, ty)) fields
+        List.filter_map (fun (c, _, internal, ty) ->
+          if HString.equal c ctor then Some (internal, ty) else None
+        ) named
       in
       HStringMap.add ctor named_fields m
     ) HStringMap.empty ctors
   in
-  let all_payload_fields =
-    List.concat_map (fun (ctor, _) -> HStringMap.find ctor ctor_fields) ctors
-  in
+  let all_payload_fields = List.map (fun (_, _, internal, ty) -> (internal, ty)) named in
+  let field_names = List.map (fun (c, u, internal, _) -> (c, u, internal)) named in
   { type_name; type_params; disc_field; disc_enum; ctor_variants; ctor_fields;
-    all_payload_fields; is_recursive }
+    all_payload_fields; field_names; is_recursive }
 
 (* True if any constructor field type directly references type_name itself. *)
 let is_directly_recursive = LH.is_directly_recursive_adt
@@ -125,7 +195,7 @@ let record_type_of_adt pos ?(ty_args = []) info =
 
 (* Build a FieldProject accessing the tag field of an expression. *)
 let tag_of pos info scrut =
-  LA.FieldProject (pos, scrut, info.disc_field, None)
+  LA.FieldProject (pos, scrut, info.disc_field, LA.RecordField)
 
 (* Direct lookup: only matches types that are themselves an ADT name.
    Used by desugar_type so that a UserType aliasing a refinement-of-ADT is
@@ -176,15 +246,13 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
       List.fold_left2 (fun (conds, subs) (fname, ftype) sub_pat ->
         let field_expr =
           if info.is_recursive then
-            let ctor_str = HString.string_of_hstring ctor in
-            let fname_str = HString.string_of_hstring fname in
-            let prefix_len = String.length ctor_str + 1 in
-            (* Recursive datatypes don't use the "ctor_" prefix *)
-            let user_fname = HString.mk_hstring
-              (String.sub fname_str prefix_len (String.length fname_str - prefix_len)) in
-            LA.FieldProject (pos, scrut, user_fname, Some (LA.UserType (pos, [], info.type_name)))
+            let pk =
+              LA.Selector (LA.Kind2Generated, LA.UserType (pos, [], info.type_name), ctor)
+            in
+            (* Recursive datatypes keep the user-written field names *)
+            LA.FieldProject (pos, scrut, user_field_name_of info fname, pk)
           else
-            LA.FieldProject (pos, scrut, fname, None)
+            LA.FieldProject (pos, scrut, fname, LA.RecordField)
         in
         match sub_pat with
         | LA.VarPat (_, sub_name) ->
@@ -202,12 +270,12 @@ let rec collect_pattern_constraints pos ctx adt_map info scrut pat =
     ([], [(name, scrut)])
 
 (* Desugar a single match arm into a (condition option, body) pair.
-   Substitutes pattern variables with field projections in body. *)
+   Substitutes pattern variables with field projections in body.  The body must
+   already be desugared: the projections substituted in mention the desugared
+   scrutinee, which must not be desugared a second time. *)
 let desugar_arm pos ctx adt_map info scrut pat body =
   let (conds, subs) = collect_pattern_constraints pos ctx adt_map info scrut pat in
-  let body =
-    List.fold_left (fun b (var, expr) -> LH.substitute_naive var expr b) body subs
-  in
+  let body = LH.apply_subst_in_expr subs body in
   match conds with
   | [] -> (None, body)
   | first :: rest ->
@@ -218,9 +286,10 @@ let desugar_arm pos ctx adt_map info scrut pat body =
 let rec build_ite pos arms =
   match arms with
   | [] -> assert false
-  (* More cases after a catch-all; will be caught in later PR by redundancy checks *)
+  (* A catch-all arm is always last: any arm following it is useless, which
+     LustreCheckMatchExpressions rejects *)
   | (None, _) :: _ :: _ -> assert false 
-  (* Last case must always cover all cases so far uncovered (problems here will be caught by later PR's exhaustiveness checks) *)
+  (* The match is exhaustive, so the last arm covers everything left uncovered *)
   | [(_, body)] -> body 
   | (Some cond, body) :: rest ->
     LA.TernaryOp (pos, LA.LazyIte, cond, body, build_ite pos rest)
@@ -245,7 +314,39 @@ let update_context adt_map ctx =
     List.fold_left Ctx.remove_adt_ctor acc_ctx info.ctor_variants
   ) adt_map ctx
 
-(* Generate a default (junk) value for a type. Used for unused ADT payload fields. *)
+(* A name a source Lustre identifier cannot have, as the generated bound
+   variables of a quantifier do *)
+let starts_with_digit s = String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
+
+(* A bound variable is Kind 2-generated iff its name starts with a digit or with
+   the alpha-renaming prefix ".bound_"; a source identifier can start with neither. *)
+let is_generated_bound_var id =
+  let s = HString.string_of_hstring id in
+  starts_with_digit s || String.starts_with ~prefix:".bound_" s
+
+let canonical_var_count = ref 0
+
+let canonical_var_suffix = "_canon"
+
+(* A fresh Kind 2-generated bound variable for the constraints of the
+   canonical form, "<n>_canon" *)
+let fresh_canonical_var () =
+  incr canonical_var_count;
+  HString.mk_hstring (string_of_int !canonical_var_count ^ canonical_var_suffix)
+
+(* Whether a bound variable was introduced by [fresh_canonical_var]. The shape
+   of the names it generates is spelled out rather than deferred to
+   [is_generated_bound_var]: a source identifier may well end in "_canon", and
+   a later widening of what counts as generated must not turn one of those
+   into a variable the canonical-form restriction skips. *)
+let is_canonical_bound_var id =
+  let s = HString.string_of_hstring id in
+  let n = String.length canonical_var_suffix in
+  starts_with_digit s
+  && String.length s > n && String.sub s (String.length s - n) n = canonical_var_suffix
+
+(* Generate the default value of a type, held by the payload fields of the
+   non-selected constructors of an ADT value in canonical form. *)
 let rec default_value ctx adt_map pos ty =
   let ty = desugar_type pos ctx adt_map ty in
   match ty with
@@ -267,10 +368,30 @@ let rec default_value ctx adt_map pos ty =
     LA.GroupExpr (pos, LA.ExprList, List.map (default_value ctx adt_map pos) tys)
   | LA.ArrayType (_, (ety, size)) ->
     LA.ArrayConstr (pos, default_value ctx adt_map pos ety, size)
-  | LA.UserType _ ->
-    (match Ctx.expand_type_syn ctx ty with
-    | LA.UserType _ -> assert false
-    | expanded -> default_value ctx adt_map pos expanded)
+  | LA.UserType (_, ty_args, name) -> (
+    match HStringMap.find_opt name adt_map with
+    (* A recursive ADT stays an SMT-LIB datatype; its default is built from the
+       instantiation's field types, so that the term names the right one *)
+    | Some info when info.is_recursive ->
+      let subst =
+        if List.length info.type_params = List.length ty_args
+        then List.combine info.type_params ty_args else []
+      in
+      let ctors =
+        List.map (fun ctor ->
+          (ctor,
+           match HStringMap.find_opt ctor info.ctor_fields with
+           | Some fs -> List.map (fun (_, ty) -> LH.apply_type_subst_in_type subst ty) fs
+           | None -> [])
+        ) info.ctor_variants
+      in
+      default_adt_term ctx adt_map pos name ty_args
+        (declared_and_instance adt_map name ctors)
+    | Some _ | None ->
+      match Ctx.lookup_ty_syn_body ctx name ty_args with
+      | Some (LA.UserType (_, _, name')) when HString.equal name' name -> assert false
+      | Some link -> default_value ctx adt_map pos link
+      | None -> assert false)
   | LA.Set (_, ty) -> LA.EmptySet (pos, Some ty)
   | LA.Map (_, kt, vt) -> LA.EmptyMap (pos, Some (kt, vt))
   | LA.RefinementType (_, (_, _, inner_ty), _) -> default_value ctx adt_map pos inner_ty
@@ -281,20 +402,37 @@ let rec default_value ctx adt_map pos ty =
   | LA.AbstractType _ -> LA.AbstractSymConst (pos, ty)
   | LA.TArr _ -> assert false
   | LA.ADT (_, name, ctors) ->
-    (* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
-       (one with no self-recursive fields) as the default "junk" value.  This
-       junk is only placed in payload slots of non-recursive ADT records where
-       the discriminant guarantees it is never accessed, so any value is correct. *)
-    let is_self_recursive = function
-      | LA.ADT (_, n, _) | LA.UserType (_, _, n) -> HString.equal n name
-      | _ -> false
-    in
-    (match List.find_opt (fun (_, fields) ->
-        not (List.exists (fun (_, ty) -> is_self_recursive ty) fields)) ctors with
-    | Some (ctor, fields) ->
-      let args = List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields in
-      LA.ADTTerm (pos, [], ctor, args)
-    | None -> assert false)
+    let ctors = List.map (fun (ctor, fields) -> (ctor, List.map snd fields)) ctors in
+    default_adt_term ctx adt_map pos name []
+      (declared_and_instance adt_map name ctors)
+
+(* Each constructor's field types paired with the declared ones: once the type
+   arguments are substituted in, only the declaration says which are self-references *)
+and declared_and_instance adt_map name ctors =
+  let declared ctor =
+    match HStringMap.find_opt name adt_map with
+    | Some info -> HStringMap.find_opt ctor info.ctor_fields
+    | None -> None
+  in
+  List.map (fun (ctor, ftys) ->
+    match declared ctor with
+    | Some dfs when List.length dfs = List.length ftys ->
+      (ctor, List.combine (List.map snd dfs) ftys)
+    | Some _ | None -> (ctor, List.map (fun ty -> (ty, ty)) ftys)
+  ) ctors
+
+(* Recursive ADTs stay as SMT-LIB datatypes. Use the first leaf constructor
+   (one with no self-recursive fields) as the default "junk" value.  This junk
+   is only placed in payload slots of non-recursive ADT records where the
+   discriminant guarantees it is never accessed, so any value is correct. *)
+and default_adt_term ctx adt_map pos name ty_args ctors =
+  let is_self_recursive (declared, _) = LH.is_direct_self_reference name declared in
+  match List.find_opt
+          (fun (_, fields) -> not (List.exists is_self_recursive fields)) ctors with
+  | Some (ctor, fields) ->
+    LA.ADTTerm (pos, ty_args, ctor,
+      List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields)
+  | None -> assert false
 
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
@@ -330,12 +468,145 @@ and desugar_type pos ctx adt_map ty =
     | LA.RecordType (p, n, fields) ->
       LA.RecordType (p, n,
         List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
-    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, e))
+    | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, desugar_expr ctx adt_map e))
     | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
     | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
     | LA.Set (p, t) -> LA.Set (p, ds t)
     | LA.RefinementType _ -> assert false (* handled above *)
     | LA.ADT _ -> assert false (* unreachable: handled above *)
+
+(* Constraints stating that [expr], of type [ty], is the default value of its
+   type (see [default_value]), as equalities on the scalar leaves of the value:
+   an array is default when all its elements are, a set or map when it is
+   empty, and a record, tuple or ADT value when its fields are.  Unlike an
+   equality with [default_value ctx adt_map pos ty], this needs no container
+   literal and so can be compiled outside of the normalizer. *)
+(* The constraints [mk] yields on the components of [expr], of the compound
+   type [ty]: the fields of a record, the components of a tuple, the elements
+   of an array (under a quantifier over its indexes), the value of a
+   refinement type, a type synonym or a history type. None when [ty] is not
+   compound in that sense. *)
+and over_components ctx adt_map pos mk expr ty =
+  match ty with
+  | LA.RecordType (_, _, fields) ->
+    Some (List.concat_map (fun (_, fname, ftype) ->
+      mk (LA.FieldProject (pos, expr, fname, LA.RecordField)) ftype
+    ) fields)
+  | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
+    Some (List.concat (List.mapi (fun i t ->
+      let i = LA.Const (pos, LA.Num (HString.mk_hstring (string_of_int i))) in
+      mk (LA.IndexAccess (pos, expr, i, LA.Tuple)) t
+    ) tys))
+  | LA.ArrayType (_, (ety, len)) ->
+    let i = fresh_canonical_var () in
+    let ie = LA.Ident (pos, i) in
+    let in_bounds =
+      LA.BinaryOp (pos, LA.And,
+        LA.CompOp (pos, LA.Lte, LA.Const (pos, LA.Num (HString.mk_hstring "0")), ie),
+        LA.CompOp (pos, LA.Lt, ie, len))
+    in
+    Some (List.map (fun c ->
+      LA.Quantifier (pos, LA.Forall, [(pos, i, LA.Int pos)],
+        LA.BinaryOp (pos, LA.Impl, in_bounds, c))
+    ) (mk (LA.IndexAccess (pos, expr, ie, LA.Array)) ety))
+  | LA.RefinementType (_, (_, _, t), _) -> Some (mk expr t)
+  | LA.History (_, id) ->
+    Some (match Ctx.lookup_ty ctx id with Some t -> mk expr t | None -> [])
+  (* A recursive ADT is a single SMT-LIB datatype value, not a structure of
+     components, and expanding its name does not terminate *)
+  | LA.UserType (_, _, name)
+    when (match HStringMap.find_opt name adt_map with
+          | Some info -> info.is_recursive
+          | None -> false) -> None
+  | LA.UserType _ ->
+    (match Ctx.expand_type_syn ctx ty with
+    | LA.UserType _ -> None
+    | expanded -> Some (mk expr expanded))
+  | LA.ADT _ | LA.TArr _ | LA.Set _ | LA.Map _
+  | LA.Bool _ | LA.Int _ | LA.Real _ | LA.EnumType _ | LA.AbstractType _
+  | LA.SBitVector _ | LA.UBitVector _ -> None
+
+and mk_is_default ctx adt_map pos expr ty =
+  let mk = mk_is_default ctx adt_map pos in
+  (* forall (k: kt) not (k in expr) *)
+  let empty kind kt =
+    let k = fresh_canonical_var () in
+    let ke = LA.Ident (pos, k) in
+    [LA.Quantifier (pos, LA.Forall, [(pos, k, kt)],
+       LA.UnaryOp (pos, LA.Not, LA.BinaryOp (pos, LA.In kind, ke, expr)))]
+  in
+  let ty = desugar_type pos ctx adt_map ty in
+  match ty with
+  | LA.Set (_, kt) -> empty LA.Set kt
+  | LA.Map (_, kt, _) -> empty LA.Map kt
+  | _ ->
+    match over_components ctx adt_map pos mk expr ty with
+    | Some cs -> cs
+    | None -> [LA.CompOp (pos, LA.Eq, expr, default_value ctx adt_map pos ty)]
+
+(* Constraints stating that every ADT value reachable from [expr], of type
+   [ty], is in canonical form: for each constructor other than the active one,
+   its payload slots hold the default value of their type (see
+   [default_value]).  Values inside records, tuples, arrays, sets and maps are
+   reached through projections, and quantifiers over indexes or keys; a set or
+   map may only hold canonical keys.  Recursive ADTs are SMT-LIB datatypes with
+   no inactive slots, so they contribute nothing.  The bound variables
+   introduced here are Kind 2-generated names (see [is_generated_bound_var]). *)
+and mk_canonical_exprs ctx adt_map pos expr ty =
+  let mk = mk_canonical_exprs ctx adt_map pos in
+  let conj = function
+    | [] -> LA.Const (pos, LA.True)
+    | c :: cs -> List.fold_left (fun acc c -> LA.BinaryOp (pos, LA.And, acc, c)) c cs
+  in
+  (* forall (x: kt) not canonical(x) => not (x in expr) *)
+  let only_canonical_keys kind kt =
+    let x = fresh_canonical_var () in
+    let xe = LA.Ident (pos, x) in
+    match mk xe kt with
+    | [] -> []
+    | cs ->
+      [LA.Quantifier (pos, LA.Forall, [(pos, x, kt)],
+         LA.BinaryOp (pos, LA.Impl,
+           LA.UnaryOp (pos, LA.Not, conj cs),
+           LA.UnaryOp (pos, LA.Not, LA.BinaryOp (pos, LA.In kind, xe, expr))))]
+  in
+  match ty with
+  | LA.RecordType (_, rname, fields)
+    when (match HStringMap.find_opt rname adt_map with
+          | Some info -> not info.is_recursive
+          | None -> false) ->
+    let info = HStringMap.find rname adt_map in
+    let tag = tag_of pos info expr in
+    List.concat_map (fun (_, fname, ftype) ->
+      if HString.equal fname info.disc_field then []
+      else
+        let fexpr = LA.FieldProject (pos, expr, fname, LA.RecordField) in
+        let ctor =
+          match ctor_of_payload_field info fname with
+          | Some c -> c
+          | None -> assert false
+        in
+        let inactive = LA.CompOp (pos, LA.Neq, tag, LA.Ident (pos, ctor)) in
+        List.map (fun is_default ->
+          LA.BinaryOp (pos, LA.Impl, inactive, is_default)
+        ) (mk_is_default ctx adt_map pos fexpr ftype)
+        @ mk fexpr ftype
+    ) fields
+  | LA.Set (_, kt) -> only_canonical_keys LA.Set kt
+  | LA.Map (_, kt, vt) ->
+    let values =
+      let k = fresh_canonical_var () in
+      let ke = LA.Ident (pos, k) in
+      List.map (fun c ->
+        LA.Quantifier (pos, LA.Forall, [(pos, k, kt)],
+          LA.BinaryOp (pos, LA.Impl, LA.BinaryOp (pos, LA.In LA.Map, ke, expr), c))
+      ) (mk (LA.IndexAccess (pos, expr, ke, LA.Map)) vt)
+    in
+    only_canonical_keys LA.Map kt @ values
+  | _ ->
+    match over_components ctx adt_map pos mk expr ty with
+    | Some cs -> cs
+    | None -> []
 
 (* Desugar ADTTerm and Match expressions throughout an expression. *)
 and desugar_expr ctx adt_map expr =
@@ -350,6 +621,7 @@ and desugar_expr ctx adt_map expr =
     | LA.GenericIndex (p, e) -> LA.GenericIndex (p, r e)
   in
   match expr with
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.ADTTerm (pos, ty_args, ctor, args) ->
     let args' = rlist args in
     let adt_info =
@@ -385,9 +657,10 @@ and desugar_expr ctx adt_map expr =
       | Some e -> (fname, e)
       | None -> (fname, default_value ctx adt_map pos ftype)
     ) (inst_fields adt_info.all_payload_fields) in
-    LA.RecordExpr (pos, adt_info.type_name, [],
+    LA.RecordExpr (pos, adt_info.type_name, ty_args',
       (adt_info.disc_field, disc_e) :: payload_pairs)
   | LA.Match (pos, scrut, arms, scrut_ty_opt) ->
+    (* The type checker records the scrutinee's type in every match it checks *)
     let adt_info =
       (match scrut_ty_opt with
       | Some ty -> adt_info_of_type ctx adt_map ty
@@ -396,8 +669,7 @@ and desugar_expr ctx adt_map expr =
     in
     let scrut' = r scrut in
     let desugared_arms = List.map (fun (pat, body) ->
-      let (cond_opt, body') = desugar_arm pos ctx adt_map adt_info scrut' pat body in
-      (cond_opt, r body')
+      desugar_arm pos ctx adt_map adt_info scrut' pat (r body)
     ) arms in
     build_ite pos desugared_arms
   | LA.ADTTester (pos, e, c) ->
@@ -416,28 +688,24 @@ and desugar_expr ctx adt_map expr =
         LA.Ident (pos, c))
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _
   | LA.AbstractSymConst _ -> expr
-  | LA.FieldProject (p, e, fld, Some adt_ty) ->
+  | LA.FieldProject (p, e, fld, LA.Selector (origin, adt_ty, ctor)) ->
     let e' = r e in
     let info = adt_info_of_type ctx adt_map adt_ty
       |> (function Some i -> i | None -> assert false)
     in
+    (* The projection stays marked as a selector even once the ADT is encoded as
+       a record, so the obligation can still name the owning constructor. *)
+    let pk = LA.Selector (origin, LA.UserType (p, [], info.type_name), ctor) in
+    (* Recursive datatypes keep the user-written field name; they are compiled
+       to SMT datatypes rather than records *)
     if info.is_recursive then
-      LA.FieldProject (p, e', fld, Some (LA.UserType (p, [], info.type_name)))
+      LA.FieldProject (p, e', fld, pk)
     else
-      let ctor = HStringMap.fold (fun ctor internal_fields acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          let target = payload_field_name_of ctor fld in
-          if List.exists (fun (fn, _) -> HString.equal fn target) internal_fields
-          then Some ctor
-          else None
-      ) info.ctor_fields None
-      |> (function Some c -> c | None -> assert false)
-      in
-      let internal_fld = payload_field_name_of ctor fld in
-      LA.FieldProject (p, e', internal_fld, None)
-  | LA.FieldProject (p, e, i, None) -> LA.FieldProject (p, r e, i, None)
+      LA.FieldProject (p, e', payload_field_name_of info ctor fld, pk)
+  | LA.FieldProject (p, e, i, LA.RecordField) ->
+    LA.FieldProject (p, r e, i, LA.RecordField)
+  | LA.FieldProject (p, e, i, LA.Unresolved) ->
+    LA.FieldProject (p, r e, i, LA.Unresolved)
   | LA.UnaryOp (p, op, e) -> LA.UnaryOp (p, op, r e)
   | LA.BinaryOp (p, op, e1, e2) -> LA.BinaryOp (p, op, r e1, r e2)
   | LA.TernaryOp (p, op, e1, e2, e3) -> LA.TernaryOp (p, op, r e1, r e2, r e3)
@@ -451,18 +719,18 @@ and desugar_expr ctx adt_map expr =
     LA.StructUpdate (p, r e, List.map rloi idx, None)
   | LA.ArrayConstr (p, e1, e2) -> LA.ArrayConstr (p, r e1, r e2)
   | LA.IndexAccess (p, e1, e2, k) -> LA.IndexAccess (p, r e1, r e2, k)
-  | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
+  | LA.Fby (p, e1, e2) -> LA.Fby (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, desugar_type p ctx adt_map ty)
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map (desugar_type p ctx adt_map) ty_args, id, rlist es)
-  | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
-  | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
-  | LA.Condact (p, e1, e2, id, es1, es2) ->
-    LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
+  | LA.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | LA.Quantifier (p, k, idents, e) ->
+    (* A bound variable of a type involving an ADT ranges over the canonical
+       values of that type; LustreNodeGen.compile_quantifier restricts it, so
+       that the property keeps its source form *)
     let idents' = List.map (fun (p, id, ty) -> (p, id, desugar_type p ctx adt_map ty)) idents in
     LA.Quantifier (p, k, idents', r e)
   | LA.Extract (p, e, ub, lb) -> LA.Extract (p, r e, ub, lb)
@@ -486,16 +754,19 @@ let desugar_contract_item ctx adt_map item =
     let r3 (p, n, e) = (p, n, r e) in
     LA.Mode (p, n, List.map r3 requires, List.map r3 ensures)
   | LA.ContractCall (p, name, ty_args, inputs, outputs) ->
-    LA.ContractCall (p, name, ty_args, List.map r inputs, outputs)
+    LA.ContractCall (p, name, List.map (dt p) ty_args, List.map r inputs, outputs)
   | LA.GhostConst cd -> LA.GhostConst (desugar_const_decl ctx adt_map cd)
   | LA.GhostVars (p, LA.GhostVarDec (p2, tis), e) ->
     let tis' = List.map (fun (p, id, ty) -> (p, id, dt p ty)) tis in
     LA.GhostVars (p, LA.GhostVarDec (p2, tis'), r e)
+  | LA.GhostVars (p, LA.GhostArrayDef (p2, (p3, id, ty), is), e) ->
+    LA.GhostVars (p, LA.GhostArrayDef (p2, (p3, id, dt p3 ty), is), r e)
   | LA.AssumptionVars _ as a -> a
 
 let rec desugar_node_item ctx adt_map item =
   let r = desugar_expr ctx adt_map in
   match item with
+  | LA.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Auto _ -> item
   | LA.Body (LA.Equation (p, lhs, e)) -> LA.Body (LA.Equation (p, lhs, r e))
   | LA.Body (LA.Assert (p, e)) -> LA.Body (LA.Assert (p, r e))
@@ -509,6 +780,7 @@ let rec desugar_node_item ctx adt_map item =
   | LA.WhenBlock (p, e, then_items, else_items) ->
     let di = desugar_node_item ctx adt_map in
     LA.WhenBlock (p, r e, List.map di then_items, List.map di else_items)
+  | LA.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
   | LA.FrameBlock (p, vars, eqs, items) ->
     let di = desugar_node_item ctx adt_map in
     let de = function
@@ -606,19 +878,9 @@ let user_field_of_payload adt_map fname =
     match acc with
     | Some _ -> acc
     | None ->
-      HStringMap.fold (fun ctor fields acc ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          if List.exists (fun (fn, _) -> HString.equal fn fname) fields then
-            let prefix = HString.string_of_hstring ctor ^ "_" in
-            let fs = HString.string_of_hstring fname in
-            let plen = String.length prefix in
-            if String.length fs > plen && String.sub fs 0 plen = prefix then
-              Some (HString.mk_hstring (String.sub fs plen (String.length fs - plen)))
-            else None
-          else None
-      ) info.ctor_fields None
+      List.find_map (fun (_, user, internal) ->
+        if HString.equal internal fname then Some user else None
+      ) info.field_names
   ) adt_map None
 
 (* Return the adt_info whose discriminant (tag) field has this name, if any. *)
@@ -648,12 +910,6 @@ let tag_equality_as_tester adt_map e1 e2 =
   in
   match check e1 e2 with Some r -> Some r | None -> check e2 e1
 
-(* A bound variable is Kind 2-generated iff its name starts with a digit: source
-   Lustre identifiers cannot, so this reliably distinguishes generated names
-   (e.g. "69_index") from user-written ones without risk of misclassification. *)
-let is_generated_bound_var id =
-  let s = HString.string_of_hstring id in
-  String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
 
 (* Canonical string key for a refinement type, used to recognize a refinement
    type as an instance of a named refinement synonym for display.  The bound
@@ -735,6 +991,7 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     | LA.AbstractType _ | LA.History _ | LA.ADT _ -> ty
   in
   match expr with
+  | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.RecordExpr (pos, type_name, [], fields) when HStringMap.mem type_name adt_map ->
     let info = HStringMap.find type_name adt_map in
     (match List.assoc_opt info.disc_field fields with
@@ -752,11 +1009,16 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
   | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.EmptyMap _ | LA.EmptySet _ | LA.Last _ -> expr
-  | LA.FieldProject (p, e, id, ty_opt) ->
-    let ty_opt = Option.map (LH.map_lustre_ty r) ty_opt in
+  | LA.FieldProject (p, e, id, pk) ->
+    let pk = match pk with
+      | LA.Unresolved -> LA.Unresolved
+      | LA.RecordField -> LA.RecordField
+      | LA.Selector (origin, ty, ctor) ->
+        LA.Selector (origin, LH.map_lustre_ty r ty, ctor)
+    in
     (* An internal payload field "Ctor_field" prints as the ADT selector "field". *)
     let id = match user_field_of_payload adt_map id with Some u -> u | None -> id in
-    LA.FieldProject (p, r e, id, ty_opt)
+    LA.FieldProject (p, r e, id, pk)
   | LA.CompOp (p, LA.Eq, e1, e2) ->
     (* A tag equality "e.<Type>_tag = Ctor" prints as the tester "Ctor?(e)". *)
     (match tag_equality_as_tester adt_map e1 e2 with
@@ -789,17 +1051,16 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     LA.StructUpdate (p, r e1, List.map rloi idx, Option.map r e2_opt)
   | LA.ArrayConstr (p, e1, e2) -> LA.ArrayConstr (p, r e1, r e2)
   | LA.IndexAccess (p, e1, e2, k) -> LA.IndexAccess (p, r e1, r e2, k)
-  | LA.When (p, e, c) -> LA.When (p, r e, c)
   | LA.Pre (p, e) -> LA.Pre (p, r e)
   | LA.Arrow (p, e1, e2) -> LA.Arrow (p, r e1, r e2)
+  | LA.Fby (p, e1, e2) -> LA.Fby (p, r e1, r e2)
   | LA.TypeAscription (p, e, ty) -> LA.TypeAscription (p, r e, rewrite_type ty)
   | LA.Call (p, ty_args, id, es) ->
     LA.Call (p, List.map rewrite_type ty_args, id, rlist es)
-  | LA.Merge (p, id, flds) -> LA.Merge (p, id, rilist flds)
-  | LA.Activate (p, id, e1, e2, es) -> LA.Activate (p, id, r e1, r e2, rlist es)
-  | LA.Condact (p, e1, e2, id, es1, es2) ->
-    LA.Condact (p, r e1, r e2, id, rlist es1, rlist es2)
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
+  (* Restored for printing by [LustreDesugarArrayComprehensions.restore] *)
+  | LA.ArrayComprehension (p, bs, e) ->
+    LA.ArrayComprehension (p, List.map (fun (ip, i, n) -> (ip, i, r n)) bs, r e)
   | LA.Quantifier (p, k, idents, e) ->
     (* Rename generated bound variables to "$n", substituting the new name for the
        old one in the body before recursing into it. *)

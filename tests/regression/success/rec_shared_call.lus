@@ -1,0 +1,25 @@
+-- The body of max calls max(n, t) twice. The two calls have the same
+-- arguments, and a function is a function of its arguments, so the second
+-- call shares the instance of the first instead of compiling to an instance
+-- of its own: the unrolling of max stays linear in its depth rather than
+-- doubling at every level, and the eight-element list is settled within the
+-- default limit on unrollings in well under a second.
+datatype IntList = Nil | Cons (head: int, tail: IntList) ;
+
+function rec max (n: int; l: IntList) returns (m: int);
+con
+  decreases l ;
+noc
+let
+  m = match l with
+       | Nil : n
+       | Cons (h, Nil) : h
+       | Cons (h, t) : if h > max(n, t) then h else max(n, t)
+      end ;
+tel
+
+node main () returns (u: bool) ;
+let
+  u = true ;
+  check "max_is_8" max(0, Cons(1, Cons(2, Cons(3, Cons(4, Cons(5, Cons(6, Cons(7, Cons(8, Nil))))))))) = 8 ;
+tel

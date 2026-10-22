@@ -1,0 +1,7 @@
+type E = enum { A, B };
+datatype L = LN | LC (h: E, t: L);
+
+node main(x: L) returns ();
+let
+  check reachable LC?(x) and then not (x.h = A or x.h = B);
+tel

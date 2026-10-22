@@ -1,0 +1,23 @@
+-- A lemma that invokes a lemma without a body is proved from what the
+-- latter guarantees, and only that: here g_increasing is invoked at n, but
+-- the guarantee also needs it at g(n).
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+lemma g_twice (n: int)
+con
+  guarantee g(g(n)) > n;
+noc
+let
+  g_increasing(n);
+tel
+
+node main (x: int) returns (ok: bool);
+let
+  ok = true;
+  check ok;
+tel

@@ -1,0 +1,28 @@
+-- A chain of selectors on a nested ADT value read where no guard establishes
+-- the constructors: each unguarded selector compiles into a tag-guarded
+-- projection whose other branch is an uninterpreted function of every
+-- component of its scrutinee. The scrutinee is abstracted into a local shared
+-- by every occurrence of the chain, so the encoding stays linear in the size
+-- of the value; left inline, each level would replicate the whole scrutinee
+-- once per component and the transition relation of this node would run to
+-- tens of megabytes.
+
+datatype Inner = I0 | I1 (a: int, b: int) | I2 (c: int, d: int, e: int);
+datatype Middle = M0 (x: int) | M1 (y: int, z: int, i: Inner) | M2 (w: int, j: Inner);
+datatype Option<T> = Some (value: T) | None;
+
+node main(m: Option<Middle>; k: int) returns (ok: bool);
+var ready: bool;
+var s1, s2, s3, s4, s5, s6: int;
+let
+  ready = Some?(m) and then M1?(m.value) and then I2?(m.value.i);
+  s1 = when ready then m.value.i.c else 0;
+  s2 = when ready then m.value.i.d + m.value.z else 0;
+  s3 = when ready then m.value.i.e - m.value.y else 0;
+  s4 = when ready then m.value.i.c + k else 0;
+  s5 = when ready then m.value.i.d * 2 else 0;
+  s6 = when ready then m.value.i.e else 0;
+  ok = (not ready) => (s1 = 0 and s2 = 0 and s3 = 0 and s4 = 0 and s5 = 0 and s6 = 0);
+  check ok;
+  check "Consistent reads" ready => (s1 + k = s4);
+tel

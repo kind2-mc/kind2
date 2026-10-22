@@ -1,0 +1,4 @@
+node top(a: int^3; v: int) returns (b: int^3);
+let
+  b = a[b[0] := v];
+tel

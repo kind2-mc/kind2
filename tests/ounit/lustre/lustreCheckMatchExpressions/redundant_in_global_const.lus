@@ -1,0 +1,4 @@
+datatype L = Nil | One (v: int);
+const m: L = (match Nil with | Nil : Nil | z : Nil | One(v) : Nil end);
+node N(x: int) returns (y: int);
+let y = if m = Nil then 0 else 1; tel

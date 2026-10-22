@@ -1,0 +1,27 @@
+-- Constants defined by array comprehensions: their definitions are inlined
+-- at their uses, in node bodies and in contracts, before the comprehensions
+-- are compiled
+
+const N: int;
+const Sq: int^N = (i * i foreach i)^N;
+const Id: int^3^3 = (if i = j then 1 else 0 foreach i, j)^3^3;
+const Two: int = Sq[2];
+
+node Use (A: int^N) returns (B: int^N);
+(*@contract
+  guarantee "contract" B = (A[i] + Sq[i] foreach i)^N;
+*)
+let
+  B = (A[i] + Sq[i] foreach i)^N;
+  check "forall" forall (k: int) 0 <= k and k < N => Sq[k] = k * k;
+  check "two" N > 2 => Two = 4;
+  check "identity" Id[1] = [0, 1, 0];
+tel
+
+node Local (x: int) returns (y: int);
+const L: int^3 = (x0 foreach x0)^3;
+let
+  y = L[2] + x;
+  check "local" y = x + 2;
+tel
+

@@ -1,0 +1,16 @@
+-- A quantified call to an instantiation of a polymorphic recursive function.
+-- The instantiation has no output or local variable of an array type, so the
+-- call is compiled to an application of its functional symbol, which is
+-- defined at the SMT level (see
+-- error/quant_var_in_poly_rec_func_call_array_instance.lus for one that has).
+
+function rec Id<T>(x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else Id(x, n - 1);
+tel
+
+node Test(a: int) returns ();
+let
+  check forall (k: int) k <= 0 => Id@<int>(a, k) = a;
+tel

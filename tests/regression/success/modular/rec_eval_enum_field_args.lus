@@ -1,0 +1,20 @@
+type E = enum { A, B };
+
+datatype L = LN | LC (h: E, t: L);
+
+function rec Length(l: L) returns (len: int);
+(*@contract
+  decreases l;
+*)
+let
+  len = match l with
+  | LN : 0
+  | LC (_, t) : 1 + Length(t)
+  end;
+tel
+
+node main() returns (ok: bool);
+let
+  ok = Length(LC(A, LC(B, LC(A, LN)))) = 3;
+  check ok;
+tel

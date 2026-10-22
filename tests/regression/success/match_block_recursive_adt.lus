@@ -1,0 +1,17 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node hd_or (l: L; d: int) returns (y: int);
+let
+  match l with
+  | Cons (h, t):
+    y = h;
+  | Nil:
+    y = d;
+  end
+tel
+
+node main () returns (ok: bool);
+let
+  ok = hd_or(Cons(4, Nil), 0) = 4 and hd_or(Nil, 7) = 7;
+  check ok;
+tel

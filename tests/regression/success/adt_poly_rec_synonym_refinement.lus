@@ -1,0 +1,10 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+type Ref<T> = subtype { v: L<T> | LC?(v) };
+
+node main(i: int) returns (ok: bool);
+var x: Ref<int>;
+let
+  x = LC(i, LN@<int>);
+  ok = LC?(x);
+  check ok;
+tel

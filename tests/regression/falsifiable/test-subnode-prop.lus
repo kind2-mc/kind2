@@ -12,9 +12,13 @@ let
 tel
 
 node Y(a: int; clk: bool) returns (b: int);
-var OK: bool;
+var OK: bool; b1, b2, held1, held2: int;
 let
-  b = condact(clk, X(abs(a)), 1) + condact(not clk, X(abs(a)), 2);
+  held1 = 1 fby b1;
+  b1 = when clk then X(abs(a)) else held1;
+  held2 = 2 fby b2;
+  b2 = when not clk then X(abs(a)) else held2;
+  b = b1 + b2;
   OK = b > 1;
   --%PROPERTY OK;
 tel

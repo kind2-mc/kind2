@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T; c: bool) returns (y: int);
+let
+  if c then
+    match t with
+    | A (v):
+      y = v;
+    | B (w):
+      y = w;
+    end
+  else
+    y = 0;
+  fi
+tel

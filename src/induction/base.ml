@@ -74,9 +74,11 @@ let rec split trans solver k to_split actlit congruence congruence_holds =
       )
     | false -> `Split (
 
-    (* Get the full model *)
+    (* Get the full model, for the counterexample. An array too large to
+       read is left out of it: it is only reported. *)
     let model =
       SMTSolver.get_var_values
+        ~array_limit:(`Omit SMTSolver.max_array_elements)
         solver
         (TransSys.get_state_var_bounds trans)
         (TransSys.vars_of_bounds trans Numeral.zero k)
@@ -87,18 +89,17 @@ let rec split trans solver k to_split actlit congruence congruence_holds =
       Model.path_from_model (TransSys.state_vars trans) model k
     in
 
-    (* Evaluation function. *)
-    let eval term =
-      Eval.eval_term (TransSys.uf_defs trans) model term
-      |> Eval.bool_of_value
+    (* The values of the properties at [k], from the solver rather than
+       from the model, which may leave out the arrays they read *)
+    let values =
+      SMTSolver.get_term_values_at_once solver
+        (List.map (fun (_, term) -> Term.bump_state k term) to_split)
+    in
+    let holds (_, term) =
+      Term.equal (List.assq (Term.bump_state k term) values) Term.t_true
     in
     (* Splitting properties. *)
-    let new_to_split, new_falsifiable =
-      List.partition
-        ( fun (_, term) ->
-          Term.bump_state k term |> eval )
-        to_split
-    in
+    let new_to_split, new_falsifiable = List.partition holds to_split in
     (* Building result. *)
     Some (new_to_split, (new_falsifiable, cex))
     )
@@ -132,8 +133,12 @@ let rec split trans solver k to_split actlit congruence congruence_holds =
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot after asserting the actlit
-   implications. *)
-let split_closure trans solver k to_split =
+   implications, and returns the latter. [on_falsified] is applied to each
+   set of properties the solver falsifies together, with their
+   counterexample, as soon as it is found: a later query at the same bound
+   may take arbitrarily long, and a falsified property stays falsified
+   whatever its answer. *)
+let split_closure ~on_falsified trans solver k to_split =
   (* Built once for the bound: the same instances serve every split *)
   let congruence = TransSys.fn_congruence_instances trans k in
   (* Asked as a single question: the solver is queried for one term value at
@@ -142,7 +147,7 @@ let split_closure trans solver k to_split =
     if congruence = [] then [] else [Term.mk_and congruence]
   in
 
-  let rec loop falsifiable list =
+  let rec loop list =
     (* Building negative term. *)
     let term =
       list |> List.map (fun pair -> snd pair)
@@ -164,16 +169,14 @@ let split_closure trans solver k to_split =
     match split trans solver k list actlit congruence congruence_holds with
     | None ->
       deactivate () ;
-      list, falsifiable
-    | Some ([], new_falsifiable) ->
-      deactivate () ;
-       [], new_falsifiable :: falsifiable
+      list
     | Some (new_list, new_falsifiable) ->
       deactivate () ;
-       loop (new_falsifiable :: falsifiable) new_list
+      on_falsified new_falsifiable ;
+      if new_list = [] then [] else loop new_list
   in
 
-  loop [] to_split
+  loop to_split
 
 (* Find out which reachability query has the lowest lower bound (for the purpose
    of skipping steps) *)
@@ -326,9 +329,22 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
           )
         ) ;
 
+        (* Broadcasting falsified properties, as soon as they are found. *)
+        let on_falsified (p, cex) =
+          List.iter
+            ( fun (s,_) ->
+              KEvent.prop_status
+                (Property.PropFalse (Model.path_to_list cex))
+                input_sys
+                aparam
+                trans
+                s)
+            p
+        in
+
         (* Splitting. *)
-        let unfalsifiable, falsifiable =
-          split_closure trans solver k unknowns_at_k
+        let unfalsifiable =
+          split_closure ~on_falsified trans solver k unknowns_at_k
         in
 
         
@@ -352,19 +368,6 @@ let rec next (input_sys, aparam, trans, solver, k, unknowns, skip) =
                 aparam
                 trans
                 s
-        ) ;
-
-        (* Broadcasting falsified properties. *)
-        falsifiable |> List.iter ( fun (p, cex) ->
-          List.iter
-            ( fun (s,_) ->
-              KEvent.prop_status
-                (Property.PropFalse (Model.path_to_list cex)) 
-                input_sys
-                aparam
-                trans
-                s)
-            p
         ) ;
 
         k_true @ unfalsifiable
@@ -428,6 +431,7 @@ let init input_sys aparam trans skip =
   TransSys.define_and_declare_of_bounds
     trans
     (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
     (SMTSolver.declare_fun solver)
     (SMTSolver.declare_sort solver)
     Numeral.zero Numeral.zero ;

@@ -1,0 +1,21 @@
+-- "wrong" is false of Fact as it is, and "needs" holds of it but not of its
+-- contract. The counterexample to "needs" in the first analysis of main
+-- relies on the contract, so main is refined, until Fact is unrolled enough
+-- to prove it; "wrong" stays falsified.
+--
+-- The run is falsifiable, as "wrong" is, so test_rec_genuine_refinement.py
+-- checks the answers of the analyses of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns ();
+let
+  check "wrong" x = 4 => Fact(x) = 25;
+  check "needs" x = 3 => Fact(x) = 6;
+tel

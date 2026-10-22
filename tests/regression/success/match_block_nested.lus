@@ -1,0 +1,21 @@
+datatype B = T | F;
+datatype P = MkP (l: B, r: B);
+
+node f (p: P) returns (y: int);
+let
+  match p with
+  | MkP (a, b):
+    match a with
+    | T:
+      y = 1;
+    | F:
+      y = 0;
+    end
+  end
+tel
+
+node main () returns (ok: bool);
+let
+  ok = f(MkP(T, F)) = 1 and f(MkP(F, T)) = 0;
+  check ok;
+tel

@@ -1,0 +1,16 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node f (u: L) returns (y: int);
+var l: L;
+let
+  match l with
+  | x:
+    match u with
+    | Cons (z, rest):
+      y = if Cons?(x) then 1 else 0;
+    | Nil:
+      y = 0;
+    end
+  end
+  l = Cons(y, Nil);
+tel

@@ -1,0 +1,49 @@
+name: Kind 2 Website
+
+# The website is published from kind2-mc/kind2-mc.github.io, which serves it at
+# the root of https://kind2-mc.github.io/ rather than under a /kind2/ prefix.
+# That repository holds the static pages and the documentation of every released
+# version, and rebuilds main's documentation from the sources here on every run,
+# so all this repository has to do is tell it that there is something new.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  notify:
+    # A fork has neither the secret nor any business republishing the website.
+    if: github.repository == 'kind2-mc/kind2'
+
+    runs-on: ubuntu-latest
+
+    steps:
+    # A release tag is passed along by name: the website repository builds that
+    # version's documentation once and keeps it, where main's is rebuilt every
+    # time.
+    #
+    # GITHUB_TOKEN is scoped to this repository, so it cannot reach the website
+    # one. WEBSITE_DISPATCH_TOKEN is a fine-grained personal access token whose
+    # resource owner is the kind2-mc organization -- a token owned by an account
+    # cannot see the organization's repositories -- limited to the single
+    # repository kind2-mc/kind2-mc.github.io, with the Contents permission set
+    # to read and write, which is what the dispatch endpoint requires. Such a
+    # token expires within a year, and this job is where that shows up: reissue
+    # it to the same shape and this keeps working.
+    - name: Ask the website repository to publish
+      env:
+        GH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          version=$GITHUB_REF_NAME
+        else
+          version=main
+        fi
+        jq -n --arg version "$version" \
+          '{event_type: "kind2-docs", client_payload: {version: $version}}' \
+          | gh api repos/kind2-mc/kind2-mc.github.io/dispatches --input -

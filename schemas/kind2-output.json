@@ -348,9 +348,6 @@
                 "top": {
                     "$ref": "#/definitions/scope"
                 },
-                "context": {
-                    "enum": ["type","contract","environment"]
-                },
                 "concrete": {
                     "type": "array",
                     "items": { "$ref": "#/definitions/scope" }
@@ -375,6 +372,21 @@
             "required": [
                 "objectType", "top", "concrete", "abstract", "assumptions"
             ]
+        },
+        "contractCheckAnalysisStart": {
+            "type": "object",
+            "properties": {
+                "objectType" : {
+                    "const": "analysisStart"
+                },
+                "top": {
+                    "$ref": "#/definitions/scope"
+                },
+                "context": {
+                    "enum": ["type","contract","environment"]
+                }
+            },
+            "required": ["objectType", "top", "context"]
         },
         "postAnalysisStart": {
             "type": "object",
@@ -533,17 +545,27 @@
         }
         },
         "kind2Type": {
-            "enum": [
-                "bool",
-                "int", "subrange",
-                "int8", "int16", "int32", "int64",
-                "uint8", "uint16", "uint32", "uint64",
-                "real",
-                "enum",
-                "array",
-                "abstr",
-                "datatype"
-             ]
+            "anyOf": [
+                {
+                    "enum": [
+                        "bool",
+                        "int", "subrange",
+                        "int8", "int16", "int32", "int64",
+                        "uint8", "uint16", "uint32", "uint64",
+                        "real",
+                        "enum",
+                        "array",
+                        "abstr",
+                        "datatype",
+                        "adt"
+                     ]
+                },
+                {
+                    "$comment": "A machine integer of any width, which is how the JSON output names every one of them",
+                    "type": "string",
+                    "pattern": "^(u|s)int<[1-9][0-9]*>$"
+                }
+            ]
         },
         "subrangeTypeInfo": {
             "type": "object",
@@ -622,12 +644,24 @@
             },
             "required": ["num", "den"]
         },
+        "datatypeValue": {
+            "type": "object",
+            "properties": {
+                "constructor": { "type": "string" },
+                "args": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/kind2Value" }
+                }
+            },
+            "required": ["constructor", "args"]
+        },
         "kind2Value": {
             "anyOf": [
                 { "type": "boolean" },
                 { "type": "number" },
                 { "$ref": "#/definitions/enumValue" },
                 { "$ref": "#/definitions/fractionalLiteral" },
+                { "$ref": "#/definitions/datatypeValue" },
                 {
                   "type": "array",
                   "items": { "$ref": "#/definitions/kind2Value" }
@@ -647,7 +681,7 @@
                     "$ref": "#/definitions/kind2TypeInfo"
                 },
                 "class": {
-                    "enum": ["input", "output", "local"]
+                    "enum": ["input", "output", "local", "ghost", "constant"]
                 },
                 "instantValues": {
                     "type": "array",
@@ -726,11 +760,15 @@
                         "NonVacuityCheck",
                         "OneModeActive",
                         "Ensure",
-                        "PropAnnot"
+                        "PropAnnot",
+                        "Termination"
                     ]
                 },
                 "isCandidate": {
                     "type": "boolean"
+                },
+                "expr": {
+                    "type": "string"
                 },
                 "runtime": {
                     "$ref": "#/definitions/runtime"
@@ -789,7 +827,7 @@
                     "$ref": "#/definitions/runtime"
                 },
                 "result": {
-                    "enum": ["realizable","unrealizable"]
+                    "enum": ["realizable","unrealizable","unknown"]
                 },
                 "viableStates": {
                     "type": "string"
@@ -815,7 +853,7 @@
                     "$ref": "#/definitions/runtime"
                 },
                 "result": {
-                    "enum": ["satisfiable","unsatisfiable"]
+                    "enum": ["satisfiable","unsatisfiable","unknown"]
                 }
             },
             "required": [
@@ -831,6 +869,7 @@
                    { "$ref": "#/definitions/progress" },
                    { "$ref": "#/definitions/kind2Options" },
                    { "$ref": "#/definitions/analysisStart" },
+                   { "$ref": "#/definitions/contractCheckAnalysisStart" },
                    { "$ref": "#/definitions/analysisStop" },
                    { "$ref": "#/definitions/postAnalysisStart" },
                    { "$ref": "#/definitions/modelElementSet" },

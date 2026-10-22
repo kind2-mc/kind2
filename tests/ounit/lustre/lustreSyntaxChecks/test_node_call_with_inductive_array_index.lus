@@ -7,6 +7,6 @@ tel
 
 node Array_Since(const n: int; X: bool^n; Y : bool ) returns ( SinceXY : bool^n );
 let
-  SinceXY[i] = Since(X[i], false) or (Y and (false -> pre SinceXY[i]));
+  SinceXY = (Since(X[i], false) or (Y and (false -> pre SinceXY[i])) foreach i)^n;
 tel
 

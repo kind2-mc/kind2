@@ -1,0 +1,56 @@
+-- Issue #1540: a recursive call of a polymorphic function to itself with its
+-- own type parameters used to be taken for a new instantiation, and the
+-- instantiations of a recursive function were not known to be recursive, so
+-- that the transition system of any of them was unrolled without bound.
+-- IsEven and IsOdd cover the same through mutually recursive polymorphic
+-- functions. See poly_rec_function_ground_arg.lus for a recursive call with a
+-- type argument that has no type parameter, and
+-- error/poly_rec_nonuniform_call.lus for recursive calls that are rejected.
+
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+function rec Count<T> (n: int; d: T) returns (r: int)
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else 1 + Count@<T>(n - 1, d);
+tel
+
+function rec Length<T> (xs: List<T>) returns (r: int)
+(*@contract
+  decreases xs;
+*)
+let
+  r = match xs with | Nil : 0 | Cons (_, t) : 1 + Length(t) end;
+tel
+
+-- Instantiates Length with a type parameter of another polymorphic function
+function Wrap<U> (xs: List<U>) returns (r: int)
+let
+  r = Length@<U>(xs);
+tel
+
+function rec IsEven<T> (n: int; d: T) returns (b: bool)
+(*@contract
+  decreases n;
+*)
+let
+  b = when n <= 0 then true else IsOdd@<T>(n - 1, d);
+tel
+
+function rec IsOdd<U> (n: int; d: U) returns (b: bool)
+(*@contract
+  decreases n;
+*)
+let
+  b = when n <= 0 then false else IsEven@<U>(n - 1, d);
+tel
+
+node main (i: int; b: bool) returns ()
+let
+  check "count_nonneg" Count@<int>(3, i) >= 0;
+  check "length_one" Length(Cons(i, Nil@<int>)) = 1;
+  check "wrap_two" Wrap(Cons(b, Cons(b, Nil@<bool>))) = 2;
+  check "even_four" IsEven@<bool>(4, b);
+tel

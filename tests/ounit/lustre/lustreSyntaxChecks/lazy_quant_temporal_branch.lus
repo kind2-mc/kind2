@@ -1,0 +1,8 @@
+-- A temporal operand of 'or else' is abstracted into a call, which lies
+-- outside the quantifier, under a guard that mentions the quantified variable.
+
+node N (x: int) returns (ok: bool);
+let
+  ok = true;
+  check forall (k: int) (k = 0 or else (true -> pre (x > 0)));
+tel

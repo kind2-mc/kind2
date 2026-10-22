@@ -206,7 +206,7 @@ let status_of_realiz_results in_sys =
   in
   let report_incomplete_analysis () =
     KEvent.log L_note
-      "Incomplete analysis result: Not all imported nodes could be proven realizable" ;
+      "Incomplete analysis result: Not all imported nodes/functions and lemmas could be proven realizable" ;
     ExitCodes.incomplete_analysis
   in
   match Flags.exit_code_mode () with
@@ -248,6 +248,10 @@ let status_of_exn process status = function
   (* Termination message. *)
   | KEvent.Terminate ->
     KEvent.log L_debug "Received termination message" ;
+    status
+  (* The supervisor killed the solvers of the engine to stop it *)
+  | SMTSolver.Killed ->
+    KEvent.log L_debug "Solvers killed to stop the engine" ;
     status
   (* Catch wallclock timeout. *)
   | TimeoutWall -> (
@@ -306,6 +310,28 @@ let status_of_exn process status = function
       pp_print_kind_module process (Printexc.to_string e);
     ExitCodes.error
   )
+
+(* The exceptions for which [status_of_exn] returns the status it was
+   given rather than one of its own.
+
+   Kept beside it deliberately: the two have to agree. An exception not
+   named here ends the run with a verdict of its own -- a signal, a
+   parse error, a runtime failure -- and the status the results reached
+   is not what such a run should report.
+
+   [Failure] is left out although two of its messages do pass through:
+   which they are depends on the text of the message, and reporting an
+   error for the rest is the safe way to be wrong. *)
+let keeps_the_given_status = function
+  | Exit
+  | SMTSolver.Unknown
+  | KEvent.Terminate
+  | SMTSolver.Killed
+  | TimeoutWall
+  | TimeoutVirtual
+  | IC3.UnsupportedFeature _
+  | IC3IA.UnsupportedFeature _ -> true
+  | _ -> false
 
 (** Terminate all engine domains of the current analysis.
 
@@ -406,37 +432,159 @@ let slaughter_kids ?(exiting = false) process sys =
   if not exiting then Signals.set_sigalrm_timeout_from_flag ()
 
 
+(* Last resort for the whole exit path: a deadlock, a join that never
+   returns or a solver that refuses to die would leave Kind 2 hanging
+   forever once the teardown has begun, since the wall clock timeout is
+   disabled while an analysis is torn down, and on Windows there is no
+   wall clock timeout at all outside the polling loop of the
+   supervisor. Leave the process a few seconds to exit in an orderly
+   way, and terminate it the hard way if it does not.
+
+   Armed before the first step of the teardown rather than after the
+   engines have been dealt with: most of the teardown happens in
+   [slaughter_kids], and a watchdog that only starts after it covers
+   only the tail of what can wedge.
+
+   The status the watchdog exits with is kept in a cell rather than
+   captured, and it carries the best verdict known so far.
+   [post_clean_exit] sets the final one once [status_of_exn] has run;
+   before that, [on_exit] sets what the results already say, which for
+   a run out of time is [incomplete_analysis] and for a falsified one
+   is [unsafe_result]. Those are the answers the run had reached, and
+   reporting them beats reporting an error the run did not have.
+
+   It never reports success, though, whatever the results say: a run
+   the watchdog had to kill did not finish, and the output saying so is
+   the output that was cut short. A hang fails loudly wherever Kind 2
+   runs; a zero passes silently. So success becomes [error], and
+   nothing else is touched. *)
+let watchdog_status = Atomic.make ExitCodes.error
+let watchdog_armed = Atomic.make false
+
+(* Run [f] on a thread of its own and wait at most [seconds] for it.
+
+   For the steps of the last resort that write to a descriptor: the
+   standard output of Kind 2 may be a pipe whose reader has stalled,
+   and a write to it blocks rather than failing. Catching exceptions
+   does not bound a blocking call, so the call goes somewhere it can
+   block without taking [_exit] with it. *)
+let within seconds f =
+  let over = Atomic.make false in
+  match Thread.create (fun () -> ( try f () with _ -> () ) ; Atomic.set over true) () with
+  | exception _ -> ()
+  | _ ->
+    let deadline = Unix.gettimeofday () +. seconds in
+    while not (Atomic.get over) && Unix.gettimeofday () < deadline do
+      Thread.delay 0.02
+    done
+
+let arm_exit_watchdog () =
+  if not (Atomic.exchange watchdog_armed true) then
+    ( try
+        Thread.create
+          (fun () ->
+            Thread.delay 10.0 ;
+            (* The solvers first, before anything that writes: they are
+               children of this process, and killing it does not kill
+               them. One left behind holds the standard output of Kind 2
+               open on Windows, where a child inherits every inheritable
+               handle, so whoever reads that output keeps waiting for an
+               end that never comes. Freeing that reader first is also
+               what gives the lines below their best chance of landing.
+
+               This is the path that must not hang, and it waits for a
+               lock to take it. Every critical section that lock
+               guards is a map operation with no I/O in it, held for
+               as long as an insertion or a swap takes, so waiting for
+               it cannot become the reason we never get to [_exit]. *)
+            ( try SMTSolver.destroy_all_of_process () with _ -> () ) ;
+            (* Saying so, and the tail of the output, are worth
+               waiting a little for and no more. Both write to
+               descriptors that may be pipes nobody is draining, and
+               neither may become the reason we do not exit.
+
+               Five seconds rather than one. The bound has to survive a
+               reader that never drains, which one second does; but it
+               also has to let the write happen on a machine in the
+               state that made this thread necessary, and one second is
+               not enough for that. A run that reaches here has already
+               waited ten, and this line is the only account anyone
+               gets of why it ended: losing it turns a kill that
+               explains itself into one that looks like a crash. *)
+            within 5.0 (fun () ->
+              prerr_endline "Kind 2 did not exit in time, terminating." ;
+              Stdlib.flush_all ()) ;
+            Unix._exit (Atomic.get watchdog_status))
+          ()
+        |> ignore
+      with _ -> () )
+
+(* The verdict of the run, for the watchdog to exit with if it has to.
+   Success becomes an error, since a killed run did not finish; every
+   other verdict is what the run had reached. See [watchdog_status]. *)
+let watchdog_reports status =
+  Atomic.set watchdog_status
+    (if status = ExitCodes.success then ExitCodes.error else status)
+
 (** Called after everything has been cleaned up. *)
 let post_clean_exit process base_status exn =
+  (* The exception may have interrupted a record being written: the piece
+     of it that is pending must not precede what is written next, the
+     report of the exception first of all *)
+  Lib.drop_partial_output () ;
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
-  (* Last resort: engines abandoned in the background hold no lock the
-     exit path needs, but a deadlock or a solver that refuses to die
-     would otherwise leave Kind 2 hanging forever, since the wall clock
-     timeout is disabled while an analysis is torn down. Leave the
-     process a few seconds to exit in an orderly way, and terminate it
-     the hard way if it does not. *)
-  ( try
-      Thread.create
-        (fun () ->
-          Thread.delay 10.0 ;
-          prerr_endline "Kind 2 did not exit in time, terminating." ;
-          Stdlib.flush_all () ;
-          Unix._exit status)
-        ()
-      |> ignore
-    with _ -> () ) ;
+  (* Arms on the paths that come here directly; on the path through
+     [on_exit] the watchdog is already running, and either way this is
+     where it learns the verdict of the run. *)
+  arm_exit_watchdog () ;
+  watchdog_reports status ;
   (* Close tags in JSON/XML output. *)
   KEvent.terminate_log () ;
+  (* The engines that are still running are on their way out with the
+     process, whatever they are in the middle of. Saying so before the
+     sweep is what keeps an engine that was given up on from being
+     reported as having crashed when the solver it asks for is refused,
+     the way one is not reported for the solvers killed under it. *)
+  EngineDomains.set_terminating true ;
   (* Kill all live solvers of the whole process. *)
   SMTSolver.destroy_all_of_process () ;
   (* Exit with status. *)
   exit status
 
-(** Clean up before exit *)
-let on_exit sys process status exn =
+(** Clean up before exit. [results] prints what the run established, once
+    the engines are stopped. *)
+let on_exit ?(results = fun () -> ()) sys process status exn =
+  (* From here to [exit] nothing bounds the teardown but the watchdog,
+     so it starts now, carrying what the results already say.
+
+     [status] has not been through [status_of_exn] yet, but for the
+     exceptions that end a run without a verdict of their own it is
+     already the answer: it is what the analysis reached, and
+     [status_of_exn] will return it unchanged. Arming with
+     [ExitCodes.error] instead cost a run its answer: on Windows the
+     teardown can outlast the watchdog's ten seconds, and a run that had
+     printed `Incomplete analysis result` exited 1 rather than 30, which
+     reads as a crash rather than as running out of time.
+
+     Only for those exceptions, though. A signal, a parse error or a
+     runtime failure ends the run with a verdict of its own, and
+     reporting what the results happened to say would be worse than
+     reporting an error: a crash that exits 40, or a Ctrl-C that exits
+     30, reads as an ordinary answer, and 30 passes a regression run as
+     silently as a zero would. *)
+  arm_exit_watchdog () ;
+  if keeps_the_given_status exn then watchdog_reports status ;
+  (* The exception may have interrupted a record being written: the piece
+     of it that is pending must not precede what is written next *)
+  Lib.drop_partial_output () ;
   try
     slaughter_kids ~exiting:true process sys;
+    (try results () with
+     | TimeoutWall -> ()
+     | e ->
+       KEvent.log L_error "Could not print the results: %s"
+         (Printexc.to_string e)) ;
     post_clean_exit process status exn
   with TimeoutWall -> post_clean_exit process status TimeoutWall
 
@@ -451,8 +599,8 @@ let post_clean_exit_realiz_results in_sys process exn =
   let base_status = status_of_realiz_results in_sys in
   post_clean_exit process base_status exn
 
-let on_exit_success process exn =
-  on_exit None process ExitCodes.success exn
+let on_exit_success ?results process exn =
+  on_exit ?results None process ExitCodes.success exn
 
 (** Clean up before exit. *)
 let on_exit_safety_results in_sys process exn =
@@ -604,8 +752,9 @@ let spawn_process in_sys param
         on_exit_engine messaging_worker kind_module Exit
 
       with
-      (* Termination message received. *)
-      | KEvent.Terminate as e ->
+      (* Termination message received, or the solvers of the engine
+         killed by the supervisor to stop it *)
+      | (KEvent.Terminate | SMTSolver.Killed) as e ->
         on_exit_engine messaging_worker kind_module e
       (* Catch all other exceptions. *)
       | e ->
@@ -625,7 +774,12 @@ let spawn_process in_sys param
     (* Keep identifier of engine and return. *)
     child_pids := (id, kind_module) :: !child_pids
 
-  with e ->
+  with
+  (* A signal that arrived while the domain was spawned, for the
+     supervisor to act on. The domain, if it was spawned, is in the
+     registry of engines, which is what the teardown goes by. *)
+  | (TimeoutWall | Signal _) as e -> raise e
+  | e ->
     (* The domain could not be spawned: unregister the mailbox. *)
     KEvent.unregister_worker messaging_worker ;
     KEvent.log L_fatal "Could not spawn a domain for %a: %s"
@@ -729,6 +883,39 @@ let process_invgen_mach_modules: TSys.t -> _ ISys.t -> kind_module list -> kind_
     | _ -> other_modules
   )
 
+(* Drop the integer (resp. real) invariant generators when the system holds no
+   integer (resp. real) term their candidate miner can relate to another one.
+   Machine integers are handled separately by [process_invgen_mach_modules].
+
+   The logic answers the cheap half of the question -- no [IA] anywhere means
+   nothing to mine -- and the miner the exact half, which the logic cannot:
+   [IA] also stands for enumerations, which the integer rules skip, and for
+   bare numerals, which give the miner constants and nothing to relate them
+   to. *)
+let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
+= fun sys modules ->
+  let logic_has feature =
+    match TSys.get_logic sys with
+    | `Inferred fs -> TermLib.FeatureSet.mem feature fs
+    (* Logic given rather than inferred: nothing to consult. *)
+    | _ -> true
+  in
+  (* One question per domain, not one per module: the one state and two state
+     generators of a domain stand or fall together, and the miner walks the
+     init and trans of every subsystem to answer. *)
+  let mineable_int =
+    lazy (logic_has TermLib.IA && InvGenMiner.has_mineable_int_terms sys)
+  in
+  let mineable_real =
+    lazy (logic_has TermLib.RA && InvGenMiner.has_mineable_real_terms sys)
+  in
+  modules |> List.filter (
+    function
+    | `INVGENINT | `INVGENINTOS -> Lazy.force mineable_int
+    | `INVGENREAL | `INVGENREALOS -> Lazy.force mineable_real
+    | _ -> true
+  )
+
  (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
     query with a lower bound *)
 let process_bmc_modules sys (modules: Lib.kind_module list) : Lib.kind_module list =
@@ -749,6 +936,12 @@ let process_ic3_modules (modules: Lib.kind_module list) : Lib.kind_module list =
     modules
 
 (** Performs an analysis. *)
+(* The parameter and system the engines of the analysis under way ran on
+   last, when a recursive function was unrolled further (see [analyze]),
+   and the properties the recursive functions as they are falsify (see
+   [RecUnrolling.check_abstractions]) *)
+let latest_param_and_sys = ref None
+
 let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop modules in_sys param sys =
   Stat.start_timer Stat.analysis_time ;
 
@@ -770,40 +963,103 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
 
       KEvent.log L_debug "Starting child processes." ;
 
-      (* Get rid of messages from the previous analysis. *)
-      KEvent.purge_im msg_setup ;
+      RecUnrolling.reset () ;
 
-      let modules = process_invgen_mach_modules sys in_sys modules in
-      (* Add BMCSKIP engine if BMC is enabled and there is at least one reachability
-        query with a lower bound *)
-      let modules = process_bmc_modules sys modules in
-      let modules = process_ic3_modules modules in
+      (* Runs the engines on [sys]. When a counterexample reaches a
+         recursive call past the unrollings of its function, whose outputs
+         are unconstrained, the function is unrolled further, the system is
+         built again, and the engines are run again on it, with what they
+         had established carried over (see [RecUnrolling]). Returns the
+         parameter and the system the engines ran on last. *)
+      let rec run_engines param sys =
+        RecUnrolling.start_round sys ;
 
-      let to_run, pending = create_processes slice_to_prop modules sys in
+        (* Get rid of messages from the previous analysis. *)
+        KEvent.purge_im msg_setup ;
 
-      (* Register the mailboxes of all child processes before spawning
-         any of them, so that no engine misses the messages of an
-         earlier-spawned sibling. *)
-      let prepared =
-        to_run |> List.map (prepare_process sys msg_setup)
+        let modules = process_invgen_mach_modules sys in_sys modules in
+        let modules = process_invgen_arith_modules sys modules in
+        (* Add BMCSKIP engine if BMC is enabled and there is at least one
+           reachability query with a lower bound *)
+        let modules = process_bmc_modules sys modules in
+        let modules = process_ic3_modules modules in
+
+        let to_run, pending = create_processes slice_to_prop modules sys in
+
+        (* Register the mailboxes of all child processes before spawning
+           any of them, so that no engine misses the messages of an
+           earlier-spawned sibling. *)
+        let prepared =
+          to_run |> List.map (prepare_process sys msg_setup)
+        in
+
+        (* Start all child processes. *)
+        prepared |> List.iter (spawn_process in_sys param) ;
+
+        (* Running supervisor. *)
+        InvarManager.main
+          (run_process in_sys param sys msg_setup)
+          pending
+          ignore_props stop_if_falsified child_pids in_sys param sys ;
+
+        let requested = RecUnrolling.requested () in
+
+        (* Killing kids when supervisor's done. The summary of the
+           properties is printed on the way, and only once the engines ran
+           for the last time. *)
+        (if requested = [] then Some sys else None)
+        |> slaughter_kids `Supervisor ;
+
+        match requested with
+        | [] -> param, sys
+        | functions ->
+          (* A fresh uid: the symbols and state variables of a system are
+             named after the uid of its analysis, and the system is built
+             again *)
+          let param' =
+            Anal.map_info (fun ({ Anal.unrollings } as info) ->
+              { info with
+                Anal.uid = Anal.get_uid () ;
+                Anal.unrollings =
+                  List.fold_left
+                    (fun unrollings f ->
+                       Scope.Map.add f (RecUnrolling.depth param f + 1) unrollings)
+                    unrollings functions }) param
+          in
+          KEvent.log L_info
+            "@[<hov>Unrolling %a further (%a).@]"
+            (pp_print_list (KEvent.pp_print_user_node_name in_sys) ", ")
+            functions
+            (pp_print_list
+               (fun fmt f ->
+                  Format.fprintf fmt "%a: %d"
+                    (KEvent.pp_print_user_node_name in_sys) f
+                    (RecUnrolling.depth param' f))
+               ", ")
+            functions ;
+          let sys', _ = ISys.trans_sys_of_analysis in_sys param' in
+          TSys.transfer_results ~from:sys ~into:sys' ;
+          run_engines param' sys'
       in
 
-      (* Start all child processes. *)
-      prepared |> List.iter (spawn_process in_sys param) ;
-
-      (* Running supervisor. *)
-      InvarManager.main 
-        (run_process in_sys param sys msg_setup)
-        pending
-        ignore_props stop_if_falsified child_pids in_sys param sys ;
-
-      (* Killing kids when supervisor's done. *)
-      Some sys |> slaughter_kids `Supervisor
+      let param, sys = run_engines param sys in
+      let genuine = RecUnrolling.genuine_properties () in
+      let learned = RecUnrolling.learned_facts () in
+      (* The solver of the last round, if any, is not needed anymore *)
+      RecUnrolling.reset () ;
+      latest_param_and_sys := Some (param, sys, genuine, learned)
   ) ;
+
+  let param, sys, genuine, learned =
+    match !latest_param_and_sys with
+    | Some (param, sys, genuine, learned) -> param, sys, genuine, learned
+    | None -> param, sys, [], []
+  in
+  latest_param_and_sys := None ;
 
   let result =
     Stat.get_float Stat.analysis_time
-    |> Anal.mk_result param sys
+    |> Anal.mk_result ~genuine ~learned param sys
   in
 
   if not ignore_props && save_results then (
@@ -827,8 +1083,29 @@ let handle_exception process e =
       pp_print_kind_module process
       print_backtrace backtrace
 
+(* The evaluator of recursive functions at concrete arguments that the
+   Lustre transition systems are built with (see
+   [LustreTransSys.set_mk_evaluator]) *)
+let mk_evaluator ~logic ~timeout_ms define =
+  let evaluator =
+    FunEval.create ~logic ~timeout_ms (fun solver ->
+      define
+        ~declare_sort:(SMTSolver.declare_sort solver)
+        ~declare_fun:(SMTSolver.declare_fun solver)
+        ~define_rec:(SMTSolver.define_funs_rec solver)
+        ~assert_term:(SMTSolver.assert_term solver))
+  in
+  { LustreTransSys.evaluate =
+      (fun uf args ->
+         match FunEval.evaluate evaluator uf args with
+         | `Value v -> Some v
+         | `Not_unique | `Unknown -> None) ;
+    LustreTransSys.delete = (fun () -> FunEval.delete evaluator) }
+
 (** Runs the analyses produced by the strategy module. *)
 let run in_sys =
+
+  LustreTransSys.set_mk_evaluator mk_evaluator ;
 
   (* Who's active? *)
   match Flags.enabled () with
@@ -926,6 +1203,12 @@ let run in_sys =
           "Calls to nodes with partially defined outputs are not supported." ;
         false
       )
+      else if ISys.contain_call_applied_to_quant_vars in_sys top then (
+        KEvent.log L_warn
+          "Calls to functions applied to quantified variables are not \
+           supported." ;
+        false
+      )
       else if Analysis.no_system_is_abstract ~include_top:false param then (
         true
       )
@@ -945,7 +1228,7 @@ let run in_sys =
       KEvent.log L_debug "Messaging initialized in Contract Check." ;
 
       match ISys.contract_check_params in_sys with
-      | [] -> KEvent.log L_note "No imported nodes found, skipping contract checking."
+      | [] -> KEvent.log L_note "No imported nodes/functions or lemmas found, skipping contract checking."
       | params -> (
         Flags.Arrays.set_smt true ; (* Uninterpreted functions are not supported *)
         params |> List.iter (fun (param, has_contract) ->
@@ -1059,27 +1342,57 @@ let run in_sys =
   ) 
 
   | modules when InputSystem.is_moxi_input in_sys -> (
-    
+
+    let params = ISys.moxi_params in_sys in
+    (* The checks not answered yet, and the system of the one being
+       analyzed, for the responses to give when time runs out *)
+    let pending = ref params in
+    let current = ref None in
+    let print_results sys =
+      MoxiResults.pp_print_results sys in_sys (TSys.get_properties sys)
+    in
+    (* Out of time, every check still gets its response: the one being
+       analyzed with what the engines established, and the others with every
+       query unknown. Printed by [on_exit], once the engines are stopped and
+       under its watchdog. *)
+    let respond_to_pending () =
+      List.iter (fun param ->
+        let sys =
+          match !current with
+          | Some sys -> current := None ; sys
+          | None -> fst (ISys.trans_sys_of_analysis in_sys param)
+        in
+        print_results sys
+      ) !pending
+    in
+
     try (
       let msg_setup = KEvent.setup () in
       KEvent.set_module `Supervisor ;
       KEvent.run_im msg_setup ;
       Flags.Arrays.set_smt true ;
+      (* Array values are read whole, and printed as SMT-LIB terms *)
+      Flags.Arrays.set_read_whole true ;
 
-      let params = ISys.moxi_params in_sys in
       let run_check param =
         let sys, _ =
           ISys.trans_sys_of_analysis in_sys param
         in
+        current := Some sys ;
         KEvent.log_analysis_start in_sys sys param ;
         Stat.start_timer Stat.analysis_time ;
         
         (* Analyze... *)
         analyze msg_setup false false false true modules in_sys param sys ;
-        let props = TSys.get_properties sys in
 
-        (* Print results *)
-        MoxiResults.pp_print_results sys in_sys props;
+        (* Print results, with the timer disarmed, so that the response is
+           not cut short; the timer is armed again for the time left, which
+           raises [TimeoutWall] at once if none is *)
+        Signals.unset_timeout () ;
+        print_results sys ;
+        current := None ;
+        pending := List.tl !pending ;
+        Signals.set_sigalrm_timeout_from_flag () ;
 
         KEvent.log_analysis_end ()
       in
@@ -1090,7 +1403,8 @@ let run in_sys =
       
       post_clean_exit_success `Supervisor Exit
     ) with
-    | TimeoutWall -> on_exit_success `Supervisor TimeoutWall
+    | TimeoutWall ->
+      on_exit_success ~results:respond_to_pending `Supervisor TimeoutWall
     | e -> (
       handle_exception `Supervisor e ;
       on_exit_success `Supervisor e

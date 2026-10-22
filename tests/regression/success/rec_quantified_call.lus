@@ -1,0 +1,28 @@
+-- A call to a recursive function applied to a quantified variable is compiled
+-- to an application of the functional symbol of the function, so the solver
+-- knows the function at every argument the quantifier ranges over, not only at
+-- the arguments of its instances.
+
+datatype Nat = Zero | Succ (p: Nat);
+
+function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main (x: bool) returns (y: bool);
+let
+  y = x;
+
+  -- Each property is checked on its own slice of the node: the instance the
+  -- call retains must survive every one of them for the functional symbol to
+  -- be defined.
+  check "unfold" forall (n: Nat) Even(Succ(n)) = not Even(n);
+
+  check "zero" forall (n: Nat) (n = Zero) => Even(n);
+
+  check "twice" forall (n: Nat) Even(Succ(Succ(n))) = Even(n);
+tel

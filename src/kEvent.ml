@@ -231,17 +231,6 @@ let all_stats () =
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
-(* Ensure that the names printed are properly formatted *)
-let name_wrapper s =
-  let re =
-    Str.regexp "^.+\\.\\(type_ascription_\\)\\(L[0-9]+C[0-9]+\\)\\[L[0-9]+C[0-9]+\\]\\."  in
-    if Str.string_match re s 0 then
-      let kind = "TypeAscription" in
-      let loc = Str.matched_group 2 s in
-      kind ^ "[" ^ loc ^"]"
-    else
-      s
-      
 (* Pretty-print kind module for plain text output *)
 let pp_print_kind_module_pt =
   pp_print_kind_module
@@ -270,8 +259,9 @@ let proved_pt mdl level trans_sys k prop =
     not (Property.prop_status_known (Property.get_prop_status property))
   then (
     let prop_type = match Property.get_prop_original_source property with 
-      | Candidate None -> "Candidate property"
-      | Candidate Some (Generated _) -> "Generated candidate property"
+      | Candidate { source = None ; _ } -> "Candidate property"
+      | Candidate { source = Some (Generated _) ; _ } ->
+        "Generated candidate property"
       | Generated _ -> "Generated property"
       | _ -> "Property"
     in
@@ -279,7 +269,6 @@ let proved_pt mdl level trans_sys k prop =
       | None -> ()
       | Some k -> Format.fprintf ppf "for k=%d " k) in
     let kind = TransSys.get_prop_kind trans_sys prop in
-    let prop = name_wrapper prop in
     (match kind with
       | Property.Invariant ->
         (ignore_or_fprintf level)
@@ -360,7 +349,7 @@ let unknown_pt mdl level trans_sys prop =
       warning_tag
       (if TransSys.is_candidate trans_sys prop then
          "Candidate" else "Property")
-      (name_wrapper prop)
+      prop
       pp_print_kind_module_pt mdl
       (Stat.get_float Stat.analysis_time)
 
@@ -418,7 +407,7 @@ let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
       "@{<%s>%s@}:@,  @[<v>%a@]"
       color
       title
-      (InputSystem.pp_print_path_pt input_sys trans_sys disproved)
+      (InputSystem.pp_print_path_pt ?prop_name input_sys trans_sys disproved)
       (Model.path_of_list trace);
   in
 
@@ -521,7 +510,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
         !log_ppf 
       "@[<v>%t Property @{<blue_b>%s@} %s %tafter %.3fs.@,@,%t%t@]"
         (if disproved then (if kind = Property.Invariant then failure_tag else success_tag) else warning_tag)
-        (name_wrapper prop)
+        prop
         (
           match disproved, kind with
             | true, Property.Invariant ->
@@ -593,7 +582,7 @@ let cex_pt ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex dispro
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text (name_wrapper prop)
+      div_by_zero_text prop
       |> printf_pt L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -731,7 +720,7 @@ let prop_status_pt level trans_sys prop_status_kind =
       ppf
       "@[<v>@{<blue_b>%s@}: %a\
       %a"
-      (name_wrapper name)
+      name
       pp_print_status_of_prop
       (status, kind)
       pp_expr sexpr
@@ -756,7 +745,7 @@ let prop_attributes_xml trans_sys prop_name =
 
   let pp_print_fname ppf fname =
     if fname = "" then () else
-    Format.fprintf ppf " file=\"%s\"" fname
+    Format.fprintf ppf " file=\"%s\"" (Lib.escape_xml_string fname)
   in
 
   let rec get_attributes = function
@@ -772,29 +761,29 @@ let prop_attributes_xml trans_sys prop_name =
           Format.asprintf " line=\"%d\" column=\"%d\" source=\"Generated\"%a"
             lnum cnum pp_print_fname fname
     )
-    | Property.Candidate None -> ""
-    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Candidate { source = None ; _ } -> ""
+    | Property.Candidate { source = Some source ; _ } -> get_attributes source
     | Property.Instantiated (_, prop) -> get_attributes prop.Property.prop_source
     | Property.Assumption (pos, (scope, _)) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Assumption\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.Guarantee (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Guarantee\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.GuaranteeOneModeActive (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"OneModeActive\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.GuaranteeModeImplication (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"Ensure\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.NonVacuityCheck (pos, scope) ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" scope=\"%s\" source=\"NonVacuityCheck\"%a"
-          lnum cnum (String.concat "." scope) pp_print_fname fname
+          lnum cnum (Lib.escape_xml_string (String.concat "." scope)) pp_print_fname fname
     | Property.TerminationCheck pos ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.asprintf " line=\"%d\" column=\"%d\" source=\"Termination\"%a"
@@ -865,9 +854,23 @@ let unknown_xml mdl level trans_sys prop_name =
       (Stat.get_float Stat.analysis_time)
       pp_print_kind_module_xml_src mdl
 
-(* Pretty-print a trace *)
+(* Pretty-print a trace already sliced to the property *)
+let pp_print_sliced_trace_xml
+    ?(tag = "CounterExample") input_sys trans_sys prop_name disproved ppf trace
+=
+  Format.fprintf ppf
+    "@[<hv 2>\ <%s>%a@]@,</%s>"
+    tag
+    (InputSystem.pp_print_path_xml ?prop_name input_sys trans_sys disproved)
+    (Model.path_of_list trace)
+    tag
+
+(* Pretty-print a trace
+
+   The trace is sliced before anything is printed, so that a timeout
+   during the slicing leaves the output of the caller as it was. *)
 let pp_print_trace_xml
-    ?(tag = "CounterExample")
+    ?tag
     input_sys
     analysis
     trans_sys
@@ -882,21 +885,12 @@ let pp_print_trace_xml
     | trace ->
       (
         (* Slice trace and transitions system to property *)
-        let trans_sys', _, trace', input_sys' =
+        let trans_sys, _, trace, input_sys =
           slice_trans_sys_and_cex_to_property
             input_sys analysis trans_sys prop_name trace
         in
-        try
-          (* Output trace *)
-          Format.fprintf ppf
-            "@[<hv 2>\ <%s>%a@]@,</%s>"
-            tag
-            (InputSystem.pp_print_path_xml input_sys' trans_sys' disproved)
-            (Model.path_of_list trace')
-            tag
-        with TimeoutWall -> (
-          Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag
-        )
+        pp_print_sliced_trace_xml
+          ?tag input_sys trans_sys prop_name disproved ppf trace
       )
 
 
@@ -963,9 +957,24 @@ let cex_xml
       | Property.Reachable _ -> "Witness"
     in
 
+    (* Slice trace and transition system to property before printing
+       anything: a timeout during the slicing then prints nothing, and
+       the property stays unknown. Nothing is sliced when the output is
+       ignored. *)
+    let sliced_cex =
+      match cex with
+      | [] -> None
+      | _ when not (output_on_level level) -> None
+      | cex ->
+        Some (
+          slice_trans_sys_and_cex_to_property
+            input_sys analysis trans_sys (Some prop_name) cex
+        )
+    in
+
     (* Output cex. *)
     (ignore_or_fprintf level)
-      !log_ppf 
+      !log_ppf
       ("@[<hv 2><Property name=\"%s\"%s>@,\
         <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
         %t\
@@ -996,9 +1005,19 @@ let cex_xml
              wa_model
          )
       )
-      (pp_print_trace_xml
-        ~tag input_sys analysis trans_sys (Some prop_name) disproved)
-      cex ;
+      (fun ppf -> function
+         | None -> ()
+         | Some (trans_sys', _, cex', input_sys') -> (
+           try
+             pp_print_sliced_trace_xml
+               ~tag input_sys' trans_sys' (Some prop_name) disproved ppf cex'
+           with TimeoutWall -> (
+             Format.fprintf ppf "@]@,</%s>@;<0 -2></Property>@]@." tag ;
+             raise TimeoutWall
+           )
+         )
+      )
+      sliced_cex ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
@@ -1108,14 +1127,15 @@ let prop_attributes_json ppf trans_sys prop_name =
 
   let pp_print_fname ppf fname =
     if fname = "" then () else
-    Format.fprintf ppf "\"file\" : \"%s\",@," fname
+    Format.fprintf ppf "\"file\" : \"%s\",@," (Lib.escape_json_string fname)
   in
 
   let print_attributes pos scope source =
     let fname, lnum, cnum = file_row_col_of_pos pos in
     Format.fprintf ppf
       "\"scope\" : \"%s\",@,%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"%s\",@,"
-      (String.concat "." scope) pp_print_fname fname lnum cnum source
+      (Lib.escape_json_string (String.concat "." scope))
+      pp_print_fname fname lnum cnum source
   in
 
   let rec get_attributes = function
@@ -1140,8 +1160,8 @@ let prop_attributes_json ppf trans_sys prop_name =
             "%a\"line\" : %d,@,\"column\" : %d,@,\"source\" : \"Generated\",@,"
             pp_print_fname fname lnum cnum
     )
-    | Property.Candidate None -> ()
-    | Property.Candidate (Some source) -> get_attributes source
+    | Property.Candidate { source = None ; _ } -> ()
+    | Property.Candidate { source = Some source ; _ } -> get_attributes source
     | Property.TerminationCheck pos ->
         let fname, lnum, cnum = file_row_col_of_pos pos in
         Format.fprintf ppf
@@ -1149,12 +1169,12 @@ let prop_attributes_json ppf trans_sys prop_name =
           pp_print_fname fname lnum cnum
   in
 
-  Format.fprintf ppf "\"isCandidate\" : \"%s\",@,"
-      (string_of_bool (Property.is_candidate prop));
+  Format.fprintf ppf "\"isCandidate\" : %b,@,"
+      (Property.is_candidate prop);
   (match prop.Property.prop_expr with 
   | Some expr -> 
   Format.fprintf ppf "\"expr\" : \"%s\",@,"
-      expr
+      (Lib.escape_json_string expr)
   | None -> ());
   get_attributes prop.Property.prop_source
 
@@ -1230,9 +1250,23 @@ let unknown_json mdl level trans_sys prop =
       (Stat.get_float Stat.analysis_time)
       (short_name_of_kind_module mdl)
 
-(* Pretty-print a counterexample *)
-let pp_print_trace_json
+(* Pretty-print a counterexample already sliced to the property *)
+let pp_print_sliced_trace_json
     ?(object_name = "counterExample")
+    input_sys trans_sys prop_name disproved ppf trace
+=
+  Format.fprintf ppf
+    "\"%s\" :%a"
+    object_name
+    (InputSystem.pp_print_path_json ?prop_name input_sys trans_sys disproved)
+    (Model.path_of_list trace)
+
+(* Pretty-print a counterexample
+
+   The trace is sliced before anything is printed, so that a timeout
+   during the slicing leaves the output of the caller as it was. *)
+let pp_print_trace_json
+    ?object_name
     input_sys
     analysis
     trans_sys
@@ -1247,22 +1281,12 @@ let pp_print_trace_json
     | trace ->
       (
         (* Slice trace and transitions system to property *)
-        let trans_sys', _, trace', input_sys' =
+        let trans_sys, _, trace, input_sys =
           slice_trans_sys_and_cex_to_property
             input_sys analysis trans_sys prop_name trace
         in
-
-        try
-          (* Output trace *)
-          Format.fprintf ppf
-            "\"%s\" :%a"
-            object_name
-            (InputSystem.pp_print_path_json input_sys' trans_sys' disproved)
-            (Model.path_of_list trace')
-        with TimeoutWall -> (
-          Format.fprintf ppf " []@.}@.";
-          raise TimeoutWall
-        )
+        pp_print_sliced_trace_json
+          ?object_name input_sys trans_sys prop_name disproved ppf trace
       )
 
 
@@ -1291,6 +1315,21 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
       match kind with
       | Property.Invariant -> "counterExample"
       | Property.Reachable _ -> "witness"
+    in
+
+    (* Slice trace and transition system to property before printing
+       anything: a timeout during the slicing then prints nothing, and
+       the property stays unknown. Nothing is sliced when the output is
+       ignored. *)
+    let sliced_cex =
+      match cex with
+      | [] -> None
+      | _ when not (output_on_level level) -> None
+      | cex ->
+        Some (
+          slice_trans_sys_and_cex_to_property
+            input_sys analysis trans_sys (Some prop) cex
+        )
     in
 
     (* Output cex. *)
@@ -1340,14 +1379,24 @@ let cex_json ?(wa_model=[]) mdl level input_sys analysis trans_sys prop cex disp
              wa_model
          )
       )
-      (pp_print_trace_json
-        ~object_name input_sys analysis trans_sys (Some prop) disproved)
-      cex
+      (fun ppf -> function
+         | None -> ()
+         | Some (trans_sys', _, cex', input_sys') -> (
+           try
+             pp_print_sliced_trace_json
+               ~object_name input_sys' trans_sys' (Some prop) disproved ppf cex'
+           with TimeoutWall -> (
+             Format.fprintf ppf " []@.}@.";
+             raise TimeoutWall
+           )
+         )
+      )
+      sliced_cex
       ;
 
     (* Output warning if division by zero happened in simplification. *)
     if Simplify.has_division_by_zero_happened () then
-      div_by_zero_text (name_wrapper prop)
+      div_by_zero_text prop
       |> printf_json mdl L_warn
         "@[<v>%a@]"
         (pp_print_list Format.pp_print_string "@,")
@@ -1509,22 +1558,37 @@ include ELog
 (* Specialized logging functions                                          *)
 (* ********************************************************************** *)
 
+(* Whether the outcome of a property is kept out of the output. That of a
+   candidate Kind 2 generated for itself is, in every format: it is only
+   there to help prove the other properties, and its failure is reported
+   through them (a violated assumption is a property of its own). Nothing is
+   looked up in relay mode, where nothing is written either: the property may
+   be unknown to the system there (a step counterexample is relayed without
+   a handler for that case). *)
+let silenced trans_sys prop =
+  get_log_format () <> F_relay
+  && not (TransSys.property_of_name trans_sys prop |> Property.is_reported)
+
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
-  match get_log_format () with 
+  if not (silenced trans_sys prop) then (
+    match get_log_format () with 
     | F_pt -> proved_pt mdl level trans_sys k prop
     | F_xml -> proved_xml mdl level trans_sys k prop
     | F_ijson
     | F_json -> proved_json mdl level trans_sys k prop
     | F_relay -> ()
+  )
 
 let log_unknown mdl level trans_sys prop =
-  match get_log_format () with 
+  if not (silenced trans_sys prop) then (
+    match get_log_format () with 
     | F_pt -> unknown_pt mdl level trans_sys prop
     | F_xml -> unknown_xml mdl level trans_sys prop
     | F_ijson
     | F_json -> unknown_json mdl level trans_sys prop
     | F_relay -> ()
+  )
 
 (* Log a message with a tag, only in the plain text output *)
 let log_with_tag level tag str =
@@ -1537,15 +1601,17 @@ let log_with_tag level tag str =
 
 (* Log a message with source and log level *)
 let log_cex ?(wa_model=[]) disproved mdl level input_sys analysis trans_sys prop cex =
-  match get_log_format () with 
-  | F_pt ->
-    cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_xml ->
-    cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_json
-  | F_ijson ->
-    cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
-  | F_relay -> ()
+  if not (silenced trans_sys prop) then (
+    match get_log_format () with 
+    | F_pt ->
+      cex_pt ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | F_xml ->
+      cex_xml ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | F_json
+    | F_ijson ->
+      cex_json ~wa_model mdl level input_sys analysis trans_sys prop cex disproved
+    | F_relay -> ()
+  )
 
 (* Log a message with source and log level *)
 let log_disproved mdl level input_sys analysis trans_sys prop cex =
@@ -1604,6 +1670,22 @@ let pp_print_user_node_name in_sys ppf scope =
     NI.pp_print_node_id_user_name ppf node_id
   | None -> Scope.pp_print_scope_internal ppf scope
 
+(* A user-facing node name, escaped for the format it is written into. The
+   name of a monomorphized node carries its type arguments in angle
+   brackets, which an XML attribute value may not hold raw. *)
+let pp_print_node_id_escaped escape ppf node_id =
+  Format.pp_print_string ppf
+    (escape (string_of_t NI.pp_print_node_id_user_name node_id))
+
+let pp_print_node_id_xml ppf = pp_print_node_id_escaped escape_xml_string ppf
+let pp_print_node_id_json ppf = pp_print_node_id_escaped escape_json_string ppf
+
+let pp_print_hstring_escaped escape ppf hs =
+  Format.pp_print_string ppf (escape (HString.string_of_hstring hs))
+
+let pp_print_hstring_xml ppf = pp_print_hstring_escaped escape_xml_string ppf
+let pp_print_hstring_json ppf = pp_print_hstring_escaped escape_json_string ppf
+
 (* Logs the end of a run. *)
 let log_run_end in_sys results =
   match get_log_format () with
@@ -1657,12 +1739,15 @@ let log_contractck_analysis_start in_sys scope =
         | Environment -> "environment of"
         | Contract -> "contract of"
         | Type -> "type"
-        | Component -> "contract of imported node"
+        | Component ->
+          if InputSystem.is_lemma in_sys scope then "contract of lemma"
+          else "contract of imported node"
         | Any -> "'any' operator"
         | TypeAscription -> "type ascription operator"
         | FreeConstant -> "global constant"
         | DefinedConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
+        | Restarted -> "restart"
         | Choose -> "'choose' operator")
         NI.pp_print_node_id_user_name node_id
     )
@@ -1673,7 +1758,7 @@ let log_contractck_analysis_start in_sys scope =
             context=\"%s\" \
           />@.@.\
         "
-        NI.pp_print_node_id_user_name node_id
+        pp_print_node_id_xml node_id
         (match (NI.get_node_type node_id) with 
         | Environment -> "environment"
         | Type -> "type"
@@ -1683,6 +1768,7 @@ let log_contractck_analysis_start in_sys scope =
         | DefinedConstant -> "global constant"
         | FreeConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
+        | Restarted -> "restart"
         | Choose -> "'choose' operator");
       analysis_start_not_closed := true
     )
@@ -1696,7 +1782,7 @@ let log_contractck_analysis_start in_sys scope =
           @]@.}@.\
         "
         Log.print_json_sep
-        NI.pp_print_node_id_user_name node_id
+        pp_print_node_id_json node_id
         (match (NI.get_node_type node_id) with 
         | Environment -> "environment"
         | Type -> "type"
@@ -1706,6 +1792,7 @@ let log_contractck_analysis_start in_sys scope =
         | DefinedConstant -> "global constant"
         | FreeConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
+        | Restarted -> "restart"
         | Choose -> "'choose' operator");
       analysis_start_not_closed := true
 
@@ -1752,12 +1839,12 @@ let log_analysis_start in_sys sys param =
             assumptions=\"%a\"\
           />@.@.\
         "
-        NI.pp_print_node_id_user_name node_id
-        (pp_print_list HString.pp_print_hstring ",") concrete
-        (pp_print_list HString.pp_print_hstring ",") abstract
+        pp_print_node_id_xml node_id
+        (pp_print_list pp_print_hstring_xml ",") concrete
+        (pp_print_list pp_print_hstring_xml ",") abstract
         (pp_print_list (fun fmt (scope, cpt) ->
             let node_id = InputSystem.get_node_id in_sys scope in
-            Format.fprintf fmt "(%a,%d)" NI.pp_print_node_id_user_name node_id cpt
+            Format.fprintf fmt "(%a,%d)" pp_print_node_id_xml node_id cpt
           )
           ","
         ) assumption_count ;
@@ -1782,7 +1869,7 @@ let log_analysis_start in_sys sys param =
         |> List.map NI.get_user_name         
       in
       let pp_print_quoted_hstring ppf hs =
-        Format.fprintf ppf "\"%a\"" HString.pp_print_hstring hs
+        Format.fprintf ppf "\"%a\"" pp_print_hstring_json hs
       in
       (* Opening [analysis] tag and printing info. *)
       Format.fprintf !log_ppf "\
@@ -1795,11 +1882,11 @@ let log_analysis_start in_sys sys param =
           @]@.}@.\
         "
         Log.print_json_sep
-        NI.pp_print_node_id_user_name node_id
+        pp_print_node_id_json node_id
         (pp_print_list_attrib pp_print_quoted_hstring) concrete
         (pp_print_list_attrib pp_print_quoted_hstring) abstract
         (pp_print_list_attrib (fun fmt (name, cpt) ->
-            Format.fprintf fmt "[\"%a\",%d]" HString.pp_print_hstring name cpt
+            Format.fprintf fmt "[\"%a\",%d]" pp_print_hstring_json name cpt
           )
         ) (List.combine names assumptions);
       analysis_start_not_closed := true
@@ -1864,22 +1951,20 @@ let log_post_analysis_end () =
 
 (* Terminate log output *)
 let terminate_log () = 
-  match get_log_format () with 
-    | F_pt -> Format.print_flush ()
+  ( match get_log_format () with 
+    | F_pt -> ()
     | F_xml ->
       log_analysis_end () ;
-      print_xml_trailer () ;
-      Format.print_flush ()
+      print_xml_trailer ()
     | F_json ->
       log_analysis_end () ;
       (* ENDING SQUARE BRACKET *)
-      Format.fprintf !log_ppf "]@.";
-      Format.print_flush ()
+      Format.fprintf !log_ppf "]@."
     | F_ijson ->
-      log_analysis_end () ;
-      (* ENDING SQUARE BRACKET *)
-      Format.print_flush ()
-    | F_relay -> ()
+      log_analysis_end ()
+    | F_relay -> () ) ;
+  Format.pp_print_flush !log_ppf () ;
+  Format.print_flush ()
 
 (** Logs a timeout. *)
 let log_timeout b =

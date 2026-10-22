@@ -1,0 +1,9 @@
+datatype M<T> = MN | MC (mv: T, mt: M<T>);
+type Box<T> = struct { a: T };
+type Wrapped<T> = Box<M<T>>;
+
+node main(x: Wrapped<int>) returns (ok: bool);
+let
+  ok = MN?(x.a) or MC?(x.a);
+  check ok;
+tel

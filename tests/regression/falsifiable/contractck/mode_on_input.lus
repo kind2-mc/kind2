@@ -1,0 +1,8 @@
+-- The modes are exhaustive and exclusive, but the ensure of the mode that
+-- applies when x is positive constrains only the input.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  mode pos (require x > 0; ensure x > 1;);
+  mode nonpos (require x <= 0; ensure y = 0;);
+*)

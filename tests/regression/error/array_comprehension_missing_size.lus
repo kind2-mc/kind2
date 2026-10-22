@@ -1,0 +1,5 @@
+-- An array comprehension is followed by one size per index
+node N (A: int^3^2) returns (B: int^3^2);
+let
+  B = (A[i][j] foreach i, j)^3;
+tel

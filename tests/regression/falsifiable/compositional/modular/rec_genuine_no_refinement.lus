@@ -1,0 +1,36 @@
+-- The checks are false of the functions as they are: in the first analysis
+-- of main, their counterexamples execute the calls of Fact and ack that the
+-- contracts abstract, and the supervisor finds that the functions, rather
+-- than their contracts, violate the checks with the same inputs. Refining
+-- Fact and ack, which only replaces their contracts by their bodies, cannot
+-- prove the checks, and main is not refined: before, it was refined up to
+-- --rec_unrollings for each function, which took minutes for ack.
+--
+-- The run is falsifiable, as the checks are, so test_rec_genuine_refinement.py
+-- checks the number of analyses of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+function rec ack(m, n: int) returns (r: int);
+(*@contract
+  assume m >= 0 and n >= 0;
+  guarantee "nonneg" r >= 0;
+  decreases m, n;
+*)
+let
+  r = when m <= 0 then n + 1
+      else when n <= 0 then ack(m - 1, 1)
+      else ack(m - 1, ack(m, n - 1));
+tel
+
+node main(x: int) returns ();
+let
+  check "fact" x = 4 => Fact(x) = 25;
+  check "ack" x = 2 => ack(x, 3) = 10;
+tel

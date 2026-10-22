@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T) returns (y: int);
+let
+  match t with
+  | A (v):
+    frame (y)
+      y = 0;
+    let
+      y = v;
+    tel
+  | B (w):
+    y = w;
+  end
+tel

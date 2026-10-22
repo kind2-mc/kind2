@@ -1,0 +1,36 @@
+-- The integer invariant generator mines the integer subterms of a system,
+-- among them the field selector that the arm A(v) of the match below
+-- compiles to (A_0 m). Evaluating it in a model, the simplifier turned the
+-- selected field into an opaque atom rather than a numeral, so the negated
+-- candidate -(A_0 m) stayed the product (* (- 1) 0) and the generator died
+-- with "num_of_value for term (* (- 1) 0)"; in a model where m is built with
+-- another constructor the selector has no value at all and it died with
+-- "num_of_value for term (A_0 (B 6))". Either way it died on its first model,
+-- before finding anything.
+--
+-- The property needs the relation y <= z, which only the integer invariant
+-- generator finds: the recursive function keeps IC3 out, the Boolean
+-- generator has no such atom to work with, and the property is not
+-- k-inductive for any k (with x > 10 at the last state only, y - z can be
+-- as large as one wants along the path).
+
+datatype T = | A (v: int) | B (i: int) | P (l: T, r: T);
+
+function rec AllA (m: T) returns (r: bool)
+con
+  decreases m;
+noc
+let
+  r = match m with | A(_) : true | P(l, r2) : AllA(l) and AllA(r2) | _ : false end;
+tel
+
+node N (m: T; c: bool; x: int) returns (ok: bool)
+var y, z, w: int;
+let
+  -- y counts the steps where c holds, z counts all the steps: y <= z
+  y = 0 -> (if c then pre y + 1 else pre y);
+  z = 0 -> pre z + 1;
+  w = match m with | A(v) : v mod 3 | _ : 0 end;
+  ok = AllA(m) and w = 0;
+  check "P" ok or x <= 10 or y <= z + x;
+tel

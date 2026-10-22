@@ -56,6 +56,14 @@ module type Inst = sig
       domain, to unblock an engine stuck in a solver call. *)
   val kill_instance : unit -> unit
 
+  (** The process identifier of the solver process *)
+  val pid : unit -> int
+
+  (** Close the pipes to a solver process that {!kill_instance} killed.
+      Only for the domain that owns the solver, and only once: that
+      domain may be reading them until it learns of the kill. *)
+  val close_channels : unit -> unit
+
   (** {1 Declarations} *)
 
   (** Declare a new sort symbol *)
@@ -66,6 +74,13 @@ module type Inst = sig
 
   (** Define a new function symbol as an abbreviation for an expression *)
   val define_fun : string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t ->
+    decl_response
+
+  (** Define a group of (mutually) recursive function symbols, each given
+      with its formal parameters, its result sort and its body, which may
+      apply any symbol of the group *)
+  val define_funs_rec :
+    (string * SMTExpr.var list * SMTExpr.sort * SMTExpr.t) list ->
     decl_response
 
   (** {1 Commands} *)

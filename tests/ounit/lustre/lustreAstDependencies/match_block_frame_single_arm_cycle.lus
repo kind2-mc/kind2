@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (u: int) returns (y: int);
+var s: T;
+let
+  s = if y > 0 then A(u) else B(u);
+  frame (y)
+    y = 0;
+  let
+    match s with
+    | A (v):
+      y = 1;
+    end
+  tel
+tel

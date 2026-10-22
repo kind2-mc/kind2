@@ -1,0 +1,6 @@
+datatype L = Nil | One (v: int);
+node N(x: L) returns (y: bool);
+(*@contract
+  guarantee forall (h: history(x)) (match h with | Nil : true end);
+*)
+let y = true; tel

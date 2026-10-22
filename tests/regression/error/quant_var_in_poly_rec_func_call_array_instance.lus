@@ -1,0 +1,15 @@
+-- A call to a polymorphic recursive function is rejected when it is applied
+-- to a quantified variable and the instantiation it calls has an output of an
+-- array type, even though the function, as written, has none (see
+-- error/quant_var_in_rec_func_call_array_output.lus).
+
+function rec Id<T>(x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else Id(x, n - 1);
+tel
+
+node Test(a: int^2) returns ();
+let
+  check forall (k: int) k <= 0 => Id@<int^2>(a, k)[0] = a[0];
+tel

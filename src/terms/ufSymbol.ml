@@ -176,6 +176,12 @@ and pp_print_uf_symbol ppf { H.node = n } =
 (* Return a string representation of a hashconsed symbol *)
 let string_of_uf_symbol s = string_of_t pp_print_uf_symbol s
 
+(* The symbol as the SMT solvers are given it, quoted if needed *)
+let smtlib_string_of_uf_symbol { H.node = n } = Lib.smtlib_symbol n
+
+let pp_print_smtlib_uf_symbol ppf s =
+  Format.pp_print_string ppf (smtlib_string_of_uf_symbol s)
+
 
 (* ********************************************************************* *)
 (* Accessor function                                                     *)

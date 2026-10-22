@@ -18,10 +18,82 @@
         
 open Lib
 
+(* The system of the analysis sliced to the property, as IC3IA builds it,
+   for a property that was in the input system and when the nodes are
+   sliced *)
+let sliced_to_property input_sys aparam trans_sys name () =
+  if Flags.slice_nodes () <> `On then None
+  else
+    let prop = TransSys.property_of_name trans_sys name in
+    match prop.Property.prop_source with
+    | Property.Instantiated _
+    | Property.Assumption _
+    | Property.Generated (None, _, _) -> None
+    | _ ->
+      match
+        InputSystem.trans_sys_of_analysis ~slice_to_prop:prop input_sys
+          (Analysis.param_clone aparam)
+      with
+      | sys, _ -> Some sys
+      | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+
 let handle_events input_sys aparam trans_sys = 
 
   (* Receive queued events *)
   let events = KEvent.recv () in
+
+  (* A property found false by a counterexample that reaches a recursive
+     call past the unrollings of its function, whose outputs are
+     unconstrained, and whose violation depends on them: the counterexample
+     may be spurious, and the event is dropped. The function is unrolled
+     further and the engines run again (see [RecUnrolling] and
+     [Kind2Flow]), or, when it is at the limit, the property is left
+     unknown. *)
+  let events =
+    events |> List.filter (function
+      | (_, KEvent.PropStatus (p, Property.PropFalse cex)) -> (
+        (* On Windows the wall clock timeout is only ever noticed by the
+           polling loop; a query to a solver is a process to start and
+           wait for, and a round can bring dozens of counterexamples at
+           once, so the clock is looked at before each. *)
+        ( if Sys.win32 then
+            let timeout = Flags.timeout_wall () in
+            Stat.update_time Stat.total_time ;
+            if timeout > 0. && Stat.get_float Stat.total_time > timeout then
+              raise TimeoutWall ) ;
+        match RecUnrolling.suspect trans_sys p cex with
+        | [] ->
+          (* Reported: whether refining the recursive functions whose
+             contracts abstract them may rule the counterexample out *)
+          RecUnrolling.check_abstractions
+            ~sliced:(sliced_to_property input_sys aparam trans_sys p)
+            trans_sys p cex ;
+          true
+        | reached ->
+          ( match RecUnrolling.request aparam p reached with
+            | `At_limit (too_many, at_limit) ->
+              if too_many <> [] then
+                KEvent.log L_warn
+                  "@[<hov>Counterexamples reach a recursive call of %a left \
+                   unconstrained, and unrolling the function further would \
+                   create more than %d instances of it, the limit;@ the \
+                   properties they falsify are left unknown.@]"
+                  (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
+                  too_many
+                  (Flags.Contracts.rec_instances ()) ;
+              if at_limit <> [] then
+                KEvent.log L_warn
+                  "@[<hov>Counterexamples reach a recursive call of %a left \
+                   unconstrained after %d unrollings, the limit;@ the \
+                   properties they falsify are left unknown.@]"
+                  (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
+                  at_limit
+                  (Flags.Contracts.rec_unrollings ())
+            | `Requested -> () ) ;
+          false
+      )
+      | _ -> true)
+  in
 
   (* Output events *)
   List.iter 
@@ -172,6 +244,15 @@ let wait_for_children run_process pending_processes sys child_pids =
 
           let crashed_too =
             match EngineDomains.outcome child with
+            | EngineDomains.Done None
+              when MemoryWatch.stopped_for_memory child_id ->
+              (* Stopped for the memory its solvers took: the engines
+                 that depend on it cannot conclude without it *)
+              KEvent.log L_info
+                "Child process %d (%a) stopped for memory"
+                child_id
+                pp_print_kind_module (EngineDomains.mdl child) ;
+              true
             | EngineDomains.Done None ->
               KEvent.log L_info
                 "Child process %d (%a) terminated normally"
@@ -214,6 +295,10 @@ let rec loop
 
   handle_events input_sys aparam trans_sys ;
 
+  (* Stop the engine whose solvers take the memory, if they are about
+     to run the analysis out of it *)
+  MemoryWatch.check () ;
+
   (* On Windows there is no SIGALRM-based wall clock timeout: enforce
      it here. [handle_events] has just refreshed the total time. *)
   ( if Sys.win32 then
@@ -223,9 +308,13 @@ let rec loop
 
   let done_at' =
 
-    (* All properties proved? *)
-    if (TransSys.all_props_proved trans_sys && not ignore_props)
+    (* All properties proved, disproved or given up on? Or a recursive
+       function to unroll further, on which the engines are to be run
+       again (see [RecUnrolling])? *)
+    let deepening = RecUnrolling.requested () <> [] in
+    if (RecUnrolling.all_settled trans_sys && not ignore_props)
     || (TransSys.at_least_one_prop_falsified trans_sys && stop_if_falsified)
+    || deepening
     then (
 
       (* Has is_done been true in the last iteration? *)
@@ -233,12 +322,20 @@ let rec loop
 
       | None ->
           (* Message after is_done becomes true first time *)
-          KEvent.log L_info
-            "<Done> @[<v>\
-              All properties proved or disproved in %.3fs.@ \
-              Waiting for children to terminate.\
-            @]"
-            (Stat.get_float Stat.total_time) ;
+          if deepening then
+            KEvent.log L_info
+              "<Done> @[<v>\
+                Recursive functions to unroll further after %.3fs.@ \
+                Waiting for children to terminate.\
+              @]"
+              (Stat.get_float Stat.total_time)
+          else
+            KEvent.log L_info
+              "<Done> @[<v>\
+                All properties proved or disproved in %.3fs.@ \
+                Waiting for children to terminate.\
+              @]"
+              (Stat.get_float Stat.total_time) ;
 
           (* Solvers of terminating engines are killed outright instead
              of shut down gracefully, as the engine processes and their

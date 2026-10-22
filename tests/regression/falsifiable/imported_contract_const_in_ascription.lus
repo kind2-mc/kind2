@@ -1,0 +1,56 @@
+-- The actual parameter of a constant input of an imported contract, and the
+-- value of a ghost constant, are the bounds checked by a type ascription
+-- mentioning them (issue #1648)
+
+contract CParam(const n: int; x: int) returns (y: int);
+let
+  guarantee ((y : subtype { w: int | w <= n })) = y;
+tel
+
+node ImportParam (x: int) returns (y: int);
+(*@contract import CParam(10, x) returns (y); *)
+let
+  y = 11;
+tel
+
+contract CGhost(x: int) returns (y: int);
+let
+  const g: int = 10;
+  guarantee ((y : subtype { w: int | w <= g })) = y;
+tel
+
+node ImportGhost (x: int) returns (y: int);
+(*@contract import CGhost(x) returns (y); *)
+let
+  y = 11;
+tel
+
+-- A ghost constant passed for a constant input of an imported contract,
+-- whose value depends on a constant input of the importing contract: the
+-- bound is g = 9, not the actual parameter of m
+
+contract D(const n: int; x: int) returns (y: int);
+let
+  guarantee ((y : subtype { w: int | w <= n })) = y;
+tel
+
+contract CDerivedGhostImport(const m: int; x: int) returns (y: int);
+let
+  const g: int = m - 1;
+  import D(g, x) returns (y);
+tel
+
+node ImportDerivedGhostImport (x: int) returns (y: int);
+(*@contract import CDerivedGhostImport(10, x) returns (y); *)
+let
+  y = 10;
+tel
+
+node OwnGhostImport (x: int) returns (y: int);
+(*@contract
+  const g: int = 11;
+  import D(g, x) returns (y);
+*)
+let
+  y = 12;
+tel

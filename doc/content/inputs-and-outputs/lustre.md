@@ -1,0 +1,2187 @@
+---
+title: "Kind 2 Input"
+weight: 2
+---
+Kind 2 reads input models written in an extension of the dataflow Lustre language
+(see this [primer]({{< relref "/lucent-primer" >}}) for
+a quick introduction to the Lustre language).
+Kind 2 supports most of the Lustre V4 syntax and some elements of Lustre V6.
+See the file [examples/syntax-test.lus](https://github.com/kind2-mc/kind2/blob/main/examples/syntax-test.lus) for
+examples of all supported language constructs.
+
+## Properties and top-level node
+
+To specify an invariant property to verify in a Lustre node, add the following annotation in the body (*i.e.* between keywords `let` and `tel`) of the node:
+
+```lustre
+--%PROPERTY ["<name>"] <bool_expr> ;
+```
+
+or, use a `check` statement:
+
+```lustre
+check ["<name>"] <bool_expr> ;
+```
+
+where `<name>` is an identifier for the property and `<bool_expr>` is a Boolean Lustre expression.
+
+In addition to invariant properties, Kind 2 also accepts dedicated syntax for
+checking the existence of a witness.
+You can specify reachability properties of the form:
+
+```lustre
+--%PROPERTY reachable ["<name>"] <bool_expr> [from <int>] [within <int>];
+```
+
+or, using a `check` statement:
+
+```lustre
+check reachable ["<name>"] <bool_expr> [from <int>] [within <int>];
+```
+
+where the clauses between square brackets are optional.
+The optional clauses allow you to specify, exclusively or at the same time,
+a lower and upper bound on the number of execution steps in the witness trace.
+Concretely, `check reachable P from m` asks whether a state satisfying `P` is reachable in `m` steps or more while
+`check reachable P within n` asks whether a state satisfying `P` is reachable in `n` steps or less.
+Moreover, Kind 2 also supports the following syntax for the specification of properties where
+the lower and upper bounds are the same:
+
+```lustre
+check reachable ["<name>"] <bool_expr> at <int>;
+```
+
+Without modular reasoning active, Kind 2 only analyzes the properties of what it calls the *top nodes*.
+By default, any node that is not depended on by another node (i.e. called by that node) is a top node.
+Alternatively, nodes can be marked as *main nodes* by doing the following:
+
+```lustre
+--%MAIN ;
+```
+
+to the body of that node.
+
+You can also specify the main node in the command line arguments, with
+
+```text
+kind2 --lus_main <node_name> ...
+```
+
+Main nodes specified by the command line option override main nodes annotated in the source code. If any main nodes exist then only main nodes are analyzed (top nodes are not).
+
+### Examples
+
+The following example declares two nodes `greycounter` and `intcounter`, as well as an *observer* node `top` that calls these nodes and verifies that their outputs are the same. The node `top` is annotated with `--%MAIN ;` which makes it a *main node*. The line `--%PROPERTY OK;` means we want to verify that the Boolean stream `OK` is always true.
+
+```lustre
+node greycounter (reset: bool) returns (out: bool);
+var a, b: bool; 
+let
+  a = false -> (not reset and not pre b);
+  b = false -> (not reset and pre a);
+  out = a and b;
+
+tel
+
+node intcounter (reset: bool; const max: int) returns (out: bool);
+var t: int; 
+let
+  t = 0 -> if reset or pre t = max then 0 else pre t + 1;
+  out = t = 2;
+
+tel
+
+node top (reset: bool) returns (OK: bool);
+var b, d: bool;
+let
+  b = greycounter(reset);
+  d = intcounter(reset, 3);
+  OK = b = d;
+
+  --%MAIN ;
+
+  --%PROPERTY OK;
+
+tel
+```
+
+Kind 2 produces the following on standard output when run with the default options (`kind2 <file_name.lus>`):
+
+```text
+kind2 v1.5.1
+
+==============================================================
+Analyzing top
+  with First top: 'top'
+             subsystems
+               | concrete: intcounter, greycounter
+
+<Success> Property OK is valid by inductive step after 0.065s.
+
+--------------------------------------------------------------
+Summary of properties:
+--------------------------------------------------------------
+OK: valid (k=5)
+==============================================================
+```
+
+We can see here that the property `OK` has been proven valid for the system (by *k*-induction).
+
+The second example demonstrates reachability properties using a single `counter` node:
+
+```lustre
+node counter () returns (out: int);
+let
+   out = 0 -> pre out + 1;
+
+   check reachable out = 10;
+   check reachable out = 100 from 99;
+   check reachable out = 50 at 50;
+   check reachable out = 15 from 10 within 20;
+
+   check reachable out = 10 within 5;
+tel
+```
+
+Kind 2 produces output reporting that the first four expressions are reachable, while the last is not.
+If you want to print a witness in the standard output for each proven reachability property,
+pass `--print_witness true` to Kind 2. To dump the witness to a file instead,
+pass `--dump_witness true` to Kind 2.
+
+### Conditional Properties
+
+Invariant properties of a node are often case-based, with each case describing what
+the component should do depending on a specific situation.
+These properties are usually encoded in conditional properties of the form
+`situation => behavior`, and are often better represented in terms of the mode logic of
+a node (see subsection Modes in [Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})).
+However, these properties do not always imply modal behavior, or
+they are not defined in terms of the interface of a node.
+For those cases, Kind 2 allows the user to specify a conditional invariant property
+of the form `B => A` as follows:
+
+```lustre
+check A provided B;
+```
+
+This dedicated syntax makes writing properties more straightforward and
+user-friendly, but also allows Kind 2 to trigger additional checks.
+A challenge for the user with these kinds of properties arises if the guard `B`
+may always be false, for example due to a modeling error.
+The user may believe that the property is interesting and true,
+whereas the property is vacuously true.
+
+When the dedicated syntax above is used, Kind 2 simultaneously checks that
+`B => A` is invariant and `B` is reachable. If `B => A` is in fact invariant,
+the reachability check lets you know whether the implication is trivially true
+or not. Notice that when running Kind 2 in modular mode, the reachability check is
+performed locally to a node without taking call contexts into account;
+only the specified assumptions are considered.
+You can disable this check by passing `--check_nonvacuity false` to Kind 2,
+or by suppressing all reachability checks (`--check_reach false`).
+
+## Contracts
+
+A contract `(A,G,M)`for a node is a set of assumptions `A`, a set of
+guarantees `G`, and a set of modes `M`. The semantics of contracts is given
+in the
+[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})
+section, here we focus on the input format for contracts. Contracts are
+specified either locally, using the *inline syntax*, or externally in a
+*contract node*. Both the local and external syntax have a body
+composed of *items*, each of which define
+
+- a ghost variable / constant,
+- an assumption,
+- a guarantee,
+- a mode, or
+- an import of a contract node.
+
+They are presented in detail below, after the discussion on local and external
+syntaxes.
+
+### Inline syntax
+
+A local contract is a block between the signature of the node
+
+```lustre
+node <id> (...) returns (...) ;
+```
+
+and its body. That is, between the `;` of the node signature and the `let`
+opening its body.
+
+A local contract block is denoted by the keywords <span class="title-ref">con</span> and \`noc\`:
+
+```lustre
+con
+  [item]+
+noc
+```
+
+The original contract syntax (which is deprecated but still available)
+is a special block comment of the form
+
+```lustre
+(*@contract
+  [item]+
+*)
+```
+
+or
+
+```lustre
+/*@contract
+  [item]+
+*/
+```
+
+### External syntax
+
+A contract node is very similar to a traditional lustre node. The two
+differences are that
+
+- it starts with `contract` instead of `node`, and
+- its body can only mention *contract items*.
+
+A contract node thus has form
+
+```lustre
+contract <id> (<in_params>) returns (<out_params>) ;
+let
+  [item]+
+tel
+```
+
+To use a contract node one needs to import it through an inline contract. See
+the next section for more details.
+
+### Contract items and restrictions
+
+#### Ghost variables and constants
+
+A ghost variable (constant) is a stream that is local to the contract. That is,
+it is not accessible from the body of the node specified. Ghost variables
+(constants) are defined with the `var` (`const`) keyword. Kind 2 performs type
+-inference for constants so in most cases type annotations are not necessary.
+
+The general syntax is
+
+```lustre
+const <id> [: <type>] = <expr> ;
+var   <id>  : <type>  = <expr> ;
+```
+
+For instance:
+
+```lustre
+const max = 42 ;
+var ghost_stream: real = if input > max then max else input ;
+```
+
+#### Assumptions
+
+An assumption over a node `n` is a constraint one must respect in order to use
+`n` legally. It cannot depend on outputs of `n` in the current state, but
+referring to outputs under a `pre` is fine.
+
+The idea is that it does not make sense to ask the caller to respect some
+constraints over the outputs of `n`, as the caller has no control over them
+other than the inputs it feeds `n` with.
+The assumption may however depend on previous values of the outputs produced
+by `n`.
+
+Assumptions are given with the `assume` keyword, followed by any legal Boolean
+expression:
+
+```lustre
+assume <expr> ;
+```
+
+#### Guarantees
+
+Unlike assumptions, guarantees do not have any restrictions on the streams
+they can depend on. They typically mention the outputs in the current state since
+they express the behavior of the node they specified under the assumptions of
+this node.
+
+Guarantees are given with the `guarantee` keyword, followed by any legal
+Boolean expression:
+
+```lustre
+guarantee <expr> ;
+```
+
+#### Modes
+
+A mode `(R,E)` is a set of *requires* `R` and a set of *ensures* `E`.
+Modes are named to ease traceability and improve feedback. The general syntax
+is
+
+```lustre
+mode <id> (
+  [require <expr> ;]*
+  [ensure  <expr> ;]*
+) ;
+```
+
+For instance:
+
+```lustre
+mode engaging (
+  require true -> not pre engage_input ;
+  require engage_input ;
+  -- No ensure, same as `ensure true ;`.
+) ;
+mode engaged (
+  require engage_input ;
+  require false -> pre engage_input ;
+  ensure  output <= upper_bound ;
+  ensure  lower_bound <= output ;
+) ;
+```
+
+#### Imports
+
+A contract import *merges* the current contract with the one imported. That
+is, if the current contract is `(A,G,M)` and we import `(A',G',M')`, the
+resulting contract is `(A U A', G U G', M U M')` where `U` is set union.
+However, each contract import introduces its own namespace to avoid
+name collisions.
+
+When importing a contract, it is necessary to specify how the instantiation of
+the contract is performed. This defines a mapping from the input (output)
+formal parameters to the actual ones of the import.
+
+When importing contract `c` in the contract of node `n`,
+the actual input parameters of the import of `c` cannot depend on
+outputs of `n` in the current state.
+The reason is that the distinction between inputs and outputs lets Kind 2 check
+that the assumptions requirements make sense, *i.e.* do not depend on
+outputs of `n` in the current state.
+
+The general syntax is
+
+```lustre
+import <id> ( <expr>,* <expr> ) returns ( <id>,* <id> ) ;
+```
+
+For instance:
+
+```lustre
+contract spec (engage, disengage: bool) returns (engaged: bool) ;
+let ... tel
+
+node my_node (
+  -- Flags are "signals" here, but `bool`s in the contract.
+  engage, disengage: real
+) returns (
+  engaged: real
+) ;
+con
+  var bool_eng: bool = engage <> 0.0 ;
+  var bool_dis: bool = disengage <> 0.0 ;
+  var bool_enged: bool = engaged <> 0.0 ;
+
+  var never_triggered: bool = (
+    not bool_eng -> not bool_eng and pre never_triggered
+  ) ;
+
+  assume not (bool_eng and bool_dis) ;
+  guarantee true -> (
+    (not engage and not pre bool_eng) => not engaged
+  ) ;
+
+  mode init (
+    require never_triggered ;
+    ensure not bool_enged ;
+  ) ;
+
+  import spec (bool_eng, bool_dis) returns (bool_enged) ;
+noc
+let ... tel
+```
+
+#### Mode references
+
+Once a mode has been defined it is possible to *refer* to it with
+
+```lustre
+::<scope>::<mode_id>
+```
+
+where `<mode_id>` is the name of the mode, and `<scope>` is the path to the
+mode in terms of contract imports.
+
+In the example from the previous section for instance, say contract `spec` has
+a mode `m`. The inline contract of `my_node` can refer to it by
+
+```lustre
+::spec::m
+```
+
+To refer to the `init` mode:
+
+```lustre
+::init
+```
+
+A mode reference is syntactic sugar for the `requires` of the mode in question.
+So if mode `m` is
+
+```lustre
+mode m (
+  require <r_1> ;
+  require <r_2> ;
+  ...
+  require <r_n> ; -- Last require.
+  ...
+) ;
+```
+
+then `::<path>::m` is exactly the same as
+
+```lustre
+(<r_1> and <r_1> and ... and <r_n>)
+```
+
+**N.B.**: a mode reference
+
+- is a Lustre expression of type `bool` just like any other Boolean expression.
+  It can appear under a `pre`, be used in a node call or a contract import, *etc.*
+- is only legal **outside** the mode item itself. That is, no self-references are allowed.
+  Forward references are allowed.
+
+An interesting use-case for mode references is that of checking properties over
+the specification itself. One may want to do so to make sure the specification
+behaves as intended. For instance
+
+```lustre
+mode m1 (...) ;
+mode m2 (...) ;
+mode m3 (...) ;
+
+guarantee true -> ( -- `m3` cannot succeed to `m1`.
+  (pre ::m1) => not ::m3
+) ;
+guarantee true -> ( -- `m1`, `m2` and `m3` are exclusive.
+  not (::m1 and ::m2 and ::m3)
+) ;
+```
+
+### Restart
+
+Kind 2 supports resetting the internal state of an expression to its initial
+state with the construct restart/every. Writing
+
+```lustre
+restart e every r
+```
+
+evaluates the expression `e`, and every time the Boolean stream `r` is true,
+the internal state of `e` is reset to its initial state: every `->`, `pre` and
+`fby` operator in `e`, and every node called in `e`, starts again as at the
+first step. The reset happens at the very step at which `r` is true, so the
+value of `e` at that step is computed from its initial state. The condition `r`
+itself is not reset, and neither are the streams `e` reads from outside: only
+the state that `e` holds is.
+
+In the example below, the node `top` calls `counter` (an integer counter
+*modulo* a constant `max`), which is reset every time the input stream `reset`
+is true.
+
+```lustre
+node counter (const max: int) returns (t: int);
+let
+  t = 0 -> if pre t = max then 0 else pre t + 1;
+tel
+
+node top (reset: bool) returns (c: int);
+let
+  c = restart counter(3) every reset;
+tel
+```
+
+A trace of execution for the node `top` could be:
+
+| step | reset | c |
+| ---- | ----- | - |
+| 0    | false | 0 |
+| 1    | false | 1 |
+| 2    | false | 2 |
+| 3    | false | 3 |
+| 4    | true  | 0 |
+| 5    | false | 1 |
+| 6    | false | 2 |
+| 7    | true  | 0 |
+| 8    | true  | 0 |
+| 9    | false | 1 |
+
+The restarted expression does not need to be a node call:
+`x = restart (0 -> pre x + 1) every reset;` defines the same counter, without
+the modulo. The arguments of a call are part of the restarted expression, so
+in `restart counter(n) every r` any state that `n` holds is reset as well. An
+argument whose state must not be reset is defined outside the restart, in a
+local variable.
+
+Like `if ... then ... else ...`, the condition `every r` extends as far to the
+right as possible: `restart e every r or s` is `restart e every (r or s)`.
+
+A group of equations can be restarted together with a restart block:
+
+```lustre
+restart
+  s = 0 -> pre s + i;
+  m = 0 -> if s > pre m then s else pre m;
+every reset end
+```
+
+All the streams defined in the block, and the state of the expressions that
+define them, are reset every time `reset` is true. A restart block may contain
+equations, assertions, and `if`, `when`, `match` and restart blocks, but no
+properties, main annotations or frame blocks.
+
+> **Note:** This construction can be encoded in traditional Lustre by having a
+> Boolean input for the reset stream for each node. However providing a
+> built-in way to do it facilitates the modeling of complex control systems.
+
+**Restart and clocks.** A restart inside a branch of a `when` expression or
+block (see [Conditional expressions](#conditional-expressions)) is evaluated on
+the clock of the branch: in
+
+```lustre
+o = when c then (restart counter(3) every r) else -1;
+```
+
+`counter` is only reset at the steps at which both `c` and `r` are true, and a
+step at which `r` is true while `c` is false has no effect. A restart around a
+`when` expression, on the other hand, also resets the state of the branches
+that are not selected: in
+
+```lustre
+o = restart (when c then counter(3) else -1) every r;
+```
+
+`counter` starts again from its initial state the next time `c` is true after
+any step at which `r` was true.
+
+**Restrictions.** A restart cannot appear in a function or in the definition of
+a constant, since neither has state. The `last` operator cannot be used under a
+restart, and a restart cannot apply to values whose type is a type parameter of
+a polymorphic node.
+
+**Clock operators.** Kind 2 does not support the clock operators `merge`,
+`when` (as a sampling operator, `e when c`), `current`, `activate` and
+`condact` of Lustre and Scade. Their behavior is obtained with `when`
+expressions, which evaluate only the selected branch, and with restart:
+
+| Clock operator | With `when` and `restart` |
+| -------------- | ------------------------- |
+| `merge c (true -> e1 when c) (false -> e2 when not c)` | `when c then e1 else e2` |
+| `merge k (A -> e1 when A(k)) (B -> e2 when B(k)) (C -> e3 when C(k))` | `when k = A then e1 else when k = B then e2 else e3` |
+| `merge c (true -> (activate N every c)(x)) (false -> e when not c)` | `when c then N(x) else e` |
+| `condact(c, N(x), d)` | `o = when c then N(x) else h; h = d fby o;` |
+| `condact(c, (restart N every r)(x), d)` | `o = when c then (restart N(x) every r) else h; h = d fby o;` |
+| `(restart N every r)(x)` | `restart N(x) every r` |
+
+A case analysis on more than two values, such as a `merge` on an enumerated
+clock, reads more naturally as a [cond block](#cond-blocks), which has the same
+meaning as the nested `when` expressions:
+
+```lustre
+cond
+  | k = A: o = e1;
+  | k = B: o = e2;
+  otherwise: o = e3;
+end
+```
+
+Temporal operators and node calls in a branch of a `when` expression run on the
+clock of the branch: their state only advances at the steps at which the branch
+is selected. A sampled expression `e when c` was evaluated at every step, and
+only its value was selected, so an `e` with state of its own is defined outside
+the branches. For the same reason, the previous value `h` that `condact` keeps
+while `c` is false is defined outside the `else` branch, where `fby` would run
+on the clock `not c`. The regression test
+[clock_operators_with_when_and_restart.lus](https://github.com/kind2-mc/kind2/blob/main/tests/regression/success/clock_operators_with_when_and_restart.lus)
+checks each of these implementations against a reference.
+
+## Underspecified outputs
+
+Every output (and local variable) of a node or function must be defined in its
+body, either by an equation or by a frame block; leaving an output without a
+definition is rejected. (The only exception is `imported` nodes and functions,
+which have no body at all; see [The imported keyword]({{< relref "/inputs-and-outputs/lustre#the-imported-keyword" >}}).)
+
+An output need not be given a precise value, however. It can be left
+*underspecified* by assigning it an arbitrary value of the appropriate type with
+the `any` (or `choose`) operator (see [Nondeterministic choice operator](#nondeterministic-choice-operator)).
+This is the intended way to express that an output is not fully constrained. For
+instance, the node below defines `count` precisely but leaves `error`
+underspecified, while still being analyzed against its contract:
+
+```lustre
+node count (trigger: bool) returns (count: int ; error: bool) ;
+con
+  var once: bool = trigger or (false -> pre once) ;
+  guarantee count >= 0 ;
+  mode still_zero (
+    require not once ;
+    ensure count = 0 ;
+  ) ;
+  mode gt (
+    require not ::still_zero ;
+    ensure count > 0 ;
+  ) ;
+noc
+let
+  count = (if trigger then 1 else 0) + (0 -> pre count) ;
+  error = any@<bool> ;
+tel
+```
+
+This node can be analyzed: first for mode exhaustiveness, and then the body is
+checked against its contract. Here, both will succeed.
+
+## The `imported` keyword
+
+Nodes (and functions, see below) can be declared `imported`. This means that
+the node does not have a body (`let ... tel`). In a Lustre compiler, this is
+usually used to encode a C function or more generally a call to an external
+library.
+
+```lustre
+node imported no_body (inputs: ...) returns (outputs: ...) ;
+```
+
+In Kind 2, this means that the node is always abstract in the contract sense.
+It can never be refined, and is always abstracted by its contract. If none is
+given, then the implicit (rather weak) contract
+
+```lustre
+con
+  assume true ;
+  guarantee true ;
+noc
+```
+
+is used.
+
+In a modular analysis, `imported` nodes will not be analyzed, although if their
+contract has modes they will be checked for exhaustiveness, consistently with
+the usual Kind 2 contract workflow.
+Every output of an imported node is assumed to depend on every input.
+This may lead Kind 2 to detect circular dependencies that do not exist
+in an \_[actual]() system, resulting in the rejection of an input model.
+To make Kind 2 accept such model, the imported node must be refined
+by decomposing it into smaller subnodes and specifying the actual
+dependencies among inputs and outputs.
+
+## Functions
+
+Kind 2 supports the `function` keyword which is used just like the `node` one
+but has slightly different semantics. Like the name suggests, the output(s) of
+a `function` must be a *non-temporal* combination of its inputs. That is, a
+function cannot depend on the `->`, `pre`, `fby` or `restart` operators.
+A function is also not allowed to call a node, only other functions.
+In Lustre terms, functions are stateless.
+
+In Kind 2, these restrictions also apply to the contract attached to a function,
+if any. Moreover, Kind 2 strictly enforces that imported functions
+and functions abstracted by their contracts
+behave as mathematical functions. That is, given the same inputs,
+such a function always produces the same outputs, regardless of the step at
+which it is called.
+
+The stateless nature of functions also determines the scope of their contract
+assumptions. For a function, an assumption constrains only the *current*
+timestep: when reasoning about a call, the function's guarantees may rely on its
+assumptions holding at the current step alone. For a node, by contrast, the
+scope extends to all previous timesteps: the node's guarantees may rely on its
+assumptions having held at every step up to and including the current one (the
+"assumptions always hold implies guarantees always hold" semantics described in
+[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})). This mirrors the fact
+that a function's outputs depend only on the current values of its inputs,
+whereas a node may also depend on their previous values.
+
+### Recursive functions
+
+A function may call itself, directly or through a cycle of other functions,
+if it is declared with the `rec` modifier:
+
+```text
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec to_int (n: Nat) returns (out: int)
+con
+  decreases n;
+noc
+let
+  out = match n with
+    | Zero      : 0
+    | Succ (m)  : 1 + to_int (m)
+  end;
+tel
+```
+
+Every function marked `rec`, and every function reachable from it through a
+call cycle, must carry a `decreases` contract item. This measure is what lets
+Kind 2 establish that the recursion terminates (without it, a call could be
+given a definition that has no solution). Kind 2 rejects a `rec` function that
+lacks a `decreases` clause, and rejects a plain (non-`rec`) function that is
+found to actually be part of a (recursive) call cycle. A
+[lemma]({{< relref "/inputs-and-outputs/lustre#lemmas" >}}) needs a
+`decreases` clause only when it invokes itself, directly or through a cycle
+of other lemmas; a lemma without such a call may omit it.
+
+A `decreases` clause is only meaningful in the inline contract of a `rec`
+function or of a lemma, and exactly one clause is allowed there. Declaring
+one anywhere else is an error.
+
+A `decreases` clause takes one of two forms. In either form, the measure may
+only mention the input parameters of the function and constants. It may call a
+non-recursive function that can be inlined: one with no contract with
+guarantees, modes or a refinement type on an output (or declared
+`transparent`), with a single output, whose body is made of equations that
+define its output and local variables one at a time, without assertions or
+variables of an array type, and which calls only functions that can be inlined
+in turn. The call is replaced by the body of the function, and the obligations
+of the call, such as the assumptions of the function, are checked as for any
+other call. A type ascription is allowed as well. A measure cannot contain a
+`choose` or `any` operator, or call a node, a recursive or imported function,
+or a function with a contract that abstracts it; a measure that needs a value
+computed by such a function can take that value as an additional input
+parameter.
+
+**Integer measure.** A single integer expression, or a comma-separated tuple of
+integer expressions read lexicographically:
+
+```text
+type Count = subrange [0,*] of int;
+
+function rec sum_to (n: Count) returns (out: int)
+con
+  decreases n;
+noc
+let
+  out = when n = 0 then 0 else n + sum_to (n - 1);
+tel
+```
+
+For an integer measure, Kind 2 generates two proof obligations per recursive
+call and verifies them like any other property: the measure must be bounded
+below by `0`, and it must strictly decrease (lexicographically, for tuples)
+from caller to callee. The analysis of the function itself, in a modular
+analysis (`--modular true`), verifies them for every recursive call of the
+function, whether or not a property or a guarantee depends on the call, and
+whether or not the function has a contract.
+
+Note the use of `when ... then ... else` rather than plain `if ... then ... else`:
+in Lustre, both branches of an `if` are part of the expression's definition
+regardless of which one is selected, so the `else` branch's `sum_to (n - 1)`
+would still need to be well-defined (and its argument still in range) even when
+`n = 0`. `when ... then ... else` guards the untaken branch instead, so the
+recursive call is only ever made with `n - 1`, which stays within `Count`
+precisely because it is guarded by `n = 0` being false. This is also why the
+input is restricted to `Count`: the measure must be bounded below by `0` for
+the recursion to be well-founded, and this only holds for non-negative `n`.
+
+**Algebraic-datatype measure.** A single expression whose type is a recursive
+ADT (see [Algebraic Datatypes]({{< relref "/inputs-and-outputs/algebraic-datatypes" >}})).
+This form cannot be used as a component of a tuple measure. Instead of
+generating a property, Kind 2 checks ADT measures **statically**, at compile
+time: for every recursive call, the callee's measure (after substituting the
+actual call arguments for the callee's parameters) must be a variable that the
+caller obtained by pattern-matching — possibly through several nested matches —
+on its own measure. Concretely: matching on the measure itself (or on a
+variable already known, from an earlier match, to be such a variable) and
+binding one of the resulting constructor's fields makes that field's variable
+an accepted witness that the recursion is decreasing. For example:
+
+```text
+datatype Nat = Succ (pred: Nat) | Zero;
+
+function rec is_even (n: Nat) returns (b: bool)
+con
+  decreases n;
+noc
+let
+  b = match n with
+    | Zero      : true
+    | Succ (m)  : is_odd (m)
+  end;
+tel
+
+function rec is_odd (n: Nat) returns (b: bool)
+con
+  decreases n;
+noc
+let
+  b = match n with
+    | Zero      : false
+    | Succ (m)  : is_even (m)
+  end;
+tel
+```
+
+Here `is_even`'s call to `is_odd (m)` passes `m` in the position of `is_odd`'s
+own measure `n`. The match arm `Succ (m)` is matching directly on `is_even`'s
+measure `n`, so `m` — the field it binds — is accepted as a witness that the
+call decreases. The same reasoning applies to `is_odd`'s call back into
+`is_even`, so the mutual recursion is accepted as terminating.
+
+Because a match's tester (e.g. `Succ?(n)`) is what actually guarantees a
+pattern-bound variable is a genuine substructure of the matched value, only
+such variables are accepted. A **raw field selector is never accepted**, even
+when applied to the exact same field a match would have bound, and even when it
+appears directly guarded by an `if`/`when` on the right tester (e.g.
+`if Succ?(n) then is_even (n.pred) else ...`): applied to the wrong constructor
+a selector is unconstrained, and the checker has no way to confirm, from an
+`if`/`when` alone, that the guard actually holds at the call. Likewise, an
+argument computed through an intermediate local variable, an auxiliary call, or
+any other indirection is rejected even if it is semantically equal to a
+directly pattern-matched variable.
+
+The check also applies to calls written inside a type annotation — a refinement
+predicate on an input, output or local, or an array bound. Such a call can
+never be decreasing, since only a match in the function's body can witness a
+decrease, so it is always rejected.
+
+### How recursive functions are analyzed
+
+Kind 2 unrolls the definition of a recursive function a bounded number of
+times: a call to the function is expanded to its body, and so are the
+recursive calls inside that body, up to a number of unrollings; what the
+recursive calls past those unrollings stand for depends on the kind of
+analysis.
+
+By default, and in a modular analysis (`--modular true`), such a call is left
+unconstrained: its outputs are tied to the outputs of the other calls of the
+function with the same arguments, and to nothing else. A property that holds
+of the unrolled function then holds of the function, while a counterexample
+that reaches such a call may be spurious. Kind 2 then evaluates the calls the
+counterexample relies on, which are at concrete arguments, with the definition
+of the function, and reports the counterexample only if the function as it is
+violates the property with the same inputs; the property itself, or what the
+path relies on, such as an assumption on the inputs, may depend on the calls.
+A function that reads a global constant is evaluated with the value the
+counterexample gives the constant.
+Otherwise, or if the evaluation takes too long, Kind 2 unrolls the
+function once more, from one unrolling up to the limit set with
+`--rec_unrollings` (2 by default), and runs its engines again on the new
+system, keeping what they had established; this is not an analysis of its
+own, and it stops as soon as the arguments of the recursive calls are
+exhausted, as for `Fact(4)`, which is proved equal to 24 after five
+unrollings, with `--rec_unrollings 5`. In a modular analysis, such a call
+at constant arguments is evaluated instead (see below), whatever the
+limit. A property whose counterexample still reaches such a call at the
+limit is left unknown, and Kind 2 says so. That is the fate of a property that
+holds of the function for every input only by induction over the recursion,
+such as `Fact(n) > 0`: a compositional analysis, or a lemma, is what proves
+it. The termination checks are verified as properties at every unrolling.
+A function whose body makes several recursive calls, or calls other
+recursive functions, has its instances multiplied at every unrolling: the
+Ackermann function has three times as many after each one. The unrolling
+stops early when the next one is expected to exceed the number of instances
+set with `--rec_instances` (100 by default), and the properties whose
+counterexamples reach the recursive calls are left unknown as at the limit.
+An `opaque` function is the exception: its recursive calls past the
+unrollings are abstracted by its contract in every analysis, as described
+next for a compositional one. A lemma is opaque, which is what lets its
+guarantees be proved by induction over its recursion.
+
+In a compositional analysis (`--compositional true`), the recursive calls
+past the unrollings of a function that has a contract are abstracted by that
+contract instead: Kind 2 assumes their guarantees, the inductive hypothesis
+of the recursion, which is only justified when the termination checks hold.
+This is what makes a property such as `Fact(n) > 0` provable from a
+`guarantee f > 0`, but it also means that the function is essentially unknown
+to the solver past its unrollings: `Fact(4) = 24` cannot be established that
+way. A function with no contract to abstract it with (no guarantee and no
+mode with an ensure, whether explicit or coming from a refinement type on an
+output; assumptions and input types do not count, they are obligations of
+the callers), or declared `transparent`, is unrolled with its recursive calls
+left unconstrained, as above, while an `opaque` function is always abstracted
+by its contract.
+
+In the analysis of the function itself, which proves its contract, the body
+is unrolled once before the recursive calls are abstracted by the contract.
+A guarantee may hold without following from the guarantees of the calls one
+level down: `Alt(n) = 1 - Alt(n - 1)` with `Alt(0) = 0` only takes the values
+0 and 1, so `guarantee r >= 0` holds, but assuming it of `Alt(n - 1)` allows
+`Alt(n - 1) = 2` and `Alt(n) = -1`. Two levels down, `Alt(n) = Alt(n - 2)`,
+and the guarantee follows. The option `--rec_contract_unrollings` sets how
+many times the body is unrolled in the analysis of the function itself (1 by
+default); a stronger contract, such as `0 <= r and r <= 1` here, is the
+alternative.
+
+When the analysis is both compositional and modular, a call to a recursive
+function from another node or function is refined like any other call (see
+[refinement]({{< relref "/techniques#refinement-in-compositional-and-modular-analyses" >}})),
+in steps: if the contract of the function is not enough to prove the
+properties of the caller, and the analysis of the function itself proved its
+contract valid, the caller is analyzed again with the body of the function
+unrolled once, its recursive calls abstracted by the contract; if that is not
+enough either, with the body unrolled twice, and so on up to the limit set
+with `--rec_unrollings`. This refinement does not apply to the analysis of
+the recursive function itself, or of a function of its recursive group:
+there the recursive calls keep the contract as their induction hypothesis.
+
+A counterexample found with a recursive function abstracted by its contract
+is checked against the function as it is: Kind 2 evaluates the calls of the
+function the counterexample executes, at their concrete arguments, and
+checks whether the property still fails with their values, on the system
+sliced to the property. If it does, the property is false of the function
+itself, and unrolling the function, which only replaces its contract by its
+body, cannot prove it: the recursive functions are then not refined for that
+property. They are still refined for a property that is unknown, or whose
+counterexample relies on outputs the contracts allow but the functions do not
+have, or cannot be checked in time; and the other callees are refined as
+before. A check such as `Fact(4) = 25` is then falsified in the first
+analysis of the caller, which is not analyzed again up to the limit.
+
+When the check shows the counterexample spurious, the property cannot fail
+with the values the functions have, and the values of the calls it
+evaluated are not lost: those of the functions proved terminating (see
+below) are given to the refinements of the caller, as facts on the
+functions, like the values of the calls at constant arguments. A check such
+as `x = 3 => Fact(x) = 6`, whose argument is an input that the check fixes,
+is then proved in the first refinement, rather than after as many
+refinements as `Fact(3)` needs unrollings, four, which the default limit of
+two does not allow. The option `--rec_learn_values false` turns this off.
+
+In a modular analysis, compositional or not, a call at constant arguments
+to a recursive function that is proved terminating is evaluated instead:
+Kind 2 computes its value with the definition of the function, in a solver
+of its own, and gives it to the solver of the analysis, whether the contract
+abstracts the function or not. A function is proved terminating when its own
+analysis proved the termination checks of each of its recursive calls, or
+its measure is an ADT one, and so is every recursive function it calls. Only
+a modular analysis runs the analyses of the functions themselves, so in any
+other analysis the termination of a function is not known, and a call to it
+is left to its unrolling. In a compositional and modular analysis,
+`Fact(4) = 24` is then proved in the first analysis of the caller, although
+the contract of `Fact` does not give it, with no refinement; in a modular,
+non-compositional one, where `Fact` is unrolled, `Fact(12) = 479001600` is
+proved although it needs more unrollings than `--rec_unrollings` allows. An argument is constant when it is a
+literal, a local variable whose value is the same constant at every step,
+such as `b` in `a = 3; b = a + 1`, or the output of a call evaluated in
+turn, as the inner call of `Fact(Fact(3))`; an input, or an expression with
+a `pre` or a `->`, is not. A function with no contract is evaluated as
+well: it is unrolled rather than abstracted, and a call that needs more
+unrollings than `--rec_unrollings` allows, such as `Sum(20)` for a `Sum`
+that recurses down to 0, is then proved rather than left unknown. A call
+whose value cannot be computed in time, or is not unique, is left as it
+was.
+
+A call to a recursive function may be applied to a quantified variable (see
+the [limitations]({{< relref "/inputs-and-outputs/arrays#limitations" >}})
+on quantifiers) when the recursive calls past its unrollings are left
+unconstrained, as above: such a call has no instance to be unrolled, so it
+is compiled to an application of the symbol of the function, and the
+function is defined at the SMT level, as a `define-funs-rec` block, so that
+the solver knows it at every argument the quantifier ranges over:
+
+```lustre
+datatype Nat = Zero | Succ (p: Nat);
+
+function rec Even (n: Nat) returns (r: bool)
+con
+  decreases n;
+noc
+let
+  r = match n with | Zero : true | Succ(m) : not Even(m) end;
+tel
+
+node main () returns ();
+let
+  check forall (n: Nat) Even(Succ(n)) = not Even(n);
+tel
+```
+
+The property is proved by unfolding the definition once. The definition
+also ties the other calls of the function to its body past their
+unrollings, so none of their counterexamples is spurious; the solver is
+the one unfolding the recursion then, and a query about the function for
+all its inputs may not terminate. The definition applies the recursive
+calls under their termination checks, so that it has a model whether or not
+the measure decreases; the checks remain properties.
+
+A call applied to a quantified variable is accepted under the conditions
+of a call to a non-recursive function that can be inlined, whatever the
+analysis:
+
+- The function has no contract with guarantees, modes or a refinement type
+  on an output, or is declared `transparent`. A translucent function with a
+  contract is abstracted by it in compositional analyses only, but calls to
+  it are rejected in every analysis. Where a contract abstracts the
+  function, its symbol would be constrained at the arguments of its
+  instances only, an arbitrary function under the quantifier.
+- Its body is made of equations that define all of its outputs and local
+  variables, without assertions, and no output or local variable is of an
+  array type. No definition is built from another body.
+- Every function the body calls can be inlined, or is a recursive function
+  that meets these conditions in turn. A function is defined together with
+  the functions of its recursive group and the functions they call, and an
+  imported function, in particular, is an arbitrary function under the
+  quantifier.
+
+Otherwise the call is rejected. For a polymorphic function, the rule
+applies to the instantiation that is called, with the type arguments of the
+call: `Id@<int>` may be applied to a quantified variable while `Id@<Nat>`,
+for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
+value of its type parameter. In the body of a polymorphic node, a type
+parameter of the node given as a type argument is taken to be an array
+type, whatever the instantiations of the node. Kind 2 warns when the
+definition is left out because the solver or logic does not take recursive
+definitions (Z3 and cvc5 do, under the inferred logic). The symbol is then
+an arbitrary function under the quantifier, and a property that holds may be
+reported falsifiable: with `--smt_logic UFLIA`, for instance.
+
+### Benefits and limitations
+
+Functions are interesting in the model-checking context of Kind 2 mainly as
+a mean to make an abstraction more precise. A realistic use-case is when one
+wants to abstract non-linear expressions. While the simple expression `x*y`
+seems harmless, at SMT-level it means bringing in the theory of non-linear
+arithmetic.
+
+Non-linear arithmetic has a huge impact not only on the performances of the
+underlying SMT solvers, but also on the SMT-level features Kind 2 can use (not
+to mention undecidability). Typically, non-lineary arithmetic tends to prevent
+Kind 2 from performing satisfiability checks with assumptions, a feature it
+heavily relies on.
+
+The bottom line is that as soon as some non-linear expression appear, Kind 2
+will most likely fail to analyze most non-trivial systems because the
+underlying solver will simply give up.
+
+Hence, it is usually [extremely rewarding](https://www.researchgate.net/publication/304360220_CoCoSpec_A_Mode-Aware_Contract_Language_for_Reactive_Systems)
+to abstract non-linear expressions away in a separate *function* equipped with
+a contract. The contract would be a linear abstraction of the non-linear
+expression that is precise enough to prove the system using correct. That way,
+a compositional analysis would *i)* verify the abstraction is correct and *ii)*
+analyze the rest of the system using this abstraction, thus making the analysis
+a linear one.
+
+Using a function instead of a node simply results in a better abstraction. Kind
+2 will encode, at SMT-level, that the outputs of this component depend on the
+*current* version of its inputs only, not on its previous values.
+
+The downside of using functions in your model is that the IC3QE engine and
+the IC3IA engine with the Z3qe or cvc5qe options must shut down,
+since their current implementation cannot reason about the resulting system.
+
+## Lemmas
+
+A *lemma* states a fact about its inputs in its contract and proves it in its
+body. It is declared like a function, with the `lemma` keyword and no
+`returns` clause:
+
+```lustre
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+lemma g_twice (n: int)
+con
+  guarantee g(g(n)) > n;
+noc
+let
+  g_increasing(n);
+  g_increasing(g(n));
+tel
+```
+
+Here `g_increasing` has no body: it is assumed rather than proved (see
+[Lemmas without a body](#lemmas-without-a-body)), while `g_twice` is proved
+from it.
+
+A lemma must have a contract, and is always opaque: its callers only know
+what its contract says, never its body. Its body is subject to the same
+restrictions as the body of a function, and may hold equations of local
+variables, but its purpose is to invoke other lemmas, whose guarantees are
+what its own guarantees are proved from. Its local declarations are
+variables only (`var`): a lemma cannot declare local constants.
+
+### Invoking a lemma
+
+A lemma is invoked in a *call statement*, a call written on its own, with no
+left-hand side, in the body of a node, a function or a lemma. This is the
+only place a lemma may be invoked (not in an expression, nor in a contract),
+and the only thing a call statement may invoke. At the invocation, the
+guarantees of the lemma are assumed for the arguments it is given, and each
+of its assumptions is a proof obligation of the caller, reported as a
+property named after the invocation and the assumption: for instance,
+`L[L21C3].assume[L10C3]` for the assumption at line 10 of a lemma `L`
+invoked at line 21. In a node, the invocation holds at every
+step; its arguments may be any expression, including one with `pre`:
+
+```lustre
+node main (x: int) returns (ok: bool);
+let
+  g_twice(x);
+  ok = g(g(x)) > x;
+  check ok;
+tel
+```
+
+An invocation inside an `if`, `when` or `match` block (see
+[If statements and frame conditions]({{< relref "/inputs-and-outputs/lustre#if-statements-and-frame-conditions" >}}))
+only takes effect in the branch it is written in. This is how a proof
+distinguishes cases. A branch that needs no invocation, because the
+guarantee follows directly there, contains the statement `auto;`, which does
+nothing and is only allowed in the body of a lemma:
+
+```lustre
+datatype L = Nil | Cons (hd: int, tl: L);
+
+function rec len (l: L) returns (n: int)
+con
+  decreases l;
+noc
+let
+  n = match l with
+    | Nil : 0
+    | Cons (h, t) : 1 + len(t)
+  end;
+tel
+
+lemma LenNonNeg (l: L)
+con
+  guarantee len(l) >= 0;
+  decreases l;
+noc
+let
+  match l with
+  | Nil:
+    auto;
+  | Cons (h, t):
+    LenNonNeg(t);
+  end
+tel
+```
+
+### Proofs by induction
+
+A lemma may invoke itself, directly or through a cycle of other lemmas, as
+`LenNonNeg` does. The guarantees of the recursive invocation are then the
+induction hypothesis, which is only justified if the recursion terminates:
+such a lemma needs a `decreases` clause, and its recursive invocations are
+checked to decrease exactly as the calls of a recursive function are (see
+[Recursive functions]({{< relref "/inputs-and-outputs/lustre#recursive-functions" >}})).
+Unlike a function, a lemma needs no `rec` modifier. A lemma that does not
+invoke itself may omit the `decreases` clause.
+
+### How lemmas are analyzed
+
+A lemma is analyzed like a function: its analysis proves its guarantees under
+its assumptions, from the guarantees of the lemmas it invokes, and checks the
+assumptions of those invocations. Which lemmas are analyzed follows the usual
+rules for choosing top-level nodes: by default, only the top-level nodes are,
+so a lemma that is invoked by another node is only assumed there, *not
+proved*. To prove every lemma along with the rest of the model, run a
+modular analysis (`--modular true`), or designate the lemma as the main
+node with `--lus_main`.
+
+### Lemmas without a body
+
+A lemma may be declared without a body, ending with its contract. Its
+contract is then never proved: its guarantees are assumed wherever the lemma
+is invoked, and its assumptions, as for any lemma, are an obligation of the
+caller. A typical use is to state properties of an imported function, as
+`g_increasing` does above, or:
+
+```lustre
+function imported len (l: L) returns (n: int);
+
+lemma len_nil ()
+con
+  guarantee len(Nil) = 0;
+noc
+
+lemma len_cons (h: int; t: L)
+con
+  guarantee len(Cons(h, t)) = 1 + len(t);
+noc
+```
+
+Such a lemma cannot invoke itself, so it takes no `decreases` clause. Nothing
+checks that its guarantees are true: a false one makes every analysis that
+invokes the lemma vacuous. When its guarantees only mention functions with a
+body, enabling the realizability checks (`--enable CONTRACTCK`) proves or
+refutes them. Note that a lemma with an empty body (`let tel`), or a body
+holding only `auto;`, is not a lemma without a body: its guarantees are
+proved from its assumptions alone.
+
+## Integer division and modulo
+
+The integer division operator `div` and the modulo operator `mod` follow the
+Euclidean definition that SMT-LIB gives them: for a divisor `n` other than
+zero, `m div n` and `m mod n` are the unique integers `q` and `r` such that
+`m = n * q + r` and `0 <= r < |n|`. The remainder is thus never negative, and
+the quotient is rounded towards negative infinity when the divisor is positive
+and towards positive infinity when it is negative:
+
+| `m`  | `n`  | `m div n` | `m mod n` |
+|------|------|-----------|-----------|
+| `7`  | `2`  | `3`       | `1`       |
+| `-7` | `2`  | `-4`      | `1`       |
+| `7`  | `-2` | `-3`      | `1`       |
+| `-7` | `-2` | `4`       | `1`       |
+
+This is not the definition used by C, where the quotient is rounded towards
+zero and the remainder takes the sign of the dividend (`-7 / 2` is `-3` and
+`-7 % 2` is `-1`), nor, by extension, the one used by the Lustre compilers that
+generate C code. The two definitions agree when both operands are non-negative,
+or when the divisor divides the dividend exactly, but they differ otherwise.
+For instance, `(-1) div 100` is `-1` in Kind 2 and `(-1) / 100` is `0` in C,
+so the property below is valid for Kind 2 but does not hold of the compiled
+code:
+
+```lustre
+node div_example (i: int) returns (j: int);
+let
+  j = i div 100;
+  check i < 0 => j < 0;
+tel
+```
+
+A model whose verified properties must carry over to generated code should
+therefore either keep the operands of `div` and `mod` non-negative, or be
+compiled with an implementation of integer division that follows the Euclidean
+definition.
+
+Kind 2 evaluates `div` and `mod` the same way wherever they appear, whether
+their operands are constants folded by the frontend or symbolic values handled
+by the SMT solver. A division by zero is not an error: as in SMT-LIB, `m div 0`
+and `m mod 0` denote arbitrary integers, about which Kind 2 assumes nothing
+except that the same expression denotes the same value.
+
+Division and modulo on [machine integers]({{< relref "/inputs-and-outputs/machine-ints#arithmetic-operations" >}})
+follow the definition of C instead.
+
+## The `fby` operator
+
+Kind 2 supports the binary *followed-by* operator of Lustre V6:
+`e1 fby e2` is `e1` at the first step and the previous value of `e2`
+afterwards, that is, it is syntactic sugar for `e1 -> pre e2`.
+
+```lustre
+-- A two-deep shift register: 0, 0, a(0), a(1), ...
+b = 0 fby 0 fby a;
+-- A counter: 1, 2, 3, ...
+n = 0 fby n + 1;
+```
+
+The operator is right-associative, so `0 fby 0 fby a` is `0 fby (0 fby a)`.
+It binds tighter than the binary arithmetic, comparison and Boolean
+operators, so `0 fby n + 1` is `(0 fby n) + 1`, and looser than `pre`,
+`not` and other prefix operators except unary minus, so `not c fby c` is
+`(not c) fby c` and `- a fby b` is `- (a fby b)`.
+
+## Conditional expressions
+
+Kind 2 provides two forms of conditional expression. Both select between two
+branches based on a Boolean condition, but they differ in how the branches are
+evaluated.
+
+The `if ... then ... else ...` expression has *eager* semantics:
+
+```lustre
+x = if condition then expr1 else expr2;
+```
+
+The `when ... then ... else ...` expression has *lazy* semantics:
+
+```lustre
+x = when condition then expr1 else expr2;
+```
+
+Both expressions evaluate to `expr1` when `condition` is true and to
+`expr2` otherwise. The difference is operational: with the eager `if` form,
+both branches are evaluated at every step regardless of the condition, whereas
+with the lazy `when` form only the selected branch is evaluated; the branch
+that is not selected is not evaluated at all. The lazy form is useful when one
+branch is only meaningful (for instance, only satisfies the assumptions it
+relies on) when the condition selects it.
+
+A branch of a `when ... then ... else ...` expression may contain temporal
+operators and node calls. Since the branch is evaluated only at the steps where
+it is selected, these are evaluated on the clock of the branch:
+
+- `pre e` refers to the value of `e` the last time the branch was selected,
+  which may be several steps earlier, and `e1 -> e2` is `e1` the first time
+  the branch is selected.
+- A node called in the branch is activated only at the steps where the branch
+  is selected: its internal state does not advance at the other steps.
+
+For example, in
+
+```lustre
+x = when c then (0 -> pre x + 1) else 0;
+```
+
+`x` counts the steps at which `c` holds (starting from 0), whereas with
+`if c then (0 -> pre x + 1) else 0`, the previous value of `x` would be 0
+whenever `c` was false at the previous step.
+
+Each form has a corresponding statement-level block, described in the next
+section: `if` statements desugar to `if ... then ... else ...` expressions,
+while `when` and `cond` blocks desugar to `when ... then ... else ...`
+expressions.
+
+## Short-circuit Boolean operators
+
+Besides the standard Boolean operators `and`, `or`, and `=>`, which
+evaluate both of their operands, Kind 2 provides short-circuit (lazy) variants
+that evaluate their right operand only when necessary:
+
+- `e1 and then e2` (short-circuit conjunction): if `e1` is false, the result
+  is false and `e2` is not evaluated.
+- `e1 or else e2` (short-circuit disjunction): if `e1` is true, the result
+  is true and `e2` is not evaluated.
+- `e1 ==> e2` (short-circuit implication): if `e1` is false, the result is
+  true and `e2` is not evaluated.
+
+When the right operand *is* evaluated, these operators agree with their eager
+counterparts: `and then` with `and`, `or else` with `or`, and `==>`
+with the implication operator `=>`. The right operand is evaluated like a
+branch of a `when ... then ... else ...` expression: `e1 and then e2`
+behaves as `when e1 then e2 else false`, `e1 or else e2` as
+`when e1 then true else e2`, and `e1 ==> e2` as `when e1 then e2 else true`.
+In particular, temporal operators and node calls in the right operand are
+evaluated on the clock of the steps at which it is evaluated.
+
+These operators are convenient when the right operand is only well-defined, or
+only satisfies its assumptions, when the left operand has the appropriate value,
+as in `x <> 0 and then y / x > 1`.
+
+## If statements and frame conditions
+
+Within node definitions, Kind 2 has support for two features that allow the programmer
+to use a more imperative style-- (1) `if` statements and (2) frame conditions.
+
+### If statements
+
+In addition to the conditional *expressions* described above, in some circumstances
+it may be more natural to use `if` *statements* that serve as control flow (rather than
+evaluate to a value). For example, Kind 2 supports statements of the form:
+
+```lustre
+if condition1 then
+   y1 = expr1;
+   y2 = expr2;
+elsif condition2 then
+   y1 = expr3;
+   y2 = expr4;
+else
+   y1 = expr5;
+   y2 = expr6;
+fi
+```
+
+In the above block, if `condition1` is true, then `y1` and `y2` will be set to `expr1` and `expr2`, respectively.
+Otherwise, `y1` and `y2` will be set to either `expr3` and `expr4` or `expr5` and `expr6`, depending
+on the value of `condition2`. The `if` statement is closed with
+the `fi` token. As with other mainstream programming languages, Kind 2 allows for arbitrary nesting of `if` statements,
+as well as writing `if` statements that do not have any `else` or `elsif` blocks.
+
+**Note:** If statements are syntactic sugar for conditional expressions. The `if` statement above is equivalent to:
+
+```lustre
+y1 = if condition1 then expr1 else (if condition2 then expr3 else expr5);
+y2 = if condition1 then expr2 else (if condition2 then expr4 else expr6);
+```
+
+Although this desugaring gives each assigned variable its own copy of the
+conditions, the conditions are evaluated only *once* per timestep: all
+variables assigned by the same block see the same condition values, and
+therefore take the same branch. The distinction matters when a condition
+contains a call to a node whose outputs are not uniquely determined by its
+inputs — for example, an imported node with an underspecified (or no)
+contract, or a node whose definition uses the `any` operator. Such a call
+is evaluated once per timestep for the whole block, and the resulting value
+is shared by all the equations generated from the block. In the following
+example, the property `"agree"` is invariant because `y1` and `y2`
+always take the same branch:
+
+```lustre
+node imported nondet() returns (b: bool);
+
+node example() returns (y1, y2: int);
+let
+   if nondet() then
+      y1 = 1; y2 = 1;
+   else
+      y1 = 2; y2 = 2;
+   fi
+   check "agree" y1 = y2;
+tel
+```
+
+The same rule applies to the guards of the `when` and `cond` blocks
+below, and to blocks appearing inside frame conditions (where a variable
+left undefined in a branch holds its previous value).
+
+### When blocks
+
+Kind 2 also supports `when` blocks, which are similar in structure to `if`
+statements but use *lazy* branch semantics:
+
+```lustre
+when condition1 then
+   y1 = expr1;
+   y2 = expr2;
+else
+   y1 = expr3;
+   y2 = expr4;
+end
+```
+
+Additional branches can be expressed by nesting `when` blocks inside the `else` branch:
+
+```lustre
+when condition1 then
+   y1 = expr1;
+   y2 = expr2;
+else
+   when condition2 then
+      y1 = expr3;
+      y2 = expr4;
+   else
+      y1 = expr5;
+      y2 = expr6;
+   end
+end
+```
+
+**Semantics**
+
+At each step, only the selected branch is evaluated.
+In particular, branch expressions that are not selected are not evaluated.
+This is useful when one branch relies on assumptions that do not hold in other
+cases.
+
+As for `if` blocks, `when` blocks are statement-level syntax sugar.
+For each assigned variable, the blocks above correspond to nested lazy
+`when ... then ... else ...` expressions. As with `if` blocks, each
+guard is evaluated at most once per timestep, and its value — including any
+nondeterministic choice made by a node call appearing in the guard — is
+shared by all the variables assigned by the block. Consistent with the lazy
+branch semantics, the guard of a nested `when` block is itself part of
+the enclosing branch: it is evaluated only when that branch is selected,
+and node calls appearing in it are activated on the enclosing guards (their
+internal state only advances at timesteps where the enclosing branch is
+selected).
+
+Branch expressions may contain temporal operators and node calls, which
+are evaluated on the clock of the branch, as for the
+`when ... then ... else ...` expression.
+
+The current restriction for `when` blocks is:
+
+- `if` blocks cannot be nested inside `when` blocks, and `when` blocks
+  cannot be nested inside `if` blocks.
+
+### Cond blocks
+
+Kind 2 also supports `cond` blocks, which use a pattern-matching style with
+multiple guarded branches and an `otherwise` clause:
+
+```lustre
+cond
+  | condition1:
+     y1 = expr1;
+     y2 = expr2;
+  | condition2:
+     y1 = expr3;
+     y2 = expr4;
+  otherwise:
+     y1 = expr5;
+     y2 = expr6;
+end
+```
+
+The semantics of `cond` blocks is the same as for `when` blocks: at each
+step, only the selected branch is evaluated, and branch expressions that are
+not selected are not evaluated.
+
+As in `when` blocks, branch expressions may contain temporal operators and
+node calls. The current restriction for `cond` blocks is the same as for
+`when` blocks:
+
+- `if` blocks cannot be nested inside `cond` blocks, and `cond` blocks
+  cannot be nested inside `if` blocks.
+
+### Match blocks
+
+A `match` block is to a [match expression](./algebraic-datatypes.md) what an
+`if` block is to an if-then-else: the arms hold equations rather than a value.
+
+```lustre
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node head_or (l: List; d: int) returns (y: int; found: bool);
+let
+  match l with
+  | Cons (h, t):
+    y = h;
+    found = true;
+  | Nil:
+    y = d;
+    found = false;
+  end
+tel
+```
+
+Each arm introduces the variables its pattern binds, in scope only within that
+arm. Patterns may be nested, and a bare identifier that is not a constructor
+matches anything.
+
+The semantics is the same as for a match expression: at each step only the
+selected arm is evaluated, and the arms that are not selected are not.
+
+Restrictions:
+
+- The arms must be exhaustive, unless the block sits inside a frame block,
+  where a value matched by no arm leaves the variables to stutter.
+- Every variable defined in one arm must be defined in all of them, again
+  unless the block sits inside a frame block.
+- A pattern variable may not have the same name as an input, output or local
+  of the enclosing node.
+- Only equations, `when` blocks, nested `match` blocks and `auto` may appear in
+  an arm.
+- The scrutinee may not call a node or contain an `any` operator. Assign it to a
+  local variable and match on that instead. Calls to functions, and the `choose`
+  operator, are allowed.
+- As with `cond` blocks, `match` blocks cannot be nested inside `if` blocks,
+  and `if` blocks cannot be nested inside `match` blocks. `match` and `when`
+  blocks may be nested inside each other in either direction.
+
+### Frame conditions
+
+Kind 2 also has support for code blocks with frame conditions. At the beginning of the block
+(denoted by the `frame` keyword), the user specifies a list of variables that they wish to
+define within the frame block. All variables defined within the frame block must be present in
+this list. Then, initial values are optionally specified for these variables.
+Variables are defined within the frame block body (denoted by the `let` and `tel` keywords).
+It is possible to leave variables (partially or fully) undefined.
+A variable is considered *fully undefined* if it is declared in the list of frame block variables,
+but there is no definition given in the frame block body.
+A variable is considered *partially defined* if it is defined within an `if` block,
+but a definition is not supplied in all cases (e.g., `if c then y = x; fi`
+defines `y` within the `then` case but not the `else` case).
+
+If a variable is fully undefined,
+then it is set to its initialization value (if one exists) in the first timestep,
+and it stutters (is set equal to its value on the previous timestep) on other timesteps.
+If a variable is partially undefined,
+then the same assignment is performed, but only for branches of the `if` block
+where the variable is left undefined.
+
+The following example involves three variables `y1`, `y2`, and `y3`. Since `y1` is left
+fully undefined within the frame block body, it will always be equal to 0 (its initialization
+value).
+`y2` will have value `0, 1, 2, 3, ...` since it is not fully or partially undefined
+(notice that the initialization value is not used in this case).
+Finally,
+`y3` will have value `//, 0, 1, 2, 3, ...` since it is also not fully or partially undefined,
+regardless of the presence of an unguarded `pre`.
+
+```lustre
+node example() returns (y1, y2, y3: int);
+let
+   frame ( y1, y2, y3 )
+   (* Initializations *)
+   y1 = 0; y2 = 100; y3 = 5;
+
+   (* Body *)
+   let
+      y2 = counter();
+      y3 = pre counter();
+   tel
+tel
+
+
+node counter() returns (y: int);
+let
+   y = 0 -> pre y + 1;
+tel
+```
+
+Frame conditions are especially useful when combined with the `if` statements described in the previous
+subsection, as variables can be left undefined in some branches of the `if` statement.
+
+```lustre
+node example() returns (y1, y2: int);
+let
+   frame ( y1, y2 )
+   (* Initializations *)
+   y1 = 10; 
+   y2 = 100;
+
+   (* Body *)
+   let
+      if (counter() < 10)
+      then
+         y1 = counter();
+      else
+         y2 = counter() * 2;
+      fi
+   tel
+tel
+
+
+node counter() returns (y: int);
+let
+   y = 0 -> pre y + 1;
+tel
+```
+
+In the above example, `y1` is left undefined in the `else` branch of the `if` statement,
+and `y2` is left undefined in the `then` branch.
+Since the condition `counter() < 10` holds in the initial timestep,
+`y1` will be initialized to `0` according to its definition in the `then` branch.
+Then, `y1` will continue to be equal to `counter()` on the second through tenth timesteps,
+and then stutter (staying at 9) for the remaining timesteps.
+
+On the other hand, `y2` starts at its supplied initialization value at the top of the frame block (`100`)
+since it is left undefined in the `then` branch of the `if` block.
+It stutters there for the first 10 timesteps, and then is set to `counter() * 2` for the remaining timesteps.
+
+Note that variables do not have to have initializations. When no initialization is given,
+a variable's initial value is equal to the initial value of the expression defined in the frame block body.
+If the corresponding expression is undefined in the first timestep,
+or if there is no equation defining the variable in the first timestep,
+then the variable is undefined in the first timestep.
+For example, the following code is supported because even though `y1`, `y2`, and `y3`
+do not have an initializations, they are present in the list of variables `frame ( y1, y2, y3 )`.
+The initial value of `y1` is 0 (the initial value assigned by `counter()`); the initial value
+of `y2` is undefined (due to the unguarded `pre`);
+and the initial value of `y3` is also undefined (due to the lack of an equation defining `y3` initially).
+
+```lustre
+frame ( y1, y2, y3 )
+let
+   y1 = counter();
+   y2 = pre counter();
+tel
+
+node counter() returns (y: int);
+let
+   y = 0 -> pre y + 1;
+tel
+```
+
+Also, it is still possible to assign to multiple variables at once
+(equations of the form `y1, y2 = (expr1, expr2);`) in either the initializations or the frame block body.
+
+The frame block semantics may introduce unguarded `pre` expressions. For example, the definition of `y` in the
+following code block is equivalent to `y = pre y`. So, Kind 2 will produce two warning messages. The first
+will state that `y` is uninitialized in the frame block, and the second will state that there is
+an unguarded `pre` (due to this lack of initialization).
+
+```lustre
+frame ( y )
+let
+tel
+```
+
+Similarly, in the following code block, the definitions of `y1` and `y2` are equivalent to
+`y1 = if cond then 0 else pre y1` and `y2 = if cond then pre y2 else 1`, respectively. This situation (and
+any other situation where the frame block semantics result in the generation of an unguarded `pre`)
+will also generate the two warnings as discussed in the previous paragraph.
+
+```lustre
+frame (y1, y2)
+let
+   if cond
+   then
+      y1 = 0;
+   else
+      y2 = 1;
+   fi
+tel
+```
+
+### The `last` operator
+
+Within a frame block, the expression `last x` (where `x` is a local or output variable in
+scope) denotes the value of `x` at the *immediately preceding timestep*, with
+the value at the first timestep given by the frame's initialization of `x` (or
+left undefined when `x` has no initialization). `last x` always refers to the
+value of `x` one timestep earlier, regardless of any branch conditions under
+which it appears.
+
+{{< callout type="warning" >}}
+`last x` is **not** the same as writing `init_x -> pre x` inside a branch
+of a `when` (or `cond`) block. When `init_x -> pre x` is written
+directly inside a branch, the lazy branch semantics make `pre x` refer to
+the value of `x` the *last time that branch was selected*, which may be
+several timesteps earlier. In contrast, `last x` always refers to the value
+of `x` at the immediately preceding timestep. (In a context that is
+evaluated at every timestep — for example a plain frame-block equation outside
+any `when`/`cond` branch — the two coincide, but `last x` is the
+reliable way to express "value at the previous timestep" in all contexts.)
+{{< /callout >}}
+
+The `last` operator may only be used inside a frame block; using it elsewhere
+is an error.
+
+For example, in the following frame block `last o` refers to the value of
+`o` at the previous timestep, initialized to `i` (the initialization of
+`o`):
+
+```lustre
+frame (o)
+o = i;
+let
+   o = last o + 1;
+tel
+```
+
+The initialization of a frame block variable is evaluated only *once*, at
+the first timestep, and every reference to it denotes that same evaluation:
+the value a variable holds when the frame initialization applies and the
+value `last x` denotes at the first timestep are guaranteed to be the
+same. The distinction matters when the initialization expression is not
+uniquely determined — for example, an `any` operator or a call to an
+imported node. In the following example, the initial value of `x` is an
+arbitrary non-negative integer *chosen once*: at the first timestep, if
+`m` is false, `x` keeps that value, and if `m` is true, `x` is that
+same value plus one — there are never two independent choices, one for
+`x` and another for `last x`. The property `"nonneg"` is invariant:
+
+```lustre
+node count (m: bool) returns (x: int);
+let
+   frame (x)
+   x = any { v: int | v >= 0 };
+   let
+      when m then
+         x = last x + 1;
+      end
+   tel
+   check "nonneg" x >= 0;
+tel
+```
+
+The same guarantee applies element-wise to array initializations (for
+example, `x[i] = any { v: int | v >= 0 }` makes one shared choice per
+element).
+
+### Omitting equations in `when` blocks within frame blocks
+
+Just as with `if` statements, a variable may be left undefined in some branches
+of a `when` block when the `when` block appears within a frame block.
+When the definition of a variable `x` is omitted in a branch, that branch
+behaves as if it contained the equation `x = last x` (i.e., `x` keeps its
+previous value, initialized by the frame). For example, the following two frame
+blocks are equivalent:
+
+```lustre
+frame (o, c1, c2)
+o = i; c1 = 0; c2 = 0;
+let
+   when m then
+      o = last o + 1;
+      c1 = 1 -> pre c1 + 1;
+   else
+      o = last o - 1;
+      c2 = 1 -> pre c2 + 1;
+   end
+tel
+```
+
+```lustre
+frame (o, c1, c2)
+o = i; c1 = 0; c2 = 0;
+let
+   when m then
+      o = last o + 1;
+      c1 = 1 -> pre c1 + 1;
+      c2 = last c2;
+   else
+      o = last o - 1;
+      c2 = 1 -> pre c2 + 1;
+      c1 = last c1;
+   end
+tel
+```
+
+Within a frame block, the `else` branch of a `when` block (and the
+`otherwise` branch of a `cond` block) may also be omitted entirely. An
+omitted `else`/`otherwise` branch behaves as if it defined every frame block
+variable with `x = last x`. For example, the following two frame blocks are
+equivalent:
+
+```lustre
+frame (o, c1, c2)
+o = i; c1 = 0; c2 = 0;
+let
+   when m then
+      o = last o + 1;
+      c1 = 1 -> pre c1 + 1;
+   end
+tel
+```
+
+```lustre
+frame (o, c1, c2)
+o = i; c1 = 0; c2 = 0;
+let
+   when m then
+      o = last o + 1;
+      c1 = 1 -> pre c1 + 1;
+   else
+      o = last o;
+      c1 = last c1;
+      c2 = last c2;
+   end
+tel
+```
+
+Outside a frame block, every variable defined in any branch of a `when` block
+must still be defined in all branches, and the `else`/`otherwise` branch
+cannot be omitted.
+
+### Restrictions
+
+A frame block cannot be nested within an if statement or another frame block, as
+demonstrated in the following examples:
+
+```lustre
+if condition
+then
+   frame ( y1, y2 )
+   y1 = init1; y2 = init2;
+   let
+      y1 = 10;
+   tel
+fi
+```
+
+```lustre
+frame ( y1, y2 )
+y1 = init1; y2 = init2;
+let
+   y1 = expr1;
+   frame ( y2 )
+   y2 = init3;
+   let
+      y2 = expr2;
+   tel
+tel
+```
+
+Assertions, `MAIN` annotations, and `PROPERTY` annotations also
+cannot be placed within if statements or frame blocks.
+
+Since an initialization only defines a variable at the first timestep, it need not be
+stateful. Therefore, a frame block initialization cannot contain any `pre` or `->`
+operators. This restriction also ensures that initializations are never undefined.
+
+## Polymorphic nodes
+
+In some situations, the user may want to express multiple variations of a node,
+where the only differences between them lie in the input and output types.
+For example, consider different interface type variations of the `SafePre`
+node, which returns the previous value of its single input, but initialized with
+the first value of the input stream.
+
+```lustre
+node SafePreInt(x: int) returns (y: int);
+let
+  y = x -> pre x;
+tel
+
+node SafePreBool(x: bool) returns (y: bool);
+let
+  y = x -> pre x;
+tel
+
+node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+let
+  y1 = SafePreInt(y1);
+  y2 = SafePreBool(y2);
+tel
+```
+
+Kind 2 allows the user to express such variations more concisely through *polymorphic nodes*,
+where the user includes a set of polymorphic type parameters in the node declaration
+and the specific type arguments at the call site. Polymorphic type parameters
+are specified using angle brackets as `<ty1; ...; tyn>` whereas
+call-site polymorphic arguments are specified using the `@` instantiation operator.
+
+```lustre
+node SafePre<T>(x: T) returns (y: T);
+let
+  y = x -> pre x;
+tel
+
+node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+let
+  y1 = SafePre@<int>(y1);
+  y2 = SafePre@<bool>(y2);
+tel
+```
+
+Note that `SafePre` can be called
+with any type, not just primitive types (e.g. `SafePre@<[int, bool]>(.)` and `SafePre@<[int, U]>(.)`,
+where `U` is itself a type parameter in the caller's declaration).
+
+Kind 2 can also infer the type arguments of a polymorphic call, so the `@<...>`
+instantiation is optional in most cases. When no type arguments are supplied, Kind 2
+determines them *bottom-up* by unifying the node's input parameter types against the
+types of the actual arguments at the call site. For instance, the two calls in `Top`
+above can be written without any annotation:
+
+```lustre
+node Top(x1: int; x2: bool) returns (y1: int; y2: bool);
+let
+  y1 = SafePre(y1);
+  y2 = SafePre(y2);
+tel
+```
+
+Here `T` is inferred to be `int` in the first call and `bool` in the second.
+
+Inference uses *base types only*: any refinement, subrange, or history information on the
+arguments is stripped before unification, so the inferred type argument is always the
+underlying base type. For example, if an argument has type `subrange [0, 10] of int` (or
+a refinement type over `int`), the corresponding type parameter is inferred as `int`.
+
+A type argument can be inferred only when the corresponding type parameter appears in an
+*input* position, so that it can be determined from the arguments. If a type parameter
+occurs only in the node's outputs (and thus cannot be recovered from the call arguments),
+the `@<...>` annotation must still be provided explicitly; otherwise Kind 2 reports that
+the call requires an explicit annotation. When an explicit annotation is given, it must be
+consistent with the types of the arguments, or a type error is raised.
+
+Another example is a polymorphic node `PairSwap`, which takes a polymorphic pair tuple as input and
+returns the corresponding swapped pair tuple as output.
+
+```lustre
+node PairSwap<T; U>(x: [T, U]) returns (y: [U, T]);
+let
+y = {x[1], x[0]};
+tel
+```
+
+For a polymorphic node to be well-typed, it must be meaningful for *any* type instantiation
+(in other words, the type parameters are semantically universally quantified).
+This type of polymorphism is called *parametric polymorphism*, and is also sometimes referred to as
+*generics* in general-purpose programming languages.
+
+To illustrate these semantics, even though the `+` operator is overloaded between
+`int -> int -> int` and `real -> real -> real`,
+the following polymorphic node will give a type error, as it cannot be instantiated with any type.
+
+```lustre
+-- Generates a type error
+node BadPolymorphicAdd<T>(x1, x2: T) returns (y: T);
+let
+  y = x1 + x2;
+tel
+```
+
+Note that polymorphic nodes can have `check(.)` statements just as non-polymorphic nodes.
+When checking properties of polymorphic nodes at the top level, the type parameters are interpreted
+as abstract types.
+
+A [recursive function]({{< relref "/inputs-and-outputs/lustre#recursive-functions" >}})
+can be polymorphic too. Kind 2 analyzes a copy of a polymorphic node for each list of type arguments
+it is called with, so a call within a recursive group (that is, a call to the function itself, or to a
+function it is mutually recursive with) cannot instantiate a type parameter with a type built from a
+type parameter of the caller, which would require infinitely many copies. Each type argument of such
+a call must be either one of the caller's type parameters, or a type that mentions none of them:
+
+```
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+function rec Length<T>(l: List<T>) returns (n: int);
+(*@contract
+  decreases l;
+*)
+let
+  n = match l with | Nil : 0 | Cons (_, tl) : 1 + Length@<T>(tl) end;  -- Accepted
+tel
+
+function rec F<T>(n: int; x: T) returns (r: int);
+(*@contract
+  decreases n;
+*)
+let
+  r = when n <= 0 then 0 else F@<List<T>>(n - 1, Cons(x, Nil@<T>));  -- Rejected
+tel
+```
+
+## Polymorphic contracts
+
+In addition to polymorphic nodes, Kind 2 supports polymorphic contracts.
+The first way of defining a polymorphic contract is by adding a type parameter to a contract definition.
+For example, the `Stutter` contract states that the output `y` must either be equal to the input
+`x` or the previous value of `x`.
+
+```lustre
+contract Stutter<T> (x: T) returns (y: T) ;
+let
+   guarantee 
+     (y = x) or
+     (true -> (y = pre x));
+tel
+```
+
+Then, the polymorphic contract can be included in a node using an import statement, where
+the type arguments are provided at the import statement (analogously to a polymorphic node declaration and
+node call).
+
+```lustre
+contract Stutter<T> (x: T) returns (y: T) ;
+let
+   guarantee 
+     (y = x) or
+     (true -> (y = pre x));
+tel
+
+node N (x: int) returns (y: int);
+con 
+   import Stutter@<int>(x) returns (y);
+noc
+let
+   y = pre x;
+tel
+
+
+node P<U>(x: U) returns (y: U);
+con 
+   import Stutter@<U>(x) returns (y);
+noc
+let
+   y = pre x;
+tel
+```
+
+Above, node `N` instantiates the contract `Stutter` with type `int`.
+Also, node `P` demonstrates using a polymorphic contract declaration with a polymorphic
+node.
+
+Another way of specifying a polymorphic contract is by including it directly in the
+node declaration of a polymorphic node as a local contract.
+
+```lustre
+node M<T>(x: int) returns (y: int);
+con
+   guarantee 
+      (y = x) or
+      (true -> (y = pre x));
+noc
+let
+   y = pre x;
+tel
+```
+
+## Nondeterministic choice operator
+
+There are situations in the design of reactive systems where
+nondeterministic behaviors must be modeled.
+Kind 2 offers a convenient polymorphic operator of the form
+`any { x: T | P(x) }` which denotes an arbitrary stream of
+values of type `T` satisfying the predicate `P`.
+We also support `choose { x: T | P(x) }`, where the only difference
+between `any` and `choose` is that `any` is nondeterministic,
+while `choose` is functional (deterministic and non-temporal).
+In the expression above `x` is a locally bound variable of
+Lustre type `T`, and `P(x)` is a Lustre boolean expression that
+typically, but not necessarily, contains `x`. The expression `P(x)`
+may also contain any input, output, or local variable that
+are in the scope of the `any` (or `choose`) expression.
+The following example shows a component using the `any` (or `choose`)
+operator to define a local stream `l` of arbitrary odd values.
+
+```lustre
+node N(y: int) returns (z:int);
+con
+  assume "y is odd" y mod 2 = 1;
+  guarantee "z is even" z mod 2 = 0;
+noc
+  var l: int;
+let
+  l = any { x: int | x mod 2 = 1 };
+  -- with `choose`, `l` is constant 
+  -- l = choose { x: int | x mod 2 = 1 };
+  z = y + l;
+tel
+```
+
+In reality, the [polymorphic]({{< relref "/inputs-and-outputs/lustre#polymorphic-nodes" >}}) operator
+`any` (or `choose`) can be instantiated with any Lustre type `T` using
+the instantiation operator `@` as follows: `any@<T>`.
+For instance, the expression `any@<int>` is also accepted
+and denotes an arbitrary stream of values of type `int`.
+In fact, the form `any { x: T | P(x) }` is syntactic sugar for
+the more verbose form `any @ < subtype { x: T | P(x) } >`, where
+`T` has been instantitated with the [refinement type]({{< relref "/inputs-and-outputs/refinement-types" >}})
+`subtype { x: T | P(x) }`.
+
+A challenge for the user with the use of the `any` (or `choose`) operator arises if
+the specified condition is inconsistent, or more generally, unrealizable.
+In that case, the system model may be satisfied by no execution trace.
+As a consequence, any property, even an inconsistent one, would be trivially
+satisfied by the (inconsistent) system model.
+For instance, the condition of the `any` (or analogously, `choose`) operator in the node of
+the following example is inconsistent, and thus, there is no realization of
+the system model. As a result, Kind 2 proves the property P1 valid.
+
+```lustre
+node N(y: int) returns (z: int);
+  var l: int;
+let
+  l = any { x : int | x < 0 and x > 0 };
+  -- Use `choose` if you want `l` to be constant
+  -- l = choose { x : int | x < 0 and x > 0 };
+  z = y + l;
+  check "P1" z > 0 and z < 0;
+tel
+```
+
+This problem is mitigated by the possibility for
+the user to check that the predicate `P(x)` in
+the `any` (or `choose`) expression is realizable.
+This is possible because, for each `any` (resp., `choose`) expression occurring in
+a model, Kind 2 introduces an internal imported node (resp., imported function) whose
+contract restricts the values of the returned output using
+the given predicate as a guarantee.
+The user can take advantage of this fact to detect issues with
+the conditions of `any` (or `choose`) expressions by enabling
+Kind 2's functionality that checks
+the [realizability of contracts]({{< relref "/advanced-features/contract-check#contract-check" >}}) of
+imported nodes and functions. When this functionality is enabled, Kind 2 is able to
+detect the problem illustrated in the example above.
+
+It is worth mentioning that Kind 2 does not consider the surrounding
+context when checking the realizability of the introduced imported node or function.
+Because of this limitation, some checks may fail even if,
+in a broader context where all constraints included in
+the model are considered, the imported node or function would actually be considered
+realizable. Only the constraints imposed by the variable types
+are taken into account.
+
+For instance, the realizability check for the `any` expression
+in the following example would fail if `b` were declared simply
+as an integer stream, rather than using the refinement type
+`subtype { x: int | a <= x }`.
+
+```lustre
+node N(a: int) returns (z: int);
+var b: subtype { x: int | a <= x };
+let
+  b = a + 10;
+  z = any { x: int | a <= x and x <= b };
+  check z>=a+10 => z=b;
+tel
+```

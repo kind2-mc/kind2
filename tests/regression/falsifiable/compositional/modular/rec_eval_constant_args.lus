@@ -1,0 +1,22 @@
+-- A call to a recursive function proved terminating, at constant arguments,
+-- is evaluated in the analysis of main: its value is what the function
+-- returns, so a check that holds of it is proved, and one that does not is
+-- falsified, in the first analysis of main.
+--
+-- The run is falsifiable, as "wrong" is, so test_rec_evaluation.py checks
+-- the answers of the first analysis of main.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main() returns (y: int);
+let
+  y = Fact(4);
+  check "right" y = 24;
+  check "wrong" y = 25;
+tel

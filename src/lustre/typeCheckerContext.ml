@@ -101,6 +101,7 @@ type tc_context = { ty_syns: ty_alias_store       (* store of the type alias map
                   ; ty_ty_vars: ty_ty_var_store      (* stores the type variables associated with each user type *)
                   ; adt_ctors: (LA.ident * LA.lustre_type list) IMap.t
                                                   (* ctor -> (type_name, field_types) *)
+                  ; shadowed_consts: SI.t         (* constants shadowed by a bound variable in scope *)
                   }
 (** The type checker global context *)
 
@@ -120,8 +121,35 @@ let empty_tc_context: tc_context =
   ; contract_ty_vars = NI.Map.empty
   ; ty_ty_vars = IMap.empty
   ; adt_ctors = IMap.empty
+  ; shadowed_consts = SI.empty
   }
 (** The empty context with no information *)
+
+(* The context with every type it records rewritten. A pass that changes the
+    types of a program has to change the context that types it too, or the two
+    spellings of a type are compared against each other later. The type a
+    declaration is defined as is rewritten by [in_definition], which is given the
+    type parameters that declaration binds; every other type is a use, and is
+    rewritten by [in_use]. The values of constants are left alone: they are
+    propagated before any such pass runs. *)
+let map_types
+: in_definition:(LA.ident list -> tc_type -> tc_type) ->
+  in_use:(tc_type -> tc_type) -> tc_context -> tc_context
+= fun ~in_definition ~in_use ctx ->
+  let ty_params i =
+    match IMap.find_opt i ctx.ty_ty_vars with Some ps -> ps | None -> []
+  in
+  { ctx with
+    ty_syns = IMap.mapi (fun i ty -> in_definition (ty_params i) ty) ctx.ty_syns
+  ; adt_ctors =
+      IMap.map (fun (n, tys) -> (n, List.map (in_definition (ty_params n)) tys))
+        ctx.adt_ctors
+  ; ty_ctx = IMap.map in_use ctx.ty_ctx
+  ; contract_ctx = NI.Map.map in_use ctx.contract_ctx
+  ; node_ctx = NI.Map.map (fun (ty, is_fun) -> (in_use ty, is_fun)) ctx.node_ctx
+  ; vl_ctx = IMap.map (fun (e, ty, src) -> (e, Option.map in_use ty, src)) ctx.vl_ctx
+  ; contract_export_ctx = NI.Map.map (IMap.map in_use) ctx.contract_export_ctx
+  }
 
 (**********************************************
  * Helper functions for type checker context *
@@ -173,9 +201,29 @@ let rec lookup_ty_syn: tc_context -> LA.ident -> tc_type list -> tc_type option
   )
   | None -> None
 (** Picks out the type synonym from the context
-    If it is user type then chases it (recursively looks up) 
-    the actual type. This chasing is necessary to check type equality 
+    If it is user type then chases it (recursively looks up)
+    the actual type. This chasing is necessary to check type equality
     between user defined types. *)
+
+(* The definition of a type synonym, with its type parameters substituted by
+    the given type arguments. Unlike {!lookup_ty_syn}, a definition that is
+    itself a named type is returned as such rather than chased, so that the
+    caller sees each link of an alias chain and the type arguments it passes
+    on. *)
+let lookup_ty_syn_body: tc_context -> LA.ident -> tc_type list -> tc_type option
+= fun ctx i ty_args ->
+  match IMap.find_opt i (ctx.ty_syns) with
+  | None -> None
+  | Some ty ->
+    let ps =
+      match IMap.find_opt i (ctx.ty_ty_vars) with
+      | Some ps -> ps
+      | None -> []
+    in
+    let sigma =
+      if List.length ps = List.length ty_args then List.combine ps ty_args else []
+    in
+    Some (LustreAstHelpers.apply_type_subst_in_type sigma ty)
 
 let rec expand_type_syn: tc_context -> tc_type -> tc_type
   = fun ctx -> function
@@ -343,7 +391,9 @@ let remove_ty_ctx: tc_context -> tc_context
   = fun ctx -> {ctx with ty_ctx = IMap.empty}
 
 let add_const: tc_context -> LA.ident -> LA.expr -> tc_type -> source -> tc_context
-  = fun ctx i e ty sc -> {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx} 
+  = fun ctx i e ty sc ->
+  {ctx with vl_ctx = IMap.add i (e, (Some ty), sc) ctx.vl_ctx;
+            shadowed_consts = SI.remove i ctx.shadowed_consts}
 (** Adds a constant variable along with its expression and type  *)
 
 let remove_const: tc_context -> LA.ident -> tc_context
@@ -351,7 +401,17 @@ let remove_const: tc_context -> LA.ident -> tc_context
 (** Removes a constant variable *)
 
 let add_untyped_const : tc_context -> LA.ident -> LA.expr -> source -> tc_context
-= fun ctx i e sc -> {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx} 
+= fun ctx i e sc ->
+  {ctx with vl_ctx = IMap.add i (e, None, sc) ctx.vl_ctx;
+            shadowed_consts = SI.remove i ctx.shadowed_consts}
+
+(* The constant stays in the context, since types declared outside the bound
+   variable's scope may mention it *)
+let shadow_const: tc_context -> LA.ident -> tc_context
+  = fun ctx i -> {ctx with shadowed_consts = SI.add i ctx.shadowed_consts}
+
+let is_shadowed_const: tc_context -> LA.ident -> bool
+  = fun ctx i -> SI.mem i ctx.shadowed_consts
 
 let union: tc_context -> tc_context -> tc_context
   = fun ctx1 ctx2 -> { ty_syns = (IMap.union (fun _ _ v2 -> Some v2)
@@ -390,6 +450,7 @@ let union: tc_context -> tc_context -> tc_context
                     ; adt_ctors = (IMap.union (fun _ _ v2 -> Some v2)
                                    (ctx1.adt_ctors)
                                    (ctx2.adt_ctors))
+                    ; shadowed_consts = SI.union ctx1.shadowed_consts ctx2.shadowed_consts
                      }
 (** Unions the two typing contexts *)
 
@@ -569,25 +630,36 @@ let rec arity_of_expr ty_ctx = function
     List.fold_left (+) 0 (List.map (arity_of_expr ty_ctx) es)
   | GroupExpr (_, (TupleExpr | ArrayExpr), _) -> 1
   | TernaryOp (_, (LazyIte | Ite), _, e, _) -> arity_of_expr ty_ctx e
-  | Condact (_, _, _, id, _, _)
-  | Activate (_, id, _, _, _)
-  | RestartEvery (_, id, _, _) 
-  | Call (_, _, id, _) ->
-    let node_ty = lookup_node_ty ty_ctx id |> Lib.get in
-    let (_, o) = LH.type_arity node_ty in
-    o
+  | Restart (_, e, _) -> arity_of_expr ty_ctx e
+  | RestartEvery (_, id, _, _)
+  | Call (_, _, id, _) -> (
+    match lookup_node_ty ty_ctx id with
+    | Some node_ty -> snd (LH.type_arity node_ty)
+    (* A constructor application, or a call to a node whose signature is unknown *)
+    | None -> 1
+  )
   | Pre (_, e) -> arity_of_expr ty_ctx e
-  | Arrow (_, e, _) -> arity_of_expr ty_ctx e
+  | Arrow (_, e, _) | Fby (_, e, _) -> arity_of_expr ty_ctx e
   | FieldProject (_, e, _, _) -> arity_of_expr ty_ctx e
   | TypeAscription (_, e, _) -> arity_of_expr ty_ctx e
-  | When (_, e, _) -> arity_of_expr ty_ctx e
-  | Merge (_, _, cs) -> arity_of_expr ty_ctx (List.hd cs |> snd)
   | Match (_, _, arms, _) -> arity_of_expr ty_ctx (List.hd arms |> snd)
   | Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
   | EmptyMap _ | EmptySet _ | UnaryOp _ | BinaryOp _ | ConvOp _
   | CompOp _ | AnyOp _ | ChooseOp _ | Extract _ | RecordExpr _
   | StructUpdate _ | ArrayConstr _ | IndexAccess _ | Quantifier _
-  | ADTTerm _ | ADTTester _ -> 1
+  | ArrayComprehension _ | ADTTerm _ | ADTTester _ -> 1
+
+let split_by_arity ty_ctx es items =
+  let rec split es items = match es with
+    | [] -> (match items with [] -> Some [] | _ :: _ -> None)
+    | e :: es ->
+      let n = arity_of_expr ty_ctx e in
+      if List.length items < n then None
+      else
+        let slice, items = Lib.list_split n items in
+        Option.map (fun slices -> slice :: slices) (split es items)
+  in
+  split es items
 
 let rec traverse_group_expr_list f ctx proj es =
   match proj, es with
@@ -916,10 +988,14 @@ let rec ty_vars_of_expr ctx node_name expr =
   (* Quantified expressions *)
   | Quantifier (_, _, qs, e) -> 
     SI.diff (call e) (SI.flatten (List.map (fun (_, _, ty) -> ty_vars_of_type ctx node_name ty) qs)) 
+  | ArrayComprehension (_, bs, e) ->
+    SI.flatten (call e :: List.map (fun (_, _, n) -> call n) bs)
   | Ident (_, id) | Last (_, id) -> (
     match lookup_ty ctx id with
     | None -> SI.empty (* e.g. any bound variable *)
-    | Some ty -> ty_vars_of_type ctx node_name ty
+    (* The variable is not in scope in its own type, which may mention an outer
+       variable of the same name *)
+    | Some ty -> ty_vars_of_type (remove_ty ctx id) node_name ty
   )
   | EmptyMap (_, None) | EmptySet (_, None)
   | ModeRef _ -> SI.empty
@@ -939,20 +1015,17 @@ let rec ty_vars_of_expr ctx node_name expr =
   | RecordExpr (_, _, _, flds) -> SI.flatten (List.map call (snd (List.split flds)))
   | GroupExpr (_, _, es) -> SI.flatten (List.map call es)
   (* Update of structured expressions *)
-  | StructUpdate (_, e1, _, Some e2) -> SI.union (call e1) (call e2)
-  | StructUpdate (_, e1, _, None) -> call e1
+  | StructUpdate (_, e1, idx, e2) ->
+    SI.union (call e1) (LH.fold_label_or_index SI.empty SI.union call idx)
+    |> SI.union (match e2 with Some e2 -> call e2 | None -> SI.empty)
   | ArrayConstr (_, e1, e2) -> SI.union (call e1) (call e2)
   | IndexAccess (_, e1, e2,_) -> SI.union (call e1) (call e2)
   (* Clock operators *)
-  | When (_, e, _) -> call e
-  | Condact (_, e1, e2, _, es1, es2) ->
-    SI.flatten (call e1 :: call e2:: (List.map call es1) @ (List.map call es2))
-  | Activate (_, _, e1, e2, es) -> SI.flatten (call e1 :: call e2 :: List.map call es)
-  | Merge (_, _, es) -> List.split es |> snd |> List.map call |> SI.flatten
+  | Restart (_, e1, e2) -> SI.union (call e1) (call e2)
   | RestartEvery (_, _, es, e) -> SI.flatten (call e :: List.map call es)
   (* Temporal operators *)
   | Pre (_, e) -> call e
-  | Arrow (_, e1, e2) ->  SI.union (call e1) (call e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (call e1) (call e2)
   | LA.Match (_, e, arms, _) ->
     SI.union (call e) (SI.flatten (List.map (fun (_, arm_e) -> call arm_e) arms))
   | LA.ADTTerm (_, ty_args, _, args) ->
@@ -1017,27 +1090,27 @@ let rec expr_contains_node_call ctx expr =
     LH.fold_lustre_ty r false (||) kt || 
     LH.fold_lustre_ty r false (||) vt
   | FieldProject (_, e, _, _) | UnaryOp (_, _, e)
-  | ConvOp (_, _, e) | Quantifier (_, _, _, e) | When (_, e, _)
+  | ConvOp (_, _, e) | Quantifier (_, _, _, e) 
   | Pre (_, e) | Extract (_, e, _, _) | StructUpdate (_, e, _, None)
     -> r e
+  | ArrayComprehension (_, bs, e) ->
+    List.exists (fun (_, _, n) -> r n) bs || r e
   | TypeAscription (_, e, ty) ->
     LH.fold_lustre_ty r false (||) ty || r e
   | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2) | StructUpdate (_, e1, _, Some e2)
   | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
-  | Arrow (_, e1, e2)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2)
     -> r e1 || r e2
   | TernaryOp (_, _, e1, e2, e3)
     -> r e1 || r e2 || r e3
   | GroupExpr (_, _, expr_list)
     -> List.fold_left (fun acc x -> acc || r x) false expr_list
-  | RecordExpr (_, _, _, expr_list) | Merge (_, _, expr_list)
+  | RecordExpr (_, _, _, expr_list) 
     -> List.fold_left (fun acc (_, e) -> acc || r e) false expr_list
-  | Activate (_, _, e1, e2, expr_list) -> 
-    r e1 || r e2
-    || List.fold_left (fun acc x -> acc || r x) false expr_list
   | AnyOp (_, _, _) -> true 
   | ChooseOp (_, _, _) -> false
-  | Call (_, _, ni, _) | Condact (_, _, _, ni, _, _) | RestartEvery (_, ni, _, _) ->
+  | Restart _ -> true
+  | Call (_, _, ni, _) | RestartEvery (_, ni, _, _) ->
     node_id_is_node ctx ni
   | LA.Match (_, e, arms, _) ->
     r e || List.fold_left (fun acc (_, arm_e) -> acc || r arm_e) false arms

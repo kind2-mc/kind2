@@ -1,0 +1,10 @@
+const k: int = 7;
+datatype T = A (k: int) | B;
+
+node main (n: int) returns (y: bool);
+var t: T;
+let
+  t = A(n);
+  y = true;
+  --%PROPERTY match t with | A (k) : forall (v: subtype { x: int | x = k }) v = k | B : true end;
+tel

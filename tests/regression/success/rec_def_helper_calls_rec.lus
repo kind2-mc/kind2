@@ -1,0 +1,34 @@
+-- The definition of F applies the definition of H, which calls the
+-- recursive function G. The value of F(0, 0) depends on the imported E, so
+-- the supervisor instantiates the definition of F at (0, 0) to check a
+-- counterexample, and must then evaluate the call to G that H executes,
+-- as it did when the definition of F inlined the body of H; otherwise the
+-- value of G(3) is left to the solver, which falsifies "p".
+function rec G (n: int) returns (g: int);
+con
+  decreases n;
+noc
+let
+  g = when n <= 0 then 7 else G(n - 1);
+tel
+
+function H (x: int) returns (y: int);
+let
+  y = G(x);
+tel
+
+function imported E (x: int) returns (z: int);
+
+function rec F (n, m: int) returns (r: int);
+con
+  decreases n;
+noc
+let
+  r = when n <= 0 then (if E(n) > 0 then H(3) else -H(3)) else F(m, m);
+tel
+
+node main (n: int) returns (u: bool);
+let
+  u = true;
+  check "p" n = 1 => (F(n, 0) = 7 or F(n, 0) = -7);
+tel

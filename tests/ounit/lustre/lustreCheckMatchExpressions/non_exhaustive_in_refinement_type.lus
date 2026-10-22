@@ -1,0 +1,5 @@
+datatype L = Nil | One (v: int);
+type A = L;
+type R = subtype { z: A | (match z with | Nil : true end) };
+node N(x: R) returns (y: int);
+let y = 1; tel

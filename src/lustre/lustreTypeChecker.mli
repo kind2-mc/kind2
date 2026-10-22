@@ -24,9 +24,6 @@ open TypeCheckerContext
 
 type error_kind = Unknown of string
   | Impossible of string
-  | MergeCaseExtraneous of HString.t * tc_type
-  | MergeCaseMissing of HString.t
-  | MergeCaseNotUnique of HString.t
   | UnboundIdentifier of HString.t
   | UnboundModeReference of HString.t
   | UnboundNodeName of HString.t
@@ -54,10 +51,8 @@ type error_kind = Unknown of string
   | IlltypedMapIndex of tc_type * tc_type
   | ExpectedIntegerTypeForArrayIndex of tc_type
   | IlltypedArrayConcat of bool * tc_type * tc_type option
-  | IlltypedDefaults
-  | IlltypedMerge of tc_type
-  | IlltypedFby of tc_type * tc_type
   | IlltypedArrow of tc_type * tc_type
+  | IlltypedFby of tc_type * tc_type
   | IlltypedCall of tc_type * tc_type
   | IlltypedRecord of tc_type * tc_type
   | ExpectedFunctionType of tc_type
@@ -90,16 +85,14 @@ type error_kind = Unknown of string
   | ExpectedRecordType of tc_type
   | UnsupportedQuantifiedVariable of HString.t
   | InvalidPolymorphicCall of HString.t
-  | InvalidNumberOfIndices of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
   | ExpectedMapSetType of tc_type
-  | ClockMismatchInMerge
-  | IllegalClockExprInActivate of LustreAst.expr
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NodeId.t 
   | TempOperatorInFuncTypeAscription 
+  | RefinementTypeArgInConstant of HString.t
   | NoIndexAccessInArrayLength of tc_type
   | NestedTypeTemporal of LustreAst.lustre_type
   | NestedTypeNodeCall of LustreAst.lustre_type
@@ -108,6 +101,7 @@ type error_kind = Unknown of string
   | MatchScrutineeNotADT of tc_type
   | UnequalMatchArmTypes of tc_type * tc_type
   | DuplicateConstructor of HString.t * HString.t * HString.t
+  | DuplicateConstructorInType of HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
@@ -115,8 +109,10 @@ type error_kind = Unknown of string
   | NonRecursiveADTDecreases of tc_type
   | NonInputInADTDecreasesMeasure of HString.t
   | UnsupportedRecursiveAdtField of HString.t * HString.t
-  | RecursiveFieldWithTypeArgs of HString.t * HString.t
+  | NonUniformRecursiveDatatype of HString.t * HString.t
+  | MutuallyRecursiveDatatypes of HString.t * HString.t
   | UnsupportedRefinementInRecursiveAdtField of HString.t * HString.t
+  | UnsupportedRefinementInRecursiveAdtInstantiation of HString.t
   | DuplicateFieldName of HString.t * HString.t * HString.t
   | DuplicateFieldNameInCtor of HString.t * HString.t
   | NotAFieldOfADT of HString.t
@@ -205,7 +201,9 @@ val build_node_fun_ty : Lib.position ->
   NI.t ->
   HString.t list ->
   LA.const_clocked_typed_decl list ->
-  LA.clocked_typed_decl list -> (tc_type * [> warning ] list, [> error ]) result
+  LA.clocked_typed_decl list ->
+  (tc_type * LA.const_clocked_typed_decl list * LA.clocked_typed_decl list
+   * [> warning ] list, [> error ]) result
 
 val expand_type_syn_reftype : ?expand_history:bool ->
   tc_context ->
@@ -224,6 +222,12 @@ val expand_type_syn_reftype_history :
 val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
+val bind_pattern_ty: tc_context -> tc_type -> LA.pattern
+  -> (tc_context * LA.pattern, [> error]) result
+(** Resolve a match pattern against the type it matches, returning the context
+    the arm's body is checked in and the pattern with each nullary-constructor
+    variable pattern resolved to a constructor pattern *)
+
 val desugar_generic_index: tc_context -> NI.t option -> LA.expr -> LA.label_or_index -> (LA.label_or_index, [> error]) result
 (** Convert the GenericIndex to one of the other indices based on type information *)
 
@@ -232,9 +236,10 @@ val eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [>
 
 val tc_ctx_of_contract_node_decl: Lib.position -> tc_context
   -> LA.contract_node_decl
-  -> (tc_context * [> warning] list, [> error]) result
+  -> (LA.contract_node_decl * tc_context * [> warning] list, [> error]) result
 
-val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool -> (tc_context * [> warning] list, [> error]) result
+val tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool
+  -> (LA.node_decl * tc_context * [> warning] list, [> error]) result
 
 
 val expr_contains_set_binop: tc_context -> NI.t option -> LA.expr -> bool 

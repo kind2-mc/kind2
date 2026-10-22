@@ -276,7 +276,7 @@ let rec pp_print_lustre_type safe ppf t = match Type.node_of_type t with
 
     Format.fprintf ppf "array of %a" (pp_print_lustre_type safe) s
 
-  | Type.Datatype (name, _) -> Format.pp_print_string ppf name
+  | Type.Datatype (name, _, _) -> Format.pp_print_string ppf name
 
   | Type.DatatypeRef name -> Format.pp_print_string ppf name
 
@@ -329,6 +329,7 @@ let string_of_symbol = function
   | `BVSDIV -> "div"
   | `BVUREM -> "mod"
   | `BVSREM -> "mod"
+  | `BVSMOD -> "bvsmod"
   | `BVULT -> "<"
   | `BVULE -> "<="
   | `BVUGT -> ">"
@@ -669,6 +670,7 @@ and pp_print_app ?as_type safe pvar ppf = function
     | `GT as s -> pp_print_app_chain safe pvar s ppf
 
     (* Binary non-associative symbols *)
+    | `BVSMOD
     | `BVSHL 
     | `BVLSHR 
     | `BVASHR as s -> 
@@ -1227,6 +1229,17 @@ let mk_constr c t =
   { expr_init = expr; 
     expr_step = expr; 
     expr_type = t } 
+
+(* Application of an uninterpreted function symbol to expressions *)
+let mk_app uf args =
+
+  let mk_app' sel =
+    Term.mk_uf uf (List.map sel args)
+  in
+
+  { expr_init = mk_app' (fun { expr_init } -> expr_init);
+    expr_step = mk_app' (fun { expr_step } -> expr_step);
+    expr_type = UfSymbol.res_type_of_uf_symbol uf }
 
 (* Integer constant *)
 let mk_int d =  
@@ -2115,12 +2128,254 @@ let apply_subst sigma expr =
 
 (* ********************************************************************** *)
 
+(* Constant-fold a term in which numerals have been substituted for
+   quantified variables.
+
+   Applied bottom-up, this collapses the range constraints guarding the
+   quantified variables ([0 <= 1 and 1 <= 2]) and the constructor tests
+   selecting the payload fields of an algebraic datatype ([ite (= 10 11) x 3]),
+   which would otherwise be left in the term for the solver to deal with. Only
+   the operators that such guards are built from are handled; anything else is
+   returned unchanged. *)
+let fold_ground_term t =
+  (* [Term.is_numeral] and [Term.is_bool] go through [Term.destruct], which
+     raises on anything that is not a plain application; only look at leaves,
+     which is where the substituted constants are. *)
+  let numeral t =
+    if Term.is_leaf t && Term.is_numeral t then Some (Term.numeral_of_term t)
+    else None
+  in
+  let boolean t =
+    if Term.is_leaf t && Term.is_bool t then Some (Term.bool_of_term t) else None
+  in
+  let num_args args =
+    List.fold_right
+      (fun t acc -> match acc, numeral t with
+        | Some ns, Some n -> Some (n :: ns)
+        | _ -> None)
+      args (Some [])
+  in
+  (* A chainable relation holds if it holds of every consecutive pair *)
+  let chainable rel args = match num_args args with
+    | None -> None
+    | Some ns ->
+      let rec chain = function
+        | a :: (b :: _ as tl) -> rel a b && chain tl
+        | _ -> true
+      in
+      Some (Term.mk_bool (chain ns))
+  in
+  Term.map (fun _ t ->
+    if not (Term.is_node t) then t
+    else
+      let args = Term.node_args_of_term t in
+      let folded =
+        match Symbol.node_of_symbol (Term.node_symbol_of_term t) with
+        | `LEQ -> chainable Numeral.( <= ) args
+        | `LT -> chainable Numeral.( < ) args
+        | `GEQ -> chainable Numeral.( >= ) args
+        | `GT -> chainable Numeral.( > ) args
+        | `EQ -> (
+          (* [`EQ] applies to arguments of any type, but only numerals and
+             Booleans can be decided by comparing them: two of those are equal
+             exactly when they are the same hashconsed term, which is not true
+             of constants in general (two distinct uninterpreted constants may
+             still denote the same value). *)
+          let decidable t = numeral t <> None || boolean t <> None in
+          match args with
+          | [a; b] when decidable a && decidable b ->
+            Some (Term.mk_bool (Term.equal a b))
+          | _ -> None
+        )
+        | `NOT -> (
+          match args with
+          | [a] -> (
+            match boolean a with
+            | Some b -> Some (Term.mk_bool (not b))
+            | None -> None
+          )
+          | _ -> None
+        )
+        | `AND ->
+          if List.exists (Term.equal Term.t_false) args then Some Term.t_false
+          else (
+            match List.filter (fun a -> not (Term.equal Term.t_true a)) args with
+            | [] -> Some Term.t_true
+            | [a] -> Some a
+            | args' when List.length args' <> List.length args ->
+              Some (Term.mk_and args')
+            | _ -> None
+          )
+        | `OR ->
+          if List.exists (Term.equal Term.t_true) args then Some Term.t_true
+          else (
+            match List.filter (fun a -> not (Term.equal Term.t_false a)) args with
+            | [] -> Some Term.t_false
+            | [a] -> Some a
+            | args' when List.length args' <> List.length args ->
+              Some (Term.mk_or args')
+            | _ -> None
+          )
+        | `IMPLIES -> (
+          (* [`IMPLIES] is right-associative: [a => (b => c)] *)
+          match args with
+          | a :: (_ :: _ as tl) when Term.equal a Term.t_true ->
+            Some (match tl with [c] -> c | _ -> Term.mk_implies tl)
+          | a :: _ :: _ when Term.equal a Term.t_false -> Some Term.t_true
+          | _ -> None
+        )
+        | `ITE -> (
+          match args with
+          | [c; a; b] -> (
+            match boolean c with
+            | Some c -> Some (if c then a else b)
+            | None -> if Term.equal a b then Some a else None
+          )
+          | _ -> None
+        )
+        | _ -> None
+      in
+      match folded with Some t' -> t' | None -> t
+  ) t
+
+(* The number of nodes of a term, counting a subterm once for each place it
+   occurs.
+
+   What an expansion costs is the term it hands the solver, and that is written
+   out in full however much of it is shared. Only called on a term already
+   known to have no quantifier in it, so folding it meets no bound variable. *)
+let term_size t =
+  Term.eval_t ~fail_on_quantifiers:false
+    (fun _ sizes -> List.fold_left ( + ) 1 sizes)
+    t
+
+(* Values of a quantified variable ranging over a finite domain.
+
+   Enumerated types (including the tags and enum-typed payload fields an
+   algebraic datatype is compiled into) are encoded as integer ranges, so the
+   domain of such a variable is known statically and the quantifier binding it
+   can be expanded into a finite conjunction or disjunction. The Booleans are
+   such a domain too, and the cheapest one there is. *)
+let finite_domain_of_var v =
+  let ty = Var.type_of_var v in
+  if Type.is_bool ty then Some [Term.t_false; Term.t_true]
+  else if not (Type.is_enum ty) then None
+  else
+    let l, u = Type.bounds_of_enum ty in
+    let rec values n acc =
+      if Numeral.(n < l) then acc
+      else values Numeral.(pred n) (Term.mk_num n :: acc)
+    in
+    Some (values u [])
+
+(* The quantifiers that [expand_finite_quant] eliminated, by the term their
+   expansion produced: the function that builds the quantifier, its
+   variables and its body *)
+let expansions = Term.TermHashtbl.create 7
+
+(* [t] with the expansions in it put back as the quantifiers they
+   eliminated. [t] holds no quantifier, and nor do the expansions in it. *)
+let rec unexpand t =
+  match Term.TermHashtbl.find_opt expansions t with
+  | Some (mk_quant, vars, body) -> mk_quant vars (unexpand body)
+  | None ->
+    match Term.destruct t with
+    | Term.T.App (s, args) ->
+      let args' = List.map unexpand args in
+      if List.for_all2 ( == ) args args' then t
+      else Term.mk_app s args'
+    | Term.T.Var _ | Term.T.Const _ -> t
+
+(* Expand a quantifier binding [vars] into the finite conjunction (resp.
+   disjunction) of its instances, combined with [mk_junct] ([Term.mk_and] for a
+   universal quantifier, [Term.mk_or] for an existential one).
+
+   Only quantifiers that this eliminates outright are expanded: if some of
+   [vars] range over an infinite (or uninterpreted) type, expanding the rest
+   would just replicate a body that stays under a quantifier, which costs the
+   solver more than the single quantifier it started with. A body that is
+   itself quantified is declined for the same reason: a quantifier over
+   several variables is normalized into nested single-variable ones, so
+   [forall (c: Color; i: int)] reaches us as an enum quantifier wrapped around
+   an integer one, and expanding the outer one alone is exactly the case
+   above.
+
+   Returns [None] when the quantifier is left untouched. A quantifier whose
+   expansion is over budget is built with [mk_quant] ([Term.mk_forall] or
+   [Term.mk_exists]) instead, around the quantifiers that its body had
+   expanded put back. *)
+let expand_finite_quant mk_quant mk_junct vars t =
+  if not (Flags.Quant.inst_finite ()) || Term.has_quantifier t then None
+  else
+    let domains = List.map (fun v -> (v, finite_domain_of_var v)) vars in
+    if List.exists (fun (_, d) -> d = None) domains then None
+    else
+      let finite =
+        List.map (function (v, Some d) -> (v, d) | _ -> assert false) domains
+      in
+      let budget = Flags.Quant.inst_finite_budget () in
+      (* How many instances the expansion would make.
+
+         Saturated rather than left to overflow: a quantifier over an algebraic
+         datatype binds one variable for its tag and one for each payload
+         field, all in the one list, so a datatype with enough fields wraps the
+         product round to a negative number and the test below lets it
+         through. *)
+      let instances =
+        List.fold_left
+          (fun acc (_, values) ->
+            match List.length values with
+            | 0 -> 0
+            | n when acc > budget / n -> budget + 1
+            | n -> acc * n)
+          1 finite
+      in
+      (* Budget the term the expansion produces, rather than the number of
+         copies it makes of the body.
+
+         A quantifier over several variables is normalized into nested
+         single-variable ones, so once the innermost has been expanded away its
+         body holds no quantifier and the one around it expands in turn,
+         multiplying what the level below it already built. Counting copies
+         cannot see that: every level makes few of them. Measuring the result
+         can, because each level is charged for the body it was handed.
+
+         The levels below this one are then put back as they were: their
+         expansion, as large as the budget allows, would stay under this
+         quantifier, and the solver would be handed it at every instance of
+         the term, where the quantifiers it replaced are a few nodes. *)
+      if instances > budget / max 1 (term_size t) then
+        Some (mk_quant vars (unexpand t))
+      else
+        (* All the substitutions assigning a value to every finite variable *)
+        let sigmas =
+          List.fold_left
+            (fun sigmas (v, values) ->
+              List.concat_map
+                (fun sigma -> List.map (fun c -> (v, c) :: sigma) values)
+                sigmas)
+            [[]] finite
+        in
+        let expansion =
+          mk_junct (List.map (fun sigma -> Term.apply_subst sigma t) sigmas)
+          (* Substituting constants for the bound variables turns the range
+             constraints guarding them into ground terms; fold them away. *)
+          |> fold_ground_term
+        in
+        Term.TermHashtbl.replace expansions expansion (mk_quant, vars, t) ;
+        Some expansion
+
 (* Evaluate universal quantification *)
 let eval_forall vars t = match vars, t with
   | [], _ -> Term.t_true
   | _, t when t == Term.t_true -> Term.t_true
   | _, t when t == Term.t_false -> Term.t_false
-  | _ -> Term.mk_forall vars t 
+  | _ -> (
+    let mk_forall vars t = Term.mk_forall vars t in
+    match expand_finite_quant mk_forall Term.mk_and vars t with
+    | Some t -> t
+    | None -> Term.mk_forall vars t
+  )
 
 let type_of_forall = type_of_bool_bool
 
@@ -2136,7 +2391,12 @@ let eval_exists vars t = match vars, t with
   | [], _ -> Term.t_false
   | _, t when t == Term.t_true -> Term.t_true
   | _, t when t == Term.t_false -> Term.t_false
-  | _ -> Term.mk_exists vars t 
+  | _ -> (
+    let mk_exists vars t = Term.mk_exists vars t in
+    match expand_finite_quant mk_exists Term.mk_or vars t with
+    | Some t -> t
+    | None -> Term.mk_exists vars t
+  )
 
 let type_of_exists = type_of_bool_bool
 
@@ -2155,9 +2415,13 @@ let eval_mod expr1 expr2 =
     | Term.T.Const c1, Term.T.Const c2 when
         Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
 
-      Term.mk_num 
-        Numeral.(Symbol.numeral_of_symbol c1 mod 
-                 Symbol.numeral_of_symbol c2) 
+      let divisor = Symbol.numeral_of_symbol c2 in
+
+      if Numeral.(equal divisor zero) then
+        Term.mk_mod expr1 expr2
+      else
+        Term.mk_num 
+          Numeral.(Symbol.numeral_of_symbol c1 mod divisor) 
     
     | _ -> (if Type.is_ubitvector (Term.type_of_term expr1) then 
               Term.mk_bvurem [expr1; expr2]
@@ -2172,7 +2436,8 @@ let eval_mod expr1 expr2 =
 (* Type of integer modulus 
 
    If j is bounded by [l, u], then the result of i mod j is bounded by
-   [0, (max(|l|, |u|) - 1)].
+   [0, (max(|l|, |u|) - 1)], unless j can only be zero: i mod 0 is an
+   arbitrary integer, so the result is then of type int (as for division).
 
    mod: int -> int -> int *)
 let type_of_mod = function 
@@ -2181,6 +2446,7 @@ let type_of_mod = function
       | t when Type.is_int t -> Type.t_int 
       | t when Type.is_int_range t -> (
         match Type.bounds_of_int_range t with 
+          | Some l, Some u when Numeral.(equal l zero && equal u zero) -> Type.t_int
           | Some l, Some u -> Type.mk_int_range (Some Numeral.zero) (Some Numeral.(pred (max (abs l) (abs u))))
           | _ -> Type.mk_int_range (Some Numeral.zero) None
         )
@@ -2471,7 +2737,7 @@ let eval_intdiv expr1 expr2 =
       let divisor = Symbol.numeral_of_symbol c2 in
 
       if Numeral.(equal divisor zero) then
-        Term.mk_div [expr1; expr2]
+        Term.mk_intdiv [expr1; expr2]
       else
         Term.mk_num
           Numeral.(Symbol.numeral_of_symbol c1 / divisor)
@@ -3212,8 +3478,13 @@ let type_of_store = function
 
     (fun i v -> 
 
-       if (Type.is_int i || Type.is_int_range i) &&
-          Type.check_type (Type.elem_type_of_array s) v
+       let compatible t1 t2 = Type.check_type t1 t2 || Type.check_type t2 t1 in
+
+       (* An array index may legally fall outside the array's bounds, so any
+          integer type is accepted; map and set keys use the index type *)
+       if (Type.is_int i || Type.is_int_range i ||
+           compatible (Type.index_type_of_array s) i) &&
+          compatible (Type.elem_type_of_array s) v
        then 
 
         (* Return type of array *)

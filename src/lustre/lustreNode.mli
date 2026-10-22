@@ -70,6 +70,14 @@ type node_call = {
   call_pos : position;
   (** Position of node call in input file *)
 
+  call_instance : int list;
+  (** Indices of the instance, if the call is one of the instances a call in
+      an array equation expands into (e.g. [[1]] for the instance at index 1
+      of [s[i] = N(a[i])]), empty otherwise.
+
+      The instances share the position of the call, so the indices are what
+      tells apart the properties lifted from them. *)
+
   call_node_id : NI.t;
   (** Identifier of the called node *)
   
@@ -110,6 +118,26 @@ type node_call = {
 
   call_inlined : bool;
   (** Whether this call was inlined or not *)
+
+  call_uf_applied : bool;
+  (** Whether this call is the instance retained for a call that was compiled
+      to an application of the functional symbol of the callee (a call applied
+      to quantified variables, see {!GeneratedIdentifiers.t.qcalls}).
+
+      The terms of the caller apply that symbol, and the instance is what makes
+      the callee a subsystem of the caller, which is what gets the symbol
+      declared and its definition emitted. It must therefore survive slicing
+      whatever the property being checked ({!LustreSlicing.roots_of_inlined_calls}).
+      Nothing else can stand in for it: slicing prunes the model by call
+      reachability ([LustreNode.subsystem_of_nodes] follows calls), so dropping
+      the last call to the callee drops the callee itself, and by the time the
+      transition system is built there is no node left to read a declaration or
+      a definition from.
+
+      The instance says nothing of its own -- its arguments are free constants
+      standing for the quantified variables and nothing reads its outputs -- so
+      it is left out of counterexamples, except for a property that comes from
+      it (see {!LustreSlicing.keep_inline_call} and {!LustrePath}). *)
 
   call_rec_decrease_expr : string option;
   (** Source-level rendering of the decrease constraint generated for a
@@ -241,6 +269,12 @@ type t = {
   asserts : (position * StateVar.t) list;
   (** Assertions of node *)
 
+  adt_constraints : LustreExpr.t list;
+  (** Constraints keeping the ADT values held by the node's variables in
+      canonical form (see {!LustreDesugarADTs.mk_canonical_exprs}). Like the
+      range constraints of enumerated types, they hold in every instance of
+      the node, whether it is abstracted by its contract or not. *)
+
   props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
   (** Proof obligations for the node *)
 
@@ -344,7 +378,7 @@ val find_main : t list -> NI.t list
 val ident_of_top : t list -> NI.t
 
 (** Return true if the node has a contract with
-    at least one guarantee or one mode *)
+    at least one guarantee or one mode with an ensure *)
 val has_effective_contract : t -> bool
 
 (** Return a list of tree-like subsystem hierarchies from a flat list of nodes,
@@ -418,8 +452,12 @@ val scope_of_node : t -> Scope.t
 
     The systems are presented in topological order such that each system is
     presented to [f] after all its subsystem instances have been presented.
+
+    [keep_call] selects the node calls to descend into; a call it rejects is
+    left out along with everything below it. It defaults to keeping every call.
 *)
 val fold_node_calls_with_trans_sys :
+  ?keep_call:(node_call -> bool) ->
   t list -> (
     t -> TransSys.t ->
     (TransSys.t * TransSys.instance * call_cond list) list -> 'a list -> 'a

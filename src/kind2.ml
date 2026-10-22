@@ -20,8 +20,6 @@
 
 open Lib
 
-module Signals = TermLib.Signals
-
 (* Hide existential type parameter of to construct values of 'a InputSystem.t
    at runtime *)
 type any_input =
@@ -53,10 +51,10 @@ let setup : unit -> any_input = fun () ->
    | Flags.Error -> (
       KEvent.terminate_log () ; exit ExitCodes.usage_error
    )
-   | Flags.UnsupportedSolver -> (
+   | Flags.UnsupportedSolver _ -> (
       KEvent.terminate_log () ; exit ExitCodes.unsupported_solver
    )
-   | Flags.SolverNotFound -> (
+   | Flags.SolverNotFound _ -> (
       KEvent.terminate_log () ; exit ExitCodes.not_found_error
    )
   );
@@ -88,25 +86,8 @@ let setup : unit -> any_input = fun () ->
     /!\ ================================================================== /!\
   *)
 
-  (* Raise exception on CTRL+C. *)
-  Sys.catch_break true ;
-
-  (* Set sigalrm handler. *)
-  Signals.set_sigalrm_timeout_from_flag () ;
-
-  (* Install generic signal handlers for other signals. *)
-  Signals.set_sigint () ;
-  (* SIGPIPE is ignored, not turned into an exception: signal handlers
-     are global to the process and may run in any domain, so a broken
-     pipe of one engine would crash an arbitrary other engine or the
-     supervisor. With the signal ignored, a write to a broken pipe
-     fails in place with EPIPE in the domain that wrote. *)
-  Signals.ignore_sigpipe () ;
-  Signals.set_sigterm () ;
-  Signals.set_sigquit () ;
-
-  (* Starting global timer. *)
-  Stat.start_timer Stat.total_time ;
+  (* Signal handlers, timeout and global timer, shared with kmoxi *)
+  RunSetup.setup () ;
 
   let in_file = Flags.input_file () in
 

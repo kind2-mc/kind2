@@ -243,16 +243,13 @@ let
   out = sum >= 10 ;
 tel
 
-node merge_when_activate (inp: int) returns (safe_tmp: bool) ;
+-- sum_ge_10 only advances at the steps at which inp is positive
+node when_branch_call (inp: int) returns (safe_tmp: bool) ;
 var in_pos, pre_tmp: bool;
 let
   in_pos = inp >= 0 ;
   pre_tmp = false -> pre safe_tmp  ;
-  safe_tmp = merge(
-    in_pos ;
-    (activate sum_ge_10 every in_pos)(inp) ;
-    pre_tmp when not in_pos
-  ) ;
+  safe_tmp = when in_pos then sum_ge_10(inp) else pre_tmp ;
 tel
 
 node bounded_counter (const max: int) returns (t: int);
@@ -262,18 +259,27 @@ tel
 
 node mod3_counter (reset: bool) returns (c: int);
 let
-  c = (restart bounded_counter every reset)(3);
+  c = restart bounded_counter(3) every reset;
+tel
+
+-- Restart block
+node running_max (i: int; reset: bool) returns (s, m: int);
+let
+  restart
+    s = 0 -> pre s + i;
+    m = 0 -> if s > pre m then s else pre m;
+  every reset end
 tel
 
 type ABC = enum { V_A, V_B, V_C };
 
-node n_merge(x,w:int; c: ABC) returns (y:int);
+node n_cond(x,w:int; c: ABC) returns (y:int);
 let
-  y =
-    merge c
-    (V_A -> x when V_A(c))
-    (V_B -> w + 1 when V_B(c))
-    (V_C -> x + w when V_C(c));
+  cond
+    | c = V_A: y = x;
+    | c = V_B: y = w + 1;
+    otherwise: y = x + w;
+  end
 tel
 
 -- Node with a type parameter 
@@ -384,30 +390,47 @@ let y = false -> x and not pre x; tel;
 node Count() returns (y: int);
 let y = 0 -> pre y + 1; tel;
 
--- Node counting number of rising edges with a condact 
-node CountRise(x: bool) returns (y: int);
-let y = condact(Rise(x), Count(), 0); tel;
+-- Counter node with fby ('0 fby y' is '0 -> pre y')
+node CountFby() returns (y: int);
+let y = 0 fby y + 1; tel;
 
--- Array inductive definitions
-node sum (const n: int; A: int ^ n) returns (s: int);
-var cumul: int ^ n;
+-- Node counting number of rising edges: Count only advances at rising edges,
+-- and y keeps its previous value in between
+node CountRise(x: bool) returns (y: int);
+var held: int;
 let
-  cumul[k] = if k = 0 then A[0] else A[k] + cumul[k-1];
-  s = cumul[n-1];
+  held = 0 fby y;
+  y = when Rise(x) then Count() else held;
+tel;
+
+-- A recursive function over an array
+function rec sum_upto (const n: int; A: int ^ n; k: int) returns (s: int);
+(*@contract
+  decreases k;
+*)
+let
+  s = when k <= 0 or k > n then 0 else sum_upto(n, A, k - 1) + A[k - 1];
 tel
+
+node sum (const n: int; A: int ^ n) returns (s: int);
+let
+  s = sum_upto(n, A, n);
+tel
+
+-- Array comprehensions
 
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
 let
-  B[i] = A[low + i];
+  B = (A[low + i] foreach i)^(up-low);
 tel
 
 -- Quantifier in specification
 node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
 let
-  A[i] = if i = 0 then s else (-1 -> pre A[i-1]);
-  ok[i] = A[i] = -1 or A[i] = s or (false -> pre ok[i]);
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
+  ok = (A[i] = -1 or A[i] = s or (false -> pre ok[i]) foreach i)^n;
 
   --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
 tel
@@ -785,6 +808,11 @@ let
   -- `in` is set (and map) membership
   check forall (i: int) not (i in s1 + s2) = (not (i in s1) and not (i in s2));
   check forall (i: int) i in out => (i = 1 or i = 2 or i = 3);
+
+  -- Subset, proper subset, superset, and proper superset
+  check out <= { 1, 2, 3 };
+  check s1 * s2 <= s1 and s1 + s2 >= s1;
+  check {}@<int> < { 1 } and { 1, 2 } > { 1 };
 tel
 
 -- ------------------------------------------------------------

@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node f (t: T) returns (y: int);
+let
+  match t with
+  | anything:
+    y = 42;
+  end
+tel
+
+node main () returns (ok: bool);
+let
+  ok = f(A(1)) = 42 and f(B(2)) = 42;
+  check ok;
+tel

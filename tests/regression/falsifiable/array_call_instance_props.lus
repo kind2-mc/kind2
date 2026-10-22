@@ -1,0 +1,159 @@
+(* A call in an array comprehension expands into one instance per index. The
+   properties lifted from the instances must stay distinct: each has its own
+   status, and the indices in its name must be those of its instance.
+   test_call_instances.py checks the status of each one. *)
+
+node Sub (x: int) returns (y: int)
+(*@contract
+  assume x >= 0;
+*)
+let
+  y = x;
+tel
+
+(* The assumption is violated for instance 0 only *)
+node Main1 () returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [-1, 1, 1];
+  s = (Sub(a[i]) foreach i)^3;
+  ok = s[1] = 1;
+  check "P1" ok;
+tel
+
+(* The assumption is violated for instance [1][0] only *)
+node Main2 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [-1, 1], [1, 1]];
+  s = (Sub(a[i][j]) foreach i, j)^2^3;
+  ok = s[0][0] = 1;
+  check "P2" ok;
+tel
+
+(* Instances of a call of a node whose own calls expand. The indices of an
+   instance follow the order of the index variables of the comprehension,
+   [m][k], whatever the order they were first created in (k before m).
+   The assumption is violated for the instance 0 of Sub in the instances
+   [2][_] of Mid only. *)
+node Mid (b: int^2; j: int) returns (r: int^2)
+let
+  r = (Sub(b[k]) foreach k)^2;
+tel
+
+node Main3 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, 1], [-1, 1]];
+  s = (Mid(a[m], k)[k] foreach m, k)^2^3;
+  ok = s[0][0] = 1;
+  check "P3" ok;
+tel
+
+(* A call whose arguments mention only one of the index variables of the
+   comprehension expands into one instance per index of that variable: the
+   other one indexes the output of the call, and does not tell the instances
+   apart. The assumption is violated for the instance 0 of Sub in the instance
+   [2] of Mid only. *)
+node Main4 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, 1], [-1, 1]];
+  s = (Mid(a[m], 0)[k] foreach m, k)^2^3;
+  ok = s[0][0] = 1;
+  check "P4" ok;
+tel
+
+(* A call in the operand of another call (#1747). The instances of both calls
+   are indexed. The assumption is violated for the instance 1 of Sub only:
+   the one of Wrap always holds, and is only there for the indices of the
+   instances of the outer call to be checked. *)
+node Wrap (x: int) returns (y: int)
+(*@contract
+  assume x <> 100;
+*)
+let
+  y = x;
+tel
+
+node Main5 () returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [1, -1, 1];
+  s = (Wrap(Sub(a[i])) foreach i)^3;
+  ok = s[0] = 1;
+  check "P5" ok;
+tel
+
+(* The same, with the inner call under a guard that mentions the index
+   variable. The assumption is violated for the instance 2 of Sub only, when
+   it is activated. *)
+node Main6 (m: int) returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [1, 1, -1];
+  s = (Wrap(when m = i then Sub(a[i]) else 0) foreach i)^3;
+  ok = m = 0 => s[0] = 1;
+  check "P6" ok;
+tel
+
+(* A call in the restart condition of a restarted call. The assumption is
+   violated for the instance 1 of Sub only. *)
+node Pos (x: int) returns (b: bool)
+let
+  b = x > 0;
+tel
+
+node Main7 () returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [1, -1, 1];
+  s = (restart Wrap(a[i]) every Pos(Sub(a[i])) foreach i)^3;
+  ok = s[0] + s[1] + s[2] <> 7;
+  check "P7" ok;
+tel
+
+(* A call in the operand of another call, over two index variables. The
+   assumption is violated for the instance [1][1] of Sub only. *)
+node Main8 () returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, -1], [1, 1]];
+  s = (Wrap(Sub(a[i][j])) foreach i, j)^2^3;
+  ok = s[0][0] + s[1][1] + s[2][1] <> 7;
+  check "P8" ok;
+tel
+
+(* Calls nested two levels deep. The assumption is violated for the instance 2
+   of Sub only. *)
+node Main9 () returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [1, 1, -1];
+  s = (Wrap(Wrap(Sub(a[i]))) foreach i)^3;
+  ok = s[0] + s[1] + s[2] <> 7;
+  check "P9" ok;
+tel
+
+(* A call in the operand of a restarted call. The assumption is violated for
+   the instance 1 of Sub only. *)
+node Main10 (r: bool) returns (ok: bool);
+var a: int^3; s: int^3;
+let
+  a = [1, -1, 1];
+  s = (restart Wrap(Sub(a[i])) every r foreach i)^3;
+  ok = s[0] + s[1] + s[2] <> 7;
+  check "P10" ok;
+tel
+
+(* A call in a comprehension in the operand of a restart in another
+   comprehension. The assumption is violated for instance [1][1] of Sub only:
+   the indices of the restart come first. *)
+node Main11 (r: bool) returns (ok: bool);
+var a: int^2^3; s: int^2^3;
+let
+  a = [[1, 1], [1, -1], [1, 1]];
+  s = (restart (Sub(a[i][j]) foreach j)^2 every r foreach i)^3;
+  ok = s[0][0] = 1;
+  check "P11" ok;
+tel

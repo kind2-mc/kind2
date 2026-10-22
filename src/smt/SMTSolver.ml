@@ -21,6 +21,9 @@ open Lib
 
 exception Unknown
 exception Timeout
+exception Exiting
+exception Killed
+exception Died = SMTLIBSolver.Died
 
 
 module IntMap = Map.Make(
@@ -58,6 +61,9 @@ type t = {
   term_names : (int, expr) Hashtbl.t ;
   (* Unique identifier for solver instance *)
   id : int ;
+  (* Set when the solver is taken out of the registry to be killed from
+     outside (see [set_aside]) *)
+  killed : bool Atomic.t ;
   mutable next_assumption_id : int ;
   mutable last_assumptions : Term.t array ;
 }
@@ -76,16 +82,69 @@ See [destroy_all]. *)
 let all_solvers = ref IntMap.empty
 let all_solvers_lock = Mutex.create ()
 
-(** Registers a solver, owned by the calling domain. *)
+(* The solvers killed from outside, by [kill_solvers_of_domain] or
+   [destroy_all_of_process], whose pipes are still open, in the same form
+   as [all_solvers].
+
+   The killer leaves the pipes alone: the domain that owns the solver may
+   be reading them at that moment. That domain closes them, when it
+   deletes the solver or when it exits through [destroy_all], whichever
+   comes first. An engine stopped by having its solvers killed does not
+   delete them, it exits.
+
+   Guarded by [all_solvers_lock], like [all_solvers]: a solver moves from
+   one to the other in a single acquisition, so that its owner always
+   finds it in one of them until it disposes of it. *)
+let killed_solvers = ref IntMap.empty
+
+(* Latched by [destroy_all_of_process]: no solver may be created from
+   then on.
+
+   The sweep before the process exits is only final if nothing can
+   start a solver behind it. Something can: an engine the supervisor
+   gave up on keeps running in the background, and it dies with the
+   process rather than at a point we choose. A solver it starts after
+   the sweep is left running, with nobody to kill it.
+
+   Such a solver outlives Kind 2, and on Windows it holds the standard
+   output of Kind 2 open, since a child there inherits every
+   inheritable handle rather than only the ones it was given. Whoever
+   reads that output, the regression harness for one, then waits for an
+   end that never comes, long after Kind 2 itself is gone.
+
+   Guarded by [all_solvers_lock], like the map: it has to be read and
+   the registration decided in one go, or the two could interleave and
+   let exactly the solver this bars through. *)
+let no_new_solvers = ref false
+
+(** Registers a solver, owned by the calling domain. Raises [Exiting]
+    if the process is on its way out, in which case the caller must
+    dispose of the instance it just created: past that point nothing
+    else will. *)
 let add_solver ( { id } as solver ) =
   let owner = (Domain.self () :> int) in
   Mutex.protect all_solvers_lock (fun () ->
+    if !no_new_solvers then raise Exiting ;
     all_solvers := IntMap.add id (owner, solver) !all_solvers)
 
-(** Forgets a solver. *)
+(** Forgets a solver, and says what is left for its owner to do.
+    [`Live] if it was still registered: the process is the owner's to
+    dispose of. [`Killed] if it was killed from outside: the process is
+    gone, but the pipes to it are left to close. [`Gone] if it was
+    disposed of already.
+
+    Tested and removed in one go, under the lock, since the supervisor
+    may take the solver out of the registry concurrently and kill a
+    process that the owner then must not touch again. *)
 let drop_solver { id } =
   Mutex.protect all_solvers_lock (fun () ->
-    all_solvers := IntMap.remove id !all_solvers)
+    if IntMap.mem id !all_solvers then (
+      all_solvers := IntMap.remove id !all_solvers ;
+      `Live
+    ) else if IntMap.mem id !killed_solvers then (
+      killed_solvers := IntMap.remove id !killed_solvers ;
+      `Killed
+    ) else `Gone)
 
 (* Set while the supervisor is terminating the engines of an analysis.
    Solver instances are then killed outright instead of shut down
@@ -95,16 +154,44 @@ let drop_solver { id } =
 let shutting_down = Atomic.make false
 let set_shutting_down b = Atomic.set shutting_down b
 
-(* Destroys a solver instance. *)
+(* Destroys a solver instance, from the domain that owns it. A solver
+   killed outright still has its pipes open, and nothing else will close
+   them. *)
 let destroy s =
   let module S = (val s.solver_inst) in
-  if Atomic.get shutting_down then S.kill_instance ()
+  if Atomic.get shutting_down then (
+    S.kill_instance () ;
+    S.close_channels ()
+  )
   else S.delete_instance ()
 
-(* Raise an exception on error responses from the SMT solver *)
+(* Closes the pipes to a solver killed from outside *)
+let close_channels s =
+  let module S = (val s.solver_inst) in
+  S.close_channels ()
+
+(* Disposes of a solver instance, from the domain that owns it.
+
+   Whoever takes a solver out of the registry disposes of its process:
+   the owner here, if it is still registered. A solver killed from
+   outside has only its pipes left to close (see [killed_solvers]). *)
+let dispose s =
+  match drop_solver s with
+  | `Live -> destroy s
+  | `Killed -> close_channels s
+  | `Gone -> ()
+
+(* Raise an exception on error responses from the SMT solver.
+
+   A response that parsed came from the solver, kill or no kill: a
+   solver killed from outside does not answer, it fails the command, on
+   a reply cut short or a closed pipe, and [Guard] turns that into
+   [Killed]. Looking at [s.killed] here would take a genuine error for
+   the kill when the kill lands between the reply being read and this
+   check, and the error would go unreported. *)
 let fail_on_smt_error s = function
 
-  | `Timeout -> drop_solver s ; destroy s ; raise Timeout
+  | `Timeout -> dispose s ; raise Timeout
 
   | `Error e -> 
     raise (Failure ("SMT solver failed: " ^ e))
@@ -123,7 +210,7 @@ let fail_on_smt_error s = function
 
 let smt_error s = function
 
-  | `Timeout -> drop_solver s ; destroy s ; raise Timeout
+  | `Timeout -> dispose s ; raise Timeout
 
   | `Error e -> 
     raise (Failure ("SMT solver failed: " ^ e))
@@ -145,6 +232,52 @@ let bool_of_bool_option = function
 let bool_of_int_option = function
   | None -> 0
   | Some i -> i
+
+(* The instance [I] of a solver, whose commands raise [Killed] instead of
+   failing once [killed] is set. A solver killed from outside fails in the
+   middle of a command, on a reply that ends early or a pipe that is closed,
+   with [Died] if the process is found gone by then, or as it would on an
+   error of its own: only the flag tells a kill from outside apart.
+   A reply that parsed is not covered, on purpose: the solver gave it
+   before it died, and it is reported as what it is (see
+   [fail_on_smt_error]). *)
+module Guard
+    (I : SolverSig.Inst) (K : sig val killed : bool Atomic.t end) :
+  SolverSig.Inst =
+struct
+  module Conv = I.Conv
+
+  (* The exceptions of a solver process that is gone *)
+  let guard f =
+    try f () with
+    | Failure _ | End_of_file | Sys_error _ | Unix.Unix_error _ | Died _
+      when Atomic.get K.killed -> raise Killed
+
+  let delete_instance = I.delete_instance
+  let kill_instance = I.kill_instance
+  let pid = I.pid
+  let close_channels = I.close_channels
+  let declare_sort s = guard (fun () -> I.declare_sort s)
+  let declare_fun f a r = guard (fun () -> I.declare_fun f a r)
+  let define_fun f v r t = guard (fun () -> I.define_fun f v r t)
+  let define_funs_rec d = guard (fun () -> I.define_funs_rec d)
+  let assert_expr e = guard (fun () -> I.assert_expr e)
+  let assert_soft_expr e w = guard (fun () -> I.assert_soft_expr e w)
+  let push n = guard (fun () -> I.push n)
+  let pop n = guard (fun () -> I.pop n)
+  let check_sat ?timeout () = guard (fun () -> I.check_sat ?timeout ())
+  let check_sat_assuming e = guard (fun () -> I.check_sat_assuming e)
+  let check_sat_assuming_supported = I.check_sat_assuming_supported
+  let get_value e = guard (fun () -> I.get_value e)
+  let get_model () = guard I.get_model
+  let get_unsat_core () = guard I.get_unsat_core
+  let get_unsat_assumptions () = guard I.get_unsat_assumptions
+  let execute_custom_command c a n =
+    guard (fun () -> I.execute_custom_command c a n)
+  let execute_custom_check_sat_command c =
+    guard (fun () -> I.execute_custom_check_sat_command c)
+  let trace_comment = I.trace_comment
+end
 
 (* Create a new instance of an SMT solver, declare all currently created
    uninterpreted function symbols *)
@@ -185,59 +318,104 @@ let create_instance
     | `MathSAT_SMTLIB -> (module MathSATSMTLIB.Create(Params) : SolverSig.Inst)
     | `OpenSMT_SMTLIB -> (module OpenSMTSMTLIB.Create(Params) : SolverSig.Inst)
     | `SMTInterpol_SMTLIB -> (module SMTInterpolSMTLIB.Create(Params) : SolverSig.Inst)
-    | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
     | `Yices2_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
     | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
     | `detect -> assert false
   in
 
+  let killed = Atomic.make false in
+
   (* Return solver instance *)
   let solver =
     { solver_kind = kind;
-      solver_inst = fomodule;
+      solver_inst =
+        (let module I = (val fomodule) in
+         (module Guard (I) (struct let killed = killed end)
+           : SolverSig.Inst));
       term_names = Hashtbl.create 19;
       id = id;
+      killed;
       next_assumption_id = 0;
       last_assumptions = [| |]; }
   in
 
-  add_solver solver ;
+  (* The solver process is already running: it is started by the
+     functor application above, before there is anything to register.
+     If the sweep has been and gone, kill it here, since it would
+     otherwise be the one solver that outlives Kind 2. *)
+  ( try add_solver solver with Exiting ->
+      (* Only the process is disposed of. The pipes to it go with the
+         process image moments later, and there is no instance left to
+         close them through. *)
+      let module S = (val fomodule) in
+      S.kill_instance () ;
+      raise Exiting ) ;
 
   solver
 
 (* Delete a solver instance *)
-let delete_instance s =
-  let live =
-    Mutex.protect all_solvers_lock (fun () -> IntMap.mem s.id !all_solvers)
-  in
-  if live then (
-    drop_solver s ;
-    destroy s
-  )
+let delete_instance = dispose
 
-(* Destroys all live solvers owned by the calling domain. *)
+(* Destroys all live solvers owned by the calling domain, and closes
+   the pipes to those of its solvers that were killed from outside. *)
 let destroy_all () =
   let self = (Domain.self () :> int) in
-  let mine =
-    Mutex.protect all_solvers_lock (fun () ->
-      let mine, others =
-        IntMap.partition (fun _ (owner, _) -> owner = self) !all_solvers
-      in
-      all_solvers := others ;
-      mine)
+  let mine map =
+    let mine, others =
+      IntMap.partition (fun _ (owner, _) -> owner = self) !map
+    in
+    map := others ;
+    mine
   in
-  IntMap.iter (fun _ (_, s) -> destroy s) mine
+  let live, killed =
+    Mutex.protect all_solvers_lock (fun () ->
+      let live = mine all_solvers in
+      live, mine killed_solvers)
+  in
+  IntMap.iter (fun _ (_, s) -> destroy s) live ;
+  IntMap.iter (fun _ (_, s) -> close_channels s) killed
 
-(* Destroys every live solver of the whole process. Only for final
-   cleanup before the process exits. *)
+(* Sets aside the given entries, just taken out of the registry to be
+   killed from outside. They are marked, so that the command their owner
+   is in raises [Killed], and their pipes are left for the owner to close
+   (see [killed_solvers]).
+
+   Called under [all_solvers_lock], in the same acquisition that takes
+   the entries out of the registry. *)
+let set_aside entries =
+  IntMap.iter (fun _ (_, s) -> Atomic.set s.killed true) entries ;
+  killed_solvers := IntMap.union (fun _ e _ -> Some e) entries !killed_solvers ;
+  entries
+
+(* Kills the solver processes of the given registry entries, without
+   interacting with them. *)
+let kill_entries entries =
+  IntMap.iter
+    (fun _ (_, s) ->
+      let module S = (val s.solver_inst) in
+      S.kill_instance ())
+    entries
+
+(* Destroys every live solver of the whole process and bars any
+   further one. Only for final cleanup before the process exits.
+
+   Solvers are killed rather than asked to exit: nothing is left to
+   compute, and an engine that was given up on may still be inside a
+   call to one of them.
+
+   Latching [no_new_solvers] under the lock that guards the map is what
+   makes the sweep final. A solver registering at that moment either
+   makes it into the map, and is killed here, or finds the latch set
+   and kills itself; there is no in between. *)
 let destroy_all_of_process () =
   let entries =
     Mutex.protect all_solvers_lock (fun () ->
+      no_new_solvers := true ;
       let entries = !all_solvers in
       all_solvers := IntMap.empty ;
-      entries)
+      set_aside entries)
   in
-  IntMap.iter (fun _ (_, s) -> destroy s) entries
+  kill_entries entries
 
 (* Kills the solver processes owned by the given domain without
    interacting with them. Used by the supervisor to unblock an engine
@@ -250,13 +428,19 @@ let kill_solvers_of_domain owner =
         IntMap.partition (fun _ (owner', _) -> owner' = owner) !all_solvers
       in
       all_solvers := others ;
-      mine)
+      set_aside mine)
   in
-  IntMap.iter
-    (fun _ (_, s) ->
-      let module S = (val s.solver_inst) in
-      S.kill_instance ())
-    entries
+  kill_entries entries
+
+(* The live solvers, as the domain that owns each and the identifier of
+   its process *)
+let solver_pids_by_domain () =
+  Mutex.protect all_solvers_lock (fun () ->
+    IntMap.fold
+      (fun _ (owner, s) acc ->
+        let module S = (val s.solver_inst) in
+        (owner, S.pid ()) :: acc)
+      !all_solvers [])
 
 (* Return the unique identifier of the solver instance *)
 let id_of_instance { id } = id
@@ -277,7 +461,7 @@ let declare_fun s uf_symbol =
 
   fail_on_smt_error s
     (S.declare_fun
-       (UfSymbol.string_of_uf_symbol uf_symbol)
+       (UfSymbol.smtlib_string_of_uf_symbol uf_symbol)
        (UfSymbol.arg_type_of_uf_symbol uf_symbol)
        (UfSymbol.res_type_of_uf_symbol uf_symbol))
 
@@ -288,10 +472,48 @@ let define_fun s uf_symbol vars term =
 
   fail_on_smt_error s
     (S.define_fun
-       (UfSymbol.string_of_uf_symbol uf_symbol)
+       (UfSymbol.smtlib_string_of_uf_symbol uf_symbol)
        vars
        (UfSymbol.res_type_of_uf_symbol uf_symbol)
        (S.Conv.smtexpr_of_term term))
+
+
+(* Define a group of (mutually) recursive function symbols. A group whose
+   bodies apply no symbol of the group is not recursive, and its functions
+   are defined one by one with [define-fun] instead: a solver expands such a
+   definition as a macro, while it unfolds a function of [define-funs-rec]
+   on demand, as many times as the search needs, which is far more costly
+   for a function a recursive definition applies at every unfolding (see
+   [LustreFunDefs]). *)
+let define_funs_rec s defs =
+  let module S = (val s.solver_inst) in
+
+  let group =
+    List.fold_left
+      (fun acc (uf_symbol, _, _) -> UfSymbol.UfSymbolSet.add uf_symbol acc)
+      UfSymbol.UfSymbolSet.empty defs
+  in
+  let recursive =
+    List.exists
+      (fun (_, _, term) ->
+         not
+           (UfSymbol.UfSymbolSet.disjoint group (Term.uf_symbols_of_term term)))
+      defs
+  in
+
+  if not recursive then
+    List.iter (fun (uf_symbol, vars, term) -> define_fun s uf_symbol vars term)
+      defs
+  else
+
+  fail_on_smt_error s
+    (S.define_funs_rec
+       (List.map (fun (uf_symbol, vars, term) ->
+          UfSymbol.smtlib_string_of_uf_symbol uf_symbol,
+          vars,
+          UfSymbol.res_type_of_uf_symbol uf_symbol,
+          S.Conv.smtexpr_of_term term
+        ) defs))
 
 
 
@@ -588,8 +810,18 @@ let cross_2 l1 l2 =
 let cross ll = List.fold_left (fun acc l -> cross_2 l acc) [[]] ll
 
 
+(* How many elements of arrays a model is read with at most, and what
+   happens to the arrays past that *)
+type array_limit = [ `Raise of int | `Omit of int ]
+
+exception Too_many_array_elements
+
+(* The limit for the models of the engines: an array has [2^w] elements
+   for an index of [w] bits, and they are read one by one *)
+let max_array_elements = 1 lsl 16
+
 (* Get model of the current context *)
-let get_var_values s state_var_indexes vars =
+let get_var_values ?array_limit s state_var_indexes vars =
   let module S = (val s.solver_inst) in
 
   (* separate array variables *)
@@ -602,8 +834,10 @@ let get_var_values s state_var_indexes vars =
       ) ([], []) vars
   in
 
-  (* Get values of SMT expressions in current context *)
+  (* Get values of SMT expressions in current context, if any: a get-value
+     of no term is an error *)
   let model =
+    if sexpr_vars = [] then Model.create 7 else
     match prof_get_value s sexpr_vars with 
     | `Values v -> 
 
@@ -622,11 +856,44 @@ let get_var_values s state_var_indexes vars =
       | r -> smt_error s r
   in
 
+  (* The number of array elements read so far, for [`Raise] *)
+  let read = ref 0 in
+
+  (* With the theory of arrays, the solver gives the value of an array as a
+     term, exactly, whatever the size of the array: a constant array with
+     stores, kept in canonical form. Without it, an array is a function
+     symbol, whose value is a function the solver gives in a form of its
+     own. The values of all the arrays are asked for at once. *)
+  let exact_values =
+    let exact = Var.VarHashtbl.create 7 in
+    if Flags.Arrays.smt () && Flags.Arrays.read_whole () && array_vars <> []
+    then (
+      match
+        prof_get_value s
+          (List.map (fun v -> S.Conv.smtexpr_of_var v []) array_vars)
+      with
+      | `Values values when List.length values = List.length array_vars ->
+        List.iter2 (fun v (_, e) ->
+          try
+            Var.VarHashtbl.add exact v
+              (TermLib.canonical_array_value (Var.type_of_var v)
+                 (S.Conv.term_of_smtexpr e))
+          with Not_found | Failure _ | Invalid_argument _ -> ()
+        ) array_vars values
+      | `Values _ -> ()
+      | r -> smt_error s r ) ;
+    exact
+  in
+  let exact_value v = Var.VarHashtbl.find_opt exact_values v in
+
   (* Get model for arrays *)
   (* We obtain the model by first evaluating the bound of the array in the
      current model when it is not fixed. Then we evaluate A[0], ..., A[n] in the
      solver and return a map that represent this as the model *)
   List.iter (fun v ->
+    match exact_value v with
+    | Some t -> Var.VarHashtbl.add model v (Model.Term t)
+    | None ->
       let ty = Var.type_of_var v in 
       assert (Type.is_array ty);
       let offset =
@@ -672,6 +939,24 @@ let get_var_values s state_var_indexes vars =
             (fun t -> Numeral.to_int (Term.numeral_of_term t))
         in
 
+        (* The elements of the array, checked against the limit before any
+           is read *)
+        let elements =
+          (* Saturated: the dimensions of nested arrays multiply *)
+          List.fold_left (fun n (lo, hi) ->
+            let d = max 0 (hi - lo + 1) in
+            if d <> 0 && n > max_int / d then max_int else n * d) 1 bnds
+        in
+        ( match array_limit with
+          | Some (`Raise limit) ->
+            if elements > limit - !read then raise Too_many_array_elements ;
+            read := !read + elements
+          | Some (`Omit limit) ->
+            (* Given no values, as an unbounded array, past the limit *)
+            if elements > limit - !read then raise Exit ;
+            read := !read + elements
+          | None -> () ) ;
+
         let args_list = cross (List.map range bnds) in
         let vt = Term.mk_var v in
         let sexprs =
@@ -699,7 +984,7 @@ let get_var_values s state_var_indexes vars =
               Model.MIL.add args (S.Conv.term_of_smtexpr e) acc
             ) Model.MIL.empty values in
         Var.VarHashtbl.add model v (Model.Map m)
-      with Exit -> (* No values for unbounded arrays *)
+      with Exit -> (* No values for unbounded arrays, or omitted ones *)
         Var.VarHashtbl.add model v (Model.Map Model.MIL.empty)
     ) array_vars;
       
@@ -929,6 +1214,24 @@ let get_term_value s term =
   )
   | r -> smt_error s r
 
+(* Get values of terms in the current context, in one query: the values
+   are those of the terms in order, whatever terms the solver repeats *)
+let get_term_values_at_once s terms =
+  let module S = (val s.solver_inst) in
+  if terms = [] then [] else
+  match prof_get_value s (List.map S.Conv.smtexpr_of_term terms) with
+  | `Values m when List.length m = List.length terms ->
+    List.map2 (fun term (_, smt_value) ->
+      let value = S.Conv.term_of_smtexpr smt_value in
+      if
+        Type.equal_types (Term.type_of_term value) Type.t_int &&
+        Type.equal_types (Term.type_of_term term) Type.t_real
+      then (term, Term.mk_to_real value)
+      else (term, value)
+    ) terms m
+  | `Values _ -> failwith "Unexpected number of values in a get-value response"
+  | r -> smt_error s r
+
 (* Get values of terms in the current context *)
 let get_term_values s terms =
 
@@ -1126,7 +1429,15 @@ let get_qe_z3 solver expr =
   let res =
     (* Execute custom command *)
     let arg =
-      if Flags.Smt.z3_qe_light () then "(then qe-light qe2)" else "qe"
+      (* Apply qe2 only if qe-light leaves quantifiers. Since Z3 5.0
+         (Z3Prover/z3#9970), qe2 decides the satisfiability of a
+         quantifier-free goal instead of eliminating quantifiers, and
+         returns the empty goal (true) if it is satisfiable. The result
+         is equisatisfiable, but we need an equivalent formula.
+         See https://github.com/Z3Prover/z3/issues/10646 *)
+      if Flags.Smt.z3_qe_light () then
+        "(then qe-light (cond has-quantifiers qe2 skip))"
+      else "qe"
     in
     match execute_custom_command solver "apply" [SMTExpr.ArgString arg] 1 with
     | `Custom r ->

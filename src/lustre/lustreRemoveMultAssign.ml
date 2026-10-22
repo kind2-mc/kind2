@@ -21,7 +21,6 @@ module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 module GI = GeneratedIdentifiers
-module LAH = LustreAstHelpers
 
 (** [i] is module state used to guarantee newly created identifiers are unique *)
 let i = ref (0)
@@ -68,28 +67,6 @@ let create_new_eqs ctx source lhs expr =
         [(A.Equation(p, StructDef(p, [si]), Ident(rhs_pos, temp)))]
       )
 
-    (*
-    y, A[i] = (7, if i = 0 then 0 else A[i-1] + 1); 
-    -->
-    t1, t2[i] = (7, if i = 0 then 0 else A[i-1] + 1); 
-    y = t1;
-    A = t2;
-    *)
-    | ArrayDef (p, i, js) as si -> 
-      
-      let ty = (match Ctx.lookup_ty ctx i with 
-        | Some ty -> ty 
-        (* Type error, shouldn't be possible *)
-        | None -> assert false) in
-      let temp, gids = mk_fresh_temp_var ty in
-      let array_index = List.fold_left (fun expr j ->
-        A.IndexAccess(rhs_pos, expr, A.Ident(rhs_pos, j), Array)) (A.Ident(rhs_pos, temp)) js
-      in
-      (
-        [gids],
-        [A.ArrayDef(p, temp, js)],
-        [(A.Equation(p, StructDef(p, [si]), array_index))]
-      )
     | _ ->
       (* Other types of LHS are not supported *)
       assert false
@@ -98,21 +75,11 @@ let create_new_eqs ctx source lhs expr =
     | A.StructDef (pos, ss) -> 
       let res = (List.map convert_struct_item ss) in
       let gids, sis, eqs = split_and_flatten3 res in
-      
-      let get_array_ids =
-        List.filter_map (function
-          | A.ArrayDef (_, id, _) -> Some id
-          | _ -> None)
-      in
-      let arrayids_original = get_array_ids ss in
-      let arrayids_new = get_array_ids sis in
-      let expr = LAH.replace_idents arrayids_original arrayids_new expr in
       let gids2 = { (GI.empty ()) with
         equations = [([], [], A.StructDef(pos, sis), expr, Some source)];
       } in
       let eqs = List.map (fun x -> A.Body x) eqs in
         (
-          (* modify expr if we have an ArrayDef in temp_lhs *)
           eqs, 
           gids2::gids
         )
@@ -192,6 +159,7 @@ let rec abstract_block_guards ctx wguard ni = match ni with
 let remove_mult_assign_from_ni ctx ni =
   let rec helper ctx wguard ni = (
     match ni with
+      | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body (Equation (_, lhs, expr)) ->
         let lhs_vars = AH.defined_vars_with_pos ni in
         (* If there is no multiple assignment, we don't alter the node item,
@@ -216,6 +184,8 @@ let remove_mult_assign_from_ni ctx ni =
         let nis1, gids1 = List.map (helper ctx (conj_guard wguard e)) l1 |> List.split in
         let nis2, gids2 = List.map (helper ctx (conj_guard wguard not_e)) l2 |> List.split in
         [A.WhenBlock (pos, e, List.flatten nis1, List.flatten nis2)], List.flatten gids1 @ List.flatten gids2
+
+      | MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
 
       | FrameBlock (pos, vars, nes, nis) ->
         let nes = List.map (fun x -> A.Body x) nes in

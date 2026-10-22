@@ -1,0 +1,15 @@
+datatype Inner = I (w: int);
+datatype Outer = O (v: Inner);
+
+node f (u: int) returns (y: int);
+var s: Outer;
+let
+  s = O(I(y));
+  match s with
+  | O (v):
+    match v with
+    | I (w):
+      y = w + u;
+    end
+  end
+tel

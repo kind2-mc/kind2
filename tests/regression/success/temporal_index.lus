@@ -1,0 +1,13 @@
+node ArrayRead(a: int^3) returns ();
+var x: int;
+let
+  x = a[(0 -> 2)];
+  check x = a[0] -> x = a[2];
+tel
+
+node Update(a: int^3; v: int) returns ();
+var b: int^3;
+let
+  b = a[(0 -> 2) := v];
+  check b[0] = v -> b[2] = v;
+tel

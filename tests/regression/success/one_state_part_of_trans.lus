@@ -1,0 +1,30 @@
+-- The inductive step assumes a property at the states before the one it
+-- negates, but it does not assert the transition relation at the first
+-- state of its path. What it assumes of this property there is that the
+-- variable standing for it is true, which says nothing about the counter
+-- unless the definition of that variable is available at that state too.
+--
+-- Kind 2 carries the part of the transition relation that constrains one
+-- state as an invariant of the system, which supplies that definition, and
+-- the property is proved by 1-induction. Without that invariant the step
+-- needs one state more, the second one, where the transition relation does
+-- put the definition, and proves the property by 2-induction instead.
+--
+-- What differs is the k reported, which the test infrastructure does not
+-- check; this test only pins down that the property stays provable. To see
+-- the difference, run
+--
+--   kind2 --enable BMC --enable IND one_state_part_of_trans.lus
+--
+-- which reports k=1 here and k=2 without the one-state invariant. The two
+-- engines have to be named: under the default set, one of the others
+-- supplies what the step is missing and both report k=1.
+
+node main() returns (ok: bool);
+var n: int;
+let
+  n = 0 -> pre n + 1;
+  ok = n >= 0;
+
+  check "counter is non-negative" ok;
+tel

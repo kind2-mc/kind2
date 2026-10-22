@@ -1,0 +1,6 @@
+-- Both operands of 'fby' must have the same type.
+
+node f (a: int) returns (b: int);
+let
+  b = 0 fby (a > 0);
+tel

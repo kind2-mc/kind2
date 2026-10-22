@@ -49,7 +49,7 @@ let ty_constants_to_calls_safe new_func_ids ty =
   | Some func_id -> 
     mk_error (AH.pos_of_type ty) (GenCallInArrayLength func_id)   
   | None -> 
-    Ok (AH.map_lustre_ty (AH.constants_to_calls new_func_ids) ty)
+    Ok (AH.constants_to_calls_in_type new_func_ids ty)
 
 let const_decl_constants_to_calls new_func_ids const_decl = match const_decl with
 | A.FreeConst (pos, id, ty) -> 
@@ -75,6 +75,10 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
     ) tis) in 
     let rhs = AH.constants_to_calls new_func_ids rhs in 
     R.ok (A.GhostVars (p, (GhostVarDec (p2, tis)), rhs))
+  | GhostVars (p, (GhostArrayDef (p2, (p3, id, ty), is)), rhs) ->
+    let* ty = ty_constants_to_calls_safe new_func_ids ty in
+    let rhs = AH.constants_to_calls new_func_ids rhs in
+    R.ok (A.GhostVars (p, (GhostArrayDef (p2, (p3, id, ty), is)), rhs))
   | Assume (p, id, b, e) -> 
     R.ok (A.Assume (p, id, b, AH.constants_to_calls new_func_ids e))
   | Guarantee (p, id, b, e) -> 
@@ -94,6 +98,7 @@ let contract_constants_to_calls new_func_ids (p, ceqs) =
   R.ok (p, ceqs)
 
 let rec ni_constants_to_calls new_func_ids ni = match ni with 
+| A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
 | A.Body (A.Assert (p, e)) ->
   A.Body (A.Assert (p, AH.constants_to_calls new_func_ids e))
 | A.Body (A.Equation (p, lhs, e))  -> 
@@ -108,6 +113,7 @@ let rec ni_constants_to_calls new_func_ids ni = match ni with
   let nis1 = List.map (ni_constants_to_calls new_func_ids) nis1 in
   let nis2 = List.map (ni_constants_to_calls new_func_ids) nis2 in
   A.WhenBlock (p, e, nis1, nis2)
+| A.MatchBlock _ -> assert false (* desugared in lustreDesugarMatchBlocks *)
 | A.FrameBlock (p, vars, eqs, nis) -> 
   let eqs = List.map (fun eq -> match eq with 
   | A.Assert _ -> assert false 

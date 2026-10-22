@@ -1,0 +1,10 @@
+type Small = subrange [0, 5] of int;
+datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
+
+node main(i: int) returns (ok: bool);
+var x: List<Small>;
+let
+  x = Nil@<Small>;
+  ok = Nil?(x);
+  check ok;
+tel

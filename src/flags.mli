@@ -119,8 +119,14 @@ You can now add modules following the instructions in the previous section.
 
 exception Error
 
-exception SolverNotFound
-exception UnsupportedSolver
+(** A solver is not found, or not supported; with the message logged *)
+exception SolverNotFound of string
+exception UnsupportedSolver of string
+
+(** An error on the command line, with its message: raised by {!parse_argv}
+    instead of printing the usage, if the profile says so, as kmoxi's
+    does *)
+exception UsageError of string
 
 (** {1 Accessors for flags} *)
 
@@ -215,6 +221,10 @@ val timeout_wall : unit -> float
 (** Per-run wallclock timeout. *)
 val timeout_analysis : unit -> float
 
+(** Memory limit in MB of the analysis, solvers included, or 0 for that
+    of the cgroup of the process (see {!MemoryWatch}). *)
+val memory_limit : unit -> int
+
 (** The Kind modules enabled is a list of [kind_module]s. *)
 type enable = Lib.kind_module list
 
@@ -249,6 +259,9 @@ val check_subproperties : unit -> bool
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool
 
+(** Reject include directives in Lustre files. *)
+val lus_no_include : unit -> bool
+
 (** Activates transformation that pushes pre expressions *)
 val lus_push_pre : unit -> bool
 
@@ -279,7 +292,6 @@ module Smt : sig
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
-    | `Yices_native
     | `Z3_SMTLIB
     | `detect
   ]
@@ -320,6 +332,15 @@ module Smt : sig
 
   val get_itp_solver : unit -> solver
 
+  (** [prefer_solvers ?solver ?itp ?qe ()] uses the given main, interpolating
+      and quantifier-elimination solvers for the roles that were left to
+      detection (no [--smt_solver], [--smt_itp_solver], [--smt_qe_solver]),
+      provided their executables are found. A role whose preferred solver is
+      not found is left to detection. To be called before the solvers are
+      checked (see {!check_solvers}). *)
+  val prefer_solvers :
+    ?solver:solver -> ?itp:itp_solver -> ?qe:qe_solver -> unit -> unit
+
   (** Use check-sat with assumptions, or simulate with push/pop *)
   val check_sat_assume : unit -> bool
 
@@ -353,9 +374,6 @@ module Smt : sig
   val yices2_smt2models : unit -> bool
 
   val set_yices2_smt2models : bool -> unit
-
-  (** Executable of Yices solver *)
-  val yices_bin : unit -> string
 
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
@@ -525,6 +543,24 @@ module Contracts : sig
   (** Activate refinement. *)
   val refinement : unit -> bool
 
+  (** Unrollings of a recursive function a refinement tries, its recursive
+      calls abstracted by its contract, before defining it *)
+  val rec_unrollings : unit -> int
+
+  (** Whether the values of the calls that the check of a spurious
+      counterexample evaluated are given to the refinements of the caller,
+      in a compositional and modular analysis (see
+      [Analysis.info.learned]) *)
+  val rec_learn_values : unit -> bool
+
+  (** Instances of recursive functions the unrolling of the functions may
+      create in a system, outside of compositional analyses *)
+  val rec_instances : unit -> int
+
+  (** Unrollings of a recursive function in the analysis of the function
+      itself, when its recursive calls are abstracted by its contract *)
+  val rec_contract_unrollings : unit -> int
+
   (** Print deadlocking trace and a conflict *)
   val print_deadlock : unit -> bool
 
@@ -676,6 +712,14 @@ module Arrays : sig
 
   val set_smt : bool -> unit
 
+  (** Whether the values of arrays in models are read whole, as terms, with
+      the theory of arrays (see [SMTSolver.get_var_values]), rather than
+      element by element. Off by default: the output of Kind 2 prints
+      arrays element by element; kmoxi sets it. Not a command-line option. *)
+  val read_whole : unit -> bool
+
+  val set_read_whole : bool -> unit
+
   (** Inline arrays with fixed bounds *)
   val inline : unit -> bool
 
@@ -684,6 +728,21 @@ module Arrays : sig
 
   (** Allow non constant array sizes  *)
   val var_size : unit -> bool
+end
+
+(** {2 Quantifier instantiation flags} *)
+
+module Quant : sig
+
+  (** Expand quantifiers over finite domains (Booleans, enumerated types)
+      into conjunctions/disjunctions *)
+  val inst_finite : unit -> bool
+
+  val set_inst_finite : bool -> unit
+
+  (** Maximal size, in term nodes, of the term the expansion of a single
+      quantifier may produce *)
+  val inst_finite_budget : unit -> int
 end
 
 (** {2 Testgen flags} *)
@@ -807,8 +866,30 @@ val subdir_for : string list -> string
 
 (** {1 Parsing of the command line} *)
 
-(** Parse the command line *)
-val parse_argv : unit -> unit
+(** What an executable shows and accepts on its command line: the modules
+    whose flags it registers, and how its usage message describes the
+    input. The global flags are always registered, less the ones that
+    concern kind2 only. *)
+type profile
+
+(** kind2: every module *)
+val kind2_profile : profile
+
+(** kmoxi: the engine, solver and theory flags, and the global flags that
+    are not about the Lustre front end. The SMT solvers are checked and
+    detected once the input is read, with {!check_solvers}, and an error on
+    the command line is raised as {!UsageError}. *)
+val kmoxi_profile : profile
+
+(** Check the SMT solvers given on the command line, detect the others, and
+    adjust the options to the solvers in use: what {!parse_argv} does, unless
+    its profile leaves it until the input is read, as kmoxi's does. Solver
+    preferences ({!Smt.prefer_solvers}) are to be set before. *)
+val check_solvers : unit -> unit
+
+(** Parse the command line of the executable of [profile] (kind2 by
+    default): a flag outside the profile is unknown. *)
+val parse_argv : ?profile:profile -> unit -> unit
 
 (*
    Local Variables:

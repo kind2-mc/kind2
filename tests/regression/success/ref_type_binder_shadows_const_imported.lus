@@ -1,0 +1,9 @@
+const k: int = 7;
+
+node imported g (p: int) returns (y: subtype { k: int | k > 0 });
+
+node main (p: int) returns (y: int);
+let
+  y = g(p);
+  check y > 0;
+tel

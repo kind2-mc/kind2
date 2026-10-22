@@ -1,0 +1,7 @@
+(* The set's element type comes from the first element, so `1` is what the
+   second element is expected to match, not the other way round. *)
+node N() returns (ok: bool);
+let
+  ok = true;
+  check { 1, '(1, true) } = { 1 };
+tel

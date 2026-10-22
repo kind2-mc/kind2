@@ -1,0 +1,21 @@
+-- The normalized arguments of a quantified call to a recursive function stand
+-- for the values they are written as: a property that does not hold of them
+-- is falsified rather than proven (issue #1600).
+
+datatype L = Nil | Cons(h: int, t: L);
+
+function rec Count(l: L; v: int) returns (c: int);
+con decreases l; noc
+let
+  c = match l with | Nil : 0 | Cons(h, t) : (if h = v then 1 else 0) + Count(t, v) end;
+tel
+
+function Push(l: L; y: int) returns (r: L);
+let
+  r = Cons(y, l);
+tel
+
+node M(l: L; y: int) returns ();
+let
+  check "call" forall (v: int) Count(Push(l, y), v) = Count(l, v);
+tel

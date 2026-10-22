@@ -1,0 +1,45 @@
+datatype IntPair = IP (x: int, y: int);
+datatype Box = B (v: int);
+datatype BoxBox = BB (inner: Box);
+datatype BoxPair = BP (fst: Box, snd: Box);
+
+function MkPair (n: int) returns (r: IntPair)
+let r = IP(n, n + 1); tel
+
+node ShadowsScrutinee (w: IntPair) returns (y: int)
+let
+  y = match w with
+      | IP (a, w) : a
+      end;
+tel
+
+node ShadowsCallScrutinee (n: int) returns (y: int)
+let
+  y = match MkPair(n) with
+      | IP (a, n) : a
+      end;
+tel
+
+node ShadowsScrutineeInNestedPattern (bp: BoxPair) returns (y: int)
+let
+  y = match bp with
+      | BP (B (a), bp) : a
+      end;
+tel
+
+node ShadowsScrutineeAndInnerArm (w: IntPair; c: BoxBox) returns (y: int)
+let
+  y = match w with
+      | IP (a, w) : (match c with
+                     | BB (w) : a
+                     end)
+      end;
+tel
+
+node main (w: IntPair; c: BoxBox; bp: BoxPair; n: int) returns ()
+let
+  check ShadowsScrutinee(w) = w.x;
+  check ShadowsCallScrutinee(n) = n;
+  check ShadowsScrutineeInNestedPattern(bp) = bp.fst.v;
+  check ShadowsScrutineeAndInnerArm(w, c) = w.x;
+tel

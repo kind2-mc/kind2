@@ -31,11 +31,15 @@ type error_kind = Unknown of string
   | UndefinedNode of HString.t
   | UndefinedContract of HString.t
   | DanglingIdentifier of HString.t
-  | QuantifiedVariableInPre of HString.t
+  | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
+  | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
+  | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -47,24 +51,35 @@ type error_kind = Unknown of string
   | UnsupportedClockedInputOrOutput
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
-  | UnsupportedOutsideMerge of LustreAst.expr
-  | UnsupportedWhen of LustreAst.expr
+  | IllegalInRestartBlock of string
+  | IllegalRestartBlock of string
   | UnsupportedParametricDeclaration
   | UnsupportedAssignment
-  | MultAssignArrayDef
+  | MissingComprehensionSize of HString.t
+  | UnboundedComprehensionIndex of HString.t
+  | DuplicateComprehensionIndex of HString.t
+  | ComprehensionSizeMentionsIndex of HString.t * HString.t
+  | BooleanComprehensionSize of HString.t * LustreAst.expr
+  | ArrayDefinition of HString.t * HString.t list * LustreAst.expr list option
   | AssumptionVariablesInContractNode
   | MisplacedVarInFrameBlock of LustreAst.ident
   | MisplacedAssertInFrameBlock
   | OpaqueWithoutContract of LustreAst.ident
+  | LemmaWithoutContract of LustreAst.ident
   | TransparentWithoutBody of LustreAst.ident
   | IllegalHistoryVar of LustreAst.ident
   | InductiveVarsWithArrayConstr of LustreAst.expr
   | DuplicatePatternVariable of HString.t
+  | AssignmentToPatternVariable of HString.t
   | MissingDecreasesClause of HString.t
   | IllegalDecreasesMeasure of HString.t
+  | CallInDecreasesMeasure of HString.t
+  | OperatorInDecreasesMeasure of string
+  | UnsupportedDecreasesMeasure
   | MultipleDecreasesClauses of HString.t
   | DecreasesClauseInContractNodeDecl of HString.t
   | MisplacedDecreasesClause of HString.t
+  | DecreasesClauseInLemmaWithoutBody of HString.t
   | MisplacedAuto
   | LemmaCallOutsideCallStatement of HString.t
   | CallStatementCallsNonLemma of HString.t
@@ -89,5 +104,13 @@ val error_if_lus_strict: warning_kind -> bool
 
 val syntax_check : LA.t -> (([> warning] list * LA.t), [> error]) result
 
+(** [no_quant_vars_in_calls_to_non_inlinable_funcs tc_ctx inlinable_funcs
+    uf_callable_funcs ast] checks that no quantified variable is in an
+    argument of a call to a node or function that is neither in
+    [inlinable_funcs] nor in [uf_callable_funcs], the recursive functions a
+    call applied to quantified variables is compiled to an application of
+    (see {!LustreUserFunctions.uf_callable_functions}). Both sets are those
+    the normalizer is given. *)
 val no_quant_vars_in_calls_to_non_inlinable_funcs :
-  TypeCheckerContext.tc_context -> NodeId.Set.t -> LA.t -> ([> warning ] list, [> error]) result
+  TypeCheckerContext.tc_context -> NodeId.Set.t -> NodeId.Set.t -> LA.t ->
+  ([> warning ] list, [> error]) result

@@ -1,0 +1,7 @@
+-- An existential quantifier over the Booleans with no witness: expanding it
+-- must not introduce one.
+
+node main () returns ();
+let
+  check "some bool is neither" exists (b: bool) (b and not b);
+tel

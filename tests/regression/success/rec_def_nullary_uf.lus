@@ -1,0 +1,27 @@
+-- The definition of a recursive function may apply an uninterpreted symbol of
+-- arity zero: the 'choose' below has no free variable, so its functional
+-- symbol is a constant rather than an application. Such a symbol must still be
+-- declared alongside the definition that applies it, or the solver rejects the
+-- definition as using an unknown constant.
+
+datatype List = Cons (head: int, tail: List) | Nil;
+
+function rec Sum (l: List) returns (s: int)
+con
+  decreases l;
+noc
+  var base: int;
+let
+  base = choose@<int>;
+  s = match l with
+  | Nil : base
+  | Cons (h, tl) : h + Sum(tl)
+  end;
+tel
+
+node main (x: int) returns (y: int)
+let
+  -- 'choose' is deterministic, so the two calls share the same base value
+  y = Sum(Cons(1, Cons(2, Nil))) - Sum(Nil);
+  check "sum3" y = 3;
+tel

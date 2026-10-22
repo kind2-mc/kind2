@@ -1,0 +1,18 @@
+-- In a compositional analysis a recursive function with a contract is
+-- abstracted by that contract, and without modular analysis there is no
+-- refinement: the contract only says the result is positive, which does not
+-- give Fact(3) = 6.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  guarantee "positive" f > 0;
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Fact(3);
+  check "fact3" y = 6;
+tel

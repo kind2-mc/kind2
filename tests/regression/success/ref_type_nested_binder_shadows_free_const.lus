@@ -1,0 +1,7 @@
+const k: int;
+
+node main (p: subtype { k: subtype { k: subtype { j: int | j <= k } | k > 0 } | k < 100 }) returns (y: int);
+let
+  y = p;
+  check p <= k;
+tel

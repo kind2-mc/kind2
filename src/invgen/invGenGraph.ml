@@ -34,6 +34,18 @@ module Set = Term.TermSet
 (* Values. *)
 module type DomainSig = InvGenDomain.Domain
 
+(* The state variables of the terms of the classes of a graph, their
+   representatives included *)
+let state_vars_of_classes classes =
+  Map.fold
+    (fun rep members acc ->
+       Set.fold
+         (fun term acc ->
+            StateVar.StateVarSet.union (Term.state_vars_of_term term) acc)
+         members
+         (StateVar.StateVarSet.union (Term.state_vars_of_term rep) acc))
+    classes StateVar.StateVarSet.empty
+
 
 
 (* Term. *)
@@ -259,6 +271,7 @@ module Make (Dom: DomainSig) : Graph = struct
     Dom.mine top_only two_state param sys
     |> List.fold_left (
       fun acc (sub_sys, terms) ->
+        KEvent.check_termination () ;
         do_stuff sub_sys ;
         let rep, terms = Dom.first_rep_of terms in
         (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
@@ -1155,13 +1168,19 @@ digraph mode_graph {
     (* Check if new graph is stable. *)
     stabilize_loop sys known lsd graph *)
 
+  (* The state variables of the terms of the graph, the only ones whose
+     values evaluating its terms needs: the terms of the graph do not change
+     when it is split *)
+  let state_vars_of { classes } = state_vars_of_classes classes
+
   (** Queries the lsd and updates the graph. Iterates until the graph is
   stable. That is, when the lsd returns unsat. *)
   let stabilize graph in_sys sys known lsd =
+    let vars = state_vars_of graph in
     (* update_loop sys known lsd graph *)
-    stabilize_classes sys known (fun _ _ -> ()) (Lsd.query_base in_sys lsd) graph ;
+    stabilize_classes sys known (fun _ _ -> ()) (Lsd.query_base ~vars in_sys lsd) graph ;
     (* Format.printf "done stabilizing classes@.@." ; *)
-    stabilize_rels sys known (Lsd.query_base in_sys lsd) 0 graph
+    stabilize_rels sys known (Lsd.query_base ~vars in_sys lsd) 0 graph
 
   (** Clones the graph, and splits it in step.
 
@@ -1169,7 +1188,9 @@ digraph mode_graph {
   Then stabilizes relations, communicating by packs. *)
   let step_stabilize two_state graph in_sys sys known lsd comm =
     let graph = clone graph in
-    let query_fun = Lsd.nu_query_step two_state in_sys lsd in
+    let query_fun =
+      Lsd.nu_query_step ~vars:(state_vars_of graph) two_state in_sys lsd
+    in
     let k = Lsd.step_cert lsd in
 
     stabilize_classes sys known (
@@ -1245,6 +1266,7 @@ module MakeEq (Dom: DomainSig) : Graph = struct
     Dom.mine top_only two_state param sys
     |> List.fold_left (
       fun acc (sub_sys, terms) ->
+        KEvent.check_termination () ;
         do_stuff sub_sys ;
         let rep, terms = Dom.first_rep_of terms in
         (sub_sys, mk rep terms, Set.empty, Set.empty) :: acc
@@ -1373,7 +1395,10 @@ digraph mode_graph {
   Input function returns true for candidates we want to ignore, typically
   candidates we have already proved true. *)
   let stabilize graph in_sys sys known base =
-    let has_cex = Lsd.query_base in_sys base in
+    (* The state variables of the terms of the graph, the only ones whose
+       values evaluating its terms needs *)
+    let vars = state_vars_of_classes graph in
+    let has_cex = Lsd.query_base ~vars in_sys base in
 
     (* Splits a class and inserts it in the graph. Replaces the binding of
     [rep] in the graph if any. *)

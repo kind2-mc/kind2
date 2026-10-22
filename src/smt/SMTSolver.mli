@@ -28,10 +28,34 @@ type t
 exception Unknown
 exception Timeout
 
+(** Exception raised by {!create_instance} when the process is exiting.
+    No solver can be created from then on: the ones that exist have
+    been killed, and a new one would be left running. *)
+exception Exiting
+
+(** Raised by a command to a solver instance whose process was killed from
+    outside, by {!kill_solvers_of_domain} or {!destroy_all_of_process},
+    when the command fails on the dead process: on a reply cut short or a
+    closed pipe, whatever exception that raised. The solver did not fail on
+    what it was given: its owner is being stopped. A reply the solver gave
+    before it was killed is reported as what it is, an error included. *)
+exception Killed
+
+(** Raised by a command to a solver instance whose process is gone
+    although it was not killed from outside -- it crashed, or the
+    out-of-memory killer killed it -- when the command fails on the dead
+    process: on a reply cut short or a closed pipe. As for {!Killed}, the
+    solver did not fail on what it was given. The message says how the
+    process ended, with what it wrote to its standard error. *)
+exception Died of string
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with
-    the given flags *)
+    the given flags.
+
+    @raise Exiting if the process is exiting, in which case no solver
+    is left running. *)
 val create_instance :
   ?timeout: int ->
   ?produce_models:bool ->
@@ -49,14 +73,21 @@ val create_instance :
     shut down gracefully. *)
 val set_shutting_down : bool -> unit
 
-(** Delete an instance of an SMT solver *)
+(** Delete an instance of an SMT solver. For a solver killed from
+    outside, by {!kill_solvers_of_domain} or {!destroy_all_of_process},
+    only the pipes to it are left to close. Deleting a solver again
+    does nothing. *)
 val delete_instance : t -> unit
 
-(** Destroys all live solver instances owned by the calling domain. *)
+(** Destroys all live solver instances owned by the calling domain, and
+    closes the pipes to those of its solvers that were killed from
+    outside. *)
 val destroy_all : unit -> unit
 
-(** Destroys every live solver instance of the whole process. Only for
-    final cleanup before the process exits. *)
+(** Destroys every live solver instance of the whole process and bars
+    any further one, so that no solver outlives Kind 2. Only for final
+    cleanup before the process exits: {!create_instance} raises
+    {!Exiting} once this has been called. *)
 val destroy_all_of_process : unit -> unit
 
 (** Kills the solver processes owned by the given domain (as returned by
@@ -64,6 +95,10 @@ val destroy_all_of_process : unit -> unit
     them. Used by the supervisor to unblock an engine domain stuck in a
     solver call. *)
 val kill_solvers_of_domain : int -> unit
+
+(** The live solvers, as the domain that owns each (by its identifier, as
+    for {!kill_solvers_of_domain}) and the identifier of its process. *)
+val solver_pids_by_domain : unit -> (int * int) list
 
 (** Return the unique identifier of the solver instance *)
 val id_of_instance : t -> int
@@ -78,6 +113,13 @@ val declare_fun : t -> UfSymbol.t -> unit
 
 (** Define uninterpreted symbol *)
 val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
+
+(** Define a group of (mutually) recursive function symbols, each given with
+    its formal parameters and its body, in a single [define-funs-rec]
+    command. The bodies may apply any symbol of the group. If none does, the
+    group is not recursive, and each function is defined with [define-fun]
+    instead. *)
+val define_funs_rec : t -> (UfSymbol.t * Var.t list * Term.t) list -> unit
 
 
 (** {1 Primitives} *)
@@ -115,9 +157,34 @@ val check_sat : ?timeout:int -> t -> bool
 (** Return a model of the current context if satisfiable *)
 val get_model : t -> Model.t
 
+(** How many elements of arrays a model is read with at most:
+    - [`Raise n]: {!Too_many_array_elements} is raised if the arrays of the
+      model have more than [n] elements in all;
+    - [`Omit n]: an array whose elements would take the elements read past
+      [n] in all is given no values, as an unbounded array is, and the
+      others are read. *)
+type array_limit = [ `Raise of int | `Omit of int ]
+
+(** Raised by {!get_var_values} for [`Raise] *)
+exception Too_many_array_elements
+
+(** The limit on the array elements of the models of the engines *)
+val max_array_elements : int
+
 (** Return a values of the terms in the current context if
-    satisfiable *)
+    satisfiable.
+
+    The value of an array is read element by element, over the indices its
+    bounds give it: [2^w] elements for an index of [w] bits. With
+    [array_limit], the arrays read are limited (see {!array_limit}).
+
+    With the theory of arrays, and {!Flags.Arrays.read_whole}, the value of
+    an array is read whole instead, as a term: the solver gives it as a
+    constant array with stores, which is kept in the canonical form of
+    {!TermLib.canonical_array_value}. A value of another form is read
+    element by element. *)
 val get_var_values :
+  ?array_limit:array_limit ->
   t ->
   (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ->
   Var.t list -> Model.t
@@ -198,6 +265,12 @@ val check_sat_and_get_term_values : t ->
 (** Get the values of the given terms in the current context. The context
     must be satisfiable, as after a [check_sat] that returned true. *)
 val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
+
+(** Get the values of the given terms as {!get_term_values} does, but in one
+    query rather than one per term: the values are matched with the terms by
+    their order in the response, which SMT-LIB gives as the order of the
+    terms, whatever form of each term the solver repeats. *)
+val get_term_values_at_once : t -> Term.t list -> (Term.t * Term.t) list
 
 
 (** Check satisfiability under assumptions as with {!check_sat_assuming},

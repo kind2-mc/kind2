@@ -1,0 +1,13 @@
+-- The constraints of the elements of contract variables whose type is
+-- a container of a subrange or refinement type are checked (issue #1608)
+
+type Nat = subrange [0,*] of int;
+type PosR = subtype { x: int | x > 0 };
+
+function F(a: int) returns (r: bool);
+(*@contract
+  var m: map<int, PosR> = map[]@<int, PosR>[0 := a];
+  var ar: Nat^2 = [a, 0];
+  var t: [Nat, PosR] = '(1, a);
+*)
+let r = true; tel

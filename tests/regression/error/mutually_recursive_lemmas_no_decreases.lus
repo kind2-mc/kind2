@@ -1,0 +1,24 @@
+-- Mutually recursive lemmas must all declare a decreases clause, even if only
+-- one of them omits it.
+lemma A (n: int)
+con
+  assume n >= 0;
+  guarantee "ga" n >= 0;
+  decreases n;
+noc
+let
+  if n > 0 then
+    B(n - 1);
+  fi
+tel
+
+lemma B (n: int)
+con
+  assume n >= 0;
+  guarantee "gb" n >= 0;
+noc
+let
+  if n > 0 then
+    A(n - 1);
+  fi
+tel

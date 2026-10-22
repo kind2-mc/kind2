@@ -18,6 +18,8 @@
 
 open Lib
 
+module HSM = HString.HStringMap
+
 (* ********************************************************************** *)
 (* Dummy and default values                                               *)
 (* ********************************************************************** *)
@@ -56,57 +58,35 @@ let comment_delims = ";;", ""
 let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 
 
 
+(* SMTLIB keywords and operators recognized in S-expressions *)
+let s_let = HString.mk_hstring "let"
+let s_forall = HString.mk_hstring "forall"
+let s_exists = HString.mk_hstring "exists"
+let s_div = HString.mk_hstring "/"
+let s_minus = HString.mk_hstring "-"
+let s_index = HString.mk_hstring "_"
+let s_as = HString.mk_hstring "as"
+let s_const = HString.mk_hstring "const"
+let s_int_to_bv = HString.mk_hstring "int_to_bv"
+let s_extract = HString.mk_hstring "extract"
+let s_signext = HString.mk_hstring "sign_extend"
+let s_zeroext = HString.mk_hstring "zero_extend"
+let s_define_fun = HString.mk_hstring "define-fun"
+let s_declare_fun = HString.mk_hstring "declare-fun"
+
+
 (* Conversions for gen_expr_of_string_sexpr
 
-   Defaults constants and functions for vanilla SMTLIB format are
-   below, override in specific driver.
+   Defaults for vanilla SMTLIB format are below, override in specific
+   input formats.
 *)
 type expr_of_string_sexpr_conv =
 
-  { (* String constant for let keyword *) 
-    s_let : HString.t;
-
-    (* String constant for forall keyword *) 
-    s_forall : HString.t;
-
-    (* String constant for exists keyword *) 
-    s_exists : HString.t;
-
-    (* String constant for division operator *) 
-    s_div : HString.t;
-
-    (* String constant for unary minus operator *) 
-    s_minus : HString.t;
-
-    (* String constant for indexed (underscore) operator *)
-    s_index : HString.t;
-
-    (* String constant for as operator *)
-    s_as : HString.t;
-
-    (* String constant for int_to_bv operator *)
-    s_int_to_bv : HString.t;
-
-    (* String constant for bvextract operator *)
-    s_extract : HString.t;
-
-    (* String constant for bitvector sign_extend operator *)
-    s_signext : HString.t;
-
-    (* String constant for bitvector zero_extend operator *)
-    s_zeroext : HString.t;
-
-    (* String constant for prime symbol if there is one *) 
+  { (* String constant for prime symbol if there is one *) 
     prime_symbol : HString.t option;
 
-    (* String constant for define-fun keyword *) 
-    s_define_fun : HString.t;
-
-    (* String constant for define-fun keyword *) 
-    s_declare_fun : HString.t;
-
     (* Conversion of an S-expression atom to a term *)
-    const_of_atom : (HString.t * Var.t) list -> HString.t -> Term.t;
+    const_of_atom : Var.t HSM.t -> HString.t -> Term.t;
 
     (* Conversion of a string to a symbol *)
     symbol_of_atom : HString.t -> Symbol.t;
@@ -117,52 +97,44 @@ type expr_of_string_sexpr_conv =
     (* Conversion of an S-expression to an expression *)
     expr_of_string_sexpr : 
       expr_of_string_sexpr_conv -> 
-      (HString.t * Var.t) list -> 
+      Var.t HSM.t ->
       HStringSExpr.t -> 
       Term.t;
 
     (* Conversion of an S-expression to a lambda abstraction *)
     expr_or_lambda_of_string_sexpr : 
       expr_of_string_sexpr_conv -> 
-      (HString.t * Var.t) list -> 
+      Var.t HSM.t ->
       HStringSExpr.t -> 
       (HString.t * Model.value)
   }
 
 
-(* Convert a list of bindings *)
-let rec gen_bindings_of_string_sexpr
-    ({ expr_of_string_sexpr } as conv) 
-    b 
-    accum = 
+module HSS = HString.HStringSet
 
-  function 
-
-    (* All bindings consumed: return accumulator in original order *)
-    | [] -> List.rev accum
-
-    (* Take first binding *)
-    | HStringSExpr.List [HStringSExpr.Atom var; expr] :: tl -> 
-
-      (* Convert to an expression *)
-      let expr = expr_of_string_sexpr conv b expr in
-
-      (* Get the type of the expression *)
-      let expr_type = Term.type_of_term expr in
-
-      (* Create a variable of the identifier and the type of
-         the expression *)
-      let tvar = Var.mk_free_var var expr_type in
-
-      (* Add bound expresssion to accumulator *)
-      gen_bindings_of_string_sexpr conv b ((tvar, expr) :: accum) tl
-
-    (* Expression must be a pair *)
-    | e :: _ -> 
-
-      failwith 
-        ("Invalid expression in let binding: " ^
-         (string_of_t HStringSExpr.pp_print_sexpr e))
+(* The atoms of an S-expression that are not bound by a let or a quantifier
+   in it, added to [acc]: a superset of the symbols it takes from the
+   enclosing scope, since operators and constants are atoms too *)
+let rec free_atoms bound acc = function
+  | HStringSExpr.Atom a -> if HSS.mem a bound then acc else HSS.add a acc
+  | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.List v; t]
+    when s == s_let || s == s_forall || s == s_exists ->
+    let acc =
+      if s == s_let then
+        List.fold_left (fun acc -> function
+          | HStringSExpr.List [_; e] -> free_atoms bound acc e
+          | e -> free_atoms bound acc e)
+          acc v
+      else acc
+    in
+    let bound =
+      List.fold_left (fun bound -> function
+        | HStringSExpr.List (HStringSExpr.Atom n :: _) -> HSS.add n bound
+        | _ -> bound)
+        bound v
+    in
+    free_atoms bound acc t
+  | HStringSExpr.List l -> List.fold_left (free_atoms bound) acc l
 
 
 (* Convert a list of typed variables *)
@@ -213,22 +185,9 @@ let normalize_abstract_const_name type_name smt_name =
   HString.mk_hstring (type_name ^ "." ^ string_of_int num)
 
 
-(* Convert a string S-expression to an expression 
-
-   This function is generic, and also used from {!YicesDriver} *)
+(* Convert a string S-expression to an expression *)
 let gen_expr_of_string_sexpr' 
-    ({ s_let; 
-       s_forall; 
-       s_exists; 
-       s_div; 
-       s_minus;
-       s_index;
-       s_as;
-       s_int_to_bv;
-       s_extract;
-       s_signext;
-       s_zeroext;
-       prime_symbol;
+    ({ prime_symbol;
        const_of_atom; 
        symbol_of_atom;
        expr_of_string_sexpr } as conv)
@@ -248,27 +207,61 @@ let gen_expr_of_string_sexpr'
 
       expr_of_string_sexpr conv bound_vars e
 
-    (* A let binding *)
+    (* A let binding, and the chain of lets directly nested in it.
+
+       A solver writes a formula with shared subterms as a chain of
+       thousands of lets of one binding each. Built one at a time, the
+       lets take a time that grows faster than the square of their
+       number, since a let is built by traversing its body; the chain is
+       built at once with [Term.mk_let_chain], its bindings regrouped by
+       dependency level (see [LetChain]). A let on its own is one level
+       as it is. *)
     | HStringSExpr.List 
         ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
       when s == s_let -> 
 
-      (* Convert bindings and obtain a list of bound variables *)
-      let bindings = gen_bindings_of_string_sexpr conv bound_vars [] v in
-
-      (* Convert bindings to an association list from strings to
-         variables *)
-      let bound_vars' = 
-        List.map 
-          (function (v, _) -> (Var.hstring_of_free_var v, v))
-          bindings 
+      let rec chain acc = function
+        | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.List v; t]
+          when s == s_let -> chain (v :: acc) t
+        | t -> List.rev acc, t
+      in
+      let lets, body = chain [v] t in
+      let binding = function
+        | HStringSExpr.List [HStringSExpr.Atom name; e] -> name, e
+        | e ->
+          failwith
+            ("Invalid expression in let binding: " ^
+             (string_of_t HStringSExpr.pp_print_sexpr e))
+      in
+      let levels =
+        match List.map (List.map binding) lets with
+        | [bindings] -> [bindings]
+        | chain ->
+          LetChain.segments ~name:Fun.id ~free:(free_atoms HSS.empty HSS.empty)
+            chain
+          |> LetChain.levels
       in
 
-      (* Parse the subterm, giving an association list of bound
-         variables and return a let bound term *)
-      Term.mk_let 
-        bindings
-        (expr_of_string_sexpr conv (bound_vars @ bound_vars') t)
+      (* Convert the bindings of each level in the scope of the levels
+         before it *)
+      let bound_vars, lets =
+        List.fold_left (fun (bound_vars, lets) bindings ->
+          let bindings =
+            List.map (fun (name, e) ->
+              let e = expr_of_string_sexpr conv bound_vars e in
+              Var.mk_free_var name (Term.type_of_term e), e)
+              bindings
+          in
+          let bound_vars =
+            List.fold_left (fun bound_vars (v, _) ->
+              HSM.add (Var.hstring_of_free_var v) v bound_vars)
+              bound_vars bindings
+          in
+          bound_vars, bindings :: lets)
+          (bound_vars, []) levels
+      in
+
+      Term.mk_let_chain (List.rev lets) (expr_of_string_sexpr conv bound_vars body)
 
 
     (* A universal or existential quantifier *)
@@ -283,10 +276,10 @@ let gen_expr_of_string_sexpr'
 
       (* Convert bindings to an association list from strings to
          variables *)
-      let bound_vars' = 
-        List.map 
-          (function v -> (Var.hstring_of_free_var v, v))
-          quantified_vars
+      let bound_vars' =
+        List.fold_left
+          (fun bound_vars v -> HSM.add (Var.hstring_of_free_var v) v bound_vars)
+          bound_vars quantified_vars
       in
 
       (* Parse the subterm, giving an association list of bound variables
@@ -295,7 +288,7 @@ let gen_expr_of_string_sexpr'
        else if s == s_exists then Term.mk_exists
        else assert false)
         quantified_vars
-        (expr_of_string_sexpr conv (bound_vars @ bound_vars') t)
+        (expr_of_string_sexpr conv bound_vars' t)
 
 
     (* Parse (/ n d) as rational constant *)
@@ -402,6 +395,14 @@ let gen_expr_of_string_sexpr'
       (* Return the constant *)
       Term.mk_uf uf []
 
+    (* A constant array, ((as const (Array I E)) v), as solvers give the
+       value of an array *)
+    | HStringSExpr.List
+        [HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.Atom c; ty]; v]
+      when s == s_as && c == s_const ->
+      Term.mk_const_array (conv.type_of_sexpr ty)
+        (expr_of_string_sexpr conv bound_vars v)
+
     (*  A list with more than one element *)
     | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
 
@@ -425,7 +426,8 @@ let gen_expr_of_string_sexpr'
 
                 try
 
-                  UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
+                  UfSymbol.uf_symbol_of_string
+                    (Lib.unquote_smtlib_symbol (HString.string_of_hstring h))
 
                 with Not_found ->
 
@@ -516,11 +518,9 @@ let gen_expr_of_string_sexpr'
       failwith "Invalid S-expression"
 
 
-(* Convert a string S-expression to a lambda abstraction 
-
-   This function is generic, and also used from {!YicesDriver} *)
+(* Convert a string S-expression to a lambda abstraction *)
 let gen_expr_or_lambda_of_string_sexpr'
-    ({ s_define_fun; s_declare_fun } as conv) bound_vars = 
+    conv bound_vars = 
 
   function 
 
@@ -561,10 +561,10 @@ let gen_expr_or_lambda_of_string_sexpr'
 
       (* Convert bindings to an association list from strings to
          variables *)
-      let bound_vars' = 
-        List.map 
-          (function v -> (Var.hstring_of_free_var v, v))
-          vars
+      let bound_vars' =
+        List.fold_left
+          (fun bound_vars v -> HSM.add (Var.hstring_of_free_var v) v bound_vars)
+          bound_vars vars
       in
 
       (* Register the new symbol with its type if it does not exist *)
@@ -581,7 +581,7 @@ let gen_expr_or_lambda_of_string_sexpr'
        Model.Lambda
          (Term.mk_lambda
             vars
-            (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)))
+            (gen_expr_of_string_sexpr' conv bound_vars' t)))
 
 
     (* delcare-fun f () ty *)
@@ -613,11 +613,11 @@ let gen_expr_or_lambda_of_string_sexpr'
 
 (* Call function with an empty list of bound variables and no prime symbol *)
 let gen_expr_of_string_sexpr conv =
-  gen_expr_of_string_sexpr' conv [] 
+  gen_expr_of_string_sexpr' conv HSM.empty
 
 (* Call function with an empty list of bound variables *)      
 let gen_expr_or_lambda_of_string_sexpr conv = 
-  gen_expr_or_lambda_of_string_sexpr' conv [] 
+  gen_expr_or_lambda_of_string_sexpr' conv HSM.empty
 
 
 (* ********************************************************************** *)
@@ -703,6 +703,7 @@ let smtlib_string_symbol_list =
    ("bvsdiv", Symbol.mk_symbol `BVSDIV);
    ("bvurem", Symbol.mk_symbol `BVUREM);
    ("bvsrem", Symbol.mk_symbol `BVSREM);
+   ("bvsmod", Symbol.mk_symbol `BVSMOD);
    ("bvudiv_i", Symbol.mk_symbol `BVUDIV);
    ("bvsdiv_i", Symbol.mk_symbol `BVSDIV);
    ("bvurem_i", Symbol.mk_symbol `BVUREM);
@@ -815,6 +816,7 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `BVSDIV -> Format.pp_print_string ppf "bvsdiv"
   | `BVUREM -> Format.pp_print_string ppf "bvurem"
   | `BVSREM -> Format.pp_print_string ppf "bvsrem"
+  | `BVSMOD -> Format.pp_print_string ppf "bvsmod"
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVASHR -> Format.pp_print_string ppf "bvashr"
@@ -860,12 +862,14 @@ let [@ocaml.warning "-27"] rec pp_print_symbol_node ?arity ppf = function
   | `STORE -> Format.pp_print_string ppf "store"
 
   | `CONST_ARRAY ty_array ->
+    (* The sort as the solver knows it, as for a declaration: a range of
+       integers is an integer *)
     Format.fprintf
       ppf
       "(as const %a)"
-      Type.pp_print_type ty_array
+      pp_print_sort ty_array
 
-  | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+  | `UF u -> UfSymbol.pp_print_smtlib_uf_symbol ppf u
   | `IsConstructor s -> Format.fprintf ppf "(_ is %s)" s
   | `Selector (s, _) -> Format.pp_print_string ppf s
 
@@ -964,7 +968,7 @@ let const_of_smtlib_atom b t =
                 with Invalid_argument _ -> 
                   try 
                     (* Return bound symbol *)
-                    Term.mk_var (List.assq t b)
+                    Term.mk_var (HSM.find t b)
                   (* String is not a bound variable *)
                   with Not_found -> 
                     try 
@@ -1056,20 +1060,7 @@ let rec type_of_smtlib_sexpr = function
 (* Conversions for SMTLIB *)
 let smtlib_string_sexpr_conv = 
 
-  { s_let = HString.mk_hstring "let";
-    s_forall = HString.mk_hstring "forall";
-    s_exists = HString.mk_hstring "exists";
-    s_div = HString.mk_hstring "/";
-    s_minus = HString.mk_hstring "-";
-    s_index = HString.mk_hstring "_";
-    s_as = HString.mk_hstring "as";
-    s_int_to_bv = HString.mk_hstring "int_to_bv";
-    s_extract = HString.mk_hstring "extract";
-    s_signext = HString.mk_hstring "sign_extend";
-    s_zeroext = HString.mk_hstring "zero_extend";
-    s_define_fun = HString.mk_hstring "define-fun";
-    s_declare_fun = HString.mk_hstring "declare-fun";
-    prime_symbol = None;
+  { prime_symbol = None;
     const_of_atom = const_of_smtlib_atom;
     symbol_of_atom = symbol_of_smtlib_atom;
     type_of_sexpr = type_of_smtlib_sexpr;
@@ -1085,4 +1076,3 @@ let expr_of_string_sexpr =
 let expr_or_lambda_of_string_sexpr = 
   gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
 
-let s_define_fun = smtlib_string_sexpr_conv.s_define_fun

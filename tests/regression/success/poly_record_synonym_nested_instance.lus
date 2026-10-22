@@ -1,0 +1,8 @@
+type Box<T> = struct { a: T };
+type Pair<T> = Box<Box<T>>;
+
+node main(x: Pair<int>) returns (ok: bool);
+let
+  ok = x.a.a >= 0 or x.a.a < 0;
+  check ok;
+tel

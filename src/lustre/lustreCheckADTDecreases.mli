@@ -35,13 +35,18 @@ type error_kind =
   | RecursiveCallInContract of LustreAst.ident
   (** A recursive function's own contract calls the named function, which
       belongs to the same recursive group. *)
+  | NonUniformRecursiveCall of LustreAst.ident * LustreAst.ident
+  (** A call to the named function, which belongs to the same recursive group
+      as the caller, has a type argument built from the named type parameter
+      of the caller without being a type parameter of the caller. *)
 
 val error_message : error_kind -> string
 
 type error = [`LustreCheckADTDecreasesError of Lib.position * error_kind]
 
 (** Check all recursive [FuncDecl]s in [decls] whose [decreases] clause has a
-    recursive ADT type. *)
+    recursive ADT type, and that no call within a recursive group instantiates
+    a type parameter with a type built from a type parameter of the caller. *)
 val check :
   TypeCheckerContext.tc_context ->
   LustreDesugarADTs.adt_map ->

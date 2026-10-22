@@ -1,0 +1,4 @@
+node N(c: bool) returns (ok: bool);
+let
+  ok = 1 in map[1 := 2; 3 := c];
+tel

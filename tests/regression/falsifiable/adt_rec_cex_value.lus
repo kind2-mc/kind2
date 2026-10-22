@@ -1,0 +1,7 @@
+datatype L = Nil | Cons (hd: int, tl: L);
+
+node main (l: L) returns (ok: bool);
+let
+  ok = not Cons?(l);
+  check ok;
+tel

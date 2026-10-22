@@ -44,6 +44,12 @@ type 'a t = {
 
   has_impl : bool ;        (** System has an implementation *)
 
+  rec_group : int option ; (** The recursive group of a recursive function *)
+
+  is_internal : bool ;     (** System is an internal artifact of the
+                               translation, only analyzed as part of the
+                               systems that call it *)
+
   map : 'a t Scope.Hashtbl.t ;
 
   subsystems : Scope.t list ; (** Sub-systems *)

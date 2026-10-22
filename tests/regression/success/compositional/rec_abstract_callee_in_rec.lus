@@ -1,0 +1,27 @@
+-- In a compositional analysis Length is abstracted by its contract. The calls
+-- to Length are made from F, a recursive function, and an instance of a
+-- recursive function called from one carries a tag in its scope
+-- (rec_0.Length). Whether the instance was abstract was looked up by that
+-- tagged scope, which the abstraction map does not have, so the instance was
+-- taken for concrete: its body was sliced away, as Length is abstract, but its
+-- contract was not asserted either. Its output was then unconstrained, and
+-- the guarantee "nonneg", which holds, was reported falsified at both calls.
+datatype List = Nil | Cons (h: int, t: List);
+
+function rec Length (l: List) returns (len: int)
+con
+  decreases l;
+  guarantee "nonneg" len >= 0;
+noc
+let
+  len = match l with | Nil : 0 | Cons(_, t) : 1 + Length(t) end;
+tel
+
+function rec F (l: List) returns (out: int)
+con
+  decreases l;
+noc
+let
+  out = match l with | Nil : 0 | Cons(_, t) : F(t) end;
+  check "cong" Length(l) = Length(l);
+tel

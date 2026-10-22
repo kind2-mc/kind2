@@ -20,7 +20,6 @@
   @author Andrew Marmaduke *)
 
 type error = [
-  | `LustreArrayDependencies of Lib.position * LustreArrayDependencies.error_kind
   | `LustreAstDependenciesError of Lib.position * LustreAstDependencies.error_kind
   | `LustreAstInlineConstantsError of Lib.position * LustreAstInlineConstants.error_kind
   | `LustreAstNormalizerError
@@ -29,12 +28,15 @@ type error = [
   | `LustreUnguardedPreError of Lib.position * LustreAst.expr
   | `LustreParserError of Lib.position * string
   | `LustreDesugarIfBlocksError of Lib.position * LustreDesugarIfBlocks.error_kind
+  | `LustreDesugarMatchBlocksError of Lib.position * LustreDesugarMatchBlocks.error_kind
   | `LustreConstantsToFunctionsError of Lib.position * LustreConstantsToFunctions.error_kind
   | `LustreGenRefTypeImpNodesError of Lib.position * LustreGenRefTypeImpNodes.error_kind
   | `LustreDesugarFrameBlocksError of Lib.position * LustreDesugarFrameBlocks.error_kind
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
+  | `LustreDesugarArrayComprehensionsError of Lib.position * LustreDesugarArrayComprehensions.error_kind
+  | `LustreGenNodesError of Lib.position * LustreGenNodes.error_kind
 ]
 
 val error_position : [< error] -> Lib.position

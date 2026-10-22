@@ -1,0 +1,7 @@
+const k: int;
+type P = subtype { y: int | y < k };
+
+node main (x: int) returns ();
+let
+  check exists (k: P) true;
+tel

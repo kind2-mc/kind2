@@ -1,0 +1,5 @@
+type R = struct { f: subtype {w: int | w >= 100} };
+const B: bool;
+node M(x: int; const k: int) returns (z: int); let z = x + k; tel
+node N(y: int) returns (z: int);
+let z = M(if B then ((R{f=y}).f, 1) else ((R{f=y}).f, 1)); check z = y + 1; tel

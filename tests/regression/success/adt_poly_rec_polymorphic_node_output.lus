@@ -1,0 +1,7 @@
+datatype L<T> = LN | LC (h: T, t: L<T>);
+
+node g<A>(a: A) returns (x: L<A>);
+let
+  x = LC(a, LN@<A>);
+  check LC?(x);
+tel

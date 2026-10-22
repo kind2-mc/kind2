@@ -729,9 +729,17 @@ module Make (Graph : GraphSig) : Out = struct
 
     ) with
     | KEvent.Terminate -> quit ()
+    (* The arrays of a model are too large to read *)
+    | SMTSolver.Too_many_array_elements ->
+      KEvent.log L_warn
+        "Invariant generation stops: a model of the system has arrays of \
+         more than %d elements, too many to read" SMTSolver.max_array_elements ;
+      quit ()
     (* [quit] itself unwinds with [Exit], e.g. when there is no
        candidate to run on: normal termination, not an error *)
     | Exit -> quit ()
+    (* The supervisor killed the solvers to stop the engine *)
+    | SMTSolver.Killed -> quit ()
     | Failure msg -> (
       (* During coordinated termination, failures are a consequence of
          solvers being killed under the engine: quit silently. *)

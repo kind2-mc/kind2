@@ -1,0 +1,6 @@
+datatype L = C (a: int, t: L) | C (b: bool, t2: L) | Nil;
+
+node n (l: L) returns (ok: bool);
+let
+  ok = Nil?(l);
+tel

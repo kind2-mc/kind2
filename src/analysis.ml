@@ -76,22 +76,65 @@ type info = {
   assumptions : assumptions ;
   (** Properties that can be assumed invariant in subsystems *)
 
+  unrollings : int Scope.Map.t ;
+  (** The number of times the body of each recursive function is unrolled
+      along a chain of recursive calls, once when the function is not in
+      the map. In a compositional analysis, the calls past the unrollings
+      are abstracted by the contract of the function, and a refinement adds
+      an unrolling (see [Strategy]); in any other analysis they are left
+      unconstrained, and an unrolling is added when a counterexample
+      reaches one (see [RecUnrolling]). *)
+
+  terminating : Lib.position list Scope.Map.t ;
+  (** The recursive functions whose own analysis proved valid every
+      termination check it had, each with the positions of the calls of
+      those checks. In a compositional and modular analysis, a call to one
+      of them at constant arguments is evaluated, and its value given to the
+      solver, when the checks of all its recursive calls are among them (see
+      [LustreTransSys]). *)
+
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** Values of calls to recursive functions, each a functional symbol of
+      an output of the function with the concrete arguments of the call and
+      its value, that earlier analyses of the top system evaluated while
+      checking their counterexamples, which these values showed to be
+      spurious (see [RecUnrolling.check_abstractions]). Those of the
+      functions proved terminating (see [terminating]) are given to the
+      solver as facts (see [LustreTransSys]), so that a refinement knows
+      them without unrolling the functions as deep as the calls go. *)
+
   (* refinement_of : result option *)
   (* Result of the previous analysis of the top system if this analysis is a
       refinement. *)
 }
 
-(** Shrinks an abstraction map to the subsystems of a system. *)
-let shrink_info_to_sys ({ abstraction_map } as info) sys =
+(** Shrinks an abstraction map to the subsystems of a system. An unrolling
+    of a recursive function is a system of its own, whose scope is the
+    function's under a tag (see [LustreTransSys]): it stands for the
+    function, which is abstracted, or not, as the map says of the function.
+    A subsystem the map knows nothing of otherwise is left out. *)
+let shrink_info_to_sys ({ top ; abstraction_map ; unrollings } as info) sys =
   let abstraction_map =
     TransSys.fold_subsystems ?include_top:(Some false) (
       fun map sys ->
         let scope = TransSys.scope_of_trans_sys sys in
-        try Scope.Map.add scope (Scope.Map.find scope abstraction_map) map
-        with Not_found -> Scope.Map.add scope false map
+        match Scope.Map.find_opt scope abstraction_map with
+        | Some is_abstract -> Scope.Map.add scope is_abstract map
+        | None -> (
+          match scope with
+          | _ :: (_ :: _ as base) when not (Scope.equal base top) -> (
+            match Scope.Map.find_opt base abstraction_map with
+            | Some is_abstract -> Scope.Map.add base is_abstract map
+            | None -> map
+          )
+          | _ -> map
+        )
     ) Scope.Map.empty sys
   in
-  { info with abstraction_map }
+  let unrollings =
+    Scope.Map.filter (fun scope _ -> Scope.Map.mem scope abstraction_map) unrollings
+  in
+  { info with abstraction_map ; unrollings }
 
 (** Parameter of an analysis. *)
 type param =
@@ -127,10 +170,29 @@ and result = {
   (** [None] if system analyzed has not sub-requirements,
       [Some true] if it does and they have been proved correct,
       [Some false] if it does and some are unknown / falsified. *)
+
+  genuine : string list ;
+  (** The properties falsified by a counterexample that the recursive
+      functions as they are violate, rather than their contracts that
+      abstract them in the system (see [RecUnrolling.check_abstractions]):
+      refining the recursive functions cannot prove them. *)
+
+  learned : (UfSymbol.t * Term.t list * Term.t) list ;
+  (** The values of calls to recursive functions that the checks of the
+      counterexamples of the analysis evaluated, when they showed a
+      counterexample to be spurious (see [info.learned]). *)
 }
 
 (* Clones an [info], only changes its [uid]. *)
 let info_clone info = { info with uid = get_uid () } 
+
+(* Applies a function to the info of a param. *)
+let map_info f = function
+| Interpreter info -> Interpreter (f info)
+| ContractCheck info -> ContractCheck (f info)
+| First info -> First (f info)
+| Refinement (info, res) -> Refinement (f info, res)
+| ContractMonitor info -> ContractMonitor (f info)
 
 (* Clones a [param], only changes its [uid]. *)
 let param_clone = function
@@ -176,6 +238,12 @@ let param_scope_is_abstract param scope =
   (* Assume node to be concrete if not in map *)
   with Not_found -> false
 
+(* The number of unrollings of a recursive function in the analysis, if a
+   refinement set one (see [info]) *)
+let param_unrollings_of_scope param scope =
+  let { unrollings } = info_of_param param in
+  Scope.Map.find_opt scope unrollings
+
 let no_system_is_abstract ?(include_top=true) param =
   let { top; abstraction_map } = info_of_param param in
   let map =
@@ -191,7 +259,7 @@ let no_system_is_abstract ?(include_top=true) param =
 (* type prop_kind = | Contract | Subreq | Prop *)
 
 (* Creates a [result] from a [param], a [t] and an analysis time. *)
-let mk_result param sys time =
+let mk_result ?(genuine = []) ?(learned = []) param sys time =
 
   let valid, invalid, unknown = TransSys.get_split_properties sys in
 
@@ -213,7 +281,7 @@ let mk_result param sys time =
     find c_valid r_valid false unknown
   in
 
-  { param ; time ; sys ; contract_valid ; requirements_valid }
+  { param ; time ; sys ; contract_valid ; requirements_valid ; genuine ; learned }
 
 (** Returns true if all invariant properties in the system
     in a [result] have been proved. *)
@@ -224,6 +292,37 @@ let result_is_all_inv_proved { sys } =
     | Property.PropInvariant _ -> true
     | _ -> false
   )
+
+(** Returns true if every termination check of the system in a [result]
+    was proved valid *)
+let result_is_termination_proved { sys } =
+  TransSys.get_properties sys |> List.for_all (fun p ->
+    match p.Property.prop_source, p.Property.prop_status with
+    | Property.TerminationCheck _, Property.PropInvariant _ -> true
+    | Property.TerminationCheck _, _ -> false
+    | _ -> true)
+
+(** The positions of the calls whose termination checks the analysis of a
+    [result] proved, if it proved every termination check of the system *)
+let result_termination_checks ({ sys } as result) =
+  if not (result_is_termination_proved result) then None
+  else
+    Some (TransSys.get_properties sys |> List.filter_map (fun p ->
+      match p.Property.prop_source with
+      | Property.TerminationCheck pos -> Some pos
+      | _ -> None))
+
+(** Returns true if the contract of the system in a [result] was proved:
+    every guarantee and mode property is valid, and so is every termination
+    check of the system, when it is a recursive function. The guarantees of
+    a recursive function are proved with its recursive calls abstracted by
+    the contract, an induction hypothesis that only the termination checks
+    justify. The other properties of the system, the checks of its body,
+    the obligations generated for it and the properties lifted from its
+    subsystems, have no bearing on whether its implementation satisfies its
+    contract. *)
+let result_is_contract_proved ({ contract_valid } as result) =
+  contract_valid = Some true && result_is_termination_proved result
 
 (** Returns true if some invariant properties in the system
     in a [result] have been falsified. *)
@@ -355,7 +454,16 @@ let results_clean = Scope.Map.filter (
 
 let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.formatter -> param -> unit
 = fun verbose sys pp_print_system_user_name fmt param ->
-  let { top ; abstraction_map ; assumptions } = info_of_param param in
+  let { top ; abstraction_map ; assumptions ; unrollings } = info_of_param param in
+  (* A concrete recursive function a refinement unrolled, with its number of
+     unrollings *)
+  let pp_print_concrete fmt scope =
+    pp_print_system_user_name fmt scope ;
+    match Scope.Map.find_opt scope unrollings with
+    | Some n ->
+      Format.fprintf fmt " (%d unrolling%s)" n (if n = 1 then "" else "s")
+    | None -> ()
+  in
   let abstract, concrete =
     abstraction_map |> Scope.Map.bindings |> List.fold_left (
       fun (abs,con) (s,b) -> if b then s :: abs, con else abs, s :: con
@@ -385,7 +493,7 @@ let pp_print_param: bool -> TransSys.t -> pp_print_system_user_name -> Format.fo
           | [] -> ()
           | concrete ->
             Format.fprintf fmt "| concrete: @[<hov>%a@]"
-              (pp_print_list pp_print_system_user_name ",@ ") concrete;
+              (pp_print_list pp_print_concrete ",@ ") concrete;
             if abstract = [] |> not then Format.fprintf fmt "@ " ) ;
         ( match abstract with
           | [] -> ()
@@ -444,8 +552,19 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
       fmt "without refinement: %d abstract system%s" count (
         if count = 1 then "" else "s"
       )
-  | Refinement ( { abstraction_map }, { param = pre_param } ) ->
-    let { abstraction_map = pre_abs_map } = get_first_analysis_info pre_param in
+  | Refinement ( { abstraction_map ; unrollings }, { param = pre_param } ) ->
+    let { abstraction_map = pre_abs_map ; unrollings = pre_unrollings } =
+      get_first_analysis_info pre_param
+    in
+    (* How a refined recursive function stands: unrolled a number of
+       times *)
+    let pp_print_refined fmt scope =
+      pp_print_system_user_name fmt scope ;
+      match Scope.Map.find_opt scope unrollings with
+      | Some n ->
+        Format.fprintf fmt " (%d unrolling%s)" n (if n = 1 then "" else "s")
+      | None -> ()
+    in
     let count =
       Scope.Map.fold (
         fun _ is_abs acc ->
@@ -455,14 +574,19 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
     let refined =
       Scope.Map.fold (
         fun scope is_abs acc ->
-          if not is_abs then try (
-            if Scope.Map.find scope pre_abs_map then scope :: acc else acc
-          ) with Not_found -> (
-            Format.asprintf
-              "could not find system %a \
-              in abstraction map of previous result"
-              pp_print_system_user_name scope
-            |> failwith
+          if not is_abs then (
+            (* A system the previous result knows nothing of was not refined:
+               the abstraction map printed here is shrunk to the subsystems
+               of the transition system, which include the unrollings of the
+               recursive functions, whose scopes are fresh for each system *)
+            match Scope.Map.find_opt scope pre_abs_map with
+            | Some true -> scope :: acc
+            | Some false | None ->
+              (* A recursive function that was concrete already, refined a
+                 step further *)
+              if Scope.Map.find_opt scope unrollings
+                 <> Scope.Map.find_opt scope pre_unrollings
+              then scope :: acc else acc
           ) else acc
       ) abstraction_map []
     in
@@ -476,7 +600,7 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
       (List.length refined)
       (if (List.length refined) = 1 then "" else "s")
       (pp_print_list
-        pp_print_system_user_name
+        pp_print_refined
         ",@ "
       ) refined
 

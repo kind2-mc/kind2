@@ -1,0 +1,9 @@
+datatype L = Nil | One (v: int);
+node N(x: L) returns (y: int);
+let
+  y = match x with
+      | Nil : 0
+      | z : 1
+      | One(v) : v
+      end;
+tel

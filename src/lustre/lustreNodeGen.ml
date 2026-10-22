@@ -35,7 +35,6 @@ module X = LustreIndex
 module H = LustreIdent.Hashtbl
 module E = LustreExpr
 module LDAT = LustreDesugarADTs
-module LIPN = LustreInstantiatePolyNodes
 module LDF = LustreDesugarFrameBlocks
 module LDI = LustreDesugarIfBlocks
 module NI = NodeId
@@ -48,6 +47,20 @@ module TM = Type.TypeMap
 module Ctx = TypeCheckerContext
 
 module StringMap = HString.HStringMap
+
+(* Key of the uninterpreted function giving a selector its value outside of
+   its constructor: the ADT, field and component it stands for, and the
+   types of the record's components and of the result, so that every
+   instantiation of a polymorphic ADT has its own function *)
+module JunkTbl = Hashtbl.Make (struct
+  type t = string * Type.t list * Type.t
+  let equal (n1, a1, r1) (n2, a2, r2) =
+    String.equal n1 n2
+    && List.length a1 = List.length a2
+    && List.for_all2 Type.equal_types a1 a2
+    && Type.equal_types r1 r2
+  let hash (n, a, r) = Hashtbl.hash (n, List.map Type.hash_type a, Type.hash_type r)
+end)
 
 type identifier_maps = {
   state_var : StateVar.t LustreIdent.Hashtbl.t;
@@ -88,6 +101,11 @@ type compiler_state = {
      compiled, hence appended here, before the type that embeds it). Collected
      explicitly to preserve ordering *)
   recursive_datatypes : Type.t list;
+  (* Uninterpreted functions for selectors applied outside of the
+     constructor declaring them; see [compile_unguarded_selector] *)
+  adt_junk_ufs : UfSymbol.t JunkTbl.t;
+  (* Canonical-form constraints of the free constants *)
+  adt_global_constraints : E.t list;
 }
 
 (*
@@ -185,6 +203,8 @@ let empty_compiler_state () = {
   abstract_type_defaults = Hashtbl.create 4;
   ref_type_names = [];
   recursive_datatypes = [];
+  adt_junk_ufs = JunkTbl.create 4;
+  adt_global_constraints = [];
 }
 
 (*
@@ -740,6 +760,7 @@ let compile_contract_item cstate gids map count scope kind pos name expr =
       let source =
         try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
       in
+      let source = LustreDesugarArrayComprehensions.restore source in
       LDAT.string_of_expr_as_source
         ~ref_type_names:cstate.ref_type_names cstate.adt_map source
     in
@@ -781,8 +802,13 @@ let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
     { G.disc_field = info.LDAT.disc_field;
       G.ctor_fields = StringMap.map (fun fields ->
         List.map (fun (fname, ftype) ->
+          (* A recursive ADT is a single datatype-sorted state variable, not
+             a record with a tag of its own *)
           let field_info = match ftype with
-            | A.UserType (_, _, tname) when StringMap.mem tname ldat_map ->
+            | A.UserType (_, _, tname)
+              when (match StringMap.find_opt tname ldat_map with
+                    | Some nested -> not nested.LDAT.is_recursive
+                    | None -> false) ->
               G.AdtFieldNested tname
             | _ -> G.AdtFieldPlain
           in
@@ -833,9 +859,29 @@ let field_name_to_index adt_map field_hs =
   | Some idx -> idx
   | None -> X.RecordIndex field_str
 
-(* For a FieldProject on a recursive ADT whose field name is the user-visible name of a
-   selector (e.g. "s3" for Enc(s2: Msg, s3: Msg)), find the SMT-LIB selector name ("Enc_1")
-   and field type by looking up [ty_name]'s constructors specifically. *)
+(* SMT symbol of a datatype's name: angle brackets are legal in an SMT-LIB
+   simple symbol, so they are kept, and any character that is not is mangled *)
+let smt_name_of_adt_name name =
+  String.map (function
+    | ('a'..'z' | 'A'..'Z' | '0'..'9'
+      | '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '_' | '-' | '+' | '='
+      | '<' | '>' | '.' | '?' | '/') as c -> c
+    | _ -> '$') name
+
+(* SMT symbol of a constructor of the datatype of the given name: each
+   instantiation declares constructors of its own, named after itself *)
+let ctor_sym_of name ctor =
+  Type.qualified_ctor_name name
+    (Type.source_ctor_name (HString.string_of_hstring ctor))
+
+(* SMT symbol of a constructor in the compiled type of its datatype *)
+let compiled_ctor_sym t ctor =
+  if Type.is_datatype t then ctor_sym_of (Type.name_of_datatype t) ctor
+  else HString.string_of_hstring ctor
+
+(* For a FieldProject on a recursive ADT whose field name is a selector's
+   user-visible name (e.g. "s3" for Enc(s2: Msg, s3: Msg)), the declaring
+   constructor and the field's position in it *)
 let find_recursive_selector adt_map ty_name field =
   match StringMap.find_opt ty_name adt_map with
   | None -> None
@@ -851,56 +897,71 @@ let find_recursive_selector adt_map ty_name field =
           let target = ctor_str ^ "_" ^ field_str in
           let rec find_idx i = function
             | [] -> None
-            | (fname, ftype) :: rest ->
-              if HString.string_of_hstring fname = target then
-                Some (ctor_str ^ "_" ^ string_of_int i, ftype)
+            | (fname, _) :: rest ->
+              if HString.string_of_hstring fname = target then Some (ctor_hs, i)
               else find_idx (i + 1) rest
           in
           find_idx 0 fields
       ) info.ctor_fields None
 
-(* For each AdtPayloadIndex (ctor, _) entry in a compiled key binding list,
-   replace the payload expression with `ite(tag = ctor, expr, default_val)`.  This
-   ensures set/map array indices are consistent with ADT equality semantics:
-   junk fields (payload of a non-selected constructor) never affect membership. *)
-let adt_canonicalize_key adt_map abstract_type_defaults bindings =
-  let default_of_type = default_of_type abstract_type_defaults in
-  (* Collect all (prefix, ctor) pairs from AdtPayloadIndex occurrences in the
-     path. The result is innermost-first (longest prefix first), so that
-     fold_left wraps the innermost ITE first and the outermost last, producing
-     ite(outer=A, ite(inner=Y, e, default), default) for doubly-nested ADTs. *)
-  let rec collect_payload_levels acc prefix = function
-    | [] -> acc
-    | X.AdtPayloadIndex (ctor, _) as x :: rest ->
-      collect_payload_levels ((List.rev prefix, ctor) :: acc) (x :: prefix) rest
-    | x :: rest -> collect_payload_levels acc (x :: prefix) rest
+(* The type a datatype's field has, with a self-reference resolved to the
+   datatype itself *)
+let resolve_datatype_ref dt ft =
+  if Type.is_datatype_ref ft
+     && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
+  then dt else ft
+
+(* An enum is an integer everywhere else, but a datatype field of integer sort
+   lets a model read a value outside the enum out of a free datatype value: a
+   field is pinned by its constructor, so no range constraint can be put on one
+   after the fact. An enum-typed field of a recursive datatype is given a sort
+   of its own instead, a datatype with one nullary constructor per enum value,
+   which holds nothing else; the integer encoding is restored where a field is
+   read ([decode_enum_field]) and where one is built ([encode_enum_field]). *)
+let enum_field_ctor_sym sort_name ctor = sort_name ^ "$" ^ ctor
+
+let enum_field_sort ty =
+  let name = "enum$" ^ smt_name_of_adt_name (Type.name_of_enum ty) in
+  let ctors = Type.constructors_of_enum ty in
+  let sort =
+    Type.mk_enum_field_sort name
+      (List.map (fun c -> (enum_field_ctor_sym name c, [])) ctors) ty
   in
-  let wrap_one_level bindings e (prefix, ctor) =
-    let disc_info = StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
-      match acc with
-      | Some _ -> acc
-      | None ->
-        if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
-          let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
-          (match List.assoc_opt disc_idx bindings with
-          | None -> assert false
-          | Some disc_e -> Some (disc_e, ctor, E.type_of_lustre_expr disc_e))
-        else None
-    ) adt_map None in
-    match disc_info with
-    | Some (disc_e, ctor, disc_ty) ->
-      let e_ty = E.type_of_lustre_expr e in
-      (* Should hold due to restrictions of set element and map 
-         key types in the type checker *)
-      assert (not (Type.is_array disc_ty));
-      let default = default_of_type e_ty in
-      E.mk_ite (E.mk_eq disc_e (E.mk_constr ctor disc_ty)) e default
-    | None -> e
-  in
-  List.map (fun (idx, e) ->
-    let levels = collect_payload_levels [] [] idx in
-    List.fold_left (wrap_one_level bindings) e levels
-  ) bindings
+  (* A model may mention any of them, so declare every one *)
+  List.iter (fun c ->
+    ignore (UfSymbol.mk_uf_symbol (enum_field_ctor_sym name c) [] sort)
+  ) ctors;
+  sort
+
+(* The constructor of the sort [sort] holding each value of the enum it stands
+   for, paired with that value *)
+let enum_field_values sort =
+  List.combine
+    (List.map fst (Type.constructors_of_datatype sort))
+    (Type.constructors_of_enum (Type.enum_of_field_sort sort))
+
+(* The value of the sort an enum field has, as an if-then-else chain over its
+   values; the last is the unconditional branch *)
+let rec enum_field_ite cond value = function
+  | [] -> assert false
+  | [v] -> value v
+  | v :: rest -> E.mk_ite (cond v) (value v) (enum_field_ite cond value rest)
+
+(* The integer-encoded enum value the field [e] of sort [sort] holds *)
+let decode_enum_field sort e =
+  let ety = Type.enum_of_field_sort sort in
+  enum_field_ite
+    (fun (sym, _) -> E.mk_is_constructor sym e)
+    (fun (_, v) -> E.mk_constr v ety)
+    (enum_field_values sort)
+
+(* The value of sort [sort] the integer-encoded enum expression [e] denotes *)
+let encode_enum_field sort e =
+  let ety = Type.enum_of_field_sort sort in
+  enum_field_ite
+    (fun (_, v) -> E.mk_eq e (E.mk_constr v ety))
+    (fun (sym, _) -> E.mk_uf (UfSymbol.uf_symbol_of_string sym) sort [])
+    (enum_field_values sort)
 
 let rec compile ctx gids adt_map scc_map decls =
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
@@ -913,7 +974,7 @@ let rec compile ctx gids adt_map scc_map decls =
       match decl with
       | A.FuncDecl (_, (i, _, _, _, inputs, _, _, _, contract), attrs)
         when attrs.A.is_rec -> (
-        match get_decreases_expr contract with
+        match source_decreases_expr (NI.Map.find_opt i gids) contract with
         | Some decreases ->
           let formals =
             List.map (fun ip -> LustreAstHelpers.extract_ip_ty ip |> fst) inputs
@@ -941,7 +1002,9 @@ let rec compile ctx gids adt_map scc_map decls =
       G.state_var_bounds = output.state_var_bounds;
       G.global_constraints = output.global_constraints;
       G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map;
-      G.recursive_datatypes = output.recursive_datatypes }
+      G.recursive_datatypes = output.recursive_datatypes;
+      G.adt_junk_ufs = JunkTbl.fold (fun _ uf acc -> uf :: acc) output.adt_junk_ufs [];
+      G.adt_global_constraints = output.adt_global_constraints }
 
 and compile_ast_type
   ?(expand=false)
@@ -959,39 +1022,15 @@ and compile_ast_type
       let enum_elements = List.map HString.string_of_hstring enum_elements in
       let ty = Type.mk_enum enum_name enum_elements in
       X.singleton X.empty_index ty
-  | A.UserType (_, ty_args, ident) ->
-    (* For polymorphic ADT instantiations (e.g., UserType([Int],"Opt")), look up
-       the monomorphized concrete type "Opt<int>" that was inserted by
-       instantiate_polymorphic_adts. Fall back to ident for non-ADT UserTypes. *)
-    let key = if ty_args = [] then ident
-      else HString.mk_hstring (LIPN.adt_mono_key ident ty_args)
-    in
-    (match StringMap.find_opt key cstate.type_alias with
-    | Some t -> t
-    | None ->
-      let generic = StringMap.find ident cstate.type_alias in
-      (match ty_args with
-      | [] -> generic
-      | _ ->
-        match StringMap.find_opt ident cstate.adt_map with
-        | None -> generic
-        | Some adt_info ->
-          let type_params = adt_info.LDAT.type_params in
-          if List.length type_params <> List.length ty_args then generic
-          else
-            let subst = List.fold_left2 (fun acc param arg ->
-              match X.bindings (compile_ast_type cstate ctx map arg) with
-              | [(idx, t)] when idx = X.empty_index -> StringMap.add param t acc
-              | _ -> acc
-            ) StringMap.empty type_params ty_args in
-            X.map (fun ty ->
-              match Type.node_of_type ty with
-              | Type.Abstr s ->
-                (match StringMap.find_opt (HString.mk_hstring s) subst with
-                | Some t -> t
-                | None -> ty)
-              | _ -> ty
-            ) generic))
+  | A.UserType (_, _, ident) ->
+    (* Every use of a polymorphic type names its own instantiation, at concrete
+       types or at the type parameters of the declaration it occurs in, so the
+       type arguments here are the ones that declaration binds *)
+    (match StringMap.find_opt ident cstate.type_alias with
+     | Some ty -> ty
+     | None ->
+       invalid_arg ("compile_ast_type: undeclared type "
+                    ^ HString.string_of_hstring ident))
   | A.AbstractType (_, ident) ->
     let ident = HString.string_of_hstring ident in
     X.singleton X.empty_index (Type.mk_abstr ident)
@@ -1016,7 +1055,8 @@ and compile_ast_type
       let compiled_type = compile_ast_type cstate ctx map t in
       succ i, X.fold over_indices compiled_type a
     in 
-    List.fold_left over_types (0, X.empty) types |> snd
+    (* Flatten nested group types, as is done for group expressions *)
+    List.fold_left over_types (0, X.empty) types |> snd |> flatten_list_indexes
   | A.Set (_, ty1) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
@@ -1107,19 +1147,28 @@ and compile_ast_type
   | A.TArr _ -> assert false
   | A.RefinementType (_, (_, _, ty), _) -> compile_ast_type cstate ctx map ty
   | A.ADT (_, ident, ctors) ->
-    let name = HString.string_of_hstring ident in
+    let smt_name = smt_name_of_adt_name (HString.string_of_hstring ident) in
     let compile_field_type ty =
       if AH.is_direct_self_reference ident ty then
-        Type.mk_datatype_ref name
+        Type.mk_datatype_ref smt_name
       else
         match X.bindings (compile_ast_type cstate ctx map ty) with
-        | [(idx, t)] when idx = X.empty_index -> t
+        | [(idx, t)] when idx = X.empty_index ->
+          if Type.is_enum t then enum_field_sort t else t
         | _ -> invalid_arg "compile_ast_type: ADT field type must be scalar"
     in
     let ctors' = List.map (fun (c, fields) ->
-      (HString.string_of_hstring c, List.map (fun (_, ty) -> compile_field_type ty) fields)
+      (ctor_sym_of smt_name c,
+       List.map (fun (_, ty) -> compile_field_type ty) fields)
     ) ctors in
-    X.singleton X.empty_index (Type.mk_datatype name ctors')
+    let adt_type = Type.mk_datatype smt_name ctors' in
+    (* Declare every constructor, not only the ones the program builds a term
+       with: a model returned by the solver may mention any of them *)
+    List.iter (fun (ctor, field_types) ->
+      let arg_types = List.map (resolve_datatype_ref adt_type) field_types in
+      ignore (UfSymbol.mk_uf_symbol ctor arg_types adt_type)
+    ) ctors';
+    X.singleton X.empty_index adt_type
 
 and vars_of_quant cstate ctx map avars =
   let avars = List.map (fun (p, s, ty) -> p, HString.string_of_hstring s, ty) avars in
@@ -1196,8 +1245,8 @@ and compile_ast_expr
         let id_str = HString.mk_hstring (id ^ "_" ^ name) in
         let ident = mk_ident id_str in
         let e = H.find !map.expr ident in
-        let e = X.find [X.ListIndex proj] e in
-        X.singleton X.empty_index e
+        (* The component may itself be indexed, e.g. an array or a record *)
+        X.find_prefix [X.ListIndex proj] e
         with _ -> H.find !map.expr ident)
       | _ -> H.find !map.expr ident)
     with Not_found ->
@@ -1238,21 +1287,54 @@ and compile_ast_expr
     (* TODO: Old code does a type check here *)
     X.map (mk ub lb) (compile_ast_expr cstate ctx bounds map expr)
 
-  and compile_quantifier bounds mk avars expr =
+  and compile_quantifier bounds kind avars expr =
     let vars, quant_var_map = vars_of_quant cstate ctx map avars in
     let bounds = bounds @
       List.map (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
         vars in
     let quant_vars = H.to_seq quant_var_map in
     H.add_seq !map.quant_vars quant_vars;
-    let result = compile_unary bounds (mk vars) expr in
+    (* ADT values only exist in canonical form (see [LDAT.mk_canonical_exprs]):
+       a bound variable of a type involving an ADT ranges over the canonical
+       values of that type. The bound variables of the constraints themselves
+       are exempt: their quantifiers characterize the non-canonical positions
+       of a container. *)
+    let canonical =
+      List.concat_map (fun (p, id, ty) ->
+        if LDAT.is_canonical_bound_var id then []
+        else
+          LDAT.mk_canonical_exprs ctx cstate.adt_map p (A.Ident (p, id)) ty
+          |> List.map (fun e ->
+               compile_ast_expr cstate ctx bounds map e |> X.max_binding |> snd)
+      ) avars
+    in
+    let mk = match kind, canonical with
+      | A.Forall, [] -> E.mk_forall vars
+      | A.Exists, [] -> E.mk_exists vars
+      | A.Forall, _ -> fun e -> E.mk_forall vars (E.mk_impl (E.mk_and_n canonical) e)
+      | A.Exists, _ -> fun e -> E.mk_exists vars (E.mk_and (E.mk_and_n canonical) e)
+    in
+    let result = compile_unary bounds mk expr in
     Seq.iter (fun (id, _) -> H.remove !map.quant_vars id) quant_vars;
     result
 
   and compile_equality bounds polarity expr1 expr2 =
-    let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match polarity with
-      | true -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
-      | false -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and) in
+    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    compile_structural_rel (if polarity then `Eq else `Neq) expr1 expr2
+
+  (* Structural comparison of two already compiled expressions.
+     [`Eq] and [`Neq] are structural (dis)equality; [`Subset] relates two sets
+     and holds when every element of the first is an element of the second.
+     They only differ in what is asserted at the leaves and in how the leaf
+     comparisons are combined, so they share the guards computed below. *)
+  and compile_structural_rel rel expr1 expr2 =
+    let (mk_binary, mk_seq, const_expr, mk_quant, mk_comb) = match rel with
+      | `Eq -> (E.mk_eq, E.mk_and, E.t_true, E.mk_forall, E.mk_impl)
+      | `Neq -> (E.mk_neq, E.mk_or, E.t_false, E.mk_exists, E.mk_and)
+      (* A set is a Boolean array over its element type, so subset inclusion is
+         membership implication at every index *)
+      | `Subset -> (E.mk_impl, E.mk_and, E.t_true, E.mk_forall, E.mk_impl) in
     (* Map-value leaves must be compared only at keys present in the map.
        TupleIndex (1, Some MapValue) in a compiled trie index identifies the
        value array of a map; TupleIndex (0, Some MapDomain) identifies its
@@ -1270,53 +1352,15 @@ and compile_ast_expr
       in
       scan [] idx
     in
-    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
-    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
     let eqs = X.map2 (fun _ e1 e2 -> (e1, e2)) expr1 expr2 in
-    (* ADT equality: payload fields carry AdtPayloadIndex (ctor, j) in the trie. Each such
-       field's equality is guarded by the discriminant matching that constructor, so junk
-       fields (those for a non-selected constructor) do not affect the result.
-       Equality:    disc = C => payload_e1 = payload_e2
-       Disequality: disc = C AND payload_e1 <> payload_e2 *)
-    let find_adt_disc idx =
-      match List.rev idx with
-      | X.AdtPayloadIndex (ctor, _) :: prefix_rev ->
-        (* This is an ADT payload field; any failure to locate the discriminant is a bug *)
-        let prefix = List.rev prefix_rev in
-        let result = StringMap.fold (fun type_name (info : LDAT.adt_info) acc ->
-          match acc with
-          | Some _ -> acc
-          | None ->
-            if StringMap.mem (HString.mk_hstring ctor) info.ctor_fields then
-              let disc_idx = prefix @ [X.AdtTagIndex (HString.string_of_hstring type_name)] in
-              let (disc_e1, _) = X.find disc_idx eqs in
-              Some (disc_e1, ctor, E.type_of_lustre_expr disc_e1)
-            else None
-        ) cstate.adt_map None in
-        (* ctor must belong to some ADT in adt_map *)
-        (match result with Some _ -> result | None -> assert false)
-      | _ -> None
-    in
     (* Compile the equality for each pair of `eqs` *)
     let over_indices = fun i (e1, e2) acc ->
       match E.type_of_lustre_expr e1 with 
       (* For LustreNode array types (LustreAst arrays, maps, and sets) we need quantification 
          for structural equality *)
       | ty when Type.is_array ty ->
-        let sv = state_var_of_expr e1 in
         let idx_tys = Type.all_index_types_of_array ty in
-        (* [bounds] are recorded for the whole state variable [sv], so they cover
-           all of its array/map/set dimensions. When [e1] is a sub-selection of
-           [sv] (e.g. a map value [m\[k\]] whose type is itself a set or array),
-           the outer, already-indexed dimensions are not part of [e1]'s type.
-           Those dimensions come first (dimensions are ordered outer-to-inner), so
-           drop the leading ones and keep the [List.length idx_tys] bounds that
-           correspond to [e1]'s own remaining dimensions. *)
-        let bounds =
-          let all_bounds = SVT.find !map.bounds sv in
-          let drop = List.length all_bounds - List.length idx_tys in
-          if drop > 0 then snd (list_split drop all_bounds) else all_bounds
-        in
+        let bounds = bounds_of_index i in
         assert (List.length bounds = List.length idx_tys);
         let idx_vars = List.map (Var.mk_fresh_var) idx_tys in
         let arr_is = List.map E.mk_free_var idx_vars in
@@ -1388,29 +1432,31 @@ and compile_ast_expr
            For maps, `conditions` are that the key is in the map (only for arr1 and arr2 representing map values) *)
         let e = mk_quant idx_vars (mk_comb (E.mk_and guard' guard) (mk_binary e1' e2')) in
         X.add i e acc
-      (* For non-array types, straightforward equality.
-         Guard payload fields of ADT records so that junk fields
-         (those for non-selected constructors) do not affect the result.
-         For equality:    disc_e1 = C => payload_e1 = payload_e2
-         For disequality: disc_e1 = C AND payload_e1 <> payload_e2.
-         We guard on disc_e1 only, not disc_e2, because:
-         - Equality: the discriminant entry disc_e1 = disc_e2 is already present as its own
-           trie leaf.
-         - Disequality: if disc_e1 = C and the payloads differ, e1 <> e2 regardless of
-           disc_e2 (different constructor means different ADT value; same constructor with
-           unequal payloads also means different ADT value). 
-           If disc_e1 <> C the guard is false and the clause contributes nothing. *)
-      | _ ->
-        let eq_expr = match find_adt_disc i with
-          | Some (disc_e1, ctor, disc_ty) ->
-            mk_comb (E.mk_eq disc_e1 (E.mk_constr ctor disc_ty)) (mk_binary e1 e2)
-          | None -> mk_binary e1 e2
-        in
-        X.add i eq_expr acc
+      (* For non-array types, straightforward equality. This includes the
+         payload fields of ADT records: ADT values are always in canonical
+         form, so their inactive payload fields agree whenever the values are
+         equal. *)
+      | _ -> X.add i (mk_binary e1 e2) acc
     in
     let expr = X.fold over_indices eqs X.empty in
     X.singleton X.empty_index (List.fold_left mk_seq const_expr (X.values expr))
-  
+
+  (* [op] is the source-level operator relating two sets: [Lte] is subset,
+     [Lt] proper subset, [Gte] superset, and [Gt] proper superset.
+     A superset is a subset with the operands swapped, and the proper variants
+     additionally require the two sets to differ. *)
+  and compile_set_comparison op expr1 expr2 =
+    let sub1, sub2 = match op with
+      | A.Lte | A.Lt -> expr1, expr2
+      | _ -> expr2, expr1
+    in
+    let subset = compile_structural_rel `Subset sub1 sub2 in
+    match op with
+    | A.Lte | A.Gte -> subset
+    | _ ->
+      let distinct = compile_structural_rel `Neq expr1 expr2 in
+      X.map2 (fun _ -> E.mk_and) subset distinct
+
   and compile_ite bounds expr1 expr2 expr3 =
     (* TODO: Old code checks that expr1 is a non-indexed boolean *)
     let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
@@ -1440,34 +1486,109 @@ and compile_ast_expr
       X.add index expr' accum
     in X.fold over_indices cexpr X.empty
 
-  and compile_merge bounds clock_ident merge_cases =
-    let merge_cases = List.map (fun (s, e) -> HString.string_of_hstring s, e) merge_cases in
-    let clock_expr = compile_id_string bounds clock_ident |> X.values |> List.hd in
-    let clock_type = E.type_of_lustre_expr clock_expr in
-    let cond_expr_clock_value clock_value = match clock_value with
-      | "true" -> clock_expr
-      | "false" -> E.mk_not clock_expr
-      | _ -> E.mk_eq clock_expr (E.mk_constr clock_value clock_type)
-    in
-    let compile_merge_case = function
-      | A.When (_, expr, _) ->
-        compile_ast_expr cstate ctx bounds map expr
-      | expr -> compile_ast_expr cstate ctx bounds map expr
-    in
-    let merge_cases_r =
-      let over_cases = fun acc (case_value, e) ->
-        let e = compile_merge_case e in
-        (cond_expr_clock_value case_value, e) :: acc
-      in List.fold_left over_cases [] merge_cases
-    in
-    let default_case, other_cases_r = match merge_cases_r with
-      | (_, d) :: l -> d, l
+  (* A selector applied where its constructor is not known to be the active
+     one (see [LustreDesugarADTs]): the payload when it is, and otherwise an
+     arbitrary value that is a function of the ADT value, an uninterpreted
+     function of the record's components, so that it is fixed for a given
+     value. A field of an array, set or map type keeps the default value the
+     canonical form holds in that case. *)
+  and compile_unguarded_selector bounds expr field info =
+    let cexpr = compile_ast_expr cstate ctx bounds map expr in
+    let index = field_name_to_index cstate.adt_map field in
+    let ctor = match index with
+      | X.AdtPayloadIndex (ctor, _) -> ctor
       | _ -> assert false
     in
-    let over_other_cases = fun acc (cond, e) ->
-      X.map2 (fun _ -> E.mk_ite cond) e acc
+    let type_name = HString.string_of_hstring info.LDAT.type_name in
+    let tag = X.find [X.AdtTagIndex type_name] cexpr in
+    let active = E.mk_eq tag (E.mk_constr ctor (E.type_of_lustre_expr tag)) in
+    let default_of_type = default_of_type cstate.abstract_type_defaults in
+    (* The functions take no Boolean argument and return none (the
+       interpolating solvers do not support them): a Boolean component is
+       passed as 0/1 and a Boolean result read back from an integer one *)
+    let as_uf_arg e =
+      if Type.is_bool (E.type_of_lustre_expr e) then
+        E.mk_ite e (E.mk_int Numeral.one) (E.mk_int Numeral.zero)
+      else e
     in
-    List.fold_left over_other_cases default_case other_cases_r
+    let args = List.map as_uf_arg (X.values cexpr) in
+    let arg_types = List.map E.type_of_lustre_expr args in
+    let field_str = HString.string_of_hstring field in
+    (* The arbitrary value of the scalar component [idx] of the field, of
+       type [ty]: it is a legal value of that type *)
+    let junk_of idx ty =
+      let res_ty = if Type.is_bool ty then Type.t_int else ty in
+      let component = type_name ^ "." ^ field_str ^ X.string_of_index true idx in
+      let key = (component, arg_types, res_ty) in
+      let uf = match JunkTbl.find_opt cstate.adt_junk_ufs key with
+        | Some uf -> uf
+        | None ->
+          let name =
+            Format.asprintf "%s.junk.%d" component (JunkTbl.length cstate.adt_junk_ufs)
+          in
+          let uf = UfSymbol.mk_uf_symbol name arg_types res_ty in
+          JunkTbl.add cstate.adt_junk_ufs key uf;
+          uf
+      in
+      let app = E.mk_uf uf res_ty args in
+      if Type.is_bool ty then E.mk_eq app (E.mk_int Numeral.one)
+      else
+        let in_range = match Type.node_of_type ty with
+          | Type.Enum (l, u) ->
+            let ctors = Type.constructors_of_enum ty in
+            let ctor_of n = E.mk_constr (List.nth ctors Numeral.(to_int (n - l))) ty in
+            Some (E.mk_and (E.mk_lte (ctor_of l) app) (E.mk_lte app (ctor_of u)))
+          | Type.IntRange (Some l, Some u) ->
+            Some (E.mk_and (E.mk_lte (E.mk_int l) app) (E.mk_lte app (E.mk_int u)))
+          | Type.IntRange (Some l, None) -> Some (E.mk_lte (E.mk_int l) app)
+          | Type.IntRange (None, Some u) -> Some (E.mk_lte app (E.mk_int u))
+          | _ -> None
+        in
+        match in_range with
+        | Some c -> E.mk_ite c app (default_of_type ty)
+        | None -> app
+    in
+    let payload = X.find_prefix [index] cexpr in
+    (* The arbitrary value of every scalar component; a component of an
+       array, set or map type keeps the default the canonical form holds *)
+    let junk =
+      X.mapi (fun idx e ->
+        let ty = E.type_of_lustre_expr e in
+        if Type.is_array ty then e else junk_of idx ty
+      ) payload
+    in
+    (* The (prefix, constructor) pairs of the ADT levels a component lies
+       under, innermost first; the tag of such a level is bound at
+       prefix @ [AdtTagIndex type] *)
+    let levels idx =
+      let rec collect acc prefix = function
+        | [] -> acc
+        | X.AdtPayloadIndex (c, _) as x :: rest ->
+          collect ((List.rev prefix, c) :: acc) (x :: prefix) rest
+        | x :: rest -> collect acc (x :: prefix) rest
+      in
+      collect [] [] idx
+    in
+    let type_of_ctor c =
+      StringMap.fold (fun tn (i : LDAT.adt_info) acc ->
+        if List.mem (HString.mk_hstring c) i.LDAT.ctor_variants
+        then Some (HString.string_of_hstring tn) else acc
+      ) cstate.adt_map None
+      |> (function Some tn -> tn | None -> assert false)
+    in
+    (* Where the field's type involves an ADT, the arbitrary value is itself
+       canonical: the components of the constructors its arbitrary tag does
+       not select hold the default *)
+    let junk =
+      X.mapi (fun idx e ->
+        List.fold_left (fun e (prefix, c) ->
+          let jtag = X.find (prefix @ [X.AdtTagIndex (type_of_ctor c)]) junk in
+          let selected = E.mk_eq jtag (E.mk_constr c (E.type_of_lustre_expr jtag)) in
+          E.mk_ite selected e (default_of_type (E.type_of_lustre_expr e))
+        ) e (levels idx)
+      ) junk
+    in
+    X.map2 (fun _ e j -> E.mk_ite active e j) payload junk
 
   and compile_projection bounds expr = function
     | X.RecordIndex _
@@ -1512,9 +1633,9 @@ and compile_ast_expr
       X.fold (fun k v acc -> X.add (prefix @ k) v acc) new_sub kept
     in
 
-    (* Store [new_elem] into [old_sub] at position [sel_term], along the
-       array's own dimension. *)
-    let rec update_array_element old_sub new_elem sel_term =
+    (* Store new_elem into old_sub along the array's own dimension, at the
+       position given by index_e, whose init and step values may differ. *)
+    let rec update_array_element old_sub new_elem index_e =
       match X.choose old_sub with
       | (X.RecordIndex _ :: _), _
       | (X.TupleIndex _ :: _), _
@@ -1526,7 +1647,7 @@ and compile_ast_expr
           | top :: tl ->
             let old_sub' = X.singleton tl v in
             let new_elem' = X.find_prefix [top] new_elem in
-            let updated = update_array_element old_sub' new_elem' sel_term in
+            let updated = update_array_element old_sub' new_elem' index_e in
             X.fold (fun k v acc -> X.add (top :: k) v acc) updated acc
           | [] -> assert false (* keys are nonempty here, guaranteed by the outer match *)
         in
@@ -1535,36 +1656,17 @@ and compile_ast_expr
       | (X.ArrayIntIndex _ :: _), _
       | (X.SetMapIndex _ :: _), _ ->
         let over_key = fun key old_v acc ->
-          let cur_dim, inner_dims = match List.rev key with
-            | last :: rev_inner -> last, List.rev rev_inner
+          (* The trailing key component is the array's own dimension, consumed by
+             the store; the rest addresses the element within new_elem *)
+          let inner_dims = match List.rev key with
+            | _ :: rev_inner -> List.rev rev_inner
             | [] -> assert false
           in
           let new_v = X.find inner_dims new_elem in
-          if Flags.Arrays.smt () then
-            (* TODO: the genuine SMT array-theory encoding does not compose
-               with the scalar, bound-variable-parameterized representation
-               the rest of this function builds; needs its own fix. *)
-            X.add key (E.mk_store old_v sel_term new_v) acc
-          else
-            (* Reduce the old and new values to base-typed terms over fresh
-               index variables. *)
-            let dim_type = function
-              | X.ArrayIntIndex _ -> Type.t_int
-              | X.ArrayVarIndex b | X.SetMapIndex b -> E.type_of_expr b
-              | _ -> assert false
-            in
-            let pos_var = E.mk_array_index_var 0 (dim_type cur_dim) in
-            let old_v = E.mk_select_and_push old_v pos_var in
-            let old_v, new_v, _ =
-              List.fold_left
-                (fun (old_v, new_v, cpt) idx ->
-                  let ivar = E.mk_array_index_var cpt (dim_type idx) in
-                  E.mk_select_and_push old_v ivar, E.mk_select_and_push new_v ivar, cpt + 1)
-                (old_v, new_v, 1)
-                inner_dims
-            in
-            let updated_v = E.mk_ite (E.mk_eq pos_var sel_term) new_v old_v in
-            X.add key updated_v acc
+          (* Stays array-typed so it composes with nesting and with a select at any
+             index; under the default encoding only a select consumes a store
+             (Term.push_select) *)
+          X.add key (E.mk_store old_v index_e new_v) acc
         in
         X.fold over_key old_sub X.empty
       | [], _ -> assert false
@@ -1587,12 +1689,7 @@ and compile_ast_expr
     | [A.Index (_, index_expr, A.ArrayElem)] ->
       let index_cexpr = compile_ast_expr cstate ctx bounds map index_expr in
       let index_e = index_cexpr |> X.values |> List.hd in
-      (* TODO: uses only [index_e.expr_init]; if the index's init and step
-         values differ (e.g. [(0 -> 2)]), the update targets the wrong slot
-         from the second cycle onward, which can prove a false property
-         valid. Same issue on the read side at [compile_array_index]. *)
-      let sel_term = E.mk_of_expr ~as_type:index_e.expr_type index_e.E.expr_init in
-      update_array_element cexpr1 cexpr2 sel_term
+      update_array_element cexpr1 cexpr2 index_e
     | [A.MapIndex _] | [A.SetIndex _] ->
       assert false (* handled by the caller before reaching [compile_struct_update] *)
     | [A.GenericIndex _] ->
@@ -1622,8 +1719,7 @@ and compile_ast_expr
 
   and compile_map_index bounds expr k =
     let compiled_k = compile_ast_expr cstate ctx bounds map k in
-    let bindings_k = X.bindings compiled_k in
-    let index_exprs = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults bindings_k in
+    let index_exprs = X.values compiled_k in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
     List.fold_left
       (fun acc index ->
@@ -1634,9 +1730,7 @@ and compile_ast_expr
 
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
-    let index_e = compiled_i |> X.values |> List.hd in
-    let as_type = index_e.expr_type in 
-    let index = E.mk_of_expr ~as_type index_e.E.expr_init in
+    let index = compiled_i |> X.values |> List.hd in
     let bounds =
       try
         let index_nb = E.int_of_index_var index in
@@ -1768,24 +1862,34 @@ and compile_ast_expr
     compile_binary bounds E.mk_bvshr expr1 expr2
   | A.BinaryOp (_, A.BVConcat, expr1, expr2) -> 
     compile_binary bounds E.mk_bvconcat expr1 expr2
-  | A.CompOp (_, A.Lte, expr1, expr2) ->
-    compile_binary bounds E.mk_lte expr1 expr2 
-  | A.CompOp (_, A.Lt, expr1, expr2) ->
-    compile_binary bounds E.mk_lt expr1 expr2 
-  | A.CompOp (_, A.Gte, expr1, expr2) ->
-    compile_binary bounds E.mk_gte expr1 expr2 
-  | A.CompOp (_, A.Gt, expr1, expr2) ->
-    compile_binary bounds E.mk_gt expr1 expr2 
+  | A.CompOp (_, ((A.Lte | A.Lt | A.Gte | A.Gt) as op), expr1, expr2) ->
+    let expr1 = compile_ast_expr cstate ctx bounds map expr1 in
+    let expr2 = compile_ast_expr cstate ctx bounds map expr2 in
+    (* The type checker only accepts numbers or sets here, and a set is the
+       only one of the two that compiles to an array, so the leaf type tells
+       an ordering comparison apart from a subset/superset one *)
+    let is_set =
+      List.exists
+        (fun e -> Type.is_array (E.type_of_lustre_expr e)) (X.values expr1)
+    in
+    if is_set then compile_set_comparison op expr1 expr2
+    else
+      let mk = match op with
+        | A.Lte -> E.mk_lte | A.Lt -> E.mk_lt
+        | A.Gte -> E.mk_gte | _ -> E.mk_gt
+      in
+      X.map2 (fun _ -> mk) expr1 expr2
   | A.Arrow (_, expr1, expr2) ->
     let mk e1 e2 = let e1', e2' = coalesce_array2 e1 e2 in E.mk_arrow e1' e2' in
     compile_binary bounds mk expr1 expr2
   (* ****************************************************************** *)
   (* Quantifiers                                                        *)
   (* ****************************************************************** *)
+  | A.ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | A.Quantifier (_, A.Forall, avars, expr) ->
-    compile_quantifier bounds E.mk_forall avars expr
+    compile_quantifier bounds A.Forall avars expr
   | A.Quantifier (_, A.Exists, avars, expr) ->
-    compile_quantifier bounds E.mk_exists avars expr
+    compile_quantifier bounds A.Exists avars expr
   (* ****************************************************************** *)
   (* Other Operators                                                    *)
   (* ****************************************************************** *)
@@ -1797,29 +1901,48 @@ and compile_ast_expr
   | A.TernaryOp (_, A.LazyIte, expr1, expr2, expr3) ->
     compile_ite bounds expr1 expr2 expr3
   | A.Pre (_, expr) -> compile_pre bounds expr
-  | A.Merge (_, clock_ident, merge_cases) ->
-    compile_merge bounds clock_ident merge_cases
   | A.Extract (_, expr, ub, lb) -> 
     compile_bvextract bounds E.mk_bvextract expr ub lb
   | A.AnyOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
+  | A.Fby _ -> assert false (* already lowered in lustreAstNormalizer *)
   | A.ChooseOp _ -> assert false (* already desugared in lustreDesugarAnyChooseOps *)
   | A.TypeAscription _ -> assert false (* already desugared in lustreDesugarTypeAscriptions *)
   (* ****************************************************************** *)
   (* Tuple and Record Operators                                         *)
   (* ****************************************************************** *)
-  | A.FieldProject (_, expr, field, adt_ty_opt) ->
-    let recursive_selector = match adt_ty_opt with
-      | Some (A.UserType (_, _, ty_name)) ->
+  | A.FieldProject (_, expr, field, pk) ->
+    let recursive_selector = match pk with
+      | A.Selector (_, A.UserType (_, _, ty_name), _) ->
         find_recursive_selector cstate.adt_map ty_name field
-      | _ -> None
+      | A.Selector _ | A.RecordField | A.Unresolved -> None
     in
     (match recursive_selector with
-    | Some (selector_name, ftype) ->
+    | Some (ctor, field_pos) ->
       let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
-      let result_type = X.find X.empty_index (compile_ast_type cstate ctx map ftype) in
-      X.singleton X.empty_index (E.mk_selector selector_name result_type e')
+      let dt = E.type_of_lustre_expr e' in
+      let ctor_sym = compiled_ctor_sym dt ctor in
+      let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
+      let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
+      let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
+      let sel = E.mk_selector selector_name result_type e' in
+      let sel =
+        if Type.is_enum_field_sort result_type then
+          decode_enum_field result_type sel
+        else sel
+      in
+      X.singleton X.empty_index sel
     | None ->
-      compile_projection bounds expr (field_name_to_index cstate.adt_map field))
+      let unguarded_adt = match pk with
+        | A.Selector (_, A.UserType (_, _, ty_name), _) ->
+          (match StringMap.find_opt ty_name cstate.adt_map with
+          | Some (info : LDAT.adt_info) when not info.is_recursive -> Some info
+          | _ -> None)
+        | A.Selector _ | A.RecordField | A.Unresolved -> None
+      in
+      match unguarded_adt with
+      | Some info -> compile_unguarded_selector bounds expr field info
+      | None ->
+        compile_projection bounds expr (field_name_to_index cstate.adt_map field))
   | A.IndexAccess (_, expr, field, A.Tuple) ->
     let field = match field with 
     | A.Const (_, A.Num n) -> n |> HString.string_of_hstring |> int_of_string  
@@ -1832,7 +1955,11 @@ and compile_ast_expr
         flatten_expr_list accum (expr_list @ tl)
       | expr :: tl -> flatten_expr_list (expr :: accum) tl
     in let expr_list = flatten_expr_list [] expr_list in
+    (* An element may itself compile to a list (e.g. an abstracted multi-output
+       node call), so flatten the result to give every group of the same width
+       the same shape *)
     compile_group_expr bounds (fun j i -> X.ListIndex i :: j) expr_list
+    |> flatten_list_indexes
   | A.GroupExpr (_, A.TupleExpr, expr_list) ->
     compile_group_expr bounds (fun j i -> X.TupleIndex (i, None) :: j) expr_list
   | A.RecordExpr (_, _, _, expr_list) ->
@@ -1847,9 +1974,9 @@ and compile_ast_expr
   (* ****************************************************************** *)
   (* Node calls are abstracted to identifiers or group expressions by 
     the normalizer, making these expressions impossible at this stage *)
-  | A.Condact _ -> assert false
   | A.Call _ -> assert false
   | A.RestartEvery _ -> assert false
+  | A.Restart _ -> assert false (* desugared in lustreGenNodes *)
   (* ****************************************************************** *)
   (* Array Operators                                                    *)
   (* ****************************************************************** *)
@@ -1874,35 +2001,95 @@ and compile_ast_expr
     X.map (default_of_type cstate.abstract_type_defaults) ty
   (* LustreSyntaxChecks handles these expressions on the first pass,
     making these expressions impossible at this stage *)
-  | A.When _ -> assert false
-  | A.Activate _ -> assert false
-  | A.ADTTerm (_, _ty_args, ctor, arg_exprs) ->
+  | A.ADTTerm (_, _, ctor, arg_exprs) ->
+    (* A constructor names the ADT it belongs to, which for a polymorphic ADT is
+       the instantiation whose value it builds, so it carries no type arguments *)
     let (ty_name, field_tys) =
       match Ctx.lookup_constructor ctx ctor with
       | Some r -> r
       | None -> assert false
     in
-    let adt_type = X.find X.empty_index (StringMap.find ty_name cstate.type_alias) in
+    let adt_type =
+      X.find X.empty_index (StringMap.find ty_name cstate.type_alias)
+    in
     let compiled_args = List.map
       (fun e -> X.find X.empty_index (compile_ast_expr cstate ctx bounds map e))
       arg_exprs
     in
-    let arg_types = List.map
-      (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
-      field_tys
+    let ctor_name = compiled_ctor_sym adt_type ctor in
+    (* The sorts the datatype declares, which for an enum-typed field is not
+       the compiled type of the field's source type (see [enum_field_sort]) *)
+    let arg_types =
+      if Type.is_datatype adt_type then
+        List.assoc ctor_name (Type.constructors_of_datatype adt_type)
+        |> List.map (resolve_datatype_ref adt_type)
+      else
+        List.map
+          (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
+          field_tys
     in
-    let ctor_sym =
-      UfSymbol.mk_uf_symbol (HString.string_of_hstring ctor) arg_types adt_type
+    let compiled_args =
+      List.map2 (fun at e ->
+        if Type.is_enum_field_sort at then encode_enum_field at e else e
+      ) arg_types compiled_args
     in
+    let ctor_sym = UfSymbol.mk_uf_symbol ctor_name arg_types adt_type in
     X.singleton X.empty_index (E.mk_uf ctor_sym adt_type compiled_args)
   | A.Match _ -> assert false
   | A.ADTTester (_, expr, ctor) ->
     let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
-    let ctor_str = HString.string_of_hstring ctor in
+    let ctor_str = compiled_ctor_sym (E.type_of_lustre_expr e') ctor in
     X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
-and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties =
+and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx cstate map mk_outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
+  let node_inputs_of_exprs inputs ast =
+    let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
+    let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
+    let cexpr = flatten_list_indexes cexpr in
+    let over_indices i input_sv expr accum =
+      let sv = state_var_of_expr expr in
+      N.set_state_var_instance sv pos ident input_sv;
+      let i' = match i with
+        | (X.ListIndex _)::idx -> idx
+        | idx -> idx
+      in
+      if not (StateVar.is_input sv) then
+        N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, i'));
+      X.add i sv accum
+    in
+    let result = X.fold2 over_indices inputs cexpr X.empty in
+    result
+  in
+  let (called_node_inputs, _, _) = NI.Map.find node_id cstate.node_io in
+  let input_state_vars = node_inputs_of_exprs called_node_inputs args in
+  (* The bounds of the indexes of the outputs and oracles of the callee may
+     refer to its constant inputs (e.g. the size [k] of an output of type
+     [int^k]). Express them in terms of the actual arguments of this call,
+     the callee's state variables are not in the scope of the caller. *)
+  let subst_bound =
+    let actuals =
+      X.fold2
+        (fun _ formal actual acc -> SVM.add formal actual acc)
+        called_node_inputs input_state_vars SVM.empty
+    in
+    E.map_vars_expr (fun v ->
+      if not (Var.is_const_state_var v) then v
+      else
+        match SVM.find_opt (Var.state_var_of_state_var_instance v) actuals with
+        | Some actual when StateVar.is_const actual ->
+          Var.mk_const_state_var actual
+        | _ -> v
+    )
+  in
+  let subst_index =
+    List.map (function
+      | X.ArrayVarIndex b -> X.ArrayVarIndex (subst_bound b)
+      | X.SetMapIndex b -> X.SetMapIndex (subst_bound b)
+      | i -> i
+    )
+  in
+  let outputs = mk_outputs subst_index in
   let called_node_oracles =
     try
       let called_node = N.node_of_node_id node_id cstate.nodes in
@@ -1930,7 +2117,12 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
         match sv' with
         | Some sv' -> (
           (* Use the bounds computed for the original oracle *)
-          SVT.add !map.bounds sv' (SVT.find cstate.state_var_bounds sv);
+          SVT.add !map.bounds sv'
+            (SVT.find cstate.state_var_bounds sv
+             |> List.map (function
+               | E.Bound b -> E.Bound (subst_bound b)
+               | E.Fixed b -> E.Fixed (subst_bound b)
+               | E.Unbound b -> E.Unbound (Option.map subst_bound b)));
           sv'
         )
         | None -> assert false
@@ -1938,24 +2130,6 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
       N.set_state_var_instance propagated_oracle pos ident sv;
       propagated_oracle
     )
-  in
-  let node_inputs_of_exprs inputs ast =
-    let ast_group_expr = A.GroupExpr (dummy_pos, A.ExprList, ast) in
-    let cexpr = compile_ast_expr cstate ctx [] map ast_group_expr in
-    let cexpr = flatten_list_indexes cexpr in
-    let over_indices i input_sv expr accum =
-      let sv = state_var_of_expr expr in
-      N.set_state_var_instance sv pos ident input_sv;
-      let i' = match i with
-        | (X.ListIndex _)::idx -> idx
-        | idx -> idx
-      in 
-      if not (StateVar.is_input sv) then
-        N.add_state_var_def ~is_dep:true sv (N.GeneratedEq (pos, i'));
-      X.add i sv accum
-    in
-    let result = X.fold2 over_indices inputs cexpr X.empty in
-    result
   in
   let node_act_cond_of_expr cond defaults =
     let cond_test = match cond with
@@ -1979,8 +2153,6 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
     else let state_var = restart |> extract_normalized |> H.find !map.state_var
     in Some state_var
   in
-  let (called_node_inputs, _, _) = NI.Map.find node_id cstate.node_io in
-  let input_state_vars = node_inputs_of_exprs called_node_inputs args in
   let act_state_var, defaults = node_act_cond_of_expr cond defaults in
   let restart_state_var = restart_cond_of_expr restart in
   let cond_state_var = match act_state_var, restart_state_var with
@@ -2001,10 +2173,12 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
   (* When a node is called within a branch of a when block (i.e. it has a
      call context but no explicit activation condition), the activation of the
      node is driven by the when guard. Represent it as an activation condition
-     rather than a call context. *)
+     rather than a call context. A restart condition is then sampled on the
+     guard, as with an explicit activation condition. *)
   let cond_state_var, call_ctx =
     match call_ctx, cond_state_var with
     | Some id, [] when is_node -> [N.CActivate id], None
+    | Some id, [N.CRestart r] when is_node -> [N.CActivate id; N.CRestart r], None
     | _ -> cond_state_var, call_ctx
   in
   let call_id = !map.call_count in
@@ -2012,6 +2186,7 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
   let node_call = {
     N.call_id = call_id;
     N.call_pos = pos;
+    N.call_instance = instance;
     N.call_node_id = node_id;
     N.call_cond = cond_state_var;
     N.call_context = call_ctx;
@@ -2020,6 +2195,7 @@ and compile_node_call node_scope pos ctx cstate map outputs cond restart call_ct
     N.call_outputs = outputs;
     N.call_defaults = defaults;
     N.call_inlined = inlined;
+    N.call_uf_applied = uf_applied;
     N.call_rec_decrease_expr = None;
     N.call_ties = ties;
   }
@@ -2063,7 +2239,16 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         (id |> HString.mk_hstring |> mk_ident, [prefix; ref])
       | _ -> assert false
     in
-    let over_vars (gvar_accum, eq_accum) = fun (pos, (A.GhostVarDec (_, tis)), expr) ->
+    let over_vars (gvar_accum, eq_accum) = fun (pos, lhs, expr) ->
+        (* The variables, and the items of the left-hand side of their
+           equation: an indexed ghost variable is defined element-wise, as by
+           an array definition in a node *)
+        let tis, struct_items = match lhs with
+          | A.GhostVarDec (_, tis) ->
+            tis, List.map (fun (pos, id, _) -> A.SingleIdent (pos, id)) tis
+          | A.GhostArrayDef (p, ((_, id, _) as ti), is) ->
+            [ti], [A.ArrayDef (p, id, is)]
+        in
         let extract_local ((_, id, ty)) = (
           let expr_ident = mk_ident id in
           let (ident, contract_namespace) = extract_namespace id in
@@ -2078,7 +2263,12 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
                 ident
                 index
                 index_type
-                (Some N.Ghost)
+                (* The ghost variables of array comprehensions, the only ones
+                   defined element-wise, are Kind 2 generated and therefore
+                   invisible *)
+                (Some (match lhs with
+                  | A.GhostArrayDef _ -> N.Generated N.Plain
+                  | A.GhostVarDec _ -> N.Ghost))
               )
             in
             match possible_state_var with
@@ -2094,7 +2284,6 @@ and compile_contract_variables cstate gids ctx map contract_scope node_scope con
         ) in
         
         (* Patch up eq_rhs and ghost_local *)
-        let struct_items = List.map (fun (pos, id, _) -> A.SingleIdent(pos, id)) tis in
         let eq_lhs = A.StructDef (pos, struct_items) in
         let eq_rhs = expr in
         (List.map extract_local tis) @ gvar_accum, (pos, eq_lhs, eq_rhs) :: eq_accum
@@ -2304,11 +2493,12 @@ and compile_node_io cstate ctx node_id params inputs outputs =
   { cstate with
     node_io = NI.Map.add node_id (inputs, outputs, !map) cstate.node_io }
 
-and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_lemma opac cstate ctx node_id ext params locals items contract =
+and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_lemma opac cstate ctx node_id ext params ast_inputs ast_outputs locals items contract =
   let gids = NI.Map.find node_id gids_map in
+  let ast_locals = locals in
   (* Source decreases measure of this node, used as the right-hand side of the
      decrease constraint rendered for recursive calls. *)
-  let node_decreases = get_decreases_expr contract in
+  let node_decreases = source_decreases_expr (Some gids) contract in
   let internal_node_name_hstring = NI.get_internal_name node_id in 
   let internal_node_name = mk_ident internal_node_name_hstring in
   let node_scope = internal_node_name |> I.to_scope in
@@ -2392,11 +2582,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       | A.NodeVarDecl (_, (_, i, ast_type, A.ClockTrue)) ->
         let ident = mk_ident i
         and index_types = compile_ast_type cstate ctx map ast_type in
-        (* Locals introduced to desugar the 'last' operator are Kind 2
-           generated and therefore invisible (not shown in counterexamples). *)
+        (* Locals introduced to desugar the 'last' operator and array
+           comprehensions are Kind 2 generated and therefore invisible (not
+           shown in counterexamples). *)
         let over_indices = fun index index_type accum ->
           let source =
-            if GI.var_is_last_local i then N.Generated N.Plain
+            if GI.var_is_last_local i || GI.var_is_array_comprehension i
+            then N.Generated N.Plain
             else adt_source_for_index N.Local index
           in
           let possible_state_var = mk_state_var
@@ -2471,27 +2663,35 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       result :: glocals
     in List.fold_left over_generated_locals [] locals_list
   (* ****************************************************************** *)
-  (* (State Variables for) Generated Refinement Type Constraints        *)
+  (* (State Variables for) Generated Boolean Proof Obligations          *)
   (* ****************************************************************** *)
+  (* Refinement type constraints and selector obligations are both defined by
+     an equation over a generated boolean local. *)
+  in let add_generated_bool_local glocals id =
+    let ident = mk_ident id in
+    let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
+    let over_indices = fun index index_type accum ->
+      let possible_state_var = mk_state_var
+        map
+        (node_scope @ I.reserved_scope)
+        ident
+        index
+        index_type
+        (Some (N.Generated N.Plain))
+      in
+      match possible_state_var with
+      | Some state_var -> X.add index state_var accum
+      | None -> accum
+    in
+    X.fold over_indices index_types X.empty :: glocals
   in let glocals =
-    let over_generated_locals glocals (_, _, id, _, _) =
-      let ident = mk_ident id in
-      let index_types = compile_ast_type cstate ctx map (A.Bool dummy_pos) in
-      let over_indices = fun index index_type accum ->
-        let possible_state_var = mk_state_var
-          map
-          (node_scope @ I.reserved_scope)
-          ident
-          index
-          index_type
-          (Some (N.Generated N.Plain))
-        in
-        match possible_state_var with
-        | Some state_var -> X.add index state_var accum
-        | None -> accum
-      in let result = X.fold over_indices index_types X.empty in
-      result :: glocals
-    in List.fold_left over_generated_locals glocals gids.GI.refinement_type_constraints
+    List.fold_left
+      (fun glocals (_, _, id, _, _) -> add_generated_bool_local glocals id)
+      glocals gids.GI.refinement_type_constraints
+  in let glocals =
+    List.fold_left
+      (fun glocals (_, id, _) -> add_generated_bool_local glocals id)
+      glocals gids.GI.selector_obligations
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -2665,6 +2865,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in
   let (calls, glocals) =
     let seen_calls = ref SVS.empty in
+    (* The instances retained for the calls compiled to an application of the
+       functional symbol of the callee (see below) *)
+    let uf_applied_instances =
+      List.fold_left
+        (fun acc (_, _, inst_name, _, _) -> GI.StringSet.add inst_name acc)
+        GI.StringSet.empty gids.GI.qcalls
+    in
     let over_calls =
       fun (calls, glocals) (pos, var, cond, restart, call_ctx, node_id, args, defaults, inlined)
     ->
@@ -2681,8 +2888,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         | _ -> assert false)
       in *)
       let local_map = H.create 7 in
-      let outputs =
+      let mk_outputs subst_index =
         let over_vars = fun index sv compiled_vars ->
+          let index = subst_index index in
           let var_id = mk_ident var in
           let possible_state_var = mk_state_var
             ~force_return:true
@@ -2713,8 +2921,13 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let ties =
         try List.assoc var call_ties_by_var with Not_found -> []
       in
-      let node_call = compile_node_call
-        node_scope pos ctx cstate map outputs cond restart call_ctx node_id args defaults inlined ties
+      let uf_applied = GI.StringSet.mem var uf_applied_instances in
+      let instance =
+        StringMap.find_opt var gids.GI.call_instances
+        |> Option.value ~default:[]
+      in
+      let node_call = compile_node_call ~uf_applied ~instance
+        node_scope pos ctx cstate map mk_outputs cond restart call_ctx node_id args defaults inlined ties
       in
       (* For a (possibly mutually) recursive call, i.e. a call to a function in
          the same dependency cycle, render the source-level decrease constraint
@@ -2748,6 +2961,52 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     in
     List.fold_left over_calls ([], glocals) gids.calls
   (* ****************************************************************** *)
+  (* Calls Applied to Quantified Variables                              *)
+  (* ****************************************************************** *)
+  (* A call applied to variables bound by an enclosing quantifier is not
+     compiled to a node instance but to an application of the functional
+     symbol of the callee (the instance the call also generates, with free
+     constants in place of the quantified variables, is in [gids.calls]).
+     Bind the name the call was abstracted to (see [mk_fresh_qcall]) to that
+     application, so that the expressions referring to the name, compiled
+     below, pick it up. *)
+  in let () =
+    gids.GI.qcalls |> List.iter (fun (qvars, var, _, callee_id, args) ->
+      let callee_inputs, callee_outputs, _ =
+        NI.Map.find callee_id cstate.node_io
+      in
+      let uf_symbols =
+        create_uf_symbols callee_id callee_inputs callee_outputs
+      in
+      (* The quantified variables are free variables of the arguments, and are
+         the very ones the enclosing quantifier binds: [vars_of_quant] names
+         them after the variable they stand for, and free variables are
+         hashconsed by name *)
+      let vars, quant_var_map = vars_of_quant cstate ctx map qvars in
+      let bounds =
+        List.map
+          (fun v -> E.Unbound (Some (E.unsafe_expr_of_term (Term.mk_var v))))
+          vars
+      in
+      let quant_vars = H.to_seq quant_var_map in
+      H.add_seq !map.quant_vars quant_vars;
+      let uf_args =
+        A.GroupExpr (dummy_pos, A.ExprList, args)
+        |> compile_ast_expr cstate ctx bounds map
+        |> flatten_list_indexes
+        |> X.values
+      in
+      Seq.iter (fun (id, _) -> H.remove !map.quant_vars id) quant_vars;
+      let app =
+        callee_outputs |> X.map (fun output ->
+          match SVM.find_opt output uf_symbols with
+          | Some uf -> E.mk_app uf uf_args
+          | None -> assert false
+        )
+      in
+      H.replace !map.expr (mk_ident var) app
+    )
+  (* ****************************************************************** *)
   (* Add Propagated Oracles                                             *)
   (* ****************************************************************** *)
   in let oracles =
@@ -2761,12 +3020,14 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in let (node_props, node_eqs, node_asserts, is_main) = 
     let over_items = fun (props, eqs, asserts, is_main) (item) ->
       match item with
+      | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
       | A.Body e -> (match e with
         | A.Assert (p, e) -> (props, eqs, (p, e) :: asserts, is_main)
         | A.Equation (p, l, e) -> (props, (p, l, e) :: eqs, asserts, is_main))
       | A.AnnotMain (_, flag) -> (props, eqs, asserts, flag || is_main)
       | A.AnnotProperty (p, n, e, k) -> ((p, n, e, k) :: props, eqs, asserts, is_main)
       | A.Auto _ -> (props, eqs, asserts, is_main) (* no-op, removed earlier in pipeline *)
+      | A.MatchBlock _
       | A.IfBlock _
       | A.WhenBlock _
       | A.FrameBlock _ -> 
@@ -2787,8 +3048,24 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       in let id = mk_ident id_str in
       let sv = H.find !map.state_var id in
       let src_expr_str =
-        let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
-        let desugared = try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr in
+        (* What the property was written as, if the normalizer had to ask
+           about something else -- a reachability query is checked by
+           proving its negation, and the negation is not what was asked.
+           Looked up by name, since the abstracted expression is shared
+           with anything that normalizes the same way. *)
+        let written_as =
+          match name_opt with
+          | Some n -> GI.StringMap.find_opt n gids.GI.prop_source_map
+          | None -> None
+        in
+        let desugared =
+          match written_as with
+          | Some expr -> expr
+          | None ->
+            let key = HString.mk_hstring (LustreAst.string_of_expr expr) in
+            try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr
+        in
+        let desugared = LustreDesugarArrayComprehensions.restore desugared in
         LDAT.string_of_expr_as_source
           ~ref_type_names:cstate.ref_type_names cstate.adt_map desugared
       in
@@ -3023,10 +3300,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let nexpr2 = compile_ast_expr cstate ctx lhs_bounds map nexpr2 in 
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in 
       let nexpr2 = 
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
-        ) (X.empty, 0) nexpr2_vals |> fst 
+        ) (X.empty, 0) (X.values nexpr2) |> fst 
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
@@ -3126,15 +3402,11 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       let fresh_idx_e = compile_ast_expr cstate ctx lhs_bounds map fresh_idx in
       (* Flatten nexpr2 to make the indices align (the compilation of map types in
          compile_ast_type flattens indices, so we need to do a corresponding flattening
-         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e).
-         For ADT element types, canonicalize junk payload fields to default values before
-         flattening so that the insertion position is consistent with membership
-         checks (which also canonicalize via compile_map_index). *)
+         of nexpr2 to compile the equality between nexpr2 and fresh_idx_e). *)
       let nexpr2 =
-        let nexpr2_vals = adt_canonicalize_key cstate.adt_map cstate.abstract_type_defaults (X.bindings nexpr2) in
         List.fold_left (fun (acc, acc_i) e ->
           X.add [X.TupleIndex (acc_i, None)] e acc, acc_i + 1
-        ) (X.empty, 0) nexpr2_vals |> fst
+        ) (X.empty, 0) (X.values nexpr2) |> fst
       in
       let expr = compile_binary' E.mk_eq nexpr2 fresh_idx_e in
       let cond_expr = 
@@ -3308,6 +3580,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     let create_constraint_name_pos (pos : position)=
       Format.asprintf "@[<h>SubType%a@]" pp_print_line_and_column pos
     in
+    let create_selector_name_pos (pos : position) =
+      Format.asprintf "@[<h>Selector%a@]" pp_print_line_and_column pos
+    in
     let uniq_name =
       make_uniquifier
         (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
@@ -3352,10 +3627,30 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           (a, ac, g, gc, (sv, name, src, Property.Invariant, srexpr) :: p)
         | _ -> assert false
     in
-    let (assumes, _, guarantees, _, props) = 
+    let (assumes, _, guarantees, _, props) =
       List.fold_left over_ref_type_constraints
       (assumes, List.length assumes, guarantees, List.length guarantees, props)
       gids.GI.refinement_type_constraints
+    in
+    (* Selector obligations are always body properties: they are about a read
+       inside an expression, not about the interface of the node. *)
+    let props =
+      let uniq_name =
+        make_uniquifier
+          (List.map (fun (pos, _, _) -> create_selector_name_pos pos)
+            gids.GI.selector_obligations)
+      in
+      List.fold_left (fun p (pos, id, oexpr) ->
+        let sv = H.find !map.state_var (mk_ident id) in
+        let name = uniq_name (create_selector_name_pos pos) in
+        let soexpr =
+          LDAT.string_of_expr_as_source
+            ~ref_type_names:cstate.ref_type_names cstate.adt_map oexpr
+        in
+        let gen_src = if is_extern then Property.Contract else Property.Body in
+        let src = Property.Generated (Some pos, [sv], gen_src) in
+        (sv, name, src, Property.Invariant, soexpr) :: p
+      ) props gids.GI.selector_obligations
     in
     (assumes, guarantees, props)
   (* ****************************************************************** *)
@@ -3454,7 +3749,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (fun acc (id, h_id) ->
         let id = mk_ident id in
         let h_id = mk_ident h_id in
-        let svars = H.find !map.usr_state_var id in
+        (* [id] is the variable as renamed in the scope of the quantifier,
+           e.g. the abstracted argument of an imported contract, which is not
+           a user variable, or a ghost variable, which is a user variable
+           under its name as written *)
+        let svars =
+          try H.find !map.usr_state_var id with Not_found ->
+          try H.find !map.res_state_var id with Not_found ->
+          H.find !map.expr id |> X.map state_var_of_expr
+        in
         let h_svars = H.find !map.res_state_var h_id in
         List.fold_left2
           (fun acc (_, sv) (_, h_sv) ->
@@ -3471,6 +3774,27 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (StringMap.bindings gids.GI.history_vars)
   in
 
+  (* Canonical-form constraints (see [LDAT.mk_canonical_exprs]) of the ADT
+     values held by the node's variables. They define the free values of the
+     node (inputs, oracles, undefined outputs) and are a consequence of the
+     equations for the defined ones. *)
+  let adt_constraints =
+    let of_var (id, ty) =
+      LDAT.mk_canonical_exprs ctx cstate.adt_map dummy_pos (A.Ident (dummy_pos, id)) ty
+      |> List.map (fun e -> compile_ast_expr cstate ctx [] map e |> X.max_binding |> snd)
+    in
+    let vars =
+      List.map (fun (_, id, ty, _, _) -> (id, ty)) ast_inputs
+      @ List.map (fun (id, ty, _) -> (id, ty)) gids.GI.oracles
+      @ gids.GI.ib_oracles
+      @ List.map (fun (_, id, ty, _) -> (id, ty)) ast_outputs
+      @ List.filter_map (function
+          | A.NodeVarDecl (_, (_, id, ty, A.ClockTrue)) -> Some (id, ty)
+          | _ -> None) ast_locals
+      @ GI.StringMap.bindings gids.GI.locals
+    in
+    List.concat_map of_var vars
+  in
   let (node:N.t) = { node_id;
     is_extern;
     opacity;
@@ -3483,6 +3807,7 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     equations;
     calls;
     asserts;
+    adt_constraints;
     props;
     contract;
     is_main;
@@ -3524,23 +3849,29 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
     let global_constraints =
       let ty = Ctx.expand_type_syn ctx ty in
       let has_ref_type = Ctx.type_contains_ref ctx ty in
-      if has_ref_type then (
-        let ctx = Ctx.add_ty ctx i ty in
-        let ref_type_exprs =
-          if has_ref_type then
-            AN.mk_ref_type_expr cstate.adt_map ctx None (A.Ident(p, i)) ty
-          else []
-        in
-        List.map (fun expr ->
-          let c_expr = compile_ast_expr cstate ctx [] map expr in
-          X.max_binding c_expr |> snd
-        ) ref_type_exprs @ cstate.global_constraints
-      )
-      else cstate.global_constraints
+      let ctx = Ctx.add_ty ctx i ty in
+      let ref_type_exprs =
+        if has_ref_type then
+          AN.mk_ref_type_expr cstate.adt_map ctx None (A.Ident(p, i)) ty
+        else []
+      in
+      List.map (fun expr ->
+        let c_expr = compile_ast_expr cstate ctx [] map expr in
+        X.max_binding c_expr |> snd
+      ) ref_type_exprs @ cstate.global_constraints
+    in
+    (* A free constant of a type involving an ADT is a canonical value *)
+    let adt_global_constraints =
+      let ctx = Ctx.add_ty ctx i ty in
+      LDAT.mk_canonical_exprs ctx cstate.adt_map p (A.Ident (p, i)) ty
+      |> List.map (fun expr ->
+           compile_ast_expr cstate ctx [] map expr |> X.max_binding |> snd)
+      |> (fun cs -> cs @ cstate.adt_global_constraints)
     in
     { cstate with
       free_constants = (!map.node_name, i, vt, is_generated) :: cstate.free_constants;
-      global_constraints
+      global_constraints;
+      adt_global_constraints
     }
   )
   (* TODO: Old code does some subtyping checks for Typed constants
@@ -3569,9 +3900,28 @@ and compile_type_decl pos ctx cstate = function
       | Some key -> (key, ident) :: cstate.ref_type_names
       | None -> cstate.ref_type_names
     in
-    let recursive_datatypes = match X.bindings t with
-      | [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty ->
-        cstate.recursive_datatypes @ [ty]
+    (* Only the instantiations of a polymorphic datatype are declared to the
+       solver; the declaration they come from has free type parameters, and every
+       use names an instantiation. A datatype is declared once however many names
+       alias it. *)
+    let recursive_datatypes = match ps, X.bindings t with
+      | [], [(idx, ty)] when idx = X.empty_index && Type.is_datatype ty
+                             && not (List.exists (Type.equal_types ty)
+                                       cstate.recursive_datatypes) ->
+        (* The sort of an enum-typed field is a datatype of its own, declared
+           before the datatype whose field has it *)
+        let enum_sorts =
+          Type.constructors_of_datatype ty
+          |> List.concat_map snd
+          |> List.filter Type.is_enum_field_sort
+          |> List.fold_left (fun acc s ->
+               if List.exists (Type.equal_types s) acc
+                  || List.exists (Type.equal_types s) cstate.recursive_datatypes
+               then acc else s :: acc)
+               []
+          |> List.rev
+        in
+        cstate.recursive_datatypes @ enum_sorts @ [ty]
       | _ -> cstate.recursive_datatypes
     in
     { cstate with
@@ -3614,6 +3964,16 @@ and get_decreases_expr contract =
     List.fold_left over_decrease_clause None contract
   )
   | None -> None
+
+(* The measure of a decreases clause as written, rather than as normalized
+   (see [LustreAstNormalizer.normalize_contract]) *)
+and source_decreases_expr gids contract =
+  match get_decreases_expr contract, gids with
+  | Some expr, Some gids ->
+    let key = HString.mk_hstring (A.string_of_expr expr) in
+    Some
+      (try GI.StringMap.find key gids.GI.expr_source_map with Not_found -> expr)
+  | expr, _ -> expr
 
 (* The individual components of a decrease measure. A tuple of measures is
    represented as an expression list; a single measure is its own component. *)
@@ -3714,12 +4074,12 @@ and compile_declaration_phase2:
   match decl with
   | A.TypeDecl _ -> cstate
   | A.ConstDecl _ -> cstate
-  | A.FuncDecl (_, (i, ext, opac, params, _, _, locals, items, contract), { is_rec; is_lemma }) -> (
-    let cstate = compile_node_decl scc_map gids rec_decreases_map true is_rec is_lemma opac cstate ctx i ext params locals items contract in
+  | A.FuncDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract), { is_rec; is_lemma }) -> (
+    let cstate = compile_node_decl scc_map gids rec_decreases_map true is_rec is_lemma opac cstate ctx i ext params inputs outputs locals items contract in
     { cstate with local_constants = StringMap.empty }
   )
-  | A.NodeDecl (_, (i, ext, opac, params, _, _, locals, items, contract)) ->
-    let cstate = compile_node_decl scc_map gids rec_decreases_map false false false opac cstate ctx i ext params locals items contract in
+  | A.NodeDecl (_, (i, ext, opac, params, inputs, outputs, locals, items, contract)) ->
+    let cstate = compile_node_decl scc_map gids rec_decreases_map false false false opac cstate ctx i ext params inputs outputs locals items contract in
     { cstate with local_constants = StringMap.empty }
   (* All contract node declarations are recorded and normalized in gids,
   this is necessary because each unique call to a contract node must be 

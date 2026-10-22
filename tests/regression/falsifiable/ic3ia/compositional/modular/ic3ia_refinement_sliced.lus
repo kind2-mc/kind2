@@ -1,0 +1,30 @@
+-- The first analysis of main abstracts Sub by its contract, which gives
+-- neither check, so both are falsified. Sub's own analysis proved its
+-- contract, so main is refined. IC3IA builds its own system for each
+-- property, sliced to the cone of that property: the system for "pa" does
+-- not have the properties lifted from the call that defines b, and the
+-- system for "pb" those from the call that defines a. The refinement carries
+-- the statuses of the first analysis over to the new system, and failed on
+-- the properties it does not have (PropertyNotFound), so IC3IA never
+-- answered "pa" or "pb" in the refinement.
+--
+-- The run is falsifiable either way, as both checks are falsified under
+-- Sub's contract, so test_ic3ia_refinement.py checks the answers of the
+-- refinement.
+type nat = subtype { n: int | n >= 0 };
+
+node Sub (x: nat) returns (y: int);
+(*@contract
+  guarantee "g" y > x;
+*)
+let
+  y = x + 1;
+tel
+
+node main (x: nat) returns (a, b: int);
+let
+  a = Sub(x);
+  b = Sub(x + 1);
+  check "pa" a = x + 1;
+  check "pb" b = x + 2;
+tel

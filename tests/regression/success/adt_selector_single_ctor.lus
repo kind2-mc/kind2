@@ -1,0 +1,7 @@
+datatype Box = Wrap (v: int);
+
+node main(b: Box) returns (ok: bool);
+let
+  ok = b.v = b.v;
+  check ok;
+tel

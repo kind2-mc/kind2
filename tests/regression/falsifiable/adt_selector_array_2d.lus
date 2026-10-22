@@ -1,0 +1,7 @@
+datatype IntOpt = None | Some (val: int);
+
+node main(a: IntOpt^3^2) returns (o: int^3^2);
+let
+  o = (a[i][j].val foreach i, j)^3^2;
+  check true;
+tel

@@ -1,0 +1,7 @@
+-- 'fby' is a temporal operator ('e1 fby e2' is 'e1 -> pre e2'). A function has
+-- no state, so it is rejected in the body of a function, as pre and -> are.
+
+function f (a: int) returns (b: int);
+let
+  b = 0 fby a;
+tel

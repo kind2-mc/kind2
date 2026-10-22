@@ -1,0 +1,8 @@
+const k: int;
+type R = struct { a: subtype { j: int | j <= k } };
+
+node main (p: subtype { k: R^3 | k[0].a > 0 }) returns (y: int);
+let
+  y = p[1].a;
+  check y <= k;
+tel

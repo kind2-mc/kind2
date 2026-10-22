@@ -1,0 +1,24 @@
+-- Sub's guarantee holds, and its local check "c" does not. The check is not
+-- part of the contract: what a refinement of main assumes of Sub is its
+-- guarantee, which holds of its implementation. The refinement of main used
+-- to require every property of Sub's analysis to be proved, so the failed
+-- check kept main from being refined, and "p", which the contract does not
+-- give, stayed falsified.
+--
+-- The run is falsifiable, as "c" and the first analysis of main are, so
+-- test_refinement_contract_proved.py checks the answers of the analyses of
+-- main.
+node Sub (x: int) returns (y: int);
+(*@contract
+  guarantee "g" y >= x;
+*)
+let
+  y = x + 1;
+  check "c" y > 1;
+tel
+
+node main (x: int) returns (y: int);
+let
+  y = Sub(x);
+  check "p" y = x + 1;
+tel

@@ -1,0 +1,13 @@
+-- The value of a selector applied to a value built with another constructor
+-- is arbitrary: it is not the default value of the field's type, even for a
+-- value built by a constructor application.
+
+datatype D = A (a: int) | B (b: bool);
+
+node main(i: int) returns (ok: bool);
+var z: D;
+let
+  z = B(true);
+  ok = z.a = 0;
+  check ok;
+tel

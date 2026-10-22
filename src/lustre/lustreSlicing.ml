@@ -180,12 +180,27 @@ let rec node_state_var_dependencies' init output_input_deps
             let state_vars =
               state_vars_of_bounds bnds |> SVS.union state_vars in
             
-            (* add indexes *)
+            (* add indexes. They come from the selects of the
+               expression, and finding those of a state variable takes
+               a traversal of the expression: an expression with no
+               select, the most common by far, gives every state
+               variable no indexes, without a traversal for each of
+               them. Each state variable is added to the map on its
+               own, as merging a map of one would rebuild the whole
+               map. *)
+            let has_select =
+              Term.has_select
+                (if init then expr.E.expr_init else expr.E.expr_step :> Term.t)
+            in
             SVS.fold (fun sv acc ->
                 let indexes =
-                  if init then E.indexes_of_state_vars_in_init sv expr
+                  if not has_select then []
+                  else if init then E.indexes_of_state_vars_in_init sv expr
                   else E.indexes_of_state_vars_in_step sv expr in
-                SVM.merge merge_deps (SVM.singleton sv indexes) acc
+                SVM.update sv (function
+                    | None -> Some indexes
+                    | Some i -> Some (indexes @ i))
+                  acc
               ) state_vars accum
 
         ) SVM.empty
@@ -235,10 +250,19 @@ let rec node_state_var_dependencies' init output_input_deps
             with Not_found -> D.empty
           in
 
-          (* Get indexes of inputs the output depends on. All outputs must
-              have dependencies computed *)
+          (* Get indexes of inputs the output depends on.
+
+             The dependencies of the callee have been computed before those of
+             this node, except when the callee is the node itself, or another
+             function of the same recursive group: a dependency is then still
+             being computed, and there is nothing to read. Fall back on the
+             assumption that the output depends on every input, which is the
+             worst a fixed point could converge to, and is safe for the two
+             things these dependencies are used for: keeping a variable in the
+             cone of influence of another, and ordering equations by what they
+             read. *)
           (try D.find output_index output_input_dep
-            with Not_found -> assert false)
+            with Not_found -> D.keys call_inputs)
 
           |> List.fold_left (fun accum i -> 
               (* Get actual input by index, and add as dependency *)
@@ -542,10 +566,10 @@ let roots_of_props props =
 
 let rec contract_proof_obligation = function
   | Property.Generated (_, _, Property.Contract) -> true
-  | Property.Candidate (Some s) -> contract_proof_obligation s
+  | Property.Candidate { source = Some s ; _ } -> contract_proof_obligation s
   | Property.Generated (_, _, Property.Body) 
   | Property.PropAnnot _ 
-  | Property.Candidate None 
+  | Property.Candidate { source = None ; _ }
   | Property.NonVacuityCheck _
   | Property.TerminationCheck _
   | Property.Assumption _
@@ -577,6 +601,7 @@ let slice_all_of_node
       N.oracles; 
       N.outputs; 
       N.asserts;
+      N.adt_constraints;
       N.props; 
       N.contract;
       N.is_main;
@@ -603,6 +628,7 @@ let slice_all_of_node
     N.equations = [];
     N.calls = [];
     N.asserts = if keep_asserts then asserts else [] ;
+    N.adt_constraints;
     N.props =
       if not keep_props then []
       else if for_contract then
@@ -694,6 +720,13 @@ let roots_of_contract_ass = function
   let with_sofar_var = assumes <> [] in
   Contract.svars_of ~with_sofar_var contract
 
+(* A call whose outputs are dead -- an inlined call, or the instance retained
+   for a call compiled to an application of the functional symbol of the callee
+   -- carries no information of its own: its arguments are free constants
+   standing for the enclosing quantified variables, and nothing reads its
+   outputs. It is worth keeping only for a property that comes from it, that
+   is, one instantiated from the call or an assumption of it: the values of the
+   instance are then what the property is about. *)
 let keep_inline_call c prop =
   match prop with
   | None -> true
@@ -711,7 +744,8 @@ let keep_inline_call c prop =
 let roots_of_inlined_calls prop calls =
   List.fold_left
     (fun acc c ->
-      if c.N.call_inlined && keep_inline_call c prop then
+      if c.N.call_inlined && (c.N.call_uf_applied || keep_inline_call c prop)
+      then
         SVS.union acc (D.values c.call_outputs |> SVS.of_list)
       else
         acc
@@ -723,7 +757,7 @@ let roots_of_inlined_calls prop calls =
    discarded) result of a call statement, e.g. a lemma application like
    'double(n-1);' (see lustreNameCalls.ml). *)
 let is_discarded_output_svar sv =
-  GI.var_is_discarded_output
+  GI.svar_is_discarded_output
     (StateVar.name_of_state_var sv |> HString.mk_hstring)
 
 (* Add discarded call-statement results as roots so that the corresponding
@@ -1097,9 +1131,43 @@ let rec slice_nodes
           ((roots', (state_var :: leaves), node_sliced', node_unsliced') :: tl)
 
 
+(* The outputs of the calls of a recursive function to the functions of its
+   recursive group, among [nodes], and the inputs and outputs of the
+   function.
+
+   The termination checks of a recursive call are generated with the call,
+   so slicing a call away would leave its termination unchecked. In the
+   analysis of the function itself, where the termination of every recursive
+   call is proved for all the inputs of the function, nothing need depend on
+   a call for it to be kept: a function with no contract and no property, or
+   a call whose value no guarantee depends on, is still checked. A call of
+   the function to itself refers to the signature of the function, which is
+   kept whole, for the arguments and the outputs of the call to match it (see
+   [roots_of_lemma_calls]): an input that nothing reads is still passed by
+   the call. *)
+let roots_of_recursive_calls
+    nodes { N.comp_type; N.calls; N.inputs; N.outputs } =
+  let group_of node_id =
+    match N.node_of_node_id node_id nodes with
+    | { N.comp_type = N.Function { N.rec_info = Some (group, _) } } ->
+      Some group
+    | _ -> None
+    | exception Not_found -> None
+  in
+  match comp_type with
+  | N.Function { N.rec_info = Some (group, _) } ->
+    List.fold_left
+      (fun acc { N.call_node_id; N.call_outputs } ->
+         if group_of call_node_id = Some group then
+           D.fold (fun _ sv acc -> SVS.add sv acc) call_outputs acc
+         else acc)
+      (D.values inputs @ D.values outputs |> SVS.of_list) calls
+  | _ -> SVS.empty
+
 (* Slice a node to its implementation, starting from the outputs,
    contracts and properties *)
 let root_and_leaves_of_impl  
+    nodes
     property
     is_top
     roots
@@ -1148,6 +1216,11 @@ let root_and_leaves_of_impl
 
     (* Do not slice calls to lemmas *)
     |> SVS.union (roots_of_lemma_calls node)
+
+    (* Do not slice the recursive calls of the top node, whose termination
+       the analysis checks *)
+    |> SVS.union
+      (if is_top then roots_of_recursive_calls nodes node else SVS.empty)
 
     |> SVS.elements
   in
@@ -1210,13 +1283,13 @@ let node_is_abstract analysis { N.node_id } =
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-  property is_top roots abstraction_map node
+  nodes property is_top roots abstraction_map node
 =
   if node_is_abstract abstraction_map node
   then (* Node is to be abstract *)
     root_and_leaves_of_contracts property is_top roots node 
   else (* Node is to be concrete *)
-    root_and_leaves_of_impl property is_top roots node
+    root_and_leaves_of_impl nodes property is_top roots node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
@@ -1238,10 +1311,10 @@ let slice_to_abstraction'
 
     slice_nodes
       preserve_sig
-      (root_and_leaves_of_abstraction_map property false roots analysis)
+      (root_and_leaves_of_abstraction_map nodes property false roots analysis)
       nodes
       []
-      [root_and_leaves_of_abstraction_map property true roots analysis (List.hd nodes)]
+      [root_and_leaves_of_abstraction_map nodes property true roots analysis (List.hd nodes)]
 
   in
 
@@ -1262,6 +1335,7 @@ let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
       )
     else
       (roots_of_contract ~with_sofar_var:true contract)
+      |> SVS.union (roots_of_props_contract props)
   in
   Some vars
 

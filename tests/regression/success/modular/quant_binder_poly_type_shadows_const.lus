@@ -1,0 +1,12 @@
+const k: int;
+
+node G<T> (x: T) returns (z: int);
+let
+  z = 0;
+  check exists (k: T) true;
+tel
+
+node main (x: subtype { y: int | y < k }) returns (z: int);
+let
+  z = G@<subtype { y: int | y < k }>(x);
+tel

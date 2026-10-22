@@ -1,0 +1,17 @@
+-- A call to a recursive function applied to a quantified variable is rejected
+-- when the function calls an imported function, as a call to a non-recursive
+-- function that calls one is: the imported function is only constrained at
+-- the arguments of its instances, an arbitrary function under the quantifier.
+
+function imported H (a: int) returns (r: int);
+
+function rec F (a: int; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then H(a) else F(a, n - 1);
+tel
+
+node Test (a: int) returns ();
+let
+  check forall (k: int) k <= 0 => F(a, k) = H(a);
+tel

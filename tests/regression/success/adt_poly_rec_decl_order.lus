@@ -1,0 +1,10 @@
+datatype Inner<T> = I (v: T, n: Inner<T>) | EI;
+datatype Wrap<T> = W (x: T, more: Wrap<T>) | EW;
+
+node main(i: int) returns (ok: bool);
+var w: Wrap<Inner<int>>;
+let
+  w = W(I(i, EI@<int>), EW@<Inner<int>>);
+  ok = W?(w);
+  check ok;
+tel

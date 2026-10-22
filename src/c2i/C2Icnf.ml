@@ -115,6 +115,7 @@ let mk_solver sys init =
   Sys.define_and_declare_of_bounds
     sys
     (Solver.define_fun solver)
+    ~define_rec:(Solver.define_funs_rec solver)
     (Solver.declare_fun solver)
     (Solver.declare_sort solver)
     Numeral.zero var_ub ;

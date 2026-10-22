@@ -4,6 +4,8 @@ let
 tel;
 
 node Y () returns (out: bool);
+var held: bool;
 let
-  out = condact(false -> true, X(), false);
+  held = false fby out;
+  out = when (false -> true) then X() else held;
 tel

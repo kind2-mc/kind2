@@ -23,8 +23,9 @@ open Lib
 
 exception Error
 
-exception SolverNotFound
-exception UnsupportedSolver
+exception SolverNotFound of string
+exception UnsupportedSolver of string
+exception UsageError of string
 
 (* Raised on unknown flag. Stores the unknown flag. *)
 exception UnknownFlag of string
@@ -77,14 +78,28 @@ module Make_Spec (_:sig end) = struct
   (* All the flag specification of this module. *)
   let all_specs = ref []
   let format_specs = ref []
+  (* The flags of kind2 only: they concern its Lustre front end or the
+     analyses only it runs. kmoxi neither shows nor accepts them. *)
+  let kind2_only_flags = ref []
   let add_specs specs = all_specs := List.rev_append specs !all_specs
-  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+  let add_spec ?(kind2_only = false) flag parse desc =
+    all_specs := (flag, parse, desc) :: !all_specs ;
+    if kind2_only then kind2_only_flags := flag :: !kind2_only_flags
   let add_format_spec flag parse desc =
     add_spec flag parse desc; format_specs := (flag, parse, desc) :: !format_specs
 
   (* Returns all the flag specification of this module. *)
   let all_specs () = !all_specs
   let format_specs () = !format_specs
+
+  (* The flag specifications an executable shows and accepts: all of them,
+     or all but the ones marked kind2-only *)
+  let specs_shown ~with_kind2_only =
+    if with_kind2_only then all_specs ()
+    else
+      List.filter
+        (fun (flag, _, _) -> not (List.mem flag !kind2_only_flags))
+        (all_specs ())
 end
 
 (* Signature of modules for flags. *)
@@ -126,7 +141,6 @@ module Smt = struct
     | `OpenSMT_SMTLIB
     | `SMTInterpol_SMTLIB
     | `Yices2_SMTLIB
-    | `Yices_native
     | `Z3_SMTLIB
     | `detect
   ]
@@ -138,7 +152,8 @@ module Smt = struct
     | "opensmt" -> `OpenSMT_SMTLIB
     | "smtinterpol" -> `SMTInterpol_SMTLIB
     | "yices2" -> `Yices2_SMTLIB
-    | "yices" -> `Yices_native
+    | "yices" ->
+      Arg.Bad "Yices 1 is no longer supported; use --smt_solver Yices2" |> raise
     | "z3" -> `Z3_SMTLIB
     | _ -> Arg.Bad "Bad value for --smt_solver" |> raise
   let string_of_solver = function
@@ -148,12 +163,11 @@ module Smt = struct
     | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
     | `Yices2_SMTLIB -> "Yices2"
-    | `Yices_native -> "Yices"
     | `Z3_SMTLIB -> "Z3"
     | `detect -> "detect"
 
   (* Suggested order of use (more capabilities, more theories, better performance) *)
-  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, OpenSMT, Bitwuzla, Yices"
+  let solver_values = "Z3, cvc5, Yices2, MathSAT, SMTInterpol, OpenSMT, Bitwuzla"
   let solver_default = `detect
   let solver = ref solver_default
   let _ = add_spec
@@ -428,20 +442,6 @@ module Smt = struct
   let set_cvc5_bin str = cvc5_bin := str
   let cvc5_bin () = !cvc5_bin
 
-  (* Yices binary. *)
-  let yices_bin_default = "yices"
-  let yices_bin = ref yices_bin_default
-  let _ = add_spec
-    "--yices_bin"
-    (Arg.Set_string yices_bin)
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>Executable of Yices solver@ Default: \"%s\"@]"
-        yices_bin_default
-    )
-  let set_yices_bin str = yices_bin := str
-  let yices_bin () = !yices_bin
-
   (* Yices 2 binary. *)
   let yices2smt2_bin_default = "yices-smt2"
   let yices2smt2_bin = ref yices2smt2_bin_default
@@ -489,154 +489,89 @@ module Smt = struct
     (* Check if solver execdutable is on the path *)
     try find_on_path bin with
     | Not_found when fail ->
-      Log.log L_fatal "@[<v>%s %s %s not found.@]" name filetype bin;
-      raise SolverNotFound
+      let msg = Format.sprintf "%s %s %s not found." name filetype bin in
+      Log.log L_fatal "@[<v>%s@]" msg;
+      raise (SolverNotFound msg)
 
   
+  (* Look for the executable of a solver, and record its full path if found.
+     Raise [Not_found] if it is not found, or [SolverNotFound] with [~fail]. *)
+  let locate_solver ?(fail = false) = function
+    | `Bitwuzla_SMTLIB ->
+      find_solver ~fail "Bitwuzla" (bitwuzla_bin ()) |> set_bitwuzla_bin
+    | `cvc5_SMTLIB ->
+      find_solver ~fail "cvc5" (cvc5_bin ()) |> set_cvc5_bin
+    | `MathSAT_SMTLIB ->
+      find_solver ~fail "MathSAT" (mathsat_bin ()) |> set_mathsat_bin
+    | `OpenSMT_SMTLIB ->
+      find_solver ~fail "OpenSMT" (opensmt_bin ()) |> set_opensmt_bin
+    | `SMTInterpol_SMTLIB ->
+      find_solver ~filetype:"JAR" ~fail "SMTInterpol" (smtinterpol_jar ())
+      |> set_smtinterpol_jar
+    | `Yices2_SMTLIB ->
+      find_solver ~fail "Yices2 SMT2" (yices2smt2_bin ())
+      |> set_yices2smt2_bin
+    | `Z3_SMTLIB ->
+      find_solver ~fail "Z3" (z3_bin ()) |> set_z3_bin
+    | `detect -> raise Not_found
+
+  (* The solver whose executable a solver for quantifier elimination or
+     interpolation runs *)
+  let qe_executable = function
+    | `cvc5_SMTLIB -> `cvc5_SMTLIB
+    | `Z3_SMTLIB -> `Z3_SMTLIB
+    | `detect -> `detect
+
+  let itp_executable = function
+    | `cvc5_QE -> `cvc5_SMTLIB
+    | `Bitwuzla_SMTLIB -> `Bitwuzla_SMTLIB
+    | `MathSAT_SMTLIB -> `MathSAT_SMTLIB
+    | `OpenSMT_SMTLIB -> `OpenSMT_SMTLIB
+    | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
+    | `Z3_QE -> `Z3_SMTLIB
+    | `detect -> `detect
+
+  (* Check that the executable of a solver chosen by the user is found,
+     unless it is the one of the main solver, checked already *)
+  let check_chosen executable =
+    if executable <> solver () then locate_solver ~fail:true executable
+
+  (* Set the role to the first of the solvers whose executable is found, in
+     the given order; raise [Not_found] if none is *)
+  let rec detect_first set executable = function
+    | [] -> raise Not_found
+    | s :: rest -> (
+      try locate_solver (executable s); set s
+      with Not_found -> detect_first set executable rest
+    )
+
   (* Check which SMT solver is available *)
   let check_smtsolver () = match solver () with
-    (* User chose Bitwuzla *)
-    | `Bitwuzla_SMTLIB ->
-      find_solver ~fail:true "Bitwuzla" (bitwuzla_bin ()) |> ignore
-    (* User chose cvc5 *)
-    | `cvc5_SMTLIB ->
-      find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
-    (* User chose OpenSMT *)
-    | `OpenSMT_SMTLIB ->
-      find_solver ~fail:true "OpenSMT" (opensmt_bin ()) |> ignore
-    (* User chose MathSAT *)
-    | `MathSAT_SMTLIB ->
-      find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
-    (* User chose SMTInterpol *)
-    | `SMTInterpol_SMTLIB ->
-      let full_path =
-        find_solver ~filetype:"JAR" ~fail:true "SMTInterpol" (smtinterpol_jar ())
-      in
-      set_smtinterpol_jar full_path
-    (* User chose Yices2 *)
-    | `Yices2_SMTLIB ->
-      find_solver ~fail:true "Yices2 SMT2" (yices2smt2_bin ()) |> ignore
-    (* User chose Yices *)
-    | `Yices_native ->
-      find_solver ~fail:true "Yices" (yices_bin ()) |> ignore
-    (* User chose Z3 *)
-    | `Z3_SMTLIB ->
-      find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    (* User did not choose SMT solver *)
-    | `detect ->
+    | `detect -> (
       try
-        let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-        set_solver `Z3_SMTLIB;
-        set_z3_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-        set_solver `cvc5_SMTLIB;
-        set_cvc5_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices2 SMT2" (yices2smt2_bin ()) in
-        set_solver `Yices2_SMTLIB;
-        set_yices2smt2_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-        set_solver `MathSAT_SMTLIB;
-        set_mathsat_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
-        set_solver `SMTInterpol_SMTLIB;
-        set_smtinterpol_jar exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
-        set_solver `OpenSMT_SMTLIB;
-        set_opensmt_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
-        set_solver `Bitwuzla_SMTLIB;
-        set_bitwuzla_bin exec;
-      with Not_found ->
-      try
-        let exec = find_solver ~fail:false "Yices" (yices_bin ()) in
-        set_solver `Yices_native;
-        set_yices_bin exec;
+        detect_first set_solver (fun s -> s)
+          [ `Z3_SMTLIB; `cvc5_SMTLIB; `Yices2_SMTLIB; `MathSAT_SMTLIB;
+            `SMTInterpol_SMTLIB; `OpenSMT_SMTLIB; `Bitwuzla_SMTLIB ]
       with Not_found ->
         Log.log L_fatal "No SMT Solver found.";
-        raise SolverNotFound
+        raise (SolverNotFound "No SMT Solver found.")
+    )
+    (* User chose a solver *)
+    | s -> locate_solver ~fail:true s
 
   let check_qe_solver () = match qe_solver () with
-    (* User chose cvc5 *)
-    | `cvc5_SMTLIB -> (
-      match solver () with
-      | `cvc5_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
-    )
-    (* User chose Z3 *)
-    | `Z3_SMTLIB -> (
-      match solver () with
-      | `Z3_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    )
-    | `detect ->
+    | `detect -> (
       match solver () with
       | `cvc5_SMTLIB -> set_qe_solver `cvc5_SMTLIB;
       | `Z3_SMTLIB -> set_qe_solver `Z3_SMTLIB;
       | _ ->
-        try
-          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-          set_qe_solver `Z3_SMTLIB;
-          set_z3_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-          set_qe_solver `cvc5_SMTLIB;
-          set_cvc5_bin exec;
-        with Not_found -> () (* Ẃe keep `detect to know no qe solver was found *)
+        try detect_first set_qe_solver qe_executable [ `Z3_SMTLIB; `cvc5_SMTLIB ]
+        with Not_found -> () (* We keep `detect to know no qe solver was found *)
+    )
+    (* User chose a solver *)
+    | s -> check_chosen (qe_executable s)
 
   let check_itp_solver () = match itp_solver () with
-    (* User chose cvc5qe *)
-    | `cvc5_QE -> (
-      match solver () with
-      | `cvc5_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "cvc5" (cvc5_bin ()) |> ignore
-    )
-    (* User chose Bitwuzla *)
-    | `Bitwuzla_SMTLIB -> (
-      match solver () with
-      | `Bitwuzla_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Bitwuzla" (bitwuzla_bin ()) |> ignore
-    )
-    (* User chose MathSAT *)
-    | `MathSAT_SMTLIB -> (
-      match solver () with
-      | `MathSAT_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "MathSAT" (mathsat_bin ()) |> ignore
-    )
-    (* User chose OpenSMT *)
-    | `OpenSMT_SMTLIB -> (
-      match solver () with
-      | `OpenSMT_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "OpenSMT" (opensmt_bin ()) |> ignore
-    )
-    (* User chose SMTInterpol *)
-    | `SMTInterpol_SMTLIB -> (
-      match solver () with
-      | `SMTInterpol_SMTLIB -> ()
-      | _ ->
-        let full_path =
-          find_solver ~fail:true "SMTInterpol" (smtinterpol_jar ())
-        in
-        set_smtinterpol_jar full_path
-    )
-    (* User chose Z3qe *)
-    | `Z3_QE -> (
-      match solver () with
-      | `Z3_SMTLIB -> ()
-      | _ -> find_solver ~fail:true "Z3" (z3_bin ()) |> ignore
-    )
     | `detect -> (
       match solver () with
       | `OpenSMT_SMTLIB ->
@@ -646,39 +581,31 @@ module Smt = struct
            preference to OpenSMT as the interpolating solver over MathSAT.
         *)
         set_itp_solver `OpenSMT_SMTLIB;
-      | _ -> (
+      | _ ->
         try
-          let exec = find_solver ~fail:false "MathSAT" (mathsat_bin ()) in
-          set_itp_solver `MathSAT_SMTLIB;
-          set_mathsat_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~filetype:"JAR" ~fail:false "SMTInterpol" (smtinterpol_jar ()) in
-          set_itp_solver `SMTInterpol_SMTLIB;
-          set_smtinterpol_jar exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "Z3" (z3_bin ()) in
-          set_itp_solver `Z3_QE;
-          set_z3_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "cvc5" (cvc5_bin ()) in
-          set_itp_solver `cvc5_QE;
-          set_cvc5_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "OpenSMT" (opensmt_bin ()) in
-          set_itp_solver `OpenSMT_SMTLIB;
-          set_opensmt_bin exec;
-        with Not_found ->
-        try
-          let exec = find_solver ~fail:false "Bitwuzla" (bitwuzla_bin ()) in
-          set_itp_solver `Bitwuzla_SMTLIB;
-          set_bitwuzla_bin exec;
-        with Not_found -> () (* Ẃe keep `detect to know no itp solver was found *)
-      )
+          detect_first set_itp_solver itp_executable
+            [ `MathSAT_SMTLIB; `SMTInterpol_SMTLIB; `Z3_QE; `cvc5_QE;
+              `OpenSMT_SMTLIB; `Bitwuzla_SMTLIB ]
+        with Not_found -> () (* We keep `detect to know no itp solver was found *)
     )
+    (* User chose a solver *)
+    | s -> check_chosen (itp_executable s)
+
+  (* Use the given solvers for the solver roles the user left to detection,
+     provided their executables are found. A role whose preferred solver is
+     not found is left to detection, which then picks the first solver found
+     in the usual order. *)
+  let prefer_solvers ?solver:main ?itp ?qe () =
+    let prefer current preferred executable set =
+      match current, preferred with
+      | `detect, Some s -> (
+        try locate_solver (executable s); set s with Not_found -> ()
+      )
+      | _ -> ()
+    in
+    prefer (solver ()) main (fun s -> s) set_solver;
+    prefer (itp_solver ()) itp itp_executable set_itp_solver;
+    prefer (qe_solver ()) qe qe_executable set_qe_solver
 end
 
 
@@ -1387,6 +1314,106 @@ module Contracts = struct
       fmt_bool refinement_default
     )
   let refinement () = !refinement
+
+  (* Unrollings of a recursive function a refinement tries before defining
+     it. Two are enough for the proofs whose induction a contract or a lemma
+     carries, where the unrolling only has to reach a base case through the
+     recursive call; a call whose arguments are constant, or are fixed in a
+     counterexample, is evaluated rather than unrolled in a modular
+     analysis. *)
+  let rec_unrollings_default = 2
+  let rec_unrollings = ref rec_unrollings_default
+  let _ = add_spec
+    "--rec_unrollings"
+    (Arg.Set_int rec_unrollings)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximum number of unrollings of a recursive function.@ \
+        In a compositional and modular analysis, a call to a recursive@ \
+        function whose contract does not prove the properties of the@ \
+        caller is refined by unrolling the function, once, then up to@ \
+        <int> times, with its recursive calls abstracted by the contract.@ \
+        In any other analysis, a recursive call past the unrollings of@ \
+        its function is left unconstrained, and the function is unrolled@ \
+        once more, up to <int> times, when a counterexample reaches@ \
+        such a call. In a modular analysis, a call at constant arguments@ \
+        to a function proved terminating is evaluated instead, and so is,@ \
+        in a compositional one, a call a spurious counterexample fixes@ \
+        the arguments of@ \
+        Default: %d\
+      @]"
+      rec_unrollings_default
+    )
+  let rec_unrollings () = !rec_unrollings
+
+  (* Whether the values of the calls that the check of a spurious
+     counterexample evaluated are given to the refinements of the caller *)
+  let rec_learn_values_default = true
+  let rec_learn_values = ref rec_learn_values_default
+  let _ = add_spec
+    "--rec_learn_values"
+    (bool_arg rec_learn_values)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        In a compositional and modular analysis, give the refinements of@ \
+        a caller the values of the calls to recursive functions proved@ \
+        terminating that the check of a spurious counterexample evaluated,@ \
+        so that they need not unroll the functions as deep as the calls go@ \
+        Default: %a\
+      @]"
+      fmt_bool rec_learn_values_default
+    )
+  let rec_learn_values () = !rec_learn_values
+
+  (* Instances of recursive functions the unrolling may create *)
+  let rec_instances_default = 100
+  let rec_instances = ref rec_instances_default
+  let _ = add_spec
+    "--rec_instances"
+    (Arg.Set_int rec_instances)
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximum number of instances of recursive functions the unrolling@ \
+        of the functions may create in a system, outside of compositional@ \
+        analyses. A function whose body makes several recursive calls,@ \
+        or calls other recursive functions, has the instances multiplied@ \
+        at every unrolling; no function is unrolled further when the next@ \
+        unrolling is expected to exceed <int> instances, and the@ \
+        properties whose counterexamples reach their recursive calls are@ \
+        left unknown, as at the limit set with --rec_unrollings@ \
+        Default: %d\
+      @]"
+      rec_instances_default
+    )
+  let rec_instances () = !rec_instances
+
+  (* Unrollings of a recursive function under its contract when its own
+     contract is proved *)
+  let rec_contract_unrollings_default = 1
+  let rec_contract_unrollings = ref rec_contract_unrollings_default
+  let _ = add_spec
+    "--rec_contract_unrollings"
+    (Arg.Int (fun n ->
+       if n < 1 then
+         Arg.Bad "--rec_contract_unrollings expects a positive integer" |> raise
+       else rec_contract_unrollings := n))
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Number of unrollings of a recursive function in the analysis of the@ \
+        function itself, when its recursive calls are abstracted by its@ \
+        contract, the induction hypothesis: in a compositional analysis,@ \
+        or for an opaque function. A guarantee that the recursive calls@ \
+        one level down do not imply, but those <int> levels down do, is@ \
+        proved with <int> unrollings@ \
+        Default: %d\
+      @]"
+      rec_contract_unrollings_default
+    )
+  let rec_contract_unrollings () = !rec_contract_unrollings
 
   let print_deadlock_default = true
   let print_deadlock = ref print_deadlock_default
@@ -2180,6 +2207,13 @@ module Arrays = struct
     let set_smt f = smt := f
     let smt () = !smt
 
+  (* Whether the values of arrays in models are read whole, as terms, with
+     the theory of arrays: set by kmoxi, whose output prints them so; the
+     output of Kind 2 prints arrays element by element. Not an option. *)
+  let read_whole = ref false
+  let set_read_whole b = read_whole := b
+  let read_whole () = !read_whole
+
   let inline_default = true
   let inline = ref inline_default
   let _ = add_spec
@@ -2227,6 +2261,65 @@ module Arrays = struct
         fmt_bool var_size_default
     )
   let var_size () = !var_size
+
+end
+
+
+(* Quantifier handling flags. *)
+module Quant = struct
+
+  include Make_Spec (struct end)
+
+  (* Identifier of the module. *)
+  let id = "quant"
+  (* Short description of the module. *)
+  let desc = "quantifier instantiation flags"
+  (* Explanation of the module. *)
+  let fmt_explain fmt =
+    Format.fprintf fmt "@[<v>\
+      Quantifiers coming from a Lustre model may range over types with a@ \
+      finite domain: the Booleans, enumerated types, and the tags and@ \
+      payloads of the algebraic datatypes built from them. Such quantifiers@ \
+      can be eliminated up front by expanding them into a finite conjunction@ \
+      (forall) or disjunction (exists) over every value of the domain.\
+    @]"
+
+  (* All the flag specification of this module. *)
+  let all_specs = ref []
+  let add_spec flag parse desc = all_specs := (flag, parse, desc) :: !all_specs
+
+  (* Returns all the flag specification of this module. *)
+  let all_specs () = !all_specs
+
+  let inst_finite_default = true
+  let inst_finite = ref inst_finite_default
+  let _ = add_spec
+    "--instantiate_finite_quant"
+    (bool_arg inst_finite)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Eliminate quantifiers over finite domains (the Booleans and@ \
+         enumerated types) by expanding them into a conjunction/disjunction@ \
+         over all the values of the domain.@ Default: %a@]"
+        fmt_bool inst_finite_default
+    )
+  let set_inst_finite b = inst_finite := b
+  let inst_finite () = !inst_finite
+
+  let inst_finite_budget_default = 100000
+  let inst_finite_budget = ref inst_finite_budget_default
+  let _ = add_spec
+    "--instantiate_finite_quant_budget"
+    (Arg.Set_int inst_finite_budget)
+    (fun fmt ->
+      Format.fprintf fmt
+        "@[<v>Maximal size, in term nodes, of the term@ \
+         --instantiate_finite_quant may produce for a single quantifier.@ \
+         A quantifier whose expansion would be larger than this is left@ \
+         untouched.@ Default: %d@]"
+        inst_finite_budget_default
+    )
+  let inst_finite_budget () = !inst_finite_budget
 
 end
 
@@ -2756,6 +2849,9 @@ let module_map = [
   (Arrays.id,
     (module Arrays: FlagModule)
   ) ;
+  (Quant.id,
+    (module Quant: FlagModule)
+  ) ;
   (Certif.id,
     (module Certif: FlagModule)
   ) ;
@@ -2778,14 +2874,70 @@ let fmt_module_info fmt (id, m0d) =
     (pp_print_list fmt_flag "@ ")
     (Flags.all_specs () |> List.rev)
 
+(* What an executable shows and accepts on its command line: how its usage
+   message describes the input, whether the global flags marked kind2-only
+   are registered with the others, and the modules of [module_map] whose
+   flags are. *)
+type profile = {
+  input_desc : string ;
+  kind2_only_flags : bool ;
+  modules : string list ;
+  (* Whether the SMT solvers are checked and detected once the input is
+     read, by [check_solvers], rather than by [parse_argv]: the executable
+     can then set solver preferences from the input *)
+  solvers_after_input : bool ;
+  (* What --version prints, and the log starts with *)
+  banner : string ;
+  (* Whether an error on the command line is raised as [UsageError], for
+     the executable to report, rather than printed with the usage *)
+  raise_usage_errors : bool ;
+}
+
+let kind2_profile = {
+  kind2_only_flags = true ;
+  input_desc =
+    "the Lustre program in <input_file> or from standard input (in Lustre) \
+     if no file is given" ;
+  modules = List.map fst module_map ;
+  solvers_after_input = false ;
+  banner = Format.asprintf "%t" pp_print_version ;
+  raise_usage_errors = false ;
+}
+
+(* kmoxi runs the engines on a MoXI model: the engine (C2I included, which
+   reads only the transition system), solver and theory flags apply; the
+   Lustre front end, contracts, certificates, IVCs, MCSs, test generation,
+   the interpreter and the language server do not *)
+let kmoxi_profile = {
+  input_desc =
+    "the MoXI model in <input_file> or from standard input if no file is \
+     given" ;
+  kind2_only_flags = false ;
+  modules = [
+    Smt.id ; BmcKind.id ; IC3QE.id ; IC3IA.id ; Invgen.id ; C2I.id ; QE.id ;
+    Arrays.id ; Quant.id
+  ] ;
+  solvers_after_input = true ;
+  (* kmoxi has a version of its own, with the Kind 2 build it is part of *)
+  banner =
+    Format.sprintf "kMoXI %s (Kind 2 %s)" Version.kmoxi_version
+      Version.version ;
+  raise_usage_errors = true ;
+}
+
+(* The modules of a profile, with their flags *)
+let modules_of profile =
+  List.filter (fun (id, _) -> List.mem id profile.modules) module_map
+
 (* Prints module info for a list of identifiers. If ["all"] is in the list,
-prints info for all modules.
+prints info for all modules of the profile.
 If the input list is not empty and all identifiers are defined, exits with
 status [0]. If some operators are undefined, exits with [2]. Does nothing if
 the list is empty. *)
-let print_module_info = function
+let print_module_info profile = function
 | [] -> ()
 | (hd :: tl) as ids -> (
+  let module_map = modules_of profile in
   Format.printf "%s@.@." usage_msg_header ;
   if List.mem all_modules_id ids then (
     Format.printf
@@ -2841,26 +2993,29 @@ module Global = struct
 
   include Make_Spec (struct end)
 
-  (* Returns all flags in all Kind 2 modules. *)
-  let all_kind2_specs () = List.fold_left (
+  (* The profile of the running executable, set by [parse_argv] *)
+  let profile = ref kind2_profile
+
+  (* Returns the flags the running executable registers: the global flags
+     it shows, and those of the modules of its profile. *)
+  let registered_specs () = List.fold_left (
     fun l (_, m0d) ->
       let module Flags = (val m0d: FlagModule) in
       l @ (Flags.all_specs ())
-  ) (all_specs ()) module_map
+  ) (specs_shown ~with_kind2_only:!profile.kind2_only_flags) (modules_of !profile)
 
-  let usage_msg = Format.sprintf "\
+  let usage_msg () = Format.sprintf "\
     %s@.\
-    Prove properties over the Lustre program in <input_file> or from standard@ \
-    input (in Lustre) if no file is given.@.\
+    Prove properties over %s.@.\
     Global options follow, \
     use \"--help_of\" for module-specific information.\
-  " usage_msg_header
+  " usage_msg_header !profile.input_desc
 
 
   (* Prints help. *)
   let print_help () =
-    Format.printf "%s@.  " usage_msg ;
-    all_specs () |> List.rev |> print_flags ;
+    Format.printf "%s@.  " (usage_msg ()) ;
+    specs_shown ~with_kind2_only:!profile.kind2_only_flags |> List.rev |> print_flags ;
     Format.printf "@."
 
 
@@ -2924,13 +3079,14 @@ module Global = struct
           Format.fprintf fmt
             "%-15s %s" (Format.sprintf "%s" key) Flags.desc
         ) "@ "
-      ) module_map
+      ) (modules_of !profile)
       all_modules_id
   let _ = add_spec
     "--help_of"
     (Arg.String 
       (fun str ->
-        if str = all_modules_id || List.mem_assoc str module_map then (
+        if str = all_modules_id || List.mem_assoc str (modules_of !profile)
+        then (
           if List.mem str !help_of |> not then help_of := str :: !help_of
         ) else BadArg (
           Format.sprintf "unknown module identifier \"%s\"" str,
@@ -2954,7 +3110,7 @@ module Global = struct
   let lus_main_default = None
 
   let lus_main = ref lus_main_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_main"
     (Arg.String (fun str -> lus_main := Some str))
     (fun fmt ->
@@ -2972,7 +3128,7 @@ module Global = struct
   let lus_main_const_default = None
 
   let lus_main_const = ref lus_main_const_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_main_const"
     (Arg.String (fun str -> lus_main_const := Some str))
     (fun fmt ->
@@ -2990,7 +3146,7 @@ module Global = struct
   let lus_main_type_default = None
 
   let lus_main_type = ref lus_main_type_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_main_type"
     (Arg.String (fun str -> lus_main_type := Some str))
     (fun fmt ->
@@ -3026,7 +3182,7 @@ module Global = struct
   let input_format_default = `Extension
 
   let input_format = ref input_format_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--input_format"
     (Arg.String (fun str -> input_format := input_format_of_string str))
     (fun fmt ->
@@ -3081,7 +3237,7 @@ module Global = struct
 
 
   let include_dirs = ref []
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--include_dir"
     (Arg.String
       (fun dir -> include_dirs := dir :: !include_dirs)
@@ -3151,7 +3307,7 @@ module Global = struct
   (* Log invariants. *)
   let log_invs_default = false
   let log_invs = ref log_invs_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--log_invs"
     (bool_arg log_invs)
     (fun fmt ->
@@ -3280,6 +3436,30 @@ module Global = struct
   ])
   let timeout_analysis () = !timeout_analysis
 
+
+  (* Memory limit. *)
+  let memory_limit_default = 0
+  let memory_limit = ref memory_limit_default
+  let _ = add_specs ([
+    ( "--memory_limit",
+      Arg.Int (fun n ->
+        if n < 0 then
+          Arg.Bad "--memory_limit expects a non-negative integer" |> raise
+        else memory_limit := n),
+      fun fmt ->
+        Format.fprintf fmt
+          "@[<v>Memory limit in MB of the analysis, solvers included: past \
+             80%% of it,@ the engine whose solvers use the most memory is \
+             stopped, so that the others go on.@ 0 is the limit of the \
+             cgroup of the process, if any.@ A solver run through a \
+             wrapper script is counted only if the script execs it.@ \
+             Linux only: elsewhere the memory used is not checked@ \
+           Default: %d@]"
+          memory_limit_default
+    )
+  ])
+  let memory_limit () = !memory_limit
+
   (* Only parse mode. *)
   let only_parse_default = false
   let only_parse = ref only_parse_default
@@ -3289,7 +3469,7 @@ module Global = struct
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Only parse the Lustre program. No analysis is performed.@ \
+          Only parse and type check the input program. No analysis is performed.@ \
           Default: %a\
         "
         fmt_bool only_parse_default
@@ -3371,8 +3551,22 @@ module Global = struct
     (* `INVGENREAL ; *) `INVGENREALOS ;
   ]
   let enabled = ref enable_default_init
+  (* Replace the virtual module IC3 with the engines it stands for,
+     IC3QE and IC3IA, keeping the first occurrence of each module. *)
+  let expand_virtual_modules modules =
+    modules
+    |> List.concat_map (function
+      | `IC3 -> [`IC3QE; `IC3IA]
+      | mdl -> [mdl])
+    |> List.fold_left
+      (fun acc mdl -> if List.mem mdl acc then acc else mdl :: acc)
+      []
+    |> List.rev
   let disable modul3 =
-    enabled := (! enabled) |> List.filter (fun m -> m <> modul3)
+    let disabled = expand_virtual_modules [modul3] in
+    enabled := (! enabled) |> List.filter (
+      fun m -> List.mem m disabled |> not
+    )
   let disabled = ref disable_default_init
   let finalize_enabled () =
     (* If [enabled] is unchanged, set it do default after init. *)
@@ -3383,8 +3577,9 @@ module Global = struct
       enabled := `MCS::enable_default_after
     ) ;
     (* Remove disabled modules. *)
-    enabled := !enabled |> List.filter (
-      fun mdl -> List.mem mdl !disabled |> not
+    let disabled = expand_virtual_modules !disabled in
+    enabled := expand_virtual_modules !enabled |> List.filter (
+      fun mdl -> List.mem mdl disabled |> not
     )
   let _ = add_spec
     "--enable"
@@ -3438,7 +3633,8 @@ module Global = struct
       Format.fprintf fmt
       "\
         @[<hov>where <string> can be %a@]@ \
-        Disable a Kind module\
+        Disable a Kind module, repeat option to disable several modules.@ \
+        IC3 is a virtual module that disables both IC3QE and IC3IA.\
       "
       (pp_print_list Format.pp_print_string ",@ ") enable_values
     )
@@ -3447,7 +3643,7 @@ module Global = struct
   (* Modular mode. *)
   let modular_default = false
   let modular = ref modular_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--modular"
     (bool_arg modular)
     (fun fmt ->
@@ -3474,7 +3670,7 @@ module Global = struct
     | `Experimental -> "experimental"
   let slice_nodes_default = `On
   let slice_nodes = ref slice_nodes_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--slice_nodes"
     (Arg.String
       (fun str -> slice_nodes := slice_nodes_of_string str)
@@ -3493,7 +3689,7 @@ module Global = struct
 
   let check_reach_default = true
   let check_reach = ref check_reach_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--check_reach"
     (bool_arg check_reach)
     (fun fmt ->
@@ -3509,7 +3705,7 @@ module Global = struct
 
 let check_nonvacuity_default = true
   let check_nonvacuity = ref check_nonvacuity_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--check_nonvacuity"
     (bool_arg check_nonvacuity)
     (fun fmt ->
@@ -3526,13 +3722,16 @@ let check_nonvacuity_default = true
 
   let check_subproperties_default = true
   let check_subproperties = ref check_subproperties_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--check_subproperties"
     (bool_arg check_subproperties)
     (fun fmt ->
       Format.fprintf fmt
         "\
           Check properties of subnodes in addition to properties of the main node.@ \
+          The properties of the nodes Kind 2 generates for parts of a node,@ \
+          such as the temporal branches of lazy constructs, are checked in@ \
+          any case.@ \
           Ignored if --modular is true@ \
           Default: %a\
         "
@@ -3544,7 +3743,7 @@ let check_nonvacuity_default = true
   (* Reject unguarded pre's in Lustre file. *)
   let lus_strict_default = false
   let lus_strict = ref lus_strict_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_strict"
     (bool_arg lus_strict)
     (fun fmt ->
@@ -3558,10 +3757,26 @@ let check_nonvacuity_default = true
     )
   let lus_strict () = !lus_strict
 
+  (* Reject include directives in Lustre files. *)
+  let lus_no_include_default = false
+  let lus_no_include = ref lus_no_include_default
+  let _ = add_spec ~kind2_only:true
+    "--no_include"
+    (bool_arg lus_no_include)
+    (fun fmt ->
+      Format.fprintf fmt
+        "\
+          Reject include statements in Lustre source files.@ \
+          Default: %a\
+        "
+        fmt_bool lus_no_include_default
+    )
+  let lus_no_include () = !lus_no_include
+
   (* Reject unguarded pre's in Lustre file. *)
   let lus_push_pre_default = false
   let lus_push_pre = ref lus_push_pre_default
-  let _ = add_spec
+  let _ = add_spec ~kind2_only:true
     "--lus_push_pre"
     (bool_arg lus_push_pre)
     (fun fmt ->
@@ -3749,7 +3964,7 @@ let check_nonvacuity_default = true
     "--version"
     (Arg.Unit
       (fun () -> 
-        Format.printf "%t@." pp_print_version ;
+        Format.printf "%s@." !profile.banner ;
         exit ExitCodes.success
       )
     )
@@ -3795,6 +4010,7 @@ let enabled = Global.enabled
 let invgen_enabled = Global.invgen_enabled
 let disable = Global.disable
 let lus_strict = Global.lus_strict
+let lus_no_include = Global.lus_no_include
 let lus_push_pre = Global.lus_push_pre
 let modular = Global.modular
 let slice_nodes = Global.slice_nodes
@@ -3815,6 +4031,7 @@ let input_format = Global.input_format
 let real_precision = Global.real_precision
 let timeout_wall = Global.timeout_wall
 let timeout_analysis = Global.timeout_analysis
+let memory_limit = Global.memory_limit
 let input_file = Global.input_file
 let all_input_files = Global.get_all_input_files
 let clear_input_files = Global.clear_input_files
@@ -3836,16 +4053,20 @@ let set_input_file s =
   try Global.set_input_file s with Unix.Unix_error _ -> ()
 
 let anon_action s =
+  (* An empty input file name is not the standard input, which no file
+     name stands for *)
+  if s = "" then raise (Arg.Bad "Empty input file name") ;
   match Global.input_file () with
   | "" -> (
     (* filenames that start with - are allowed after the flag -- *)
-    if not !Global.only_filename && s.[0] = '-' then raise (UnknownFlag s);
+    if not !Global.only_filename && String.starts_with ~prefix:"-" s then
+      raise (UnknownFlag s);
     set_input_file s ;
     Global.set_input_format s;
     Global.set_output_dir s
   )
   | _ ->
-    if s.[0] = '-' then raise (UnknownFlag s)
+    if String.starts_with ~prefix:"-" s then raise (UnknownFlag s)
     else raise (Arg.Bad ("More than one input file given: "^s))
 
 
@@ -3936,9 +4157,20 @@ let parse_clas specs anon_action =
       )
     in
 
+    (* The executable reports the error itself *)
+    let raise_usage_error fmt =
+      Format.kasprintf (fun msg -> raise (UsageError msg)) fmt
+    in
+
     (
       try args |> cla_loop
       with
+      | UnknownFlag flag when !Global.profile.raise_usage_errors ->
+        raise_usage_error "unknown flag %s" flag
+      | BadArg (error, (flag, _, _)) when !Global.profile.raise_usage_errors ->
+        raise_usage_error "error on flag %s: %s" flag error
+      | Arg.Bad expl when !Global.profile.raise_usage_errors ->
+        raise_usage_error "%s" expl
       | UnknownFlag flag -> (
         check_format_flags args;
         (
@@ -3995,20 +4227,19 @@ let support_new_bv_cast_operators () = !support_new_bv_cast_operators'
 
 let solver_dependent_actions solver =
 
-  let get_version with_patch cmd =
+  let get_version cmd =
     let get_rev output idx =
       int_of_string (Str.matched_group idx output)
     in
     let version_re =
-      if with_patch then Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)\\.\\([0-9]+\\)"
-      else Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)"
+      Str.regexp "\\([0-9]+\\)\\.\\([0-9]+\\)\\.\\([0-9]+\\)"
     in
     let output = syscall cmd in
     try
       let _ = Str.search_forward version_re output 0 in
       let major_rev = get_rev output 1 in
       let minor_rev = get_rev output 2 in
-      let patch_rev = if with_patch then get_rev output 3 else 0 in
+      let patch_rev = get_rev output 3 in
       Some (major_rev, minor_rev, patch_rev)
     with Not_found -> None
   in
@@ -4016,7 +4247,7 @@ let solver_dependent_actions solver =
   match solver with
   | `MathSAT_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.mathsat_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 5 || (major_rev = 5 && (minor_rev < 5 || (minor_rev = 5 && patch_rev < 4)))  then (
         if Smt.check_sat_assume () then (
@@ -4047,7 +4278,7 @@ let solver_dependent_actions solver =
   )
   | `Z3_SMTLIB -> (
     let cmd = Format.asprintf "%s -version" (Smt.z3_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 4 || (major_rev = 4 && minor_rev < 6) then (
         if Smt.check_sat_assume () then (
@@ -4062,12 +4293,15 @@ let solver_dependent_actions solver =
   )
   | `Yices2_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.yices2smt2_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | Some (major_rev, minor_rev, patch_rev) ->
       if major_rev < 2 || (major_rev = 2 && minor_rev < 6) then (
         let actions = [] in
         let actions =
-          if List.mem `IC3 (Global.enabled ()) then
+          (* The virtual module IC3 has already been replaced with the
+             engines it stands for. *)
+          let enabled = Global.enabled () in
+          if List.mem `IC3QE enabled || List.mem `IC3IA enabled then
             (Global.disable `IC3; "disabling IC3" :: actions)
           else actions
         in
@@ -4090,22 +4324,31 @@ let solver_dependent_actions solver =
             (pp_print_list Format.pp_print_string ",@ ") actions
         )
       )
-      else if (major_rev > 2 || minor_rev > 6 || patch_rev > 1) then (
+      (* Yices 2.6.2 up to 2.6.x print SMT-LIB models only with
+         --smt2-model-format. From 2.7.0 on, they are the default, and the
+         option no longer exists. *)
+      else if major_rev = 2 && minor_rev = 6 && patch_rev > 1 then (
         Smt.set_yices2_smt2models true
       )
     | None -> Log.log L_warn "Couldn't determine Yices 2 version"
   )
   | `cvc5_SMTLIB -> (
     let cmd = Format.asprintf "%s --version" (Smt.cvc5_bin ()) in
-    match get_version true cmd with
+    match get_version cmd with
     | None ->
-        Log.log L_warn "Couldn't determine cvc5 version";
-        raise UnsupportedSolver
+        let msg = "Couldn't determine cvc5 version" in
+        (* An error, as the run ends on it *)
+        Log.log L_error "%s" msg;
+        raise (UnsupportedSolver msg)
     | Some (major, minor, patch) ->
         if (major < 1) then (
-          Log.log L_error "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
-            major minor patch ;
-          raise UnsupportedSolver
+          let msg =
+            Format.sprintf
+              "Kind 2 requires cvc5 1.0.0 or later. Found version: %d.%d.%d"
+              major minor patch
+          in
+          Log.log L_error "%s" msg ;
+          raise (UnsupportedSolver msg)
         ) ;
         if
           Certif.proof () && not (
@@ -4116,24 +4359,17 @@ let solver_dependent_actions solver =
             (major > 1)
           )
         then (
-          Log.log L_error
-            "CPC proof production requires cvc5 >= 1.3.2. Found \
-             version: %d.%d.%d"
-            major minor patch;
-          raise UnsupportedSolver) ;
+          let msg =
+            Format.sprintf
+              "CPC proof production requires cvc5 >= 1.3.2. Found \
+               version: %d.%d.%d"
+              major minor patch
+          in
+          Log.log L_error "%s" msg;
+          raise (UnsupportedSolver msg)) ;
         if (major > 1) ||
            (major = 1 && (minor > 3 || (minor = 3 && patch >= 0)))
         then support_new_bv_cast_operators' := true;
-  )
-  | `Yices_native -> (
-    let cmd = Format.asprintf "%s --version" (Smt.yices_bin ()) in
-    match get_version false cmd with
-    | Some (major_rev, _, _) ->
-      if major_rev > 1 then (
-        Log.log L_error "Selected Yices 1 (native format), but found Yices 2 or later";
-        raise UnsupportedSolver
-      )
-    | None -> Log.log L_warn "Couldn't determine Yices version"
   )
   | _ -> ()
 
@@ -4259,17 +4495,44 @@ let post_argv_parse_actions () =
     (* Temporarily set log level to info and output logo. *)
     let old_log_level = get_log_level () in
     set_log_level L_info ;
-    Log.log L_info "%a" pp_print_banner () ;
-    if Global.log_format_json () then Format.fprintf !log_ppf ",@.";
+    Log.log L_info "%s" !Global.profile.banner ;
+    if Global.log_format_json () || Global.log_format_ijson () then
+      Log.print_json_sep !log_ppf ;
     (* Reset log level. *)
     set_log_level old_log_level ;
   );
-  if Global.log_format_json () then print_json_options ()
+  if Global.log_format_json () || Global.log_format_ijson () then
+    print_json_options ()
 
 
-let parse_argv () =
+(* Check the solvers given on the command line, and detect the others *)
+let detect_solvers () =
+  Smt.check_smtsolver ();
+  Smt.check_qe_solver ();
+  Smt.check_itp_solver ()
+
+(* Adjust the options to the versions of the solvers in use *)
+let solver_actions () =
+  solver_dependent_actions (Smt.solver ());
+
+  (match Smt.solver (), Smt.qe_solver () with
+  | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
+  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
+  | _, `cvc5_SMTLIB -> solver_dependent_actions `cvc5_SMTLIB
+  | _, `Z3_SMTLIB -> solver_dependent_actions `Z3_SMTLIB
+  | _, _ -> ()) ;
+
+  if Certif.proof () then solver_dependent_actions `cvc5_SMTLIB
+
+let check_solvers () =
+  detect_solvers ();
+  solver_actions ()
+
+let parse_argv ?(profile = kind2_profile) () =
+  Global.profile := profile ;
+
   (* CLAPing. *)
-  parse_clas (Global.all_kind2_specs ()) anon_action ;
+  parse_clas (Global.registered_specs ()) anon_action ;
 
   (* Colors if flag is not false and not in xml or json mode *)
   let open Format in
@@ -4282,14 +4545,10 @@ let parse_argv () =
   post_argv_parse_actions ();
 
   (* If any module info was requested, print it and exit. *)
-  Global.help_of () |> List.rev |> print_module_info ;
+  Global.help_of () |> List.rev |> print_module_info profile ;
 
   (* Check solver on path *)
-  Smt.check_smtsolver ();
-
-  Smt.check_qe_solver ();
-
-  Smt.check_itp_solver ();
+  if not profile.solvers_after_input then detect_solvers ();
 
   (* Finalize the list of enabled module. *)
   Global.finalize_enabled ();
@@ -4304,16 +4563,7 @@ let parse_argv () =
     Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
   ) ;
 
-  solver_dependent_actions (Smt.solver ());
-
-  (match Smt.solver (), Smt.qe_solver () with
-  | `cvc5_SMTLIB, `cvc5_SMTLIB -> ()
-  | `Z3_SMTLIB, `Z3_SMTLIB -> ()
-  | _, `cvc5_SMTLIB -> solver_dependent_actions `cvc5_SMTLIB
-  | _, `Z3_SMTLIB -> solver_dependent_actions `Z3_SMTLIB
-  | _, _ -> ()) ;
-
-  if Certif.proof () then solver_dependent_actions `cvc5_SMTLIB;
+  if not profile.solvers_after_input then solver_actions ();
 
   if IVC.compute_ivc () && BmcKind.compress () then (
     BmcKind.disable_compress () ;

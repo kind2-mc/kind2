@@ -1,0 +1,24 @@
+-- A call to an instantiation of a polymorphic recursive function applied to a
+-- quantified variable is rejected when a function it calls is instantiated
+-- with an array type for its output. Neither F nor G, as written, has a
+-- variable of an array type, and F@<int^2> has none either, so the check on
+-- the declarations as written accepts the call; the instantiation G<int^2>
+-- cannot be defined, and the call is rejected when the instantiations are
+-- compiled. This property, which holds, used to be reported falsifiable.
+
+function rec G<T> (x: T; n: int) returns (r: T);
+con decreases n; noc
+let
+  r = when n <= 0 then x else G(x, n - 1);
+tel
+
+function rec F<T> (x: T; n: int) returns (r: int);
+con decreases n; noc
+let
+  r = when n <= 0 then (if G(x, 0) = x then 0 else 1) else F(x, n - 1);
+tel
+
+node Test (a: int^2) returns ();
+let
+  check forall (k: int) k <= 0 => F@<int^2>(a, k) = 0;
+tel

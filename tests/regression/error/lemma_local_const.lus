@@ -1,0 +1,11 @@
+-- The locals of a lemma are variables only: a constant declared after the
+-- contract of a lemma could be a top-level declaration following a lemma
+-- without a body.
+lemma L (n: int)
+con
+  guarantee n + 1 > n;
+noc
+const k: int = 1;
+let
+  auto;
+tel

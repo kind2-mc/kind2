@@ -241,6 +241,7 @@ let keyword_table = mk_hashtbl [
   "of", OF ;
   "subtype", SUBTYPE ;
   (* "array", ARRAY) ; *)
+  "foreach", FOREACH ;
   "struct", STRUCT ;
   "enum", ENUM ;
   "history", HISTORY ;
@@ -315,14 +316,8 @@ let keyword_table = mk_hashtbl [
   "choose", CHOOSE ;
   
   (* Clock operators *)
-  "current", CURRENT ;
-  "condact", CONDACT ;
-  "activate", ACTIVATE ;
-  "initial", INITIAL ;
-  "default", DEFAULT ;
   "every", EVERY ;
   "restart", RESTART ;
-  "merge", MERGE ;
 
   (* Temporal operators *)
   "pre", PRE ;
@@ -425,7 +420,8 @@ rule token = parse
 
   (* |===| Include file. *)
   | "include" whitespace* '\"' ([^'\"']* as p) '\"' {
-
+    if Flags.lus_no_include () then
+      raise (Lexer_error "Include statements are not allowed when --no_include is enabled");
     let include_curdir = curdir_of_lexbuf_stack () in
 
     let fname =

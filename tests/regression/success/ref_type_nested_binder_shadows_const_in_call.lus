@@ -1,0 +1,8 @@
+const k: int;
+
+function imported F (x: int) returns (y: bool);
+
+node main (s: set<subtype { k: subtype { j: int | F(k) } | true }>) returns ();
+let
+  check true;
+tel

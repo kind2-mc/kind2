@@ -1,0 +1,7 @@
+-- The body of this quantifier is the variable it binds and nothing else.
+-- Folding such a term used to fail an assertion in Ltree.fold: nothing was
+-- folded for the bound variable, so the fold ended with an empty result stack.
+node main () returns ();
+let
+  check "every bool is true" forall (b: bool) b;
+tel

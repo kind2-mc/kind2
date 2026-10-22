@@ -1,0 +1,16 @@
+-- A call to a recursive function with an array-typed output is rejected when
+-- it is applied to a quantified variable, as a call to a non-recursive
+-- function with such an output is. The function is not given a definition at
+-- the SMT level, so its symbol would be an arbitrary function under the
+-- quantifier (the call used to be accepted, and the analysis crashed).
+
+function rec G(a: int^2; n: int) returns (r: int^2);
+con decreases n; noc
+let
+  r = when n <= 0 then a else G(a, n - 1);
+tel
+
+node Test(a: int^2) returns ();
+let
+  check forall (k: int) k <= 0 => G(a, k)[0] = a[0];
+tel

@@ -1,0 +1,5 @@
+datatype Opt<T> = N | S (val: T);
+node F<T>(x: Opt<T>; d: T) returns (y: T);
+let y = match x with | N : d end; tel
+node M(a: Opt<int>) returns (o: int);
+let o = F@<int>(a, 0); tel

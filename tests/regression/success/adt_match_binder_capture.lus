@@ -1,0 +1,87 @@
+datatype Box = B (v: int);
+datatype BoxBox = BB (inner: Box);
+datatype Pair = P (x: Box, y: Box);
+datatype IntBox = IB (n: int);
+datatype SetBox = SB (s: set<int>);
+
+function Mk (n: int) returns (r: Box)
+let r = B(n); tel
+
+node ShadowedByInnerArm (b: Box; c: BoxBox) returns (y: int)
+let
+  y = match b with
+      | B (v) : (match c with
+                 | BB (b) : v
+                 end)
+      end;
+tel
+
+node ShadowedTwice (b: Box; p: Pair) returns (y: int)
+let
+  y = match b with
+      | B (v) : (match p with
+                 | P (b, v2) : (match v2 with
+                                | B (w) : v - w
+                                end)
+                 end)
+      end;
+tel
+
+node ShadowedInNestedPattern (b: Box; c: BoxBox) returns (y: int)
+let
+  y = match b with
+      | B (v) : (match c with
+                 | BB (B (b)) : v
+                 end)
+      end;
+tel
+
+node ShadowedUnderCatchAll (b: Box; c: BoxBox) returns (y: int)
+let
+  y = match b with
+      | w : (match c with
+             | BB (b) : w.v
+             end)
+      end;
+tel
+
+node ShadowedWithCallScrutinee (n: int; d: IntBox) returns (y: int)
+let
+  y = match Mk(n) with
+      | B (v) : (match d with
+                 | IB (n) : v
+                 end)
+      end;
+tel
+
+node ShadowedWithSetPayload (sb: SetBox; c: BoxBox) returns (y: bool)
+let
+  y = match sb with
+      | SB (s) : (match c with
+                  | BB (sb) : 1 in s
+                  end)
+      end;
+tel
+
+node ShadowedInContract (b: Box; c: BoxBox) returns (y: int)
+(*@contract
+  guarantee y = match b with
+                | B (v) : (match c with
+                           | BB (b) : v
+                           end)
+                end;
+*)
+let
+  y = b.v;
+tel
+
+node main (b: Box; c: BoxBox; p: Pair; n: int; d: IntBox; sb: SetBox) returns ()
+let
+  check ShadowedByInnerArm(b, c) = b.v;
+  check ShadowedTwice(b, p) = b.v - p.y.v;
+  check ShadowedInNestedPattern(b, c) = b.v;
+  check ShadowedUnderCatchAll(b, c) = b.v;
+  check ShadowedWithCallScrutinee(n, d) = n;
+  check ShadowedWithSetPayload(sb, c) = (1 in sb.s);
+  check ShadowedInContract(b, c) = b.v;
+tel

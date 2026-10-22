@@ -16,7 +16,7 @@ var
 let
 	pre_Output_1 = false;
 	pre_Output_2 = false;
-	(Output_1, Output_2) = merge(_isEnabled;
-	(activate A every _isEnabled)(__time_step, __nb_step);
-	(pre_Output_1, pre_Output_2) when not(_isEnabled));	
+	(Output_1, Output_2) = when _isEnabled
+	then A(__time_step, __nb_step)
+	else (pre_Output_1, pre_Output_2);
 tel

@@ -1,0 +1,83 @@
+-- Calls under a quantifier with a guard that depends on the quantified
+-- variables (issue #1519). Under a quantifier, the consequent of '==>' is
+-- evaluated under the antecedent, which becomes the guard of the calls in the
+-- consequent. The guard is evaluated outside of the quantifier, at the
+-- instance of the call, so it must not refer to the quantified variables,
+-- directly or through a call applied to them. Before the fix, the solver was
+-- sent a term with an undeclared constant.
+--
+-- A call under such a guard is inlined, or compiled to an application of the
+-- function's symbol, also when its arguments do not mention the quantified
+-- variables ("constant arguments", "recursive constant arguments"). The
+-- instance kept for the call is guarded by the guard at free constants for
+-- the variables, and the guard still gates the obligations of the callee
+-- ("callee obligations").
+
+datatype Message = Atomic (v: int) | Pair (fst: Message, snd: Message);
+
+function rec Subterm (x: Message; m: Message) returns (r: bool)
+con decreases m; noc
+let
+  r = x = m or (match m with | Pair (f, s) : Subterm(x, f) or Subterm(x, s) | _ : false end);
+tel
+
+function rec Size (m: Message) returns (r: int)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : 1 + Size(f) + Size(s) | _ : 1 end;
+tel
+
+function rec IsPair (m: Message) returns (r: bool)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : IsPair(f) or true | _ : false end;
+tel
+
+-- Its selector obligation holds only if it is never called with an Atomic
+function rec Leftmost (m: Message) returns (r: Message)
+con decreases m; noc
+let
+  r = match m with | Pair (f, s) : (if Pair?(f) then Leftmost(f) else f) | _ : m.fst end;
+tel
+
+function G (m: Message) returns (r: bool)
+let
+  r = true;
+tel
+
+function imported Sub (m: Message) returns (r: bool);
+(*@contract
+  guarantee r = (forall (x: Message) Subterm(x, m) ==> Subterm(x, m));
+*)
+
+lemma Lem (m: Message)
+con
+  guarantee forall (x: Message) Subterm(x, m) ==> Subterm(x, m);
+noc
+
+node L (m: Message) returns ()
+let
+  check "same call" forall (x: Message) Subterm(x, m) ==> Subterm(x, m);
+  check "one argument" forall (x: Message) Size(x) >= 1 ==> Size(x) >= 1;
+  check "disjunction" forall (x: Message) (Subterm(x, m) or x = m) ==> Subterm(x, m);
+  check "other variable" forall (x, y: Message) x = y ==> Subterm(x, m) = Subterm(y, m);
+  check "inlined call" forall (x: Message) Subterm(x, m) ==> G(x);
+  check "constant arguments" forall (x: Message) Subterm(x, m) ==> G(m);
+  check "recursive constant arguments"
+    forall (x: Message) Subterm(x, m) ==> Size(Pair(m, m)) = 1 + Size(m) + Size(m);
+  check "imported function" Sub(m);
+  -- The obligations of Leftmost hold where the guard does
+  check "callee obligations" forall (x: Message) IsPair(x) ==> Leftmost(x) = Leftmost(x);
+  -- A quantifier in the guard, whose variable the call in the guard stays
+  -- applied to
+  check "quantifier in guard"
+    forall (x: Message) (forall (y: Message) Subterm(y, x)) ==> Size(Pair(m, m)) = 1 + Size(m) + Size(m);
+  -- Arithmetic in the guard, on a variable the call does not mention, and on
+  -- a call
+  check "arithmetic on a variable"
+    forall (n: int; x: Message) n + 1 > 0 and Subterm(x, m) ==> Size(Pair(x, x)) = 1 + Size(x) + Size(x);
+  check "arithmetic on a call"
+    forall (x, y: Message) Size(y) + 1 > 0 and Subterm(x, m) ==> Size(Pair(x, x)) = 1 + Size(x) + Size(x);
+  Lem(m);
+tel
+

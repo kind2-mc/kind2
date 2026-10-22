@@ -1,0 +1,7 @@
+datatype Shape = Circle (radius: real) | Rect (w: real, h: real);
+
+node main(s: Shape) returns (ok: bool);
+let
+  ok = Circle?(s) ==> s.radius = s.radius;
+  check ok;
+tel

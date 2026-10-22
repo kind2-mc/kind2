@@ -1,0 +1,16 @@
+-- The assumption of a lemma without a body is an obligation of its callers,
+-- as for any lemma: this call violates it.
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  assume n > 0;
+  guarantee g(n) > n;
+noc
+
+node main (x: int) returns (ok: bool);
+let
+  g_increasing(x);
+  ok = true;
+  check ok;
+tel

@@ -1,0 +1,572 @@
+---
+title: "Arrays"
+weight: 3
+---
+
+> **Experimental feature**
+
+## Lustre arrays
+
+Kind 2 supports the traditional Lustre V5 syntax for arrays.
+
+### Declarations
+
+Array variables can be declared as global, local or as input/output of
+nodes. Arrays in Lustre are always indexed by integers (type `int` in Lustre),
+and the type of an array variable is written with the syntax `t ^ <size>` where
+`t` is a Lustre type and `<size>` is an integer literal or a constant symbol.
+
+The following
+
+```lustre
+A : int ^ 3;
+```
+
+declares an array variable `A` of type array of size 3 whose elements
+are integers. The size of the array can also be given by a defined constant.
+
+```lustre
+const n = 3;
+...
+A : int ^ n;
+```
+
+This declaration is equivalent to the previous one for `A`.
+
+An interesting feature of these arrays is the possibility for users to write
+generic nodes and functions that are parametric in the size of the array. For
+instance one can write the following node returns the last element of an array.
+
+```lustre
+node last (const n: int; A: int ^ n) returns (x: int);
+let
+  x = A[n-1];
+tel
+```
+
+It takes as input the size of the array and the array itself. Note that the
+type of the input `A` depends on the value of the first constant input `n`. In
+Lustre, calls to such nodes should of course end up by having concrete values
+for `n`, this is however not the case in Kind 2 (see
+[Extension to unbounded arrays]({{< relref "/inputs-and-outputs/arrays#extension-to-unbounded-arrays" >}})).
+
+Arrays can be multidimensional, so a user can declare *e.g.* matrices with the
+following
+
+```lustre
+const n = 4;
+const m = 5;
+...
+
+M1 : bool ^ n ^ m;
+M2 : int ^ 3 ^ 3;
+```
+
+Here `M1` is a matrix of size 4x5 whose elements are Boolean, and `M2` is a
+square matrix of size 3x3 whose elements are integers.
+
+> **Remark**
+>
+> `M1` can also be viewed as an array of arrays of Booleans.
+
+Kind 2 also allows one to nest datatypes, so it is possible to write arrays of
+records, records of arrays, arrays of tuples, and so on.
+
+```lustre
+type rational = struct { n: int; d: int };
+
+rats: rational^array_size;
+mm: [int, bool]^array_size;
+```
+
+In this example, `rats` is declared as an array of record elements and `mm` is
+an array of pairs.
+
+### Definitions
+
+In the body of nodes or at the top-level, arrays can be defined with literals
+of the form
+
+```lustre
+A = [2, 5, 7];
+```
+
+This defines an array `A` of size 3 whose elements are 2, 5 and 7. Another way
+to construct Lustre arrays is to have each elements be the same value. This can
+be done with expressions of the form `<value> ^ <size>`. For example the two
+following definitions are equivalent.
+
+```lustre
+A = 2 ^ 3;
+A = [2, 2, 2];
+```
+
+Arrays are indexed starting at 0 and the elements can be accessed using the
+selection operator `[ ]`. For instance the result of the evaluation of the
+expression `A[0]` for the previously defined array `A` is 2.
+
+The selection operators can also be applied to multidimensional arrays.
+Given a matrix `M` defined by
+
+```lustre
+M = [[1, 2, 3],
+     [4, 5, 6],
+     [7, 8, 9]];
+```
+
+then the expression `M[1][2]` is valid and evaluates to 6. The result of a
+single selection on an *n*-dimensional array is an *(n-1)*-dimensional
+array. The result of `M[2]` is the array `[7, 8, 9]`.
+
+### Element update
+
+A new array that is identical to an existing one except at selected indices can
+be constructed with the *element update* syntax `A[i := v]`. It denotes a copy
+of the array `A` in which the element at index `i` is replaced by `v`; the
+original array `A` is not modified. For example,
+
+```lustre
+B = A[0 := 1];
+```
+
+defines `B` to be equal to `A` everywhere except at index `0`, where its
+value is `1`. Several elements can be updated at once by separating the
+individual updates with semicolons:
+
+```lustre
+B = A[0 := 1; 2 := 3];
+```
+
+The update syntax can be combined with selection to update an element of a
+multidimensional array or of an array of compound values. For instance, given
+the matrix `M` above, `M[1 := M[1][2 := 0]]` denotes a copy of `M` in
+which the element at row `1`, column `2` is set to `0`.
+
+### Array comprehensions
+
+An array can also be defined element by element with an *array
+comprehension*. Where the expression `v ^ n` is the array of size `n` whose
+elements are all `v`, the expression
+
+```lustre
+(e foreach i) ^ n
+```
+
+is the array of size `n` whose element at index `i` is the value of `e`, for
+every `i` between `0` and `n - 1`. The index variable `i` is an integer bound
+in `e`, where it shadows any variable or constant of the same name, and the
+size `n` must be a constant expression, as in the type `t ^ n`. For example,
+
+```lustre
+C = (A[i] or B[i] foreach i) ^ n;
+```
+
+defines `C` as the element-wise disjunction of the Boolean arrays `A` and
+`B`, and `(i * i foreach i) ^ 4` is the array `[0, 1, 4, 9]`.
+
+A comprehension may list several index variables, one for each dimension of
+a multidimensional array, and is then followed by one size per index. The
+sizes are written as in the type of the array, so they are given from the
+innermost dimension to the outermost one, while the index variables are
+listed from the outermost to the innermost: if `A` and `B` have type
+`bool ^ n ^ m`, an array of `m` arrays of size `n`,
+
+```lustre
+C = (A[i][j] or B[i][j] foreach i, j) ^ n ^ m;
+```
+
+has the same type, with `i` ranging over the `m` rows and `j` over the `n`
+columns. A caret after the last size replicates the array, as for any array:
+`(i foreach i) ^ 3 ^ 2` is `[[0, 1, 2], [0, 1, 2]]`.
+
+The sizes can also be written next to the index variables they bound, which
+keeps each size with its index: `(e foreach i < m, j < n)` is
+`(e foreach i, j) ^ n ^ m`. For instance, the array `C` above is also
+
+```lustre
+C = (A[i][j] or B[i][j] foreach i < m, j < n);
+```
+
+and `(i * i foreach i < 4)` is the array `[0, 1, 4, 9]`. A comprehension
+gives the sizes of all of its index variables in the same way, either bounding
+them or after it. A bound extends to the next `,` or `)`, and, as the sizes
+after a comprehension, it is a constant outside the scope of the index
+variables: `(e foreach i < m, j < i)` is rejected, rather than defining a
+triangular array. A caret after a comprehension whose index variables are
+bounded replicates the array: `(i foreach i < 3) ^ 2` is
+`[[0, 1, 2], [0, 1, 2]]`. As its sizes are within the parentheses, an element
+of such a comprehension is selected directly: `(i * i foreach i < 4)[2]` is
+`4`.
+
+The body of a comprehension may itself be an array, such as a comprehension:
+`((i + j foreach j) ^ 3 foreach i) ^ 2` is `[[0, 1, 2], [1, 2, 3]]`, and the
+inner body may refer to the outer index variables.
+
+The body may contain temporal operators. In particular, an element may
+depend on the previous value of the array being defined, as in this sliding
+window over a stream `s`, which stores the last `n` values of `s` (with `-1`
+for the values before the first step).
+
+```lustre
+A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+```
+
+A temporal operator in a branch of a `when` expression, in an arm of a
+`match` expression, or in the right operand of `and then`, `or else` or
+`==>`, is evaluated only when its
+condition holds, which Kind 2 compiles as a call to a node. If the condition
+mentions an index variable, this is supported only when the size of the
+comprehension is a constant, as in
+`(when i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ 3`. With a symbolic
+size, such as a constant input of the node, it is rejected, as is a call to a
+node in the same position. The eager conditional above can be used instead.
+
+As for `v ^ n`, a selection binds more tightly than the sizes, so a
+comprehension is written in parentheses before selecting one of its
+elements: `((i * i foreach i) ^ 4)[2]` is `4`.
+
+A comprehension is a value, not a definition: its body cannot refer to the
+current value of the array being defined, which would be a cyclic
+definition. Comprehensions are supported in the body of nodes and functions,
+including assertions and properties, and in contracts, including ghost
+variables, assumptions, guarantees and modes. They are not supported in
+`decreases` clauses, in the ghost constants of a contract and in types (such
+as the predicate of a refinement type), and they cannot mention a variable
+bound by an enclosing quantifier or match arm.
+
+A global or local constant may also be defined by a comprehension, as in
+
+```lustre
+const N: int;
+const Sq: int^N = (i * i foreach i) ^ N;
+```
+
+Its definition is then used in place of the constant wherever the constant
+appears, in node bodies and in contracts, so the constant cannot be used in a
+type, such as the size of an array.
+
+### Structural equality
+
+Arrays support **structural equality** (denoted by `=`) and **structural
+disequality** (denoted by `<>`). Two arrays are structurally equal when they
+have the same size and their elements are equal index by index. For example,
+given the array `A` defined by `A = [2, 5, 7]`, the expression
+`A = [2, 5, 7]` is valid, while `A <> [2, 5, 8]` is valid as well.
+Structural equality also applies to multidimensional arrays and to arrays
+whose elements are themselves compound values (records, tuples, sets, maps,
+etc.).
+
+### Unsupported features of Lustre V5
+
+Kind 2 currently **does not support** the following features of [Lustre
+V5](http://www.di.ens.fr/~pouzet/cours/mpri/manual_lustre.ps):
+
+- Array concatenation like `[0, 1] | [2, 3, 4]`
+- Array slices like `A[0..3]`, `A[0..3 step 2]`, `M[0..1][1..2]` or
+  `M[0..1, 1..2]`
+- The operators are not homomorphically extended. For instance `or` has type
+  `bool -> bool -> bool`, given two arrays of Booleans `A` and `B`, the
+  expression `A or B` will be rejected at typing by Kind 2
+- Node calls don't have an homomorphic extension either
+
+## Extension to unbounded arrays
+
+Kind 2 extends Lustre to arrays whose size is an *unbounded* constant, that
+is, a constant whose value is not given. [Array
+comprehensions](#array-comprehensions) define such arrays element-wise, and
+quantifiers in specifications express properties of all their elements. This
+allows one to model *parameterized* systems: contrary to the Lustre compilers,
+Kind 2 does not require the constants used as array sizes to be instantiated
+with actual values, and checks the properties *for any* array sizes.
+
+### Element-wise definitions
+
+Earlier versions of Kind 2 defined arrays element-wise with equations of the
+form `A[i] = <term(i)>;`. These equations are no longer supported: Kind 2
+rejects them, and an array comprehension or a [recursive
+function]({{< relref "/inputs-and-outputs/lustre#recursive-functions" >}})
+defines the array instead.
+
+- When `<term(i)>` does not refer to `A`, or only to previous values of `A`
+  (under a `pre`), the equation becomes `A = (<term(i)> foreach i) ^ n;`, where
+  `n` is the size of `A`. An array with several dimensions takes one index
+  variable per dimension: `M = (if i = j then 1 else 0 foreach i, j) ^ n ^ n;`
+  defines the identity matrix of size `n`.
+- When an element is defined from other elements of the current value of `A`,
+  as in `A[i] = if i = 0 then 0 else A[i-1] + 1;`, the array cannot be defined
+  by a comprehension, whose body cannot refer to the current value of the
+  array being defined. A recursive function computes such elements instead, as
+  in the sum below.
+- When an element is defined both from previous values of `A` and from other
+  elements of its current value, the recursive function takes the previous
+  value of `A` as an argument, since a function cannot use `pre` itself. For
+  instance, `A[i] = 0 -> (if i = 0 then pre A[i] + 1 else A[i-1]);` becomes
+
+  ```lustre
+  function rec next (p: int^3; k: int) returns (v: int)
+  (*@contract
+    decreases k;
+  *)
+  let
+    v = when k <= 0 then p[0] + 1 else next(p, k - 1);
+  tel
+  ```
+
+  and `A = (0 -> next(pre A, i) foreach i) ^ 3;`.
+- A comprehension cannot mention a variable bound by a match arm. An array
+  defined in the arms of a match block from such variables is defined outside
+  the block instead, from a local variable that the arms define:
+
+  ```lustre
+  match t with
+  | A (v): x = v;
+  | B (w): x = w;
+  end
+  a = (x + i foreach i) ^ 3;
+  ```
+
+#### Examples
+
+##### Sum of the elements in an array
+
+The following node returns the sum of all elements in an array, computed by a
+recursive function that adds the first `k` elements of the array.
+
+```lustre
+function rec sum_upto (const n: int; A: int^n; k: int) returns (s: int)
+(*@contract
+  decreases k;
+*)
+let
+  s = when k <= 0 or k > n then 0 else sum_upto(n, A, k - 1) + A[k - 1];
+tel
+
+node sum (const n: int; A: int^n) returns (s: int);
+let
+  s = sum_upto(n, A, n);
+tel
+```
+
+Note that this node is parametric in the size of the array.
+
+##### Array slices
+
+```lustre
+node slice (const n: int; A: int ^ n; const low: int; const up: int)
+returns (B : int ^ (up-low));
+let
+  B = (A[low + i] foreach i) ^ (up - low);
+tel
+```
+
+##### Homomorphic extensions
+
+Encoding an homomorphic `or` on Boolean arrays is even simpler.
+
+```lustre
+node or_array (const n: int; A, B : bool^n) returns (C: bool^n);
+let
+  C = (A[i] or B[i] foreach i) ^ n;
+tel
+```
+
+Defining a generic homomorphic extension of node calls is not possible because
+nodes are not first order objects in Lustre.
+
+##### Parameterized systems
+
+```lustre
+node slide (const n:int; s: int) returns(A: int^n);
+let
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+
+  --%PROPERTY n > 1 => (true -> A[1] = pre s);
+tel
+```
+
+This node stores in an array `A` a *sliding window* over an integer stream
+`s`. It saves the values taken by `s` up to `n` steps in the past, where `n` is
+the size of the array.
+
+Here the property says, that if the array `A` has at least two cells then its
+second value is the previous value of `s`.
+
+### Quantifiers in specifications
+
+To better support parameterized systems or systems with large arrays, we expose
+quantifiers for use in the language of the specifications. Quantifiers can
+thus appear in **properties**, **contracts** and **assertions**.
+
+Universal quantification is written with:
+
+```lustre
+forall ( <x : type>;+ ) P(<x>+)
+```
+
+where `x` are the quantified variables and `type` is their type. `P` is a
+formula or a predicate in which the variable `x` can appear.
+
+For example, the following
+
+```lustre
+forall (i, j: int) 0 <= i and i < n and 0 <= j and j < n => M[i][j] = M[j][i]
+```
+
+is a formula that specifies that the matrix `M` is symmetric.
+
+> **Remark**
+>
+> Existential quantification takes the same form except we use
+> `exists` instead of `forall`.
+
+Quantifiers can be arbitrarily nested and alternated at the propositional level.
+
+#### Concise refinement type syntax
+
+A quantified variable can also be given a [refinement type]({{< relref "/inputs-and-outputs/refinement-types" >}}) using the concise syntax `x: type | Q(x)`, which
+restricts the quantification to the values of `x` of the given `type` that
+satisfy the predicate `Q(x)`. For example,
+
+```lustre
+forall (i: int | 0 <= i and i < n) ok[i]
+```
+
+is equivalent to
+
+```lustre
+forall (i: int) 0 <= i and i < n ==> ok[i]
+```
+
+For existential quantification the predicate is conjoined instead, so
+`exists (i: int | Q(i)) P(i)` is equivalent to
+`exists (i: int) Q(i) and then P(i)`.
+
+#### Example
+
+The same parameterized system of a sliding window, slightly modified to express
+the property that `A` contains in each of its cells, an uninitialized value
+(*i.e.* value `-1`), or one of the previous values of the stream `s`.
+
+```lustre
+node slide (const n:int; s: int) returns(ok: bool^n);
+var A: int^n;
+let
+  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+  ok = (A[i] = -1 or A[i] = s or (false -> pre ok[i]) foreach i) ^ n;
+
+  --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
+tel
+```
+
+### Limitations
+
+One major limitation that is present in the arrays of Kind 2 is that one cannot
+have node calls in array comprehensions of unbounded size whose arguments
+contain the index variables of the comprehension.
+
+For instance, it is currently not possible to write the following in Kind 2
+where `A` and `B` are arrays, `n` is a symbolic constant,
+and `some_node` takes values as inputs.
+
+```lustre
+node some_node (x: int) returns (y: int);
+...
+
+A, B: int^n;
+...
+
+A = (some_node(B[i]) foreach i) ^ n;
+```
+
+Another limitation is that quantified variables cannot appear in the parameters
+of a node call.
+These limitations do not apply if the call is to an *inlinable* function, which
+is currently defined as a function that meets all the following criteria:
+
+- It has a single output, and the output is defined by an equation.
+- Either there is no proof obligation on its output (via a contract or a refinement type),
+  or the function is annotated as transparent.
+- It does not include `assert` statements, and none of its outputs and local
+  variables has an array type. An array comprehension in its body counts as a
+  local variable of an array type.
+
+A quantified variable may also appear in the arguments of a call to a
+[recursive function]({{< relref "/inputs-and-outputs/lustre#how-recursive-functions-are-analyzed" >}})
+that Kind 2 defines at the SMT level. The function must meet the second and
+third criteria above, whatever the analysis: there is no proof obligation on
+its outputs, or it is annotated as transparent, and it has no `assert`
+statement and no output or local variable of an array type. So must the
+functions of its recursive group and the recursive functions it calls, and
+any other function it calls must be inlinable. Such a call is
+compiled to an application of the symbol the function is defined as rather than
+to an instance of the function, so the quantifier is free to range over its
+arguments. This does not extend to a symbolic array index, which still cannot
+appear in the arguments of a call that is not inlined.
+
+### Command line options
+
+We provide different encodings of array comprehensions in our internal
+representation of the transition system. The command line interface exposes
+different options to control which encoding is used. This is particularly
+relevant for SMT solvers that have built-in features, whether it is support for
+the theory of arrays, or special options or annotations for quantifier
+instantiation.
+
+These options are summed up in the following table and described in more detail
+in the rest of this section.
+
+| Option          | Description                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| --smt_arrays    | Use the builtin theory of arrays in solvers                                 |
+| --inline_arrays | Instantiate quantifiers over array bounds in case they are statically known |
+| --arrays_rec    | Define recursive functions for arrays (for cvc5)                            |
+
+The default encoding will use quantified formulas for array comprehensions.
+
+For example if we have
+
+```lustre
+A : int^6;
+...
+A = (x foreach k) ^ 6;
+```
+
+we will generate internally the constraint
+
+> *∀ k: int. 0 \<= k \< 6 =\> (select A k) = x*
+
+These form of constraint are handled in an efficient way by cvc5 (thanks to
+finite model finding).
+
+#### `--smt_arrays`
+
+By default arrays are converted using ah-hoc selection functions to avoid
+stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to
+use the builtin theory of arrays of the solvers instead. If you want to try it,
+it’s probably a good idea to use it in combination of `--smtlogic detect` for
+better performances.
+
+#### `--inline_arrays`
+
+By default, Kind 2 will generate problems with quantifiers for arrays which
+should be useful for problems with large arrays. This option tells Kind 2 to
+instantiate these quantifiers when it can reasonably do so. Only cvc5 has a
+good support for this kind of quantification so you may want to use this option
+with the other solvers.
+
+The previous example
+
+```lustre
+A : int^6;
+...
+A = (x foreach k) ^ 6;
+```
+
+will now be encoded by the constraint
+
+> *(select A 0) = x ⋀ (select A 1) = x ⋀ (select A 2) = x ⋀ (select A 3) = x ⋀ (select A 4) = x ⋀ (select A 5) = x*
+
+#### `--arrays_rec`
+
+This uses a special kind of encoding to tell cvc5 to treat quantified
+definitions of some uninterpreted functions as recursive definitions.

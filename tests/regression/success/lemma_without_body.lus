@@ -1,0 +1,17 @@
+-- A lemma without a body is assumed rather than proved: its guarantee holds
+-- at every call, which is what establishes the property here, since g is
+-- uninterpreted.
+function imported g (n: int) returns (m: int);
+
+lemma g_increasing (n: int)
+con
+  guarantee g(n) > n;
+noc
+
+node main (x: int) returns (ok: bool);
+let
+  g_increasing(x);
+  g_increasing(g(x));
+  ok = g(g(x)) > x;
+  check ok;
+tel

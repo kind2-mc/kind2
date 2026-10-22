@@ -1,0 +1,26 @@
+-- The guarantees of sum need induction over the recursion, and the lemma
+-- rests on the contract of sum: both take a compositional analysis, where
+-- the contract abstracts the calls to sum.
+function rec sum(n:int) returns (m:int);
+(*@contract
+  guarantee "sum is non-negative" m >= 0;
+  guarantee "sum-formula" (n>=0) => m = n * (n + 1) / 2;
+  decreases n;
+*)
+let
+  m = when n<=0 then 0 else n + sum(n-1);
+tel
+
+lemma double(n: int)
+con
+  guarantee "sum-double" n>=0 => sum(2 * n) = 2 * sum(n) + n * n;
+  decreases n;
+noc
+let
+  when n>0 then
+    double(n-1);
+  else
+    auto;
+  end
+tel
+

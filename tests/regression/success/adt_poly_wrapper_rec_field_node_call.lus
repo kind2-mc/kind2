@@ -1,0 +1,11 @@
+datatype L<T> = N | C (h: T, t: L<T>);
+datatype W<S> = WA (l: L<S>) | WB (n: S);
+
+node f(w: W<int>) returns (b: bool);
+let b = WA?(w); tel
+
+node main(i: int) returns (ok: bool);
+let
+  ok = f(WA(C(i, N@<int>)));
+  check ok;
+tel

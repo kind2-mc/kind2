@@ -1,0 +1,48 @@
+-- A call to a function that is not recursive, at constant arguments, is
+-- evaluated through its body: its outputs are constant then, so a call to
+-- a recursive function proved terminating that takes them as arguments is
+-- evaluated in turn. When the contract of the function abstracts it, its
+-- value is given to the solver as well, as that of a recursive function
+-- is. test_rec_evaluation.py checks that main is analyzed once, in a
+-- modular analysis, compositional or not.
+function rec Fact(n: int) returns (f: int);
+(*@contract
+  decreases n;
+*)
+let
+  f = when n <= 0 then 1 else n * Fact(n - 1);
+tel
+
+function Inc(n: int) returns (m: int);
+let
+  m = n + 1;
+tel
+
+-- A contract that does not give the value of the function
+function Double(n: int) returns (m: int);
+(*@contract
+  assume n >= 0;
+  guarantee m >= n;
+*)
+let
+  m = 2 * n;
+tel
+
+-- A function that is not recursive and calls functions that are, or not
+function G(n: int) returns (a, b: int);
+let
+  a = Fact(Inc(n));
+  b = Inc(a);
+tel
+
+node main() returns (x, y, z, w: int);
+let
+  x = Fact(Inc(2));
+  y = Fact(Double(2));
+  z, w = G(1);
+  check "inc" x = 6;
+  check "abstracted" y = 24;
+  check "value" Double(2) = 4;
+  check "body_calls" z = 2 and w = 3;
+  check "nested" Fact(Double(Inc(1))) = 24;
+tel
