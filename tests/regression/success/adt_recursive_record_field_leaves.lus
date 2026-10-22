@@ -1,0 +1,14 @@
+type A;
+datatype D = DA (v: int) | DB;
+datatype N = NA | NB;
+type R = struct {v: int; a: A; u: uint8; w: int16; n: N};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node main(l: L; d: D) returns (ok: bool);
+let
+  ok = (Cons?(l) ==> l = Cons(l.hd, l.tl))
+       and (Cons?(l) ==> Cons(l.hd[v := 3], l.tl).hd.v = 3)
+       and (Cons?(l) ==> Cons(l.hd[v := 3], l.tl).hd.a = l.hd.a)
+       and (Cons?(l) ==> (l.hd.n = NA or l.hd.n = NB));
+  check ok;
+tel

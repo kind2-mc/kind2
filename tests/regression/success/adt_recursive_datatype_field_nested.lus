@@ -1,0 +1,16 @@
+type E = enum { P, Q };
+type R = struct {e: E; n: int};
+datatype M = MN | MC (v: int, m: M);
+datatype D2 = X (r: R) | Y (m: M);
+datatype D = A (d: D2, k: [int, E]) | B (b: bool) | C;
+datatype L = Nil | Cons (hd: D, tl: L);
+node main(l: L; x: int; mm: M) returns (ok: bool);
+let
+  ok = (Cons?(l) ==> l = Cons(l.hd, l.tl))
+   and ((Cons?(l) and then A?(l.hd) and then X?(l.hd.d)) ==> (l.hd.d.r.e = P or l.hd.d.r.e = Q))
+   and ((Cons?(l) and then A?(l.hd) and then Y?(l.hd.d)) ==> l.hd.d = Y(l.hd.d.m))
+   and Cons(A(Y(mm), '(x, Q)), Nil).hd = A(Y(mm), '(x, Q))
+   and ((Cons?(l) and then A?(l.hd) and then X?(l.hd.d) and then l.hd.d.r = R {e = P; n = x} and then l.hd.k = '(1, Q))
+         ==> l.hd = A(X(R {e = P; n = x}), '(1, Q)));
+  check ok;
+tel

@@ -1,0 +1,7 @@
+datatype Opt<T> = None | Some (v: T);
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+node main(l: L<Opt<[int, bool]>>) returns (ok: bool);
+let
+  ok = (Cons?(l) and then Some?(l.hd)) ==> l.hd.v[1];
+  check ok;
+tel

@@ -1043,8 +1043,12 @@ let rec canon_ty_arg ctx record ty =
   match ty with
   | A.UserType (pos, ty_args, id) ->
     let ty_args = List.map r ty_args in
+    (* A synonym is spelled as what it names, and a tuple or a record (which a
+       non-recursive datatype has become by now) as its expansion *)
     (match Ctx.lookup_ty_syn_body ctx id ty_args with
     | None -> A.UserType (pos, ty_args, id)
+    | Some (A.UserType (_, _, id') as body) when not (HString.equal id' id) -> r body
+    | Some (A.TupleType _ | A.RecordType _ as body) -> r body
     | Some body -> canon_named_ty ctx record pos id ty_args body)
   | A.History (pos, id) ->
     (match Ctx.lookup_ty ctx id with Some ty -> r ty | None -> A.History (pos, id))
@@ -1055,8 +1059,12 @@ let rec canon_ty_arg ctx record ty =
   | A.TArr (pos, ty1, ty2) -> A.TArr (pos, r ty1, r ty2)
   | A.TupleType (pos, tys) -> A.TupleType (pos, List.map r tys)
   | A.GroupType (pos, tys) -> A.GroupType (pos, List.map r tys)
+  (* Fields are sorted so that the order a record was spelled in is no part of
+     its name *)
   | A.RecordType (pos, id, fields) ->
-    A.RecordType (pos, id, List.map (fun (p, i, ty) -> (p, i, r ty)) fields)
+    List.map (fun (p, i, ty) -> (p, i, r ty)) fields
+    |> List.sort (fun (_, i, _) (_, i', _) -> HString.compare i i')
+    |> fun fields -> A.RecordType (pos, id, fields)
   (* An enumeration and a datatype are always declared under the name they
      carry, so the name is the canonical spelling of them *)
   | A.EnumType (pos, id, _) -> A.UserType (pos, [], id)
@@ -1373,25 +1381,34 @@ let instance_refs body =
   | A.History _ | A.TArr _ | A.Set _ | A.Map _ | A.Bool _ | A.Int _
   | A.Real _ | A.SBitVector _ | A.UBitVector _ -> type_names_in_ty [] body
 
-(* True iff a type is compiled to a single value, as a datatype's field must be.
-   A datatype is scalar only when recursive: a non-recursive one becomes a record. *)
-let rec is_scalar_field_type ctx ty =
+(* True iff a type is supported as a recursive datatype's field: one compiled to a
+   single value, or a tuple or record of such. A non-recursive datatype has become
+   a record by now. *)
+let rec is_supported_field_type ctx ty =
+  let r = is_supported_field_type ctx in
   match ty with
   | A.Bool _ | A.Int _ | A.Real _ | A.SBitVector _ | A.UBitVector _
   | A.EnumType _ | A.AbstractType _ -> true
-  | A.ADT (_, name, ctors) -> LH.is_directly_recursive_adt name ctors
-  | A.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ctx ty
+  (* Recursive by its declaration, as an instance may mention its own name *)
+  | A.ADT (_, name, ctors) ->
+    (match Ctx.lookup_ty_syn_body ctx name [] with
+     | Some (A.ADT (_, _, declared)) -> LH.is_directly_recursive_adt name declared
+     | Some _ | None -> false)
+    || List.for_all (fun (_, fields) -> List.for_all (fun (_, ty) -> r ty) fields) ctors
+  | A.RefinementType (_, (_, _, ty), _) -> r ty
   | A.UserType (_, ty_args, id) ->
     (* A type parameter reaches here as an abstract type, so a name that does not
        resolve is an instantiation this pass failed to declare *)
     (match Ctx.lookup_ty_syn ctx id ty_args with
-    | Some ty -> is_scalar_field_type ctx ty
+    | Some ty -> r ty
     | None ->
       invalid_arg
-        (Format.asprintf "is_scalar_field_type: undeclared type %a"
+        (Format.asprintf "is_supported_field_type: undeclared type %a"
            A.pp_print_lustre_type ty))
-  | A.TupleType _ | A.GroupType _ | A.RecordType _ | A.ArrayType _
-  | A.Set _ | A.Map _ | A.TArr _ | A.History _ -> false
+  | A.TupleType (_, tys) -> List.for_all r tys
+  | A.RecordType (_, _, fields) -> List.for_all (fun (_, _, ty) -> r ty) fields
+  | A.GroupType _ | A.ArrayType _ | A.Set _ | A.Map _ | A.TArr _
+  | A.History _ -> false
 
 (* True iff a type is or contains a refinement type. A datatype is not looked
    inside: a refinement on its own fields is rejected where it is declared. *)
@@ -1423,7 +1440,7 @@ let check_instantiation ctx mono_name inst =
     | A.History _ | A.TArr _ | A.Set _ | A.Map _ | A.Bool _ | A.Int _
     | A.Real _ | A.SBitVector _ | A.UBitVector _ -> []
   in
-  match List.find_opt (fun (_, ty) -> not (is_scalar_field_type ctx ty)) fields with
+  match List.find_opt (fun (_, ty) -> not (is_supported_field_type ctx ty)) fields with
   | Some (fname, _) ->
     Chk.type_error inst.use_pos
       (Chk.UnsupportedRecursiveAdtField (mono_name, fname))

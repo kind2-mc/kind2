@@ -1,0 +1,4 @@
+datatype Opt<T> = None | Some (v: T);
+datatype D = A (a: [int, int^2]) | B;
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+node main(l: L<Opt<D>>) returns (ok: bool); let ok = true; check ok; tel

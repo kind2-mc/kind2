@@ -1,0 +1,3 @@
+type P = subtype {x: int | x > 0};
+datatype Opt<T> = None | Some (v: T);
+datatype L = Nil | Cons (hd: Opt<Opt<P>>, tl: L);

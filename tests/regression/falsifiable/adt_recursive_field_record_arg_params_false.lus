@@ -1,0 +1,10 @@
+datatype Opt<T> = None | Some (v: T);
+type P<T> = struct {a: Opt<T>; b: int};
+type U<T> = struct {c: int};
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node main(l: L<P<int>>; k: L<U<bool>>) returns (ok: bool);
+let
+  ok = (Cons?(l) and then Some?(l.hd.a)) ==> (l.hd.a = Some(0) or k = Nil@<U<bool>>);
+  check ok;
+tel

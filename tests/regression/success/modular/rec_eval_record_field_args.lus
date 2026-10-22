@@ -1,0 +1,20 @@
+type R = struct {x: int; y: [bool, int]};
+
+datatype L = Nil | Cons (hd: R, tl: L);
+
+function rec Length(l: L) returns (len: int);
+(*@contract
+  decreases l;
+*)
+let
+  len = match l with
+  | Nil : 0
+  | Cons (_, t) : 1 + Length(t)
+  end;
+tel
+
+node main() returns (ok: bool);
+let
+  ok = Length(Cons(R {x = 1; y = '(true, 2)}, Cons(R {x = 3; y = '(false, 4)}, Nil))) = 2;
+  check ok;
+tel

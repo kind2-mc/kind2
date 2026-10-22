@@ -1,0 +1,15 @@
+type R = struct {x: int; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node main(l: L) returns (ok: bool);
+var m: L; v: int;
+let
+  m = Cons(R {x = 5; y = false}, l);
+  match m with
+  | Nil : v = 0;
+  | Cons (h, _) : v = h.x;
+  end
+  ok = (match m with | Nil : false | Cons (h, t) : h.x > 0 and not h.y and Cons(h, t) = m end)
+       and v = 5;
+  check ok;
+tel

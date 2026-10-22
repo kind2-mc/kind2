@@ -1,0 +1,21 @@
+type R = struct {x: int; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+node main(c, d: bool; r: R) returns (l1, l2: L; ok: bool);
+let
+  if c then
+    l1 = Cons(r, Nil);
+  else
+    l1 = Nil;
+  fi
+  frame (l2)
+    l2 = Nil;
+  let
+    if d then
+      l2 = Cons(r[x := 1], Nil);
+    fi
+  tel
+  ok = (c ==> (Cons?(l1) and then l1.hd = r))
+       and (d ==> (Cons?(l2) and then (l2.hd.x = 1 and l2.hd.y = r.y)));
+  check ok;
+tel

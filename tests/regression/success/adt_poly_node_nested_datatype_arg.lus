@@ -1,0 +1,22 @@
+datatype Opt<T> = None | Some (v: T);
+datatype P<T> = PN | PS (w: T);
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node id<T>(x: T) returns (y: T);
+let
+  y = x;
+tel
+
+node wrap<T>(x: T) returns (y: L<T>);
+let
+  y = Cons(x, Nil@<T>);
+tel
+
+node main(i: int) returns (ok: bool);
+var o: Opt<P<int>>; l: L<Opt<P<int>>>;
+let
+  o = id(Some(PS(i)));
+  l = wrap(Some(PS(i)));
+  ok = Some?(o) and Cons?(l) and l.hd = o;
+  check ok;
+tel

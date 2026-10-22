@@ -1,0 +1,7 @@
+datatype D = A (a: int) | B (b: bool) | C;
+datatype L = Nil | Cons (hd: D, tl: L);
+node main(l: L) returns (ok: bool);
+let
+  ok = match l with | Cons(A(x), t) : x = x | Cons(B(y), _) : y or not y | Cons(C, _) : true | Nil : true end;
+  check ok;
+tel

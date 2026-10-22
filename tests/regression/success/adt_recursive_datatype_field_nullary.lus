@@ -1,0 +1,8 @@
+datatype N = NA | NB;
+type R = struct {n: N; x: int};
+datatype L = Nil | Cons (hd: N, r: R, tl: L);
+node main(l: L) returns (ok: bool);
+let
+  ok = Cons?(l) ==> (l = Cons(l.hd, l.r, l.tl) and (NA?(l.hd) or NB?(l.hd)) and (l.r.n = NA or l.r.n = NB));
+  check ok;
+tel

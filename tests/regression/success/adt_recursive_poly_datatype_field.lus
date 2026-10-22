@@ -1,4 +1,7 @@
 datatype P<T> = NA | NB;
 datatype L = LN | LC (h: P<int>, t: L);
 node main (x: L) returns (ok: bool);
-let ok = true; tel
+let
+  ok = LC?(x) ==> (x = LC(x.h, x.t) and (NA?(x.h) or NB?(x.h)));
+  check ok;
+tel

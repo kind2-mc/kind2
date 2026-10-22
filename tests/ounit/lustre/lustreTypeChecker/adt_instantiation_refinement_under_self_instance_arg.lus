@@ -1,0 +1,5 @@
+datatype Opt<T> = None | Some (v: T);
+type P = subtype {x: int | x > 0};
+type S = [Opt<Opt<P>>, int];
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+node main(l: L<S>) returns (ok: bool); let ok = true; check ok; tel

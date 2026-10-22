@@ -1,0 +1,14 @@
+datatype L = Nil | Cons (hd: S, tl: L);
+type S = struct {m: M; k: [R, int]};
+datatype M = MN | MC (r: R, n: M);
+type R = struct {x: int; e: E};
+type E = enum { P, Q };
+
+node main(l: L; mm: M; r: R) returns (ok: bool);
+let
+  ok = (Cons?(l) ==> l = Cons(l.hd, l.tl))
+       and Cons(S {m = mm; k = '(r, 1)}, Nil).hd.m = mm
+       and Cons(S {m = MC(r, MN); k = '(r, 1)}, Nil).hd.m.r = r
+       and ((Cons?(l) and then MC?(l.hd.m)) ==> (l.hd.m.r.e = P or l.hd.m.r.e = Q));
+  check ok;
+tel

@@ -301,9 +301,10 @@ let error_message kind = match kind with
   | UnsupportedRecursiveAdtField (ty_name, field) ->
     "Recursive datatype '" ^ HString.string_of_hstring ty_name ^ "' has field '"
     ^ HString.string_of_hstring field
-    ^ "' with a non-scalar type (array, tuple, record, set, or map); a recursive datatype's \
-       fields must each be either a scalar type or a direct self-reference, so this is not yet \
-       supported"
+    ^ "' with an unsupported type; a recursive datatype's fields must each be a direct \
+       self-reference or be built from scalar types, enums, abstract types, and other \
+       datatypes by tuples, records, and non-recursive datatypes (arrays, sets, maps, and \
+       self-references nested in another type are not yet supported)"
   | NonUniformRecursiveDatatype (ty_name, field) ->
     "Datatype '" ^ HString.string_of_hstring ty_name ^ "' has a self-referential field '"
     ^ HString.string_of_hstring field
@@ -3310,35 +3311,42 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       let is_recursive_adt =
         List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> mentions_self ty) fields) ctors
       in
-      (* A datatype is a sort of its own when it is directly recursive, and an
-         enum when every constructor is argument-free and it takes no type
-         parameters; any other is encoded as a record, which a field cannot
-         hold. *)
-      let is_scalar_adt id adt_ctors =
-        LH.is_directly_recursive_adt id adt_ctors
-        || (List.for_all (fun (_, fields) -> fields = []) adt_ctors
-            && (match lookup_ty_ty_vars ctx id with
-                | Some (_ :: _) -> false
-                | Some [] | None -> true))
+      (* Recursive by its declaration: an instance such as Opt<Opt<int>>
+         mentions its own name without being so *)
+      let is_recursive_datatype id =
+        match lookup_ty_syn_body ctx id [] with
+        | Some (LA.ADT (_, _, dctors)) -> LH.is_directly_recursive_adt id dctors
+        | Some _ | None -> false
       in
-      let rec is_scalar_field_type ty = match ty with
+      (* A tuple, a record or a non-recursive datatype is a sort of its own
+         built from those of its components *)
+      let rec is_supported_field_type ty = match ty with
         | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
         | LA.EnumType _ | LA.AbstractType _ -> true
-        | LA.ADT (_, id, adt_ctors) -> is_scalar_adt id adt_ctors
-        | LA.RefinementType (_, (_, _, ty), _) -> is_scalar_field_type ty
+        | LA.ADT (_, id, adt_ctors) ->
+          is_recursive_datatype id
+          || List.for_all (fun (_, fields) ->
+               List.for_all (fun (_, ty) -> is_supported_field_type ty) fields
+             ) adt_ctors
+        | LA.RefinementType (_, (_, _, ty), _) -> is_supported_field_type ty
         | LA.UserType (_, ty_args, id) ->
           (match lookup_ty_syn ctx id ty_args with
-           | Some ty -> is_scalar_field_type ty
+           | Some ty -> is_supported_field_type ty
            | None -> true)
-        | LA.TupleType _ | LA.GroupType _ | LA.RecordType _
-        | LA.ArrayType _ | LA.Set _ | LA.Map _ | LA.TArr _ | LA.History _ -> false
+        | LA.TupleType (_, tys) -> List.for_all is_supported_field_type tys
+        | LA.RecordType (_, _, fields) ->
+          List.for_all (fun (_, _, ty) -> is_supported_field_type ty) fields
+        | LA.GroupType _ | LA.ArrayType _ | LA.Set _ | LA.Map _ | LA.TArr _
+        | LA.History _ -> false
       in
       let* () =
         if not is_recursive_adt then R.ok ()
         else
           match List.concat_map (fun (_, fields) ->
             List.filter_map (fun (fn, ty) ->
-              if is_recursive_field ty || is_scalar_field_type ty then None
+              if is_recursive_field ty
+                 || (not (mentions_self ty) && is_supported_field_type ty)
+              then None
               else Some fn
             ) fields
           ) ctors with
@@ -3346,17 +3354,25 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
           | [] -> R.ok ()
       in
       (* Reject refinement types on ADT fields for now *)
-      let rec expand_ty_syn_chain ty = match ty with
+      let rec ty_contains_refinement ty =
+        let r = ty_contains_refinement in
+        match ty with
+        | LA.RefinementType _ -> true
         | LA.UserType (_, ty_args, id) ->
           (match lookup_ty_syn ctx id ty_args with
-           | Some ty -> expand_ty_syn_chain ty
-           | None -> ty)
-        | _ -> ty
-      in
-      let ty_contains_refinement ty =
-        LH.contains_subtype_satisfying
-          (function LA.RefinementType _ -> true | _ -> false)
-          (expand_ty_syn_chain ty)
+           | Some (LA.UserType _) | None -> false
+           | Some ty -> r ty)
+        | LA.TupleType (_, tys) | LA.GroupType (_, tys) -> List.exists r tys
+        | LA.RecordType (_, _, fields) -> List.exists (fun (_, _, ty) -> r ty) fields
+        | LA.ArrayType (_, (ty, _)) | LA.Set (_, ty) -> r ty
+        | LA.Map (_, ty1, ty2) | LA.TArr (_, ty1, ty2) -> r ty1 || r ty2
+        (* A recursive datatype's own fields are checked where it is declared *)
+        | LA.ADT (_, id, adt_ctors) ->
+          not (is_recursive_datatype id)
+          && List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> r ty) fields)
+               adt_ctors
+        | LA.AbstractType _ | LA.EnumType _ | LA.History _ | LA.Bool _
+        | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _ -> false
       in
       let* () =
         if not is_recursive_adt then R.ok ()

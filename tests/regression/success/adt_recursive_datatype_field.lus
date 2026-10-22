@@ -1,4 +1,7 @@
 datatype P = P1 | P2 (v: int);
 datatype L = LN | LC (h: P, t: L);
 node main (x: L) returns (ok: bool);
-let ok = true; tel
+let
+  ok = LC?(x) ==> (x = LC(x.h, x.t) and (P1?(x.h) or P2?(x.h)));
+  check ok;
+tel

@@ -1,0 +1,14 @@
+type E = enum { A, B, C };
+type R2 = struct {b: int; c: E};
+type R1 = struct {a: R2; d: [int, [bool, E]]};
+datatype L = Nil | Cons (hd: R1, tl: L);
+
+node main(l: L; r: R1) returns (ok: bool);
+let
+  ok = (Cons?(l) ==> l = Cons(l.hd, l.tl))
+       and Cons(r, l).hd.a.c = r.a.c
+       and Cons(r, l).hd.d[1][0] = r.d[1][0]
+       and (Cons?(l) ==> (l.hd.a.c = A or l.hd.a.c = B or l.hd.a.c = C))
+       and (Cons?(l) ==> (l.hd.d[1][1] = A or l.hd.d[1][1] = B or l.hd.d[1][1] = C));
+  check ok;
+tel

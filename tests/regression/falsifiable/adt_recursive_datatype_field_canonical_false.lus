@@ -1,0 +1,9 @@
+type Ab;
+datatype M = MN | MC (v: int, m: M);
+datatype D = A (ab: Ab, m: M) | B (n: int);
+datatype L = Nil | Cons (hd: D, tl: L);
+node main(l: L; d: D) returns (ok: bool);
+let
+  ok = (Cons?(l) and then A?(l.hd) and then A?(d)) ==> l.hd = d;
+  check ok;
+tel

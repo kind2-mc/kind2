@@ -1,0 +1,14 @@
+type R = struct {x: int; y: bool};
+datatype L = Nil | Cons (hd: R, tl: L);
+
+function rec SumX(l: L) returns (s: int)
+con decreases l; noc
+let
+  s = match l with | Nil : 0 | Cons (h, t) : (if h.y then h.x else 0) + SumX(t) end;
+tel
+
+node main(a: int) returns (ok: bool);
+let
+  ok = SumX(Cons(R {x = a; y = true}, Nil)) = a and SumX(Cons(R {x = a; y = false}, Nil)) = 0;
+  check ok;
+tel

@@ -1058,7 +1058,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_unsupported_recursive_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test recursive ADT with an unrelated non-scalar field is rejected" (fun () ->
+  mk_test "test recursive ADT with an unrelated array field is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_unsupported_recursive_unrelated_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
@@ -1066,17 +1066,43 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test recursive ADT with a polymorphic datatype field is rejected" (fun () ->
-    match load_file "./lustreTypeChecker/adt_recursive_poly_datatype_field.lus" with
-    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField (ty_name, field))) ->
-      HString.string_of_hstring ty_name = "L"
-      && HString.string_of_hstring field = "h"
+  mk_test "test recursive ADT with an array in a record field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_record_field_array.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test recursive ADT with a payload-carrying datatype field is rejected" (fun () ->
-    match load_file "./lustreTypeChecker/adt_recursive_datatype_field.lus" with
+  mk_test "test recursive ADT with a set in a tuple field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_tuple_field_set.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a self-reference in a tuple field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_tuple_field_self_reference.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField (ty_name, field))) ->
-      HString.string_of_hstring ty_name = "L"
-      && HString.string_of_hstring field = "h"
+      HString.string_of_hstring ty_name = "T"
+      && HString.string_of_hstring field = "kids"
+    | _ -> false);
+  mk_test "test recursive ADT with a refinement nested in a record field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_record_field_nested_refinement.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an array in a datatype field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_datatype_field_array.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a set in a nested datatype field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_datatype_field_nested_set.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a refinement in a datatype field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_datatype_field_refinement.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a tuple type holding an array is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_tuple_array_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a tuple type holding a refinement is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_tuple_refinement_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
   mk_test "test non-uniform polymorphic recursion is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_polymorphic_recursion.lus" with
@@ -1094,7 +1120,7 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_instantiation_array_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test ADT instantiation at a record type is rejected" (fun () ->
+  mk_test "test ADT instantiation at a record type holding an array is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_instantiation_record_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
@@ -1102,8 +1128,52 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_instantiation_set_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
-  mk_test "test ADT instantiation at a non-recursive ADT is rejected" (fun () ->
-    match load_file "./lustreTypeChecker/adt_instantiation_nonrec_adt_arg.lus" with
+  mk_test "test recursive ADT with a refinement under a datatype instantiated at itself is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_field_self_instance_refinement.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an array under a datatype instantiated at itself in a field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_field_array_under_self_instance.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a map in a tuple field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_tuple_field_map.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an array through a synonym in a field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_field_array_through_synonym.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an array under a datatype instantiated at itself in a type argument is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_array_under_self_instance_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a refinement under a datatype instantiated at itself in a type argument is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_refinement_under_self_instance_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with an array in a datatype payload of a type argument is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_datatype_payload_array_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a self-reference under a datatype in a field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_field_self_reference_under_datatype.lus" with
+    | Error (`LustreTypeCheckerError (_, MutuallyRecursiveDatatypes _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a self-reference in a tuple under a datatype in a field is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_recursive_field_self_reference_in_tuple_under_datatype.lus" with
+    | Error (`LustreTypeCheckerError (_, MutuallyRecursiveDatatypes _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with a self-reference under a datatype instantiated at itself is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_self_reference_under_self_instance.lus" with
+    | Error (`LustreTypeCheckerError (_, MutuallyRecursiveDatatypes _)) -> true
+    | _ -> false);
+  mk_test "test recursive ADT with mutual recursion through a datatype type argument is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_mutual_recursion_through_datatype_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, MutuallyRecursiveDatatypes _)) -> true
+    | _ -> false);
+  mk_test "test ADT instantiation at a datatype holding an array is rejected" (fun () ->
+    match load_file "./lustreTypeChecker/adt_instantiation_datatype_array_arg.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
     | _ -> false);
   mk_test "test ADT instantiation at a refinement type is rejected" (fun () ->

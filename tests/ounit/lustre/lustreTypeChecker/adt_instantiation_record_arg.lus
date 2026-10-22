@@ -1,4 +1,4 @@
-type R = struct { a: int };
+type R = struct { a: int^2 };
 datatype List<T> = Nil | Cons (hd: T, tl: List<T>);
 
 node main(i: int) returns (ok: bool);
