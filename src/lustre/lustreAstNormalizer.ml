@@ -129,11 +129,16 @@ let expr_equal ?depth e1 e2 =
   | Ok true -> true
   | Ok false | Error () -> false
 
+(* A local is keyed by its definition and by the sizes of the dimensions of
+   the index variables it is generalized over: the local of a definition over
+   an index variable of size 3 has no elements for an index variable of
+   size 5 *)
 module LocalHash = struct
-  type t = A.expr
-  let equal x y = expr_equal ~depth:6 x y
+  type t = A.expr list * A.expr
+  let equal (sizes1, x) (sizes2, y) =
+    List.equal (expr_equal ~depth:6) sizes1 sizes2 && expr_equal ~depth:6 x y
 
-  let hash = AH.hash (Some 6)
+  let hash (_, x) = AH.hash (Some 6) x
 end
 
 module LocalCache = Hashtbl.Make(LocalHash)
@@ -558,18 +563,46 @@ let rec process_for_display expr =
   | A.UnaryOp (_, A.Not, A.UnaryOp (_, A.Not, e)) -> process_for_display e
   | e -> e
 
-let generalize_to_array_expr name ind_vars expr nexpr =
-  let (eq_lhs, nexpr) =
-    match get_inductive_vars ind_vars expr with
-    | [] ->
-      A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
-    | ind_vars ->
-      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
-      List.fold_left (fun acc ind_var -> 
-        A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)  
-      ) nexpr ind_vars 
+(* The left-hand side of the equation of [name], defined by [expr], over the
+   index variables [expr] mentions, followed by [indices], and [nexpr]
+   indexed by those index variables *)
+let generalize_to_array_expr ?(indices = []) name ind_vars expr nexpr =
+  let ind_vars = get_inductive_vars ind_vars expr in
+  let eq_lhs =
+    match ind_vars @ indices with
+    | [] -> A.StructDef (dpos, [SingleIdent (dpos, name)])
+    | is -> A.StructDef (dpos, [ArrayDef (dpos, name, is)])
+  in
+  let nexpr =
+    List.fold_left (fun acc ind_var ->
+      A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)
+    ) nexpr ind_vars
   in
   eq_lhs, nexpr
+
+(* The type of a local defined by [expr], of type [ty], that
+   [generalize_to_array_expr] generalizes to an array over the index variables
+   [expr] mentions: [ty] wrapped in the dimensions those variables range
+   over *)
+let generalized_type pos ind_vars ty expr =
+  List.fold_right
+    (fun id acc ->
+      let (_, size, _, _) = StringMap.find id ind_vars in
+      A.ArrayType (pos, (acc, size)))
+    (get_inductive_vars ind_vars expr)
+    ty
+
+(* [if var = 0 then e0 else if var = 1 then e1 else ... e(n-1)] for the
+   non-empty list [e0; ...; e(n-1)] *)
+let ite_over_index var es =
+  let rec ite k = function
+    | [] -> assert false
+    | [e] -> e
+    | e :: es ->
+      let cond = A.CompOp (dpos, A.Eq, A.Ident (dpos, var), mk_index k) in
+      A.TernaryOp (dpos, A.Ite, cond, e, ite (k + 1) es)
+  in
+  ite 0 es
 
 (* The output of an inlinable function applied to [args]: the right-hand side
    of the equation of the output, with each local variable replaced by its own
@@ -910,25 +943,36 @@ let mk_fresh_oracle expr_type expr =
   add_generated_type name (Lazy.from_val expr_type);
   nexpr, name, gids
 
+(* The key a local is cached under: the sizes the index variables of the
+   expression range over, so that one expression under two bounds is not shared *)
+let local_cache_key ind_vars expr =
+  List.map
+    (fun id -> let (_, size, _, _) = StringMap.find id ind_vars in size)
+    (get_inductive_vars ind_vars expr),
+  expr
+
 (* [init_is_arbitrary] records the local as one whose value at the initial
    instant means nothing, on top of what its definition already shows *)
-let mk_fresh_local ?(init_is_arbitrary = false) force info pos ind_vars
+let mk_fresh_local ?indices ?(init_is_arbitrary = false) force info pos ind_vars
     expr_type expr =
-  match (LocalCache.find_opt local_cache expr, force) with
+  let key = local_cache_key ind_vars expr in
+  match (LocalCache.find_opt local_cache key, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
   let nexpr = A.Ident (pos, name) in
-  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
+  let (eq_lhs, nexpr) =
+    generalize_to_array_expr ?indices name ind_vars expr nexpr
+  in
   let gids = { (empty ()) with
     locals = StringMap.singleton name expr_type;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
   if init_is_arbitrary || undefined_initially expr then
     undefined_at_init := A.SI.add name !undefined_at_init;
-  LocalCache.add local_cache expr nexpr;
+  LocalCache.add local_cache key nexpr;
   add_generated_type name (Lazy.from_val expr_type);
   nexpr, gids
 
@@ -1061,11 +1105,6 @@ let declare_history_vars gids =
 
 let get_expr_ty info map node_id expr =
   let ty =
-  let ivars = info.inductive_variables in
-  if expr_has_inductive_var ivars expr then
-    let _, (_, _, _, ty) = (StringMap.choose_opt info.inductive_variables) |> get in 
-    ty 
-  else
     let ctx =
       match node_id with 
       | Some node_id -> (
@@ -2379,11 +2418,7 @@ and abstract_expr ?guard ?ty ?(def = Fun.id) force info (node_id : NI.t option) 
     let ty =
       match ty with
       | Some ty -> ty
-      | None when expr_has_inductive_var ivars expr ->
-        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-        ty
-      | None ->
-        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
+      | None -> generalized_type pos ivars (infer_type info node_id expr) (def nexpr)
     in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty (def nexpr) in
     iexpr, union gids1 gids2, warnings
@@ -2471,12 +2506,7 @@ and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
            generalize_to_array_expr uses, so its type mirrors the dimensions
            those variables range over *)
         let local_type e =
-          List.fold_right
-            (fun id acc ->
-              let (_, size, _, _) = StringMap.find id info.inductive_variables in
-              A.ArrayType (pos, (acc, size)))
-            (get_inductive_vars info.inductive_variables e)
-            (A.Bool pos)
+          generalized_type pos info.inductive_variables (A.Bool pos) e
         in
         (* Introduce locals to abstract the pre operands *)
         let shift_gids = ref (empty ()) in
@@ -2866,14 +2896,7 @@ and select_instance info var count ty instance =
     | A.ArrayType _ ->
       A.IndexAccess
         (dpos, A.GroupExpr (dpos, ArrayExpr, instances), A.Ident (dpos, var), A.Array)
-    | _ ->
-      List.fold_left
-        (fun (k, acc) e ->
-          let cond = A.CompOp (dpos, A.Eq, A.Ident (dpos, var), mk_index k) in
-          k + 1, A.TernaryOp (dpos, A.Ite, cond, e, acc))
-        (1, List.hd instances)
-        (List.tl instances)
-      |> snd
+    | _ -> ite_over_index var instances
 
 and combine_args_with_const info args flags =
   let output_arity = List.map (fun e -> match e with
@@ -2899,11 +2922,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr then
-      let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-      ty
-    else 
-      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
+    (* A literal is typed by its first element, as [[i, B[i]]] by the type
+       of [i], whose range the other elements may fall outside of *)
+    let ty =
+      infer_type info node_id expr
+      |> Chk.expand_type_syn_reftype_history info.context |> unwrap
+    in
+    match nexpr with
+    | A.GroupExpr (_, ArrayExpr, nexprs) when expr_has_inductive_var ivars nexpr ->
+      (* A literal that mentions index variables of the enclosing array
+         equation is defined element by element, over those variables and an
+         index [k], as in [l[i][k] = if k = 0 then e0 else e1], rather than
+         from the expanded literal (see #1748). The name of [k] is fixed, and
+         no generated name starts with '0', so that identical literals have
+         identical definitions, which share a local *)
+      let k = HString.mk_hstring "0_idx" in
+      let rhs = ite_over_index k nexprs in
+      mk_fresh_local ~indices:[k] false info pos ivars
+        (generalized_type pos ivars ty rhs) rhs
+    | _ ->
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
       match nexpr with
@@ -2931,12 +2968,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
-      let ty = if expr_has_inductive_var ivars expr then
-        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-        ty
-      else
-        infer_type info node_id expr
-      in
+      let ty = generalized_type pos ivars (infer_type info node_id expr) nexpr in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
@@ -3192,14 +3224,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     normalize_expr ?guard info node_id map expr
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
-    let ty, force = if expr_has_inductive_var ivars expr then
-        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-        ty, true
-      else
-        infer_type info node_id expr, false
-      in
+    let force = expr_has_inductive_var ivars expr in
     let info = { info with pre_depth = info.pre_depth + 1 } in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
+    (* The oracle stands for the local that abstracts [expr], below the index
+       variables that index it in [nexpr] *)
+    let ty = generalized_type pos ivars (infer_type info node_id expr) nexpr in
     let guard, gids2, warnings2, previously_guarded = match guard with
       | Some guard -> guard, empty (), [], true
       | None ->
@@ -3422,7 +3452,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       if not abstract_scrutinee || should_not_abstract info false nexpr0 then
         nexpr0, gids1
       else
-        match LocalCache.find_opt local_cache nexpr0 with
+        match
+          LocalCache.find_opt local_cache
+            (local_cache_key info.inductive_variables nexpr0)
+        with
         | Some local -> local, gids1
         | None ->
           let ty =
@@ -3441,7 +3474,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           in
           (* Every occurrence of the scrutinee shares the local, whether or not
              its definition was given an initial value *)
-          LocalCache.add local_cache nexpr0 local;
+          LocalCache.add local_cache
+            (local_cache_key info.inductive_variables nexpr0) local;
           local, union_list [gids1; gids2; gids3]
     in
     (* A user-written selector accounts for its obligation here, once. The

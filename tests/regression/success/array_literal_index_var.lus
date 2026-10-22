@@ -1,0 +1,47 @@
+-- An array literal in the body of an array comprehension whose elements
+-- mention an index variable of the comprehension (issue #1748)
+
+node id (x: int^2) returns (y: int^2);
+let
+  y = x;
+tel
+
+node sum2 (x: int^2) returns (y: int);
+let
+  y = x[0] + x[1];
+tel
+
+node main (B: int^3) returns (
+  A: int^2^3; A2: int^2^3; C: int^2^2^3; D: int^3^2;
+  E: int^2^3; F: int^3; G: int^2^3; H: int^2^2^3; S: int^3; U: int^3
+);
+let
+  A = ([i, 0] foreach i)^3;
+  A2 = ([B[i], 0] foreach i)^3;
+  -- Nested literals
+  C = ([[i, 1], [B[i], i + 2]] foreach i)^3;
+  -- Two index variables, and a literal that is indexed
+  D = ([i + j, 0, j][j] foreach i, j)^3^2;
+  -- Literals passed to calls
+  E = (id([i, i * 2]) foreach i)^3;
+  F = (sum2([i, B[i]]) foreach i)^3;
+  H = (id([i, j]) foreach i, j)^2^3;
+  -- A literal under 'pre'
+  G = ([0, 0] -> pre [i, B[i]] foreach i)^3;
+  -- A literal under 'pre', indexed by an expression that may change over time
+  S = (0 -> (pre [i, B[i]])[B[i] mod 2] foreach i)^3;
+  -- Identical literals, which share a local
+  U = ([i, B[i]][B[i] mod 2] + [i, B[i]][(B[i] + 1) mod 2] foreach i)^3;
+
+  check A[2][0] = 2 and A[1][1] = 0;
+  check A2[1][0] = B[1] and A2[2][1] = 0;
+  check C[2][0][0] = 2 and C[1][1][0] = B[1] and C[2][1][1] = 4;
+  check D[1][2] = 2 and D[1][0] = 1 and D[0][1] = 0;
+  check E[2][1] = 4;
+  check F[2] = 2 + B[2];
+  check H[2][1][0] = 2 and H[2][1][1] = 1;
+  check true -> G[1][1] = pre B[1];
+  check true -> (B[1] mod 2 = 0 => S[1] = 1);
+  check true -> (B[1] mod 2 <> 0 => S[1] = pre B[1]);
+  check U[1] = 1 + B[1];
+tel
