@@ -129,11 +129,16 @@ let expr_equal ?depth e1 e2 =
   | Ok true -> true
   | Ok false | Error () -> false
 
+(* A local is keyed by its definition and by the sizes of the dimensions of
+   the index variables it is generalized over: the local of a definition over
+   an index variable of size 3 has no elements for an index variable of
+   size 5 *)
 module LocalHash = struct
-  type t = A.expr
-  let equal x y = expr_equal ~depth:6 x y
+  type t = A.expr list * A.expr
+  let equal (sizes1, x) (sizes2, y) =
+    List.equal (expr_equal ~depth:6) sizes1 sizes2 && expr_equal ~depth:6 x y
 
-  let hash = AH.hash (Some 6)
+  let hash (_, x) = AH.hash (Some 6) x
 end
 
 module LocalCache = Hashtbl.Make(LocalHash)
@@ -915,7 +920,13 @@ let mk_fresh_oracle expr_type expr =
   nexpr, name, gids
 
 let mk_fresh_local ?indices force info pos ind_vars expr_type expr =
-  match (LocalCache.find_opt local_cache expr, force) with
+  let key =
+    List.map
+      (fun id -> let (_, size, _, _) = StringMap.find id ind_vars in size)
+      (get_inductive_vars ind_vars expr),
+    expr
+  in
+  match (LocalCache.find_opt local_cache key, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
@@ -929,7 +940,7 @@ let mk_fresh_local ?indices force info pos ind_vars expr_type expr =
     locals = StringMap.singleton name expr_type;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
-  LocalCache.add local_cache expr nexpr;
+  LocalCache.add local_cache key nexpr;
   add_generated_type name (Lazy.from_val expr_type);
   nexpr, gids
 
