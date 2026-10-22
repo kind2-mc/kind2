@@ -1,0 +1,19 @@
+-- Identical array literals that mention the index variables of array
+-- comprehensions of different sizes do not share a local, which would have no
+-- elements for the larger size (issue #1748)
+
+node main (B: int^5) returns (
+  A: int^2^3; C: int^2^5; D: int^3; E: int^5
+);
+let
+  A = ([i, B[i]] foreach i)^3;
+  C = ([i, B[i]] foreach i)^5;
+  D = ([i, B[i]][B[i] mod 2] foreach i)^3;
+  E = ([i, B[i]][B[i] mod 2] foreach i)^5;
+
+  check A[2][0] = 2 and A[2][1] = B[2];
+  check C[4][0] = 4 and C[4][1] = B[4];
+  check B[2] mod 2 = 0 => D[2] = 2;
+  check B[4] mod 2 = 0 => E[4] = 4;
+  check B[4] mod 2 <> 0 => E[4] = B[4];
+tel
