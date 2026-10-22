@@ -99,10 +99,12 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | UnsupportedQuantifiedVariable of HString.t
+  | UnsupportedQuantifiedRefinedRecursiveAdt of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
+  | UnsupportedRefinedRecursiveAdtMapType of tc_type
   | ExpectedMapSetType of tc_type
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NI.t
@@ -227,10 +229,23 @@ let error_message kind = match kind with
   | IntervalMustHaveBound -> "Range should have at least one bound"
   | ExpectedRecordType ty -> "Expected record type but found " ^ string_of_tc_type ty
   | UnsupportedQuantifiedVariable id -> "Quantified variable '" ^ HString.string_of_hstring id ^ "' has a type that includes an array or map, which is not currently supported"
+  | UnsupportedQuantifiedRefinedRecursiveAdt id ->
+    "Quantified variable '" ^ HString.string_of_hstring id
+    ^ "' has a type that includes a recursive datatype whose fields have \
+       refinement types, which is not currently supported"
   | InvalidPolymorphicCall id -> "Call to node, contract, or user type '" ^ HString.string_of_hstring id ^ "' passes an incorrect number of type parameters"
   | InvalidExtractUpperBound (size, ub) -> "Cannot extract from position " ^ (string_of_int ub) ^ " in machine integer of size " ^ (string_of_int size)
   | InvalidExtractLowerBound (ub, lb) -> "Extraction has lower bound " ^ (string_of_int lb) ^ " greater than upper bound " ^ (string_of_int ub) 
   | UnsupportedMapType ty -> "Unsupported set element or map key type " ^ (string_of_tc_type ty) ^ "; only primitive types, enums, records, tuples, refinement types, and ADTs whose payloads are also valid set element / map key types are supported"
+  | UnsupportedRefinedRecursiveAdtMapType ty ->
+    (* An instantiated datatype may arrive expanded; it is shown by its name *)
+    let ty = match ty with
+      | LA.ADT (p, name, _) -> LA.UserType (p, [], name)
+      | ty -> ty
+    in
+    "Unsupported set element or map key type " ^ (string_of_tc_type ty)
+    ^ ": it includes a recursive datatype whose fields have refinement types, \
+       which is not currently supported"
   | ExpectedMapSetType ty -> "Expected map or set type but found " ^ string_of_tc_type ty
   | CallRequiresExplicitAnnotation id -> 
     Format.asprintf "Call requires explicit annotation; type variable %a cannot be inferred bottom-up" 
@@ -1491,9 +1506,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     in
     (* Disallow quantification over variables with types containing map or set types *)
     let* _ = R.seq_ (List.map (fun (pos, id, ty) -> 
-      if type_contains_array ctx ty || type_contains_map_or_set ctx ty
-         || type_contains_wf_adt ctx ty then
+      if type_contains_array ctx ty || type_contains_map_or_set ctx ty then
         type_error pos (UnsupportedQuantifiedVariable id)
+      else if type_contains_wf_adt ctx ty then
+        type_error pos (UnsupportedQuantifiedRefinedRecursiveAdt id)
       else
         R.ok ()
     ) qs) in
@@ -3008,6 +3024,7 @@ and check_map_set_key_expr_type ctx pos ty =
   | _ -> check_map_set_type pos ctx ty
 
 and check_map_set_type pos ctx ty =
+  let top_ty = ty in
   (* Expand each named type once per path, keyed on the instantiation so the same
      datatype at different arguments is not a cycle. Terminates: a cycle through
      two or more types is rejected earlier, and a self-reference must repeat its
@@ -3038,8 +3055,9 @@ and check_map_set_type pos ctx ty =
     else R.ok ()
   | AbstractType _ | Bool _ | Int _
   | EnumType _ | Real _ | SBitVector _ | UBitVector _ -> Res.ok ()
-  | ADT (_, _, cons) as ty ->
-    if type_contains_wf_adt ctx ty then type_error pos (UnsupportedMapType ty)
+  | ADT (_, _, cons) as adt_ty ->
+    if type_contains_wf_adt ctx adt_ty then
+      type_error pos (UnsupportedRefinedRecursiveAdtMapType top_ty)
     else
       Res.seq_ (List.map (fun (_, fields) -> Res.seq_ (List.map (fun (_, ty) -> r ty) fields)) cons)
   in

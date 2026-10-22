@@ -1,0 +1,7 @@
+type Nat = subtype { x: int | x >= 0 };
+datatype PL<T> = PN | PC (h: Nat, x: T, t: PL<T>);
+
+node n<T>(l: PL<T>) returns ();
+let
+  check "P" (not PC?(l)) or else (l.h >= 0);
+tel

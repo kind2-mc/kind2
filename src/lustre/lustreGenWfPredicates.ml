@@ -20,90 +20,102 @@
    A refinement type on a field of a recursive ADT constrains infinitely many
    values (every node at every depth), so unlike a record or a non-recursive
    ADT it cannot be expanded into a finite conjunction over the type's
-   structure. Instead each such ADT gets a recursive predicate
+   structure. Instead each such ADT gets a recursive predicate, e.g.
 
      function rec wf_NatList(.wf_arg: NatList) returns (.wf_res: bool);
      (*@contract decreases .wf_arg; *)
      let
-       .wf_res = match .wf_arg with
-                 | Nil          : true
-                 | Cons(hd, tl) : hd >= 0 and wf_NatList(tl)
-                 end;
+       .wf_res = when Cons?(.wf_arg)
+                 then .wf_arg.hd >= 0 and wf_NatList(.wf_arg.tl)
+                 else true;
      tel
+
+   Callers use it as an ordinary constraint: assumed where the value comes
+   from an assumption boundary, proved where it does not.
 
    The declaration is tagged NodeId.WellFormedness, which is both what
    distinguishes it from a user declaration of the same name and how the passes
    that must treat it specially recognize it.
 
-   which callers use as an ordinary constraint: assumed where the value comes
-   from an assumption boundary, proved where it does not. *)
+   Predicates are generated once polymorphic datatypes are instantiated, one
+   per monomorphic recursive datatype, so that a field whose type comes from a
+   type argument is constrained by that argument's own predicate. They are
+   built directly in the desugared form the later passes expect. *)
 
 module A = LustreAst
 module AH = LustreAstHelpers
 module Ctx = TypeCheckerContext
 module LDAT = LustreDesugarADTs
 module AN = LustreAstNormalizer
-module NI = NodeId
 
 (* Bound names of the generated predicate. A leading '.' cannot occur in a user
    identifier, so neither can be shadowed by a constructor field name. *)
 let self_var = HString.mk_hstring ".wf_arg"
 let out_var = HString.mk_hstring ".wf_res"
 
-(* One match arm per constructor. Each field of the constructor is bound by a
-   pattern variable named after the field, and contributes whatever constraint
-   its own type carries -- a predicate for a refinement type, a recursive call
-   for a self-referential field, nothing for an unconstrained one. *)
-let mk_arms ctx adt_map pos ctors =
-  List.map
-    (fun (ctor, fields) ->
-      let vars = List.map (fun (fname, _) -> A.VarPat (pos, fname)) fields in
-      let conjuncts =
-        List.concat_map
-          (fun (fname, fty) ->
-            AN.mk_ref_type_expr adt_map ctx None (A.Ident (pos, fname)) fty)
-          fields
-      in
-      (A.Pat (pos, ctor, vars), AH.mk_conj pos conjuncts))
-    ctors
+(* The constructor a (possibly instantiation-qualified) constructor stands for,
+   and the datatype declaring it, which is how selectors and testers name them *)
+let source_ctor ctx ctor =
+  let ctor =
+    HString.string_of_hstring ctor |> Type.source_ctor_name |> HString.mk_hstring
+  in
+  match Ctx.lookup_constructor ctx ctor with
+  | Some (ty_name, _) -> ty_name, ctor
+  | None -> assert false
+
+(* The constraints of one constructor's fields, on a value built with it *)
+let ctor_constraints ctx adt_map pos arg (ctor, fields) =
+  let base_ty, ctor = source_ctor ctx ctor in
+  let pk = A.Selector (A.Kind2Generated, A.UserType (pos, [], base_ty), ctor) in
+  let conjuncts =
+    List.concat_map
+      (fun (fname, fty) ->
+        AN.mk_ref_type_expr adt_map ctx None (A.FieldProject (pos, arg, fname, pk)) fty)
+      fields
+  in
+  (A.ADTTester (pos, arg, ctor), AH.mk_conj pos conjuncts)
 
 let mk_wf_predicate ctx adt_map pos ty_name ctors =
   let span = { A.start_pos = pos; A.end_pos = pos } in
-  let body = A.Match (pos, A.Ident (pos, self_var), mk_arms ctx adt_map pos ctors, None) in
+  let arg = A.Ident (pos, self_var) in
+  (* A chain of lazy conditionals, the last constructor covering what is left *)
+  let body =
+    match List.rev_map (ctor_constraints ctx adt_map pos arg) ctors with
+    | [] -> assert false
+    | (_, last) :: rest ->
+      List.fold_left
+        (fun acc (tester, conj) -> A.TernaryOp (pos, A.LazyIte, tester, conj, acc))
+        last rest
+  in
   let eq =
     A.Body (A.Equation (pos, A.StructDef (pos, [A.SingleIdent (pos, out_var)]), body))
   in
-  (* The measure is the scrutinee itself: every recursive call is on a pattern
-     variable of a constructor of that scrutinee, hence a structural subterm. *)
-  let contract = (pos, [A.Decreases (pos, A.Ident (pos, self_var))]) in
+  (* Every recursive call is on a field of the argument, hence a structural subterm *)
+  let contract = (pos, [A.Decreases (pos, arg)]) in
+  let node_id = LDAT.wf_pred_id ty_name in
+  let ips = [ (pos, self_var, A.UserType (pos, [], ty_name), A.ClockTrue, false) ] in
+  let ops = [ (pos, out_var, A.Bool pos, A.ClockTrue) ] in
+  let ctx = Ctx.add_node_param_attr ctx node_id ips in
+  let ctx = Ctx.add_ty_vars_node ctx node_id [] in
+  let ctx = Ctx.add_ty_node ctx node_id (A.TArr (pos, A.UserType (pos, [], ty_name), A.Bool pos)) true in
+  ctx,
   A.FuncDecl
     ( span,
-      ( LDAT.wf_pred_id ty_name,
-        false,
-        A.Default,
-        [],
-        [ (pos, self_var, A.UserType (pos, [], ty_name), A.ClockTrue, false) ],
-        [ (pos, out_var, A.Bool pos, A.ClockTrue) ],
-        [],
-        [ eq ],
-        Some contract ),
+      (node_id, false, A.Default, [], ips, ops, [], [ eq ], Some contract),
       { A.is_rec = true; A.is_lemma = false } )
 
-(* A predicate is needed only for a recursive ADT that actually carries a
-   refinement somewhere; a recursive ADT with no constrained field imposes
-   nothing, and a non-recursive one is expanded structurally instead. *)
 let gen_wf_predicates ctx adt_map decls =
-  List.filter_map
-    (fun decl ->
-      match decl with
-      | A.TypeDecl (_, A.AliasType (pos, ty_name, _, (A.ADT (_, _, ctors) as ty))) ->
-        let is_recursive =
-          match LDAT.HStringMap.find_opt ty_name adt_map with
-          | Some info -> info.LDAT.is_recursive
-          | None -> false
-        in
-        if is_recursive && Ctx.type_contains_ref ctx ty then
-          Some (mk_wf_predicate ctx adt_map pos ty_name ctors)
-        else None
-      | _ -> None)
-    decls
+  let ctx, preds =
+    List.fold_left
+      (fun (ctx, preds) decl ->
+        match decl with
+        (* A datatype with type parameters is constrained through its instantiations *)
+        | A.TypeDecl (_, A.AliasType (pos, ty_name, [], (A.ADT (_, _, ctors) as ty)))
+          when AH.is_directly_recursive_adt ty_name ctors && Ctx.type_contains_ref ctx ty ->
+          let ctx, pred = mk_wf_predicate ctx adt_map pos ty_name ctors in
+          ctx, pred :: preds
+        | A.TypeDecl _ | A.ConstDecl _ | A.NodeDecl _ | A.FuncDecl _
+        | A.ContractNodeDecl _ | A.NodeParamInst _ -> ctx, preds)
+      (ctx, []) decls
+  in
+  ctx, List.rev preds

@@ -84,10 +84,12 @@ type error_kind = Unknown of string
   | IntervalMustHaveBound
   | ExpectedRecordType of tc_type
   | UnsupportedQuantifiedVariable of HString.t
+  | UnsupportedQuantifiedRefinedRecursiveAdt of HString.t
   | InvalidPolymorphicCall of HString.t
   | InvalidExtractUpperBound of int * int
   | InvalidExtractLowerBound of int * int
   | UnsupportedMapType of tc_type
+  | UnsupportedRefinedRecursiveAdtMapType of tc_type
   | ExpectedMapSetType of tc_type
   | CallRequiresExplicitAnnotation of HString.t
   | TempOperatorInFuncInterface of NodeId.t 

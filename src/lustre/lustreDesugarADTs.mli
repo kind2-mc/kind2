@@ -59,13 +59,6 @@ val wf_pred_id : HString.t -> NodeId.t
     declaration of the same name and is how the predicate is recognized by the
     passes that must treat it specially. *)
 
-val build_adt_info :
-  HString.t ->
-  HString.t list ->
-  (HString.t * (HString.t * LustreAst.lustre_type) list) list ->
-  is_recursive:bool ->
-  adt_info
-
 (** [mk_canonical_exprs ctx adt_map pos expr ty] is the list of constraints
     stating that every ADT value reachable from [expr], of type [ty], is in
     canonical form: the payload fields of the constructors other than the

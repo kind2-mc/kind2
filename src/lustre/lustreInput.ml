@@ -184,15 +184,6 @@ let type_check declarations =
        ascriptions, temporal expressions in a clocked position, and restarts *)
     let* node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
 
-    (* Step 6b. Generate a recursive well-formedness predicate for each recursive
-       ADT carrying a refinement type. Emitted before dependency analysis so the
-       generated functions are sorted and type checked alongside user code. *)
-    let node_contract_src =
-      let adt_map = LDAT.build_adt_map const_inlined_type_and_consts in
-      LGWF.gen_wf_predicates inlined_ctx adt_map const_inlined_type_and_consts
-      @ node_contract_src
-    in
-
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, scc_map) =
       AD.sort_and_check_nodes_contracts node_contract_src
@@ -289,6 +280,23 @@ let type_check declarations =
          const_inlined_type_and_consts, const_inlined_nodes_and_contracts =
       LIP.instantiate_polymorphic_adts inlined_global_ctx gids
         const_inlined_type_and_consts const_inlined_nodes_and_contracts
+    in
+
+    (* Step 20b. Generate a recursive well-formedness predicate for each
+       monomorphic recursive ADT carrying a refinement type. Runs after ADT
+       instantiation, which makes every recursive datatype monomorphic. *)
+    let inlined_global_ctx, wf_preds =
+      LGWF.gen_wf_predicates inlined_global_ctx adt_map const_inlined_type_and_consts
+    in
+    let const_inlined_nodes_and_contracts = wf_preds @ const_inlined_nodes_and_contracts in
+    (* Each predicate is its own recursive group *)
+    let scc_map =
+      let next = LDAT.HStringMap.fold (fun _ i acc -> max (i + 1) acc) scc_map 0 in
+      List.filter_map LH.node_id_of_decl wf_preds
+      |> List.fold_left (fun (next, acc) node_id ->
+           next + 1, LDAT.HStringMap.add (NI.get_internal_name node_id) next acc
+         ) (next, scc_map)
+      |> snd
     in
 
     (* Step 21. Flatten refinement types *)
@@ -449,21 +457,9 @@ let of_channel only_parse in_ch =
             match LustreNode.get_main_annotated_nodes nodes with
             | (_ :: _ as node_names) -> node_names
             | [] ->
-            let generated =
-              List.filter_map
-                (fun { LN.node_id } ->
-                  if NI.get_node_type node_id = NI.WellFormedness
-                  then Some (NI.get_internal_name node_id)
-                  else None)
-                nodes
-            in
-            match
-              List.filter
-                (fun s -> not (List.exists (HString.equal s) generated))
-                toplevel_nodes
-            with
+              match toplevel_nodes with
               | [] -> raise (NoMainNode "No node defined in input model")
-              | tops -> tops |> List.map (fun s -> NI.mk_node_id s)
+              | _ -> toplevel_nodes |> List.map (fun s -> NI.mk_node_id s)
           )
           | _ -> []
         )

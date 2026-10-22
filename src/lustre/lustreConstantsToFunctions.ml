@@ -247,7 +247,11 @@ let gen_const_functions ctx decls =
     List.fold_left (fun (acc_decls, acc_new_func_ids, acc_ctx) decl -> match decl with 
     | A.ConstDecl (s, A.FreeConst (_, id, ty)) ->  
       let ctx = Ctx.add_ty ctx id ty in
-      let contains_gids = ty_contains_gids ctx None ty in
+      (* A recursive datatype's refinements are constrained by a call to its
+         well-formedness predicate, which a global constraint cannot hold *)
+      let contains_gids =
+        ty_contains_gids ctx None ty || Ctx.type_contains_wf_adt ctx ty
+      in
       if contains_gids || List.mem `CONTRACTCK (Flags.enabled ()) then
         (* Generate a function for free constants when the type includes generated identifiers,
            and for realizability checking of free constants. *)

@@ -1,0 +1,7 @@
+type Nat = subtype { x: int | x >= 0 };
+const N: Nat = 3;
+
+node top() returns ();
+let
+  check "P" real(N) > 0.0;
+tel

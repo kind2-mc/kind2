@@ -21,7 +21,7 @@
   A refinement type on a field of a recursive ADT constrains infinitely many
   values, so it cannot be expanded into a finite conjunction the way a record
   or a non-recursive ADT can. Each such type instead gets a generated
-  [function rec] predicate, named by {!LustreDesugarADTs.wf_pred_name}, which
+  [function rec] predicate, named by {!LustreDesugarADTs.wf_pred_id}, which
   the normalizer emits as an ordinary refinement-type constraint.
 
   @author Rob Lorch
@@ -31,9 +31,10 @@ val gen_wf_predicates :
   TypeCheckerContext.tc_context ->
   LustreDesugarADTs.adt_map ->
   LustreAst.declaration list ->
-  LustreAst.declaration list
+  TypeCheckerContext.tc_context * LustreAst.declaration list
 (** [gen_wf_predicates ctx adt_map decls] returns one function declaration for
-    each recursive ADT in [decls] that carries a refinement type. The result is
-    meant to be prepended to the node and contract declarations before
-    dependency analysis, so that the generated functions are sorted and type
-    checked alongside user code. *)
+    each monomorphic recursive ADT declared in [decls] that carries a
+    refinement type, in the order of [decls], with the context extended with
+    their signatures. It expects polymorphic datatypes to be instantiated
+    already, and returns declarations in the desugared form of that point of
+    the pipeline. *)

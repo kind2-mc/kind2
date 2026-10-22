@@ -1748,7 +1748,8 @@ let log_contractck_analysis_start in_sys scope =
         | DefinedConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
         | Restarted -> "restart"
-        | Choose -> "'choose' operator")
+        | Choose -> "'choose' operator"
+        | WellFormedness -> "well-formedness predicate")
         NI.pp_print_node_id_user_name node_id
     )
     | F_xml -> (
@@ -1769,7 +1770,8 @@ let log_contractck_analysis_start in_sys scope =
         | FreeConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
         | Restarted -> "restart"
-        | Choose -> "'choose' operator");
+        | Choose -> "'choose' operator"
+        | WellFormedness -> "well-formedness predicate");
       analysis_start_not_closed := true
     )
     | F_ijson
@@ -1793,7 +1795,8 @@ let log_contractck_analysis_start in_sys scope =
         | FreeConstant -> "global constant"
         | ClockedExpr -> "clocked expression"
         | Restarted -> "restart"
-        | Choose -> "'choose' operator");
+        | Choose -> "'choose' operator"
+        | WellFormedness -> "well-formedness predicate");
       analysis_start_not_closed := true
 
     )
