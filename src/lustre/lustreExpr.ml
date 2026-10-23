@@ -3654,6 +3654,62 @@ let push_select { expr_init; expr_step; expr_type } =
 let mk_select_and_push e1 e2 =
   mk_select e1 e2 |> push_select
 
+(* A read out of the bounds of an array is unspecified, but it denotes a value
+   of the type of the elements (see #1727). The elements of an enumerated type
+   are only constrained at the indexes in the bounds of the array, so a read
+   [t] of an enumerated value that may be out of bounds is replaced with
+
+   ite (in_bounds or l <= t <= u) t l
+
+   where [l] and [u] are the bounds of the type. [in_bounds] is the
+   conjunction of the bounds of the [depth] outermost selects in [t], once
+   pushed below if-then-elses. A read in the bounds is left as is *)
+let in_type_read_term depth t =
+  let rec in_bounds d t acc =
+    if d <= 0 then acc
+    else
+      match Term.destruct t with
+      | Term.T.App (s, [a; i]) when Symbol.is_select s ->
+        let acc =
+          match
+            Type.node_of_type (Type.index_type_of_array (Term.type_of_term a))
+          with
+          | Type.IntRange (Some l, Some u) ->
+            let u = Numeral.(u - one) in
+            if Term.is_numeral i &&
+               Numeral.(l <= Term.numeral_of_term i) &&
+               Numeral.(Term.numeral_of_term i <= u)
+            then acc
+            else Term.mk_leq [Term.mk_num l; i; Term.mk_num u] :: acc
+          | _ -> acc
+        in
+        in_bounds (d - 1) a acc
+      | _ -> acc
+  in
+  let rec in_type_read t =
+    match Term.destruct t with
+    | Term.T.App (s, [p; l; r]) when Symbol.is_ite s ->
+      Term.mk_ite p (in_type_read l) (in_type_read r)
+    | Term.T.App (s, [_; _]) when Symbol.is_select s -> (
+      match in_bounds depth t [] with
+      | [] -> t
+      | conds ->
+        let l, u = Type.bounds_of_enum (Term.type_of_term t) in
+        let in_type = Term.mk_leq [Term.mk_num l; t; Term.mk_num u] in
+        Term.mk_ite
+          (Term.mk_or [Term.mk_and conds; in_type]) t (Term.mk_num l)
+    )
+    | _ -> t
+  in
+  in_type_read t
+
+let mk_in_type_read depth ({ expr_init; expr_step; expr_type } as e) =
+  if Type.is_enum expr_type then
+    { expr_init = in_type_read_term depth expr_init;
+      expr_step = in_type_read_term depth expr_step;
+      expr_type }
+  else e
+
 (* 
    Local Variables:
    compile-command: "make -k -C .."

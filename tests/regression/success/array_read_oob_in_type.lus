@@ -1,0 +1,14 @@
+(* A read out of the bounds of an array of enumerated values is unspecified,
+   but it denotes a value of the enumerated type (see #1727) *)
+type E = enum { A, B };
+datatype L = LN | LC (h: E, t: L);
+
+node main(a: E^3; m: E^2^3; i, j: int) returns ();
+let
+  check "out of bounds" (i < 0 or i >= 3) => (a[i] = A or a[i] = B);
+  check "in bounds" (i >= 0 and i < 3) => (a[i] = A or a[i] = B);
+  check "2d" m[i][j] = A or m[i][j] = B;
+  check "same index" i = j => a[i] = a[j];
+  check "roundtrip" LC(a[i], LN).h = a[i];
+  check "injective" (LC(a[i], LN) = LC(a[j], LN)) => a[i] = a[j];
+tel

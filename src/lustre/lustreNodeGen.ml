@@ -1739,7 +1739,16 @@ and compile_ast_expr
       with Invalid_argument _ | Failure _ -> bounds
     in
     let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    (* The number of array indexes of the read, through the fields of records
+       and tuples between them *)
+    let rec depth = function
+      | A.IndexAccess (_, e, _, Array) -> succ (depth e)
+      | A.IndexAccess (_, e, _, Tuple)
+      | A.FieldProject (_, e, _, RecordField) -> depth e
+      | _ -> 0
+    in
     compile_array_index' compiled_expr index
+    |> X.map (E.mk_in_type_read (succ (depth expr)))
 
   and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
