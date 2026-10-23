@@ -1,0 +1,6 @@
+type color = enum {Red, Green};
+node N(c: color) returns (y: int);
+var Red: int;
+let
+  Red = 0; y = Red;
+tel

@@ -674,10 +674,12 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/enum_02.lus" with
     | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
     | _ -> false);
-  (* A bare name that is not a constructor of the scrutinee's type is a binder,
-     so only the applied form can fail to resolve. *)
   mk_test "test applied constructor of another enum in a match arm" (fun () ->
     match load_file "./lustreTypeChecker/enum_match_foreign_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test bare constructor of another enum in a match arm" (fun () ->
+    match load_file "./lustreTypeChecker/enum_match_foreign_bare_variant.lus" with
     | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
     | _ -> false);
   mk_test "test enum match arm with arguments" (fun () ->
@@ -1078,8 +1080,23 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test standalone contract mode name clashes with enum variant" (fun () ->
     match load_file "./lustreTypeChecker/enum_variant_clash_with_contract_mode.lus" with
-    | Error (`LustreTypeCheckerError (_, Redeclaration i)) ->
-      HString.string_of_hstring i = "Red"
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashMode))) -> true
+    | _ -> false);
+  mk_test "test inline contract mode name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_inline_mode.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashMode))) -> true
+    | _ -> false);
+  mk_test "test local variable clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_local_var.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashLocalVariable))) -> true
+    | _ -> false);
+  mk_test "test ghost variable clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_ghost_var.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashGhostVariable))) -> true
+    | _ -> false);
+  mk_test "test array-typed ghost variable clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_array_ghost_var.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashGhostVariable))) -> true
     | _ -> false);
   mk_test "test node declared before the enum it clashes with" (fun () ->
     match load_file "./lustreTypeChecker/node_before_enum_clash.lus" with

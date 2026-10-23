@@ -95,15 +95,20 @@ type adt_map = adt_info HStringMap.t
    user-written record field. *)
 let generated_name s = HString.mk_hstring ("." ^ s)
 
-let disc_field_name type_name =
-  generated_name (HString.string_of_hstring type_name ^ "_tag")
+let is_generated_type_name id =
+  let s = HString.string_of_hstring id in
+  String.length s > 0 && s.[0] = '.'
+
+let disc_field_stem type_name = HString.string_of_hstring type_name ^ "_tag"
+
+let disc_field_name type_name = generated_name (disc_field_stem type_name)
 
 (* The internal record field names of the payload fields of an ADT, as
    (constructor, user-written name, internal name, type): the constructor's
    name and the field's joined by "_", made unique when two such names
-   coincide (A_B(x) and A(B_x) both give ".A_B_x") by a numeric suffix that
-   no other field's name carries. *)
-let payload_field_names ctors =
+   coincide with each other or with the discriminant (A_B(x) and A(B_x) both
+   give ".A_B_x") by a numeric suffix that no other field's name carries. *)
+let payload_field_names type_name ctors =
   let naive ctor fld =
     HString.string_of_hstring ctor ^ "_" ^ HString.string_of_hstring fld
   in
@@ -114,6 +119,7 @@ let payload_field_names ctors =
   in
   let naive_names = List.map (fun (_, _, _, n) -> n) fields in
   let taken = Hashtbl.create 7 in
+  Hashtbl.add taken (disc_field_stem type_name) ();
   List.map (fun (ctor, fld, ty, name) ->
     let rec unique k =
       let cand = if k = 0 then name else name ^ "_" ^ string_of_int k in
@@ -153,7 +159,7 @@ let build_adt_info type_name type_params ctors ~is_recursive =
   let disc_field = disc_field_name type_name in
   let disc_enum = disc_field_name type_name in
   let ctor_variants = List.map fst ctors in
-  let named = payload_field_names ctors in
+  let named = payload_field_names type_name ctors in
   let ctor_fields =
     List.fold_left (fun m (ctor, _) ->
       let named_fields =
@@ -466,30 +472,6 @@ and default_adt_term ctx adt_map pos name ty_args ctors =
       List.map (fun (_, ty) -> default_value ctx adt_map pos ty) fields)
   | None -> assert false
 
-(* Rewrite only the expressions a type holds -- the predicate of a refinement,
-   the size of an array -- leaving the type structure alone, so that a name
-   standing for another datatype keeps it and resolves through that datatype's
-   own rewritten declaration. *)
-and desugar_type_exprs ctx adt_map ty =
-  let r = desugar_type_exprs ctx adt_map in
-  let re = desugar_expr ctx adt_map in
-  match ty with
-  | LA.RefinementType (p, (p2, id, t), e) ->
-    LA.RefinementType (p, (p2, id, r t), re e)
-  | LA.ArrayType (p, (t, n)) -> LA.ArrayType (p, (r t, re n))
-  | LA.Map (p, kt, vt) -> LA.Map (p, r kt, r vt)
-  | LA.Set (p, t) -> LA.Set (p, r t)
-  | LA.TArr (p, t1, t2) -> LA.TArr (p, r t1, r t2)
-  | LA.TupleType (p, ts) -> LA.TupleType (p, List.map r ts)
-  | LA.GroupType (p, ts) -> LA.GroupType (p, List.map r ts)
-  | LA.RecordType (p, n, fields) ->
-    LA.RecordType (p, n, List.map (fun (fp, fn, ft) -> (fp, fn, r ft)) fields)
-  | LA.ADT (p, n, cons) ->
-    LA.ADT (p, n, List.map (fun (c, fs) -> (c, List.map (fun (fn, ft) -> (fn, r ft)) fs)) cons)
-  | LA.UserType (p, args, n) -> LA.UserType (p, List.map r args, n)
-  | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
-  | LA.AbstractType _ | LA.EnumType _ | LA.History _ -> ty
-
 (* Replace every ADT type with its desugared record equivalent. *)
 and desugar_type pos ctx adt_map ty =
   match ty with
@@ -497,8 +479,14 @@ and desugar_type pos ctx adt_map ty =
     if is_directly_recursive name cons then 
       ty 
     else 
-      let info = build_adt_info name [] cons ~is_recursive:false in
-      type_of_adt pos info
+      (* The fields are the instance's, but whether the type collapses to an
+         enum depends on the declaration's type parameters *)
+      let type_params =
+        match HStringMap.find_opt name adt_map with
+        | Some info -> info.type_params
+        | None -> []
+      in
+      type_of_adt pos (build_adt_info name type_params cons ~is_recursive:false)
   | LA.RefinementType (p, (p2, id, t), e) ->
     LA.RefinementType (p, (p2, id, desugar_type pos ctx adt_map t), desugar_expr ctx adt_map e)
   | _ ->
@@ -879,9 +867,9 @@ let desugar_contract_node ctx adt_map (id, params, inputs, outputs, (p, body)) =
    (p, List.map (desugar_contract_item ctx adt_map) body))
 
 (* The record encoding is built from the constructor field types as declared,
-   so nothing else reaches the expressions inside them. *)
+   so nothing else reaches the expressions inside them; type names are kept. *)
 let desugar_adt_field_types ctx adt_map =
-  let field (fname, fty) = (fname, desugar_type_exprs ctx adt_map fty) in
+  let field (fname, fty) = (fname, LH.map_lustre_ty (desugar_expr ctx adt_map) fty) in
   HStringMap.map (fun info ->
     { info with
       ctor_fields = HStringMap.map (List.map field) info.ctor_fields;

@@ -108,7 +108,8 @@ let rec map_lustre_ty f ty =
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | EnumType _ | AbstractType _ -> ty
-  | UserType _ | History _ -> ty 
+  | History _ -> ty 
+  | UserType (p, args, id) -> UserType (p, List.map r args, id)
   | Map (p, kt, vt) -> Map (p, r kt, r vt)
   | Set (p, ty) -> Set (p, r ty)
   | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, f len))

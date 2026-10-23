@@ -1,0 +1,6 @@
+type color = enum {Red, Green};
+type shape = enum {Square, Circle};
+node N(c: color) returns (y: int);
+let
+  y = match c with | Red : 0 | Square : 1 end;
+tel
