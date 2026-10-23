@@ -1,0 +1,8 @@
+datatype T = A (v: int) | B;
+const k: T = A (5);
+
+node main () returns (y: bool);
+let
+  y = true;
+  check reachable "impossible" (match (any { t: T | A?(t) }) with | k : k.v <> k.v end);
+tel

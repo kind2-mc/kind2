@@ -26,6 +26,7 @@ type node_type =
   | TypeAscription (* Generated for node corresponding to a type ascription operator *)
   | ClockedExpr (* Generated for a temporal expression abstracted out of a when branch *)
   | Restarted (* Generated for an expression or a block under a restart *)
+  | Matched (* Generated for a match whose scrutinee must be evaluated once *)
   | DefinedConstant (* Defined global constant converted to function without args *)
   | FreeConstant (* Free global constant converted to function without args *)
  
@@ -50,6 +51,7 @@ let pp_print_node_type ppf node_type =
       | TypeAscription -> ".type_ascription_"
       | ClockedExpr -> ".clocked_expr_"
       | Restarted -> ".restart_"
+      | Matched -> ".match_"
       | FreeConstant -> ".free_constant_"
       | DefinedConstant -> ".def_constant_"
       | Choose -> ".choose_")
@@ -91,7 +93,7 @@ let get_node_type node_id = node_id.node_type
 
 let is_internal node_id =
   match node_id.node_type with
-  | FreeConstant | TypeAscription | ClockedExpr | Restarted -> true
+  | FreeConstant | TypeAscription | ClockedExpr | Restarted | Matched -> true
   | Component | Contract | Environment | Type | Any | Choose
   | DefinedConstant -> false
 

@@ -1,0 +1,15 @@
+datatype Nat = Zero | Succ (p: Nat);
+
+node imported nd () returns (t: Nat);
+(*@contract guarantee t = Zero or t = Succ (Zero); *)
+
+node main () returns (ok: bool);
+var r: int;
+let
+  r = match nd () with
+      | Zero : 0
+      | Succ (p) : (if p = Zero then 1 else 2)
+      end;
+  ok = true;
+  check "ok" r = 0 or r = 1;
+tel
