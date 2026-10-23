@@ -1203,7 +1203,25 @@ and compile_ast_expr
   (bounds:E.expr E.bound_or_fixed list)
   map
   expr
-  : LustreExpr.t LustreIndex.t = 
+  : LustreExpr.t LustreIndex.t =
+  compile_ast_expr_in cstate ctx bounds bounds map expr
+
+(* Compile [expr] with the bounds [bounds], in an equation with the bounds
+   [eq_bounds]. The index variables are numbered by their position in
+   [eq_bounds], from which the bound of an index variable is removed in
+   [bounds] for the array a read at it is from *)
+and compile_ast_expr_in
+  (cstate:compiler_state)
+  (ctx:Ctx.tc_context)
+  (eq_bounds:E.expr E.bound_or_fixed list)
+  (bounds:E.expr E.bound_or_fixed list)
+  map
+  expr
+  : LustreExpr.t LustreIndex.t =
+
+  let compile_ast_expr cstate ctx bounds map expr =
+    compile_ast_expr_in cstate ctx eq_bounds bounds map expr
+  in
 
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
@@ -1727,12 +1745,12 @@ and compile_ast_expr
       )
       compiled_expr
       index_exprs
-    |> X.map (E.mk_in_type_read (index_var_bound bounds))
+    |> X.map (E.mk_in_type_read index_var_bound)
 
-  (* The exclusive upper bound of the index variable [k] of an equation with
-     the bounds [bounds], if it is a numeral *)
-  and index_var_bound bounds k =
-    match List.nth_opt bounds k with
+  (* The exclusive upper bound of the index variable [k] of the equation, if
+     it is a numeral *)
+  and index_var_bound k =
+    match List.nth_opt eq_bounds k with
     | Some (E.Bound b) when E.is_numeral b -> Some (E.numeral_of_expr b)
     | _ -> None
 
@@ -1748,7 +1766,7 @@ and compile_ast_expr
     in
     let compiled_expr = compile_ast_expr cstate ctx expr_bounds map expr in
     compile_array_index' compiled_expr index
-    |> X.map (E.mk_in_type_read (index_var_bound bounds))
+    |> X.map (E.mk_in_type_read index_var_bound)
 
   and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
