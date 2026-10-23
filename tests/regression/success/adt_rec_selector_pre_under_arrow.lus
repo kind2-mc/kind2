@@ -1,0 +1,9 @@
+datatype List = Nil | Cons (hd: int, tl: List);
+
+node main(i: int) returns (ok: bool);
+var x: List;
+let
+  x = Cons(i, Nil);
+  ok = true -> ((pre x).hd = pre i);
+  check ok;
+tel

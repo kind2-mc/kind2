@@ -1,0 +1,10 @@
+datatype Inner = I (a: int) | J;
+datatype Outer = O (b: Inner) | P;
+
+node main() returns (ok: bool);
+var x: Outer;
+let
+  x = O(I(1));
+  ok = true -> ((pre x).b.a = 1);
+  check ok;
+tel

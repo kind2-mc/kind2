@@ -1,0 +1,7 @@
+node main(x: int^2^2) returns (ok: bool);
+var a: int^2^2;
+let
+  a = (pre (x[i][j] + 1) foreach i, j)^2^2;
+  ok = a[0][0] = a[0][0];
+  check ok;
+tel

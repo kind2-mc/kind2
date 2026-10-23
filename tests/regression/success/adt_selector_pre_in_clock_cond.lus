@@ -1,0 +1,14 @@
+datatype D = A (v: int) | B;
+
+node Count(c: bool) returns (n: int);
+let
+  n = (if c then 1 else 0) -> pre n;
+tel
+
+node main() returns (ok: bool);
+var d: D;
+let
+  d = A(1);
+  ok = true -> ((when (pre d).v > 0 then Count(true) else 0) <= 2);
+  check ok;
+tel
