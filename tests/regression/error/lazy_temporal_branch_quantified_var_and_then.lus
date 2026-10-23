@@ -1,0 +1,6 @@
+-- Nor can a temporal right operand of 'and then' (issue #1757).
+
+node main (x: int) returns ();
+let
+  check forall (k: int) x > 0 and then (true -> k + x = k + x);
+tel

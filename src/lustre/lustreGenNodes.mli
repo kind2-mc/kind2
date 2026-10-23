@@ -26,6 +26,7 @@ type error_kind =
   | MatchScrutineeQuantifier
   | MatchScrutineeInLocalDecl
   | MatchScrutineeUnsupported
+  | TemporalBranchQuantifiedVariable of HString.t
 
 val error_message : error_kind -> string
 

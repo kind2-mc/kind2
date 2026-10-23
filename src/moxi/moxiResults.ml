@@ -109,72 +109,73 @@ let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) =
     | Some value ->  StateVar.StateVarMap.add subsys_val value map 
 ) StateVar.StateVarMap.empty (SVM.bindings sys_to_subsys)
 
-let get_state_var_vals_at_k ?(prefix="") trans_sys model_assoc_list k map = 
-  let sys_vars = TransSys.state_vars trans_sys in
-  (TransSys.state_vars trans_sys) |> List.filter_map (fun state_var -> 
-    let state_var_opt = List.find_opt (fun v -> v == state_var) sys_vars in
-    match state_var_opt with 
-    | None -> None
-    | Some sys_state_var when not (StateVar.for_inv_gen sys_state_var) -> None (* Filter out init flags *)
-    (* The declared constants, which every system has, are in the model *)
-    | Some sys_state_var when StateVar.is_const sys_state_var -> None
-    (* May want to find a more robust way to filter out invar_props*)
-    (* | _ when String.starts_with ~prefix: "invar_prop." (StateVar.name_of_state_var state_var) -> None Filter out invar_props *)
-    | Some sys_state_var -> (
-      let var_name = prefix ^ name_of_state_var sys_state_var in
-      let translated_svar = StateVar.StateVarMap.find sys_state_var map in
-      let svar_state_values = List.assoc translated_svar model_assoc_list in
-      let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in 
-      let state_value_changed = 
-        (Numeral.to_int k) == 0 || 
-        not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1)) 
-                               svar_kth_state_value) 
-      in
-      match svar_kth_state_value with
-      | Model.Term value ->
-        let ty = StateVar.type_of_state_var sys_state_var in
-        Some (var_name, string_of_value ty value, state_value_changed)
-      | Model.Map _ ->
-        Some (var_name, "[...]", true)
-      | _ -> 
-        failwith (Format.asprintf "Received unexpected model value. Unable to construct counterexample.")
-    )
-  )
+(* The name of a variable of a call, as a symbol: the path of the call names
+   down to it, as in c1::c2::x. The namespace is flat, so a segment that
+   contains :: itself, or a check variable whose name is a path, can alias. *)
+let path_name path name = quote (String.concat "::" (path @ [ name ]))
 
-let rec get_state_var_vals_at_k_all ?(map=None) ?(prefix="") trans_sys (model_assoc_list: (StateVar.t * Model.value list) list) k = 
-  let sys_map = match map with 
-    | None -> (* Create the identity map for the top trans system *)
-      List.fold_left (fun map sys_state_var  ->
-          StateVar.StateVarMap.add sys_state_var sys_state_var map
-      ) StateVar.StateVarMap.empty (TransSys.state_vars trans_sys)
-    | Some map -> 
-      map
-  in 
-  
-  let help k subsystems =
-    List.map (fun (subsys_transys, TransSys.({ map_up; })) ->
-      let map = Some (join_maps sys_map map_up) in
-      let subsys_name = TransSys.scope_of_trans_sys subsys_transys |> Lib.string_of_t Scope.pp_print_scope_internal |> quote in
-      let prefix = prefix ^ subsys_name ^ "::" in
-      (get_state_var_vals_at_k_all ~map ~prefix subsys_transys model_assoc_list k)
-    ) subsystems in
+(* Whether a variable is one a system declares, rather than a hidden copy of
+   a local of one of its calls or a variable of kmoxi's own encoding *)
+let is_declared_state_var sv =
+  match StateVar.scope_of_state_var sv with
+  | [ _ ; s ] -> s = List.hd LustreIdent.user_scope
+  | _ -> false
 
-  let instances = 
-    (TransSys.get_subsystem_instances trans_sys) |> 
-    List.map (fun (subsys, subsys_instances) -> 
-      (List.map (fun instance -> (subsys, instance)) subsys_instances)
-    ) |> 
-    List.flatten 
-  in 
+let declared_state_vars sys =
+  List.filter is_declared_state_var (TransSys.state_vars sys)
 
-  (* For now, we remove the (non-reachability) variables in the check-system renamings. 
-     This could reasonably change in the future.
-  *)
-  let trans_sys_state_vars = 
-    if prefix = "" then [] else get_state_var_vals_at_k ~prefix trans_sys model_assoc_list k sys_map 
+(* The name and value at step k of a variable of a call at a path, with
+   whether it changed, read from the top system variable the map maps it to *)
+let state_var_val_at_k model_assoc_list k map path sv =
+  let var_name = path_name path (StateVar.name_of_state_var sv) in
+  let translated_svar = StateVar.StateVarMap.find sv map in
+  let svar_state_values = List.assoc translated_svar model_assoc_list in
+  let svar_kth_state_value = List.nth svar_state_values (Numeral.to_int k) in
+  let state_value_changed =
+    (Numeral.to_int k) == 0 ||
+    not (Model.equal_value (List.nth svar_state_values ((Numeral.to_int k) - 1))
+                           svar_kth_state_value)
   in
-  let subsys_state_vars = (help k instances) in
-  List.flatten (trans_sys_state_vars :: subsys_state_vars)
+  match svar_kth_state_value with
+  | Model.Term value ->
+    let ty = StateVar.type_of_state_var sv in
+    var_name, string_of_value ty value, state_value_changed
+  | Model.Map _ ->
+    var_name, "[...]", true
+  | Model.Lambda _ ->
+    failwith (Format.asprintf "Received unexpected model value. Unable to construct counterexample.")
+
+(* The calls of a system, in the order they are declared in *)
+let calls_of sys =
+  TransSys.get_subsystem_instances sys
+  |> List.concat_map (fun (sub, instances) ->
+    List.map (fun inst -> sub, inst) instances)
+  |> List.sort (fun (_, i) (_, i') ->
+    Lib.compare_pos i.TransSys.pos i'.TransSys.pos)
+
+(* The values at step k of the check's variables, then of each call's by
+   call path. The check's own call is skipped: its variables are the check's. *)
+let get_state_var_vals_at_k_all trans_sys model_assoc_list k =
+  let value = state_var_val_at_k model_assoc_list k in
+  let rec vals_of_calls path sys map =
+    calls_of sys |> List.concat_map (fun (sub, inst) ->
+      let map = join_maps map inst.TransSys.map_up in
+      let path = path @ [ MoxiInput.call_name sys inst ] in
+      List.map (value map path) (declared_state_vars sub)
+      @ vals_of_calls path sub map)
+  in
+  let top_map =
+    List.fold_left (fun map sv -> SVM.add sv sv map)
+      SVM.empty (TransSys.state_vars trans_sys)
+  in
+  (* A check wraps the system it checks in a system whose only call is of
+     that system, so the paths below start empty, at the check itself *)
+  match calls_of trans_sys with
+  | [ (sub, inst) ] ->
+    List.map (value top_map []) (declared_state_vars trans_sys)
+    @ vals_of_calls [] sub (join_maps top_map inst.TransSys.map_up)
+  | [] | _ :: _ :: _ ->
+    failwith "The system of a check must call the system it checks once."
 
 let pp_print_str_var_val ppf (state_var, value, changed) =
   if changed then 
@@ -188,12 +189,6 @@ let pp_print_str_var_val ppf (state_var, value, changed) =
 
 
 let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
-  let reachability_prop = TransSys.get_properties trans_sys in
-  let reachability_svars =
-    List.map (fun Property.({prop_term}) ->
-      StateVar.StateVarSet.elements (Term.state_vars_of_term prop_term)
-    ) reachability_prop |> List.flatten in
-
   let model_list = Model.path_to_list path in
   let formatted_svar_names = get_state_var_vals_at_k_all trans_sys model_list k in
   let any_change =
@@ -201,13 +196,6 @@ let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
       change_detected || svar_changed
     ) false formatted_svar_names
   in
-
-  let reachability_var_names =
-    List.map name_of_state_var reachability_svars
-  in
-  let formatted_svar_names = List.filter (fun (var, _, _) ->
-    not (List.exists (String.equal var) reachability_var_names)
-  ) formatted_svar_names in
 
   if any_change then
     Format.fprintf ppf "(%a %a)"
@@ -269,10 +257,6 @@ let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k =
       name_of_state_var svar, string_of_bool negated_value, changed
     | _ -> assert false 
   ) reachability_values in
-  let reachability_var_names = List.map (fun (name, _, _) -> name) reachability_values in
-  let formatted_svar_names = List.filter (fun (var, _, _) ->
-    not (List.exists (String.equal var) reachability_var_names) 
-  ) formatted_svar_names in
 
   if any_change then
     Format.fprintf ppf "(%a %a %a)" 
@@ -411,7 +395,7 @@ let cert_name_of_state_var sv =
   let usr = List.hd LustreIdent.user_scope in
   match StateVar.scope_of_state_var sv with
   | _ when StateVar.is_const sv -> quote name
-  | [ _ ; s ] when s = usr -> quote name
+  | _ when is_declared_state_var sv -> quote name
   | _ :: "ins" :: _ :: rest ->
     (* The instances, each after an "ins", and the scope of the variable in
        the last one *)
@@ -421,7 +405,7 @@ let cert_name_of_state_var sv =
       | _ -> None
     in
     (match instances [] rest with
-     | Some path -> quote (String.concat "::" (path @ [ name ]))
+     | Some path -> path_name path name
      | None -> quote ("@" ^ String.concat "::" (List.tl rest @ [ name ])))
   | _ -> quote ("@" ^ name)
 
@@ -592,9 +576,16 @@ let pp_print_prop_result _ppf prop =
   | PropKTrue _ 
   | PropUnknown -> "unknown"
   in
-  Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ %s %s)@]@]@]@,"
-    (quote prop_name) result
-    (prop_result_info prop_name prop_result)
+  (* As in the format of responses of the MoXI paper (SPIN 2024, Fig. 2):
+     [:query (q :result sat :model m :trace t)], and [:query (q :result
+     unknown)] for an answer with no other attribute *)
+  let info =
+    match prop_result_info prop_name prop_result with
+    | "" -> ""
+    | info -> " " ^ info
+  in
+  Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ :result %s%s)@]@]@]@,"
+    (quote prop_name) result info
 
 let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit 
 = fun trans_sys in_sys props ->

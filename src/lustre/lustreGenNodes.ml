@@ -33,6 +33,7 @@ type error_kind =
   | MatchScrutineeQuantifier
   | MatchScrutineeInLocalDecl
   | MatchScrutineeUnsupported
+  | TemporalBranchQuantifiedVariable of HString.t
 
 (* The matches whose scrutinee must be shared, as scrutinee_must_be_shared
    classifies them *)
@@ -62,6 +63,10 @@ let error_message = function
     ^ " cannot appear in the type of a local declaration"
   | MatchScrutineeUnsupported ->
     "A match " ^ shared_scrutinee ^ " is not supported here"
+  | TemporalBranchQuantifiedVariable id ->
+    "Quantified variable '" ^ HString.string_of_hstring id
+    ^ "' is not allowed in a branch of a lazy construct that uses a \
+       temporal operator"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
@@ -693,7 +698,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
        branch of a when-then-else expression (see below) *)
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids gen_nodes2 e2 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes2 e2 in
     BinaryOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2 @ gen_nodes2'
   | BinaryOp (pos, op, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -707,8 +712,8 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_split e2 in
     let e3, gen_nodes3 = rec_split e3 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids gen_nodes2 e2 in
-    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name fun_ids gen_nodes3 e3 in
+    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes2 e2 in
+    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes3 e3 in
     TernaryOp (pos, LazyIte, e1, e2, e3),
     gen_nodes1 @ gen_nodes2 @ gen_nodes2' @ gen_nodes3 @ gen_nodes3'
   | TernaryOp (pos, op, e1, e2, e3) ->
@@ -852,7 +857,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
       let arm_e, gen_nodes =
         desugar_expr ~insert:split_insert ~bound ~quant ?const_pos arm_ctx node_name fun_ids arm_e
       in
-      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids gen_nodes arm_e in
+      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids quant gen_nodes arm_e in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
     let gen_nodes = gen_nodes1 @ List.flatten gen_nodes2 in
@@ -1028,16 +1033,24 @@ fun ctx node_name fun_ids quant gen_decls scrut_ty pos scrut arms ty_opt ->
    'pre'), abstract it into a call to a fresh internal node, so that its
    temporal behavior is driven by the guard. If the branch cannot be abstracted
    here, it is returned as it came in, and the later type-checking pass reports
-   the error, if any. *)
+   the error, if any. The call lies outside the scope of any quantifier around
+   the branch, so the branch cannot mention a variable in [quant]; this is
+   checked once the branch is known to be well typed, so that a type error in
+   the branch is reported as such. *)
 and abstract_temporal_branch:
-  Ctx.tc_context -> NI.t -> NI.t list -> A.declaration list -> A.expr
+  Ctx.tc_context -> NI.t -> NI.t list -> Ctx.SI.t -> A.declaration list -> A.expr
   -> A.expr * A.declaration list =
-fun ctx node_name fun_ids gen_decls orig_e ->
+fun ctx node_name fun_ids quant gen_decls orig_e ->
   match AH.has_pre_or_arrow orig_e with
   | None -> orig_e, []
   | Some _ ->
     match abstract_into_node ctx node_name fun_ids ClockedExpr gen_decls orig_e with
-    | Abstracted (call, decls) -> call, decls
+    | Abstracted (call, decls) -> (
+      let vars = AH.vars_without_node_call_ids orig_e in
+      match Ctx.SI.min_elt_opt (Ctx.SI.inter vars quant) with
+      | Some id ->
+        raise (Gen_nodes_error (AH.pos_of_expr orig_e, TemporalBranchQuantifiedVariable id))
+      | None -> call, decls)
     | UnknownVariable _ | Untyped -> orig_e, []
 
 (* 'restart e every r': abstract [e] into a call to a fresh internal node, and
@@ -1237,7 +1250,7 @@ fun ctx node_name fun_ids ni ->
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
-        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids Ctx.SI.empty gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | _ -> rec_call ni
     in
@@ -1256,7 +1269,7 @@ fun ctx node_name fun_ids ni ->
       match ni with
       | A.Body (A.Equation (epos, lhs, rhs)) ->
         let rhs, gen_nodes1 = desugar_expr ctx node_name fun_ids rhs in
-        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids gen_nodes1 rhs in
+        let rhs, gen_nodes2 = abstract_temporal_branch ctx node_name fun_ids Ctx.SI.empty gen_nodes1 rhs in
         [A.Body (A.Equation (epos, lhs, rhs))], gen_nodes1 @ gen_nodes2
       | A.Body (A.Assert _) | A.IfBlock _ | A.WhenBlock _ | A.MatchBlock _
       | A.RestartBlock _ | A.FrameBlock _ | A.AnnotMain _ | A.AnnotProperty _

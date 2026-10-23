@@ -1,0 +1,8 @@
+-- A temporal branch of a lazy construct is abstracted into a call to a node,
+-- which lies outside the scope of the quantifier, so the branch cannot
+-- mention a quantified variable, even when the guard does not (issue #1757).
+
+node main (x: int) returns ();
+let
+  check forall (k: int) x > 0 ==> (true -> k + x = k + x);
+tel

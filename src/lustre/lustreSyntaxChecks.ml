@@ -59,6 +59,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
   | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
   | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -150,6 +151,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
   | SymbolicArrayIndexInLazyGuardedTemporalBranch idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
+  | SymbolicArrayIndexInTemporalBranch idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' is not allowed in a branch of a lazy construct that uses a temporal operator"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -543,13 +546,21 @@ let build_global_ctx (decls:LustreAst.t) =
         req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
       in
       (stateful', imports)
-    | ContractCall (_, node_id, _, ins, _) ->
+    | ContractCall (_, node_id, ty_args, ins, _) ->
       let arg_has_stateful_op ins =
         List.fold_left
           (fun acc e -> acc || has_stateful_op ctx e)
           false ins
       in
-      (stateful || arg_has_stateful_op ins,
+      (* A type argument carries expressions of its own, which are part of the
+         contract just as the arguments are *)
+      let ty_arg_has_stateful_op ty_args =
+        List.fold_left
+          (fun acc ty ->
+            acc || LAH.fold_lustre_ty ~into_ty_args:true (has_stateful_op ctx) false (||) ty)
+          false ty_args
+      in
+      (stateful || arg_has_stateful_op ins || ty_arg_has_stateful_op ty_args,
        StringSet.add (NI.get_internal_name node_id) imports
       )
     | AssumptionVars _ ->
@@ -1470,11 +1481,14 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
         let* warnings2 = check_const_expr_decl i ctx e in
         Ok (warnings1 @ warnings2)
     )
-    | ContractCall (pos, node_id, _, args, outputs) -> (
+    | ContractCall (pos, node_id, ty_args, args, outputs) -> (
       if StringMap.mem (NI.get_internal_name node_id) ctx.contracts then (
+        (* The expressions a type argument embeds are checked nowhere else *)
+        let* warnings1 = Res.seq (List.map (check_ty ctx f) ty_args) in
         Res.seqM (fun x _ -> x) () (List.map
            (no_a_dangling_identifier ctx pos) outputs) >>
-        check_expr_list ctx f args
+        let* warnings2 = check_expr_list ctx f args in
+        Ok (List.flatten warnings1 @ warnings2)
       )
       else syntax_error pos (UndefinedContract (NI.get_internal_name node_id))
     )
@@ -1510,8 +1524,13 @@ and check_ty ctx f = function
 | RecordType (_, _, tis) -> 
   let* warnings = Res.seq (List.map (fun (_, _, ty) -> check_ty ctx f ty) tis) in 
   Res.ok (List.flatten warnings)
+(* The type arguments of a user type are written at the use site, so they are
+   checked here rather than at the declaration of the type *)
+| UserType (_, ty_args, _) ->
+  let* warnings = Res.seq (List.map (check_ty ctx f) ty_args) in
+  Res.ok (List.flatten warnings)
 | Int _ | Bool _ | SBitVector _ | UBitVector _ 
-| Real _ | AbstractType _ | UserType _ | EnumType _
+| Real _ | AbstractType _ | EnumType _
 | History _ -> Res.ok []
 | ADT (_, _, cons) ->
   let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
@@ -1793,11 +1812,14 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
    (see [LustreGenNodes.abstract_temporal_branch]), which is subject to the
    same restrictions as an explicit call under a lazy guard (see below) *)
 | LA.TernaryOp (_, LazyIte, c, e2, e3) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [e2; e3]
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [[], e2; [], e3]
 | LA.BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [e2]
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [[], e2]
 | LA.Match (_, e, arms, _) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map snd arms)
+  let arm (pat, body) =
+    List.map fst (LAH.pat_bound_vars_with_pos pat), body
+  in
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map arm arms)
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
     ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
@@ -1890,8 +1912,9 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 
 | _ -> Ok []
 
+(* Each branch comes with the variables its pattern binds, if any *)
 and check_temporal_branches ctx branches =
-  let check_branch e =
+  let check_branch (pat_vars, e) =
     match LAH.has_pre_or_arrow e with
     | None -> Ok []
     | Some pos -> (
@@ -1902,7 +1925,20 @@ and check_temporal_branches ctx branches =
       | None -> (
         match symbolic_index_in_lazy_guard ctx with
         | Some v -> syntax_error pos (SymbolicArrayIndexInLazyGuardedTemporalBranch v)
-        | None -> Ok []))
+        | None -> (
+          (* As for an argument of a node call, a symbolic array index in the
+             branch has no known number of values to expand the call over. A
+             quantified variable in the branch is rejected when the branch is
+             abstracted (see [LustreGenNodes.abstract_temporal_branch]). *)
+          let vars =
+            LA.SI.diff (LAH.vars_without_node_call_ids e) (LA.SI.of_list pat_vars)
+          in
+          match
+            List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+              (LA.SI.elements vars)
+          with
+          | Some v -> syntax_error (LAH.pos_of_expr e) (SymbolicArrayIndexInTemporalBranch v)
+          | None -> Ok [])))
   in
   List.fold_left (>>) (Ok []) (List.map check_branch branches)
 
