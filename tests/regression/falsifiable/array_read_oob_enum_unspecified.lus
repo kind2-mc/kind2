@@ -1,0 +1,8 @@
+(* A read out of the bounds of an array of enumerated values denotes a value
+   of the enumerated type, but which one is unspecified (see #1727) *)
+type E = enum { A, B };
+
+node main(a: E^3; i: int) returns ();
+let
+  check (i < 0 or i >= 3) => a[i] = A;
+tel
