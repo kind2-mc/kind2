@@ -1,14 +1,35 @@
 (* A read out of the bounds of an array of enumerated values is unspecified,
    but it denotes a value of the enumerated type (see #1727) *)
 type E = enum { A, B };
+type R = struct { f: E^2 };
 datatype L = LN | LC (h: E, t: L);
 
-node main(a: E^3; m: E^2^3; i, j: int) returns ();
+node main(
+  a, b: E^3; m: E^2^3; r: R^3; x: map<int, E>^3; y: map<int, E^2>;
+  i, j, k: int
+) returns ();
+var
+  s: bool^5;
+  -- The index variable of the comprehension ranges past the size of m
+  t: bool^5^3;
+  -- The index variable of the comprehension ranges past the size of m[q]
+  u: bool^3^4;
 let
+  s = ((a[p] = A or a[p] = B) foreach p)^5;
+  t = (((m[q][p] = A or m[q][p] = B) foreach q)^5 foreach p)^3;
+  u = (((m[q][p] = A or m[q][p] = B) foreach q)^3 foreach p)^4;
+
   check "out of bounds" (i < 0 or i >= 3) => (a[i] = A or a[i] = B);
   check "in bounds" (i >= 0 and i < 3) => (a[i] = A or a[i] = B);
   check "2d" m[i][j] = A or m[i][j] = B;
   check "same index" i = j => a[i] = a[j];
+  check "record field" r[k].f[0] = A or r[k].f[0] = B;
+  check "update" (a[k := b[j]])[i] = A or (a[k := b[j]])[i] = B;
+  check "map in array" x[k][0] = A or x[k][0] = B;
+  check "array in map" y[0][k] = A or y[0][k] = B;
+  check "comprehension" s[4];
+  check "comprehension 2d outer" t[2][4];
+  check "comprehension 2d inner" u[3][2];
   check "roundtrip" LC(a[i], LN).h = a[i];
   check "injective" (LC(a[i], LN) = LC(a[j], LN)) => a[i] = a[j];
 tel

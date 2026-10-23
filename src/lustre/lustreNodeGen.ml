@@ -1727,28 +1727,28 @@ and compile_ast_expr
       )
       compiled_expr
       index_exprs
+    |> X.map (E.mk_in_type_read (index_var_bound bounds))
+
+  (* The exclusive upper bound of the index variable [k] of an equation with
+     the bounds [bounds], if it is a numeral *)
+  and index_var_bound bounds k =
+    match List.nth_opt bounds k with
+    | Some (E.Bound b) when E.is_numeral b -> Some (E.numeral_of_expr b)
+    | _ -> None
 
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
     let index = compiled_i |> X.values |> List.hd in
-    let bounds =
+    let expr_bounds =
       try
         let index_nb = E.int_of_index_var index in
         let _, bounds = Lib.list_extract_nth bounds index_nb in
         bounds
       with Invalid_argument _ | Failure _ -> bounds
     in
-    let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
-    (* The number of array indexes of the read, through the fields of records
-       and tuples between them *)
-    let rec depth = function
-      | A.IndexAccess (_, e, _, Array) -> succ (depth e)
-      | A.IndexAccess (_, e, _, Tuple)
-      | A.FieldProject (_, e, _, RecordField) -> depth e
-      | _ -> 0
-    in
+    let compiled_expr = compile_ast_expr cstate ctx expr_bounds map expr in
     compile_array_index' compiled_expr index
-    |> X.map (E.mk_in_type_read (succ (depth expr)))
+    |> X.map (E.mk_in_type_read (index_var_bound bounds))
 
   and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with

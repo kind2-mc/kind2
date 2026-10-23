@@ -546,10 +546,11 @@ val push_select : t -> t
 (**  Make select from an array and push it *)
 val mk_select_and_push : t -> t -> t
 
-(** [mk_in_type_read depth e] constrains a read [e] of an enumerated value,
-    with [depth] array indexes, to the values of its type when one of the
-    indexes is out of the bounds of the array *)
-val mk_in_type_read : int -> t -> t
+(** [mk_in_type_read index_var_bound e] constrains a read [e] of an
+    enumerated value to the values of its type, unless it is in the bounds
+    at every index. [index_var_bound k] is the exclusive upper bound of the
+    index variable [k], if it is a numeral *)
+val mk_in_type_read : (int -> Numeral.t option) -> t -> t
 
 (* 
    Local Variables:

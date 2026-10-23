@@ -1291,12 +1291,21 @@ let mk_array_index_var i kt =
     expr_step = v;
     expr_type = kt; } 
 
+(* The number of an index variable [t], if it is one *)
+let int_of_index_var_term t =
+  if not (Term.is_free_var t) then None
+  else
+    let v = Term.free_var_of_term t in
+    if not (Var.is_free_var v) then None
+    else
+      let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
+      try Scanf.sscanf s ("__index_%d%_s") (fun i -> Some i)
+      with Scanf.Scan_failure _ -> None
+
 let int_of_index_var { expr_init = t } =
-  if not (Term.is_free_var t) then raise (Invalid_argument "int_of_index_var");
-  let v = Term.free_var_of_term t in
-  let s = Var.hstring_of_free_var v |> HString.string_of_hstring in
-  try Scanf.sscanf s ("__index_%d%_s") (fun i -> i)
-  with Scanf.Scan_failure _ -> raise (Invalid_argument "int_of_index_var")
+  match int_of_index_var_term t with
+  | Some i -> i
+  | None -> raise (Invalid_argument "int_of_index_var")
           
 
 let has_q_index_expr e =
@@ -3656,57 +3665,68 @@ let mk_select_and_push e1 e2 =
 
 (* A read out of the bounds of an array is unspecified, but it denotes a value
    of the type of the elements (see #1727). The elements of an enumerated type
-   are only constrained at the indexes in the bounds of the array, so a read
-   [t] of an enumerated value that may be out of bounds is replaced with
+   are only constrained at the indexes in the bounds of an array of constant
+   size, so a read [t] of an enumerated value, once pushed below
+   if-then-elses, is replaced with
 
-   ite (in_bounds or l <= t <= u) t l
+   ite (l <= t <= u) t l
 
-   where [l] and [u] are the bounds of the type. [in_bounds] is the
-   conjunction of the bounds of the [depth] outermost selects in [t], once
-   pushed below if-then-elses. A read in the bounds is left as is *)
-let in_type_read_term depth t =
-  let rec in_bounds d t acc =
-    if d <= 0 then acc
-    else
-      match Term.destruct t with
-      | Term.T.App (s, [a; i]) when Symbol.is_select s ->
-        let acc =
-          match
-            Type.node_of_type (Type.index_type_of_array (Term.type_of_term a))
-          with
-          | Type.IntRange (Some l, Some u) ->
-            let u = Numeral.(u - one) in
-            if Term.is_numeral i &&
-               Numeral.(l <= Term.numeral_of_term i) &&
-               Numeral.(Term.numeral_of_term i <= u)
-            then acc
-            else Term.mk_leq [Term.mk_num l; i; Term.mk_num u] :: acc
-          | _ -> acc
-        in
-        in_bounds (d - 1) a acc
-      | _ -> acc
+   where [l] and [u] are the bounds of the type. A read is left as is when it
+   is in the bounds at every index: a numeral in the bounds, an index variable
+   [k] whose exclusive upper bound [index_var_bound k] is at most the size of
+   the array, or any index of an array of symbolic size or of a map, whose
+   elements are constrained at every index. A read guarded already is also
+   left as is *)
+let in_type_read_term index_var_bound t =
+  let rec in_bounds t =
+    match Term.destruct t with
+    | Term.T.App (s, [a; i]) when Symbol.is_select s ->
+      (match
+         Type.node_of_type (Type.index_type_of_array (Term.type_of_term a))
+       with
+       | Type.IntRange (Some l, Some u) ->
+         (Term.is_numeral i &&
+          Numeral.(l <= Term.numeral_of_term i) &&
+          Numeral.(Term.numeral_of_term i < u)) ||
+         (Numeral.(l <= zero) &&
+          match int_of_index_var_term i with
+          | Some k -> (
+            match index_var_bound k with
+            | Some b -> Numeral.(b <= u)
+            | None -> false
+          )
+          | None -> false)
+       | _ -> true)
+      && in_bounds a
+    | _ -> true
+  in
+  let in_type t =
+    let l, u = Type.bounds_of_enum (Term.type_of_term t) in
+    Term.mk_leq [Term.mk_num l; t; Term.mk_num u], Term.mk_num l
   in
   let rec in_type_read t =
     match Term.destruct t with
-    | Term.T.App (s, [p; l; r]) when Symbol.is_ite s ->
-      Term.mk_ite p (in_type_read l) (in_type_read r)
-    | Term.T.App (s, [_; _]) when Symbol.is_select s -> (
-      match in_bounds depth t [] with
-      | [] -> t
-      | conds ->
-        let l, u = Type.bounds_of_enum (Term.type_of_term t) in
-        let in_type = Term.mk_leq [Term.mk_num l; t; Term.mk_num u] in
-        Term.mk_ite
-          (Term.mk_or [Term.mk_and conds; in_type]) t (Term.mk_num l)
-    )
+    | Term.T.App (s, [p; e; l]) when Symbol.is_ite s ->
+      let guarded =
+        Term.is_select e &&
+        let p', l' = in_type e in
+        Term.equal p p' && Term.equal l l'
+      in
+      if guarded then t
+      else Term.mk_ite p (in_type_read e) (in_type_read l)
+    | Term.T.App (s, [_; _]) when Symbol.is_select s ->
+      if in_bounds t then t
+      else
+        let p, l = in_type t in
+        Term.mk_ite p t l
     | _ -> t
   in
   in_type_read t
 
-let mk_in_type_read depth ({ expr_init; expr_step; expr_type } as e) =
+let mk_in_type_read index_var_bound ({ expr_init; expr_step; expr_type } as e) =
   if Type.is_enum expr_type then
-    { expr_init = in_type_read_term depth expr_init;
-      expr_step = in_type_read_term depth expr_step;
+    { expr_init = in_type_read_term index_var_bound expr_init;
+      expr_step = in_type_read_term index_var_bound expr_step;
       expr_type }
   else e
 
