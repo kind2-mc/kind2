@@ -94,6 +94,11 @@ end;
 
 A wildcard `_` matches any value and binds no name.
 
+A match whose scrutinee calls a node or uses `any`, `restart`, or a temporal
+`when` branch may not appear in the type of a local declaration, may not read a
+quantified variable in its scrutinee or arms, and may not contain a quantifier
+in its arms. Calls to functions are not subject to these restrictions.
+
 ## Testers
 
 A **tester** `C?(e)` is a Boolean expression that is `true` if and only if `e` was

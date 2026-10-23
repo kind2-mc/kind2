@@ -181,7 +181,7 @@ let type_check declarations =
 
     (* Step 6. Generate nodes for nondeterministic choice operators, type
        ascriptions, temporal expressions in a clocked position, and restarts *)
-    let* node_contract_src = LGN.gen_nodes inlined_ctx node_contract_src in
+    let* node_contract_src, deferred_error = LGN.gen_nodes inlined_ctx node_contract_src in
 
     (* Step 7. Dependency analysis on nodes and contracts *)
     let* (sorted_node_contract_decls, toplevel_nodes, scc_map) =
@@ -190,6 +190,9 @@ let type_check declarations =
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+
+    (* A refusal of step 6 stands now that no type error explains it *)
+    let* () = match deferred_error with None -> Res.ok () | Some e -> Error e in
 
     (* Step 8a. Replace array comprehensions with fresh locals defined by array
        definitions, now that their types are known *)

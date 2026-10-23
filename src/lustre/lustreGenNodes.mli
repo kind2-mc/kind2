@@ -23,9 +23,9 @@ type error_kind =
   | RestartPolymorphic
   | RestartMatchScrutinee
   | MatchScrutineeQuantifiedVariable of HString.t
+  | MatchScrutineeQuantifier
   | MatchScrutineeInLocalDecl
-  | MatchScrutineeUnknownVariable of HString.t
-  | MatchScrutineeUntyped
+  | MatchScrutineeUnsupported
 
 val error_message : error_kind -> string
 
@@ -39,7 +39,8 @@ val is_user_ascription : NodeId.t -> bool
 
 (* Generate nodes/functions for any operators, choose operators, type ascriptions,
    temporal expressions in a clocked position, and restart expressions and
-   blocks *)
+   blocks. Also returns a refusal to report only if the declarations type
+   check, since it is usually caused by a type error. *)
 val gen_nodes : TypeCheckerContext.tc_context -> 
                          LustreAst.declaration list -> 
-                         (LustreAst.declaration list, [> error]) result
+                         (LustreAst.declaration list * [> error] option, [> error]) result

@@ -1486,6 +1486,14 @@ let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
     match load_file "./lustreGenNodes/match_arm_quantified_var.lus" with
     | Error (`LustreGenNodesError (_, MatchScrutineeQuantifiedVariable _)) -> true
     | _ -> false);
+  mk_test "test quantified variable in the scrutinee of a shared-scrutinee match" (fun () ->
+    match load_file "./lustreGenNodes/match_scrutinee_quantified_var.lus" with
+    | Error (`LustreGenNodesError (_, MatchScrutineeQuantifiedVariable _)) -> true
+    | _ -> false);
+  mk_test "test quantifier in an arm of a shared-scrutinee match" (fun () ->
+    match load_file "./lustreGenNodes/match_arm_quantifier.lus" with
+    | Error (`LustreGenNodesError (_, MatchScrutineeQuantifier)) -> true
+    | _ -> false);
   mk_test "test match block with a shared scrutinee under a restart" (fun () ->
     match load_file "./lustreGenNodes/match_block_scrutinee_under_restart.lus" with
     | Error (`LustreGenNodesError (_, RestartMatchScrutinee)) -> true
@@ -1493,6 +1501,19 @@ let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
   mk_test "test shared scrutinee in the type of a local declaration" (fun () ->
     match load_file "./lustreGenNodes/match_scrutinee_in_local_type.lus" with
     | Error (`LustreGenNodesError (_, MatchScrutineeInLocalDecl)) -> true
+    | _ -> false);
+  mk_test "test shared scrutinee is accepted after a local declaration error" (fun () ->
+    ignore (load_file "./lustreGenNodes/match_scrutinee_in_local_type.lus");
+    match load_file "./lustreGenNodes/match_shared_scrutinee_after_local_decl_error.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "test arm type error in a shared-scrutinee match is reported" (fun () ->
+    match load_file "./lustreGenNodes/match_shared_scrutinee_arm_type_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, UnequalMatchArmTypes _)) -> true
+    | _ -> false);
+  mk_test "test shared scrutinee reading an imported mode" (fun () ->
+    match load_file "./lustreGenNodes/match_scrutinee_imported_mode.lus" with
+    | Error (`LustreGenNodesError (_, MatchScrutineeUnsupported)) -> true
     | _ -> false);
   mk_test "test ascribed scrutinee under a quantifier is accepted" (fun () ->
     match load_file "./lustreGenNodes/match_ascribed_scrutinee_quantifier.lus" with
