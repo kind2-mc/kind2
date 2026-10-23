@@ -448,7 +448,8 @@ let is_user_written_node node_id =
   match NI.get_node_type node_id with
   | NI.Component | NI.Contract -> true
   | NI.Environment | NI.Type | NI.Any | NI.Choose | NI.TypeAscription
-  | NI.ClockedExpr | NI.Restarted | NI.DefinedConstant | NI.FreeConstant -> false
+  | NI.ClockedExpr | NI.Restarted | NI.DefinedConstant | NI.FreeConstant
+  | NI.Matched -> false
 
 (* A name bound by an expression or a type shadows the global value it names,
    be it a constant or a datatype constructor.  Pattern resolution reads the
@@ -3494,7 +3495,7 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
       | NI.Component | NI.Contract -> Some ClashFormalParameter
       | NI.Any | NI.Choose -> Some ClashBinder
       | NI.Environment | NI.Type | NI.TypeAscription | NI.ClockedExpr
-      | NI.Restarted | NI.DefinedConstant | NI.FreeConstant -> None
+      | NI.Restarted | NI.DefinedConstant | NI.FreeConstant | NI.Matched -> None
     in
     match what with
     | None -> R.ok ()

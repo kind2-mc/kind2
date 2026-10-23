@@ -1,0 +1,19 @@
+datatype T = A (v: int) | B (w: int);
+
+node nd (x: int) returns (t: T);
+var p: bool;
+let
+  p = true -> false;
+  t = if p then A (1) else B (2);
+tel
+
+node main (x: int; r: bool) returns (ok: bool);
+var y: int;
+let
+  y = match (restart nd (x) every r) with
+      | A (v) : v
+      | B (w) : w
+      end;
+  ok = y = 1 or y = 2;
+  check "ok" ok;
+tel

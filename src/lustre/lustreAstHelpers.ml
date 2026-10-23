@@ -328,6 +328,40 @@ let rec expr_contains_id id = function
 and ty_args_contain_id id ty_args =
   List.exists (fold_lustre_ty ~into_ty_args:true (expr_contains_id id) false (||)) ty_args
 
+let rec expr_contains_quantifier e =
+  let in_ty = fold_lustre_ty ~into_ty_args:true expr_contains_quantifier false (||) in
+  let in_exprs = List.exists expr_contains_quantifier in
+  match e with
+  | Quantifier _ -> true
+  | Ident _ | ModeRef _ | Const _ | Last _
+  | EmptyMap (_, None) | EmptySet (_, None) -> false
+  | EmptyMap (_, Some (kt, vt)) -> in_ty kt || in_ty vt
+  | EmptySet (_, Some ty) | AbstractSymConst (_, ty) -> in_ty ty
+  | FieldProject (_, e, _, _) | UnaryOp (_, _, e) | ConvOp (_, _, e)
+  | Pre (_, e) | Extract (_, e, _, _) | ADTTester (_, e, _) ->
+    expr_contains_quantifier e
+  | AnyOp (_, (_, _, ty), e) | ChooseOp (_, (_, _, ty), e)
+  | TypeAscription (_, e, ty) -> in_ty ty || expr_contains_quantifier e
+  | ArrayComprehension (_, bs, e) ->
+    in_exprs (List.map (fun (_, _, n) -> n) bs) || expr_contains_quantifier e
+  | StructUpdate (_, e1, idx, e2) ->
+    expr_contains_quantifier e1
+    || Option.fold ~none:false ~some:expr_contains_quantifier e2
+    || fold_label_or_index false (||) expr_contains_quantifier idx
+  | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
+  | ArrayConstr (_, e1, e2) | IndexAccess (_, e1, e2, _)
+  | Arrow (_, e1, e2) | Fby (_, e1, e2) | Restart (_, e1, e2) -> in_exprs [e1; e2]
+  | TernaryOp (_, _, e1, e2, e3) -> in_exprs [e1; e2; e3]
+  | GroupExpr (_, _, es) -> in_exprs es
+  | RestartEvery (_, _, es, r) -> in_exprs (r :: es)
+  | Call (_, ty_args, _, es) | ADTTerm (_, ty_args, _, es) ->
+    List.exists in_ty ty_args || in_exprs es
+  | RecordExpr (_, _, ty_args, flds) ->
+    List.exists in_ty ty_args || in_exprs (List.map snd flds)
+  | Match (_, e, arms, ty_opt) ->
+    expr_contains_quantifier e || in_exprs (List.map snd arms)
+    || Option.fold ~none:false ~some:in_ty ty_opt
+
 (* Returns the set of variable names bound by a pattern.
    Before type checking, VarPat is used for both variable bindings and 0-arg
    constructors (disambiguation happens in bind_pattern_ty). This means

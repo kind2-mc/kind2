@@ -129,11 +129,16 @@ let expr_equal ?depth e1 e2 =
   | Ok true -> true
   | Ok false | Error () -> false
 
+(* A local is keyed by its definition and by the sizes of the dimensions of
+   the index variables it is generalized over: the local of a definition over
+   an index variable of size 3 has no elements for an index variable of
+   size 5 *)
 module LocalHash = struct
-  type t = A.expr
-  let equal x y = expr_equal ~depth:6 x y
+  type t = A.expr list * A.expr
+  let equal (sizes1, x) (sizes2, y) =
+    List.equal (expr_equal ~depth:6) sizes1 sizes2 && expr_equal ~depth:6 x y
 
-  let hash = AH.hash (Some 6)
+  let hash (_, x) = AH.hash (Some 6) x
 end
 
 module LocalCache = Hashtbl.Make(LocalHash)
@@ -215,8 +220,23 @@ let qcalls_by_name : qcall_entry StringMap.t ref = ref StringMap.empty
 let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
   SelectorCache.create 20
 
+(* The types of the identifiers generated in the node being normalized, which
+   the locals generated for an expression do not always record: a local
+   reused from [local_cache], an oracle, or the output of a call, is not
+   among them. The
+   type of the output of a call is only inferred when it is needed. The body
+   of an inlined call is typed with the types of the identifiers in its
+   normalized arguments (see [normalize_expr]) *)
+let generated_types : A.lustre_type Lazy.t HString.HStringHashtbl.t =
+  HString.HStringHashtbl.create 20
+
+let add_generated_type id ty =
+  if not (HString.HStringHashtbl.mem generated_types id) then
+    HString.HStringHashtbl.add generated_types id ty
+
 let clear_cache () =
   LocalCache.clear local_cache;
+  HString.HStringHashtbl.clear generated_types;
   NodeArgCache.clear node_arg_cache;
   shared_calls := [];
   qcalls_by_name := StringMap.empty;
@@ -519,18 +539,46 @@ let rec process_for_display expr =
   | A.UnaryOp (_, A.Not, A.UnaryOp (_, A.Not, e)) -> process_for_display e
   | e -> e
 
-let generalize_to_array_expr name ind_vars expr nexpr =
-  let (eq_lhs, nexpr) =
-    match get_inductive_vars ind_vars expr with
-    | [] ->
-      A.StructDef (dpos, [SingleIdent (dpos, name)]), nexpr
-    | ind_vars ->
-      A.StructDef (dpos, [ArrayDef (dpos, name, ind_vars)]),
-      List.fold_left (fun acc ind_var -> 
-        A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)  
-      ) nexpr ind_vars 
+(* The left-hand side of the equation of [name], defined by [expr], over the
+   index variables [expr] mentions, followed by [indices], and [nexpr]
+   indexed by those index variables *)
+let generalize_to_array_expr ?(indices = []) name ind_vars expr nexpr =
+  let ind_vars = get_inductive_vars ind_vars expr in
+  let eq_lhs =
+    match ind_vars @ indices with
+    | [] -> A.StructDef (dpos, [SingleIdent (dpos, name)])
+    | is -> A.StructDef (dpos, [ArrayDef (dpos, name, is)])
+  in
+  let nexpr =
+    List.fold_left (fun acc ind_var ->
+      A.IndexAccess (dpos, acc, A.Ident (dpos, ind_var), Array)
+    ) nexpr ind_vars
   in
   eq_lhs, nexpr
+
+(* The type of a local defined by [expr], of type [ty], that
+   [generalize_to_array_expr] generalizes to an array over the index variables
+   [expr] mentions: [ty] wrapped in the dimensions those variables range
+   over *)
+let generalized_type pos ind_vars ty expr =
+  List.fold_right
+    (fun id acc ->
+      let (_, size, _, _) = StringMap.find id ind_vars in
+      A.ArrayType (pos, (acc, size)))
+    (get_inductive_vars ind_vars expr)
+    ty
+
+(* [if var = 0 then e0 else if var = 1 then e1 else ... e(n-1)] for the
+   non-empty list [e0; ...; e(n-1)] *)
+let ite_over_index var es =
+  let rec ite k = function
+    | [] -> assert false
+    | [e] -> e
+    | e :: es ->
+      let cond = A.CompOp (dpos, A.Eq, A.Ident (dpos, var), mk_index k) in
+      A.TernaryOp (dpos, A.Ite, cond, e, ite (k + 1) es)
+  in
+  ite 0 es
 
 (* The output of an inlinable function applied to [args]: the right-hand side
    of the equation of the output, with each local variable replaced by its own
@@ -867,22 +915,33 @@ let mk_fresh_oracle expr_type expr =
   let nexpr = A.Ident (Lib.dummy_pos, name) in
   let gids = { (empty ()) with
     oracles = [name, expr_type, expr]; }
-  in nexpr, name, gids
+  in
+  add_generated_type name (Lazy.from_val expr_type);
+  nexpr, name, gids
 
-let mk_fresh_local force info pos ind_vars expr_type expr =
-  match (LocalCache.find_opt local_cache expr, force) with
+let mk_fresh_local ?indices force info pos ind_vars expr_type expr =
+  let key =
+    List.map
+      (fun id -> let (_, size, _, _) = StringMap.find id ind_vars in size)
+      (get_inductive_vars ind_vars expr),
+    expr
+  in
+  match (LocalCache.find_opt local_cache key, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
   let name = HString.concat2 prefix (HString.mk_hstring "_glocal") in
   let nexpr = A.Ident (pos, name) in
-  let (eq_lhs, nexpr) = generalize_to_array_expr name ind_vars expr nexpr in
+  let (eq_lhs, nexpr) =
+    generalize_to_array_expr ?indices name ind_vars expr nexpr
+  in
   let gids = { (empty ()) with
     locals = StringMap.singleton name expr_type;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
-  LocalCache.add local_cache expr nexpr;
+  LocalCache.add local_cache key nexpr;
+  add_generated_type name (Lazy.from_val expr_type);
   nexpr, gids
 
 (* A 'pre' guarded by an enclosing '->' is left bare by the normalization, and
@@ -1014,11 +1073,6 @@ let declare_history_vars gids =
 
 let get_expr_ty info map node_id expr =
   let ty =
-  let ivars = info.inductive_variables in
-  if expr_has_inductive_var ivars expr then
-    let _, (_, _, _, ty) = (StringMap.choose_opt info.inductive_variables) |> get in 
-    ty 
-  else
     let ctx =
       match node_id with 
       | Some node_id -> (
@@ -1034,6 +1088,19 @@ let get_expr_ty info map node_id expr =
     in
     Chk.infer_type_expr ctx node_id expr |> unwrap |> (fun (ty, _, _) -> ty) in
   Chk.expand_type_syn_reftype_history info.context ty |> unwrap
+
+(* Record the type of [nexpr], the identifier a call [call] is abstracted to,
+   which stands for the output of the call projected by
+   [info.local_group_projection], if any *)
+let add_call_output_type info map node_id call nexpr =
+  match nexpr with
+  | A.Ident (_, id) ->
+    add_generated_type id (lazy (
+      match get_expr_ty info map node_id call with
+      | A.GroupType (_, tys) when info.local_group_projection >= 0 ->
+        List.nth tys info.local_group_projection
+      | ty -> ty))
+  | _ -> ()
 
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
@@ -2319,11 +2386,7 @@ and abstract_expr ?guard ?ty ?(def = Fun.id) force info (node_id : NI.t option) 
     let ty =
       match ty with
       | Some ty -> ty
-      | None when expr_has_inductive_var ivars expr ->
-        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-        ty
-      | None ->
-        Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty
+      | None -> generalized_type pos ivars (infer_type info node_id expr) (def nexpr)
     in
     let iexpr, gids2 = mk_fresh_local force info pos ivars ty (def nexpr) in
     iexpr, union gids1 gids2, warnings
@@ -2410,12 +2473,7 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base
            generalize_to_array_expr uses, so its type mirrors the dimensions
            those variables range over *)
         let local_type e =
-          List.fold_right
-            (fun id acc ->
-              let (_, size, _, _) = StringMap.find id info.inductive_variables in
-              A.ArrayType (pos, (acc, size)))
-            (get_inductive_vars info.inductive_variables e)
-            (A.Bool pos)
+          generalized_type pos info.inductive_variables (A.Bool pos) e
         in
         (* Introduce locals to abstract the pre operands *)
         let shift_gids = ref (empty ()) in
@@ -2550,25 +2608,42 @@ and call_context_depends_on_quant_vars info =
    the arguments do not mention. A call applied to them in the guard is
    replaced by a call to the same callee applied to the constants, which
    stays applied to the variables of the quantifiers of the guard itself. The
-   constants being unconstrained, the obligations hold at the instance if and
-   only if they hold for all the values of the variables that satisfy the
-   guard. Nested quantifiers bind distinct names (see [normalize_expr]), so a
+   constants being unconstrained, but for the constraints of the types of the
+   variables, which are conjoined to the guard, the obligations hold at the
+   instance if and only if they hold for all the values of the variables that
+   satisfy the guard. Nested quantifiers bind distinct names (see [normalize_expr]), so a
    name in the guard denotes the variable of the call's quantifiers with that
    name, if any *)
 and close_guard info vmap conj =
-  let deps = quant_deps info conj in
   let is_outer v =
     List.exists (fun (_, q, _) -> HString.equal v q) info.quantified_variables
   in
-  let vmap, info, gids =
-    List.fold_left
-      (fun (vmap, info, gids) (pos_v, v, ty) ->
-        if A.SI.mem v deps && not (List.mem_assoc v vmap) then
-          let nexpr, id, gids' = mk_fresh_constant pos_v "_quant_arg" ty in
-          (v, nexpr) :: vmap, add_ty_to_info info id ty, union gids gids'
-        else vmap, info, gids)
-      (vmap, info, empty ())
-      info.quantified_variables
+  (* The constraints of the type of a variable are conjoined to the guard
+     (see [mk_quant_arg_constant]), and may depend on more of the variables,
+     each bound by an enclosing quantifier *)
+  let rec close_vars conj deps vmap info gids =
+    match
+      List.find_opt
+        (fun (_, v, _) -> A.SI.mem v deps && not (List.mem_assoc v vmap))
+        info.quantified_variables
+    with
+    | None -> conj, vmap, info, gids
+    | Some (pos_v, v, ty) ->
+      let nexpr, id, base_ty, constraints, gids' =
+        mk_quant_arg_constant info pos_v (A.Ident (pos_v, v)) ty
+      in
+      let conj, deps =
+        List.fold_left
+          (fun (conj, deps) c ->
+            A.BinaryOp (dpos, A.And, c, conj),
+            A.SI.union deps (quant_deps info c))
+          (conj, deps) constraints
+      in
+      close_vars conj deps ((v, nexpr) :: vmap)
+        (add_ty_to_info info id base_ty) (union gids gids')
+  in
+  let conj, vmap, info, gids =
+    close_vars conj (quant_deps info conj) vmap info (empty ())
   in
   let gids = ref gids in
   let info = ref info in
@@ -2609,6 +2684,22 @@ and close_guard info vmap conj =
   in
   let conj = close conj in
   conj, !info, !gids
+
+(* The free constant that stands for a variable bound by an enclosing
+   quantifier, or the index variable of a comprehension, of type [ty], in the
+   arguments or the guard of an instance retained outside of them, and the
+   constraints of [ty] on it, in terms of [var] (the variable as it occurs).
+   The constant is of the base type of [ty]: a refinement of it may mention
+   an input or a local of the node, which is out of scope where the range of
+   a free constant is asserted (see #1820). Asserting the range would also
+   restrict the inputs to those for which the type is not empty. The
+   constraints gate the instance instead, as a guard, so that its obligations
+   hold for all the values of the type *)
+and mk_quant_arg_constant info pos_v var ty =
+  let base_ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+  let nexpr, id, gids = mk_fresh_constant pos_v "_quant_arg" base_ty in
+  let constraints = mk_ref_type_expr info.adt_map info.context None var ty in
+  nexpr, id, base_ty, constraints, gids
 
 (* [inlined] marks the instance of a call that is inlined, or compiled to an
    application of the functional symbol of the callee, which is the case of
@@ -2770,14 +2861,7 @@ and select_instance info var count ty instance =
     | A.ArrayType _ ->
       A.IndexAccess
         (dpos, A.GroupExpr (dpos, ArrayExpr, instances), A.Ident (dpos, var), A.Array)
-    | _ ->
-      List.fold_left
-        (fun (k, acc) e ->
-          let cond = A.CompOp (dpos, A.Eq, A.Ident (dpos, var), mk_index k) in
-          k + 1, A.TernaryOp (dpos, A.Ite, cond, e, acc))
-        (1, List.hd instances)
-        (List.tl instances)
-      |> snd
+    | _ -> ite_over_index var instances
 
 and combine_args_with_const info args flags =
   let output_arity = List.map (fun e -> match e with
@@ -2803,11 +2887,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   let abstract_array_literal info expr nexpr =
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
-    let ty = if expr_has_inductive_var ivars expr then
-      let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-      ty
-    else 
-      Chk.infer_type_expr info.context node_id expr |> unwrap |> fun (ty, _, _) -> ty in 
+    (* A literal is typed by its first element, as [[i, B[i]]] by the type
+       of [i], whose range the other elements may fall outside of *)
+    let ty =
+      infer_type info node_id expr
+      |> Chk.expand_type_syn_reftype_history info.context |> unwrap
+    in
+    match nexpr with
+    | A.GroupExpr (_, ArrayExpr, nexprs) when expr_has_inductive_var ivars nexpr ->
+      (* A literal that mentions index variables of the enclosing array
+         equation is defined element by element, over those variables and an
+         index [k], as in [l[i][k] = if k = 0 then e0 else e1], rather than
+         from the expanded literal (see #1748). The name of [k] is fixed, and
+         no generated name starts with '0', so that identical literals have
+         identical definitions, which share a local *)
+      let k = HString.mk_hstring "0_idx" in
+      let rhs = ite_over_index k nexprs in
+      mk_fresh_local ~indices:[k] false info pos ivars
+        (generalized_type pos ivars ty rhs) rhs
+    | _ ->
     let nexpr, gids = mk_fresh_local false info pos ivars ty nexpr in
     let id =
       match nexpr with
@@ -2835,12 +2933,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     else
       let ivars = info.inductive_variables in
       let pos = AH.pos_of_expr expr in
-      let ty = if expr_has_inductive_var ivars expr then
-        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-        ty
-      else
-        infer_type info node_id expr
-      in
+      let ty = generalized_type pos ivars (infer_type info node_id expr) nexpr in
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
@@ -2879,7 +2972,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         with
         | Some (_, q, _) -> raise (Quantified_call_not_callable (pos, q, id))
         | None -> () ) ;
-    let info, vmap, gids0 =
+    let info, vmap, quant_arg_constraints, gids0 =
       if is_inlinable || is_uf_callable then
         (* Only generate variables if the call can be inlined or compiled to
            an application of the functional symbol of the callee *)
@@ -2901,23 +2994,23 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
           else info.quantified_variables @ ind_vars
         in
         List.fold_left
-          (fun (info, vmap, gids) (pos_v, v, ty) ->
+          (fun (info, vmap, constraints, gids) (pos_v, v, ty) ->
             if A.SI.mem v args_vars then
-              let nexpr, id, gids' =
-                mk_fresh_constant pos_v "_quant_arg" ty
+              let nexpr, id, base_ty, cs, gids' =
+                mk_quant_arg_constant info pos_v (A.Ident (pos_v, v)) ty
               in
               let info =
-                let ctx = Ctx.add_ty info.context id ty in
+                let ctx = Ctx.add_ty info.context id base_ty in
                 { info with context = ctx }
               in
-              (info, (v, nexpr) :: vmap, union gids gids')
+              (info, (v, nexpr) :: vmap, cs @ constraints, union gids gids')
             else
-              (info, vmap, gids)
+              (info, vmap, constraints, gids)
           )
-          (info, [], (empty ()))
+          (info, [], [], (empty ()))
           vars
       else
-        (info, [], empty())
+        (info, [], [], empty())
     in
     let handle_call ?(inlined=false) vmap args =
       let flags = NI.Map.find id info.node_is_input_const in
@@ -2929,6 +3022,22 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let info =
         if vmap = [] then info
         else { info with emit_selector_obligations = false }
+      in
+      (* The constraints of the types of the variables gate the instance (see
+         [mk_quant_arg_constant]), and so do they the calls in its arguments,
+         which are applied to the same constants. They are written in terms of
+         the constants: a call in the arguments would close the variables with
+         constants of its own, which the constraints would then not be on *)
+      let info, gids0 =
+        List.fold_left
+          (fun (info, gids) c ->
+            let c = AH.apply_subst_in_expr vmap c in
+            let nc, gids', _ = normalize_expr info node_id map c in
+            { info with
+              call_context = (nc, c, info.pre_depth) :: info.call_context },
+            union gids gids')
+          (info, empty ())
+          quant_arg_constraints
       in
       (* The instance a call in a decreases measure retains is an instance
          like any other, whose arguments are not part of the measure *)
@@ -2947,7 +3056,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         else
           gids2
       in
-      nexpr, call_name, union gids1 gids2, warnings
+      nexpr, call_name, union_list [gids0; gids1; gids2], warnings
     in
     (* Once a call is inlined, we inline the remaining calls in the body of
      * the inlined function as well. Otherwise, calls inside the inlined
@@ -2978,7 +3087,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         args
       in
       let expr = get_inline_func_expr info.inlinable_funcs id nargs in
-      let inlined_info = { info with inlined_expr_ctx = true } in
+      (* The normalized arguments may refer to identifiers generated in the
+         node (e.g., for an array constructor or a call), whose types the
+         normalization of the body may need to infer *)
+      let inlined_info =
+        let ids =
+          List.fold_left
+            (fun acc e -> A.SI.union acc (AH.vars_without_node_call_ids e))
+            A.SI.empty
+            nargs
+        in
+        A.SI.fold
+          (fun id acc ->
+            if Ctx.member_ty acc.context id then acc
+            else
+              match HString.HStringHashtbl.find_opt generated_types id with
+              | Some ty -> add_ty_to_info acc id (Lazy.force ty)
+              | None -> acc)
+          ids { info with inlined_expr_ctx = true }
+      in
       let nexpr, gids2, warnings2 =
         normalize_expr ?guard inlined_info node_id map expr
       in
@@ -3014,10 +3141,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         args
       in
       let nexpr, gids3 = mk_fresh_qcall info id inst_name pos nargs in
+      add_call_output_type info map node_id call nexpr;
       nexpr, union_list [gids0; gids1; gids2; gids3], warnings1 @ warnings2
     )
     else (
       let nexpr, _, gids, warnings = handle_call vmap args in
+      add_call_output_type info map node_id call nexpr;
       nexpr, gids, warnings
     )
   | RestartEvery (pos, id, args, restart) as call ->
@@ -3037,6 +3166,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nexpr, _, gids3 =
       mk_fresh_call ~instance info id pos cond nrestart nargs None
     in
+    add_call_output_type info map node_id call nexpr;
     let gids = union_list [gids1; gids2; gids3] in
     nexpr, gids, warnings1 @ warnings2
   (* ************************************************************************ *)
@@ -3059,19 +3189,23 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     normalize_expr ?guard info node_id map expr
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
-    let ty, force = if expr_has_inductive_var ivars expr then
-        let _, (_, _, _, ty) = StringMap.choose_opt info.inductive_variables |> get in 
-        ty, true
-      else
-        infer_type info node_id expr, false
-      in
+    let force = expr_has_inductive_var ivars expr in
     let info = { info with pre_depth = info.pre_depth + 1 } in
     let nexpr, gids1, warnings1 = abstract_expr ?guard:None force info node_id map expr in
+    (* The oracle stands for the local that abstracts [expr], below the index
+       variables that index it in [nexpr] *)
+    let ty = generalized_type pos ivars (infer_type info node_id expr) nexpr in
     let guard, gids2, warnings2, previously_guarded = match guard with
       | Some guard -> guard, empty (), [], true
       | None ->
         let guard, _, gids = mk_fresh_oracle ty nexpr in
-        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
+        (* The local a match block binds its scrutinee to is read only in the
+           branch that defines it, so the value it stutters with in a frame
+           block is never observed *)
+        let warnings = match expr with
+          | A.Ident (_, id) when var_is_match_scrutinee id -> []
+          | _ -> [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))]
+        in
         guard, gids, warnings, false
     in
     let gids = union gids1 gids2 in
@@ -3106,6 +3240,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let gids2 =
       let locals =
         let expr_type = infer_type info node_id e in
+        add_generated_type name (Lazy.from_val expr_type);
         StringMap.singleton name expr_type
       in
       let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
@@ -3586,7 +3721,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
    [var] in the condition the calls are made under. The construct is expanded
    as a whole instead, into one instance per index, where [var] is replaced
    with the index ([index]), and every call it makes is the instance for that
-   index.
+   index. So is a construct whose condition makes a call, since the call is
+   expanded into the selection of its instances over [var], which mentions
+   [var] as well.
 
    So is a call whose operands make calls of their own: substituting the index
    into the call once its operands are expanded would rebuild the instances of
@@ -3607,7 +3744,8 @@ and expand_node_calls_in_place ?index info node_id var count expr =
   match AH.lazy_construct expr with
   | Some (cond, guarded)
     when index = None
-      && A.SI.mem var (AH.vars_without_node_call_ids cond)
+      && (A.SI.mem var (AH.vars_without_node_call_ids cond)
+          || AH.expr_contains_call cond)
       && List.exists AH.expr_contains_call guarded ->
     expand_per_index info node_id var count expr
   | _ ->
@@ -3698,9 +3836,10 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
-(* [expr], a lazy construct whose condition mentions [var] or a call whose
-   operands make calls, as a conditional over the indices of [var] selecting
-   the instance of [expr] for each index (see [expand_node_calls_in_place]) *)
+(* [expr], a lazy construct whose condition mentions [var] or makes a call,
+   or a call whose operands make calls, as a conditional over the indices of
+   [var] selecting the instance of [expr] for each index (see
+   [expand_node_calls_in_place]) *)
 and expand_per_index info node_id var count expr =
   let ty = infer_type info (Some node_id) expr in
   select_instance info var count ty (fun k ->

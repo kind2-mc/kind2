@@ -20,7 +20,7 @@ import subprocess
 
 import pytest
 
-from conftest import kmoxi_args, kmoxi_bin, run_timeout
+from conftest import kmoxi_args, kmoxi_bin, run_timeout, query_answer
 
 system = """
 (set-logic QF_BV)
@@ -89,7 +89,7 @@ def test_operator_has_its_smtlib_meaning(tmp_path, name):
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
 
     result = run(tmp_path, f"(not {identities[name]})")
-    assert ":query (q unsat" in result.stdout, result.stdout + result.stderr
+    assert query_answer(result.stdout) == "unsat", result.stdout + result.stderr
 
 
 def test_operator_is_translated(tmp_path):
@@ -97,4 +97,4 @@ def test_operator_is_translated(tmp_path):
         pytest.skip(f"{kmoxi_bin} is not built (make kmoxi)")
 
     result = run(tmp_path, "(= ((_ rotate_left 1) (bvnand x y)) #x01)")
-    assert ":query (q sat" in result.stdout, result.stdout + result.stderr
+    assert query_answer(result.stdout) == "sat", result.stdout + result.stderr

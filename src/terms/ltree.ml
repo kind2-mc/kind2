@@ -1353,18 +1353,19 @@ struct
     fold fail_on_quantifiers f empty_ctx [[]] [FTree (0, t)]
 
 
-  let rec import_lambda = function { H.node = L (i, t) } -> 
+  (* Import a term into the hashcons table by rebuilding it bottom up.
+     [map] rebuilds each node from its subterms once they are rebuilt,
+     so a node's subterms are imported when the node is: the body of a
+     lambda, or the term of an annotation, is not imported again here,
+     only the sorts of the lambda's variables are. Importing the body
+     again would traverse it once per node above it, a time that grows
+     with the square of the length of a chain of nested lets, as a
+     solver writes a formula with shared subterms. *)
+  let import term = 
 
-    let i' = List.map T.import_sort i in
-    
-    let t' = import t in
-
-    hl_lambda i' t'
-    
-
-  (* Import a term into the hashcons table by rebuilding it bottom
-      up *)
-  and import term = 
+    let import_sorts = function { H.node = L (i, t) } ->
+      hl_lambda (List.map T.import_sort i) t
+    in
 
     map
       (function _ -> 
@@ -1375,13 +1376,17 @@ struct
               | BoundVar _ -> n
               | Leaf s -> Leaf (T.import_symbol s)
               | Node (s, l) -> Node (T.import_symbol s, l)
-              | Let (l, b) -> Let (import_lambda l, b)
-              | Exists l -> Exists (import_lambda l)
-              | Forall l -> Forall (import_lambda l)
-              | Annot (t, a) -> Annot (import t, a)
+              | Let (l, b) -> Let (import_sorts l, b)
+              | Exists l -> Exists (import_sorts l)
+              | Forall l -> Forall (import_sorts l)
+              | Annot (t, a) -> Annot (t, a)
           in
           Ht.hashcons (ht ()) n' (prop_of_term_node n'))
       term
+
+  (* Import a lambda abstraction: its sorts and its body *)
+  let import_lambda = function { H.node = L (i, t) } -> 
+    hl_lambda (List.map T.import_sort i) (import t)
 
   (*
   (* Bind free variables in a term and adjust de Bruijn indices *)

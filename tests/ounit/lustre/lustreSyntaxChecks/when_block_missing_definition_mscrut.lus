@@ -1,0 +1,8 @@
+node main (c: bool) returns (ok: bool);
+var mscrut: int;
+let
+  when c then
+    mscrut = 1;
+  end
+  ok = mscrut >= 0;
+tel

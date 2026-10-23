@@ -1,0 +1,21 @@
+-- A stateful node call over the index variable of a comprehension, under a
+-- when expression whose condition makes a node call that does not mention the
+-- index variable (#1750): each instance of the guarded call has a state of
+-- its own, and is initialized at the first step where the condition holds
+node Init(x: int) returns (y: int);
+let
+  y = x -> x + 3;
+tel
+
+node Pos(x: int) returns (b: bool);
+let
+  b = x > 0;
+tel
+
+node main(m: int) returns (B: int^3);
+let
+  B = (when Pos(m) then Init(i) else 0 foreach i)^3;
+  check "range" m > 0 => (B[2] = 2 or B[2] = 5);
+  check "instances" m > 0 => B[2] = B[0] + 2;
+  check "else" m <= 0 => B[1] = 0;
+tel

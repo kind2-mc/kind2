@@ -1,0 +1,6 @@
+-- Neither can a temporal branch of a when-then-else expression (issue #1757).
+
+node main (x: int) returns ();
+let
+  check forall (k: int) (when x > 0 then (0 -> k) else k) = k or x <= 0;
+tel

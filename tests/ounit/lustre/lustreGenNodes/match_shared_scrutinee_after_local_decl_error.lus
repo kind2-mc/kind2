@@ -1,0 +1,8 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd (x: int) returns (t: T);
+
+node main (x: int) returns (ok: bool);
+let
+  ok = (match nd (x) with | A (v) : v | B (w) : w end) >= 0;
+tel

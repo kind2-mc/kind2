@@ -16,11 +16,12 @@ The arrays here have 17-bit indices, 2^17 elements: reading them element by
 element would be slow rather than too large for memory.
 """
 
+import re
 import time
 
 import pytest
 
-from conftest import run_kmoxi_process
+from conftest import run_kmoxi_process, query_answer
 
 sort = "(Array (_ BitVec 17) (_ BitVec 8))"
 
@@ -68,11 +69,16 @@ def run(tmp_path, model, *args):
 def test_state_array(tmp_path, engines):
     res = run(tmp_path, state, *[a for e in engines for a in ("--enable", e)])
     out = res.stdout
-    assert ":query (q sat" in out, out + res.stderr
+    assert query_answer(out) == "sat", out + res.stderr
     # The value of the array, whole: a constant array, possibly with stores,
-    # with the value the reachability condition reads at index 5
-    step = [l for l in out.splitlines() if l.strip().startswith("(3 ")][0]
-    value = step.split("(main::a ", 1)[1]
+    # with the value the reachability condition reads at index 5. The entry
+    # of a is matched from the start of the step, so that only the entry of
+    # the step can match it.
+    entry = re.compile(r"\s*\(3 \(n \S+\) \(a ")
+    steps = [m for m in map(entry.match, out.splitlines()) if m]
+    assert len(steps) == 1, out
+    step = steps[0].string
+    value = step[steps[0].end():]
     assert value.startswith(("(store ", "((as const")), step
     assert f"(as const {sort})" in value and "#b00000111" in value, step
 
@@ -80,7 +86,7 @@ def test_state_array(tmp_path, engines):
 def test_constant_in_model(tmp_path):
     res = run(tmp_path, constant, "--enable", "BMC")
     out = res.stdout
-    assert ":query (q sat" in out, out + res.stderr
+    assert query_answer(out) == "sat", out + res.stderr
     model = out.split(":model", 1)[1].split(":trail", 1)[0]
     assert f"(define-fun t () {sort} (store" in model, model
     # The values the reachability condition reads

@@ -59,6 +59,7 @@ type error_kind = Unknown of string
   | SymbolicArrayIndexInLazyGuardedNodeCall of HString.t * HString.t
   | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
   | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
+  | SymbolicArrayIndexInTemporalBranch of HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -150,6 +151,8 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
   | SymbolicArrayIndexInLazyGuardedTemporalBranch idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
+  | SymbolicArrayIndexInTemporalBranch idx -> "Symbolic array index '"
+    ^ HString.string_of_hstring idx ^ "' is not allowed in a branch of a lazy construct that uses a temporal operator"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -1330,13 +1333,7 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
          plays the role of the guard *)
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
       let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
-      (* Desugaring copies the scrutinee into every constructor tester and field
-         projection, and copies of a node call are separate instances of it *)
-      let* warnings1 =
-        check_expr ctx
-          (fun c e -> no_calls_to_node "the scrutinee of a match block" c e >> f c e)
-          e
-      in
+      let* warnings1 = check_expr ctx f e in
       let pat_vars pat =
         let rec collect = function
           | LA.VarPat (_, id) ->
@@ -1815,11 +1812,14 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
    (see [LustreGenNodes.abstract_temporal_branch]), which is subject to the
    same restrictions as an explicit call under a lazy guard (see below) *)
 | LA.TernaryOp (_, LazyIte, c, e2, e3) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [e2; e3]
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [[], e2; [], e3]
 | LA.BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [e2]
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [[], e2]
 | LA.Match (_, e, arms, _) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map snd arms)
+  let arm (pat, body) =
+    List.map fst (LAH.pat_bound_vars_with_pos pat), body
+  in
+  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map arm arms)
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
     ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
@@ -1912,8 +1912,9 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 
 | _ -> Ok []
 
+(* Each branch comes with the variables its pattern binds, if any *)
 and check_temporal_branches ctx branches =
-  let check_branch e =
+  let check_branch (pat_vars, e) =
     match LAH.has_pre_or_arrow e with
     | None -> Ok []
     | Some pos -> (
@@ -1924,7 +1925,20 @@ and check_temporal_branches ctx branches =
       | None -> (
         match symbolic_index_in_lazy_guard ctx with
         | Some v -> syntax_error pos (SymbolicArrayIndexInLazyGuardedTemporalBranch v)
-        | None -> Ok []))
+        | None -> (
+          (* As for an argument of a node call, a symbolic array index in the
+             branch has no known number of values to expand the call over. A
+             quantified variable in the branch is rejected when the branch is
+             abstracted (see [LustreGenNodes.abstract_temporal_branch]). *)
+          let vars =
+            LA.SI.diff (LAH.vars_without_node_call_ids e) (LA.SI.of_list pat_vars)
+          in
+          match
+            List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+              (LA.SI.elements vars)
+          with
+          | Some v -> syntax_error (LAH.pos_of_expr e) (SymbolicArrayIndexInTemporalBranch v)
+          | None -> Ok [])))
   in
   List.fold_left (>>) (Ok []) (List.map check_branch branches)
 
