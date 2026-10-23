@@ -532,6 +532,8 @@ let post_clean_exit process base_status exn =
      of it that is pending must not precede what is written next, the
      report of the exception first of all *)
   Lib.drop_partial_output () ;
+  (* Nothing written from here on may keep us from killing the solvers *)
+  Lib.tolerate_closed_output () ;
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
   (* Arms on the paths that come here directly; on the path through
@@ -578,6 +580,8 @@ let on_exit ?(results = fun () -> ()) sys process status exn =
   (* The exception may have interrupted a record being written: the piece
      of it that is pending must not precede what is written next *)
   Lib.drop_partial_output () ;
+  (* Nothing written from here on may keep us from killing the solvers *)
+  Lib.tolerate_closed_output () ;
   try
     slaughter_kids ~exiting:true process sys;
     (try results () with
@@ -616,6 +620,7 @@ run a single process without engine domains (interpreter, contract
 monitor). Give the exception [exn] that was raised or [Exit] on normal
 termination. *)
 let on_exit_child process exn =
+  Lib.tolerate_closed_output () ;
   (* Exit status of process depends on exception *)
   let status = status_of_exn process ExitCodes.success exn in
   (* Call cleanup of process *)
@@ -1076,6 +1081,9 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
 let handle_exception process e =
   (* Get backtrace now, Printf changes it *)
   let backtrace = Printexc.get_raw_backtrace () in
+
+  (* What follows is the exit, see [on_exit] *)
+  Lib.tolerate_closed_output () ;
 
   if Printexc.backtrace_status () then
     KEvent.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"

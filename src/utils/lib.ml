@@ -834,6 +834,23 @@ let discarding = ref false
    holds this lock. The channel underneath has a lock of its own. *)
 let out_lock = Mutex.create ()
 
+(* Set once Kind 2 is on its way out, see [tolerate_closed_output] *)
+let exiting = Atomic.make false
+
+let tolerate_closed_output () = Atomic.set exiting true
+
+(* From now on the output goes to the null device. The descriptor of the
+   channel is redirected rather than the channel replaced, so that the
+   writes still pending in the channel, and those made to it through
+   other formatters, succeed as well. On Windows, the descriptor carries
+   the C runtime descriptor of the channel, which [Unix.dup2] redirects
+   too. *)
+let silence_output () =
+  let null = Unix.openfile Filename.null [ Unix.O_WRONLY ] 0 in
+  Fun.protect
+    ~finally:(fun () -> try Unix.close null with Unix.Unix_error _ -> ())
+    (fun () -> Unix.dup2 null (Unix.descr_of_out_channel !out_channel))
+
 (* Current formatter for output *)
 let log_ppf =
   ref
@@ -843,10 +860,21 @@ let log_ppf =
             Buffer.add_substring out_buffer s pos len))
        (fun () ->
           Mutex.protect out_lock (fun () ->
-            if not !discarding then
-              output_string !out_channel (Buffer.contents out_buffer) ;
-            Buffer.clear out_buffer ;
-            flush !out_channel)))
+            let write () =
+              if not !discarding then
+                output_string !out_channel (Buffer.contents out_buffer) ;
+              Buffer.clear out_buffer ;
+              flush !out_channel
+            in
+            (* The reader of the output may have closed it. SIGPIPE is
+               ignored, so the write raises [Sys_error]. On the way out,
+               that must not cut the exit short before it kills the
+               solvers. Should the output fail to be silenced, what was
+               to be written is dropped instead. *)
+            try write () with
+            | Sys_error _ when Atomic.get exiting ->
+              try silence_output () ; write () with
+              | Sys_error _ | Unix.Unix_error _ -> Buffer.clear out_buffer)))
 
 (* Empties the buffer of the output without writing it: what a record
    interrupted by an exception left there. The tokens the formatter holds
