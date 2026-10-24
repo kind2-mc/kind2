@@ -1,0 +1,18 @@
+-- A pattern variable that shadows a constant input changes over time, also
+-- when the type of the scrutinee is not known when temporal operands are
+-- abstracted, as for a restart, so a temporal operand under a guard that
+-- mentions it is abstracted into a call to a node (issue #1837)
+
+datatype T = K | L;
+
+node Id (t: T) returns (r: T);
+let
+  r = t;
+tel
+
+node N (const n: T; s: T) returns ();
+var q: bool;
+let
+  q = s = K;
+  check "p" match (restart Id(s) every false) with | n : (n = K ==> (true -> pre q)) end;
+tel

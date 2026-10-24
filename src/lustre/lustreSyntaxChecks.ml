@@ -324,6 +324,12 @@ type context = {
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
   constructors : StringSet.t;
+  (* The variables bound in the expression being checked, each with whether
+     its value does not change over time: a quantified variable or an array
+     index does not, a pattern variable or a binder of 'any' or 'choose' may.
+     A variable bound outside a refinement predicate may change over time in
+     the predicate, as [LustreGenNodes] makes a node of it. *)
+  binders : bool StringMap.t;
   lazy_cond_vars : LA.SI.t; }
 
 let empty_ctx () = {
@@ -344,6 +350,7 @@ let empty_ctx () = {
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
     constructors = StringSet.empty;
+    binders = StringMap.empty;
     lazy_cond_vars = LA.SI.empty;
   }
 
@@ -383,26 +390,36 @@ let ctx_add_const_local ctx i ty = {
     (ctx_add_local ctx i ty) with const_locals = StringSet.add i ctx.const_locals
   }
 
-let ctx_add_quant_var ctx i ty = {
+let ctx_add_binder ctx i is_time_invariant = {
+    ctx with binders = StringMap.add i is_time_invariant ctx.binders
+  }
+
+let ctx_add_quant_var ctx i ty = ctx_add_binder {
     ctx with quant_vars = StringMap.add i ty ctx.quant_vars;
     ascription_vars = StringSet.remove i ctx.ascription_vars
-  }
+  } i true
+
+(* The context of the predicate of a refinement type with bound variable [i],
+   which is quantified in the generated properties *)
+let ctx_enter_refinement ctx i ty =
+  let ctx = { ctx with binders = StringMap.map (fun _ -> false) ctx.binders } in
+  ctx_add_binder (ctx_add_quant_var ctx i ty) i false
 
 let ctx_add_ascription_var ctx i ty =
-  let ctx = ctx_add_quant_var ctx i ty in
+  let ctx = ctx_enter_refinement ctx i ty in
   { ctx with ascription_vars = StringSet.add i ctx.ascription_vars }
 
-let ctx_add_pattern_var ctx i ty = {
+let ctx_add_pattern_var ctx i ty = ctx_add_binder {
     ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
-  }
+  } i false
 
-let ctx_add_array_index ctx i ty = {
+let ctx_add_array_index ctx i ty = ctx_add_binder {
     ctx with array_indices = StringMap.add i ty ctx.array_indices
-  }
+  } i true
 
-let ctx_add_symbolic_array_index ctx i ty = {
+let ctx_add_symbolic_array_index ctx i ty = ctx_add_binder {
     ctx with symbolic_array_indices = StringMap.add i ty ctx.symbolic_array_indices
-  }
+  } i true
 
 let ctx_add_constructor ctx i = {
     ctx with constructors = StringSet.add i ctx.constructors
@@ -421,18 +438,21 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
   in
   ctx_add_lazy_cond_vars ctx lazy_vars
 
-(* Whether [e] only refers to quantified variables, array indices, constants,
-   enum variants and constructors, so its value does not change over time *)
-let expr_is_time_invariant ctx e =
+(* Whether [e] only refers to bound variables that do not change over time
+   (see [binders]), constants, enum variants and constructors, so its value
+   does not change over time. This is the classification of
+   [LustreGenNodes.guard_is_time_invariant], which decides whether a temporal
+   lazy operand is abstracted into a node. *)
+let guard_is_time_invariant ctx e =
   LAH.expr_is_time_invariant
     (fun v ->
-      StringMap.mem v ctx.quant_vars
-      || StringMap.mem v ctx.array_indices
-      || StringMap.mem v ctx.symbolic_array_indices
-      || StringMap.mem v ctx.consts
-      || StringMap.mem v ctx.free_consts
-      || StringSet.mem v ctx.const_locals
-      || StringSet.mem v ctx.constructors)
+      match StringMap.find_opt v ctx.binders with
+      | Some is_time_invariant -> is_time_invariant
+      | None ->
+        StringMap.mem v ctx.consts
+        || StringMap.mem v ctx.free_consts
+        || StringSet.mem v ctx.const_locals
+        || StringSet.mem v ctx.constructors)
     e
 
 (* A quantified variable, or a symbolic array index, that a guard of the
@@ -865,8 +885,18 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     let op = match expr with LA.Fby _ -> "fby" | _ -> "pre" in
     (* The normalizer rewrites 'pre (a[i])' to '(pre a)[i]' when the index is
        time-invariant, so a quantified variable may appear in such an index *)
+    let index_is_time_invariant =
+      LAH.expr_is_time_invariant
+        (fun v ->
+          StringMap.mem v ctx.quant_vars
+          || StringMap.mem v ctx.array_indices
+          || StringMap.mem v ctx.symbolic_array_indices
+          || StringMap.mem v ctx.consts
+          || StringMap.mem v ctx.free_consts
+          || StringSet.mem v ctx.constructors)
+    in
     let rec check_under_pre = function
-      | LA.IndexAccess (_, e1, i, _) when expr_is_time_invariant ctx i ->
+      | LA.IndexAccess (_, e1, i, _) when index_is_time_invariant i ->
         check_under_pre e1
       | e ->
         let vars = LAH.vars_without_node_call_ids e in
@@ -1518,7 +1548,7 @@ and check_contract: bool -> context -> (context -> LA.expr -> ([> warning] list,
 
 and check_ty ctx f = function 
 | LA.RefinementType (_, (_, i, ty), expr) -> 
-  let ctx = ctx_add_quant_var ctx i (Some ty) in
+  let ctx = ctx_enter_refinement ctx i (Some ty) in
   check_expr ctx f expr
 | GroupType (_, tys) 
 | TupleType (_, tys) -> 
@@ -1743,7 +1773,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
     | AnyOp (pos, (_, i, ty), e) 
     | ChooseOp (pos, (_, i, ty), e) -> 
       let* warnings1 = check_ty ctx f ty in 
-      let extn_ctx = ctx_add_local ctx i (Some ty) in
+      let extn_ctx = ctx_add_binder (ctx_add_local ctx i (Some ty)) i false in
       let warnings2 = 
         (* When using "any <type>" (e.g. "any int") syntax, the parser automatically 
            generates a bound variable with (NI.get_internal_name node_id) "_" that is trivially unused in 'e' *)
@@ -1928,7 +1958,7 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 
 (* Each branch comes with the variables its pattern binds, if any *)
 and check_temporal_branches ctx guard branches =
-  if expr_is_time_invariant ctx guard then Ok [] else
+  if guard_is_time_invariant ctx guard then Ok [] else
   let ctx = ctx_add_lazy_vars_from_guard ctx guard in
   let check_branch (pat_vars, e) =
     match LAH.has_pre_or_arrow e with
@@ -1966,7 +1996,8 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
   match ty with
   | LA.RefinementType (_, (_, i, inner_ty), e) ->
     let ctx_here =
-      if is_nested then ctx_add_quant_var ctx i (Some inner_ty) else ctx
+      if is_nested then ctx_enter_refinement ctx i (Some inner_ty)
+      else { ctx with binders = StringMap.map (fun _ -> false) ctx.binders }
     in
     let* warnings1 = check_expr ctx_here ovq e in
     (* The bound variable is not in scope in its own type *)
