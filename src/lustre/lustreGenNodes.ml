@@ -866,8 +866,14 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
       let arm_e = AH.apply_subst_in_expr subst arm_e in
-      (* A pattern variable shadows a quantified variable of the same name *)
-      let pat_vars = AH.pat_bound_vars_with_pos pat |> List.map fst |> Ctx.SI.of_list in
+      (* A pattern variable shadows a quantified variable of the same name.
+         Type checking has not run yet, so a variable pattern naming a nullary
+         constructor is not a binder (see [resolve_arm]). *)
+      let pat_vars =
+        AH.pat_bound_vars_with_pos pat |> List.map fst
+        |> List.filter (fun id -> Ctx.lookup_constructor ctx id |> Option.is_none)
+        |> Ctx.SI.of_list
+      in
       let quant = Ctx.SI.diff quant pat_vars in
       let index = Ctx.SI.diff index pat_vars in
       let varying = Ctx.SI.union varying pat_vars in
