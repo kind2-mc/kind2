@@ -41,8 +41,8 @@ def test_symbols_quoted(tmp_path):
         "(|x y| 0)",
         "(l |go now|)",
         "(|2t| 0)",
-        # A path is one symbol, quoted when a name along it needs it
-        "(|the call::s v| 0)",
+        # Each name along a path is quoted on its own when it needs it
+        "(|the call|::|s v| 0)",
         "(|reach it| true)",
     ]:
         assert text in out, out + err
