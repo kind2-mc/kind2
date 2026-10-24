@@ -91,6 +91,7 @@ type error_kind =
   | RenamingArity of string * string * int * int
   | RenamingSort of string * sort * string * sort
   | DuplicateFormula of string
+  | FormulaNamedAfterVariable of string
   | DuplicateQuery of string
   | UnknownFormula of string * string
   | SeveralCurrent of string

@@ -95,6 +95,7 @@ type error_kind =
   | RenamingArity of string * string * int * int
   | RenamingSort of string * sort * string * sort
   | DuplicateFormula of string
+  | FormulaNamedAfterVariable of string
   | DuplicateQuery of string
   | UnknownFormula of string * string
   | SeveralCurrent of string
@@ -216,6 +217,9 @@ let error_message = function
       v (string_of_sort s) orig (string_of_sort orig_sort)
   | DuplicateFormula f ->
     Format.sprintf "duplicate condition name '%s'" f
+  | FormulaNamedAfterVariable f ->
+    Format.sprintf
+      "condition name '%s' is the name of a variable of the check-system" f
   | DuplicateQuery q ->
     Format.sprintf "duplicate query name '%s'" q
   | UnknownFormula (q, f) ->
@@ -941,7 +945,8 @@ let check_declare_enum_sort env (decl : A.declare_enum_sort_cmd) =
 (* The variables of a system or check are not named after a function,
    constant or enumeration value, which they would hide in the system.
    Unlike them, the parameters of a function and the variables of a let are
-   bound in a term only, and may shadow them. *)
+   bound in a term only, and may shadow them. Neither are the conditions of
+   a check, which a trail shows next to the constants by their names. *)
 let check_not_global env vars =
   List.iter (fun (span, s, _) ->
     if HSM.mem s env.funs || HSM.mem s env.consts || HSM.mem s env.enum_values
@@ -999,13 +1004,17 @@ let check_check_system env (check : A.check_system_cmd) =
   let vars = vars_of [Input, inputs; Output, outputs; Local, locals] in
   let env = { env with vars; lets = HSM.empty } in
   (* Conditions: assumptions and fairness conditions may prime inputs only,
-     reachability conditions any variable, and initiality conditions none *)
+     reachability conditions any variable, and initiality conditions none.
+     A condition is not named after a variable of the check either, since a
+     trail shows the values of both by their names. *)
   let conditions =
     List.fold_left (fun conditions -> function
       | A.FormulaAttr (ty, ((span, f), term)) ->
         let name = str f in
         if List.exists (fun (g, _) -> HS.equal f g) conditions then
           fail_span span (DuplicateFormula name);
+        check_not_global env [ span, f, () ];
+        if HSM.mem f vars then fail_span span (FormulaNamedAfterVariable name);
         let what attr = Format.sprintf "the %s condition %s" attr name in
         (match ty with
          | A.Assumption ->

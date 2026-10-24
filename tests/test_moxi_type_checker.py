@@ -305,6 +305,34 @@ ill_typed = {
         "  :reachable (r (> y 0)) :reachable (r (< y 0)) :query (q (r)))\n",
         "6:38", "duplicate condition name 'r'",
     ),
+    "condition-named-after-variable": (
+        head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :reachable (y (> y 0)) :query (q (y)))\n",
+        "6:15", "condition name 'y' is the name of a variable of the check-system",
+    ),
+    "assumption-named-after-variable": (
+        head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :assumption (x (> x 0)) :reachable (r (> y 0)) :query (q (x r)))\n",
+        "6:16", "condition name 'x' is the name of a variable of the check-system",
+    ),
+    "condition-named-after-constant": (
+        "(set-logic QF_LIA)\n(declare-const k Int)\n"
+        + head(logic=None) + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :reachable (k (> y k)) :query (q (k)))\n",
+        "7:15", "'k' is already declared, as a constant",
+    ),
+    "condition-named-after-enum-value": (
+        "(set-logic QF_LIA)\n(declare-enum-sort Color (red green))\n"
+        + head(logic=None) + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :reachable (red (> y 0)) :query (q (red)))\n",
+        "7:15", "'red' is already declared, as a constant",
+    ),
+    "condition-named-after-function": (
+        "(set-logic QF_LIA)\n(define-fun f ((a Int)) Int (+ a 1))\n"
+        + head(logic=None) + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :reachable (f (> y (f 0))) :query (q (f)))\n",
+        "7:15", "'f' is already declared, as a constant",
+    ),
     "duplicate-query": (
         head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
         "  :reachable (r (> y 0)) :query (q (r)) :query (q (r)))\n",
