@@ -1,8 +1,8 @@
 -- The right operand of 'or else' is evaluated like a branch of a 'when'
 -- expression, so a temporal operand is abstracted into a call under a guard
--- that mentions the symbolic index.
+-- that mentions the symbolic index and changes over time.
 
-node slide (const n: int) returns (A: bool^n);
+node slide (const n: int; c: bool) returns (A: bool^n);
 let
-  A = (i = 0 or else (false -> pre A[i-1]) foreach i)^n;
+  A = ((i = 0 and c) or else (false -> pre A[i-1]) foreach i)^n;
 tel
