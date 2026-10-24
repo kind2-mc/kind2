@@ -333,6 +333,33 @@ let add_predicates solver old_predicates new_predicates =
   new_predicates ;
   TS.union old_predicates new_predicates
 
+(* [TransSys.get_logic] reports the logic that gets declared to the solver,
+   which is whatever `--smt_logic` says whenever it is not `detect`: it says
+   nothing about the terms then, and `ALL` in particular lists no features at
+   all. Anything the soundness of an answer rests on has to be decided on the
+   terms, so recompute the features the way the `detect` branch of
+   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
+   one. The subsystems are covered too, since their definitions sit behind
+   uninterpreted symbols in the top system's init and trans terms. *)
+let features_of_terms sys =
+  let open TermLib.FeatureSet in
+  TransSys.fold_subsystems ~include_top:true
+    (fun acc t ->
+      TransSys.init_of_bound None t Numeral.zero ::
+      TransSys.trans_of_bound None t Numeral.one ::
+      TransSys.global_constraints t @
+      List.map Property.get_prop_term (TransSys.get_properties t)
+      |> List.fold_left
+           (fun acc term -> union acc (TermLib.logic_of_term [] term))
+           acc)
+    empty
+    sys
+
+let features sys =
+  match TransSys.get_logic sys with
+  | `Inferred l -> l
+  | `SMTLogic _ | `None -> features_of_terms sys
+
 (* Interpolation Group ids for MathSAT *)
 let ig_newid =
   let r = ref 0 in
@@ -364,6 +391,32 @@ let refine fwd solver sys predicates cubes =
         s
 
       | None ->
+
+        (* MathSAT does not support quantifiers, and its SMT-LIB front end
+           does not reject them either: a query over a formula with a
+           quantifier comes back satisfiable, with a model that violates the
+           formula, and IC3IA reported that model as a genuine counterexample
+           to a quantified property whose proof needed a refinement (#1840).
+           OpenSMT refuses quantifiers when its instance is created, with a
+           runtime failure. Decline the system with either instead. This too
+           is reached only once interpolation is actually needed: the solver
+           of the frames is the only one to see the system until then, and a
+           property IC3IA settles without refining is still proved. *)
+        let no_quantifiers =
+          match Flags.Smt.itp_solver () with
+          | `MathSAT_SMTLIB -> Some "MathSAT"
+          | `OpenSMT_SMTLIB -> Some "OpenSMT"
+          | _ -> None
+        in
+        (match no_quantifiers with
+         | Some name when TermLib.FeatureSet.mem TermLib.Q (features sys) ->
+           raise (UnsupportedFeature
+             (Format.sprintf
+                "IC3IA (%s) disabled: %s does not support quantified formulas, \
+                 and the refinement of the abstraction needs them. Use Z3qe or \
+                 cvc5qe instead."
+                name name))
+         | _ -> ()) ;
 
         let produce_interpolants, logic =
           match Flags.Smt.itp_solver () with
@@ -1163,33 +1216,6 @@ let main_ic3ia fwd prop in_sys param sys =
   | Terminate -> ();
 
    SMTSolver.delete_instance solver
-
-(* [TransSys.get_logic] reports the logic that gets declared to the solver,
-   which is whatever `--smt_logic` says whenever it is not `detect`: it says
-   nothing about the terms then, and `ALL` in particular lists no features at
-   all. Anything the soundness of an answer rests on has to be decided on the
-   terms, so recompute the features the way the `detect` branch of
-   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
-   one. The subsystems are covered too, since their definitions sit behind
-   uninterpreted symbols in the top system's init and trans terms. *)
-let features_of_terms sys =
-  let open TermLib.FeatureSet in
-  TransSys.fold_subsystems ~include_top:true
-    (fun acc t ->
-      TransSys.init_of_bound None t Numeral.zero ::
-      TransSys.trans_of_bound None t Numeral.one ::
-      TransSys.global_constraints t @
-      List.map Property.get_prop_term (TransSys.get_properties t)
-      |> List.fold_left
-           (fun acc term -> union acc (TermLib.logic_of_term [] term))
-           acc)
-    empty
-    sys
-
-let features sys =
-  match TransSys.get_logic sys with
-  | `Inferred l -> l
-  | `SMTLogic _ | `None -> features_of_terms sys
 
 let main fwd slice_to_prop prop in_sys param sys =
 
