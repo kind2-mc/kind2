@@ -313,6 +313,8 @@ type context = {
   free_consts : LustreAst.lustre_type option StringMap.t;
   consts : LustreAst.lustre_type option StringMap.t;
   locals : LustreAst.lustre_type option StringMap.t;
+  (* The constant inputs and local constants, among [locals] *)
+  const_locals : StringSet.t;
   quant_vars : LustreAst.lustre_type option StringMap.t;
   (* The bound variables, among [quant_vars], of the refinement types of type
      ascriptions. Such a variable is not quantified: it is the input of the
@@ -335,6 +337,7 @@ let empty_ctx () = {
     free_consts = StringMap.empty;
     consts = StringMap.empty;
     locals = StringMap.empty;
+    const_locals = StringSet.empty;
     quant_vars = StringMap.empty;
     ascription_vars = StringSet.empty;
     pattern_vars = StringMap.empty;
@@ -376,6 +379,10 @@ let ctx_add_local ctx i ty = {
     ctx with locals = StringMap.add i ty ctx.locals
   }
 
+let ctx_add_const_local ctx i ty = {
+    (ctx_add_local ctx i ty) with const_locals = StringSet.add i ctx.const_locals
+  }
+
 let ctx_add_quant_var ctx i ty = {
     ctx with quant_vars = StringMap.add i ty ctx.quant_vars;
     ascription_vars = StringSet.remove i ctx.ascription_vars
@@ -413,6 +420,20 @@ let ctx_add_lazy_vars_from_guard ctx guard_expr =
       vars
   in
   ctx_add_lazy_cond_vars ctx lazy_vars
+
+(* Whether [e] only refers to quantified variables, array indices, constants,
+   enum variants and constructors, so its value does not change over time *)
+let expr_is_time_invariant ctx e =
+  LAH.expr_is_time_invariant
+    (fun v ->
+      StringMap.mem v ctx.quant_vars
+      || StringMap.mem v ctx.array_indices
+      || StringMap.mem v ctx.symbolic_array_indices
+      || StringMap.mem v ctx.consts
+      || StringMap.mem v ctx.free_consts
+      || StringSet.mem v ctx.const_locals
+      || StringSet.mem v ctx.constructors)
+    e
 
 (* A quantified variable, or a symbolic array index, that a guard of the
    enclosing lazy constructs mentions *)
@@ -585,7 +606,7 @@ let build_contract_ctx ctx eqns =
     | LA.GhostConst (UntypedConst (_, i, _)) -> ctx_add_const acc i None
     | LA.GhostConst (TypedConst (_, i, _, ty)) -> ctx_add_const acc i (Some ty)
     | LA.GhostVars (_, GhostVarDec (_, l), _) -> 
-      List.fold_left (fun acc (_, i, ty) -> ctx_add_const acc i (Some ty)) acc l
+      List.fold_left (fun acc (_, i, ty) -> ctx_add_local acc i (Some ty)) acc l
 
     | _ -> acc
   in
@@ -593,12 +614,14 @@ let build_contract_ctx ctx eqns =
 
 let build_local_ctx ctx locals inputs outputs =
   let over_locals acc = function
-    | LA.NodeConstDecl (_, FreeConst (_, i, ty)) -> ctx_add_local acc i (Some ty)
-    | NodeConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_local acc i None
-    | NodeConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_local acc i (Some ty)
+    | LA.NodeConstDecl (_, FreeConst (_, i, ty)) -> ctx_add_const_local acc i (Some ty)
+    | NodeConstDecl (_, UntypedConst (_, i, _)) -> ctx_add_const_local acc i None
+    | NodeConstDecl (_, TypedConst (_, i, _, ty)) -> ctx_add_const_local acc i (Some ty)
     | NodeVarDecl (_, (_, i, ty, _)) -> ctx_add_local acc i (Some ty)
   in
-  let over_inputs acc (_, i, ty, _, _) = ctx_add_local acc i (Some ty) in
+  let over_inputs acc (_, i, ty, _, is_const) =
+    if is_const then ctx_add_const_local acc i (Some ty) else ctx_add_local acc i (Some ty)
+  in
   let over_outputs acc (_, i, ty, _) = ctx_add_local acc i (Some ty) in
   let ctx = List.fold_left over_locals ctx locals in
   let ctx = List.fold_left over_inputs ctx inputs in
@@ -842,18 +865,8 @@ let no_quant_var_or_symbolic_index_in_node_call ctx = function
     let op = match expr with LA.Fby _ -> "fby" | _ -> "pre" in
     (* The normalizer rewrites 'pre (a[i])' to '(pre a)[i]' when the index is
        time-invariant, so a quantified variable may appear in such an index *)
-    let index_is_time_invariant =
-      LAH.expr_is_time_invariant
-        (fun v ->
-          StringMap.mem v ctx.quant_vars
-          || StringMap.mem v ctx.array_indices
-          || StringMap.mem v ctx.symbolic_array_indices
-          || StringMap.mem v ctx.consts
-          || StringMap.mem v ctx.free_consts
-          || StringSet.mem v ctx.constructors)
-    in
     let rec check_under_pre = function
-      | LA.IndexAccess (_, e1, i, _) when index_is_time_invariant i ->
+      | LA.IndexAccess (_, e1, i, _) when expr_is_time_invariant ctx i ->
         check_under_pre e1
       | e ->
         let vars = LAH.vars_without_node_call_ids e in
@@ -1810,16 +1823,17 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   | None -> Ok [])
 (* A temporal branch of a lazy construct is abstracted into a call to a node
    (see [LustreGenNodes.abstract_temporal_branch]), which is subject to the
-   same restrictions as an explicit call under a lazy guard (see below) *)
+   same restrictions as an explicit call under a lazy guard (see below). A
+   branch whose guard does not change over time is kept in place instead. *)
 | LA.TernaryOp (_, LazyIte, c, e2, e3) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx c) [[], e2; [], e3]
+  check_temporal_branches ctx c [[], e2; [], e3]
 | LA.BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e1) [[], e2]
+  check_temporal_branches ctx e1 [[], e2]
 | LA.Match (_, e, arms, _) ->
   let arm (pat, body) =
     List.map fst (LAH.pat_bound_vars_with_pos pat), body
   in
-  check_temporal_branches (ctx_add_lazy_vars_from_guard ctx e) (List.map arm arms)
+  check_temporal_branches ctx e (List.map arm arms)
 | LA.Call (pos, tys, node_id, args) ->
   if StringSet.mem (NI.get_name node_id) ctx.constructors then 
     ovq_check_expr inlinable_funcs tc_ctx ctx (ADTTerm (pos, tys, (NI.get_name node_id), args)) 
@@ -1913,7 +1927,9 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 | _ -> Ok []
 
 (* Each branch comes with the variables its pattern binds, if any *)
-and check_temporal_branches ctx branches =
+and check_temporal_branches ctx guard branches =
+  if expr_is_time_invariant ctx guard then Ok [] else
+  let ctx = ctx_add_lazy_vars_from_guard ctx guard in
   let check_branch (pat_vars, e) =
     match LAH.has_pre_or_arrow e with
     | None -> Ok []

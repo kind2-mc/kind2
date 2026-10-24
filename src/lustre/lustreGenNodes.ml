@@ -576,19 +576,20 @@ fun ctx node_name fun_ids ty ->
 
 (* Ascriptions are inserted for record and constructor expressions only when
    insert holds, as they are not allowed where a constant expression is
-   expected. bound holds the variables bound inside the expression, and quant
-   those of them bound by a quantifier and not shadowed by an inner binder. *)
-and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?quant:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
-fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos ctx node_name fun_ids expr -> 
+   expected. bound holds the variables bound inside the expression, quant
+   those of them bound by a quantifier and not shadowed by an inner binder, and
+   index those bound by an array comprehension and not shadowed. *)
+and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?quant:Ctx.SI.t -> ?index:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
+fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = Ctx.SI.empty) ?const_pos ctx node_name fun_ids expr -> 
   (* const_pos flags the values of the expression that must be constant. Each
      is passed to the sub-expression giving it; shared ones are constant if any is. *)
   let split_insert = insert in
-  let rec_split = desugar_expr ~insert:split_insert ~bound ~quant ?const_pos ctx node_name fun_ids in
+  let rec_split = desugar_expr ~insert:split_insert ~bound ~quant ~index ?const_pos ctx node_name fun_ids in
   let insert = match const_pos with
     | Some flags -> insert && not (List.exists Fun.id flags)
     | None -> insert
   in
-  let rec_call = desugar_expr ~insert ~bound ~quant ctx node_name fun_ids in
+  let rec_call = desugar_expr ~insert ~bound ~quant ~index ctx node_name fun_ids in
   (* Expressions whose arities do not match the flags (as in an ill-typed
      program, rejected later) are treated as constant *)
   let desugar_split ~insert es flags =
@@ -597,7 +598,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
       | None -> List.map (fun _ -> [true]) es
     in
     List.map2 (fun const_pos e ->
-      desugar_expr ~insert ~bound ~quant ~const_pos ctx node_name fun_ids e
+      desugar_expr ~insert ~bound ~quant ~index ~const_pos ctx node_name fun_ids e
     ) slices es |> List.split
   in
   (* Arguments for constant parameters of node id must be constant expressions *)
@@ -625,6 +626,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
        are generated in a context that holds it *)
     let expr1, gen_nodes =
       desugar_expr ~insert ~bound:(Ctx.SI.add id bound) ~quant:(Ctx.SI.remove id quant)
+        ~index:(Ctx.SI.remove id index)
         (Ctx.add_ty (Ctx.remove_const ctx id) id ty) node_name fun_ids expr1
     in
     let span = { A.start_pos = pos; A.end_pos = pos } in
@@ -696,9 +698,12 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
   | BinaryOp (pos, (AndThen | OrElse | LazyImpl as op), e1, e2) ->
     (* The right operand of a lazy Boolean operator is evaluated like a
        branch of a when-then-else expression (see below) *)
+    let invariant = guard_is_time_invariant ctx quant index e1 in
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_call e2 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes2 e2 in
+    let e2, gen_nodes2' =
+      abstract_lazy_operand ctx node_name fun_ids quant invariant gen_nodes2 e2
+    in
     BinaryOp (pos, op, e1, e2), gen_nodes1 @ gen_nodes2 @ gen_nodes2'
   | BinaryOp (pos, op, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -709,11 +714,16 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
        guard clock. When a branch is a temporal expression (it uses '->' or
        'pre'), abstract it into a call to a fresh internal node so that its
        temporal behavior is driven by the guard. *)
+    let invariant = guard_is_time_invariant ctx quant index e1 in
     let e1, gen_nodes1 = rec_call e1 in
     let e2, gen_nodes2 = rec_split e2 in
     let e3, gen_nodes3 = rec_split e3 in
-    let e2, gen_nodes2' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes2 e2 in
-    let e3, gen_nodes3' = abstract_temporal_branch ctx node_name fun_ids quant gen_nodes3 e3 in
+    let e2, gen_nodes2' =
+      abstract_lazy_operand ctx node_name fun_ids quant invariant gen_nodes2 e2
+    in
+    let e3, gen_nodes3' =
+      abstract_lazy_operand ctx node_name fun_ids quant invariant gen_nodes3 e3
+    in
     TernaryOp (pos, LazyIte, e1, e2, e3),
     gen_nodes1 @ gen_nodes2 @ gen_nodes2' @ gen_nodes3 @ gen_nodes3'
   | TernaryOp (pos, op, e1, e2, e3) ->
@@ -755,17 +765,17 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
     GroupExpr (pos, kind, expr_list), List.flatten gen_nodes
   | StructUpdate (pos, e1, idx, Some e2) ->
     let e1, gen_nodes1 = rec_call e1 in
-    let idx, gen_nodes_idx = desugar_indices ~insert ~bound ~quant ctx node_name fun_ids idx in
+    let idx, gen_nodes_idx = desugar_indices ~insert ~bound ~quant ~index ctx node_name fun_ids idx in
     let e2, gen_nodes2 = rec_call e2 in
     StructUpdate (pos, e1, idx, Some e2), gen_nodes1 @ gen_nodes_idx @ gen_nodes2
   | StructUpdate (pos, e, idx, None) ->
     let e, gen_nodes1 = rec_call e in
-    let idx, gen_nodes2 = desugar_indices ~insert ~bound ~quant ctx node_name fun_ids idx in
+    let idx, gen_nodes2 = desugar_indices ~insert ~bound ~quant ~index ctx node_name fun_ids idx in
     StructUpdate (pos, e, idx, None), gen_nodes1 @ gen_nodes2
   | ArrayConstr (pos, e1, e2) ->
     let e1, gen_nodes1 = rec_call e1 in
     (* The size must be a constant expression *)
-    let e2, gen_nodes2 = desugar_expr ~insert:false ~bound ~quant ctx node_name fun_ids e2 in
+    let e2, gen_nodes2 = desugar_expr ~insert:false ~bound ~quant ~index ctx node_name fun_ids e2 in
     ArrayConstr (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | IndexAccess (pos, e1, e2, kind) ->
     let e1, gen_nodes1 = rec_call e1 in
@@ -785,13 +795,14 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
     let ids = Ctx.SI.of_list (List.map (fun (_, id, _) -> id) tis) in
     let bound = Ctx.SI.union bound ids in
     let quant = Ctx.SI.union quant ids in
-    let e, gen_nodes = desugar_expr ~insert ~bound ~quant body_ctx node_name fun_ids e in
+    let index = Ctx.SI.diff index ids in
+    let e, gen_nodes = desugar_expr ~insert ~bound ~quant ~index body_ctx node_name fun_ids e in
     Quantifier (pos, kind, tis, e), List.flatten gen_nodes_ty @ gen_nodes
   | ArrayComprehension (pos, bs, e) ->
     (* The sizes must be constant expressions, as the size of an array
        constructor *)
     let bs, gen_nodes_bs = List.map (fun (p, id, n) ->
-      let n, gen_nodes = desugar_expr ~insert:false ~bound ~quant ctx node_name fun_ids n in
+      let n, gen_nodes = desugar_expr ~insert:false ~bound ~quant ~index ctx node_name fun_ids n in
       (p, id, n), gen_nodes
     ) bs |> List.split in
     (* The index variables are integers bound in the body, as the binders of a
@@ -803,7 +814,8 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
     let ids = Ctx.SI.of_list (List.map (fun (_, id, _) -> id) bs) in
     let bound = Ctx.SI.union bound ids in
     let quant = Ctx.SI.diff quant ids in
-    let e, gen_nodes = desugar_expr ~insert ~bound ~quant body_ctx node_name fun_ids e in
+    let index = Ctx.SI.union index ids in
+    let e, gen_nodes = desugar_expr ~insert ~bound ~quant ~index body_ctx node_name fun_ids e in
     ArrayComprehension (pos, bs, e), List.flatten gen_nodes_bs @ gen_nodes
   | Restart (pos, e, r) ->
     let e, gen_nodes1 = rec_split e in
@@ -846,18 +858,20 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
        inferred. *)
     let scrut_ty = scrutinee_type ctx node_name e in
     let arms = List.map (fun (pat, arm_e) -> resolve_arm ctx scrut_ty pat, arm_e) arms in
+    let invariant = guard_is_time_invariant ctx quant index e in
     let e, gen_nodes1 = rec_call e in
     let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
       let arm_e = AH.apply_subst_in_expr subst arm_e in
       (* A pattern variable shadows a quantified variable of the same name *)
-      let quant =
-        Ctx.SI.diff quant
-          (AH.pat_bound_vars_with_pos pat |> List.map fst |> Ctx.SI.of_list)
-      in
+      let pat_vars = AH.pat_bound_vars_with_pos pat |> List.map fst |> Ctx.SI.of_list in
+      let quant = Ctx.SI.diff quant pat_vars in
+      let index = Ctx.SI.diff index pat_vars in
       let arm_e, gen_nodes =
-        desugar_expr ~insert:split_insert ~bound ~quant ?const_pos arm_ctx node_name fun_ids arm_e
+        desugar_expr ~insert:split_insert ~bound ~quant ~index ?const_pos arm_ctx node_name fun_ids arm_e
       in
-      let arm_e, gen_nodes' = abstract_temporal_branch arm_ctx node_name fun_ids quant gen_nodes arm_e in
+      let arm_e, gen_nodes' =
+        abstract_lazy_operand arm_ctx node_name fun_ids quant invariant gen_nodes arm_e
+      in
       (pat, arm_e), gen_nodes @ gen_nodes'
     ) arms |> List.split in
     let gen_nodes = gen_nodes1 @ List.flatten gen_nodes2 in
@@ -885,8 +899,8 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?const_pos 
 
 (* The indices of a structure update hold expressions of their own: the
    element of a set literal and the key of a map literal are indices *)
-and desugar_indices ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ctx node_name fun_ids idx =
-  let r = desugar_expr ~insert ~bound ~quant ctx node_name fun_ids in
+and desugar_indices ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = Ctx.SI.empty) ctx node_name fun_ids idx =
+  let r = desugar_expr ~insert ~bound ~quant ~index ctx node_name fun_ids in
   List.map (function
     | A.Label _ as l -> l, []
     | A.Index (p, e, k) -> let e, gen_nodes = r e in A.Index (p, e, k), gen_nodes
@@ -1028,6 +1042,28 @@ fun ctx node_name fun_ids quant gen_decls scrut_ty pos scrut arms ty_opt ->
     | UnknownVariable _ | Untyped ->
       defer_match_refusal pos;
       A.Match (pos, scrut, arms, ty_opt), []
+
+(* A temporal operand of a lazy construct is only abstracted (see
+   [abstract_temporal_branch]) when its guard may change over time. For each
+   value of the quantified variables and array indices, a guard that only
+   refers to them, to constants, to enum variants and to constructors holds at
+   every step or at none. If it holds at every step, the operand evaluated in
+   place has the same values as in a node activated by the guard; if it holds
+   at none, the value of the operand does not matter. *)
+and abstract_lazy_operand:
+  Ctx.tc_context -> NI.t -> NI.t list -> Ctx.SI.t -> bool -> A.declaration list
+  -> A.expr -> A.expr * A.declaration list =
+fun ctx node_name fun_ids quant guard_is_time_invariant gen_decls e ->
+  if guard_is_time_invariant then e, []
+  else abstract_temporal_branch ctx node_name fun_ids quant gen_decls e
+
+and guard_is_time_invariant ctx quant index guard =
+  AH.expr_is_time_invariant
+    (fun v ->
+      Ctx.SI.mem v quant || Ctx.SI.mem v index
+      || Option.is_some (Ctx.lookup_const ctx v) || Ctx.is_enum_variant ctx v
+      || Option.is_some (Ctx.lookup_constructor ctx v))
+    guard
 
 (* When a branch of a when-then-else expression is temporal (it uses '->' or
    'pre'), abstract it into a call to a fresh internal node, so that its

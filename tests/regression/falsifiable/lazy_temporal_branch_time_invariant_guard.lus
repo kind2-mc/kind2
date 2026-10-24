@@ -1,0 +1,11 @@
+-- A temporal operand of a lazy construct whose guard does not change over
+-- time is evaluated in place, with the values it has at every step (issue
+-- #1837)
+
+node main (const n: int; s: int; a: int^n) returns (b: int^n; A: int^n);
+let
+  b = (0 -> pre a[i] foreach i)^n;
+  check forall (k: int) 0 <= k and k < n ==> b[k] = (0 -> a[k]);
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
+  check n > 2 ==> (true -> A[2] = pre s);
+tel
