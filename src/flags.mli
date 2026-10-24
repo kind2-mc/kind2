@@ -330,6 +330,9 @@ module Smt : sig
   (** Which SMT solver for interpolation to use. *)
   val itp_solver : unit -> itp_solver
 
+  (** The name of an interpolating solver, as `--smt_itp_solver` takes it *)
+  val string_of_itp_solver : itp_solver -> string
+
   val get_itp_solver : unit -> solver
 
   (** [prefer_solvers ?solver ?itp ?qe ()] uses the given main, interpolating
