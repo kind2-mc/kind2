@@ -50,6 +50,14 @@ models = {
 (check-system main :input () :output ((x Int) (y Int)) :local ((l Int))
   :reachable (r (not (= x y))) :query (q (r)))
 """, {"@r", "x", "y", "l", "C1::l", "C2::l", "C1::c", "C2::c"}),
+    # An assumption named after a variable of the check, which its
+    # encoding variable @x stays apart from
+    "clash": ("""(set-logic QF_LIA)
+(define-system main :input ((x Int)) :output ((y Int)) :local ()
+  :init (= y 0) :trans (= y' (+ y x')))
+(check-system main :input ((x Int)) :output ((y Int)) :local ()
+  :assumption (x (>= x 0)) :reachable (r (< y 0)) :query (q (x r)))
+""", {"@r", "@x", "x", "y"}),
     # A variable of the check named as a path, and a variable of an
     # instance whose name contains ::, next to an instance of that name
     "paths": ("""(set-logic QF_LIA)
@@ -139,11 +147,12 @@ def check_term(term, names, numerals, out):
         # IC3IA finds an invariant over the variables
         ("quoted", ("--enable", "IC3IA"), {"|@r 1|", "|x y|", "|z w|"}),
         ("instances", ("--enable", "IC3IA"), {"C1::l", "C2::l"}),
+        ("clash", ("--enable", "IC3IA"), {"y"}),
         ("paths", ("--enable", "IC3IA"), set()),
         ("enum", ("--enable", "IC3IA"), {"red", "green", "blue"}),
         ("divisible", ("--enable", "IC3QE"), {"divisible"}),
     ],
-    ids=["default", "IC3IA", "instances", "paths", "enum", "divisible"],
+    ids=["default", "IC3IA", "instances", "clash", "paths", "enum", "divisible"],
 )
 def test_inv_is_smtlib_term(tmp_path, case, engines, mentioned):
     text, names = models[case]
