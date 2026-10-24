@@ -634,8 +634,40 @@ let refine fwd solver sys prop_name sys_features predicates cubes =
         SMTSolver.get_qe_interpolants fwd intrpo interpolizers
       )
       | _ -> (
-        SMTSolver.get_interpolants intrpo names
-        |> (fun itps -> SMTSolver.pop intrpo; itps)
+        (* SMTInterpol answers `unsupported` to the interpolation query
+           over a formula with a quantifier, which its interpolation
+           procedure does not take (it is for quantifier-free input only),
+           and IC3IA failed an assertion on the reply. Decline the system
+           instead, as for an array encoding the solver rejects: a property
+           settled without refining is still proved, and so is one whose
+           quantifiers the solver simplifies away before interpolating, as
+           a quantifier over a variable the formula does not use (#1842). *)
+        match SMTSolver.get_interpolants intrpo names with
+        | itps -> SMTSolver.pop intrpo; itps
+        | exception SMTSolver.Unsupported_interpolants ->
+          SMTSolver.pop intrpo ;
+          let name = Flags.Smt.string_of_itp_solver (Flags.Smt.itp_solver ()) in
+          let quantified =
+            List.exists
+              (fun t ->
+                TermLib.FeatureSet.mem TermLib.Q (TermLib.logic_of_term [] t))
+              interpolizers
+          in
+          let msg =
+            if quantified then
+              Format.sprintf
+                "IC3IA (%s) disabled: %s computes no interpolants over \
+                 quantified formulas, and the refinement of the abstraction \
+                 needs them. Use Z3qe or cvc5qe instead."
+                name name
+            else
+              Format.sprintf
+                "IC3IA (%s) disabled: %s answered that it does not support \
+                 the interpolation query the refinement of the abstraction \
+                 needs. Use Z3qe or cvc5qe instead."
+                name name
+          in
+          raise (UnsupportedFeature msg)
       )
     in
 
