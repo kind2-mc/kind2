@@ -276,14 +276,6 @@ val support_new_bv_cast_operators : unit -> bool
 (** {2 SMT solver flags} *)
 module Smt : sig
 
-  (** Logic sendable to the SMT solver. *)
-  type logic = [
-    `None | `detect | `Logic of string
-  ]
-
-  (** Logic to send to the SMT solver *)
-  val logic : unit -> logic
-
   (** Legal SMT solvers. *)
   type solver = [
     | `Bitwuzla_SMTLIB

@@ -83,7 +83,6 @@ let cmd_line
   let open TermLib.FeatureSet in
   let cmd =
     match logic with
-    | `SMTLogic "QF_BV" -> Array.append cmd [| "--bitblast=eager" |]
     | `Inferred fs when (equal fs (of_list [ BV ])) -> (
       Array.append cmd [| "--bitblast=eager" |]
     )
