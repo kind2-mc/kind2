@@ -23,6 +23,9 @@ exception Unknown
 exception Timeout
 exception Exiting
 exception Killed
+
+(* Raised by [get_interpolants] when the solver answers `unsupported` *)
+exception Unsupported_interpolants
 exception Died = SMTLIBSolver.Died
 
 
@@ -1312,6 +1315,8 @@ let converter s =
 let kind s = s.solver_kind
 
 
+let s_unsupported = HString.mk_hstring "unsupported"
+
 let get_interpolants solver args =
   let module S = (val solver.solver_inst) in
   
@@ -1347,9 +1352,17 @@ let get_interpolants solver args =
               (GenericSMTLIBDriver.expr_of_string_sexpr sexpr)))
           sexpr_lst
       )
+      (* The reply to a command the solver does not support is the bare
+         atom, which the custom command reads as its one result *)
+      | HStringSExpr.Atom s when s == s_unsupported ->
+        raise Unsupported_interpolants
       | _ -> assert false
     )
-    | _ (* error_response *) -> []
+    (* An error is a failure of the solver, as for any other command. It
+       used to be read as no interpolant at all, which left the abstraction
+       as it was: the engine found the same spurious path again, and looped
+       on it until the timeout without saying why. *)
+    | r -> smt_error solver r
   )
   | _ -> failwith ("Interpolating solver not found or unsupported")
 

@@ -333,6 +333,36 @@ let add_predicates solver old_predicates new_predicates =
   new_predicates ;
   TS.union old_predicates new_predicates
 
+(* The advice that ends the message of a decline by the interpolating
+   solver [current]: the other interpolating solvers that support the
+   features of [sys], which are [sys_features]. The quantifier elimination
+   solvers take no abstract function and no array. MathSAT and SMTInterpol
+   take no quantifier; MathSAT takes no machine integers together with
+   integers or reals, and SMTInterpol no machine integers at all. When none
+   is left, say so, rather than send the user to a solver that declines the
+   system in turn. [sys] must be the system the property is checked on,
+   which slicing reduces to what the property depends on. *)
+let itp_solver_advice sys sys_features current =
+  let open TermLib in
+  let has f = FeatureSet.mem f sys_features in
+  let qe_supported =
+    not (TransSys.subsystem_includes_function_symbol sys) && not (has A)
+  in
+  let mathsat_supported = not (has Q) && not (has BV && (has IA || has RA)) in
+  let smtinterpol_supported = not (has Q) && not (has BV) in
+  let others =
+    (if qe_supported then [`Z3_QE; `cvc5_QE] else [])
+    @ (if mathsat_supported then [`MathSAT_SMTLIB] else [])
+    @ (if smtinterpol_supported then [`SMTInterpol_SMTLIB] else [])
+    |> List.filter (fun s -> s <> current)
+    |> List.map Flags.Smt.string_of_itp_solver
+  in
+  match others with
+  | [] ->
+    "No other interpolating solver supports this system: the other engines \
+     may still answer for it."
+  | l -> Format.sprintf "Use %s instead." (String.concat " or " l)
+
 (* Interpolation Group ids for MathSAT *)
 let ig_newid =
   let r = ref 0 in
@@ -391,8 +421,18 @@ let refine fwd solver sys prop_name sys_features predicates cubes =
              (Format.sprintf
                 "IC3IA (%s) disabled for property %s: %s does not support \
                  quantified formulas, and the refinement of the abstraction \
-                 needs them. Use Z3qe or cvc5qe instead."
-                name prop_name name))
+                 needs them. %s"
+                name prop_name name (itp_solver_advice sys sys_features s)))
+         (* SMTInterpol refuses machine integers when its instance is
+            created, which ended the engine with a runtime failure *)
+         | `SMTInterpol_SMTLIB as s
+           when TermLib.FeatureSet.mem TermLib.BV sys_features ->
+           raise (UnsupportedFeature
+             (Format.sprintf
+                "IC3IA (SMTInterpol) disabled for property %s: SMTInterpol \
+                 does not support machine integers, and the refinement of the \
+                 abstraction needs them. %s"
+                prop_name (itp_solver_advice sys sys_features s)))
          | _ -> ()) ;
 
         let produce_interpolants, logic =
@@ -634,8 +674,36 @@ let refine fwd solver sys prop_name sys_features predicates cubes =
         SMTSolver.get_qe_interpolants fwd intrpo interpolizers
       )
       | _ -> (
-        SMTSolver.get_interpolants intrpo names
-        |> (fun itps -> SMTSolver.pop intrpo; itps)
+        (* SMTInterpol answers `unsupported` to the interpolation query
+           over a formula with a quantifier, which its interpolation
+           procedure does not take (it is for quantifier-free input only),
+           and IC3IA failed an assertion on the reply. Decline the system
+           instead, as for an array encoding the solver rejects: a property
+           settled without refining is still proved, and so is one whose
+           quantifiers the solver simplifies away before interpolating, as
+           a quantifier over a variable the formula does not use (#1842). *)
+        match SMTSolver.get_interpolants intrpo names with
+        | itps -> SMTSolver.pop intrpo; itps
+        | exception SMTSolver.Unsupported_interpolants ->
+          SMTSolver.pop intrpo ;
+          let current = Flags.Smt.itp_solver () in
+          let name = Flags.Smt.string_of_itp_solver current in
+          let advice = itp_solver_advice sys sys_features current in
+          let msg =
+            if TermLib.FeatureSet.mem TermLib.Q sys_features then
+              Format.sprintf
+                "IC3IA (%s) disabled for property %s: %s computes no \
+                 interpolants over quantified formulas, and the refinement of \
+                 the abstraction needs them. %s"
+                name prop_name name advice
+            else
+              Format.sprintf
+                "IC3IA (%s) disabled for property %s: %s answered that it \
+                 does not support the interpolation query the refinement of \
+                 the abstraction needs. %s"
+                name prop_name name advice
+          in
+          raise (UnsupportedFeature msg)
       )
     in
 
@@ -1268,14 +1336,26 @@ let main fwd slice_to_prop prop in_sys param sys =
      validates counterexamples ([refine]), so these systems are supported
      (see [TransSys.fn_congruence_instances]). *)
 
+  (* With Z3qe and cvc5qe, IC3IA runs twice for each property, forward and
+     backward (see [Kind2Flow.create_processes]), and the checks below are
+     the same in both directions. The backward instance reports the decline,
+     as the only instance that runs with the other solvers does, and the
+     forward one ends quietly, so that each property gets one warning. *)
+  let decline msg =
+    if fwd then raise KEvent.Terminate else raise (UnsupportedFeature msg)
+  in
+
+  (* The checks look at [sys], the system the property is checked on, which
+     slicing reduces to what the property depends on: an abstract function
+     of the node that the property does not depend on is not in it. *)
   let check_system_is_supported itp_solver =
     if TransSys.subsystem_includes_function_symbol sys then
       let msg =
-        Format.sprintf "IC3IA (%s) disabled for property %s: system includes an abstract function. \
-          Use MathSAT or SMTInterpol instead."
-          itp_solver prop.Property.prop_name
+        Format.sprintf "IC3IA (%s) disabled for property %s: system includes an abstract function. %s"
+          (Flags.Smt.string_of_itp_solver itp_solver) prop.Property.prop_name
+          (itp_solver_advice sys l itp_solver)
       in
-      raise (UnsupportedFeature msg)
+      decline msg
   in
 
   (* Arrays are encoded with an uninterpreted sort and an uninterpreted select
@@ -1286,23 +1366,22 @@ let main fwd slice_to_prop prop in_sys param sys =
   let check_arrays_are_supported itp_solver =
     if mem A l then
       let msg =
-        Format.sprintf "IC3IA (%s) disabled for property %s: arrays are not supported. \
-          Use MathSAT or SMTInterpol instead."
-          itp_solver prop.Property.prop_name
+        Format.sprintf "IC3IA (%s) disabled for property %s: arrays are not supported. %s"
+          (Flags.Smt.string_of_itp_solver itp_solver) prop.Property.prop_name
+          (itp_solver_advice sys l itp_solver)
       in
-      raise (UnsupportedFeature msg)
+      decline msg
   in
 
   (match Flags.Smt.itp_solver () with
-  | `cvc5_QE -> check_system_is_supported "cvc5qe" ; check_arrays_are_supported "cvc5qe"
-  | `Z3_QE -> check_system_is_supported "Z3qe" ; check_arrays_are_supported "Z3qe"
-  | `MathSAT_SMTLIB -> (
+  | (`cvc5_QE | `Z3_QE) as s -> check_system_is_supported s ; check_arrays_are_supported s
+  | `MathSAT_SMTLIB as s -> (
     if mem BV l && (mem IA l || mem RA l) then
       let msg =
         Format.sprintf
-          "IC3IA disabled for property %s: MathSAT does not support programs with \
-           both integers/reals and machine integers. Use z3 or cvc5 instead."
-           prop.Property.prop_name
+          "IC3IA (MathSAT) disabled for property %s: MathSAT does not support \
+           programs with both integers/reals and machine integers. %s"
+           prop.Property.prop_name (itp_solver_advice sys l s)
       in
       raise (UnsupportedFeature msg)
   )
