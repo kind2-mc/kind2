@@ -273,43 +273,6 @@ module Smt = struct
     | `Z3_QE -> `Z3_SMTLIB
     | _ -> failwith "No interpolating SMT solver found"
 
-  (* Active SMT logic. *)
-  type logic = [
-    `None | `detect | `Logic of string
-  ]
-  let logic_of_string = function
-    | "none" | "None" -> `None
-    | "detect" | "Detect" -> `detect
-    | s -> `Logic s
-  let string_of_logic = function
-    | `None -> "none"
-    | `detect -> "detect"
-    | `Logic s -> s
-  let logic_default = `detect
-  let logic = ref logic_default
-  let _ = add_spec
-    "--smt_logic"
-    (Arg.String (fun str -> logic := logic_of_string str))
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          where <string> is none, detect, or a legal SMT-LIB logic@ \
-          Select logic for SMT solvers@ \
-          \"none\" for no logic@ \
-          \"detect\" to detect with the input system@ \
-          Other SMT-LIB logics will be passed to the solver@ \
-          Default: %s\
-        @]"
-        (string_of_logic logic_default)
-    )
-
-  let set_logic l = logic := l
-    
-  let detect_logic_if_none () =
-    if !logic = `None then logic := `detect
-          
-  let logic () = !logic
-
   (* Activates check-sat with assumptions when supported.
      Domain-local with inheritance: solver drivers may disable it from
      within an engine domain without affecting other engines. *)
@@ -4308,13 +4271,6 @@ let solver_dependent_actions solver =
           else actions
         in
         let actions =
-          if Smt.logic () = `None then (
-            Smt.set_logic `detect;
-            "enabling detection of SMT logic" :: actions
-          )
-          else actions
-        in
-        let actions =
           if Smt.check_sat_assume () then (
             Smt.set_check_sat_assume false;
             "disabling check_sat_assume" :: actions
@@ -4560,7 +4516,6 @@ let parse_argv ?(profile = kind2_profile) () =
   
   if Certif.certif () || Certif.proof () then (
     Smt.set_short_names false;
-    Smt.detect_logic_if_none () ;
     BmcKind.disable_compress ();
     Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
   ) ;

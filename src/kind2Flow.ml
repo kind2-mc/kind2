@@ -283,9 +283,7 @@ let status_of_exn process status = function
     if msg = "SMT solver failed: non-linear arithmetic is not allowed in logic ALL" then (
       (* Yices 2 error *)
       KEvent.log L_error "In %a: no logic has been provided, but Yices 2 requires one when@ \
-        the model contains non-linear expressions.@ \
-        Consider running Kind 2 with `--smt_logic detect`\
-      "
+        the model contains non-linear expressions."
       pp_print_kind_module process;
       status
     )

@@ -371,9 +371,8 @@ let refine fwd solver sys prop_name sys_features predicates cubes =
            formula, and IC3IA reported that model as a genuine counterexample
            to a quantified property whose proof needed a refinement (#1840).
            The driver now refuses an inferred logic with quantifiers, as
-           OpenSMT's does, but only the terms say whether there are any when
-           `--smt_logic` is not `detect`, hence this check on the features
-           computed from them. It is reached only once interpolation is
+           OpenSMT's does, hence this check on the features computed from
+           the terms. It is reached only once interpolation is
            actually needed: the solver of the frames is the only one to see
            the system until then, and a property IC3IA settles without
            refining is still proved.
@@ -1202,32 +1201,12 @@ let main_ic3ia fwd sys_features prop in_sys param sys =
 
    SMTSolver.delete_instance solver
 
-(* [TransSys.get_logic] reports the logic that gets declared to the solver,
-   which is whatever `--smt_logic` says whenever it is not `detect`: it says
-   nothing about the terms then, and `ALL` in particular lists no features at
-   all. Anything the soundness of an answer rests on has to be decided on the
-   terms, so recompute the features the way the `detect` branch of
-   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
-   one. The subsystems are covered too, since their definitions sit behind
-   uninterpreted symbols in the top system's init and trans terms. *)
-let features_of_terms sys =
-  let open TermLib.FeatureSet in
-  TransSys.fold_subsystems ~include_top:true
-    (fun acc t ->
-      TransSys.init_of_bound None t Numeral.zero ::
-      TransSys.trans_of_bound None t Numeral.one ::
-      TransSys.global_constraints t @
-      List.map Property.get_prop_term (TransSys.get_properties t)
-      |> List.fold_left
-           (fun acc term -> union acc (TermLib.logic_of_term [] term))
-           acc)
-    empty
-    sys
-
+(* The features of the terms of [sys], which [TransSys.mk_trans_sys]
+   infers *)
 let features sys =
   match TransSys.get_logic sys with
   | `Inferred l -> l
-  | `SMTLogic _ | `None -> features_of_terms sys
+  | `SMTLogic _ | `None -> assert false
 
 let main fwd slice_to_prop prop in_sys param sys =
 

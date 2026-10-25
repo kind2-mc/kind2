@@ -2255,18 +2255,9 @@ let mk_trans_sys
       state_vars
   in
 
-  (* Logic fragment of transition system  *)
-  let logic = match Flags.Smt.logic () with
-
-    (* Logic fragment should not be declared *)
-    | `None -> `None
-
-    (* Logic fragment given by option *)
-    | `Logic s -> `SMTLogic s
-
-    (* Find the logic fragment by going through terms and
-       subsystems of the transition system *)
-    | `detect ->
+  (* Logic fragment of transition system, found by going through terms
+     and subsystems of the transition system *)
+  let logic =
 
       (* The predicates of the subsystems and the functions the system
          defines are not uninterpreted *)

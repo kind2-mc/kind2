@@ -542,9 +542,7 @@ finite model finding).
 
 By default arrays are converted using ah-hoc selection functions to avoid
 stressing the theory of arrays in the SMT solvers. This option tells Kind 2 to
-use the builtin theory of arrays of the solvers instead. If you want to try it,
-it’s probably a good idea to use it in combination of `--smtlogic detect` for
-better performances.
+use the builtin theory of arrays of the solvers instead.
 
 #### `--inline_arrays`
 

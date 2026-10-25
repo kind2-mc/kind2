@@ -4848,7 +4848,7 @@ let warn_undefined_uf_applications fun_defs nodes =
               inputs that the solver can be given"
            else
              "because recursive functions are not defined at the SMT level \
-              with the current solver or logic")
+              with the current solver")
       )
     )
   )
