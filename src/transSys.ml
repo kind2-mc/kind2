@@ -2313,9 +2313,7 @@ let mk_trans_sys
              (fun (t, _) -> match t.logic with
                 | `Inferred l -> l
 
-                (* If the logic for this system is being inferred,
-                   the logics of the subsystems have been
-                   inferred *)
+                (* The logics of the subsystems are always inferred *)
                 | _ -> assert false) 
              subsystems
 

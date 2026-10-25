@@ -895,7 +895,7 @@ let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
   let logic_has feature =
     match TSys.get_logic sys with
     | `Inferred fs -> TermLib.FeatureSet.mem feature fs
-    (* Logic given rather than inferred: nothing to consult. *)
+    (* Not reached: the logic of a system is always inferred *)
     | _ -> true
   in
   (* One question per domain, not one per module: the one state and two state
