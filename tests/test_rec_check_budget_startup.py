@@ -18,13 +18,12 @@ Z3, so that starting the two solvers of the round takes more than the budget.
 """
 
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from conftest import code_to_expected, common_args, kind2_bin, run_timeout
+from conftest import code_to_expected, common_args, kind2_bin, run_kind2
 
 model = (
     Path(__file__).parent
@@ -46,7 +45,9 @@ def test_genuine_counterexample_checked_after_slow_start(tmp_path):
     wrapper.chmod(0o755)
     args = common_args | {"--timeout": "60"}
     arg_list = [arg for pair in args.items() for arg in pair]
-    run = subprocess.run(
+    # The run is killed along with the wrapper and the solvers it starts if
+    # it hangs
+    run = run_kind2(
         [
             kind2_bin,
             *arg_list,
@@ -55,10 +56,8 @@ def test_genuine_counterexample_checked_after_slow_start(tmp_path):
             "--enable", "BMC",
             "--enable", "IND",
             str(model),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=run_timeout,
+        ]
     )
-    assert code_to_expected.get(run.returncode) == "falsifiable", run.stdout
-    assert "F[L5C34].G[L5C49].SubType[L2C47]: invalid" in run.stdout, run.stdout
+    output = run.stdout.decode() + run.stderr.decode()
+    assert code_to_expected.get(run.returncode) == "falsifiable", output
+    assert "F[L5C34].G[L5C49].SubType[L2C47]: invalid" in run.stdout.decode(), output

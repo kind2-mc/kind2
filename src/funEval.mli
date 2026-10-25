@@ -37,9 +37,9 @@ type t
     they apply, by [define]. The limit is on the resources the solver
     spends, which it spends in about that time on an idle machine, rather
     than on the wall clock: the value of a call is then known or not
-    whatever the load of the machine. Every time the solver is started,
-    [on_start] is given the time, in seconds, that starting it and giving
-    it the definitions took. *)
+    whatever the load of the machine. Every time the solver is started and
+    given the definitions, [on_start] is given the time, in seconds, that
+    it took; a start that fails is not reported. *)
 val create :
   ?on_start:(float -> unit) ->
   logic:TermLib.logic -> timeout_ms:int -> (SMTSolver.t -> unit) -> t

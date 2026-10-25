@@ -104,27 +104,25 @@ let solver_of t uf =
         (Flags.Smt.solver ())
     in
     t.solver <- Some solver ;
-    Fun.protect
-      ~finally:(fun () -> t.on_start (Unix.gettimeofday () -. started))
-      (fun () ->
-         try
-           set_per_query_limit ~ms:t.timeout_ms solver ;
-           ( try t.define solver with
-             (* The solver rejected the definitions, which points to a
-                flaw in their encoding rather than to a hard query: no
-                call to these functions is evaluated *)
-             | Failure msg ->
-               KEvent.log L_warn
-                 "Calls to %a are not evaluated: the solver rejected the \
-                  definitions: %s"
-                 UfSymbol.pp_print_uf_symbol uf msg ;
-               t.failed <- true ;
-               delete t ;
-               raise Failed )
-         with
-         | Failed -> raise Failed
-         | SMTSolver.Killed | SMTSolver.Died _ as e -> delete t ; raise e
-         | e -> t.failed <- true ; raise e) ;
+    ( try
+        set_per_query_limit ~ms:t.timeout_ms solver ;
+        ( try t.define solver with
+          (* The solver rejected the definitions, which points to a flaw
+             in their encoding rather than to a hard query: no call to
+             these functions is evaluated *)
+          | Failure msg ->
+            KEvent.log L_warn
+              "Calls to %a are not evaluated: the solver rejected the \
+               definitions: %s"
+              UfSymbol.pp_print_uf_symbol uf msg ;
+            t.failed <- true ;
+            delete t ;
+            raise Failed )
+      with
+      | Failed -> raise Failed
+      | SMTSolver.Killed | SMTSolver.Died _ as e -> delete t ; raise e
+      | e -> t.failed <- true ; raise e ) ;
+    t.on_start (Unix.gettimeofday () -. started) ;
     solver
 
 let evaluate ?(assuming = []) t uf args =
