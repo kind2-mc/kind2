@@ -59,11 +59,53 @@ let evaluation_timeout = 500
    is expensive to evaluate, such as Ackermann's, and every counterexample
    of a round tends to need the same evaluations: past this budget, the
    counterexamples of the round are left undecided without a check, which
-   is the safe answer, rather than each costing its timeouts. *)
+   is the safe answer, rather than each costing its timeouts.
+
+   The time it takes to start the solvers that take a limit per query, and
+   to give them the system or the definitions, is not counted the first
+   time each is started for the queries of a round, or of a check on a
+   system of its own: it is no measure of how hard the checks are, and it
+   is many times longer on a slow machine, where starting a process is
+   slow, than on another. A solver started again, after it gave up on a
+   query or failed, is counted, so that the restarts of a round stay within
+   the budget. Counted, the first start took the budget on the first
+   counterexample of a round, whichever it was, and a genuine one that came
+   after it was left undecided, its property unknown, depending on the
+   machine and the order in which the engines reported. *)
 let round_budget = 5.
 
 (* The time the checks of the round took so far *)
 let round_time = ref 0.
+
+(* The time it took to start the solvers that take a limit per query the
+   first time, which is not counted in [round_time] *)
+let startup_time = ref 0.
+
+(* Whether the solver of the queries and the one of the evaluations were
+   started for the round, or for the check on a system of its own, so that
+   starting them again is counted *)
+let query_solver_started = ref false
+let evaluator_started = ref false
+
+(* Leave the time [t] that starting a solver took out of [round_time], if
+   the solver was not started before *)
+let first_start started t =
+  if not !started then (
+    started := true ;
+    startup_time := !startup_time +. t)
+
+(* Run the check [f], and count the time it takes in [round_time], but for
+   the time it takes to start the solvers that take a limit per query the
+   first time *)
+let counted f =
+  let started = Unix.gettimeofday () and startup = !startup_time in
+  Fun.protect
+    ~finally:(fun () ->
+      round_time :=
+        !round_time
+        +. (Unix.gettimeofday () -. started)
+        -. (!startup_time -. startup))
+    f
 
 (* The solver the queries of a round are put to: one per round, with the
    system declared and its initial state asserted once, and every query
@@ -227,7 +269,9 @@ let evaluate ?assuming sys uf args =
             features |> add TermLib.UF |> add TermLib.Q |> add TermLib.RF)
       in
       let e =
-        FunEval.create ~logic ~timeout_ms:evaluation_timeout (fun solver ->
+        FunEval.create ~logic ~timeout_ms:evaluation_timeout
+          ~on_start:(first_start evaluator_started)
+          (fun solver ->
           TransSys.define_check_defs sys
             ~define_rec:(SMTSolver.define_funs_rec solver)
             (SMTSolver.declare_fun solver)
@@ -285,6 +329,7 @@ let solver_for sys k =
   | Some ({ kept = true } as rs) -> rs
   | _ ->
     drop_round_solver () ;
+    let started = Unix.gettimeofday () in
     let logic = TransSys.get_logic sys in
     let solver =
       SMTSolver.create_instance ~produce_models:true logic (Flags.Smt.solver ())
@@ -306,6 +351,9 @@ let solver_for sys k =
     TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
     TransSys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Numeral.zero
     |> SMTSolver.assert_term solver ;
+    (* A solver started for every query is part of the cost of the query *)
+    if kept then
+      first_start query_solver_started (Unix.gettimeofday () -. started) ;
     (* The values of the functions known in the round, and the defining
        equations instantiated in it *)
     Facts.iter
@@ -322,6 +370,8 @@ let reset () =
   round_time := 0. ;
   drop_round_solver () ;
   drop_evaluator () ;
+  query_solver_started := false ;
+  evaluator_started := false ;
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
@@ -338,6 +388,8 @@ let start_round sys =
   round_time := 0. ;
   drop_round_solver () ;
   drop_evaluator () ;
+  query_solver_started := false ;
+  evaluator_started := false ;
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
@@ -680,15 +732,8 @@ let suspect sys prop cex =
       if not (List.for_all (fun f -> List.exists (Scope.equal f) evaluable) reached)
       then reached
       else if !round_time > round_budget then reached
-      else (
-        let started = Unix.gettimeofday () in
-        let genuine =
-          Fun.protect
-            ~finally:(fun () ->
-              round_time := !round_time +. (Unix.gettimeofday () -. started))
-            (fun () -> genuine sys prop cex)
-        in
-        if genuine then [] else reached)
+      else if counted (fun () -> genuine sys prop cex) then []
+      else reached
 
 (* Run [f] with a round solver, an evaluator and tables of facts of its own,
    for a system other than the one of the round, whose symbols the round's
@@ -699,9 +744,13 @@ let isolated f =
   and saved_facts = Facts.copy facts
   and saved_instantiated = Facts.copy instantiated
   and saved_pending = !pending
-  and saved_conditional = !conditional in
+  and saved_conditional = !conditional
+  and saved_query_solver_started = !query_solver_started
+  and saved_evaluator_started = !evaluator_started in
   round_solver := None ;
   evaluator := None ;
+  query_solver_started := false ;
+  evaluator_started := false ;
   Facts.reset facts ;
   Facts.reset instantiated ;
   pending := [] ;
@@ -717,7 +766,9 @@ let isolated f =
       Facts.reset instantiated ;
       Facts.iter (Facts.replace instantiated) saved_instantiated ;
       pending := saved_pending ;
-      conditional := saved_conditional)
+      conditional := saved_conditional ;
+      query_solver_started := saved_query_solver_started ;
+      evaluator_started := saved_evaluator_started)
     f
 
 let check_abstractions ~sliced sys prop cex =
@@ -735,11 +786,8 @@ let check_abstractions ~sliced sys prop cex =
   && Flags.Contracts.refinement ()
   && !round_time <= round_budget
   then (
-    let started = Unix.gettimeofday () in
     let genuine =
-      Fun.protect
-        ~finally:(fun () ->
-          round_time := !round_time +. (Unix.gettimeofday () -. started))
+      counted
         (fun () ->
            (* A counterexample shown spurious only failed with values of
               the calls that the functions do not have: the values they do

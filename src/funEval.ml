@@ -20,6 +20,7 @@ type t = {
   logic : TermLib.logic ;
   timeout_ms : int ;
   define : SMTSolver.t -> unit ;
+  on_start : float -> unit ;
   mutable solver : SMTSolver.t option ;
   (* Whether the solver failed on the definitions, which it would fail on
      again: no solver is started anymore. A solver process that is gone,
@@ -28,8 +29,8 @@ type t = {
   mutable failed : bool ;
 }
 
-let create ~logic ~timeout_ms define =
-  { logic ; timeout_ms ; define ; solver = None ; failed = false }
+let create ?(on_start = ignore) ~logic ~timeout_ms define =
+  { logic ; timeout_ms ; define ; on_start ; solver = None ; failed = false }
 
 let delete t =
   ( match t.solver with
@@ -97,6 +98,7 @@ let solver_of t uf =
   | Some solver -> solver
   | None when t.failed -> raise Failed
   | None ->
+    let started = Unix.gettimeofday () in
     let solver =
       SMTSolver.create_instance ~produce_models:true t.logic
         (Flags.Smt.solver ())
@@ -120,6 +122,7 @@ let solver_of t uf =
       | Failed -> raise Failed
       | SMTSolver.Killed | SMTSolver.Died _ as e -> delete t ; raise e
       | e -> t.failed <- true ; raise e ) ;
+    t.on_start (Unix.gettimeofday () -. started) ;
     solver
 
 let evaluate ?(assuming = []) t uf args =
