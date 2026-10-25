@@ -29,11 +29,6 @@
 
 exception UnsupportedFeature of string
 
-(** [advice_for_system sys s] is the advice that ends the message of a
-    decline of [sys] by the interpolating solver [s]: the other
-    interpolating solvers that support [sys], or a note that none does. *)
-val advice_for_system : TransSys.t -> Flags.Smt.itp_solver -> string
-
 (** Entry point *)
 val main : bool -> bool -> Property.t -> 'a InputSystem.t -> Analysis.param -> TransSys.t -> unit
     

@@ -806,23 +806,16 @@ let create_processes slice_to_prop modules sys =
   | _ -> (
     if Flags.IC3IA.max_processes () > 0 then
       (
-        let qe_itp_support_model =
-          TSys.subsystem_includes_function_symbol sys |> not
-        in
+        (* Whether IC3IA supports the system a property is checked on is
+           decided by [IC3IA.main], which slices the node to the property
+           first: the node as a whole may use what the property does not *)
         let pending =
           List.fold_left
             (fun acc p ->
               match Flags.Smt.itp_solver () with
-              | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
+              | `cvc5_QE | `Z3_QE ->
                 IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ())
                 :: IC3IA_Call (true, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
-              | (`cvc5_QE | `Z3_QE) as s ->
-                KEvent.log L_warn
-                  "IC3IA (%s) disabled for property %s: system includes an \
-                   abstract function. %s"
-                  (Flags.Smt.string_of_itp_solver s) p.Property.prop_name
-                  (IC3IA.advice_for_system sys s);
-                acc
               | _ ->
                 IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
             )
