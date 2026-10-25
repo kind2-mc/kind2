@@ -807,20 +807,7 @@ let create_processes slice_to_prop modules sys =
     if Flags.IC3IA.max_processes () > 0 then
       (
         let qe_itp_support_model =
-          let check_system_is_supported itp_solver =
-            let supported =
-              TSys.subsystem_includes_function_symbol sys |> not
-            in
-            if not supported then
-              KEvent.log L_warn 
-                "IC3IA (%s) disabled: system includes an abstract function. Use MathSAT or SMTInterpol instead."
-                itp_solver;
-            supported
-          in
-          match Flags.Smt.itp_solver () with
-          | `cvc5_QE -> check_system_is_supported "cvc5qe"
-          | `Z3_QE -> check_system_is_supported "Z3qe"
-          | _ -> false
+          TSys.subsystem_includes_function_symbol sys |> not
         in
         let pending =
           List.fold_left
@@ -829,7 +816,13 @@ let create_processes slice_to_prop modules sys =
               | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
                 IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ())
                 :: IC3IA_Call (true, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
-              | `cvc5_QE | `Z3_QE -> acc
+              | (`cvc5_QE | `Z3_QE) as s ->
+                KEvent.log L_warn
+                  "IC3IA (%s) disabled for property %s: system includes an \
+                   abstract function. %s"
+                  (Flags.Smt.string_of_itp_solver s) p.Property.prop_name
+                  (IC3IA.advice_for_system sys s);
+                acc
               | _ ->
                 IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
             )

@@ -1358,7 +1358,11 @@ let get_interpolants solver args =
         raise Unsupported_interpolants
       | _ -> assert false
     )
-    | _ (* error_response *) -> []
+    (* An error is a failure of the solver, as for any other command. It
+       used to be read as no interpolant at all, which left the abstraction
+       as it was: the engine found the same spurious path again, and looped
+       on it until the timeout without saying why. *)
+    | r -> smt_error solver r
   )
   | _ -> failwith ("Interpolating solver not found or unsupported")
 
