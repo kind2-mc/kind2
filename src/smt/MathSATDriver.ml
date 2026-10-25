@@ -39,6 +39,17 @@ let cmd_line
       in
       failwith msg
     )
+    (* MathSAT accepts a quantified formula and answers as if it were not
+       there: a model that violates it is reported satisfiable, and every
+       engine took such a model for a genuine counterexample (#1840) *)
+    | `Inferred l when mem Q l -> (
+      let msg =
+        Format.asprintf
+          "In %a: MathSAT does not support quantifiers"
+          Lib.pp_print_kind_module (KEvent.get_module ())
+      in
+      failwith msg
+    )
     | `Inferred l when mem BV l && (mem IA l || mem RA l) -> (
      let msg =
        Format.asprintf
