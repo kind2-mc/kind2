@@ -2259,112 +2259,112 @@ let mk_trans_sys
      and subsystems of the transition system *)
   let logic =
 
-      (* The predicates of the subsystems and the functions the system
-         defines are not uninterpreted *)
-      let fun_symbols =
-        List.fold_left
-          (fun a ({trans_uf_symbol; init_uf_symbol},_) ->
-            trans_uf_symbol :: init_uf_symbol :: a
-          )
-          (List.map (fun (uf, _, _) -> uf) fun_defs)
-          subsystems
-      in
+    (* The predicates of the subsystems and the functions the system
+       defines are not uninterpreted *)
+    let fun_symbols =
+      List.fold_left
+        (fun a ({trans_uf_symbol; init_uf_symbol},_) ->
+          trans_uf_symbol :: init_uf_symbol :: a
+        )
+        (List.map (fun (uf, _, _) -> uf) fun_defs)
+        subsystems
+    in
 
-      `Inferred
+    `Inferred
 
-        (List.fold_left
+      (List.fold_left
            
-           (* Append logic of property term to list *)
-           (fun acc { P.prop_term }  -> 
-              TermLib.logic_of_term fun_symbols prop_term :: acc)
+         (* Append logic of property term to list *)
+         (fun acc { P.prop_term }  -> 
+            TermLib.logic_of_term fun_symbols prop_term :: acc)
            
-           (* Initial list of logics *)
-           (
+         (* Initial list of logics *)
+         (
 
-             (* Logic of initial state constraint *)
-             TermLib.logic_of_term fun_symbols init ::
+           (* Logic of initial state constraint *)
+           TermLib.logic_of_term fun_symbols init ::
 
-             (* Logic of transition relation *)
-               TermLib.logic_of_term fun_symbols trans ::
+           (* Logic of transition relation *)
+             TermLib.logic_of_term fun_symbols trans ::
              
-             (* Logic of global constraints *)
-             List.map
-               (fun t -> TermLib.logic_of_term fun_symbols t)
-               global_constraints
+           (* Logic of global constraints *)
+           List.map
+             (fun t -> TermLib.logic_of_term fun_symbols t)
+             global_constraints
 
-             @
+           @
 
-             (* Logics of the bodies of the non-recursive function
-                definitions *)
-             List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t)
-               fun_defs
+           (* Logics of the bodies of the non-recursive function
+              definitions *)
+           List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t)
+             fun_defs
 
-             @
+           @
 
-             (* Logics of the bodies of the recursive function definitions *)
-             List.concat_map
-               (List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t))
-               rec_fun_defs
+           (* Logics of the bodies of the recursive function definitions *)
+           List.concat_map
+             (List.map (fun (_, _, t) -> TermLib.logic_of_term fun_symbols t))
+             rec_fun_defs
 
-             @
+           @
 
-             (* Logics of subsystems *)
-             List.map
-               (fun (t, _) -> match t.logic with
-                  | `Inferred l -> l
+           (* Logics of subsystems *)
+           List.map
+             (fun (t, _) -> match t.logic with
+                | `Inferred l -> l
 
-                  (* If the logic for this system is being inferred,
-                     the logics of the subsystems have been
-                     inferred *)
-                  | _ -> assert false) 
-               subsystems
+                (* If the logic for this system is being inferred,
+                   the logics of the subsystems have been
+                   inferred *)
+                | _ -> assert false) 
+             subsystems
 
-           )
+         )
            
-           (* Add logics of properties *)
-           properties
+         (* Add logics of properties *)
+         properties
 
-         (* Add logics from types of state variables *)
-         |> List.rev_append
-           (List.rev_map (fun sv ->
-                StateVar.type_of_state_var sv
-                |> TermLib.logic_of_sort
-              ) state_vars)
+       (* Add logics from types of state variables *)
+       |> List.rev_append
+         (List.rev_map (fun sv ->
+              StateVar.type_of_state_var sv
+              |> TermLib.logic_of_sort
+            ) state_vars)
 
-         (* Add logics from types of global constants *)
-         |> List.rev_append
-           (List.rev_map (fun v ->
-                Var.type_of_var v
-                |> TermLib.logic_of_sort
-              ) global_consts)
+       (* Add logics from types of global constants *)
+       |> List.rev_append
+         (List.rev_map (fun v ->
+              Var.type_of_var v
+              |> TermLib.logic_of_sort
+            ) global_consts)
 
-         (* Add logics from the signatures of the uninterpreted functions *)
-         |> List.rev_append
-           (List.concat_map (fun uf ->
-                UfSymbol.res_type_of_uf_symbol uf :: UfSymbol.arg_type_of_uf_symbol uf
-                |> List.map TermLib.logic_of_sort
-              ) ufs)
+       (* Add logics from the signatures of the uninterpreted functions *)
+       |> List.rev_append
+         (List.concat_map (fun uf ->
+              UfSymbol.res_type_of_uf_symbol uf :: UfSymbol.arg_type_of_uf_symbol uf
+              |> List.map TermLib.logic_of_sort
+            ) ufs)
            
-         (* Join logics to the logic required for this system *)
-         |> TermLib.sup_logics
-         (* If datatypes are declared, ensure DT is in the logic *)
-         |> (fun features ->
-             if datatype_types <> [] then
-               TermLib.FeatureSet.add TermLib.DT features
-             else features)
-         (* The uninterpreted functions of the system are declared whether
-            or not its terms mention them *)
-         |> (fun features ->
-             if ufs <> [] then TermLib.FeatureSet.add TermLib.UF features
-             else features)
-         (* A recursive function definition is a quantified axiom to the
-            solvers, which refuse it in a quantifier-free logic *)
-         |> (fun features ->
-             if rec_fun_defs <> [] then
-               TermLib.FeatureSet.add TermLib.UF features
-               |> TermLib.FeatureSet.add TermLib.Q
-               |> TermLib.FeatureSet.add TermLib.RF
-             else features))
+       (* Join logics to the logic required for this system *)
+       |> TermLib.sup_logics
+       (* If datatypes are declared, ensure DT is in the logic *)
+       |> (fun features ->
+           if datatype_types <> [] then
+             TermLib.FeatureSet.add TermLib.DT features
+           else features)
+       (* The uninterpreted functions of the system are declared whether
+          or not its terms mention them *)
+       |> (fun features ->
+           if ufs <> [] then TermLib.FeatureSet.add TermLib.UF features
+           else features)
+       (* A recursive function definition is a quantified axiom to the
+          solvers, which refuse it in a quantifier-free logic *)
+       |> (fun features ->
+           if rec_fun_defs <> [] then
+             TermLib.FeatureSet.add TermLib.UF features
+             |> TermLib.FeatureSet.add TermLib.Q
+             |> TermLib.FeatureSet.add TermLib.RF
+           else features))
 
   in
 
