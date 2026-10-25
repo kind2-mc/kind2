@@ -333,39 +333,12 @@ let add_predicates solver old_predicates new_predicates =
   new_predicates ;
   TS.union old_predicates new_predicates
 
-(* [TransSys.get_logic] reports the logic that gets declared to the solver,
-   which is whatever `--smt_logic` says whenever it is not `detect`: it says
-   nothing about the terms then, and `ALL` in particular lists no features at
-   all. Anything the soundness of an answer rests on has to be decided on the
-   terms, so recompute the features the way the `detect` branch of
-   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
-   one. The subsystems are covered too, since their definitions sit behind
-   uninterpreted symbols in the top system's init and trans terms. *)
-let features_of_terms sys =
-  let open TermLib.FeatureSet in
-  TransSys.fold_subsystems ~include_top:true
-    (fun acc t ->
-      TransSys.init_of_bound None t Numeral.zero ::
-      TransSys.trans_of_bound None t Numeral.one ::
-      TransSys.global_constraints t @
-      List.map Property.get_prop_term (TransSys.get_properties t)
-      |> List.fold_left
-           (fun acc term -> union acc (TermLib.logic_of_term [] term))
-           acc)
-    empty
-    sys
-
-let features sys =
-  match TransSys.get_logic sys with
-  | `Inferred l -> l
-  | `SMTLogic _ | `None -> features_of_terms sys
-
 (* Interpolation Group ids for MathSAT *)
 let ig_newid =
   let r = ref 0 in
   fun () -> incr r; Format.sprintf "g%d" !r
 
-let refine fwd solver sys predicates cubes =
+let refine fwd solver sys prop_name sys_features predicates cubes =
 
   let len = List.length cubes in
 
@@ -393,29 +366,34 @@ let refine fwd solver sys predicates cubes =
       | None ->
 
         (* MathSAT does not support quantifiers, and its SMT-LIB front end
-           does not reject them either: a query over a formula with a
-           quantifier comes back satisfiable, with a model that violates the
+           did not reject them either: a query over a formula with a
+           quantifier came back satisfiable, with a model that violates the
            formula, and IC3IA reported that model as a genuine counterexample
            to a quantified property whose proof needed a refinement (#1840).
-           OpenSMT refuses quantifiers when its instance is created, with a
-           runtime failure. Decline the system with either instead. This too
-           is reached only once interpolation is actually needed: the solver
-           of the frames is the only one to see the system until then, and a
-           property IC3IA settles without refining is still proved. *)
-        let no_quantifiers =
-          match Flags.Smt.itp_solver () with
-          | `MathSAT_SMTLIB -> Some "MathSAT"
-          | `OpenSMT_SMTLIB -> Some "OpenSMT"
-          | _ -> None
-        in
-        (match no_quantifiers with
-         | Some name when TermLib.FeatureSet.mem TermLib.Q (features sys) ->
+           The driver now refuses an inferred logic with quantifiers, as
+           OpenSMT's does, but only the terms say whether there are any when
+           `--smt_logic` is not `detect`, hence this check on the features
+           computed from them. It is reached only once interpolation is
+           actually needed: the solver of the frames is the only one to see
+           the system until then, and a property IC3IA settles without
+           refining is still proved.
+
+           The features are those of the system the property is checked on,
+           which slicing reduces to what the property depends on. Without
+           slicing, a quantified property of the node is defined in the
+           concrete unrolling of every other property, and the solver would
+           see its quantifier: a plain property that needs a refinement is
+           then declined too. *)
+        (match Flags.Smt.itp_solver () with
+         | (`MathSAT_SMTLIB | `OpenSMT_SMTLIB) as s
+           when TermLib.FeatureSet.mem TermLib.Q sys_features ->
+           let name = Flags.Smt.string_of_itp_solver s in
            raise (UnsupportedFeature
              (Format.sprintf
-                "IC3IA (%s) disabled: %s does not support quantified formulas, \
-                 and the refinement of the abstraction needs them. Use Z3qe or \
-                 cvc5qe instead."
-                name name))
+                "IC3IA (%s) disabled for property %s: %s does not support \
+                 quantified formulas, and the refinement of the abstraction \
+                 needs them. Use Z3qe or cvc5qe instead."
+                name prop_name name))
          | _ -> ()) ;
 
         let produce_interpolants, logic =
@@ -466,8 +444,11 @@ let refine fwd solver sys predicates cubes =
               (Flags.Smt.get_itp_solver ())
           with Failure msg when unsupported_array_encoding msg ->
             raise (UnsupportedFeature
-              "IC3IA disabled: the interpolating solver does not support the \
-               arrays this system uses. Use MathSAT or SMTInterpol instead.")
+              (Format.sprintf
+                "IC3IA disabled for property %s: the interpolating solver does \
+                 not support the arrays this system uses. Use MathSAT or \
+                 SMTInterpol instead."
+                prop_name))
         in
 
         (try
@@ -482,8 +463,11 @@ let refine fwd solver sys predicates cubes =
         with Failure msg when unsupported_array_encoding msg -> (
           SMTSolver.delete_instance solver ;
           raise (UnsupportedFeature
-            "IC3IA disabled: the interpolating solver does not support the \
-             arrays this system uses. Use SMTInterpol instead.")
+            (Format.sprintf
+              "IC3IA disabled for property %s: the interpolating solver does \
+               not support the arrays this system uses. Use SMTInterpol \
+               instead."
+              prop_name))
         )) ;
 
         declare_init_var
@@ -993,7 +977,7 @@ let add_blocked_cube solver sys init frames s =
   frames
 
 
-let block_cube fwd solver actlits in_sys param sys prop_name predicates next_cube frames s0 =
+let block_cube fwd solver actlits in_sys param sys prop_name sys_features predicates next_cube frames s0 =
 
   let init = get_init base_offset in
 
@@ -1012,7 +996,7 @@ let block_cube fwd solver actlits in_sys param sys prop_name predicates next_cub
       | Frame 0 -> (
         let predicates =
           get_cubes next_cube (TCube.cube s)
-          |> refine fwd solver sys predicates
+          |> refine fwd solver sys prop_name sys_features predicates
         in
         SMTSolver.trace_comment solver "Refined abstraction" ;
         predicates, next_cube, frames
@@ -1128,7 +1112,8 @@ let propogate_blocked_cubes solver actlits in_sys param sys prop_name predicates
   loop frames 1
 
 
-let main_ic3ia fwd prop in_sys param sys =
+(* [sys_features] are the features of the terms of [sys], see [features] *)
+let main_ic3ia fwd sys_features prop in_sys param sys =
 
    (* The clauses of an earlier run in the domain are of another system *)
    Term.TermHashtbl.reset (clause_logics ()) ;
@@ -1164,7 +1149,7 @@ let main_ic3ia fwd prop in_sys param sys =
           TCube.mk cube (TCube.Frame (depth frames))
         in
         let predicates, next_cube, frames =
-          block_cube fwd solver actlits in_sys param sys prop_name predicates next_cube frames s
+          block_cube fwd solver actlits in_sys param sys prop_name sys_features predicates next_cube frames s
         in
         loop predicates next_cube frames
       )
@@ -1216,6 +1201,33 @@ let main_ic3ia fwd prop in_sys param sys =
   | Terminate -> ();
 
    SMTSolver.delete_instance solver
+
+(* [TransSys.get_logic] reports the logic that gets declared to the solver,
+   which is whatever `--smt_logic` says whenever it is not `detect`: it says
+   nothing about the terms then, and `ALL` in particular lists no features at
+   all. Anything the soundness of an answer rests on has to be decided on the
+   terms, so recompute the features the way the `detect` branch of
+   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
+   one. The subsystems are covered too, since their definitions sit behind
+   uninterpreted symbols in the top system's init and trans terms. *)
+let features_of_terms sys =
+  let open TermLib.FeatureSet in
+  TransSys.fold_subsystems ~include_top:true
+    (fun acc t ->
+      TransSys.init_of_bound None t Numeral.zero ::
+      TransSys.trans_of_bound None t Numeral.one ::
+      TransSys.global_constraints t @
+      List.map Property.get_prop_term (TransSys.get_properties t)
+      |> List.fold_left
+           (fun acc term -> union acc (TermLib.logic_of_term [] term))
+           acc)
+    empty
+    sys
+
+let features sys =
+  match TransSys.get_logic sys with
+  | `Inferred l -> l
+  | `SMTLogic _ | `None -> features_of_terms sys
 
 let main fwd slice_to_prop prop in_sys param sys =
 
@@ -1317,4 +1329,4 @@ let main fwd slice_to_prop prop in_sys param sys =
   )
   | _ -> () ) ;
 
-  main_ic3ia fwd prop in_sys param sys
+  main_ic3ia fwd l prop in_sys param sys

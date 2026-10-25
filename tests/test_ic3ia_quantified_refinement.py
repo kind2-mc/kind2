@@ -8,7 +8,9 @@ whenever its proof needed the abstraction refined (issue #1840). It now
 declines the system when the refinement would go through MathSAT (or OpenSMT,
 which refuses quantifiers outright), and leaves the property unknown. A
 quantified property it settles without refining is still proved with MathSAT,
-and the interpolating solvers that support quantifiers prove the others.
+and the interpolating solvers that support quantifiers prove the others. As
+the main solver, MathSAT is refused for such a system, as OpenSMT is: every
+engine took its answers for genuine.
 """
 
 import json
@@ -42,38 +44,48 @@ tel
 """
 
 
-def run(path, itp_solver):
-    args = common_args | ic3ia_args | {"--smt_itp_solver": itp_solver}
-    arg_list = [arg for pair in args.items() for arg in pair]
-    run = subprocess.run(
-        [kind2_bin, "-json", *arg_list, str(path)],
+def run(path, *extra):
+    """The answers to the properties and the log messages by level of a run
+    of Kind 2 on `path` with the common arguments and `extra`."""
+    arg_list = [arg for pair in common_args.items() for arg in pair]
+    proc = subprocess.run(
+        [kind2_bin, "-json", *arg_list, *extra, str(path)],
         capture_output=True,
         text=True,
         timeout=run_timeout,
     )
-    objs = json.loads(run.stdout)
-    logs = {
-        level: [obj["value"] for obj in objs
-                if obj.get("objectType") == "log" and obj.get("level") == level]
-        for level in ("warn", "error", "fatal")
-    }
+    objs = json.loads(proc.stdout)
+    logs = {}
+    for obj in objs:
+        if obj.get("objectType") == "log":
+            logs.setdefault(obj.get("level"), []).append(obj["value"])
     answers = {
         obj["name"]: obj["answer"]["value"]
         for obj in objs
         if obj.get("objectType") == "property"
     }
-    return answers, logs, run.stdout + run.stderr
+    return answers, logs, proc.stdout + proc.stderr
+
+
+def ic3ia_with(itp_solver):
+    args = ic3ia_args | {"--smt_itp_solver": itp_solver}
+    return [arg for pair in args.items() for arg in pair]
+
+
+def no_failures(logs):
+    return logs.get("error", []) == [] and logs.get("fatal", []) == []
 
 
 @pytest.mark.skipif(
     shutil.which(ic3ia_solver) is None, reason=f"{ic3ia_solver} is not installed"
 )
 def test_mathsat_declines_the_refinement():
-    answers, logs, out = run(needs_refinement, "MathSAT")
+    answers, logs, out = run(needs_refinement, *ic3ia_with("MathSAT"))
     assert answers.get("p") == "unknown", out
-    assert logs["error"] == [] and logs["fatal"] == [], out
+    assert no_failures(logs), out
     assert any(
-        "does not support quantified formulas" in msg for msg in logs["warn"]
+        "for property p: MathSAT does not support quantified formulas" in msg
+        for msg in logs.get("warn", [])
     ), out
 
 
@@ -83,9 +95,9 @@ def test_mathsat_declines_the_refinement():
 def test_mathsat_proves_without_refinement(tmp_path):
     path = tmp_path / "model.lus"
     path.write_text(needs_none)
-    answers, logs, out = run(path, "MathSAT")
+    answers, logs, out = run(path, *ic3ia_with("MathSAT"))
     assert answers.get("p") == "valid", out
-    assert logs["error"] == [] and logs["fatal"] == [], out
+    assert no_failures(logs), out
 
 
 @pytest.mark.parametrize(
@@ -94,6 +106,21 @@ def test_mathsat_proves_without_refinement(tmp_path):
 def test_quantifier_solvers_prove(itp_solver, binary):
     if shutil.which(binary) is None:
         pytest.skip(f"{binary} is not installed")
-    answers, logs, out = run(needs_refinement, itp_solver)
+    answers, logs, out = run(needs_refinement, *ic3ia_with(itp_solver))
     assert answers.get("p") == "valid", out
-    assert logs["error"] == [] and logs["fatal"] == [], out
+    assert no_failures(logs), out
+
+
+@pytest.mark.skipif(
+    shutil.which(ic3ia_solver) is None, reason=f"{ic3ia_solver} is not installed"
+)
+def test_mathsat_refused_as_main_solver():
+    answers, logs, out = run(
+        needs_refinement,
+        "--smt_solver", "MathSAT", "--enable", "BMC", "--enable", "IND",
+    )
+    assert answers.get("p") != "falsifiable", out
+    assert any(
+        "MathSAT does not support quantifiers" in msg
+        for msgs in logs.values() for msg in msgs
+    ), out

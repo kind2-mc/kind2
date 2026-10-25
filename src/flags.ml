@@ -242,6 +242,8 @@ module Smt = struct
     | `MathSAT_SMTLIB -> "MathSAT"
     | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
+    | `cvc5_QE -> "cvc5qe"
+    | `Z3_QE -> "Z3qe"
     | `detect -> "detect"
   let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe, OpenSMT, Bitwuzla"
   let itp_solver_default = `detect
