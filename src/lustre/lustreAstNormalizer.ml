@@ -1040,7 +1040,8 @@ let history_var_type info id =
 let record_history_def info id h_id =
   let ty = history_var_type info id in
   let equation =
-    let index = HString.mk_hstring "i" in
+    (* No identifier starts with '0', so the index does not capture [id] *)
+    let index = HString.mk_hstring "0_idx" in
     let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
     let eq_rhs =
       let cond =
@@ -3253,10 +3254,12 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         { (empty ()) with locals; equations }
       (* Array constructors containing inductive variables in definitions of multi-dimensional 
          arrays are rejected in lustreSyntaxChecks. So if there is not exactly one index 
-         variable, then the generated name does not matter. *)
-      | _ -> 
-        let eq_lhs = 
-            A.StructDef (dpos, [A.ArrayDef (dpos, name, [HString.mk_hstring "i"])]) 
+         variable, then the generated name does not matter, as long as it
+         does not capture a variable of [base_expr]: no identifier starts
+         with '0' (see #1827) *)
+      | _ ->
+        let eq_lhs =
+            A.StructDef (dpos, [A.ArrayDef (dpos, name, [HString.mk_hstring "0_idx"])])
         in
         let equations =
           [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
