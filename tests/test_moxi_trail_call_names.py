@@ -5,7 +5,10 @@ called, so that two calls of a system had the same names, and listed the
 locals of each call once more, under their bare names, at the level of the
 caller. The variables of the check are now named as the check-system
 declares them, those of each call by the path of the call names down to it,
-as in the certificates, and each variable is listed once.
+each name quoted on its own, and each variable is listed once. Since the
+`::` of a path is outside any quoted name, the path c1::c is told apart from
+a variable |c1::c| of the check, and a::b::c from a variable |b::c| of the
+call a. A condition named after a variable of the check is rejected.
 """
 
 import re
@@ -48,7 +51,7 @@ def trails(tmp_path, model):
     out, err = run_kmoxi(path, "--enable", "BMC")
     # The steps of each trail, each a list of (name, value)
     return [
-        [re.findall(r"\((\|[^|]*\||[^\s()]+) ([^\s()]+)\)", step)
+        [re.findall(r"\(((?:\|[^|]*\||[^\s()|]+)+) ([^\s()]+)\)", step)
          for step in re.findall(r"^\s*\(\d+ (.*)\)\s*$", trail, re.M)]
         for trail in out.split(":trail")[1:]
     ], out + err
@@ -58,26 +61,52 @@ def test_two_calls(tmp_path):
     [steps], out = trails(tmp_path, two_calls)
     assert [n for n, _ in steps[0]] == [
         "a", "b", "x", "y",
-        "|c1::inc|", "|c1::c|", "|c1::d|",
-        "|c2::inc|", "|c2::c|", "|c2::d|",
+        "c1::inc", "c1::c", "c1::d",
+        "c2::inc", "c2::c", "c2::d",
         "r",
     ], out
     last = dict(steps[-1])
-    assert (last["|c1::c|"], last["|c2::c|"]) == ("2", "0"), out
-    assert (last["|c1::d|"], last["|c2::d|"]) == ("2", "2"), out
+    assert (last["c1::c"], last["c2::c"]) == ("2", "0"), out
+    assert (last["c1::d"], last["c2::d"]) == ("2", "2"), out
 
 
 def test_nested_calls(tmp_path):
     [main, pair], out = trails(tmp_path, nested)
-    calls = ["k1::inc", "k1::c", "k 2::inc", "k 2::c"]
+    calls = ["k1::inc", "k1::c", "|k 2|::inc", "|k 2|::c"]
     pair_vars = ["a", "x", "t", "y"]
     assert [n for n, _ in main[0]] == (
         ["pp", "uu", "mm"]
-        + [f"|{c}::{v}|" for c in ["left", "right"]
+        + [f"{c}::{v}" for c in ["left", "right"]
            for v in pair_vars + calls]
         + ["r"]
     ), out
     assert [n for n, _ in pair[0]] == (
-        ["i", "o", "l", "n"] + [f"|{v}|" for v in calls] + ["s"]
+        ["i", "o", "l", "n"] + calls + ["s"]
     ), out
-    assert dict(main[0])["|left::t|"] == "5", out
+    assert dict(main[0])["left::t"] == "5", out
+
+
+# A check variable named after a call path, and a call variable whose name
+# contains :: next to a call of that name
+aliases = """(set-logic QF_LIA)
+(define-system Counter :input ((i Bool)) :output ((c Int))
+  :init (= c 7) :trans (= c' (ite i (+ c 1) c)))
+(define-system Inner :input ((i Bool)) :output ((|b::c| Int)) :local ((z Int))
+  :subsys (b (Counter i z))
+  :init (= |b::c| 0) :trans (= |b::c|' (+ |b::c| 1)))
+(define-system Main :input ((p Bool)) :output ((|a::b::c| Int))
+  :subsys (a (Inner p |a::b::c|)))
+(check-system Main :input ((p Bool)) :output ((|a::b::c| Int))
+  :reachable (r (= |a::b::c| 1)) :query (q (r)))
+"""
+
+
+def test_paths_do_not_alias(tmp_path):
+    [steps], out = trails(tmp_path, aliases)
+    names = [n for n, _ in steps[0]]
+    assert names == [
+        "p", "|a::b::c|", "a::i", "a::|b::c|", "a::z", "a::b::i", "a::b::c",
+        "r",
+    ], out
+    first = dict(steps[0])
+    assert (first["|a::b::c|"], first["a::b::c"]) == ("0", "7"), out

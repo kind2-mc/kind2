@@ -109,10 +109,13 @@ let join_maps (top_to_sys: StateVar.t SVM.t) (sys_to_subsys: StateVar.t SVM.t) =
     | Some value ->  StateVar.StateVarMap.add subsys_val value map 
 ) StateVar.StateVarMap.empty (SVM.bindings sys_to_subsys)
 
-(* The name of a variable of a call, as a symbol: the path of the call names
-   down to it, as in c1::c2::x. The namespace is flat, so a segment that
-   contains :: itself, or a check variable whose name is a path, can alias. *)
-let path_name path name = quote (String.concat "::" (path @ [ name ]))
+(* The name of a variable of a call, in a trail or a certificate, as a
+   qualified name: the path of the call names down to it, each quoted on its
+   own if needed, as in c1::|c 2|::x. Since :: is outside any quoted name,
+   it tells the path apart from a variable |c1::x| of the check, or |c2::x|
+   of the call c1. *)
+let path_name path name =
+  String.concat "::" (List.map quote (path @ [ name ]))
 
 (* Whether a variable is one a system declares, rather than a hidden copy of
    a local of one of its calls or a variable of kmoxi's own encoding *)
@@ -379,11 +382,12 @@ let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit
   | PropUnknown -> ()
 
 (* The name of a variable of the system of a check in a certificate, as an
-   SMT-LIB symbol, quoted if needed:
+   SMT-LIB symbol, quoted if needed, or a qualified name of such symbols:
    - a variable of the check, by its name in the check;
    - a variable of a subsystem instance, by the path of the instances down
-     to it, as in [C1::C::l]: the first instance, the call of the system of
-     the check, is the check itself;
+     to it, as in [C1::C::l], which [path_name] quotes name by name: the
+     first instance, the call of the system of the check, is the check
+     itself;
    - a declared constant, by its name;
    - a variable of kmoxi's own, such as the one a reachability condition is
      encoded by, by its name after an [@], with which SMT-LIB reserves

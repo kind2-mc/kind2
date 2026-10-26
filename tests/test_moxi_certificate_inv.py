@@ -1,5 +1,5 @@
 """kmoxi prints the invariant of a certificate as an SMT-LIB term over the
-names of the check, quoted when needed.
+names of the check, quoted when needed, extended with qualified names.
 
 It used to print it in Lustre syntax, with names as they are declared: the
 check below was answered with `:inv (true and r 1)`, which is not an SMT-LIB
@@ -8,7 +8,9 @@ term, and a variable needing quoting lost its bars the same way (#1789).
 The variables are named as follows:
 - a variable of the check by its name in the check;
 - a variable of a subsystem instance by the path of the instances down to
-  it, `|C1::l|`, so that the instances of a system are told apart;
+  it, a qualified name with each name quoted on its own, `C1::l`, so that
+  the instances of a system are told apart, and a path from a variable
+  `|C1::l|` of the check;
 - a variable of kmoxi's own, such as the one a reachability condition is
   encoded by, after an `@`, with which SMT-LIB reserves symbols for
   solvers, so that it is the name of no variable of the model.
@@ -47,14 +49,28 @@ models = {
   :subsys (C1 (Counter x)) :subsys (C2 (Counter y)))
 (check-system main :input () :output ((x Int) (y Int)) :local ((l Int))
   :reachable (r (not (= x y))) :query (q (r)))
-""", {"@r", "x", "y", "l", "|C1::l|", "|C2::l|", "|C1::c|", "|C2::c|"}),
-    # A variable of the check named as the reachability condition
+""", {"@r", "x", "y", "l", "C1::l", "C2::l", "C1::c", "C2::c"}),
+    # An assumption named after a variable of the check, which its
+    # encoding variable @x stays apart from
     "clash": ("""(set-logic QF_LIA)
-(define-system main :input () :output ((x Int) (r Bool)) :local ()
-  :init (and (= x 0) (not r)) :trans (and (= x' (+ x 1)) (= r' (< x' 0))))
-(check-system main :input () :output ((x Int) (r Bool)) :local ()
-  :reachable (r (< x 0)) :query (q (r)))
-""", {"@r", "x", "r"}),
+(define-system main :input ((x Int)) :output ((y Int)) :local ()
+  :init (= y 0) :trans (= y' (+ y x')))
+(check-system main :input ((x Int)) :output ((y Int)) :local ()
+  :assumption (x (>= x 0)) :reachable (r (< y 0)) :query (q (x r)))
+""", {"@r", "@x", "x", "y"}),
+    # A variable of the check named as a path, and a variable of an
+    # instance whose name contains ::, next to an instance of that name
+    "paths": ("""(set-logic QF_LIA)
+(define-system Counter :input () :output ((c Int))
+  :init (= c 7) :trans (= c' (+ c 1)))
+(define-system Inner :input () :output ((|b::c| Int)) :local ((z Int))
+  :subsys (b (Counter z))
+  :init (= |b::c| 0) :trans (= |b::c|' (+ |b::c| 1)))
+(define-system Main :input () :output ((|a::b::c| Int))
+  :subsys (a (Inner |a::b::c|)))
+(check-system Main :input () :output ((|a::b::c| Int))
+  :reachable (r (< |a::b::c| 0)) :query (q (r)))
+""", {"@r", "|a::b::c|", "a::|b::c|", "a::z", "a::b::c"}),
     # From blue, c stays blue: an invariant rules out blue, so that it
     # mentions c and values of its sort, whichever invariant is found
     "enum": ("""(set-logic QF_LIA)
@@ -76,7 +92,8 @@ models = {
 theory = {"true", "false", "not", "and", "or", "=>", "=", "distinct", "ite",
           "<", "<=", ">", ">=", "+", "-", "*", "div", "mod", "abs"}
 
-token = re.compile(r"\(|\)|\|[^|]*\||[^\s()|]+")
+# A symbol, or a qualified name: symbols joined by :: without spaces
+token = re.compile(r"\(|\)|(?:\|[^|]*\||[^\s()|]+)+")
 
 
 def parse(text):
@@ -129,12 +146,13 @@ def check_term(term, names, numerals, out):
         ("quoted", (), {"|@r 1|"}),
         # IC3IA finds an invariant over the variables
         ("quoted", ("--enable", "IC3IA"), {"|@r 1|", "|x y|", "|z w|"}),
-        ("instances", ("--enable", "IC3IA"), {"|C1::l|", "|C2::l|"}),
-        ("clash", ("--enable", "IC3IA"), {"@r"}),
+        ("instances", ("--enable", "IC3IA"), {"C1::l", "C2::l"}),
+        ("clash", ("--enable", "IC3IA"), {"y"}),
+        ("paths", ("--enable", "IC3IA"), set()),
         ("enum", ("--enable", "IC3IA"), {"red", "green", "blue"}),
         ("divisible", ("--enable", "IC3QE"), {"divisible"}),
     ],
-    ids=["default", "IC3IA", "instances", "clash", "enum", "divisible"],
+    ids=["default", "IC3IA", "instances", "clash", "paths", "enum", "divisible"],
 )
 def test_inv_is_smtlib_term(tmp_path, case, engines, mentioned):
     text, names = models[case]

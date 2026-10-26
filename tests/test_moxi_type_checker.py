@@ -305,6 +305,11 @@ ill_typed = {
         "  :reachable (r (> y 0)) :reachable (r (< y 0)) :query (q (r)))\n",
         "6:38", "duplicate condition name 'r'",
     ),
+    "condition-named-after-variable": (
+        head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :reachable (y (> y 0)) :query (q (y)))\n",
+        "6:15", ":reachable condition name 'y' is the name of a variable of the check-system",
+    ),
     "duplicate-query": (
         head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
         "  :reachable (r (> y 0)) :query (q (r)) :query (q (r)))\n",
@@ -422,6 +427,26 @@ well_typed = {
         "(check-system main :input ((x Int)) :output ((y Int)) :local ((t Int))\n"
         "  :assumption (a (and (>= x 0) (> x' x))) :reachable (r (> y t)) :query (q (a r)))\n",
         "unsat",
+    ),
+    # An assumption named after a variable of the check, which a trail does
+    # not show
+    "assumption-named-after-variable": (
+        head() + ")\n(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+        "  :assumption (x (> x 0)) :reachable (r (> y 2)) :query (q (x r)))\n",
+        "sat",
+    ),
+    # Reachability conditions named after a constant, a function and an
+    # enumeration value, which a trail does not show by name
+    "condition-named-after-globals": (
+        "(set-logic QF_LIA)\n(declare-const k Int)\n"
+        "(define-fun f ((a Int)) Int (+ a 1))\n(declare-enum-sort Color (red green))\n"
+        + head(logic=None) + ")\n"
+        + "".join(
+            "(check-system main :input ((x Int)) :output ((y Int)) :local ()\n"
+            f"  :reachable ({c} {t}) :query (q ({c})))\n"
+            for c, t in [("k", "(> y k)"), ("f", "(> y (f 0))"), ("red", "(> y 2)")]
+        ),
+        "sat",
     ),
 }
 

@@ -347,16 +347,20 @@ that proves it as a certificate, or `sat`, with a witnessing trace:
  )
 ```
 
-The invariant of a certificate, `:certificate (q_cert :inv I :k k)`, is an
-SMT-LIB term over the variables of the check, which the MoXI definition
-leaves the format of open. A variable of a subsystem instance is named by
-the path of the instances down to it, as `|C1::l|`. A variable of kMoXI's
-own encoding is named after an `@`, which SMT-LIB reserves for solvers: the
-one a reachability condition `r` is encoded by, `@r`, holds in the initial
-state and in each state whose predecessor does not satisfy `r`. A trail
-names the variables it shows the same way, and shows a reachability
-condition under the name `r` the check declares it with rather than as
-`@r`.
+The invariant of a certificate, `:certificate (q_cert :inv I :k k)`, is a
+term over the variables of the check, which the MoXI definition leaves the
+format of open. It is an SMT-LIB term, except that a variable of a
+subsystem instance is named by a qualified name: the path of the instances
+down to it, each name quoted on its own if needed and joined by `::`
+without spaces, as `C1::l` or `C1::|the sub|::l`. No SMT-LIB token contains
+`::` outside quotes, so the path is told apart from a variable `|C1::l|` of
+the check, and from a variable `|C::l|` of the instance `C1`. A variable of
+kMoXI's own encoding is named after an `@`, which SMT-LIB reserves for
+solvers: the one a reachability condition `r` is encoded by, `@r`, holds in
+the initial state and in each state whose predecessor does not satisfy `r`.
+A trail names the variables it shows the same way, and shows a reachability
+condition under the name `r` the check declares it with, which no variable
+of the check may have, rather than as `@r`.
 
 The exit code is 0 when the analysis completes, whatever the answer; it is
 3 when the model does not parse or type check, and `--only_parse true`
