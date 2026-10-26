@@ -170,6 +170,10 @@ let iboracle =  "iboracle"
    of reachability queries with timestep bounds. *)
 let ctr_id = HString.mk_hstring "*counter"
 
+(* Index of the equations of generated arrays. No identifier starts with '0',
+   so it does not capture a variable of the right-hand side (see #1827) *)
+let generated_index_id = HString.mk_hstring "0_idx"
+
 
 (* String constant used in lustreNameCalls.ml as the suffix of the fresh local
    variables introduced to capture the discarded results of a call statement

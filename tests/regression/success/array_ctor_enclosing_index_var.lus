@@ -1,0 +1,12 @@
+-- An array constructor that mentions the index variable of the enclosing
+-- array definition is an array of its own over that variable
+node main (B: int^2) returns (ok1, ok2: bool);
+var A: int^3^2; C: int^2^2;
+let
+  A = ((B[k])^3 foreach k)^2;
+  C = ((k + 10)^2 foreach k)^2;
+  ok1 = A[1][0] = B[1] and A[0][2] = B[0];
+  ok2 = C[0][1] = 10 and C[1][0] = 11;
+  check ok1;
+  check ok2;
+tel
