@@ -253,8 +253,10 @@ val check_reach : unit -> bool
 (** Check non-vacuity of contract modes and conditional properties *)
 val check_nonvacuity : unit -> bool
 
-(** Check properties of subnodes *)
-val check_subproperties : unit -> bool
+(** Check properties of subnodes: all of them, those in the cone of
+    influence of the properties of the main node, or none *)
+type check_subproperties = [`True | `Relevant | `False]
+val check_subproperties : unit -> check_subproperties
 
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool

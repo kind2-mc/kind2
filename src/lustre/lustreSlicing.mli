@@ -161,6 +161,16 @@ val slice_to_abstraction :
 
 val slice_node_to_abstraction : LustreNode.t -> LustreNode.t
 
+(** [relevant_calls a s] holds of the identifier of a node and of a call in
+    it if the call is in the cone of influence of the properties of the top
+    node of the analysis [a], in the node hierarchy [s] reduced to the cone
+    of influence as [slice_to_abstraction true a s] does it. A call kept
+    only for the assumptions of its contract, which depend on the inputs of
+    the call alone, is not. With [--check_subproperties relevant], the
+    properties of a called node are lifted only from these calls. *)
+val relevant_calls :
+    Analysis.param -> LustreNode.t SubSystem.t -> NodeId.t -> int -> bool
+
 (** [keep_inline_call c p] is [true] if the node call [c], whose outputs are
     dead (an inlined call, or the instance retained for a call compiled to an
     application of the functional symbol of the callee), is worth keeping while
