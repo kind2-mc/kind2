@@ -160,6 +160,10 @@ val iboracle : string
 of reachability queries with timestep bounds. *)
 val ctr_id : HString.t
 
+(** Index of the equations of generated arrays, which cannot capture a
+    variable of their right-hand side *)
+val generated_index_id : HString.t
+
 (** Checks if a variable name is the AST name of an iboracle, ['<n>_iboracle'] *)
 val var_is_iboracle: HString.t -> bool
 

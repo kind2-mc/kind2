@@ -1040,8 +1040,7 @@ let history_var_type info id =
 let record_history_def info id h_id =
   let ty = history_var_type info id in
   let equation =
-    (* No identifier starts with '0', so the index does not capture [id] *)
-    let index = HString.mk_hstring "0_idx" in
+    let index = generated_index_id in
     let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
     let eq_rhs =
       let cond =
@@ -2899,10 +2898,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (* A literal that mentions index variables of the enclosing array
          equation is defined element by element, over those variables and an
          index [k], as in [l[i][k] = if k = 0 then e0 else e1], rather than
-         from the expanded literal (see #1748). The name of [k] is fixed, and
-         no generated name starts with '0', so that identical literals have
-         identical definitions, which share a local *)
-      let k = HString.mk_hstring "0_idx" in
+         from the expanded literal (see #1748). The name of [k] is fixed, so
+         that identical literals have identical definitions, which share a
+         local *)
+      let k = generated_index_id in
       let rhs = ite_over_index k nexprs in
       mk_fresh_local ~indices:[k] false info pos ivars
         (generalized_type pos ivars ty rhs) rhs
@@ -3231,42 +3230,31 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
   | ArrayConstr (pos, expr, _) as e -> (
-    (* Desugar v^N into a new array variable A, defined as A[i]=v *)
+    (* Desugar v^N into a new array variable A, defined as A[j]=v. If v
+       mentions index variables of the enclosing array equation, A is
+       generalized over them, as in A[i][j]=v, and read as A[i] *)
     let base_expr, gids1, warnings =
       normalize_expr ?guard info node_id map expr
     in
     i := !i + 1;
     let prefix = HString.mk_hstring (string_of_int !i) in
     let name = HString.concat2 prefix (HString.mk_hstring "_array_ctor") in
-    let gids2 =
-      let locals =
-        let expr_type = infer_type info node_id e in
-        add_generated_type name (Lazy.from_val expr_type);
-        StringMap.singleton name expr_type
-      in
-      let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
-      match List.length indices with 
-      | 1 ->
-        let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, indices)]) in
-        let equations =
-          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
-        in
-        { (empty ()) with locals; equations }
-      (* Array constructors containing inductive variables in definitions of multi-dimensional 
-         arrays are rejected in lustreSyntaxChecks. So if there is not exactly one index 
-         variable, then the generated name does not matter, as long as it
-         does not capture a variable of [base_expr]: no identifier starts
-         with '0' (see #1827) *)
-      | _ ->
-        let eq_lhs =
-            A.StructDef (dpos, [A.ArrayDef (dpos, name, [HString.mk_hstring "0_idx"])])
-        in
-        let equations =
-          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
-        in
-        { (empty ()) with locals; equations }
+    let ivars = info.inductive_variables in
+    let eq_lhs, nexpr =
+      generalize_to_array_expr ~indices:[generated_index_id]
+        name ivars base_expr (A.Ident (pos, name))
     in
-    let nexpr = A.Ident (pos, name) in
+    let gids2 =
+      let expr_type =
+        generalized_type pos ivars (infer_type info node_id e) base_expr
+      in
+      add_generated_type name (Lazy.from_val expr_type);
+      let locals = StringMap.singleton name expr_type in
+      let equations =
+        [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+      in
+      { (empty ()) with locals; equations }
+    in
     nexpr, union gids1 gids2, warnings
   )
   | GroupExpr (pos, ArrayExpr, expr_list) as expr ->
