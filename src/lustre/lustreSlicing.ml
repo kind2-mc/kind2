@@ -1569,11 +1569,13 @@ let relevant_calls_of_subsystem analysis subsystem =
          acc)
     NI.Map.empty
 
-(* The relevant calls computed so far, by the subsystem, the top node and
+(* The relevant calls last computed, with the subsystem, the top node and
    the abstraction of the analysis, which are all they depend on. A system
    is built several times for the same analysis (for each property that
-   IC3IA checks, for instance), possibly in different domains. *)
-let relevant_calls_cache = ref []
+   IC3IA checks, for instance), possibly in different domains, and the
+   analyses run one after the other: keeping the last entry only is enough
+   for these builds to share it, and bounds what the cache holds. *)
+let relevant_calls_cache = ref None
 let relevant_calls_lock = Mutex.create ()
 
 (* [relevant_calls_of_subsystem], as a predicate on the identifier of the
@@ -1586,17 +1588,14 @@ let relevant_calls analysis subsystem =
     && Scope.Map.equal Bool.equal abstraction_map' abstraction_map
   in
   let relevant =
-    match
-      Mutex.protect relevant_calls_lock (fun () ->
-        List.find_opt same !relevant_calls_cache)
+    match Mutex.protect relevant_calls_lock (fun () -> !relevant_calls_cache)
     with
-    | Some (_, _, _, relevant) -> relevant
-    | None ->
+    | Some ((_, _, _, relevant) as entry) when same entry -> relevant
+    | _ ->
       let relevant = relevant_calls_of_subsystem analysis subsystem in
       Mutex.protect relevant_calls_lock (fun () ->
         relevant_calls_cache :=
-          (subsystem, top, abstraction_map, relevant)
-          :: !relevant_calls_cache);
+          Some (subsystem, top, abstraction_map, relevant));
       relevant
   in
   fun node_id call_id ->
