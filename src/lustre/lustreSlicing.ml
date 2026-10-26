@@ -1164,22 +1164,37 @@ let roots_of_recursive_calls
       (D.values inputs @ D.values outputs |> SVS.of_list) calls
   | _ -> SVS.empty
 
+(* Whether the properties of the node [call_node_id], other than those that
+   come from assumptions, are lifted into the calling node, at a call that
+   is [relevant] (see [relevant_calls]). The properties of an internal node,
+   a node Kind 2 generates for a part of the calling node (see
+   [NodeId.is_internal]), are lifted in any case. Those of another node are
+   lifted in a non-modular analysis only, according to
+   --check_subproperties. This is the rule of
+   [LustreTransSys.call_terms_of_node_call], which slicing has to follow:
+   a call whose properties are lifted must not be sliced away. *)
+let props_lifted_from_call ~relevant call_node_id =
+  NI.is_internal call_node_id
+  || (not (Flags.modular ())
+      && (match Flags.check_subproperties () with
+          | `True -> true
+          | `Relevant -> relevant
+          | `False -> false))
+
 (* A predicate that holds for the identifiers of the nodes, among [nodes],
    whose calls carry proof obligations into the calling node (see
    [LustreTransSys.call_terms_of_node_call]). They are of two kinds:
 
-   - the assumptions of the contract of the called node, and the properties
-     that come from the assumptions of the calls inside it, at any depth,
-     which are lifted into the calling node in any case;
+   - the assumptions of the contract of the called node, and those of the
+     calls inside it, at any depth, which are lifted into the calling node
+     in any case;
 
    - the other properties of the called node, including those it lifts from
-     its own calls, which are lifted into the calling node if the called
-     node is internal (a node Kind 2 generates for a part of the calling
-     node, see [NodeId.is_internal]), or, with --check_subproperties true,
-     in a non-modular analysis. With --check_subproperties relevant, they
-     are lifted only from a call in the cone of influence of the properties
-     of the calling node (see [relevant_calls]), so they do not make a call
-     relevant.
+     its own calls, which are lifted as [props_lifted_from_call] says. With
+     --check_subproperties relevant, the properties of a node that is not
+     internal are lifted only from a call in the cone of influence of the
+     properties of the top node (see [relevant_calls]), so they do not make
+     a call relevant.
 
    A node for which [is_abstract] holds is replaced by its contract, and
    only the properties of its contract are lifted from it. If
@@ -1190,12 +1205,9 @@ let roots_of_recursive_calls
    node depends on its outputs, so slicing it away would leave them
    unchecked. *)
 let has_lifted_obligations ~assumptions is_abstract nodes =
-  let lifts_props node_id =
-    NI.is_internal node_id
-    || (Flags.check_subproperties () = `True && not (Flags.modular ()))
-  in
-  (* For each node, whether it has obligations of the first kind and of the
-     second kind of its own, and its callees *)
+  let lifts_props = props_lifted_from_call ~relevant:false in
+  (* For each node, whether the assumptions of its contract and its other
+     properties are obligations, and its callees *)
   let info ({ N.node_id; N.props; N.contract; N.calls } as node) =
     let abstract = is_abstract node in
     let props = if abstract then filter_props_contract props else props in
@@ -1205,19 +1217,11 @@ let has_lifted_obligations ~assumptions is_abstract nodes =
       | Some { Contract.assumes; Contract.guarantees; Contract.modes } ->
         assumes <> [], not abstract && (guarantees <> [] || modes <> [])
     in
-    let own_assumption_props =
-      List.exists
-        (function
-          | (_, _, Property.Assumption _, _, _) -> true
-          | _ -> false)
-        props
-    in
     let own_props =
       guarantees
       || List.exists
         (function
-          | (_, _, (Property.Assumption _ | Property.Candidate _), _, _) ->
-            false
+          | (_, _, Property.Candidate _, _, _) -> false
           | _ -> true)
         props
     in
@@ -1229,7 +1233,7 @@ let has_lifted_obligations ~assumptions is_abstract nodes =
              if call_inlined then None else Some call_node_id)
           calls
     in
-    node_id, assumes, own_assumption_props, own_props, callees
+    node_id, assumes, own_props, callees
   in
   (* The callees come after their callers in [nodes] *)
   let info = List.rev_map info nodes in
@@ -1240,10 +1244,9 @@ let has_lifted_obligations ~assumptions is_abstract nodes =
     let (with_assumptions', with_props') as sets' =
       List.fold_left
         (fun (with_assumptions, with_props)
-          (node_id, assumes, own_assumption_props, own_props, callees) ->
+          (node_id, assumes, own_props, callees) ->
           let with_assumptions =
             if assumes
-            || own_assumption_props
             || List.exists (fun c -> NI.Set.mem c with_assumptions) callees
             then NI.Set.add node_id with_assumptions
             else with_assumptions
@@ -1283,6 +1286,7 @@ let roots_of_calls_with_obligations has_obligations calls =
 let root_and_leaves_of_impl  
     nodes
     has_obligations
+    outputs_demanded
     property
     is_top
     roots
@@ -1323,9 +1327,11 @@ let root_and_leaves_of_impl
 
     |> add_roots_of_asserts asserts
 
-    (* Consider outputs as roots except at the top node *)
+    (* Consider outputs as roots except at the top node, and at a node
+       whose outputs nothing reads (see [relevant_calls]) *)
     |> SVS.union (
-      if is_top then SVS.empty else D.values outputs |> SVS.of_list
+      if is_top || not (outputs_demanded node.N.node_id) then SVS.empty
+      else D.values outputs |> SVS.of_list
     )
     |> SVS.union (roots_of_inlined_calls property calls)
 
@@ -1333,7 +1339,7 @@ let root_and_leaves_of_impl
        slicing to a single property *)
     |> SVS.union
       (if property = None then
-         roots_of_calls_with_obligations has_obligations calls
+         roots_of_calls_with_obligations (Lazy.force has_obligations) calls
        else SVS.empty)
 
     (* Do not slice calls to lemmas *)
@@ -1405,20 +1411,22 @@ let node_is_abstract analysis { N.node_id } =
    indicated by [abstraction_map]. Use the implementation if a node is
    not in the map. *)
 let root_and_leaves_of_abstraction_map 
-  nodes has_obligations property is_top roots abstraction_map node
+  nodes has_obligations outputs_demanded property is_top roots
+  abstraction_map node
 =
   if node_is_abstract abstraction_map node
   then (* Node is to be abstract *)
     root_and_leaves_of_contracts property is_top roots node 
   else (* Node is to be concrete *)
-    root_and_leaves_of_impl nodes has_obligations property is_top roots node
+    root_and_leaves_of_impl
+      nodes has_obligations outputs_demanded property is_top roots node
 
 
 (* Slice nodes to abstraction or implementation as indicated in
    [abstraction_map] *)
 let slice_to_abstraction'
-  ?(preserve_sig = false) ?(assumptions = true) ?property analysis roots
-  subsystem
+  ?(preserve_sig = false) ?(assumptions = true)
+  ?(outputs_demanded = fun _ -> true) ?property analysis roots subsystem
 =
 
   let { A.top } = A.info_of_param analysis in
@@ -1429,8 +1437,10 @@ let slice_to_abstraction'
     S.find_subsystem subsystem top |> N.nodes_of_subsystem 
   in
 
+  (* Only needed when not slicing to a single property *)
   let has_obligations =
-    has_lifted_obligations ~assumptions (node_is_abstract analysis) nodes
+    lazy
+      (has_lifted_obligations ~assumptions (node_is_abstract analysis) nodes)
   in
 
   (* Slice all nodes to either abstraction or implementation *)
@@ -1439,11 +1449,13 @@ let slice_to_abstraction'
     slice_nodes
       preserve_sig
       (root_and_leaves_of_abstraction_map
-         nodes has_obligations property false roots analysis)
+         nodes has_obligations outputs_demanded property false roots
+         analysis)
       nodes
       []
       [root_and_leaves_of_abstraction_map
-         nodes has_obligations property true roots analysis (List.hd nodes)]
+         nodes has_obligations outputs_demanded property true roots analysis
+         (List.hd nodes)]
 
   in
 
@@ -1480,30 +1492,116 @@ let slice_to_abstraction
   slice_to_abstraction'
     ~preserve_sig analysis roots subsystem
 
-(* The calls in the cone of influence of the properties of the top node of
-   [analysis], as a predicate on the identifier of the calling node and the
-   identifier of the call in it. These are the calls whose properties are
-   lifted into the calling node with --check_subproperties relevant.
+(* The internal nodes, among the callees in [nodes], whose outputs are read
+   by an equation, a node call, an assertion, a property or a contract kept
+   in the calling node, or are outputs of a calling node whose outputs are
+   demanded, as [outputs_demanded] says. The top node, at the head of
+   [nodes], has no demanded outputs. *)
+let internal_nodes_read outputs_demanded nodes =
+  let top = match nodes with { N.node_id } :: _ -> Some node_id | [] -> None in
+  List.fold_left
+    (fun acc
+      { N.node_id; N.outputs; N.equations; N.calls; N.asserts; N.props;
+        N.contract } ->
+      let reads =
+        List.fold_left add_roots_of_equation [] equations
+        |> (fun roots -> List.fold_left add_roots_of_node_call roots calls)
+        |> SVS.of_list
+        |> add_roots_of_asserts asserts
+        |> SVS.union (roots_of_props props)
+        |> SVS.union (roots_of_contract contract)
+        |> SVS.union
+          (if Some node_id = top || not (outputs_demanded node_id)
+           then SVS.empty
+           else D.values outputs |> SVS.of_list)
+      in
+      List.fold_left
+        (fun acc { N.call_node_id; N.call_outputs } ->
+           if NI.is_internal call_node_id
+           && D.exists (fun _ sv -> SVS.mem sv reads) call_outputs
+           then NI.Set.add call_node_id acc
+           else acc)
+        acc calls)
+    NI.Set.empty nodes
+
+module IntSet = Set.Make (Int)
+
+(* The identifiers of the calls in the cone of influence of the properties
+   of the top node of [analysis], for each node of [subsystem]. These are
+   the calls whose properties are lifted into the calling node with
+   --check_subproperties relevant.
 
    They are the calls kept by the slicing of [subsystem] to the cone of
-   influence, except for those kept for the assumptions of their contracts,
-   or of the calls inside them, alone: these depend on the inputs of the
-   call only. *)
+   influence, except for the calls kept only for the assumptions of their
+   contracts, or of the calls inside them, which depend on the inputs of
+   the call only, and for the calls inside an internal node kept only for
+   its properties. The properties of an internal node are properties of the
+   calling node, so their cone of influence counts, but not the cone of
+   influence of the outputs of the internal node, unless something kept in
+   the calling node reads them. Slicing is done node by node, not call by
+   call, so the outputs of an internal node are demanded as soon as one of
+   its calls has them read. Whether they are demanded depends on what the
+   slicing keeps, which in turn depends on the internal nodes whose outputs
+   are demanded: this is a least fixpoint, whose number of rounds is at most
+   the depth at which internal nodes are nested. *)
+let relevant_calls_of_subsystem analysis subsystem =
+  let rec fix demanded =
+    let outputs_demanded node_id =
+      not (NI.is_internal node_id) || NI.Set.mem node_id demanded
+    in
+    let nodes =
+      slice_to_abstraction' ~assumptions:false ~outputs_demanded analysis
+        (fun _ _ -> None) subsystem
+      |> N.nodes_of_subsystem
+    in
+    let demanded' =
+      internal_nodes_read outputs_demanded nodes |> NI.Set.union demanded
+    in
+    if NI.Set.equal demanded demanded' then nodes else fix demanded'
+  in
+  fix NI.Set.empty
+  |> List.fold_left
+    (fun acc { N.node_id; N.calls } ->
+       NI.Map.add node_id
+         (List.fold_left
+            (fun acc { N.call_id } -> IntSet.add call_id acc)
+            IntSet.empty calls)
+         acc)
+    NI.Map.empty
+
+(* The relevant calls computed so far, by the subsystem, the top node and
+   the abstraction of the analysis, which are all they depend on. A system
+   is built several times for the same analysis (for each property that
+   IC3IA checks, for instance), possibly in different domains. *)
+let relevant_calls_cache = ref []
+let relevant_calls_lock = Mutex.create ()
+
+(* [relevant_calls_of_subsystem], as a predicate on the identifier of the
+   calling node and the identifier of the call in it *)
 let relevant_calls analysis subsystem =
+  let { A.top; A.abstraction_map } = A.info_of_param analysis in
+  let same (subsystem', top', abstraction_map', _) =
+    subsystem' == subsystem
+    && Scope.equal top' top
+    && Scope.Map.equal Bool.equal abstraction_map' abstraction_map
+  in
   let relevant =
-    slice_to_abstraction' ~assumptions:false analysis (fun _ _ -> None)
-      subsystem
-    |> N.nodes_of_subsystem
-    |> List.fold_left
-      (fun acc { N.node_id; N.calls } ->
-         NI.Map.add node_id
-           (List.map (fun { N.call_id } -> call_id) calls)
-           acc)
-      NI.Map.empty
+    match
+      Mutex.protect relevant_calls_lock (fun () ->
+        List.find_opt same !relevant_calls_cache)
+    with
+    | Some (_, _, _, relevant) -> relevant
+    | None ->
+      let relevant = relevant_calls_of_subsystem analysis subsystem in
+      Mutex.protect relevant_calls_lock (fun () ->
+        relevant_calls_cache :=
+          (subsystem, top, abstraction_map, relevant)
+          :: !relevant_calls_cache);
+      relevant
   in
   fun node_id call_id ->
     match NI.Map.find_opt node_id relevant with
-    | Some call_ids -> List.mem call_id call_ids
+    | Some call_ids -> IntSet.mem call_id call_ids
     | None -> false
 
 let slice_node_to_abstraction node =

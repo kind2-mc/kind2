@@ -233,3 +233,50 @@ def test_generated_node_of_callee(tmp_path, subproperties, instances, slicing):
     assert result == {"InvProp[L14C3]": "valid"} | {
         f"M[{pos}].Selector[L5C34]": "falsifiable" for pos in instances
     }, result
+
+
+# A call inside a generated node, whose properties are relevant if the
+# property of main or the checks of the generated node depend on the call
+in_generated_node = """\
+datatype D = A (a: int) | B (b: bool);
+node {callee} returns (o: {ty});
+let
+  o = i;
+  check "chk" false;
+tel
+node main(x: D; c: bool) returns (y: int; z: int);
+let
+  y = when c then (0 -> {branch}) else 0;
+  z = 0;
+  {prop}
+tel
+"""
+
+in_generated_node_cases = {
+    # Neither the selector check nor a property of main depend on the call
+    "unread": ("H(i: int)", "int", "H((pre x).a)", "", "Selector[L9C34]", False),
+    # The selector check depends on the call
+    "selector": ("F(i: D)", "D", "F(pre x).a", "", "Selector[L9C33]", True),
+    # The property of main depends on the call
+    "property": (
+        "H(i: int)", "int", "H((pre x).a)", "check y = 1;", "Selector[L9C34]",
+        True,
+    ),
+}
+
+
+@pytest.mark.parametrize("slicing", slicings)
+@pytest.mark.parametrize("subproperties", ["true", "relevant", "false"])
+@pytest.mark.parametrize("case", in_generated_node_cases)
+def test_call_in_generated_node(tmp_path, case, subproperties, slicing):
+    callee, ty, branch, prop, selector_name, relevant = (
+        in_generated_node_cases[case]
+    )
+    model = in_generated_node.format(
+        callee=callee, ty=ty, branch=branch, prop=prop
+    )
+    result = answers(tmp_path, model, subproperties, slicing)
+    assert result.get(selector_name) == "falsifiable", result
+    checked = subproperties == "true" or (subproperties == "relevant" and relevant)
+    call = f"{callee[0]}[L9C25]"
+    assert (f"{call}.chk" in result) == checked, result

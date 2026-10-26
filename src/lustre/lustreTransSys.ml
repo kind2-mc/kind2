@@ -1063,12 +1063,8 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
          strengthen the analysis of the calling node *)
       | P.Candidate _ -> lift
       | _ ->
-        internal
-        || (lift
-            && (match Flags.check_subproperties () with
-                | `True -> true
-                | `Relevant -> relevant_call call_id
-                | `False -> false))
+        S.props_lifted_from_call ~relevant:(relevant_call call_id)
+          call_node_id
     )
     |> List.fold_left (
       fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
