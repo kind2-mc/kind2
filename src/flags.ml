@@ -3685,22 +3685,43 @@ let check_nonvacuity_default = true
   let set_check_nonvacuity b = check_nonvacuity := b
   let check_nonvacuity () = !check_nonvacuity
 
-  let check_subproperties_default = true
+  type check_subproperties = [`True | `Relevant | `False]
+  let check_subproperties_of_string = function
+    | "true" -> `True
+    | "relevant" -> `Relevant
+    | "false" -> `False
+    | unexpected -> Arg.Bad (
+      Format.sprintf
+        "Unexpected value \"%s\" for flag --check_subproperties" unexpected
+    ) |> raise
+  let string_of_check_subproperties = function
+    | `True -> "true"
+    | `Relevant -> "relevant"
+    | `False -> "false"
+  let check_subproperties_default = `True
   let check_subproperties = ref check_subproperties_default
   let _ = add_spec ~kind2_only:true
     "--check_subproperties"
-    (bool_arg check_subproperties)
+    (Arg.String
+      (fun str -> check_subproperties := check_subproperties_of_string str)
+    )
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Check properties of subnodes in addition to properties of the main node.@ \
+          where <string> can be true, relevant, or false@ \
+          Check properties of subnodes in addition to properties of the main node:@ \
+          all of them (true), only those in the cone of influence of the@ \
+          properties of the main node (relevant), or none (false).@ \
+          With relevant, the proof obligations of the subnodes outside of@ \
+          that cone, such as the checks of ADT selectors, are not checked.@ \
           The properties of the nodes Kind 2 generates for parts of a node,@ \
-          such as the temporal branches of lazy constructs, are checked in@ \
+          such as the temporal branches of lazy constructs, and the@ \
+          assumptions of the contracts of the called nodes are checked in@ \
           any case.@ \
           Ignored if --modular is true@ \
-          Default: %a\
+          Default: %s\
         "
-        fmt_bool check_subproperties_default
+        (string_of_check_subproperties check_subproperties_default)
     )
   let check_subproperties () = !check_subproperties
 
@@ -3952,6 +3973,7 @@ type input_format = Global.input_format
 type real_precision = Global.real_precision
 type exit_code_convention = Global.exit_code_convention
 type slice_nodes = Global.slice_nodes
+type check_subproperties = Global.check_subproperties
 
 
 (* ********************************************************************** *)

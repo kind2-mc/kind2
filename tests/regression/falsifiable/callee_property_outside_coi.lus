@@ -1,0 +1,12 @@
+-- The property of Callee fails, although main has no property and nothing
+-- depends on the output of the call (see #1752)
+node Callee(x: int) returns (y: int);
+let
+  y = x;
+  check "callee" y > 0;
+tel
+
+node main(x: int) returns (y: int);
+let
+  y = Callee(x);
+tel
