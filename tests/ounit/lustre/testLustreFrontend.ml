@@ -1126,6 +1126,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_instantiation_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test nested instantiations of one polymorphic ADT are distinct types" (fun () ->
+    match load_file "./lustreTypeChecker/adt_nested_instantiation_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
   mk_test "test ADT tester type-checks" (fun () ->
     match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
     | Ok _ -> true

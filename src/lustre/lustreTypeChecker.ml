@@ -3425,9 +3425,8 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
   = fun ctx t1 t2 -> eq_lustre_type_seen HString.HStringSet.empty ctx t1 t2
 
-(* [seen] holds the datatypes the comparison is already inside of, so that the
-   recursion through a datatype's self-referential fields terminates; every case
-   but the datatype one passes it through unchanged *)
+(* [seen] holds the datatype comparisons in progress, keyed on the pair of
+   instantiated types, so recursion through self-referential fields terminates *)
 and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
   = fun seen ctx t1 t2 ->
   let eq_lustre_type ctx t1 t2 = eq_lustre_type_seen seen ctx t1 t2 in
@@ -3501,17 +3500,21 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
       R.ok false
   | ADT (_, n1, cons1), ADT (_, n2, cons2) ->
     (* Two instantiations of a polymorphic datatype share their name and differ
-       only in their constructors' field types. The guard is keyed on the name,
-       not the instantiation, so a nested second occurrence of the same datatype
-       is taken for a cycle and compared equal even at different arguments. *)
+       only in their field types, so the key records the instantiations too *)
     if not (HString.equal n1 n2) then R.ok false
-    else if HString.HStringSet.mem n1 seen then R.ok true
     else
-      let seen = HString.HStringSet.add n1 seen in
-      let field_types cons = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
-      let tys1, tys2 = field_types cons1, field_types cons2 in
-      if List.length tys1 <> List.length tys2 then R.ok false
-      else R.seqM (&&) true (List.map2 (eq_lustre_type_seen seen ctx) tys1 tys2)
+      let key =
+        Format.asprintf "%a: %a =?= %a" HString.pp_print_hstring n1
+          LA.pp_print_lustre_type t1 LA.pp_print_lustre_type t2
+        |> HString.mk_hstring
+      in
+      if HString.HStringSet.mem key seen then R.ok true
+      else
+        let seen = HString.HStringSet.add key seen in
+        let field_types cons = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+        let tys1, tys2 = field_types cons1, field_types cons2 in
+        if List.length tys1 <> List.length tys2 then R.ok false
+        else R.seqM (&&) true (List.map2 (eq_lustre_type_seen seen ctx) tys1 tys2)
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
