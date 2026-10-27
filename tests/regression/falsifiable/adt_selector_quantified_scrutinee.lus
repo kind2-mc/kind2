@@ -1,0 +1,13 @@
+datatype D = A (v: int) | B;
+
+contract spec(d: D) returns (ok: bool);
+let
+  guarantee true -> ((forall (j: int) (0 <= j and j < 3) => (pre d).v > 0)
+                     or true);
+tel
+
+node main(d: D) returns (ok: bool);
+(*@contract import spec(d) returns (ok); *)
+let
+  ok = true;
+tel

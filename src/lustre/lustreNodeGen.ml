@@ -2769,12 +2769,21 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           match expr with
           | A.Ident (_, id') -> Some id'
           | A.IndexAccess (_, e, _, _) | A.Pre (_, e) -> base e
-          (* An expression of several variables, or a constant compiled to a
-             value, has no single state variable to be named after *)
+          (* An expression of several variables has no single state variable to
+             be named after *)
           | _ -> None
         in
+        (* A constant is compiled to its value, not to a state variable: a
+           ghost constant is renamed and only reachable through the constants
+           compiled so far. Any other identifier must have a state variable *)
+        let is_constant id =
+          Option.is_some (Ctx.lookup_const ctx id)
+          || StringMap.mem id cstate.local_constants
+          || StringMap.mem id cstate.other_constants
+        in
         match base expr with
-        | Some id' -> H.find_opt !map.state_var (mk_ident id')
+        | Some id' when is_constant id' -> None
+        | Some id' -> Some (H.find !map.state_var (mk_ident id'))
         | None -> None
       in
       let index_types = compile_ast_type cstate ctx map expr_type in

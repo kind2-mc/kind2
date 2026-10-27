@@ -1,0 +1,9 @@
+datatype D = A (v: int) | B;
+
+node main(c: bool; i: int) returns (ok: bool);
+var d: D;
+let
+  d = A(i);
+  ok = true -> (pre c ==> d.v > 0);
+  check ok or true;
+tel

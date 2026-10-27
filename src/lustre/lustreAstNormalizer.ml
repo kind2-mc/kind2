@@ -181,29 +181,6 @@ let force_fresh = true
 let local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
 
-(* Generated identifiers whose value at the initial instant is arbitrary,
-   because they abstract an expression an enclosing '->' keeps from being read
-   there. A pass that moves such an expression out of the '->' has to account
-   for the initial instant itself (see [undefined_initially]) *)
-let undefined_at_init = ref A.SI.empty
-
-(* Whether [expr] has no meaning at the initial instant: it reads a 'pre' that
-   an enclosing '->' guards, or an identifier standing for such a reading. The
-   identifiers are read as 'pre's so that an enclosing '->' guards them too *)
-let undefined_initially expr =
-  let marked =
-    if A.SI.is_empty !undefined_at_init then []
-    else
-      A.SI.fold
-        (fun v acc ->
-          if A.SI.mem v !undefined_at_init then
-            (v, A.Pre (Lib.dummy_pos, A.Ident (Lib.dummy_pos, v))) :: acc
-          else acc)
-        (AH.vars_without_node_call_ids expr) []
-  in
-  let expr = if marked = [] then expr else AH.apply_subst_in_expr marked expr in
-  AH.has_unguarded_pre_no_warn expr
-
 (* A call to a function abstracted in the node being normalized, to be
    shared by the later calls of the node to the same function with the same
    arguments (see [mk_fresh_call]) *)
@@ -263,7 +240,6 @@ let clear_cache () =
   NodeArgCache.clear node_arg_cache;
   shared_calls := [];
   qcalls_by_name := StringMap.empty;
-  undefined_at_init := A.SI.empty;
   SelectorCache.clear selector_cache;
 
 type info = {
@@ -951,10 +927,7 @@ let local_cache_key ind_vars expr =
     (get_inductive_vars ind_vars expr),
   expr
 
-(* [init_is_arbitrary] records the local as one whose value at the initial
-   instant means nothing, on top of what its definition already shows *)
-let mk_fresh_local ?indices ?(init_is_arbitrary = false) force info pos ind_vars
-    expr_type expr =
+let mk_fresh_local ?indices force info pos ind_vars expr_type expr =
   let key = local_cache_key ind_vars expr in
   match (LocalCache.find_opt local_cache key, force) with
   | Some nexpr, false -> nexpr, empty ()
@@ -970,23 +943,45 @@ let mk_fresh_local ?indices ?(init_is_arbitrary = false) force info pos ind_vars
     locals = StringMap.singleton name expr_type;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
-  if init_is_arbitrary || undefined_initially expr then
-    undefined_at_init := A.SI.add name !undefined_at_init;
   LocalCache.add local_cache key nexpr;
   add_generated_type name (Lazy.from_val expr_type);
   nexpr, gids
 
-(* A 'pre' guarded by an enclosing '->' is left bare by the normalization, and
-   is never read at the initial instant. A Boolean condition with such a 'pre'
-   that is abstracted into a local of its own, outside of the '->', is [init]
-   at the initial instant instead, where the 'pre' has no value (see #1744) *)
-let guard_initial_value init cond =
-  if undefined_initially cond then
-    A.Arrow (AH.pos_of_expr cond, A.Const (dpos, init), cond)
-  else cond
+(* A 'pre' an enclosing '->' guards is left bare by the normalization, which
+   only holds while the expression stays under that '->'. A pass that moves it
+   into a node-level equation makes it read the instant before the first one,
+   so the relocated expression supplies its own initial instant with an oracle,
+   as a node-call argument always has (see #1562) *)
+(* A 'pre' an enclosing '->' guards is left bare by the normalization, which
+   only holds while the expression stays under that '->'. A pass that moves it
+   into a node-level equation makes it read the instant before the first one,
+   so the relocated expression supplies its own initial instant with an oracle,
+   as a node-call argument always has (see #1562) *)
+let guard_relocated_expr expr_type expr =
+  if AH.has_unguarded_pre_no_warn expr then
+    let oracle, _, gids = mk_fresh_oracle expr_type expr in
+    A.Arrow (AH.pos_of_expr expr, oracle, expr), gids
+  else expr, empty ()
 
-(* A guard is not established at the initial instant *)
-let guard_initial_condition = guard_initial_value A.False
+(* Abstract a relocated expression into a local that every occurrence of the
+   expression shares. [mk_fresh_local] keys its cache on the definition, which
+   an oracle makes unique, so the lookup and the alias are on the expression
+   itself. The lookup comes first: an oracle minted on a cache hit would be
+   read by nothing. [oracle_type] defaults to the type of the local, and is
+   given separately where the local generalizes to an array equation, whose
+   definition, and so whose oracle, stands at the element level *)
+let abstract_relocated ?oracle_type info pos local_type nexpr =
+  let key = local_cache_key info.inductive_variables nexpr in
+  match LocalCache.find_opt local_cache key with
+  | Some local -> local, empty ()
+  | None ->
+    let oracle_type = Option.value oracle_type ~default:local_type in
+    let def, gids1 = guard_relocated_expr oracle_type nexpr in
+    let local, gids2 =
+      mk_fresh_local false info pos info.inductive_variables local_type def
+    in
+    LocalCache.replace local_cache key local;
+    local, union gids1 gids2
 
 let mk_fresh_constant pos name expr_type =
   i := !i + 1;
@@ -2407,21 +2402,23 @@ and normalize_equation info node_id map = function
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
 (* [def] maps the normalized expression to the definition of the local that
-   abstracts it *)
-and abstract_expr ?guard ?ty ?(def = Fun.id) force info (node_id : NI.t option) map expr =
+   abstracts it, along with the identifiers that definition generates *)
+and abstract_expr ?guard ?ty ?(def = fun e -> e, empty ()) force info
+    (node_id : NI.t option) map expr =
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
   if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
+    let dexpr, gids2 = def nexpr in
     let ty =
       match ty with
       | Some ty -> ty
-      | None -> generalized_type pos ivars (infer_type info node_id expr) (def nexpr)
+      | None -> generalized_type pos ivars (infer_type info node_id expr) dexpr
     in
-    let iexpr, gids2 = mk_fresh_local force info pos ivars ty (def nexpr) in
-    iexpr, union gids1 gids2, warnings
+    let iexpr, gids3 = mk_fresh_local force info pos ivars ty dexpr in
+    iexpr, union_list [gids1; gids2; gids3], warnings
 
 (* Proof obligation that the constructor owning a user-written selector is
    active where the selector is read. Each enclosing lazy guard is shifted to
@@ -2471,8 +2468,8 @@ and selector_statically_guarded info (adt_info : LDAT.adt_info) ctor scrut =
     ) info.value_context
   | _ -> false
 
-and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
-    (adt_info : LDAT.adt_info) ctor base src_base =
+and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info)
+    (scrut_ty : A.lustre_type Lazy.t) ctor base src_base =
   match adt_info with
   | adt_info ->
     (* A value of a single-constructor ADT is always built with that constructor *)
@@ -2514,8 +2511,8 @@ and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
           if d <= 0 then e
           else
             let ie, gids =
-              mk_fresh_local false info pos info.inductive_variables (local_type e)
-                (guard_initial_condition e)
+              abstract_relocated ~oracle_type:(A.Bool pos) info pos
+                (local_type e) e
             in
             shift_gids := union !shift_gids gids;
             shift (d - 1) (mk_pre_local ie)
@@ -2526,9 +2523,9 @@ and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
             (fun c -> let g, d = pick c in shift_fn d g)
             info.call_context
         in
-        let mk_body pick core shift_fn =
+        let mk_body pick core shift_fn relocate =
           let core = shift_fn info.pre_depth core in
-          match shifted_guards pick shift_fn with
+          match List.map relocate (shifted_guards pick shift_fn) with
           | [] -> core
           | g :: gs ->
             let conj =
@@ -2540,7 +2537,7 @@ and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
         let source_pick (_, g, d) = (g, d) in
         (* Same shape as the obligation but with no generated locals: used to
            discover the variables to close over *)
-        let probe = mk_body normalized_pick tester shift_display in
+        let probe = mk_body normalized_pick tester shift_display Fun.id in
         (* Close over the variables the selector is read under: the enclosing
            quantifiers, and the index variables of an enclosing array equation. *)
         let close =
@@ -2579,17 +2576,24 @@ and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
         if List.exists implies emitted then empty ()
         else begin
           SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
-          (* A selector under a guarded 'pre' is not read at the initial
-             instant, where the obligation holds. [not_read_at_init] says so
-             for a scrutinee whose 'pre' a local now hides *)
+          (* The obligation is a property: the oracle stands in for each
+             undefined value it reads -- a guard 'shift' leaves at depth 0, and
+             a scrutinee that was not abstracted -- never for the obligation *)
+          let value_gids = ref (empty ()) in
+          let relocate ty e =
+            let e, gids = guard_relocated_expr ty e in
+            value_gids := union !value_gids gids;
+            e
+          in
           let obligation =
-            let o = close (mk_body normalized_pick tester shift) in
-            if not_read_at_init then A.Arrow (pos, A.Const (pos, A.True), o)
-            else guard_initial_value A.True o
+            close
+              (mk_body normalized_pick
+                 (mk_tester (relocate (Lazy.force scrut_ty) base))
+                 shift (relocate (A.Bool pos)))
           in
           (* Displayed in terms of the input model *)
           let display =
-            close (mk_body source_pick (mk_tester src_base) shift_display)
+            close (mk_body source_pick (mk_tester src_base) shift_display Fun.id)
           in
           i := !i + 1;
           let prefix = HString.mk_hstring (string_of_int !i) in
@@ -2599,10 +2603,10 @@ and mk_selector_obligation ?(not_read_at_init = false) info node_id pos
           let eq_lhs, _ =
             generalize_to_array_expr name StringMap.empty obligation nexpr
           in
-          union !shift_gids
+          union_list [!shift_gids; !value_gids;
             { (empty ()) with
               selector_obligations = [(pos, name, AH.rename_contract_vars display)];
-              equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
+              equations = [([], info.contract_scope, eq_lhs, obligation, None)] }]
         end)
 
 (* The variables bound by the enclosing quantifiers that [e] depends on,
@@ -2822,9 +2826,7 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) po
         *)
         if should_not_abstract info false conj then conj, empty ()
         else
-          mk_fresh_local false info (AH.pos_of_expr conj)
-            info.inductive_variables (A.Bool dummy_pos)
-            (guard_initial_condition conj)
+          abstract_relocated info (AH.pos_of_expr conj) (A.Bool dummy_pos) conj
       in
       match AH.id_of_expr nexpr with
       | None -> assert false
@@ -3191,9 +3193,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nrestart, gids1, warnings1 =
       if AH.expr_is_const restart then restart, empty (), []
       else
-        (* A restart at the initial instant leaves the callee in its initial
-           state, so the condition may be false there *)
-        abstract_expr ?guard ~def:guard_initial_condition true info node_id map restart
+        (* The condition becomes the reset flag of the call instance, read at
+           every instant, the initial one included *)
+        abstract_expr ?guard ~def:(guard_relocated_expr (A.Bool pos)) true
+          info node_id map restart
     in let nargs, gids2, warnings2 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
@@ -3442,41 +3445,17 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | _ -> false
     in
     let nexpr0, gids1, warnings = normalize_expr ?guard info node_id map expr in
-    (* A 'pre' an enclosing arrow guards is left bare by the normalization, so
-       the equation of a local abstracting the scrutinee stands outside the
-       arrow, where it would read the instant before the first one. The local
-       is given an initial value of its own there, which nothing reads: the
-       selector is only evaluated from the first instant on (see #1562) *)
-    let not_read_at_init = undefined_initially nexpr0 in
+    (* The scrutinee's type as instantiated here: the [adt_ty] the selector
+       carries has no type argument for a polymorphic datatype *)
+    let scrut_ty = lazy (infer_type info node_id expr) in
     let nexpr, gids1 =
       if not abstract_scrutinee || should_not_abstract info false nexpr0 then
         nexpr0, gids1
       else
-        match
-          LocalCache.find_opt local_cache
-            (local_cache_key info.inductive_variables nexpr0)
-        with
-        | Some local -> local, gids1
-        | None ->
-          let ty =
-            Chk.infer_type_expr info.context node_id expr
-            |> unwrap |> fun (ty, _, _) -> ty
-          in
-          let def, gids2 =
-            if AH.has_unguarded_pre_no_warn nexpr0 then
-              let oracle, _, gids = mk_fresh_oracle ty nexpr0 in
-              A.Arrow (pos, oracle, nexpr0), gids
-            else nexpr0, empty ()
-          in
-          let local, gids3 =
-            mk_fresh_local ~init_is_arbitrary:not_read_at_init false info pos
-              info.inductive_variables ty def
-          in
-          (* Every occurrence of the scrutinee shares the local, whether or not
-             its definition was given an initial value *)
-          LocalCache.add local_cache
-            (local_cache_key info.inductive_variables nexpr0) local;
-          local, union_list [gids1; gids2; gids3]
+        let local, gids2 =
+          abstract_relocated info pos (Lazy.force scrut_ty) nexpr0
+        in
+        local, union gids1 gids2
     in
     (* A user-written selector accounts for its obligation here, once. The
        normalized projection is marked as generated so that re-normalizing this
@@ -3486,8 +3465,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | A.Selector (A.UserWritten, _, _), Some (adt_info, adt_ty, ctor, guarded) ->
         let gids =
           if info.emit_selector_obligations then
-            mk_selector_obligation ~not_read_at_init
-              info node_id pos adt_info ctor nexpr expr
+            mk_selector_obligation info node_id pos adt_info scrut_ty ctor
+              nexpr expr
           else empty ()
         in
         let npk =

@@ -1,0 +1,8 @@
+datatype D = A (v: int) | B;
+const g: D = A(5);
+
+node main() returns (ok: bool);
+let
+  ok = true -> ((pre g).v = 5);
+  check ok;
+tel
