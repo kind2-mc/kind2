@@ -69,6 +69,7 @@ let s_as = HString.mk_hstring "as"
 let s_const = HString.mk_hstring "const"
 let s_int_to_bv = HString.mk_hstring "int_to_bv"
 let s_extract = HString.mk_hstring "extract"
+let s_is = HString.mk_hstring "is"
 let s_signext = HString.mk_hstring "sign_extend"
 let s_zeroext = HString.mk_hstring "zero_extend"
 let s_define_fun = HString.mk_hstring "define-fun"
@@ -183,6 +184,25 @@ let normalize_abstract_const_name type_name smt_name =
     | _ -> failwith ("Invalid abstract type value: " ^ s)
   in
   HString.mk_hstring (type_name ^ "." ^ string_of_int num)
+
+
+(* The type of the field selected, if [name] applied to [args] is a selector
+   of a datatype applied to a value of it: the selector of field [i] of
+   constructor [c] is [c_i] *)
+let selector_type name args =
+  match args with
+  | [arg] when Type.is_datatype (Term.type_of_term arg) ->
+    let dt = Term.type_of_term arg in
+    Type.constructors_of_datatype dt
+    |> List.find_map (fun (ctor, fields) ->
+        List.find_mapi (fun i ft ->
+            if name <> ctor ^ "_" ^ string_of_int i then None
+            else if Type.is_datatype_ref ft
+                 && Type.name_of_datatype_ref ft = Type.name_of_datatype dt
+            then Some dt
+            else Some ft)
+          fields)
+  | _ -> None
 
 
 (* Convert a string S-expression to an expression *)
@@ -408,51 +428,56 @@ let gen_expr_of_string_sexpr'
 
       (
 
-        (* Symbol from string *)
-        let s = 
+        let name = Lib.unquote_smtlib_symbol (HString.string_of_hstring h) in
+
+        (* Symbol from string, none for a selector of a datatype, which is
+           not declared as an uninterpreted function *)
+        let s =
 
           try
 
             (* Map the string to an interpreted function symbol *)
-            symbol_of_atom h
+            Some (symbol_of_atom h)
 
           with
 
             (* Function symbol is uninterpreted *)
             | Not_found ->
 
-              (* Uninterpreted symbol from string *)
-              let u =
+              try
 
-                try
+                (* Get the uninterpreted symbol of the string *)
+                Some (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string name)))
 
-                  UfSymbol.uf_symbol_of_string
-                    (Lib.unquote_smtlib_symbol (HString.string_of_hstring h))
-
-                with Not_found ->
-
-                  (* Cannot convert to an expression *)
-                  failwith
-                    (Format.sprintf
-                      "Undeclared uninterpreted function symbol %s in \
-                        S-expression"
-                      (HString.string_of_hstring h))
-              in
-
-              (* Get the uninterpreted symbol of the string *)
-              Symbol.mk_symbol (`UF u)
-
+              with Not_found -> None
 
           in
 
           (* parse arguments *)
           let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
-          (* Add correct type to select *)
-          let s = match Symbol.node_of_symbol s, args with
-            | `SELECT _, [a; _] ->
+          let s = match s, args with
+
+            (* Add correct type to select *)
+            | Some s, [a; _]
+              when (match Symbol.node_of_symbol s with
+                  | `SELECT _ -> true
+                  | _ -> false) ->
               Symbol.mk_symbol (`SELECT (Term.type_of_term a))
-            | _ -> s
+
+            | Some s, _ -> s
+
+            | None, _ ->
+              match selector_type name args with
+              | Some ty -> Symbol.mk_symbol (`Selector (name, ty))
+
+              (* Cannot convert to an expression *)
+              | None ->
+                failwith
+                  (Format.sprintf
+                    "Undeclared uninterpreted function symbol %s in \
+                      S-expression"
+                    name)
           in
         
           (* Create an application of the function symbol to the subterms *)
@@ -510,6 +535,17 @@ let gen_expr_of_string_sexpr'
         let args = List.map (expr_of_string_sexpr conv bound_vars) tl in
 
         Term.mk_app (Symbol.s_extract i_n j_n) args
+
+    (* Parse ((_ is C) x), a tester of a datatype constructor, as solvers
+       give it in the result of a quantifier elimination *)
+    | HStringSExpr.List
+        [HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom s2;
+                            HStringSExpr.Atom c;]; e]
+      when s1 == s_index && s2 == s_is ->
+
+        let ctor = Lib.unquote_smtlib_symbol (HString.string_of_hstring c) in
+
+        Term.mk_is_constructor ctor (expr_of_string_sexpr conv bound_vars e)
 
     (* A list with a list as first element *)
     | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
