@@ -1,0 +1,7 @@
+function imported nd (z: int) returns (t: int);
+
+node main (x: subtype { z: int | nd (z) = z }) returns (y: int);
+let
+  y = any { u: int | u = x };
+  check "p" y = x;
+tel
