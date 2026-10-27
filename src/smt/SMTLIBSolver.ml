@@ -609,7 +609,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       let pp_ctor ppf (ctor_name, field_types) =
         Format.fprintf ppf "(%s" ctor_name;
         List.iteri (fun i ft ->
-          Format.fprintf ppf " (%s_%d %s)" ctor_name i (string_of_sort ft)
+          Format.fprintf ppf " (%s %s)"
+            (Type.selector_name ctor_name i) (string_of_sort ft)
         ) field_types;
         Format.pp_print_string ppf ")"
       in

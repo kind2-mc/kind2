@@ -904,12 +904,6 @@ let find_recursive_selector adt_map ty_name field =
           find_idx 0 fields
       ) info.ctor_fields None
 
-(* The type a datatype's field has, with a self-reference resolved to the
-   datatype itself *)
-let resolve_datatype_ref dt ft =
-  if Type.is_datatype_ref ft
-     && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
-  then dt else ft
 
 (* An enum is an integer everywhere else, but a datatype field of integer sort
    lets a model read a value outside the enum out of a free datatype value: a
@@ -1165,7 +1159,7 @@ and compile_ast_type
     (* Declare every constructor, not only the ones the program builds a term
        with: a model returned by the solver may mention any of them *)
     List.iter (fun (ctor, field_types) ->
-      let arg_types = List.map (resolve_datatype_ref adt_type) field_types in
+      let arg_types = List.map (Type.resolve_datatype_ref adt_type) field_types in
       ignore (UfSymbol.mk_uf_symbol ctor arg_types adt_type)
     ) ctors';
     X.singleton X.empty_index adt_type
@@ -1949,8 +1943,8 @@ and compile_ast_expr_in
       let dt = E.type_of_lustre_expr e' in
       let ctor_sym = compiled_ctor_sym dt ctor in
       let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
-      let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
-      let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
+      let selector_name = Type.selector_name ctor_sym field_pos in
+      let result_type = Type.resolve_datatype_ref dt (List.nth field_types field_pos) in
       let sel = E.mk_selector selector_name result_type e' in
       let sel =
         if Type.is_enum_field_sort result_type then
@@ -2049,7 +2043,7 @@ and compile_ast_expr_in
     let arg_types =
       if Type.is_datatype adt_type then
         List.assoc ctor_name (Type.constructors_of_datatype adt_type)
-        |> List.map (resolve_datatype_ref adt_type)
+        |> List.map (Type.resolve_datatype_ref adt_type)
       else
         List.map
           (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))

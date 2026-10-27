@@ -376,13 +376,30 @@ let source_ctor_name ctor =
   | None -> ctor
   | Some i -> String.sub ctor (i + 1) (String.length ctor - i - 1)
 
-let mk_datatype name ctors =
-  Hkindtype.hashcons (ht ()) (Datatype (name, ctors, None)) ()
+(* Table from the names of the datatypes built to the datatypes, as the sort
+   a solver names in a term is read back. Private to each domain, like the
+   hashcons table its values are from. *)
+let datatypes_key =
+  Domain.DLS.new_key ~split_from_parent:Hashtbl.copy
+    (fun () -> Hashtbl.create 7)
+
+let datatypes () = Domain.DLS.get datatypes_key
+
+let mk_datatype_type name ctors enum_ty =
+  let t = Hkindtype.hashcons (ht ()) (Datatype (name, ctors, enum_ty)) () in
+  Hashtbl.replace (datatypes ()) name t;
+  t
+
+let mk_datatype name ctors = mk_datatype_type name ctors None
 
 let mk_enum_field_sort name ctors enum_ty =
-  Hkindtype.hashcons (ht ()) (Datatype (name, ctors, Some enum_ty)) ()
+  mk_datatype_type name ctors (Some enum_ty)
+
+let datatype_of_name name = Hashtbl.find_opt (datatypes ()) name
 
 let mk_datatype_ref name = Hkindtype.hashcons (ht ()) (DatatypeRef name) ()
+
+let selector_name ctor i = ctor ^ "_" ^ string_of_int i
 
 
 module HNum = Hashtbl.Make (struct
@@ -476,7 +493,7 @@ let rec import { Hashcons.node = n } = match n with
 
   | Datatype (name, ctors, enum_ty) ->
     let ctors' = List.map (fun (c, ts) -> (c, List.map import ts)) ctors in
-    mk_type (Datatype (name, ctors', Option.map import enum_ty))
+    mk_datatype_type name ctors' (Option.map import enum_ty)
 
   | DatatypeRef name -> mk_datatype_ref name
 
@@ -616,6 +633,13 @@ let is_datatype_ref { Hashcons.node = t } = match t with
 let name_of_datatype_ref = function
   | { Hashcons.node = DatatypeRef name } -> name
   | _ -> raise (Invalid_argument "name_of_datatype_ref")
+
+(* The type a datatype's field has, with a self-reference resolved to the
+   datatype itself *)
+let resolve_datatype_ref dt ft =
+  if is_datatype_ref ft
+     && String.equal (name_of_datatype_ref ft) (name_of_datatype dt)
+  then dt else ft
 
 
 let is_array { Hashcons.node = t } = match t with

@@ -186,23 +186,23 @@ let normalize_abstract_const_name type_name smt_name =
   HString.mk_hstring (type_name ^ "." ^ string_of_int num)
 
 
-(* The type of the field selected, if [name] applied to [args] is a selector
-   of a datatype applied to a value of it: the selector of field [i] of
-   constructor [c] is [c_i] *)
-let selector_type name args =
-  match args with
-  | [arg] when Type.is_datatype (Term.type_of_term arg) ->
-    let dt = Term.type_of_term arg in
+(* The symbol [name] stands for applied to [arg], if it is a selector or a
+   tester of the datatype of [arg]: neither is declared as an uninterpreted
+   function. A tester is (_ is C) in SMT-LIB 2.6, but is-C before it. *)
+let datatype_symbol name arg =
+  let dt = Term.type_of_term arg in
+  if not (Type.is_datatype dt) then None else
     Type.constructors_of_datatype dt
     |> List.find_map (fun (ctor, fields) ->
-        List.find_mapi (fun i ft ->
-            if name <> ctor ^ "_" ^ string_of_int i then None
-            else if Type.is_datatype_ref ft
-                 && Type.name_of_datatype_ref ft = Type.name_of_datatype dt
-            then Some dt
-            else Some ft)
-          fields)
-  | _ -> None
+        if name = "is-" ^ ctor then
+          Some (Symbol.mk_symbol (`IsConstructor ctor))
+        else
+          List.find_mapi (fun i ft ->
+              if name <> Type.selector_name ctor i then None
+              else
+                Some (Symbol.mk_symbol
+                  (`Selector (name, Type.resolve_datatype_ref dt ft))))
+            fields)
 
 
 (* Convert a string S-expression to an expression *)
@@ -430,8 +430,16 @@ let gen_expr_of_string_sexpr'
 
         let name = Lib.unquote_smtlib_symbol (HString.string_of_hstring h) in
 
-        (* Symbol from string, none for a selector of a datatype, which is
-           not declared as an uninterpreted function *)
+        let undeclared () =
+          (* Cannot convert to an expression *)
+          failwith
+            (Format.sprintf
+              "Undeclared uninterpreted function symbol %s in S-expression"
+              name)
+        in
+
+        (* Symbol from string, none for a selector or a tester of a
+           datatype, which only one argument is applied to *)
         let s =
 
           try
@@ -449,7 +457,9 @@ let gen_expr_of_string_sexpr'
                 (* Get the uninterpreted symbol of the string *)
                 Some (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string name)))
 
-              with Not_found -> None
+              with Not_found when List.length tl = 1 -> None
+
+                 | Not_found -> undeclared ()
 
           in
 
@@ -467,17 +477,12 @@ let gen_expr_of_string_sexpr'
 
             | Some s, _ -> s
 
-            | None, _ ->
-              match selector_type name args with
-              | Some ty -> Symbol.mk_symbol (`Selector (name, ty))
+            | None, [a] ->
+              (match datatype_symbol name a with
+               | Some s -> s
+               | None -> undeclared ())
 
-              (* Cannot convert to an expression *)
-              | None ->
-                failwith
-                  (Format.sprintf
-                    "Undeclared uninterpreted function symbol %s in \
-                      S-expression"
-                    name)
+            | None, _ -> undeclared ()
           in
         
           (* Create an application of the function symbol to the subterms *)
@@ -1080,14 +1085,14 @@ let rec type_of_smtlib_sexpr = function
     let ti, te = type_of_smtlib_sexpr si, type_of_smtlib_sexpr se in
     Type.mk_array te ti
   | HStringSExpr.List [_; HStringSExpr.Atom si; HStringSExpr.Atom se] when si == s_bitvector -> Type.mk_bv (HString.string_of_hstring se |> int_of_string)
-  | HStringSExpr.Atom s -> 
-    (* Try to create an abstract type *)
-    let name = HString.string_of_hstring s in
-    if name.[0] = '|' && name.[String.length name - 1] = '|' then
-      (* SMTLIB allows quoting of identifiers with |, remove them *)
-      Type.mk_abstr (String.sub name 1 (String.length name - 2))
-    else
-      Type.mk_abstr name
+  | HStringSExpr.Atom s ->
+    (* SMTLIB allows quoting of identifiers with |, remove them *)
+    let name = Lib.unquote_smtlib_symbol (HString.string_of_hstring s) in
+    (* A datatype declared to the solver, the sort of a variable bound in
+       the term, or else an abstract type *)
+    (match Type.datatype_of_name name with
+     | Some dt -> dt
+     | None -> Type.mk_abstr name)
   | HStringSExpr.List _ -> 
     (* Cannot convert to a type *)
     failwith "Invalid S-expression for type"

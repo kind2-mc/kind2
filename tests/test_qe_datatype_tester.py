@@ -9,15 +9,15 @@ Both the contract checker, whose realizability check eliminates the outputs,
 and IC3 with quantifier elimination stopped on a runtime failure.
 
 Each model is checked by the engine that eliminates quantifiers alone, so that
-no other engine settles the properties first.
+no other engine settles the properties first, and with Z3 as the solver of the
+elimination, whose answers the forms above are.
 """
 
 import json
-import subprocess
 
 import pytest
 
-from conftest import common_args, kind2_bin, run_timeout
+from conftest import common_args, kind2_bin, run_kind2
 
 # A tester in an assumption: the realizability check of the contract
 contract = """
@@ -70,11 +70,9 @@ def test_qe_datatype_tester(tmp_path, case):
     path = tmp_path / "model.lus"
     path.write_text(model)
     arg_list = [arg for pair in common_args.items() for arg in pair]
-    proc = subprocess.run(
-        [kind2_bin, "-json", *arg_list, "--enable", engine, str(path)],
-        capture_output=True,
-        text=True,
-        timeout=run_timeout,
+    proc = run_kind2(
+        [kind2_bin, "-json", *arg_list, "--smt_qe_solver", "Z3",
+         "--enable", engine, str(path)],
     )
     objs = json.loads(proc.stdout)
     errors = [
