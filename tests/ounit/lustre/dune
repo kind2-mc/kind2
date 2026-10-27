@@ -1,6 +1,6 @@
 
 (tests
-  (names testAstDependencies testLustreFrontend)
+  (names testAstDependencies testLustreFrontend testManyLocals)
   (deps
    (glob_files lustreParser/*.lus)
    (glob_files lustreAstInlineConstants/*.lus)
