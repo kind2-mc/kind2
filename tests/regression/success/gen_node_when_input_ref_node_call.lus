@@ -1,0 +1,7 @@
+node imported nd (z: int) returns (t: int);
+
+node main (c: bool; x: subtype { z: int | nd (z) = z }) returns (y: int);
+let
+  y = when c then (x -> pre x) else 0;
+  check "p" (not c) => (y = 0);
+tel

@@ -413,23 +413,72 @@ let droppable_condition ctx node_name r =
         (match Ctx.expand_type_syn ctx ty with A.Bool _ -> true | _ -> false)
       | Error _ | exception _ -> false)
 
-(* Desugaring a match copies its scrutinee into every constructor tester and
-   field projection, and each copy of a node call is a separate instance of it:
-   the copies can then disagree on which constructor the value has. Such a
-   scrutinee must be evaluated once and shared. A call this pass generates is
-   classified by the kind of its identifier, since its signature may not have
-   reached the context yet. A type ascription is a passthrough, and a function
-   call a single UF application, so their copies agree; the expression an
-   ascription wraps stays in the scrutinee and is classified on its own. A
-   callee the context does not hold is assumed to need sharing: sharing one
-   that did not need it only abstracts the match. *)
-let scrutinee_must_be_shared ctx e =
+(* Whether two copies of an expression, evaluated side by side, may disagree:
+   each copy of a call to a node is a separate instance of it, with its own
+   state and its own nondeterministic choices. A type ascription is a
+   passthrough, and a function call a single UF application, so their copies
+   agree. A call this pass generates is classified by the kind of its
+   identifier, since its signature may not have reached the context yet, and a
+   callee the context does not hold is assumed to disagree. *)
+let copies_may_disagree ctx e =
   AH.calls_of_expr e |> NI.Set.exists (fun id ->
     match NI.get_node_type id with
     | Any | ClockedExpr | Restarted | Matched -> true
     | Choose | TypeAscription | Contract | Environment | Type
     | DefinedConstant | FreeConstant -> false
     | Component -> not (is_stateless_callee ctx id))
+
+(* Desugaring a match copies its scrutinee into every constructor tester and
+   field projection: the copies can then disagree on which constructor the
+   value has, so such a scrutinee must be evaluated once and shared. The
+   expression an ascription wraps stays in the scrutinee and is classified on
+   its own. Sharing a scrutinee that did not need it only abstracts the match. *)
+let scrutinee_must_be_shared = copies_may_disagree
+
+(* The conjuncts of a refinement predicate a generated node can keep, or None
+   when it can keep none of them. A conjunct is kept when its copies agree
+   with the original; the ones that do not are dropped, so that the value a
+   generated node reads keeps as much of its constraint as still follows from
+   the one the enclosing node established. *)
+let rec agreeing_conjuncts ctx e =
+  match e with
+  | A.BinaryOp (p, A.And, e1, e2) ->
+    (match agreeing_conjuncts ctx e1, agreeing_conjuncts ctx e2 with
+    | Some e1, Some e2 -> Some (A.BinaryOp (p, A.And, e1, e2))
+    | Some e, None | None, Some e -> Some e
+    | None, None -> None)
+  | e -> if copies_may_disagree ctx e then None else Some e
+
+(* The type a node this pass generates declares for a variable of the enclosing
+   node it reads. A refinement whose predicate has copies that may disagree is
+   dropped: the enclosing node already constrains the value, and checking the
+   predicate again in the generated node would evaluate it in an instance of
+   its own, which the enclosing one need not agree with. *)
+let rec generated_node_input_type: Ctx.tc_context -> A.lustre_type -> A.lustre_type =
+fun ctx ty ->
+  let r = generated_node_input_type ctx in
+  match ty with
+  | A.Int _ | A.Bool _ | A.Real _ | A.SBitVector _ | A.UBitVector _
+  | A.EnumType _ | A.AbstractType _ | A.UserType _ | A.History _
+  | A.ADT _ -> ty
+  | A.Map (p, kt, vt) -> A.Map (p, r kt, r vt)
+  | A.Set (p, ty) -> A.Set (p, r ty)
+  | A.ArrayType (p, (ty, len)) -> A.ArrayType (p, (r ty, len))
+  | A.TArr (p, ty1, ty2) -> A.TArr (p, r ty1, r ty2)
+  | A.GroupType (p, tys) -> A.GroupType (p, List.map r tys)
+  | A.TupleType (p, tys) -> A.TupleType (p, List.map r tys)
+  | A.RecordType (p, id, tis) ->
+    A.RecordType (p, id, List.map (fun (p, i, ty) -> (p, i, r ty)) tis)
+  | A.RefinementType (p1, (p2, id, ty), e) ->
+    let ty = r ty in
+    match agreeing_conjuncts ctx e with
+    | Some e -> A.RefinementType (p1, (p2, id, ty), e)
+    | None -> ty
+
+(* The type of a variable of the enclosing node, as a node generated for a
+   construct of that node declares it *)
+let lookup_input_ty ctx i =
+  Option.map (generated_node_input_type ctx) (Ctx.lookup_ty ctx i)
 
 (* Whether the type of a local declaration is being desugared: dependency
    analysis does not look there, so a node generated for it is taken as top level. *)
@@ -463,7 +512,7 @@ fun ?(inserted = false) ctx node_name pos e ty ->
     let ty = Ctx.expand_type_syn ctx ty in
     let inputs = AH.vars_of_type ty |> Ctx.SI.elements |> node_arguments ctx in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
-    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun input -> (pos, input, lookup_input_ty ctx input, A.ClockTrue)) inputs in
     let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
       | Some ty -> 
         let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
@@ -645,7 +694,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
     let ctx = Ctx.add_ty ctx id ty in
-    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun input -> (pos, input, lookup_input_ty ctx input, A.ClockTrue)) inputs in
     let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
       | Some ty -> 
         let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
@@ -950,7 +999,7 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
     | Some (_, mpos, ids) -> A.ModeRef (mpos, ids)
     | None -> A.Ident (pos, str)
   ) inputs in
-  let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
+  let input_tys = List.map (fun input -> lookup_input_ty ctx input) inputs in
   (* The type of a free variable may not be known here (e.g. a match-arm
      pattern variable that is only substituted by a later pass) *)
   match List.find_opt (fun (_, ty) -> Option.is_none ty) (List.combine inputs input_tys) with
@@ -1166,7 +1215,8 @@ fun ctx node_name fun_ids pos items r ->
   if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
   then raise (Gen_nodes_error (pos, RestartPolymorphic));
   let input_decls, gen_nodes1 = List.map (fun i ->
-    let ty, gen_nodes = desugar_type ctx node_name fun_ids (lookup_ty i) in
+    let ty = generated_node_input_type ctx (lookup_ty i) in
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
     let is_const = Option.is_some (Ctx.lookup_const ctx i) in
     (pos, i, ty, A.ClockTrue, is_const), gen_nodes) inputs |> List.split
   in
@@ -1473,10 +1523,13 @@ fun ctx decls ->
   let decls =
   List.fold_left2 (fun decls decl (sig_decl, sig_gen_nodes) ->
     match decl, sig_decl with
-    | A.NodeDecl (_, (id, _, _, params, inputs, outputs, locals, items, contract)),
+    | A.NodeDecl (_, (id, _, _, params, _, _, locals, items, contract)),
       A.NodeDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _)) ->
-      let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
+      let ctx = Chk.add_full_node_ctx ctx id params inputs' outputs' locals in
       let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
+      (* The body reads the types of the declarations as this pass rewrote
+         them, so that a node generated for it does not rewrite them again *)
+      let ctx = Chk.add_local_node_ctx ctx locals in
       item_locals := [];
       let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
@@ -1484,10 +1537,11 @@ fun ctx decls ->
       let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
       decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract))] 
-    | A.FuncDecl (_, (id, _, _, params, inputs, outputs, locals, items, contract), _),
+    | A.FuncDecl (_, (id, _, _, params, _, _, locals, items, contract), _),
       A.FuncDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _), is_rec) ->
-      let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
+      let ctx = Chk.add_full_node_ctx ctx id params inputs' outputs' locals in
       let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
+      let ctx = Chk.add_local_node_ctx ctx locals in
       item_locals := [];
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
@@ -1496,9 +1550,9 @@ fun ctx decls ->
       let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @
       [A.FuncDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract), is_rec)]
-    | A.ContractNodeDecl (_, (id, params, inputs, outputs, contract)),
+    | A.ContractNodeDecl (_, (id, params, _, _, contract)),
       A.ContractNodeDecl (span, (_, _, inputs', outputs', _)) ->
-      let ctx = Chk.add_io_node_ctx ctx id params inputs outputs in
+      let ctx = Chk.add_io_node_ctx ctx id params inputs' outputs' in
       let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract
