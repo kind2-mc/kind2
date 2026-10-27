@@ -125,6 +125,13 @@ val source_ctor_name : string -> string
     for use as a field type within that datatype's own constructor list. *)
 val mk_datatype_ref : string -> t
 
+(** The datatype of the given name, if one was built *)
+val datatype_of_name : string -> t option
+
+(** [selector_name ctor i] is the symbol of the selector of field [i] of
+    constructor [ctor] *)
+val selector_name : string -> int -> string
+
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
 
@@ -235,6 +242,10 @@ val is_datatype_ref : t -> bool
 
 (** Return the name of a self-reference placeholder, fail if not one *)
 val name_of_datatype_ref : t -> string
+
+(** [resolve_datatype_ref dt ft] is the type [ft] of a field of the datatype
+    [dt], with a self-reference resolved to [dt] itself *)
+val resolve_datatype_ref : t -> t -> t
 
 (** {1 Ranges} *)
 
