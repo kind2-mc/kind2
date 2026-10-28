@@ -4,9 +4,11 @@ A call in an array comprehension that takes an index variable expands into one
 instance per index. A call of the same equation whose operands do not mention
 that variable, and that is under no lazy construct whose condition does, takes
 the same value at every index, and used to be expanded all the same, into
-identical instances that each brought a copy of the callee and of its
-properties (#1755). The verdicts do not tell that apart, so this checks the
-names of the properties lifted from the instances.
+identical instances, including when it was an operand of a call that takes the
+index variable, or in the condition of a lazy construct that mentions it. Those
+instances each brought a copy of the callee and of its properties (#1755). The
+verdicts do not tell that apart, so this checks the names of the properties
+lifted from the instances.
 """
 
 import json
@@ -24,29 +26,38 @@ model = (
 
 expected = {
     # A = (if F() = 1 then G(i) else 0 foreach i)^3
-    "F[L20C11].f",
-    *(f"G[L20C24][{i}].g" for i in range(3)),
+    "F[L25C11].f",
+    *(f"G[L25C24][{i}].g" for i in range(3)),
     # B = (when F() = 1 then G(i) else 0 foreach i)^3
-    "F[L22C13].f",
-    *(f"G[L22C26][{i}].g" for i in range(3)),
+    "F[L27C13].f",
+    *(f"G[L27C26][{i}].g" for i in range(3)),
     # C = (G(G(m)) + G(i) foreach i)^3
-    "G[L24C8].g",
-    "G[L24C10].g",
-    *(f"G[L24C18][{i}].g" for i in range(3)),
+    "G[L29C8].g",
+    "G[L29C10].g",
+    *(f"G[L29C18][{i}].g" for i in range(3)),
     # D = (when m = i then G(m) else 0 foreach i)^3
-    *(f"G[L27C24][{i}].g" for i in range(3)),
+    *(f"G[L32C24][{i}].g" for i in range(3)),
     # E = (G(j) + G(m) foreach i, j)^2^3
-    *(f"G[L29C8][{j}].g" for j in range(2)),
-    "G[L29C15].g",
+    *(f"G[L34C8][{j}].g" for j in range(2)),
+    "G[L34C15].g",
+    # P = (H(F(), i) foreach i)^3
+    "F[L36C10].f",
+    # Q = (when F() = 1 and m = i then G(i) else 0 foreach i)^3
+    "F[L39C13].f",
+    *(f"G[L39C36][{i}].g" for i in range(3)),
     # The calls of F in the checks of main
-    "F[L30C24].f",
-    "F[L31C24].f",
+    "F[L40C24].f",
+    "F[L41C24].f",
+    "F[L45C20].f",
+    "F[L46C24].f",
     # The checks of main
     "A",
     "B",
     "C",
     "D",
     "E",
+    "P",
+    "Q",
 }
 
 

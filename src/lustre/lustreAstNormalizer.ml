@@ -459,6 +459,17 @@ let expanded_call_instances : (A.expr * int list) list ref = ref []
 let call_instance_of_expr expr =
   try List.assq expr !expanded_call_instances with Not_found -> []
 
+(* The calls of an array equation that every instance of an expression
+   expanded per index makes alike (see [expand_node_calls_in_place]): the
+   instances hold the same call, by physical equality, which is normalized
+   once, into the expression recorded here for each projection of the
+   equation, until the expanded equation has been normalized *)
+let shared_index_free_calls : (A.expr * (int * A.expr) list ref) list ref = ref []
+
+let reset_expanded_calls () =
+  expanded_call_instances := [];
+  shared_index_free_calls := []
+
 let dpos = Lib.dummy_pos
 
 (* The index [k] of an array, as a constant *)
@@ -2191,7 +2202,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nexpr, gids1, warnings1 =
           normalize_expr ?guard:None info (Some node_id) map expr
         in
-        expanded_call_instances := [];
+        reset_expanded_calls ();
         let gids1 =
           if expanded then
             union gids1 { (empty ()) with expanded_variables = StringSet.singleton id }
@@ -2274,7 +2285,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
           else normalize_expr ?guard:None info (Some node_id) map expr, false
         )
         in
-        expanded_call_instances := [];
+        reset_expanded_calls ();
         let gids2 = (
           if expanded then
           let items = tis in
@@ -2429,7 +2440,7 @@ and normalize_equation info node_id map = function
         normalize_expr info (Some node_id) map expanded_expr, true
       else normalize_expr info (Some node_id) map expr, false)
     in
-    expanded_call_instances := [];
+    reset_expanded_calls ();
     let gids2 = if expanded then
       let items = match lhs with | StructDef (_, items) -> items in
       let ids = List.map (function
@@ -3103,7 +3114,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
-  function
+  let normalize : A.expr -> _ = function
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
@@ -3900,6 +3911,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | A.AbstractSymConst _ as e ->
     (* Pass through to the compiler, which handles it in compile_ast_expr. *)
     e, empty (), []
+  in
+  fun expr ->
+    match List.assq_opt expr !shared_index_free_calls with
+    | None -> normalize expr
+    | Some normalized ->
+      let proj = info.local_group_projection in
+      match List.assoc_opt proj !normalized with
+      | Some nexpr -> nexpr, empty (), []
+      | None ->
+        let (nexpr, _, _) as res = normalize expr in
+        normalized := (proj, nexpr) :: !normalized;
+        res
 
 (* [expr] with the node calls it makes in an array equation over [var]
    expanded into one instance per index (see [expand_node_call]), [count]
@@ -3920,16 +3943,30 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
    those calls, which would lose their indices (see [expanded_call_instances]),
    and so would the properties lifted from them.
 
-   An expression that does not mention [var], in its operands or in those of
-   the calls it makes, is left as is outside of an expansion per index: it
-   takes the same value at every index, so a single instance of each of its
-   calls suffices (see #1755). Inside an expansion per index, it may still be
-   under a condition that mentions [var], so its calls are instantiated. *)
-and expand_node_calls_in_place ?index info node_id var count expr =
-  let r = expand_node_calls_in_place ?index info node_id var count in
-  let mentions_var e =
-    A.SI.mem var (AH.vars_without_node_call_ids e)
-    || A.SI.mem var (AH.vars_of_node_calls e)
+   A call whose operands do not mention [var] takes the same value at every
+   index, so a single instance of it suffices (see #1755): outside of an
+   expansion per index, it is left as is. So is it in each instance of an
+   expansion per index ([guarded] being false), when its operands mention no
+   index variable of the equation, and it is under no lazy construct of the
+   expanded expression, whose condition may select it at some indices only.
+   Every instance then holds the same call, which is normalized once (see
+   [shared_index_free_calls]). *)
+and expand_node_calls_in_place ?index ?(guarded = false) info node_id var count expr =
+  let r = expand_node_calls_in_place ?index ~guarded info node_id var count in
+  let rg = expand_node_calls_in_place ?index ~guarded:true info node_id var count in
+  let vars e = AH.vars_without_node_call_ids e in
+  let mentions_var e = A.SI.mem var (vars e) in
+  (* Whether the call [call] is left as is, registered as shared by the
+     instances of an expansion per index *)
+  let index_free call =
+    match index with
+    | None -> not (mentions_var call)
+    | Some _ ->
+      not guarded
+      && not (A.SI.exists (fun v -> StringMap.mem v info.inductive_variables) (vars call))
+      && (if not (List.mem_assq call !shared_index_free_calls) then
+            shared_index_free_calls := (call, ref []) :: !shared_index_free_calls;
+          true)
   in
   (* The call [call], rebuilt as [call'] with its operands expanded: the
      instance for [index], or the selection of its instances over [var] *)
@@ -3941,8 +3978,6 @@ and expand_node_calls_in_place ?index info node_id var count expr =
       call'
     | None -> expand_node_call info (Some node_id) call' instance var count
   in
-  if index = None && not (mentions_var expr) then expr
-  else
   match AH.lazy_construct expr with
   | Some (cond, guarded)
     when index = None
@@ -3951,6 +3986,10 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     expand_per_index info node_id var count expr
   | _ ->
   match expr with
+  | BinaryOp (p, ((AndThen | OrElse | LazyImpl) as op), e1, e2) when index <> None ->
+    A.BinaryOp (p, op, r e1, rg e2)
+  | TernaryOp (p, LazyIte, e1, e2, e3) when index <> None ->
+    A.TernaryOp (p, LazyIte, r e1, rg e2, rg e3)
   | A.Ident (p, v) when index <> None && HString.equal v var ->
     mk_index ~pos:p (Option.get index)
   | Quantifier (_, _, ids, _)
@@ -4023,6 +4062,7 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     A.ADTTerm (p, ty_args, ctor, List.map r expr_list)
   | ADTTester (p, e, ctor) -> A.ADTTester (p, r e, ctor)
   | Extract (p, e, ub, lb) -> A.Extract (p, r e, ub, lb)
+  | (Call _ | RestartEvery _) as e when index_free e -> e
   | Call (_, _, _, expr_list) as e
     when index = None && List.exists AH.expr_contains_call expr_list ->
     expand_per_index info node_id var count e

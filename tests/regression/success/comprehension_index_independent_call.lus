@@ -14,7 +14,12 @@ let
   check "g" c = x;
 tel
 
-node main(m: int) returns (A, B, C, D: int^3; E: int^2^3);
+node H(x, y: int) returns (c: int);
+let
+  c = x + y;
+tel
+
+node main(m: int) returns (A, B, C, D, P, Q: int^3; E: int^2^3);
 let
   -- Under an eager conditional
   A = (if F() = 1 then G(i) else 0 foreach i)^3;
@@ -27,9 +32,16 @@ let
   D = (when m = i then G(m) else 0 foreach i)^3;
   -- Over several index variables, a call that takes one of them only
   E = (G(j) + G(m) foreach i, j)^2^3;
+  -- As an operand of a call that takes the index variable
+  P = (H(F(), i) foreach i)^3;
+  -- In the condition of a lazy construct, next to the index variable: the
+  -- guarded call is made once per index, the call in the condition once
+  Q = (when F() = 1 and m = i then G(i) else 0 foreach i)^3;
   check "A" A[2] = (if F() = 1 then 2 else 0);
   check "B" B[1] = (if F() = 1 then 1 else 0);
   check "C" C[2] = m + 2;
   check "D" D[0] = (if m = 0 then m else 0);
   check "E" E[2][1] = 1 + m;
+  check "P" P[2] = F() + 2;
+  check "Q" Q[1] = (if F() = 1 and m = 1 then 1 else 0);
 tel
