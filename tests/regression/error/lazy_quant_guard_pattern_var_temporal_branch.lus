@@ -1,0 +1,15 @@
+-- A pattern variable bound by matching the quantified variable stands for it,
+-- so a temporal branch that mentions it, abstracted into a call to a node
+-- under the guard 'c' that changes over time, is rejected, as a quantified
+-- variable in the branch is. It made the solvers fail with an unknown
+-- constant, the variable being out of scope in the node (issue #1849)
+
+datatype O = Some (f: bool) | None;
+
+node main (c: bool) returns ();
+let
+  check forall (k: O)
+    (match k with
+     | Some(v) : (c ==> (true -> pre v)) = (c ==> (true -> pre v))
+     | None : true end);
+tel

@@ -1,0 +1,14 @@
+-- A temporal branch under a guard whose conditions either do not mention the
+-- quantified variable or do not change over time is accepted: the instance
+-- for each value of the variable is either never activated, or activated
+-- where x > 0, so that 'pre x' is the value of x when x > 0 last held
+-- (issue #1849). See also lazy_quant_guard_else_branch_time_varying.lus.
+
+node main (x: int) returns ();
+let
+  check "then" forall (k: int)
+    (when 0 <= k and x > 0 then (true -> pre x > 0) else true);
+  -- Selected where 'k < 0 or x <= 0' does not hold
+  check "or_else" forall (k: int) (k < 0 or x <= 0) or else (true -> pre x > 0);
+  check "not" forall (k: int) not (k < 0 or x <= 0) ==> (true -> pre x > 0);
+tel

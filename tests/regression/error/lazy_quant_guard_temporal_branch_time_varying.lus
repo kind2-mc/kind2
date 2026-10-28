@@ -1,0 +1,9 @@
+-- A temporal branch under a guard whose condition mentions a quantified
+-- variable and changes over time is rejected, as a node call is (see
+-- lazy_quant_guard_call_time_varying.lus): 'pre x' would be the value of x
+-- when c last had its current value (issue #1849)
+
+node main (c: bool; x: int) returns ();
+let
+  check forall (k: bool) k = c ==> (true -> ((pre x > 0) = (x > 0)));
+tel

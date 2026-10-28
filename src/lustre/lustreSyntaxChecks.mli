@@ -33,6 +33,7 @@ type error_kind = Unknown of string
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
+  | QuantifiedPatternVariableInNodeArgument of HString.t * HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
@@ -40,6 +41,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
   | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
   | SymbolicArrayIndexInTemporalBranch of HString.t
+  | QuantifiedPatternVariableInTemporalBranch of HString.t * HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)

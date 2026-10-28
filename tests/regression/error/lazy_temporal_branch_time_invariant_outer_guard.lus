@@ -1,9 +1,0 @@
--- A temporal operand whose own guard changes over time is abstracted into a
--- call to a node, which an enclosing guard that mentions a quantified variable
--- does not allow, even when that enclosing guard does not change over time
--- (issue #1837)
-
-node main (c: bool; x: int) returns ();
-let
-  check forall (k: int) k = 0 ==> (c ==> (true -> pre x > 0));
-tel

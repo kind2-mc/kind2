@@ -441,6 +441,30 @@ For existential quantification the predicate is conjoined instead, so
 `exists (i: int | Q(i)) P(i)` is equivalent to
 `exists (i: int) Q(i) and then P(i)`.
 
+In both forms, the call to a node or a function in `P` whose arguments do not
+mention `i` is made at a step exactly when some value of `i` satisfies `Q(i)`
+and the other lazy guards the call is under. In particular, the assumptions of
+the callee are not required at a step where no value of `i` does, for example
+when the range of `i` is empty. A call whose arguments mention `i` is only
+accepted for the
+[functions]({{< relref "/inputs-and-outputs/lustre#functions" >}}) that can be
+inlined or applied to a quantified variable.
+
+A node has state, and so does an operand of a lazy construct that uses `pre`
+or `->`: in `forall (i: int) G(i) ==> (true -> pre x > 0)`, `pre x` is the
+value of `x` the last time the operand was selected for the same value of `i`.
+Kind 2 evaluates such a call or operand once for all the values of `i`, so it
+rejects it when a condition of the guards it is under mentions `i`, or a
+variable of a pattern matched against an expression that mentions `i`, and
+changes over time, as `i = c` does for an input `c`, since each value of `i` would
+then select it at different steps. A guard that is a conjunction of conditions
+that either do not mention `i`, such as `x > 0`, or do not change over time,
+such as `Q(i)` or `0 <= i and i < n` for a constant `n`, is accepted: every
+value of `i` that satisfies the latter selects the call or operand at the same
+steps. Such an operand, under a guard that changes over time, and the
+arguments of a call to a node cannot mention `i`, nor a variable of a pattern
+matched against an expression that mentions `i`.
+
 #### Example
 
 The same parameterized system of a sliding window, slightly modified to express

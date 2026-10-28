@@ -908,6 +908,47 @@ let mk_enum_reftype_constraints node_id info vars =
     in
     Some conj
 
+(* The operands of the conjunctions [e] is made of *)
+let rec conjuncts = function
+  | A.BinaryOp (_, A.And, e1, e2) -> conjuncts e1 @ conjuncts e2
+  | e -> [e]
+
+(* [c] conjoined to [conj], but for the conjuncts of [c] that already are
+   conjuncts of [conj] *)
+let conjoin_new c conj =
+  let present = conjuncts conj in
+  List.fold_left
+    (fun acc c' ->
+      if List.exists (expr_equal c') present then acc
+      else A.BinaryOp (dpos, A.And, c', acc))
+    conj (conjuncts c)
+
+(* Whether a variable of type [ty] has a value that satisfies the constraints
+   of [ty] (see [mk_enum_reftype_constraints]) whatever the values of the
+   constants: [ty] is an enum type, or a subrange whose bounds are literals
+   (see the parser) *)
+let has_constant_free_value info ty =
+  let literal = function
+    | A.Const (_, A.Num n) -> Some (Numeral.of_string (HString.string_of_hstring n))
+    | A.UnaryOp (_, A.Uminus, A.Const (_, A.Num n)) ->
+      Some (Numeral.neg (Numeral.of_string (HString.string_of_hstring n)))
+    | _ -> None
+  in
+  match Ctx.expand_type_syn info.context ty with
+  | A.EnumType _ -> true
+  | A.RefinementType (_, (_, v, A.Int _), pred) -> (
+    let is_v = function A.Ident (_, id) -> HString.equal id v | _ -> false in
+    match pred with
+    | A.BinaryOp (_, A.And, A.CompOp (_, A.Lte, l, x), A.CompOp (_, A.Lte, y, u))
+      when is_v x && is_v y -> (
+      match literal l, literal u with
+      | Some l, Some u -> Numeral.leq l u
+      | _ -> false)
+    | A.CompOp (_, A.Lte, b, x) when is_v x -> Option.is_some (literal b)
+    | A.CompOp (_, A.Lte, x, b) when is_v x -> Option.is_some (literal b)
+    | _ -> false)
+  | _ -> false
+
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
@@ -2548,10 +2589,25 @@ and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info)
                  (pos, id, index_ty))
           in
           let vars = List.rev (info.quantified_variables @ ind_vars) in
+          (* The conditions of the guards that the obligation has as they
+             are, not shifted (see [mk_body]) *)
+          let unshifted =
+            List.concat_map
+              (fun (g, _, d) -> if d <= 0 then conjuncts g else [])
+              info.call_context
+          in
+          let in_guards c =
+            List.for_all
+              (fun c' -> List.exists (expr_equal c') unshifted)
+              (conjuncts c)
+          in
           fun e ->
             List.fold_left (fun acc ((p, id, ty) as var) ->
               match mk_enum_reftype_constraints node_id info [var] with
               | None -> A.Quantifier (pos, A.Forall, [var], acc)
+              | Some c when in_guards c ->
+                let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+                A.Quantifier (pos, A.Forall, [(p, id, ty)], acc)
               | Some c ->
                 let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
                 A.Quantifier (pos, A.Forall, [(p, id, ty)],
@@ -2637,11 +2693,13 @@ and call_context_depends_on_quant_vars info =
    them, at the instance the call is abstracted to, and [info] with the
    identifiers the guard introduces in its typing context.
 
-   A call under a guard that depends on the variables the quantifiers bind is
-   inlined, or compiled to an application of the functional symbol of the
-   callee (a call to any other function is rejected by [LustreSyntaxChecks]):
-   the output of its instance is not read, and the instance is retained for
-   the obligations of the callee, which the guard gates. The variables are
+   This is the guard of the instance retained by a call that is inlined, or
+   compiled to an application of the functional symbol of the callee, as a
+   call applied to the variables is, and so is a call to such a function under
+   a guard that depends on them (the guard of the instance of any other call
+   is closed by [exists_guard]): the output of the instance is not read,
+   and the instance is retained for the obligations of the callee, which the
+   guard gates. The variables are
    replaced by free constants in the arguments of the instance ([vmap]), and
    so are they in the guard, with a free constant of its own for a variable
    the arguments do not mention. A call applied to them in the guard is
@@ -2674,8 +2732,7 @@ and close_guard info vmap conj =
       let conj, deps =
         List.fold_left
           (fun (conj, deps) c ->
-            A.BinaryOp (dpos, A.And, c, conj),
-            A.SI.union deps (quant_deps info c))
+            conjoin_new c conj, A.SI.union deps (quant_deps info c))
           (conj, deps) constraints
       in
       close_vars conj deps ((v, nexpr) :: vmap)
@@ -2723,6 +2780,74 @@ and close_guard info vmap conj =
   in
   let conj = close conj in
   conj, !info, !gids
+
+(* The guard [conj] of the instance of a call under quantifiers that is not
+   applied to the variables they bind (a call to a node or a non-inlinable
+   function applied to them is rejected by [LustreSyntaxChecks]), made to
+   evaluate outside of them. The call is made at a step if and only if some
+   values of the variables the guard depends on make it hold, and its output
+   is only read where they do, since it does not depend on them. The guard of
+   the instance is then [(exists k. A(k)) and B], where [A(k)] is the
+   conjunction of the conditions of [conj] that depend on the variables [k],
+   and of the constraints of their types, and [B] that of the others, so that
+   the instance is activated at exactly the steps the call is made, and its
+   assumptions are only required there.
+
+   The instance stands for the instances the call would have for each value
+   of the variables if the call has no state, or if [A(k)] does not change
+   over time: the instance for a value is then either never activated, or
+   activated where [B] holds. [LustreSyntaxChecks] rejects any other call or
+   temporal branch, which is abstracted into a call.
+
+   A call applied to the variables in the guard stands for an application of
+   the functional symbol of the callee, whose free variables are named after
+   the variables they stand for (see [mk_fresh_qcall]), so the existential
+   binds them too *)
+and exists_guard info conj =
+  let conjoin = function
+    | [] -> None
+    | c :: cs ->
+      Some (List.fold_left (fun acc c' -> A.BinaryOp (dpos, A.And, acc, c')) c cs)
+  in
+  let dependent, independent =
+    List.partition
+      (fun c -> not (A.SI.is_empty (quant_deps info c)))
+      (conjuncts conj)
+  in
+  match conjoin dependent with
+  | None -> conj
+  | Some dependent ->
+    let rec close_vars conj deps bound =
+      match
+        List.find_opt
+          (fun (_, v, _) -> A.SI.mem v deps && not (A.SI.mem v bound))
+          info.quantified_variables
+      with
+      | None -> conj, bound
+      | Some ((_, v, _) as var) ->
+        let conj, deps =
+          match mk_enum_reftype_constraints None info [var] with
+          | None -> conj, deps
+          | Some c -> conjoin_new c conj, A.SI.union deps (quant_deps info c)
+        in
+        close_vars conj deps (A.SI.add v bound)
+    in
+    let dependent, bound =
+      close_vars dependent (quant_deps info dependent) A.SI.empty
+    in
+    (* The variables bound by the outer quantifiers come first *)
+    let closed =
+      List.fold_right
+        (fun (p, v, ty) acc ->
+          if not (A.SI.mem v bound) then acc
+          else
+            let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+            A.Quantifier (dpos, A.Exists, [(p, v, ty)], acc))
+        info.quantified_variables dependent
+    in
+    match conjoin independent with
+    | None -> closed
+    | Some independent -> A.BinaryOp (dpos, A.And, closed, independent)
 
 (* The free constant that stands for a variable bound by an enclosing
    quantifier, or the index variable of a comprehension, of type [ty], in the
@@ -2812,8 +2937,12 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) po
       in
       (* The call is abstracted to an instance outside of the enclosing
          quantifiers, so its guard is evaluated there too, and must not
-         depend on the variables the quantifiers bind *)
-      let conj, info, gids0 = close_guard info vmap conj in
+         depend on the variables the quantifiers bind. The guard of an
+         inlined instance shares the free constants of its arguments *)
+      let conj, info, gids0 =
+        if inlined then close_guard info vmap conj
+        else exists_guard info conj, info, empty ()
+      in
       (* The guard is closed: it is not generalized over the variables *)
       let info = { info with quantified_variables = [] } in
       let nexpr, gids =
@@ -3161,8 +3290,11 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       assert (is_uf_callable);
       (* The call is compiled to an application of the functional symbol of
          the callee, also when it is not applied to quantified variables but
-         is made under a guard that depends on them, which its instance could
-         not evaluate (see [close_guard]). The node instance is kept, with
+         is made under a guard that depends on them: the application is
+         defined by the body of the callee, where an instance of it would
+         only unroll its recursive calls a bounded number of times. The guard
+         of the instance (see [close_guard]) gates the obligations of the
+         callee. The node instance is kept, with
          free constants in place of the quantified variables, so that the
          callee remains a subsystem of the caller and its functional symbol is
          declared (or defined).
@@ -3722,6 +3854,25 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let info = { 
       info with context = ctx;
         quantified_variables = info.quantified_variables @ vars }
+    in
+    (* [forall (k: T | Q(k)) P(k)] is [forall (k: T) Q(k) ==> P(k)], and
+       [exists (k: T | Q(k)) P(k)] is [exists (k: T) Q(k) and then P(k)]: the
+       constraints of the type of a variable are a lazy guard of the body, so
+       that a call in the body is only made where they hold (see
+       [exists_guard]). They are constant expressions, as below. Constraints
+       that some value satisfies whatever the constants are left out, since
+       they do not change the steps at which the call is made; [exists_guard]
+       still binds the variable to them where other guards mention it *)
+    let info =
+      List.fold_left
+        (fun info ((_, _, ty) as var) ->
+          match mk_enum_reftype_constraints node_id info [var] with
+          | Some _ when has_constant_free_value info ty -> info
+          | None -> info
+          | Some c ->
+            { info with
+              call_context = (c, c, info.pre_depth) :: info.call_context })
+        info vars
     in
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     List.fold_left (fun acc ((p, id, ty) as var) ->

@@ -1,0 +1,42 @@
+-- A node call under a lazy guard that mentions a quantified variable, but
+-- whose arguments do not, is a single instance activated by the existential
+-- closure of its guards, if the conditions of the guards that mention the
+-- variable do not change over time. The refinement type of a quantified
+-- variable is one of these guards (issue #1849). See also
+-- lazy_quant_guard_call_activation.lus and
+-- lazy_quant_guard_call_time_varying.lus.
+
+node mk (x: int) returns (a: int^3);
+let
+  a = x^3;
+tel
+
+-- The assumption is never required: no value of k is in the empty range
+node mk_pos (x: int) returns (a: int^3);
+(*@contract
+  assume x > 0;
+*)
+let
+  a = x^3;
+tel
+
+type E = enum { A, B, C };
+
+node main (x: int; e: E) returns ();
+let
+  check "empty_range" forall (k: int | 0 <= k and k < 0) mk_pos(x)[k] = x;
+  check "empty_range_lazy" forall (k: int) 0 <= k and k < 0 ==> mk_pos(x)[k] = x;
+
+  check "forall_refinement" forall (k: int | 0 <= k and k < 3) mk(x)[k] = x;
+  check "forall_lazy" forall (k: int) 0 <= k and k < 3 ==> mk(x)[k] = x;
+  check "exists_refinement" exists (k: int | 0 <= k and k < 3) mk(x)[k] = x;
+  check "exists_lazy" exists (k: int) 0 <= k and k < 3 and then mk(x)[k] = x;
+  check "when" forall (k: int) (when 0 <= k and k < 3 then mk(x)[k] else x) = x;
+  check "enum" forall (k: E) k <> A ==> mk(x)[0] = x;
+  check "subrange" forall (k: subrange [0, 2] of int) mk(x)[k] = x;
+  -- The condition that mentions k does not change over time, the other one
+  -- does not mention k
+  check "split" forall (k: E) k <> A and e = B ==> mk(x)[0] = x;
+  check "nested" forall (i: int | 0 <= i and i < 3)
+    forall (j: int | 0 <= j and j < 3) j < i ==> mk(x)[j] = x;
+tel
