@@ -3905,22 +3905,32 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
    expanded into one instance per index (see [expand_node_call]), [count]
    being the size of the dimension [var] ranges over.
 
-   A call under a lazy construct whose condition mentions [var] is only made
+   A call under a lazy construct whose condition mentions [var], possibly in
+   the operands of a call, is only made
    at the indices where the condition selects it, so the instances cannot be
    selected by an eager conditional below the construct, which would leave
    [var] in the condition the calls are made under. The construct is expanded
    as a whole instead, into one instance per index, where [var] is replaced
    with the index ([index]), and every call it makes is the instance for that
-   index. So is a construct whose condition makes a call, since the call is
-   expanded into the selection of its instances over [var], which mentions
-   [var] as well.
+   index. A call in the condition that takes [var] is expanded into the
+   selection of its instances over [var], which mentions [var] as well.
 
    So is a call whose operands make calls of their own: substituting the index
    into the call once its operands are expanded would rebuild the instances of
    those calls, which would lose their indices (see [expanded_call_instances]),
-   and so would the properties lifted from them. *)
+   and so would the properties lifted from them.
+
+   An expression that does not mention [var], in its operands or in those of
+   the calls it makes, is left as is outside of an expansion per index: it
+   takes the same value at every index, so a single instance of each of its
+   calls suffices (see #1755). Inside an expansion per index, it may still be
+   under a condition that mentions [var], so its calls are instantiated. *)
 and expand_node_calls_in_place ?index info node_id var count expr =
   let r = expand_node_calls_in_place ?index info node_id var count in
+  let mentions_var e =
+    A.SI.mem var (AH.vars_without_node_call_ids e)
+    || A.SI.mem var (AH.vars_of_node_calls e)
+  in
   (* The call [call], rebuilt as [call'] with its operands expanded: the
      instance for [index], or the selection of its instances over [var] *)
   let expand_call call call' =
@@ -3931,11 +3941,12 @@ and expand_node_calls_in_place ?index info node_id var count expr =
       call'
     | None -> expand_node_call info (Some node_id) call' instance var count
   in
+  if index = None && not (mentions_var expr) then expr
+  else
   match AH.lazy_construct expr with
   | Some (cond, guarded)
     when index = None
-      && (A.SI.mem var (AH.vars_without_node_call_ids cond)
-          || AH.expr_contains_call cond)
+      && mentions_var cond
       && List.exists AH.expr_contains_call guarded ->
     expand_per_index info node_id var count expr
   | _ ->
@@ -3978,15 +3989,13 @@ and expand_node_calls_in_place ?index info node_id var count expr =
        The literal is transposed instead: its element [j] at index [k] is the
        element [j] of the array of the instances for index [k], and the
        transposed literal is selected by [var]. An element that does not
-       depend on [var], and makes no call, is the same at every index. *)
+       mention [var], which is left as is, is the same at every index. *)
     let instances_of e =
       match e with
       | A.IndexAccess (_, A.GroupExpr (_, ArrayExpr, es), A.Ident (_, v), A.Array)
         when HString.equal v var && List.length es = count ->
         Some (Some es)
-      | e when not (A.SI.mem var (AH.vars_without_node_call_ids e))
-            && not (AH.expr_contains_call e) ->
-        Some None
+      | e when not (mentions_var e) -> Some None
       | _ -> None
     in
     let instances = List.map instances_of expr_list in
@@ -4026,7 +4035,7 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
-(* [expr], a lazy construct whose condition mentions [var] or makes a call,
+(* [expr], a lazy construct whose condition mentions [var],
    or a call whose operands make calls, as a conditional over the indices of
    [var] selecting the instance of [expr] for each index (see
    [expand_node_calls_in_place]) *)
