@@ -1,0 +1,12 @@
+node CountA(c: bool) returns (n: int);
+let n = 1 -> pre n + 1; tel
+
+node CountB(c: bool) returns (n: int);
+let n = 1 -> pre n + 1; tel
+
+node main(c: bool) returns (ok: bool);
+let
+  ok = true -> ((when pre c then CountA(c) else 0)
+                = (when pre c then CountB(c) else 0));
+  check ok;
+tel
