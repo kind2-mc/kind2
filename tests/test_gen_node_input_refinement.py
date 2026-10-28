@@ -2,11 +2,10 @@
 
 A node generated for 'any', 'choose', a type ascription, a temporal branch or
 a restart takes the variables of the enclosing node as arguments. A refinement
-on one of them becomes an assumption of the generated node, and so an
-obligation at the call site, which the enclosing node discharges with the
-refinement it already established. That only works while the two agree: a
-predicate that calls a stateful or nondeterministic node reads an instance of
-its own in the generated node, so such a predicate is dropped there. The
+on one of them yields an obligation at the call site, which the enclosing node
+discharges with the refinement it already established. That only works while
+the two agree: a predicate that calls a stateful or nondeterministic node reads
+an instance of its own in the generated node, so such a predicate is dropped. The
 conjuncts that do agree are kept, and are still checked.
 """
 
