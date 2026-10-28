@@ -221,6 +221,17 @@ comprehension is a constant, as in
 size, such as a constant input of the node, it is rejected, as is a call to a
 node in the same position. The eager conditional above can be used instead.
 
+A node call in the body whose arguments do not mention the index variables
+takes the same arguments at every index, and is made once for the whole
+array, unless it is in a branch of a `when` expression, an arm of a `match`
+expression, or the right operand of `and then`, `or else` or `==>` whose
+condition mentions an index variable: every element then sees the same
+outputs of the call. This matters for a node whose outputs are not determined
+by its inputs, such as an imported node without a contract: in
+`(R() + i foreach i) ^ 3`, the three elements share the same value of `R()`.
+To get an independent value at each index, pass the index variable to the
+node, as in `(R(i) + i foreach i) ^ 3`.
+
 As for `v ^ n`, a selection binds more tightly than the sizes, so a
 comprehension is written in parentheses before selecting one of its
 elements: `((i * i foreach i) ^ 4)[2]` is `4`.
