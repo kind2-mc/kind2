@@ -2469,6 +2469,34 @@ let rec ic3 solver input_sys aparam trans_sys prop_set frames predicates =
   (* No reachable state violates the property, continue with next k *)
   ic3 solver input_sys aparam trans_sys prop_set frames'' predicates
 
+(* Most elements of an array value that a state of a counterexample path
+   is constrained to element by element, as in kmoxi's expansion of an
+   equality with a constant array *)
+let max_path_array_elements = 1 lsl 8
+
+(* The constraint that the state variable instance [v] has the value [t]:
+   for an array, the equations of its elements if there are few enough,
+   since some solvers do not take an equation with a constant array.
+   Otherwise, only Z3 and MathSAT do: cvc5 exits on it, Yices 2 does not
+   know the syntax, and Bitwuzla answers unknown. *)
+let path_value_eqs v t =
+  let ty = Var.type_of_var v in
+  if not (Type.is_array ty) then [Term.mk_eq [Term.mk_var v; t]]
+  else
+    match
+      TermLib.array_value_eqs max_path_array_elements ty (Term.mk_var v) t
+    with
+    | Some eqs -> eqs
+    | None ->
+      match Flags.Smt.solver () with
+      | `Z3_SMTLIB | `MathSAT_SMTLIB -> [Term.mk_eq [Term.mk_var v; t]]
+      | _ ->
+        raise (UnsupportedFeature (Format.sprintf
+          "IC3QE stops: a counterexample of the system has an array of \
+           more than %d elements, or with an index type that is not \
+           finite, whose value only Z3 and MathSAT take back"
+          max_path_array_elements))
+
 (* Get a values for the state variables at offset [i], add values to
    path, and return an equational constraint at offset zero for values
    from the model *)
@@ -2493,17 +2521,23 @@ let add_to_path model path state_vars i =
                TermLib.default_of_type 
                  (StateVar.type_of_state_var sv)
                                          
-             | _ -> assert false
-               
+             (* An array read element by element, as the solver gives some
+                values, or without the theory of arrays *)
+             | Model.Map _ ->
+               raise (UnsupportedFeature
+                 "IC3QE stops: a counterexample of the system has an array \
+                  whose value is not a constant array with stores")
+
+             (* A state variable is not a function *)
+             | Model.Lambda _ -> assert false
+
          in
 
-         (* Create equation *)
-         ((sv, Model.Term t) :: m), 
-         Term.mk_eq 
-           [Term.mk_var 
-              (Var.set_offset_of_state_var_instance v Numeral.zero);
-            t]
-         :: eq)
+         (* Create equations *)
+         ((sv, Model.Term t) :: m),
+         path_value_eqs
+           (Var.set_offset_of_state_var_instance v Numeral.zero) t
+         @ eq)
 
       ([], [])
       state_vars
@@ -2527,6 +2561,24 @@ let add_to_path model path state_vars i =
   (* Return path with state added and constraint for state *)
   (path', state)
 
+
+(* Whether the system has a state variable of an array type *)
+let has_arrays trans_sys =
+  List.exists
+    (fun sv -> Type.is_array (StateVar.type_of_state_var sv))
+    (TransSys.state_vars trans_sys)
+
+(* No concrete path is found along a sequence of blocking clauses. Each
+   state of a blocking clause should have a successor in the next one, but
+   the solver may find none, or answer unknown, with arrays: IC3 stops
+   rather than fails then. Without arrays, the trace must have a path. *)
+let no_cex_path trans_sys =
+  if has_arrays trans_sys then
+    raise (UnsupportedFeature
+      "IC3QE stops: no concrete counterexample is found along the trace \
+       of blocking clauses")
+  else
+    assert false
 
 (* Extract a concrete counterexample from a sequence of blocking
    clauses *)
@@ -2601,8 +2653,7 @@ let extract_cex_path solver trans_sys trace =
           
           extract_cex_path' path' actlit_p0_state tl
 
-        (* Counterexample trace must be satisfiable *)
-        | SMTSolver.Unsat _ -> assert false
+        | SMTSolver.Unsat _ -> no_cex_path trans_sys
           
   in
 
@@ -2648,8 +2699,7 @@ let extract_cex_path solver trans_sys trace =
 
           | SMTSolver.Sat r -> r 
             
-          (* Counterexample trace must be satisfiable *)
-          | SMTSolver.Unsat _ -> assert false
+          | SMTSolver.Unsat _ -> no_cex_path trans_sys
 
   in
 
@@ -2739,10 +2789,13 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
             (* Extract counterexample from sequence of blocking
                clauses *)
             let cex_path =
-              extract_cex_path
-                solver
-                trans_sys
-                trace
+              try
+                extract_cex_path
+                  solver
+                  trans_sys
+                  trace
+              with SMTSolver.Unknown when has_arrays trans_sys ->
+                no_cex_path trans_sys
             in
 (*
             debug ic3
