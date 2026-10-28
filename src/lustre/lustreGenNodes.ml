@@ -275,6 +275,12 @@ let base_type ctx ty =
   | Ok ty -> ty
   | Error _ -> ty
 
+(* The type a node this pass generates declares for a variable of the enclosing
+   node it reads. Its refinements are left behind: they are established where
+   the value is defined, and a generated node checking one again would evaluate
+   its predicate in an instance of the callees of its own. *)
+let lookup_input_ty ctx i = Option.map (base_type ctx) (Ctx.lookup_ty ctx i)
+
 (* Add the signatures of generated node and function declarations to a context,
    so that the type of a call to one can be inferred. Best-effort: a signature
    that cannot be built here (e.g. because its types still contain operators that
@@ -413,72 +419,23 @@ let droppable_condition ctx node_name r =
         (match Ctx.expand_type_syn ctx ty with A.Bool _ -> true | _ -> false)
       | Error _ | exception _ -> false)
 
-(* Whether two copies of an expression may disagree, whether evaluated side by
-   side or on different clocks: each copy of a call to a node is a separate
-   instance of it, with its own state and its own nondeterministic choices. A type ascription is a
-   passthrough, and a function call a single UF application, so their copies
-   agree. A call this pass generates is classified by the kind of its
-   identifier, since its signature may not have reached the context yet, and a
-   callee the context does not hold is assumed to disagree. *)
-let copies_may_disagree ctx e =
+(* Desugaring a match copies its scrutinee into every constructor tester and
+   field projection, and each copy of a node call is a separate instance of it:
+   the copies can then disagree on which constructor the value has. Such a
+   scrutinee must be evaluated once and shared. A call this pass generates is
+   classified by the kind of its identifier, since its signature may not have
+   reached the context yet. A type ascription is a passthrough, and a function
+   call a single UF application, so their copies agree; the expression an
+   ascription wraps stays in the scrutinee and is classified on its own. A
+   callee the context does not hold is assumed to need sharing: sharing one
+   that did not need it only abstracts the match. *)
+let scrutinee_must_be_shared ctx e =
   AH.calls_of_expr e |> NI.Set.exists (fun id ->
     match NI.get_node_type id with
     | Any | ClockedExpr | Restarted | Matched -> true
     | Choose | TypeAscription | Contract | Environment | Type
     | DefinedConstant | FreeConstant -> false
     | Component -> not (is_stateless_callee ctx id))
-
-(* Desugaring a match copies its scrutinee into every constructor tester and
-   field projection: the copies can then disagree on which constructor the
-   value has, so such a scrutinee must be evaluated once and shared. The
-   expression an ascription wraps stays in the scrutinee and is classified on
-   its own. Sharing a scrutinee that did not need it only abstracts the match. *)
-let scrutinee_must_be_shared = copies_may_disagree
-
-(* The conjuncts of a refinement predicate a generated node can keep, or None
-   when it can keep none of them. A conjunct is kept when its copies agree
-   with the original; the ones that do not are dropped, so that the value a
-   generated node reads keeps as much of its constraint as still follows from
-   the one the enclosing node established. *)
-let rec agreeing_conjuncts ctx e =
-  match e with
-  | A.BinaryOp (p, A.And, e1, e2) ->
-    (match agreeing_conjuncts ctx e1, agreeing_conjuncts ctx e2 with
-    | Some e1, Some e2 -> Some (A.BinaryOp (p, A.And, e1, e2))
-    | Some e, None | None, Some e -> Some e
-    | None, None -> None)
-  | e -> if copies_may_disagree ctx e then None else Some e
-
-(* The type a node this pass generates declares for a variable of the enclosing
-   node it reads. The conjuncts of a refinement whose copies may disagree are
-   dropped: the enclosing node already constrains the value, and checking such a
-   predicate again in the generated node would evaluate it in an instance of its
-   own, which the enclosing one need not agree with. *)
-let rec generated_node_input_type: Ctx.tc_context -> A.lustre_type -> A.lustre_type =
-fun ctx ty ->
-  let r = generated_node_input_type ctx in
-  match ty with
-  | A.Int _ | A.Bool _ | A.Real _ | A.SBitVector _ | A.UBitVector _
-  | A.EnumType _ | A.AbstractType _ | A.UserType _ | A.History _
-  | A.ADT _ -> ty
-  | A.Map (p, kt, vt) -> A.Map (p, r kt, r vt)
-  | A.Set (p, ty) -> A.Set (p, r ty)
-  | A.ArrayType (p, (ty, len)) -> A.ArrayType (p, (r ty, len))
-  | A.TArr (p, ty1, ty2) -> A.TArr (p, r ty1, r ty2)
-  | A.GroupType (p, tys) -> A.GroupType (p, List.map r tys)
-  | A.TupleType (p, tys) -> A.TupleType (p, List.map r tys)
-  | A.RecordType (p, id, tis) ->
-    A.RecordType (p, id, List.map (fun (p, i, ty) -> (p, i, r ty)) tis)
-  | A.RefinementType (p1, (p2, id, ty), e) ->
-    let ty = r ty in
-    match agreeing_conjuncts ctx e with
-    | Some e -> A.RefinementType (p1, (p2, id, ty), e)
-    | None -> ty
-
-(* The type of a variable of the enclosing node, as a node generated for a
-   construct of that node declares it *)
-let lookup_input_ty ctx i =
-  Option.map (generated_node_input_type ctx) (Ctx.lookup_ty ctx i)
 
 (* Whether the type of a local declaration is being desugared: dependency
    analysis does not look there, so a node generated for it is taken as top level. *)
@@ -1215,8 +1172,7 @@ fun ctx node_name fun_ids pos items r ->
   if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
   then raise (Gen_nodes_error (pos, RestartPolymorphic));
   let input_decls, gen_nodes1 = List.map (fun i ->
-    let ty = generated_node_input_type ctx (lookup_ty i) in
-    let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids (base_type ctx (lookup_ty i)) in
     let is_const = Option.is_some (Ctx.lookup_const ctx i) in
     (pos, i, ty, A.ClockTrue, is_const), gen_nodes) inputs |> List.split
   in

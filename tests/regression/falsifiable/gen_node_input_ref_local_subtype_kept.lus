@@ -1,0 +1,7 @@
+node main (x: int) returns (y: int);
+var v: subtype { z: int | z > 0 };
+let
+  v = x;
+  y = any { u: int | u = v };
+  check "p" y = v;
+tel
