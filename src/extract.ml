@@ -802,22 +802,22 @@ let extract uf_defs env term =
 
         (* Boolean atoms, including a tester or a Boolean selector of an
            algebraic datatype, and an element of an array of Booleans *)
-        | `IS_INT
+        | `IS_INT 
         | `DIVISIBLE _
         | `IsConstructor _
         | `Selector _
         | `SELECT _ ->
 
-          (match l with
+          (match l with 
 
             (* Terms must not be nullary *)
-            | [] -> assert false
+            | [] -> assert false 
 
             (* Term is an application to subterms *)
-            | _ ->
+            | _ -> 
 
               (* Extract from subterms with undefined polarity *)
-              extract_term_atom accum polarity term
+              extract_term_atom accum polarity term 
 
           )
 
