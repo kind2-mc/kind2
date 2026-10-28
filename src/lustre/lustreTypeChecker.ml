@@ -3499,8 +3499,9 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
     else
       R.ok false
   | ADT (_, n1, cons1), ADT (_, n2, cons2) ->
-    (* Two instantiations of a polymorphic datatype share their name and differ
-       only in their field types, so the key records the instantiations too *)
+    (* Two instantiations differ only in their field types, so the key records
+       them. Keys stay finite: a self-reference may only sit at the datatype's
+       own parameters, and a cycle through two or more types is rejected earlier *)
     if not (HString.equal n1 n2) then R.ok false
     else
       let key =

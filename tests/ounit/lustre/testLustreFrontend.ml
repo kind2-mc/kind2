@@ -1130,6 +1130,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_nested_instantiation_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test nested instantiations are distinct through a chain of type synonyms" (fun () ->
+    match load_file "./lustreTypeChecker/adt_nested_instantiation_synonym_chain.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test nested instantiations are distinct as a map element" (fun () ->
+    match load_file "./lustreTypeChecker/adt_nested_instantiation_map_element.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
   mk_test "test ADT tester type-checks" (fun () ->
     match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
     | Ok _ -> true
