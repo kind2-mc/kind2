@@ -1,12 +1,13 @@
 """The refinement types a generated node gives the variables it reads.
 
 A node generated for 'any', 'choose', a type ascription, a temporal branch or
-a restart takes the variables of the enclosing node as arguments. A refinement
-on one of them yields an obligation at the call site, which the enclosing node
-discharges with the refinement it already established. That only works while
-the two agree: a predicate that calls a stateful or nondeterministic node reads
-an instance of its own in the generated node, so such a predicate is dropped. The
-conjuncts that do agree are kept, and are still checked.
+a restart takes the variables of the enclosing node as arguments, and declares
+them with their base types. A refinement is established where the value is
+defined; checking it again in the generated node would evaluate its predicate
+in instances of the callees of its own, which the ones of the enclosing node
+need not agree with. The constraint is dropped whatever the predicate says, so
+that one rule covers every refinement rather than one rule per kind of
+predicate.
 """
 
 import json
@@ -16,9 +17,20 @@ import pytest
 
 from conftest import common_args, kind2_bin, run_timeout
 
-nat = "type Nat = subtype { n: int | n >= 0 };\n"
-
 nondet = "node imported nd (z: int) returns (t: int);\n"
+
+deterministic = "function imported f (z: int) returns (t: int);\n"
+
+named = "type Nat = subtype { n: int | n >= 0 };\n"
+
+# What the refinement of the input x is written as, and what declaring it takes
+refinements = {
+    "node call": (nondet, "subtype { z: int | nd (z) = z }"),
+    "function call": (deterministic, "subtype { z: int | f (z) = z }"),
+    "arithmetic": ("", "subtype { z: int | z >= 0 }"),
+    "mixed": (nondet, "subtype { z: int | nd (z) = z and z >= 0 }"),
+    "named": (named, "Nat"),
+}
 
 any_op = """
 node main(x: %s) returns (y: int);
@@ -35,6 +47,15 @@ let
   check "p" (not c) => (y = 0);
 tel
 """
+
+templates = [any_op, temporal_branch]
+
+template_ids = ["any", "when"]
+
+
+def model(template, refinement):
+    declarations, ty = refinements[refinement]
+    return declarations + template % ty
 
 
 def properties(tmp_path, model):
@@ -55,31 +76,18 @@ def properties(tmp_path, model):
     }
 
 
-@pytest.mark.parametrize(
-    "template, subtype",
-    [
-        (any_op, "main.any_L5C7[L5C7].SubType[L5C7]"),
-        (temporal_branch, "SubType[L5C20]"),
-    ],
-)
-def test_refinement_without_node_call_is_checked(tmp_path, template, subtype):
-    model = nat + template % "Nat"
-    assert properties(tmp_path, model) == {"p": "valid", subtype: "valid"}
+@pytest.mark.parametrize("template", templates, ids=template_ids)
+@pytest.mark.parametrize("refinement", list(refinements))
+def test_input_of_a_generated_node_carries_no_obligation(
+    tmp_path, template, refinement
+):
+    assert properties(tmp_path, model(template, refinement)) == {"p": "valid"}
 
 
-@pytest.mark.parametrize("template", [any_op, temporal_branch])
-def test_refinement_calling_a_node_is_dropped(tmp_path, template):
-    model = nondet + template % "subtype { z: int | nd (z) = z }"
-    assert properties(tmp_path, model) == {"p": "valid"}
-
-
-@pytest.mark.parametrize(
-    "template, subtype",
-    [
-        (any_op, "main.any_L5C7[L5C7].SubType[L5C7]"),
-        (temporal_branch, "SubType[L5C20]"),
-    ],
-)
-def test_conjunct_without_node_call_is_kept(tmp_path, template, subtype):
-    model = nondet + template % "subtype { z: int | nd (z) = z and z >= 0 }"
-    assert properties(tmp_path, model) == {"p": "valid", subtype: "valid"}
+@pytest.mark.parametrize("template", templates, ids=template_ids)
+def test_the_predicate_does_not_change_what_is_checked(tmp_path, template):
+    answers = {
+        refinement: properties(tmp_path, model(template, refinement))
+        for refinement in refinements
+    }
+    assert all(a == answers["node call"] for a in answers.values()), answers
