@@ -5,9 +5,9 @@ checked; kmoxi used to reject them as an unexpected character. An
 initiality condition is a one-state formula, at most one per query, and a
 fairness condition may prime inputs only. A query that names a :fairness
 condition is reported as unsupported, at the condition, and so is a
-:queries attribute with several queries in a script with declared
-constants, at the attribute, since its queries share the values of the
-constants. A condition that no query names is ignored, as it does not
+:queries attribute with several queries whose conditions or checked
+system use declared constants, at the attribute, since its queries share
+the values of the constants. A condition that no query names is ignored, as it does not
 change the query.
 """
 
@@ -57,7 +57,7 @@ unsupported = {
         "  :reachable (r (> n k)) :reachable (s (< n k))\n"
         "  :queries ((q1 (r)) (q2 (s))))\n",
         "7:3", "kmoxi does not support a :queries attribute with several "
-        "queries in a script with declared constants",
+        "queries that use declared constants",
     ),
 }
 

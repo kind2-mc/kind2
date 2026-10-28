@@ -276,29 +276,27 @@ let (--) i j =
 
 let pp_print_trail encoding trans_sys prop ppf path =
   let last = Model.path_length path - 1 in
-  match encoding with
-  | MoxiInput.Flags ->
-    (* The witness, without the flags of the conditions *)
+  (* The steps before the last one, with the value of the condition of a
+     query with only that one *)
+  let pp_print_step =
+    if encoding.MoxiInput.flags then pp_print_last_step_of_trace trans_sys path
+    else pp_print_step_of_trace trans_sys prop path
+  in
+  let range = 0 -- (last - 1) in
+
+  (match range with
+  | [] -> ()
+  | _ ->
     Format.fprintf ppf "%a@,"
-      (Lib.pp_print_list (pp_print_last_step_of_trace trans_sys path) "@,")
-      (0 -- last)
-  | Current_state_condition | Next_state_condition ->
-    let range = 0 -- (last - 1) in
+      (Lib.pp_print_list pp_print_step "@,") range );
 
-    (match range with
-    | [] -> ()
-    | _ ->
-      Format.fprintf ppf "%a@,"
-        (Lib.pp_print_list (pp_print_step_of_trace trans_sys prop path) "@,")
-        range );
-
-    (* Only show the last state if it is not a property of the current
-       state. *)
-    if encoding = Next_state_condition then
-      (* In the last state, do not print value of reachability variables *)
-      Format.fprintf ppf "%a@,"
-        (pp_print_last_step_of_trace trans_sys path)
-        (Numeral.of_int last)
+  (* Only show the last state if it is not a property of the current
+     state. *)
+  if not encoding.current_state then
+    (* In the last state, do not print value of reachability variables *)
+    Format.fprintf ppf "%a@,"
+      (pp_print_last_step_of_trace trans_sys path)
+      (Numeral.of_int last)
 
 let pp_print_cex_trail encoding trans_sys prop prefix ppf cex = 
   Format.fprintf ppf "@[<hv 2>:trail@ (%s (@[<v>@,%a@])@,) @]@,"

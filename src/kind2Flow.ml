@@ -1329,25 +1329,18 @@ let run in_sys =
 
     let checks = ISys.moxi_checks in_sys in
     let build param = fst (ISys.trans_sys_of_analysis in_sys param) in
-    (* The checks not answered yet, and the systems of the first one whose
-       analysis has started, last first, for the responses to give when
-       time runs out. They are changed between analyses with the timer
-       disarmed, or by a single assignment. *)
+    (* The checks not answered yet, for the responses to give when time
+       runs out. The system of an analysis is the same every time it is
+       built, with what the engines established. *)
     let pending = ref checks in
-    let started = ref [] in
+    let print_results (check, params) =
+      MoxiResults.pp_print_results check (List.map build params)
+    in
     (* Out of time, every check still gets its response: the one being
        analyzed with what the engines established, and the others with every
        query unknown. Printed by [on_exit], once the engines are stopped and
        under its watchdog. *)
-    let respond_to_pending () =
-      List.iteri (fun i (check, params) ->
-        let started = if i = 0 then List.rev !started else [] in
-        let n = List.length started in
-        let not_started = List.filteri (fun j _ -> j >= n) params in
-        MoxiResults.pp_print_results check
-          (started @ List.map build not_started)
-      ) !pending
-    in
+    let respond_to_pending () = List.iter print_results !pending in
 
     try (
       let msg_setup = KEvent.setup () in
@@ -1359,7 +1352,6 @@ let run in_sys =
 
       let run_system param =
         let sys = build param in
-        started := sys :: !started ;
         KEvent.log_analysis_start in_sys sys param ;
         Stat.start_timer Stat.analysis_time ;
         
@@ -1368,16 +1360,15 @@ let run in_sys =
 
         KEvent.log_analysis_end ()
       in
-      let run_check (check, params) =
+      let run_check ((_, params) as check) =
         List.iter run_system params ;
 
         (* Print results, with the timer disarmed, so that the response is
            not cut short; the timer is armed again for the time left, which
            raises [TimeoutWall] at once if none is *)
         Signals.unset_timeout () ;
-        MoxiResults.pp_print_results check (List.rev !started) ;
+        print_results check ;
         pending := List.tl !pending ;
-        started := [] ;
         Signals.set_sigalrm_timeout_from_flag ()
       in
       (match checks with

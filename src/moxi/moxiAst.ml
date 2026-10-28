@@ -149,6 +149,9 @@ type script = command list
 type t = script
 
 
-let is_query_attr = function
-| QueryAttr _ | QueriesAttr _ -> true
-| FormulaAttr _ -> false
+let queries_of_attrs attrs =
+  List.concat_map (function
+    | QueryAttr q -> [q]
+    | QueriesAttr (_, qs) -> qs
+    | FormulaAttr _ -> []
+  ) attrs

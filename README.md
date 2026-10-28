@@ -358,13 +358,13 @@ the check, and from a variable `|C::l|` of the instance `C1`. A variable of
 kMoXI's own encoding is named after an `@`, which SMT-LIB reserves for
 solvers: the one a reachability condition `r` is encoded by, `@r`, holds in
 the initial state and in each state whose predecessor does not satisfy `r`;
-in a query with several reachability conditions, `@held::r` is whether `r`
-has held so far.
+in a query with several reachability conditions, `@held::r` holds in each
+state after one that satisfies `r` (or after a transition that does, if
+`r` uses next-state variables).
 A trail names the variables it shows the same way, and shows a reachability
 condition under the name `r` the check declares it with, which no variable
 of the check may have, rather than as `@r`. The trail of a query with
-several reachability conditions shows none of them; it ends where the last
-one holds.
+several reachability conditions shows none of them.
 
 A `check-system` command may have several queries, which kMoXI answers in
 the order of the command. The queries with the same `:assumption`
@@ -397,10 +397,10 @@ kMoXI reads native MoXI (the S-expression syntax) with the logics `QF_BV`,
 the MoXI language definition before analyzing it. Its restrictions:
 
 - `:fairness` conditions (liveness queries) are not supported;
-- a `:queries` attribute with several queries is not supported in a model
-  with declared constants (`declare-const`), since its queries must agree
-  on the values of the constants; without them, its queries are answered
-  as separate queries;
+- a `:queries` attribute with several queries is not supported when the
+  checked system or the conditions of its queries use declared constants
+  (`declare-const`), since its queries must agree on the values of the
+  constants; otherwise, its queries are answered as separate queries;
 - arrays are indexed by bit-vectors, and their elements are not of an
   enumeration sort;
 - the values of an enumeration sort (`declare-enum-sort`) stand for

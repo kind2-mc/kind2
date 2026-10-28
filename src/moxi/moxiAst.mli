@@ -145,4 +145,6 @@ type script = command list
 type t = script
 
 
-val is_query_attr : check_system_attr -> bool
+(** The queries of the [:query] and [:queries] attributes of a list of
+    attributes, in their order *)
+val queries_of_attrs : check_system_attr list -> query_attr list

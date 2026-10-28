@@ -68,9 +68,10 @@ type system_variables =
 type system_check = TS.t SubSystem.t
 
 type encoding =
-  | Current_state_condition
-  | Next_state_condition
-  | Flags
+{
+  current_state: bool ;
+  flags: bool
+}
 
 type check =
 {
@@ -97,6 +98,9 @@ type input =
      their definitions, last first *)
   funs: UfSymbol.t HSM.t ;
   fun_defs: TS.fun_def list ;
+  (* The declared constants that the body of each function uses, directly
+     or through the functions it applies, by the name of the function *)
+  fun_constants: HSS.t HSM.t ;
   (* The enumeration sorts declared with declare-enum-sort, by name, and
      their values. An enumeration sort is a type of Kind 2 that stands for
      an integer range, one integer per value. *)
@@ -122,6 +126,7 @@ let empty_input =
   real_numerals = false ;
   funs = HSM.empty ;
   fun_defs = [] ;
+  fun_constants = HSM.empty ;
   enums = HSM.empty ;
   enum_values = HSS.empty ;
   consts = HSM.empty ;
@@ -342,6 +347,38 @@ let rec free_symbols bound acc = function
         bound bindings
     in
     free_symbols bound acc t
+
+(* The declared constants that a term uses, directly or through the
+   functions it applies, outside the symbols [bound] by lets or as
+   parameters, added to [acc] *)
+let rec constants_of_term decls bound acc = function
+  | A.Constant _ -> acc
+  | A.QualId ((_, s, _), _, _) ->
+    let s = hstring_of_symbol s in
+    if HSS.mem s bound then acc
+    else if HSM.mem s decls.consts then HSS.add s acc
+    else (
+      match HSM.find_opt s decls.fun_constants with
+      | Some consts -> HSS.union consts acc
+      | None -> acc
+    )
+  | A.App (_, ((_, f, _), _, _), args) ->
+    let acc =
+      match HSM.find_opt (hstring_of_symbol f) decls.fun_constants with
+      | Some consts -> HSS.union consts acc
+      | None -> acc
+    in
+    List.fold_left (constants_of_term decls bound) acc args
+  | A.Let (_, bindings, t) ->
+    let acc =
+      List.fold_left (fun acc (_, _, t) -> constants_of_term decls bound acc t)
+        acc bindings
+    in
+    let bound =
+      List.fold_left (fun bound (_, s, _) -> HSS.add (hstring_of_symbol s) bound)
+        bound bindings
+    in
+    constants_of_term decls bound acc t
 
 (* The bindings of the lets of a chain of directly nested lets, outermost
    first, and the term innermost *)
@@ -1005,8 +1042,8 @@ let rec current_state_term = function
    systems they copy: the systems a query with a :current condition checks,
    which replaces the initial condition of every system (MoXI paper, SPIN
    2024, Sect. 3.2). The invariants of the systems hold in the first state
-   still. The copy of a system [S] is named [prefix_S], after the system of
-   the check, whose prefix no system of the script has. *)
+   still. The copy of a system [S] is named [prefix_S], after a name that
+   is the prefix of no system of the script. *)
 let rec init_free_systems decls prefix copies name =
   if HSM.mem name copies then copies
   else
@@ -1027,6 +1064,18 @@ let rec init_free_systems decls prefix copies name =
     in
     let _, sys, svars = mk_system { decls with systems = copies } def in
     HSM.add name (sys, svars) copies
+
+(* The declared constants that the system [name] and the systems it calls,
+   directly or not, use *)
+let rec system_constants decls name =
+  let def = HSM.find name decls.system_defs in
+  List.fold_left (fun acc sub ->
+    HSS.union (system_constants decls (hstring_of_symbol sub.A.system_name))
+      acc
+  ) HSS.empty def.A.subsys
+  |> fun acc ->
+  List.fold_left (constants_of_term decls HSS.empty) acc
+    [def.A.init; def.A.trans; def.A.inv]
 
 (* The variable of kmoxi's own that records whether a :reachable condition
    of a query with several has held, in the system [sys_name]. Its scope is
@@ -1054,7 +1103,8 @@ let condition_name (_, ((_, s), _)) = s
    system of its group: the assumptions constrain the transitions of the
    system, and the initiality condition, or the initial condition of the
    checked system if there is none, its initial states. The system of a
-   group is named [fresh_name ()]. *)
+   group is named [fresh_name ()], and so are the copies of the systems
+   (see [init_free_systems]) for the groups with an initiality condition. *)
 let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
   (* What the type checker accepts of a check-system but kmoxi does not
      translate *)
@@ -1065,20 +1115,29 @@ let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
       | A.QueryAttr _ | A.QueriesAttr _ -> None
     )
   in
+  let condition s =
+    List.find (fun c -> HS.equal (condition_name c) s) conditions
+  in
   (* The queries of a :queries attribute are satisfied by the same values
      of the declared constants; as separate properties, each would have
-     values of its own *)
-  let queries =
-    check_cmd.A.attrs |> List.concat_map (function
-      | A.QueryAttr q -> [q]
-      | A.QueriesAttr (span, _ :: _ :: _) when decls.const_vars <> [] ->
+     values of its own. They are separate queries if neither the checked
+     system nor their conditions use a constant. *)
+  check_cmd.A.attrs |> List.iter (function
+    | A.QueriesAttr (span, (_ :: _ :: _ as qs)) ->
+      let constants =
+        List.concat_map snd qs
+        |> List.fold_left (fun acc (_, s) ->
+          let (_, (_, term)) = condition s in
+          constants_of_term decls HSS.empty acc term
+        ) (system_constants decls (hstring_of_symbol check_cmd.A.system_id))
+      in
+      if not (HSS.is_empty constants) then
         unsupported span
           "kmoxi does not support a :queries attribute with several \
-           queries in a script with declared constants"
-      | A.QueriesAttr (_, qs) -> qs
-      | A.FormulaAttr _ -> []
-    )
-  in
+           queries that use declared constants"
+    | A.QueriesAttr _ | A.QueryAttr _ | A.FormulaAttr _ -> ()
+  ) ;
+  let queries = A.queries_of_attrs check_cmd.A.attrs in
   if queries = [] then
     unsupported_cmd "kmoxi requires a :query in every check-system" ;
   (* Each query, with its initiality condition, if any, its assumptions,
@@ -1086,9 +1145,7 @@ let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
   let queries =
     queries |> List.map (fun (q, names) ->
       let named =
-        first_occurrences snd names
-        |> List.map (fun (_, s) ->
-          List.find (fun c -> HS.equal (condition_name c) s) conditions)
+        first_occurrences snd names |> List.map (fun (_, s) -> condition s)
       in
       named |> List.iter (fun (ty, ((span, _), _)) ->
         if ty = A.Fairness then
@@ -1126,17 +1183,22 @@ let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
     ) [] queries
     |> List.rev_map (fun (c, a, qs) -> c, a, List.rev qs)
   in
+  (* One set of copies for every group with an initiality condition *)
+  let init_free_decls =
+    lazy (
+      let systems =
+        init_free_systems decls (fresh_name ()) HSM.empty
+          (hstring_of_symbol check_cmd.A.system_id)
+      in
+      { decls with systems }
+    )
+  in
   let mk_group_system (current, assumptions, queries) =
     let sys_name = fresh_name () in
     let decls =
       match current with
       | None -> decls
-      | Some _ ->
-        let systems =
-          init_free_systems decls sys_name HSM.empty
-            (hstring_of_symbol check_cmd.A.system_id)
-        in
-        { decls with systems }
+      | Some _ -> Lazy.force init_free_decls
     in
     let reserved_svar symb =
       mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
@@ -1160,8 +1222,11 @@ let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
        variable of the condition of a query with only that one is its
        negation, in the transition to a state, and true in the initial
        state: the property of the query. A flag is whether its condition
-       has held, in a state or in a transition up to the state, so that a
-       witness ends where the last condition holds. *)
+       has held in a transition up to the state, false in the initial
+       state. A condition over the current state holds in a transition if
+       it holds in the state the transition is from: as Sect. 3.2 of the
+       MoXI paper requires, the witness has a transition out of that state,
+       in which the assumptions hold. *)
     let defs env =
       List.map2 (fun sv (_, term) -> sv, (None, kind2_term env term))
         assumption_svars assumptions
@@ -1172,11 +1237,7 @@ let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
       @ List.map (fun (symb, term) ->
         let flag = flag_svar sys_name symb in
         let held = Term.mk_var (Var.mk_state_var_instance flag TS.init_base) in
-        let r = kind2_term env term in
-        if current_state_term term then
-          flag, (Some r, Term.mk_or [held; Term.bump_state Numeral.one r])
-        else
-          flag, (Some Term.t_false, Term.mk_or [held; r])
+        flag, (Some Term.t_false, Term.mk_or [held; kind2_term env term])
       ) flagged
     in
     let prop_var sv =
@@ -1185,18 +1246,20 @@ let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
     let props, encodings =
       queries |> List.map (fun (q, reachables) ->
         let prop_name = string_of_symbol q in
-        let span, prop_term, encoding =
+        let span, prop_term =
           match reachables with
-          | [(symb, term)] ->
-            fst symb, prop_var (reserved_svar symb),
-            if current_state_term term then Current_state_condition
-            else Next_state_condition
+          | [(symb, _)] -> fst symb, prop_var (reserved_svar symb)
           | _ ->
             fst q,
             reachables
             |> List.map (fun (symb, _) -> prop_var (flag_svar sys_name symb))
-            |> Term.mk_and |> Term.mk_not,
-            Flags
+            |> Term.mk_and |> Term.mk_not
+        in
+        let encoding = {
+          current_state =
+            List.for_all (fun (_, term) -> current_state_term term) reachables ;
+          flags = List.length reachables > 1
+        }
         in
         Property.{
           prop_name ;
@@ -1338,9 +1401,16 @@ let process_command (input : input) = function
     in
     UfSymbol.UfSymbolHashtbl.replace moxi_names uf
       (HString.string_of_hstring name) ;
+    let constants =
+      let params =
+        List.fold_left (fun acc (s, _) -> HSS.add s acc) HSS.empty params
+      in
+      constants_of_term input params HSS.empty def.A.body
+    in
     { input with
       funs = HSM.add name uf input.funs;
-      fun_defs = (uf, vars, body) :: input.fun_defs }
+      fun_defs = (uf, vars, body) :: input.fun_defs;
+      fun_constants = HSM.add name constants input.fun_constants }
   )
   | A.DeclareEnumSortCmd decl ->
     let values = List.map string_of_symbol decl.A.values in

@@ -31,16 +31,15 @@ type system_check = TransSys.t SubSystem.t
 (** How the reachability conditions of a query are encoded in its property,
     which a trail of the query depends on *)
 type encoding =
-  | Current_state_condition
-    (** One condition over the current state, which the property is the
-        negation of one step later: a counterexample has a last state that
-        is not part of the witness *)
-  | Next_state_condition
-    (** One condition that may use next-state variables, which the property
-        is the negation of in the transition to a state *)
-  | Flags
-    (** Several conditions, each recorded by a flag of whether it has held:
-        a counterexample is the witness *)
+{
+  current_state: bool ;
+    (** Every condition is over the current state: it holds in the
+        transition from a state, which the property reads, so a
+        counterexample has a last state that is not part of the witness *)
+  flags: bool
+    (** The query has several conditions, each recorded by a flag of
+        whether it has held, which a trail does not show *)
+}
 
 (** The systems of a [check-system] command, one per group of its queries
     with the same assumptions and initiality condition, and the names of

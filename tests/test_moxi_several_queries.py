@@ -7,9 +7,12 @@ with a system of its own, which its assumptions constrain and whose initial
 states are those of its :current condition, if any: the condition replaces
 the initial conditions of the checked system and of the systems it calls,
 not their invariants. A query with several :reachable conditions has one
-flag per condition, of whether it has held, and the witness ends where the
-last one holds. The responses follow the order of the script. The queries
-of a :queries attribute are separate queries, without declared constants.
+flag per condition, of whether it has held in a transition: a condition
+over the current state needs a transition out of the state where it holds,
+in which the assumptions hold, as a query with one condition does. The
+responses follow the order of the script. The queries of a :queries
+attribute are separate queries, unless the checked system or their
+conditions use declared constants.
 """
 
 import re
@@ -117,14 +120,72 @@ def test_current_condition(tmp_path):
     assert values(t["q4"], "n") == ["1"], out
 
 
-# Without declared constants, the queries of a :queries attribute are
-# separate queries
-def test_queries_attribute(tmp_path):
-    model = counter + check + """\
+# A condition over the current state needs a transition out of the state
+# where it holds, in which the assumptions hold: a condition that always
+# holds, t, does not change the answer
+no_transition_out = {
+    "assumption fails in the state": (
+        "(define-system main :input ((i Int)) :output ((n Int)) :local ()\n"
+        "  :init (= n 0) :trans (= n' n))\n",
+        ":assumption (a (> n 5)) :reachable (r (= n 0))",
+        "a",
+    ),
+    "dead end": (
+        "(define-system main :input ((i Int)) :output ((n Int)) :local ()\n"
+        "  :init (= n 0) :trans (and (< n 2) (= n' (+ n 1))))\n",
+        ":reachable (r (= n 2))",
+        "",
+    ),
+    "assumption fails out of the state": (
+        "(define-system main :input ((i Int)) :output ((n Int)) :local ()\n"
+        "  :init (= n 0) :trans (= n' (+ n 1)))\n",
+        ":assumption (a (< n 2)) :reachable (r (= n 2))",
+        "a",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", no_transition_out, ids=no_transition_out)
+def test_transition_out_of_the_witness(tmp_path, case):
+    system, conditions, assumption = no_transition_out[case]
+    model = (
+        "(set-logic QF_LIA)\n" + system + check
+        + f"  {conditions} :reachable (t true)\n"
+        + f"  :query (q1 (r {assumption})) :query (q2 (r t {assumption})))\n"
+    )
+    out = run(tmp_path, model)
+    assert query_answers(out) == [("q1", "unsat"), ("q2", "unsat")], out
+
+
+# The queries of a :queries attribute are separate queries if neither the
+# checked system nor their conditions use a declared constant
+@pytest.mark.parametrize("constant", ["", "(declare-const k Int)\n"],
+                         ids=["no-constant", "unused-constant"])
+def test_queries_attribute(tmp_path, constant):
+    model = counter.replace("(set-logic QF_LIA)\n",
+                            "(set-logic QF_LIA)\n" + constant) + check + """\
   :reachable (r (= n 2)) :reachable (s (< n 0)) :queries ((q1 (r)) (q2 (s))))
 """
     out = run(tmp_path, model)
     assert query_answers(out) == [("q1", "sat"), ("q2", "unsat")], out
+
+
+# A constant the checked system uses, through a function and a called
+# system, makes them unsupported
+def test_queries_attribute_with_used_constant(tmp_path):
+    model = """(set-logic QF_LIA)
+(declare-const k Int)
+(define-fun step ((x Int)) Int (+ x k))
+(define-system inc :input () :output ((n Int)) :local ()
+  :init (= n 0) :trans (= n' (step n)))
+(define-system main :input () :output ((n Int)) :local ()
+  :subsys (c (inc n)))
+(check-system main :input () :output ((n Int)) :local ()
+  :reachable (r (= n 2)) :reachable (s (< n 0)) :queries ((q1 (r)) (q2 (s))))
+"""
+    out = run(tmp_path, model)
+    assert "model.moxi:9:49: error: kmoxi does not support a :queries " \
+        "attribute with several queries that use declared constants" in out, out
 
 
 # The copies of the systems a check with an initiality condition checks are

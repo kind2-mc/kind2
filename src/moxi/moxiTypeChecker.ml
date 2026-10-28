@@ -1039,11 +1039,7 @@ let check_check_system env (check : A.check_system_cmd) =
   in
   (* Queries name declared conditions, at most one initiality condition,
      which they may name more than once *)
-  List.concat_map (function
-    | A.QueryAttr q -> [q]
-    | A.QueriesAttr (_, qs) -> qs
-    | A.FormulaAttr _ -> []
-  ) check.attrs
+  A.queries_of_attrs check.attrs
   |> List.fold_left (fun queries ((span, q), names) ->
     if List.exists (HS.equal q) queries then
       fail_span span (DuplicateQuery (str q));
