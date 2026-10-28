@@ -180,25 +180,24 @@ type scrutinee = Known of A.lustre_type | Illtyped | Unknown
 let resolve_arm: Ctx.tc_context -> scrutinee -> A.pattern
   -> Ctx.tc_context * A.pattern * (HString.t * A.expr) list =
 fun ctx scrut pat ->
-  (* Only a global constant (an enum variant among them) is renamed away: it is
-     in scope everywhere, so it is the one thing a generated node cannot take a
-     parameter for.  A variable of the enclosing node keeps its name, which a
-     match block's own shadowing check still reports. *)
-  let shadows_global id =
+  (* Only a global constant is renamed away: it is in scope everywhere, so it
+     is the one thing a generated node cannot take a parameter for. A binder
+     may not share a constructor's name at all, so none is renamed for that. A
+     variable of the enclosing node keeps its name, which a match block's own
+     shadowing check still reports. *)
+  let is_global_const id =
     match Ctx.lookup_const ctx id with
     | Some (_, _, Ctx.Global) -> true
     | Some (_, _, (Ctx.Input | Ctx.Output | Ctx.Local | Ctx.Ghost)) | None -> false
   in
-  (* Type checking has not run yet, so a variable pattern naming a nullary
-     constructor is not a binder *)
-  let binders =
+  (* A binder may not share any constructor's name, so the variable patterns
+     that bind are exactly those whose name is not a constructor *)
+  let renamed =
     AH.pat_bound_vars_with_pos pat
     |> List.filter (fun (id, _) ->
-         Ctx.lookup_constructor ctx id |> Option.is_none && shadows_global id)
+         Ctx.lookup_constructor ctx id |> Option.is_none && is_global_const id)
     |> List.sort_uniq (fun (i, _) (j, _) -> HString.compare i j)
-  in
-  let renamed =
-    List.map (fun (id, ipos) -> (id, ipos, AH.fresh_bound_ident id)) binders
+    |> List.map (fun (id, ipos) -> (id, ipos, AH.fresh_bound_ident id))
   in
   let pat =
     List.fold_left (fun pat (id, _, fresh) -> AH.rename_pat_var id fresh pat)

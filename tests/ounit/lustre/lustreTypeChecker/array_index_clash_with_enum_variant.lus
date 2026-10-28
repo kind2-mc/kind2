@@ -1,0 +1,8 @@
+type E = enum { A, B };
+
+node main () returns (ok: bool);
+var v: int^3;
+let
+  v = (A foreach A)^3;
+  ok = v[0] = 0;
+tel

@@ -1,0 +1,18 @@
+type T = enum { A, B };
+
+node top (x: T) returns (y: int);
+(*@contract
+  assume A?(x) or B?(x);
+  guarantee A?(x) => y = 0;
+  var g: bool = A?(x);
+  mode m ( require A?(x); ensure y = 0; );
+*)
+let
+  y = if A?(x) then 0 else 1;
+tel
+
+node main (x: T) returns (ok: bool);
+let
+  ok = A?(x) => top(x) = 0;
+  check ok;
+tel

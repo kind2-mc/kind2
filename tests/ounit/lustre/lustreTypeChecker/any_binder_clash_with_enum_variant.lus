@@ -1,0 +1,6 @@
+type E = enum { A, B };
+
+node top () returns (k: bool);
+let
+  k = any { A: bool | A or not A };
+tel

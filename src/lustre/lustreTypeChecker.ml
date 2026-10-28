@@ -37,6 +37,11 @@ type tc_type  = LA.lustre_type
 let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_lustre_type t
 (** String of the type to display in type errors *)
 
+(* The kind of declaration a datatype constructor name was found to clash with *)
+type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter | ClashBinder
+  | ClashQuantifierBinder | ClashRefinementBinder | ClashPatternBinder
+  | ClashArrayIndex | ClashLocalVariable | ClashGhostVariable | ClashMode
+
 type error_kind = Unknown of string
   | Impossible of string
   | UnboundIdentifier of HString.t
@@ -118,6 +123,7 @@ type error_kind = Unknown of string
   | DuplicateConstructor of HString.t * HString.t * HString.t
   | DuplicateConstructorInType of HString.t * HString.t
   | ConstructorNameClashWithConst of HString.t * HString.t
+  | ConstructorNameClashWithNode of HString.t * HString.t * clashing_decl
   | NonWellFoundedDatatype of HString.t
   | InvalidDecreasesType of tc_type
   | ADTInLexicographicDecreases of tc_type
@@ -213,7 +219,8 @@ let error_message kind = match kind with
       | Some items -> Lib.string_of_t (Lib.pp_print_list LA.pp_print_struct_item ", ") items
       | None -> "")
     ^ " does not match expected type " ^ string_of_tc_type ty ^ " on right hand side of the node equation"
-  | DisallowedReassignment vars -> "Cannot reassign value to a constant or enum but found reassignment to identifier(s): "
+  | DisallowedReassignment vars -> "Cannot reassign value to a constant or a datatype constructor \
+                                    but found reassignment to identifier(s): "
     ^ Lib.string_of_t (Lib.pp_print_list LA.pp_print_ident ", ") (LA.SI.elements vars)
   | AssumptionMustBeInputOrOutput id -> "Assumption variable must be either an input or an output variable, "
     ^ "but found '" ^ HString.string_of_hstring id ^ "'"
@@ -279,6 +286,21 @@ let error_message kind = match kind with
   | ConstructorNameClashWithConst (ctor, ty_name) ->
     "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
     ^ HString.string_of_hstring ty_name ^ "' has the same name as a declared constant"
+  | ConstructorNameClashWithNode (ctor, ty_name, what) ->
+    "Constructor '" ^ HString.string_of_hstring ctor ^ "' in type '"
+    ^ HString.string_of_hstring ty_name ^ "' has the same name as "
+    ^ (match what with
+       | ClashNode -> "a declared node"
+       | ClashFunction -> "a declared function"
+       | ClashFormalParameter -> "a declared formal parameter"
+       | ClashBinder -> "the binder of this 'any' or 'choose' operator"
+       | ClashQuantifierBinder -> "this quantified variable"
+       | ClashRefinementBinder -> "the binder of this refinement type"
+       | ClashPatternBinder -> "a variable bound by this pattern"
+       | ClashArrayIndex -> "an index of this array comprehension"
+       | ClashLocalVariable -> "a declared local variable"
+       | ClashGhostVariable -> "a declared ghost variable"
+       | ClashMode -> "a declared mode")
   | NonWellFoundedDatatype ty_name ->
     "Datatype '" ^ HString.string_of_hstring ty_name
     ^ "' has no base case: every constructor has a recursive field, so no finite value can be constructed"
@@ -393,6 +415,48 @@ let add_full_node_ctx ctx nname params inputs outputs locals =
   | _ -> Bool pos
 (** Infers type of constants *)
 
+(* A name that denotes a value rather than a stream: a constant or a datatype
+   constructor.  Such a name is a constant expression, and may not be assigned
+   to. *)
+let denotes_value ctx i =
+  member_val ctx i || Option.is_some (lookup_constructor ctx i)
+
+(* A constructor shadows a same-named declaration at every use, so the
+   declaration is rejected rather than left to resolve to the constructor. *)
+let check_no_constructor_clash pos ctx mk_err i =
+  match lookup_constructor ctx i with
+  | Some (ty_name, _) -> type_error pos (mk_err i ty_name)
+  | None -> R.ok ()
+
+let clash_with what ctor ty_name =
+  ConstructorNameClashWithNode (ctor, ty_name, what)
+
+(* A constant's clash reads the same whichever of the two is declared first *)
+let clash_with_const ctor ty_name = ConstructorNameClashWithConst (ctor, ty_name)
+
+(* A constructor is not in the typing context, so the clash of a mode with one
+   is checked for separately from its redeclaration *)
+let check_mode_name pos ctx mname =
+  let* () = check_no_constructor_clash pos ctx (clash_with ClashMode) mname in
+  if member_ty ctx mname then type_error pos (Redeclaration mname) else R.ok ()
+
+(* Whether a node declaration is one the user wrote, rather than one a pass
+   generated for an 'any', a 'choose', a type ascription or the like.  A
+   generated node's formals are named after the construct it stands for, so a
+   check on user-written names must not fire on them. *)
+let is_user_written_node node_id =
+  match NI.get_node_type node_id with
+  | NI.Component | NI.Contract -> true
+  | NI.Environment | NI.Type | NI.Any | NI.Choose | NI.TypeAscription
+  | NI.ClockedExpr | NI.Restarted | NI.DefinedConstant | NI.FreeConstant
+  | NI.Matched -> false
+
+(* A name bound by an expression or a type shadows the global value it names,
+   be it a constant or a datatype constructor.  Pattern resolution reads the
+   same context, so a pattern in the binder's scope reads the name as a binder
+   too, and never as the constructor an expression there cannot mean. *)
+let shadow_value ctx i = remove_adt_ctor (shadow_const ctx i) i
+
 let rec infer_const_attr ctx exp =
   let r = infer_const_attr ctx in
   let combine l1 l2 = List.map2 (fun r1 r2 -> r1 >> r2) l1 l2 in
@@ -405,7 +469,7 @@ let rec infer_const_attr ctx exp =
     let ty = expand_type_syn ctx ty in
     match ty with 
     | LA.RefinementType (_, (p, b, ty), e) ->
-      let ctx = add_const ctx b (LA.Ident (p, b)) ty Local in
+      let ctx = add_const (remove_adt_ctor ctx b) b (LA.Ident (p, b)) ty Local in
       combine (r2 ty) (infer_const_attr ctx e)
     | LA.ArrayType (_, (ty, e)) -> 
       combine (r2 ty) (r e) 
@@ -434,7 +498,7 @@ let rec infer_const_attr ctx exp =
   match exp with
   | LA.Ident (_, i) ->
     let res =
-      if member_val ctx i && not (is_shadowed_const ctx i) then R.ok ()
+      if denotes_value ctx i && not (is_shadowed_const ctx i) then R.ok ()
       (* An expression that includes an internal step-counter variable is
          also considered a constant expression. Currently, the only case where
          such a variable may be included is when the expression defines
@@ -490,8 +554,8 @@ let rec infer_const_attr ctx exp =
   | IndexAccess (_, e1, e2, _) -> combine (r e1) (r e2)
   (* Quantified expressions *)
   | Quantifier (p, _, tis, e) ->
-    let ctx = List.fold_left (fun acc_ctx (_, id, ty) -> 
-      add_const acc_ctx id (LA.Ident (p, id)) ty Global
+    let ctx = List.fold_left (fun acc_ctx (_, id, ty) ->
+      add_const (remove_adt_ctor acc_ctx id) id (LA.Ident (p, id)) ty Global
     ) ctx tis in
     let r1 = List.map (fun (_, _, ty) -> infer_const_attr_ty ctx ty) tis in 
     let r1 = List.fold_left combine [R.ok ()] r1 in
@@ -1072,9 +1136,9 @@ let infer_poly_node_type pos ctx is_type_ascription node_ty arg_inf_tys =
 
 (* Resolves a pattern against [field_ty], extending [ctx] with any variable
    bindings and returning the annotated pattern. VarPat is ambiguous at parse
-   time: if the identifier is a known constructor it is resolved to
-   Pat(_, id, []) (0-arg constructor), otherwise it remains a VarPat (variable
-   binding). Pat is always for constructors. *)
+   time: it is resolved to Pat(_, id, []) (0-arg constructor) when it names a
+   constructor, and otherwise stays a VarPat (variable binding). Pat is always
+   for constructors. *)
 let rec bind_pattern_ty ctx field_ty pat =
   let* adt_opt = match field_ty with
     | LA.ADT _ -> R.ok (Some field_ty)
@@ -1084,21 +1148,23 @@ let rec bind_pattern_ty ctx field_ty pat =
   in
   match pat with
   | LA.VarPat (pos, id) ->
-    let is_constructor = Option.is_some (lookup_constructor ctx id) in
-    if is_constructor then (
-      match adt_opt with
-      | Some (LA.ADT (_, _, adt_cons)) ->
-        (match List.assoc_opt id adt_cons with
-        | Some [] -> R.ok (ctx, LA.Pat (pos, id, []))
-        | Some fields ->
-          type_error pos (ConstructorArityMismatch (id, List.length fields, 0))
-        | None -> type_error pos (UnboundConstructor id)
-        )
-      | _ -> type_error pos (UnboundConstructor id)
-    ) else
-      (* A pattern variable denotes a constructor field, not a constant, so its
-         binding must hide a constant of the same name *)
-      R.ok (add_ty (remove_const ctx id) id field_ty, pat)
+    (* A pattern variable denotes a constructor field, not a global value, so
+       its binding hides a constant of the same name *)
+    let as_binder () =
+      let* () = check_no_constructor_clash pos ctx (clash_with ClashPatternBinder) id in
+      R.ok (add_ty (shadow_value (remove_const ctx id) id) id field_ty, pat)
+    in
+    (* At a datatype position, a bare name that names any constructor is a
+       constructor pattern, which must be one of this position's type *)
+    (match adt_opt with
+    | Some (LA.ADT (_, _, adt_cons))
+      when Option.is_some (lookup_constructor ctx id) ->
+      (match List.assoc_opt id adt_cons with
+      | Some [] -> R.ok (ctx, LA.Pat (pos, id, []))
+      | Some fields ->
+        type_error pos (ConstructorArityMismatch (id, List.length fields, 0))
+      | None -> type_error pos (UnboundConstructor id))
+    | Some _ | None -> as_binder ())
   | LA.Pat (pos, ctor, sub_pats) ->
     (match adt_opt with
     | Some (LA.ADT (_, _, adt_cons)) ->
@@ -1216,6 +1282,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let source_name c = Type.source_ctor_name (HString.string_of_hstring c) in
       if List.exists (fun (ctor, _) ->
            String.equal (source_name ctor) (source_name c)) ctors
+      then R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
+      else type_error pos (UnboundConstructor c)
+    (* Only reachable after ADT desugaring, which collapses an all-nullary
+       datatype to an enum of its constructors and leaves testers on it in
+       place; the passes that re-check the desugared AST see this form *)
+    | LA.EnumType (_, _, variants) ->
+      if List.exists (HString.equal c) variants
       then R.ok (LA.Bool pos, LA.ADTTester (pos, e', c), warnings)
       else type_error pos (UnboundConstructor c)
     | _ -> type_error pos (MatchScrutineeNotADT scrut_ty))
@@ -1481,9 +1554,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.Quantifier (p, q, qs, e) ->
     let* qs, warnings1, extn_ctx =
       (Res.seq_chain (fun (acc_q, acc_w, acc_ctx) (p, id, ty) ->
+        let* () = check_no_constructor_clash p acc_ctx (clash_with ClashQuantifierBinder) id in
         let* ty, warnings = check_type_well_formed acc_ctx Local nname true ty in 
-        (* bound variables shadow global constants *)
-        let acc_ctx = shadow_const acc_ctx id in 
+        (* bound variables shadow global constants and constructors *)
+        let acc_ctx = shadow_value acc_ctx id in
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_q @ [p, id, ty], acc_w @ warnings, acc_ctx)
       ) ([], [], ctx) qs)
@@ -1503,6 +1577,10 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
      they shadow the constants of the same name, and the sizes are checked as
      the sizes of an array constructor *)
   | LA.ArrayComprehension (p, bs, e) ->
+    let* () =
+      R.seq_ (List.map (fun (ip, id, _) ->
+        check_no_constructor_clash ip ctx (clash_with ClashArrayIndex) id) bs)
+    in
     let extn_ctx = List.fold_left (fun acc_ctx (ip, id, _) ->
       add_ty (shadow_const acc_ctx id) id (LA.Int ip)
     ) ctx bs in
@@ -1524,13 +1602,13 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
      serves the passes that infer types beforehand. *)
   | LA.AnyOp (pos, (ipos, i, ty), e) ->
     let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
-    (* The binder shadows a global constant of the same name *)
-    let extn_ctx = add_ty (remove_const ctx i) i ty in
+    (* The binder shadows a global value of the same name *)
+    let extn_ctx = add_ty (shadow_value (remove_const ctx i) i) i ty in
     let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
     R.ok (ty, LA.AnyOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
   | LA.ChooseOp (pos, (ipos, i, ty), e) ->
     let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
-    let extn_ctx = add_ty (remove_const ctx i) i ty in
+    let extn_ctx = add_ty (shadow_value (remove_const ctx i) i) i ty in
     let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
     R.ok (ty, LA.ChooseOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
   (* LustreGenNodes leaves a restart in place only when it cannot infer the
@@ -2223,17 +2301,20 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         let local_ctx = add_local_node_ctx ctx_plus_ops_and_ips ldecls in
         (* Check locals' types and their well-formedness *)
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
-          | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) -> 
-            let* _ = check_expr_is_constant local_ctx "constant definition" e in
+          | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) ->
+            let* () = check_no_constructor_clash p2 ctx clash_with_const i in
             let* checked, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* _ = check_expr_is_constant local_ctx "constant definition" checked in
             let* _ = check_no_refinement_type_arg local_ctx (Some ty) e checked in
             let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
             R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, checked, ty))), warnings1 @ warnings2)
           | LA.NodeVarDecl (p, (p2, id, ty, c)) -> 
+            let* () = check_no_constructor_clash p2 ctx (clash_with ClashLocalVariable) id in
             let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) false ty in 
             R.ok (LA.NodeVarDecl (p, (p2, id, ty, c)), warnings)
           | LA.NodeConstDecl (p, FreeConst (p2, id, ty)) ->
-            let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) true ty in 
+            let* () = check_no_constructor_clash p2 ctx clash_with_const id in
+            let* ty, warnings = check_type_well_formed local_ctx Local (Some node_name) true ty in
             R.ok (LA.NodeConstDecl (p, FreeConst (p2, id, ty)), warnings)
           | LA.NodeConstDecl (_, UntypedConst (_, _, _)) -> assert false  
         ) ldecls) |> R.map List.split in 
@@ -2322,7 +2403,7 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
     )
   | LA.FrameBlock (pos, vars, nes, nis) -> 
     let vars' = List.map snd vars in
-    let reassigned_consts = (SI.filter (fun e -> (member_val ctx e)) (SI.of_list vars')) in
+    let reassigned_consts = SI.filter (denotes_value ctx) (SI.of_list vars') in
     let* nes, warnings1 = R.seq (List.map (do_node_eqn ctx nname) nes) |> R.map List.split in
     let* nis, warnings2 = R.seq (List.map (do_item ctx nname) nis) |> R.map List.split in 
     let* warnings3 =
@@ -2405,9 +2486,9 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [>
     LA.pp_print_lustre_type exp_ty
     pp_print_tc_context ctx;
   
-  (* check if the members of LHS are constants or enums before assignment *)
+  (* check if the members of LHS are constants or constructors before assignment *)
   let lhs_vars = SI.flatten (List.map LH.vars_of_struct_item lhss) in
-  if (SI.for_all (fun i -> not (member_val ctx i)) lhs_vars)
+  if (SI.for_all (fun i -> not (denotes_value ctx i)) lhs_vars)
   then (match exp_ty with
     | GroupType (_, exp_ty_lst') ->
       let exp_ty_lst = LH.flatten_group_types exp_ty_lst' in
@@ -2429,7 +2510,7 @@ and check_type_struct_def: tc_context -> LA.eq_lhs -> tc_type -> (LA.eq_lhs * [>
           else let lhs = List.hd lhss in
           let* lhs, warnings = check_type_struct_item ctx lhs exp_ty in 
           R.ok (LA.StructDef (pos, [lhs]), warnings))
-  else type_error pos (DisallowedReassignment (SI.filter (fun e -> (member_val ctx e)) lhs_vars)))
+  else type_error pos (DisallowedReassignment (SI.filter (denotes_value ctx) lhs_vars)))
 (** The structure of the left hand side of the equation 
  * should match the type of the right hand side expression *)
 
@@ -2615,11 +2696,13 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
   = fun ctx src nname ->
   function
   | LA.FreeConst (pos, i, ty) ->
+    let* () = check_no_constructor_clash pos ctx clash_with_const i in
     let* ty, warnings = check_type_well_formed ctx src nname true ty in
     if member_ty ctx i
     then type_error pos (Redeclaration i)
     else R.ok (LA.FreeConst (pos, i, ty), add_ty (add_const ctx i (LA.Ident (pos, i)) ty src) i ty, warnings)
   | LA.UntypedConst (pos, i, e) ->
+    let* () = check_no_constructor_clash pos ctx clash_with_const i in
     if member_ty ctx i then
       type_error pos (Redeclaration i)
     else (
@@ -2629,6 +2712,7 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
       R.ok (LA.UntypedConst (pos, i, checked), ctx, warnings)
     )
   | LA.TypedConst (pos, i, e, exp_ty) ->
+    let* () = check_no_constructor_clash pos ctx clash_with_const i in
     let* exp_ty, warnings1 = check_type_well_formed ctx src nname true exp_ty in
     if member_ty ctx i then
       type_error pos (Redeclaration i)
@@ -2642,13 +2726,15 @@ and tc_ctx_const_decl: tc_context -> source -> NI.t option  -> LA.const_decl -> 
 and tc_ctx_contract_vars: tc_context -> NI.t -> LA.contract_ghost_vars -> (LA.contract_ghost_vars * tc_context, [> error]) result 
   = fun ctx cname -> function
   | (p, GhostArrayDef (p2, (pos, i, ty), is), e) ->
+    let* () = check_no_constructor_clash pos ctx (clash_with ClashGhostVariable) i in
     let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in
     if member_ty ctx i then type_error pos (Redeclaration i)
     else R.ok ((p, LA.GhostArrayDef (p2, (pos, i, ty), is), e), add_ty ctx i ty)
   | (p, GhostVarDec (p2, tis), e) ->
     let* tis, ctx = R.seq_chain
       (fun (tis, ctx) (pos, i, ty) ->
-        let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in 
+        let* () = check_no_constructor_clash pos ctx (clash_with ClashGhostVariable) i in
+        let* ty, _ = check_type_well_formed ctx Ghost (Some cname) false ty in
         if member_ty ctx i
         then type_error pos (Redeclaration i)
         else R.ok (tis @ [pos, i, ty], add_ty ctx i ty)
@@ -2734,7 +2820,13 @@ and tc_ctx_of_node_decl: Lib.position -> tc_context -> LA.node_decl -> bool
   ;
   if (member_node ctx node_id)
   then type_error pos (Redeclaration (NI.get_user_name node_id))
-  else 
+  else
+    let* () =
+      if not (is_user_written_node node_id) then R.ok ()
+      else
+        let what = if is_func then ClashFunction else ClashNode in
+        check_no_constructor_clash pos ctx (clash_with what) (NI.get_name node_id)
+    in
     let ctx = add_node_param_attr ctx node_id ip in
     let ctx = add_ty_vars_node ctx node_id ps in
     let* fun_ty, ip, op, warnings = build_node_fun_ty pos ctx node_id ps ip op in
@@ -2752,9 +2844,9 @@ and tc_ctx_contract_node_eqn ?(ignore_modes = false) src cname (eqns, ctx, warni
     R.ok (eqns @ [LA.GhostVars vs], ctx, warnings)
   | LA.Mode (pos, mname, _, _) as eqn ->
     if ignore_modes then R.ok (eqns @ [eqn], ctx, warnings)
-    else if (member_ty ctx mname) then
-      type_error pos (Redeclaration mname)
-    else R.ok (eqns @ [eqn], add_ty ctx mname (Bool pos), warnings)
+    else
+      let* () = check_mode_name pos ctx mname in
+      R.ok (eqns @ [eqn], add_ty ctx mname (Bool pos), warnings)
   | LA.ContractCall (p, cc, _, _, _) as eqn ->
     (match (lookup_contract_exports ctx cc) with
     | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring (NI.get_user_name cc))))
@@ -2787,9 +2879,8 @@ and extract_exports: NI.t -> tc_context -> LA.contract -> (tc_context * [> warni
       | LA.GhostVars (_, (GhostVarDec (_, tis)), _) ->
         R.ok (List.map (fun (_, i, ty) -> (i, ty)) tis, [])
       | LA.Mode (pos, mname, _, _) ->
-        if (member_ty ctx mname)
-        then type_error pos (Redeclaration mname)
-        else R.ok ([(mname, (LA.Bool pos))], []) 
+        let* () = check_mode_name pos ctx mname in
+        R.ok ([(mname, (LA.Bool pos))], []) 
       | LA.ContractCall (p, cc, _, _, _) ->
         (match (lookup_contract_exports ctx cc) with
         | None -> type_error p (Impossible ("Cannot find contract " ^ (HString.string_of_hstring (NI.get_user_name cc))))
@@ -3166,9 +3257,10 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.ArrayType (p, (b_ty, s)), warnings1 @ warnings2)
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
+      let* () = check_no_constructor_clash p2 ctx (clash_with ClashRefinementBinder) i in
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
-      (* The bound variable shadows any constant of the same name *)
-      let ctx = add_ty (shadow_const ctx i) i ty' in
+      (* The bound variable shadows any global value of the same name *)
+      let ctx = add_ty (shadow_value ctx i) i ty' in
       let* _ = (if is_const then 
         let ctx = add_const ctx i (LA.Ident (p, i)) ty' Local in
         check_expr_is_constant ctx "type of constant" e 
@@ -3394,6 +3486,24 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
                        -> (tc_type * LA.const_clocked_typed_decl list
                            * LA.clocked_typed_decl list * [> warning] list, [> error]) result
   = fun pos ctx nname params args rets ->
+  let* () =
+    (* The output of the node generated for an 'any' or a 'choose' is the
+       binder the user wrote, so the clash is reported against that; the
+       formals of every other generated node name no user-written thing. *)
+    let what =
+      match NI.get_node_type nname with
+      | NI.Component | NI.Contract -> Some ClashFormalParameter
+      | NI.Any | NI.Choose -> Some ClashBinder
+      | NI.Environment | NI.Type | NI.TypeAscription | NI.ClockedExpr
+      | NI.Restarted | NI.DefinedConstant | NI.FreeConstant | NI.Matched -> None
+    in
+    match what with
+    | None -> R.ok ()
+    | Some what ->
+      let clash p i = check_no_constructor_clash p ctx (clash_with what) i in
+      R.seq_ (List.map (fun (p, i, _, _, _) -> clash p i) args
+              @ List.map (fun (p, i, _, _) -> clash p i) rets)
+  in
   let fun_ty_vars_ctx =
     List.fold_left (fun acc p ->
       add_ty_syn acc p (LA.AbstractType (pos, p))

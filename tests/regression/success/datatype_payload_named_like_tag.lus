@@ -1,0 +1,6 @@
+datatype T = T(tag: int) | U;
+node N(t: T) returns (y: int);
+let
+  y = match t with | T(x) : x | U : 0 end;
+  check t = U => y = 0;
+tel

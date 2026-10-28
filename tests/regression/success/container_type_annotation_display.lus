@@ -1,0 +1,9 @@
+type Color = enum { Red, Green };
+datatype D = A (a: int) | B (b: bool);
+
+node main (m: map<Color, D>; s: set<D>) returns (ok: bool);
+let
+  ok = true;
+  check (s = {}@<D>) or true;
+  check (m = map[]@<Color, D>) or true;
+tel

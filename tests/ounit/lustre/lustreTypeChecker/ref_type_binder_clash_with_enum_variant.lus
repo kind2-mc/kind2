@@ -1,0 +1,6 @@
+type E = enum { A, B };
+
+node main (z: subtype { A: int | A > 0 }) returns (ok: bool);
+let
+  ok = z > 0;
+tel
