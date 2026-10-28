@@ -1,0 +1,16 @@
+-- A node call under a lazy guard that mentions a quantified variable is made
+-- at every step where some value of the variable satisfies the guard, so the
+-- assumption of the callee is required there (issue #1849)
+
+node mk_pos (x: int) returns (a: int^3);
+(*@contract
+  assume x > 0;
+*)
+let
+  a = x^3;
+tel
+
+node main (x: int) returns ();
+let
+  check forall (k: int | 0 <= k and k < 3) mk_pos(x)[k] = x;
+tel

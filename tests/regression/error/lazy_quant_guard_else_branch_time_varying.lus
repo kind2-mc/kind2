@@ -1,0 +1,11 @@
+-- The else branch is selected where the guard does not hold, that is, where
+-- 'k < 0 or x <= 0' does, a condition that mentions the quantified variable
+-- and changes over time, so a temporal operator in it is rejected, although
+-- each condition of the guard either does not mention the variable or does
+-- not change over time (issue #1849)
+
+node main (x: int) returns ();
+let
+  check forall (k: int)
+    (when 0 <= k and x > 0 then true else (true -> pre x > 0 or true));
+tel

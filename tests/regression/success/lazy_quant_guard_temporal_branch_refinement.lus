@@ -1,0 +1,9 @@
+-- The refinement type of a quantified variable is a lazy guard of the body: a
+-- temporal operand in the body, under a guard that changes over time, is
+-- abstracted into a call to a node activated by the existential closure of
+-- both (issue #1849)
+
+node main (const n: int; x: int) returns ();
+let
+  check forall (k: int | 0 <= k and k < n) (x > 0 ==> (true -> pre x > 0));
+tel

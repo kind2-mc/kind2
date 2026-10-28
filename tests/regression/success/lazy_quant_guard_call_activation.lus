@@ -1,0 +1,21 @@
+-- A node call under a lazy guard that mentions a quantified variable, but
+-- whose arguments do not, is activated at exactly the steps where some value
+-- of the variable satisfies the guard. The conditions of the guard that
+-- mention the variable do not change over time, but the others may
+-- (issue #1849)
+
+-- Counts the steps it is activated at
+node count () returns (c: int);
+let
+  c = 1 -> pre c + 1;
+tel
+
+node main (const n: int; x: int) returns ();
+var act: bool; na: int;
+let
+  act = x > 0;
+  na = (if act then 1 else 0) -> pre na + (if act then 1 else 0);
+  check "lazy" forall (k: int) 0 <= k and k < n and act ==> count() = na;
+  check "refinement"
+    n > 0 and act ==> exists (k: int | 0 <= k and k < n) act and then count() = na;
+tel

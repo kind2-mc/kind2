@@ -1,0 +1,17 @@
+-- A call to a function under a guard whose condition mentions a quantified
+-- variable and changes over time is a single instance, activated where some
+-- value of the variable satisfies the guard: a function has no state, so the
+-- instance has the output of the call for each value. The assumption of the
+-- function is required where x is 1 or 2 only (issue #1849). See also
+-- lazy_quant_guard_function_assume.lus.
+
+function imported fpos (x: int) returns (y: int);
+(*@contract
+  assume x > 0;
+  guarantee y = x;
+*)
+
+node main (x: int) returns ();
+let
+  check forall (k: int | 1 <= k and k < 3) k = x ==> fpos(x) = x;
+tel

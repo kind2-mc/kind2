@@ -142,13 +142,13 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInRestart idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed under a restart"
   | QuantifiedVariableInLazyGuardedNodeCall (var, node) -> "Quantified variable or refinement type bound variable '"
-    ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
+    ^ HString.string_of_hstring var ^ "' appears in a condition of a lazy branch guard that changes over time, so calling node '"
     ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
   | SymbolicArrayIndexInLazyGuardedNodeCall (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so calling non-inlinable function '"
     ^ HString.string_of_hstring node ^ "' in that branch is not allowed"
   | QuantifiedVariableInLazyGuardedTemporalBranch var -> "Quantified variable or refinement type bound variable '"
-    ^ HString.string_of_hstring var ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
+    ^ HString.string_of_hstring var ^ "' appears in a condition of a lazy branch guard that changes over time, so a temporal operator in that branch is not allowed"
   | SymbolicArrayIndexInLazyGuardedTemporalBranch idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
   | SymbolicArrayIndexInTemporalBranch idx -> "Symbolic array index '"
@@ -429,15 +429,6 @@ let ctx_add_lazy_cond_vars ctx vars = {
     ctx with lazy_cond_vars = LA.SI.union ctx.lazy_cond_vars vars
   }
 
-let ctx_add_lazy_vars_from_guard ctx guard_expr =
-  let vars = LAH.vars_without_node_call_ids guard_expr in
-  let lazy_vars =
-    LA.SI.filter
-      (fun v -> StringMap.mem v ctx.quant_vars || StringMap.mem v ctx.symbolic_array_indices)
-      vars
-  in
-  ctx_add_lazy_cond_vars ctx lazy_vars
-
 (* Whether [e] only refers to bound variables that do not change over time
    (see [binders]), constants, enum variants and constructors, so its value
    does not change over time. This is the classification of
@@ -455,8 +446,67 @@ let guard_is_time_invariant ctx e =
         || StringSet.mem v ctx.constructors)
     e
 
-(* A quantified variable, or a symbolic array index, that a guard of the
-   enclosing lazy constructs mentions *)
+(* How a branch of a lazy construct is selected by its guard *)
+type guard_polarity =
+  | Holds (* where the guard holds *)
+  | Fails (* where the guard does not hold *)
+  | Matches (* where the scrutinee matches the pattern of the arm *)
+
+(* Conditions whose conjunction is the condition under which a branch
+   selected by [guard] with [polarity] is evaluated *)
+let rec guard_conjuncts polarity guard =
+  match polarity, guard with
+  | (Holds | Fails), LA.UnaryOp (_, Not, e) ->
+    guard_conjuncts (if polarity = Holds then Fails else Holds) e
+  | Holds, LA.BinaryOp (_, (And | AndThen), e1, e2)
+  | Fails, LA.BinaryOp (_, (Or | OrElse), e1, e2) ->
+    guard_conjuncts polarity e1 @ guard_conjuncts polarity e2
+  | Fails, LA.BinaryOp (_, (Impl | LazyImpl), e1, e2) ->
+    guard_conjuncts Holds e1 @ guard_conjuncts Fails e2
+  | _ -> [guard]
+
+(* How the right operand of a lazy Boolean operator is selected by the left *)
+let lazy_op_polarity = function
+  | LA.OrElse -> Fails
+  | _ -> Holds
+
+(* The symbolic array indices that [guard] mentions, and the quantified
+   variables that a condition of it that changes over time mentions (see
+   [guard_conjuncts]).
+
+   A call under the guard, or a temporal branch, which is abstracted into
+   one, is a single instance activated where some values of the quantified
+   variables make the guard hold (see [LustreAstNormalizer.exists_guard]).
+   This is the activation of the instance for each of these values that
+   the guard selects, so that the instance stands for all of them, when the
+   guard is the conjunction of conditions that either do not mention the
+   variables, or do not change over time: the instance for a value is then
+   either never activated, or activated where the conditions that do not
+   mention the variables hold. A symbolic array index has no known number
+   of values to expand the call over. *)
+let ctx_add_lazy_vars_from_guard ctx polarity guard =
+  let symbolic_indices =
+    LA.SI.filter
+      (fun v -> StringMap.mem v ctx.symbolic_array_indices)
+      (LAH.vars_without_node_call_ids guard)
+  in
+  let quant_vars =
+    List.fold_left
+      (fun acc c ->
+        if guard_is_time_invariant ctx c then acc
+        else
+          LA.SI.filter
+            (fun v -> StringMap.mem v ctx.quant_vars)
+            (LAH.vars_without_node_call_ids c)
+          |> LA.SI.union acc)
+      LA.SI.empty
+      (guard_conjuncts polarity guard)
+  in
+  ctx_add_lazy_cond_vars ctx (LA.SI.union symbolic_indices quant_vars)
+
+(* A quantified variable that a condition of a guard of the enclosing lazy
+   constructs that changes over time mentions (see
+   [ctx_add_lazy_vars_from_guard]) *)
 let quant_var_in_lazy_guard ?(ascription_vars_allowed=false) ctx =
   List.find_opt
     (fun v ->
@@ -1363,19 +1413,20 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
       let* (warnings3, _) = (check_items ctx ~tc_ctx ~in_lemma f l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.WhenBlock (_, e, l1, l2) ->
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
+      let ctx_then = ctx_add_lazy_vars_from_guard ctx Holds e in
+      let ctx_else = ctx_add_lazy_vars_from_guard ctx Fails e in
       let lazy_when ctx e =
         (f ctx e)
       in
       let* warnings1 = check_expr ctx f e in
-      let* warnings2, props = (check_items ctx_lazy ~tc_ctx ~in_lemma lazy_when l1 props) in
-      let* warnings3, _ = (check_items ctx_lazy ~tc_ctx ~in_lemma lazy_when l2 props) in
+      let* warnings2, props = (check_items ctx_then ~tc_ctx ~in_lemma lazy_when l1 props) in
+      let* warnings3, _ = (check_items ctx_else ~tc_ctx ~in_lemma lazy_when l2 props) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | LA.MatchBlock (_, e, arms, _) ->
       (* Arms are evaluated lazily, like when-block branches, so the scrutinee
          plays the role of the guard *)
       let* () = Res.seq_ (List.map (fun (pat, _) -> check_pattern_no_duplicates ctx pat) arms) in
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx Matches e in
       let* warnings1 = check_expr ctx f e in
       let pat_vars pat =
         let rec collect = function
@@ -1695,11 +1746,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* (warnings, ctx) = Res.seq_chain over_binders ([], ctx) bs in
       let* warnings2 = check_expr ctx f e in
       Res.ok (warnings @ warnings2)
-    | BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
+    | BinaryOp (_, (AndThen | OrElse | LazyImpl as op), e1, e2) ->
       (* The right operand is evaluated lazily, like a branch of a
          when-then-else expression, so the left operand plays the role of
          the guard *)
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx (lazy_op_polarity op) e1 in
       let* warnings1 = (check_expr ctx f e1) in 
       let* warnings2 = (check_expr ctx_lazy lazy_ite e2) in 
       Ok (warnings1 @ warnings2)
@@ -1732,10 +1783,11 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings3 = (check_expr ctx f e3) in 
       Ok (warnings1 @ warnings2 @ warnings3)
     | TernaryOp (_, LazyIte, e1, e2, e3) -> 
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e1 in
+      let ctx_then = ctx_add_lazy_vars_from_guard ctx Holds e1 in
+      let ctx_else = ctx_add_lazy_vars_from_guard ctx Fails e1 in
       let* warnings1 = (check_expr ctx f e1) in
-      let* warnings2 = (check_expr ctx_lazy lazy_ite e2) in
-      let* warnings3 = (check_expr ctx_lazy lazy_ite e3) in
+      let* warnings2 = (check_expr ctx_then lazy_ite e2) in
+      let* warnings3 = (check_expr ctx_else lazy_ite e3) in
       Ok (warnings1 @ warnings2 @ warnings3)
     | GroupExpr (_, _, e)
     | Call (_, _, _, e)
@@ -1799,7 +1851,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
       let* warnings1 = check_expr ctx f e in
       (* Arms are evaluated lazily, so the scrutinee plays the role of the
          guard, as for a match block *)
-      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx e in
+      let ctx_lazy = ctx_add_lazy_vars_from_guard ctx Matches e in
       let pat_vars pat =
         let rec collect = function
           | LA.VarPat (_, id) ->
@@ -1856,12 +1908,12 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
    same restrictions as an explicit call under a lazy guard (see below). A
    branch whose guard does not change over time is kept in place instead. *)
 | LA.TernaryOp (_, LazyIte, c, e2, e3) ->
-  check_temporal_branches ctx c [[], e2; [], e3]
-| LA.BinaryOp (_, (AndThen | OrElse | LazyImpl), e1, e2) ->
-  check_temporal_branches ctx e1 [[], e2]
+  check_temporal_branches ctx c [[], Holds, e2; [], Fails, e3]
+| LA.BinaryOp (_, (AndThen | OrElse | LazyImpl as op), e1, e2) ->
+  check_temporal_branches ctx e1 [[], lazy_op_polarity op, e2]
 | LA.Match (_, e, arms, _) ->
   let arm (pat, body) =
-    List.map fst (LAH.pat_bound_vars_with_pos pat), body
+    List.map fst (LAH.pat_bound_vars_with_pos pat), Matches, body
   in
   check_temporal_branches ctx e (List.map arm arms)
 | LA.Call (pos, tys, node_id, args) ->
@@ -1905,13 +1957,19 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
     | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, (NI.get_internal_name node_id)))
     | false, false -> Ok [])
   in
+  (* The instance of a call to a function under the lazy guards, activated
+     where some values of the quantified variables make them hold (see
+     [ctx_add_lazy_vars_from_guard]), has the output of the instance for each
+     of these values the guards select, whichever they are: a function has no
+     state *)
+  let is_function =
+    StringMap.mem (NI.get_internal_name node_id) ctx.functions
+  in
   let over_lazy_context =
     if not is_non_inlinable || LA.SI.is_empty ctx.lazy_cond_vars then
       Ok []
     else
-      match
-        if quant_vars_allowed then None else quant_var_in_lazy_guard ctx
-      with
+      match if is_function then None else quant_var_in_lazy_guard ctx with
       | Some v ->
         syntax_error pos (QuantifiedVariableInLazyGuardedNodeCall (v, (NI.get_internal_name node_id)))
       | None -> (
@@ -1956,11 +2014,12 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
 
 | _ -> Ok []
 
-(* Each branch comes with the variables its pattern binds, if any *)
+(* Each branch comes with the variables its pattern binds, if any, and how
+   the guard selects it *)
 and check_temporal_branches ctx guard branches =
   if guard_is_time_invariant ctx guard then Ok [] else
-  let ctx = ctx_add_lazy_vars_from_guard ctx guard in
-  let check_branch (pat_vars, e) =
+  let check_branch (pat_vars, polarity, e) =
+    let ctx = ctx_add_lazy_vars_from_guard ctx polarity guard in
     match LAH.has_pre_or_arrow e with
     | None -> Ok []
     | Some pos -> (

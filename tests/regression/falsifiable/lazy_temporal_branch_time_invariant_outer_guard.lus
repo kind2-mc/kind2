@@ -1,0 +1,10 @@
+-- A temporal operand whose own guard changes over time is abstracted into a
+-- call to a node, even when an enclosing guard that mentions a quantified
+-- variable does not change over time (issue #1837). The call is activated
+-- where some value of the variable satisfies both guards (issue #1849), that
+-- is, where c holds, so 'pre x' is the value of x when c last held
+
+node main (c: bool; x: int) returns ();
+let
+  check forall (k: int) k = 0 ==> (c ==> (true -> pre x > 0));
+tel

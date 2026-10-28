@@ -1,0 +1,15 @@
+-- The instance of a call to a function under a guard whose condition mentions
+-- a quantified variable and changes over time is activated where some value
+-- of the variable satisfies the guard, here where x is 0, 1 or 2, so the
+-- assumption of the function is required where x is 0 (issue #1849)
+
+function imported fpos (x: int) returns (y: int);
+(*@contract
+  assume x > 0;
+  guarantee y = x;
+*)
+
+node main (x: int) returns ();
+let
+  check forall (k: int | 0 <= k and k < 3) k = x ==> fpos(x) = x;
+tel
