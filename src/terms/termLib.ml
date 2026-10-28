@@ -626,6 +626,47 @@ let rec canonical_array_value ty t =
   |> List.fold_left (fun a (i, v) -> Term.mk_store a i v)
        (Term.mk_const_array ty default)
 
+(* The equations of the elements of the array value [t] of [ty], over every
+   index, nested arrays included, if there are at most [limit] *)
+let array_value_eqs limit ty a t =
+  let ty = solver_type ty in
+  (* The number of elements of an array type, if at most [limit] *)
+  let rec elements ty =
+    if not (Type.is_array ty) then Some 1
+    else
+      match
+        domain_size (Type.index_type_of_array ty),
+        elements (Type.elem_type_of_array ty)
+      with
+      | Some n, Some m when n > 0 && m <= limit / n -> Some (n * m)
+      | _ -> None
+  in
+  (* The element of index [i] of an array value *)
+  let rec element t i =
+    match Term.destruct t with
+    | Term.T.App (sym, [a; j; v]) when Symbol.node_of_symbol sym = `STORE ->
+      if Term.equal i j then v else element a i
+    | Term.T.App (sym, [d]) -> (
+      match Symbol.node_of_symbol sym with
+      | `CONST_ARRAY _ -> d
+      | _ -> raise Not_found )
+    | _ -> raise Not_found
+  in
+  let rec eqs ty a t acc =
+    if not (Type.is_array ty) then Term.mk_eq [a; t] :: acc
+    else
+      match index_values (Type.index_type_of_array ty) with
+      | None -> raise Not_found
+      | Some indices ->
+        List.fold_left (fun acc i ->
+          eqs (Type.elem_type_of_array ty) (Term.mk_select a i) (element t i)
+            acc)
+          acc indices
+  in
+  match elements ty with
+  | Some _ -> ( try Some (List.rev (eqs ty a t [])) with Not_found -> None )
+  | None -> None
+
 (* Whether a term is an array value: a constant array with stores of
    constant indices and values *)
 let rec is_array_value t =
