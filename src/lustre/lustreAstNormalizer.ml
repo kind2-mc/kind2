@@ -2173,6 +2173,9 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
          node (see [LustreDesugarArrayComprehensions]) *)
       | GhostVars (pos, GhostArrayDef (pos2, (p, id, ty), is), expr) ->
         let ety = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+        let expr =
+          fill_comprehension_default info id is (array_def_elem_type info ety is) expr
+        in
         let info = add_array_def_indices info pos2 ety is in
         (* As for an array definition in a node, the node calls that take
            index variables are expanded into one instance per index, when the
@@ -2359,6 +2362,38 @@ and add_array_def_indices info pos ty is =
     index_types
   in { info with inductive_variables = ivars}
 
+(* The definition of the local [id] of an array comprehension under lazy
+   guards is the element [id[is]] being defined where the guards do not hold
+   (see [LustreDesugarArrayComprehensions]), which stands for any value of
+   type [ty], the type of the element. The definition does not matter there,
+   so it is the default value of the type *)
+and fill_comprehension_default info id is ty expr =
+  if not (var_is_array_comprehension id) then expr
+  else
+    let elem =
+      List.fold_left
+        (fun e i -> A.IndexAccess (dpos, e, A.Ident (dpos, i), A.Array))
+        (A.Ident (dpos, id)) is
+    in
+    let default = lazy (LDAT.default_value info.context info.adt_map dpos ty) in
+    let rec fill e =
+      if AH.syn_expr_equal None e elem = Ok true then Lazy.force default
+      else match e with
+        | A.TernaryOp (p, A.LazyIte, c, e1, e2) ->
+          A.TernaryOp (p, A.LazyIte, c, fill e1, fill e2)
+        | e -> e
+    in
+    fill expr
+
+(* The type of the elements of an array of type [ty] defined element-wise
+   over the indices [is] *)
+and array_def_elem_type info ty is =
+  List.fold_left (fun ty _ ->
+    match Chk.expand_type_syn_reftype_history info.context ty |> unwrap with
+    | A.ArrayType (_, (ty, _)) -> ty
+    | _ -> assert false
+  ) ty is
+
 and normalize_equation info node_id map = function
   | A.Assert (pos, expr) ->
     let info, h_gids, expr = desugar_history info expr in
@@ -2368,6 +2403,14 @@ and normalize_equation info node_id map = function
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
+    let expr = match items with
+      | [A.ArrayDef (_, v, is)] ->
+        (match Ctx.lookup_ty info.context v with
+         | Some ty ->
+           fill_comprehension_default info v is (array_def_elem_type info ty is) expr
+         | None -> expr)
+      | _ -> expr
+    in
     let info = List.fold_left (fun info item -> match item with
       | A.ArrayDef (pos, v, is) ->
         let ty = match Ctx.lookup_ty info.context v with
