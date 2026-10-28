@@ -413,9 +413,9 @@ let droppable_condition ctx node_name r =
         (match Ctx.expand_type_syn ctx ty with A.Bool _ -> true | _ -> false)
       | Error _ | exception _ -> false)
 
-(* Whether two copies of an expression, evaluated side by side, may disagree:
-   each copy of a call to a node is a separate instance of it, with its own
-   state and its own nondeterministic choices. A type ascription is a
+(* Whether two copies of an expression may disagree, whether evaluated side by
+   side or on different clocks: each copy of a call to a node is a separate
+   instance of it, with its own state and its own nondeterministic choices. A type ascription is a
    passthrough, and a function call a single UF application, so their copies
    agree. A call this pass generates is classified by the kind of its
    identifier, since its signature may not have reached the context yet, and a
@@ -450,10 +450,10 @@ let rec agreeing_conjuncts ctx e =
   | e -> if copies_may_disagree ctx e then None else Some e
 
 (* The type a node this pass generates declares for a variable of the enclosing
-   node it reads. A refinement whose predicate has copies that may disagree is
-   dropped: the enclosing node already constrains the value, and checking the
-   predicate again in the generated node would evaluate it in an instance of
-   its own, which the enclosing one need not agree with. *)
+   node it reads. The conjuncts of a refinement whose copies may disagree are
+   dropped: the enclosing node already constrains the value, and checking such a
+   predicate again in the generated node would evaluate it in an instance of its
+   own, which the enclosing one need not agree with. *)
 let rec generated_node_input_type: Ctx.tc_context -> A.lustre_type -> A.lustre_type =
 fun ctx ty ->
   let r = generated_node_input_type ctx in
