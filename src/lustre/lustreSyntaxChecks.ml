@@ -321,6 +321,11 @@ type context = {
      node the ascription is abstracted into (see [LustreGenNodes]). *)
   ascription_vars : StringSet.t;
   pattern_vars : LustreAst.lustre_type option StringMap.t;
+  (* The pattern variables, among [pattern_vars], bound by matching a
+     scrutinee that depends on quantified variables, each with one of these
+     variables. Such a pattern variable depends on the quantified variables
+     without mentioning them. *)
+  quant_pattern_vars : HString.t StringMap.t;
   array_indices : LustreAst.lustre_type option StringMap.t;
   symbolic_array_indices : LustreAst.lustre_type option StringMap.t;
   constructors : StringSet.t;
@@ -347,6 +352,7 @@ let empty_ctx () = {
     quant_vars = StringMap.empty;
     ascription_vars = StringSet.empty;
     pattern_vars = StringMap.empty;
+    quant_pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
     symbolic_array_indices = StringMap.empty;
     constructors = StringSet.empty;
@@ -391,7 +397,8 @@ let ctx_add_const_local ctx i ty = {
   }
 
 let ctx_add_binder ctx i is_time_invariant = {
-    ctx with binders = StringMap.add i is_time_invariant ctx.binders
+    ctx with binders = StringMap.add i is_time_invariant ctx.binders;
+    quant_pattern_vars = StringMap.remove i ctx.quant_pattern_vars
   }
 
 let ctx_add_quant_var ctx i ty = ctx_add_binder {
@@ -412,6 +419,31 @@ let ctx_add_ascription_var ctx i ty =
 let ctx_add_pattern_var ctx i ty = ctx_add_binder {
     ctx with pattern_vars = StringMap.add i ty ctx.pattern_vars
   } i false
+
+(* The quantified variables that [e] depends on: those it mentions, and one
+   for each pattern variable it mentions that depends on some *)
+let quant_deps ctx e =
+  LA.SI.fold
+    (fun v acc ->
+      if StringMap.mem v ctx.quant_vars then LA.SI.add v acc
+      else
+        match StringMap.find_opt v ctx.quant_pattern_vars with
+        | Some q -> LA.SI.add q acc
+        | None -> acc)
+    (LAH.vars_without_node_call_ids e)
+    LA.SI.empty
+
+(* [ctx] with the pattern variables [vars] bound by matching [scrutinee] *)
+let ctx_add_matched_pattern_vars ctx scrutinee vars =
+  let deps = quant_deps ctx scrutinee in
+  List.fold_left
+    (fun ctx v ->
+      let ctx = ctx_add_pattern_var ctx v None in
+      match LA.SI.choose_opt deps with
+      | Some q ->
+        { ctx with quant_pattern_vars = StringMap.add v q ctx.quant_pattern_vars }
+      | None -> ctx)
+    ctx vars
 
 let ctx_add_array_index ctx i ty = ctx_add_binder {
     ctx with array_indices = StringMap.add i ty ctx.array_indices
@@ -471,8 +503,8 @@ let lazy_op_polarity = function
   | _ -> Holds
 
 (* The symbolic array indices that [guard] mentions, and the quantified
-   variables that a condition of it that changes over time mentions (see
-   [guard_conjuncts]).
+   variables that a condition of it that changes over time depends on (see
+   [guard_conjuncts] and [quant_deps]).
 
    A call under the guard, or a temporal branch, which is abstracted into
    one, is a single instance activated where some values of the quantified
@@ -494,11 +526,7 @@ let ctx_add_lazy_vars_from_guard ctx polarity guard =
     List.fold_left
       (fun acc c ->
         if guard_is_time_invariant ctx c then acc
-        else
-          LA.SI.filter
-            (fun v -> StringMap.mem v ctx.quant_vars)
-            (LAH.vars_without_node_call_ids c)
-          |> LA.SI.union acc)
+        else LA.SI.union acc (quant_deps ctx c))
       LA.SI.empty
       (guard_conjuncts polarity guard)
   in
@@ -1437,10 +1465,7 @@ and check_items: context -> ?tc_ctx:Ctx.tc_context option -> ?in_lemma:bool -> (
       in
       let* warnings2 =
         Res.seq (List.map (fun (pat, items) ->
-          let ctx' = List.fold_left
-            (fun c v -> ctx_add_pattern_var c v None)
-            ctx_lazy (pat_vars pat)
-          in
+          let ctx' = ctx_add_matched_pattern_vars ctx_lazy e (pat_vars pat) in
           let* (ws, _) = check_items ctx' ~tc_ctx ~in_lemma f items props in
           Ok ws) arms)
       in
@@ -1860,10 +1885,7 @@ and check_expr: context -> (context -> LA.expr -> ([> warning] list, ([> error] 
         in collect pat
       in
       let* warnings2 = Res.seq (List.map (fun (pat, body) ->
-        let ctx' = List.fold_left
-          (fun c v -> ctx_add_pattern_var c v None)
-          ctx_lazy (pat_vars pat)
-        in
+        let ctx' = ctx_add_matched_pattern_vars ctx_lazy e (pat_vars pat) in
         let* warnings = check_expr ctx' f body in 
         let* warnings' = check_expr ctx' lazy_match body in 
         Res.ok (warnings @ warnings')

@@ -454,8 +454,9 @@ A node has state, and so does an operand of a lazy construct that uses `pre`
 or `->`: in `forall (i: int) G(i) ==> (true -> pre x > 0)`, `pre x` is the
 value of `x` the last time the operand was selected for the same value of `i`.
 Kind 2 evaluates such a call or operand once for all the values of `i`, so it
-rejects it when a condition of the guards it is under mentions `i` and changes
-over time, as `i = c` does for an input `c`, since each value of `i` would
+rejects it when a condition of the guards it is under mentions `i`, or a
+variable of a pattern matched against an expression that mentions `i`, and
+changes over time, as `i = c` does for an input `c`, since each value of `i` would
 then select it at different steps. A guard that is a conjunction of conditions
 that either do not mention `i`, such as `x > 0`, or do not change over time,
 such as `Q(i)` or `0 <= i and i < n` for a constant `n`, is accepted: every
