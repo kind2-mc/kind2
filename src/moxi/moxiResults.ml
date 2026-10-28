@@ -212,20 +212,14 @@ let pp_print_last_step_of_trace (trans_sys : TransSys.t) path ppf k =
         Numeral.pp_print_numeral k
         (Lib.pp_print_list pp_print_str_var_val " ") formatted_svar_names
 
-let pp_print_step_of_trace (trans_sys : TransSys.t) path ppf k = 
-  let reachability_prop = TransSys.get_properties trans_sys in
-  let reachability_svars = 
-    List.map (fun Property.({prop_term}) -> 
-      StateVar.StateVarSet.elements (Term.state_vars_of_term prop_term)
-    ) reachability_prop |> List.flatten in
-  
-  (* Reachable svars may have duplicates if referenced in multiple queries. Filter them out.  *)
-  let reachability_svars = 
-    List.fold_left (fun rvars rvar -> 
-      if (List.exists (StateVar.equal_state_vars rvar) rvars) 
-      then rvars 
-      else rvar :: rvars
-    ) [] reachability_svars |> List.rev in
+(* A step of the trail of a query with one reachability condition, with the
+   value of the condition, which is the negation of the variable of the
+   property one step later *)
+let pp_print_step_of_trace (trans_sys : TransSys.t) prop path ppf k = 
+  let reachability_svars =
+    StateVar.StateVarSet.elements
+      (Term.state_vars_of_term prop.Property.prop_term)
+  in
 
   let model_list = Model.path_to_list path in
   let values = List.map (fun reachability_svar -> 
@@ -280,35 +274,39 @@ let (--) i j =
     if n < i then acc else aux (n-1) ((Numeral.of_int n) :: acc)
   in aux j [] 
 
-let pp_print_trail is_current_state trans_sys ppf path =
-  let range = 0 -- (Model.path_length path - 2) in
+let pp_print_trail encoding trans_sys prop ppf path =
+  let last = Model.path_length path - 1 in
+  (* The steps before the last one, with the value of the condition of a
+     query with only that one *)
+  let pp_print_step =
+    if encoding.MoxiInput.flags then pp_print_last_step_of_trace trans_sys path
+    else pp_print_step_of_trace trans_sys prop path
+  in
+  let range = 0 -- (last - 1) in
 
   (match range with
   | [] -> ()
   | _ ->
     Format.fprintf ppf "%a@,"
-      (Lib.pp_print_list (pp_print_step_of_trace trans_sys path) "@,") range );
+      (Lib.pp_print_list pp_print_step "@,") range );
 
-  (* Only show the last state if it is not a property of the current state. *)
-  if not is_current_state then
+  (* Only show the last state if it is not a property of the current
+     state. *)
+  if not encoding.current_state then
     (* In the last state, do not print value of reachability variables *)
     Format.fprintf ppf "%a@,"
       (pp_print_last_step_of_trace trans_sys path)
-      (Numeral.of_int (Model.path_length path - 1))
+      (Numeral.of_int last)
 
-let pp_print_cex_trail trans_sys prop_name prefix is_current_state ppf cex = 
+let pp_print_cex_trail encoding trans_sys prop prefix ppf cex = 
   Format.fprintf ppf "@[<hv 2>:trail@ (%s (@[<v>@,%a@])@,) @]@,"
-    (derived prop_name (if prefix then "_prefix" else "_lasso"))
-    (pp_print_trail is_current_state trans_sys) (Model.path_of_list cex)
+    (derived prop.Property.prop_name (if prefix then "_prefix" else "_lasso"))
+    (pp_print_trail encoding trans_sys prop) (Model.path_of_list cex)
 
-let pp_print_prop_trail trans_sys current_state_props ppf prop =
-  let prop_name = prop.Property.prop_name in
-  let is_current_state =
-    List.mem prop_name current_state_props
-  in
+let pp_print_prop_trail ppf (trans_sys, prop, encoding) =
   match Property.get_prop_status prop with 
   | PropFalse cex -> 
-    (pp_print_cex_trail trans_sys prop_name true is_current_state ppf cex)
+    (pp_print_cex_trail encoding trans_sys prop true ppf cex)
   | PropInvariant _
   | PropKTrue _ 
   | PropUnknown -> () 
@@ -392,7 +390,8 @@ let pp_print_prop_model: TransSys.t -> Format.formatter -> Property.t -> unit
    - a variable of kmoxi's own, such as the one a reachability condition is
      encoded by, by its name after an [@], with which SMT-LIB reserves
      symbols for solvers, so that it is the name of no variable of the
-     model. *)
+     model; the flag of whether a condition [r] has held, of a query with
+     several conditions, as [@held::r]. *)
 let cert_name_of_state_var sv =
   let name = StateVar.name_of_state_var sv in
   (* The scope of the variables of a system, rather than kmoxi's own *)
@@ -411,6 +410,7 @@ let cert_name_of_state_var sv =
     (match instances [] rest with
      | Some path -> path_name path name
      | None -> quote ("@" ^ String.concat "::" (List.tl rest @ [ name ])))
+  | [ _ ; "held" ; _ ] -> quote ("@held::" ^ name)
   | _ -> quote ("@" ^ name)
 
 (* Print a term of an invariant in SMT-LIB syntax, over the names of
@@ -591,11 +591,24 @@ let pp_print_prop_result _ppf prop =
   Format.printf "@[<hv 2>:query@ @[<v>@[<hv 1>(%s@ :result %s%s)@]@]@]@,"
     (quote prop_name) result info
 
-let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit 
-= fun trans_sys in_sys props ->
-  let current_state_props =
-    InputSystem.current_state_props in_sys (TS.scope_of_trans_sys trans_sys)
+(* The response to a check, given the systems of its groups of queries *)
+let pp_print_results check systems =
+  (* The queries in the order of the script, each with its system and
+     property *)
+  let queries =
+    check.MoxiInput.queries |> List.map (fun (name, encoding) ->
+      let sys, prop =
+        List.find_map (fun sys ->
+          TS.get_properties sys
+          |> List.find_opt (fun p -> p.Property.prop_name = name)
+          |> Option.map (fun p -> sys, p)
+        ) systems
+        |> Option.get
+      in
+      sys, prop, encoding
+    )
   in
+  let props = List.map (fun (_, prop, _) -> prop) queries in
   Format.printf
   "@[<v 1>(check-system-response @,\
    @[<hv 2>:verbosity@ %s@]@,\
@@ -608,6 +621,8 @@ let pp_print_results: TransSys.t -> _ InputSystem.t -> Property.t list -> unit
   (if false then "condensed" else "full") (* TODO: Get flag for condensed output *)
   (Lib.pp_print_list pp_print_prop_result "") props
   (Lib.pp_print_list pp_print_prop_trace "") props
-  (Lib.pp_print_list (pp_print_prop_model trans_sys) "") props
-  (Lib.pp_print_list (pp_print_prop_trail trans_sys current_state_props) "") props
+  (Lib.pp_print_list
+     (fun ppf (sys, prop, _) -> pp_print_prop_model sys ppf prop) "")
+  queries
+  (Lib.pp_print_list pp_print_prop_trail "") queries
   (Lib.pp_print_list pp_print_prop_cert "") props

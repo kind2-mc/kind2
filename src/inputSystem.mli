@@ -77,7 +77,9 @@ val mcs_params : 'a t -> Analysis.param list
 *)
 val contract_check_params : 'a t -> (Analysis.param * bool) list
 
-val moxi_params : 'a t -> Analysis.param list
+(** The checks of a MoXI input, each with the analyses of its systems, in
+    order *)
+val moxi_checks : 'a t -> (MoxiInput.check * Analysis.param list) list
 
 (** Return a transition system for an analysis run *)
 val trans_sys_of_analysis:
@@ -176,8 +178,6 @@ val get_node_id : _ t -> Scope.t -> NodeId.t
 
 (** Whether the node of the scope is a lemma *)
 val is_lemma : _ t -> Scope.t -> bool
-
-val current_state_props : _ t -> Scope.t -> string list
 
 val prefix_system : 'a t -> string -> 'a t
 
