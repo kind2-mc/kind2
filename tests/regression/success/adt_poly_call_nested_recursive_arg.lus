@@ -1,0 +1,14 @@
+datatype L<T> = Nil | Cons (hd: T, tl: L<T>);
+
+node f<T>(x: L<L<T>>) returns (r: bool);
+let
+  r = Cons?(x);
+tel
+
+node main(i: int) returns (ok: bool);
+var inner: L<int>;
+let
+  inner = Cons(i, Nil@<int>);
+  ok = f(Cons(inner, Nil@<L<int>>));
+  check ok;
+tel

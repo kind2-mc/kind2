@@ -1,0 +1,14 @@
+datatype L<T> = Nil | Cons (tl: L<T>);
+
+node f<T>(x: L<T>) returns (r: bool);
+let
+  r = Nil?(x);
+tel
+
+node main() returns (ok: bool);
+var q: L<int>;
+let
+  q = Nil@<int>;
+  ok = f(q);
+  check ok;
+tel

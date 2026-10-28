@@ -1138,6 +1138,10 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_nested_instantiation_map_element.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test a type variable reachable only past a datatype cycle still needs an annotation" (fun () ->
+    match load_file "./lustreTypeChecker/adt_poly_call_uninferable_nested.lus" with
+    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
+    | _ -> false);
   mk_test "test ADT tester type-checks" (fun () ->
     match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
     | Ok _ -> true

@@ -982,6 +982,13 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, (Some v) -> Some v
   | _, (Some v), (Some _) -> Some v
 
+(* Key a datatype comparison on both instantiations: two instantiations of one
+   polymorphic datatype share their name and differ only in their field types *)
+let adt_comparison_key name ty1 ty2 =
+  Format.asprintf "%a: %a =?= %a" HString.pp_print_hstring name
+    LA.pp_print_lustre_type ty1 LA.pp_print_lustre_type ty2
+  |> HString.mk_hstring
+
 (* Unify `ty1` with `ty2` in the context of inferring type arguments for node calls. 
    `ty1` represents the function signature with type parameters, and 
    `ty2` represents the types of the concrete arguments.  
@@ -1023,12 +1030,13 @@ let unify_types pos ctx is_type_ascription ty1 ty2 =
     | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
       R.ok StringMap.empty
     | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
-      (* Expand each ADT at most once per unification path. Keyed on the name,
-         not the instantiation, so a nested second occurrence of the same
-         datatype is taken for a cycle and contributes no bindings. *)
-      if HString.HStringSet.mem id1 seen then R.ok StringMap.empty
+      (* Expand each ADT comparison at most once per unification path. Keys stay
+         finite: a self-reference may only sit at the datatype's own parameters,
+         and a cycle between two declared types is rejected before type checking *)
+      let key = adt_comparison_key id1 ty1 ty2 in
+      if HString.HStringSet.mem key seen then R.ok StringMap.empty
       else
-        let seen' = HString.HStringSet.add id1 seen in
+        let seen' = HString.HStringSet.add key seen in
         let tys1 = List.concat_map (fun (_, flds) -> List.map snd flds) cons1 in
         let tys2 = List.concat_map (fun (_, flds) -> List.map snd flds) cons2 in
         let* maps = R.seq (List.map2 (aux seen') tys1 tys2) in
@@ -3504,11 +3512,7 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
        own parameters, and a cycle through two or more types is rejected earlier *)
     if not (HString.equal n1 n2) then R.ok false
     else
-      let key =
-        Format.asprintf "%a: %a =?= %a" HString.pp_print_hstring n1
-          LA.pp_print_lustre_type t1 LA.pp_print_lustre_type t2
-        |> HString.mk_hstring
-      in
+      let key = adt_comparison_key n1 t1 t2 in
       if HString.HStringSet.mem key seen then R.ok true
       else
         let seen = HString.HStringSet.add key seen in
