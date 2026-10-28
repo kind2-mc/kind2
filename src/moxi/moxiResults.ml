@@ -64,8 +64,6 @@ let rec string_of_value ty value =
 let rec string_of_array ty elements =
   let elem_ty = Type.elem_type_of_array ty in
   let width = Type.bitvectorsize (Type.index_type_of_array ty) in
-  (* The model reads the indices as signed integers *)
-  let unsigned i = let n = 1 lsl width in ((i mod n) + n) mod n in
   let index i =
     Bitvector.num_to_ubv (Numeral.of_int width) (Numeral.of_int i)
     |> Term.mk_ubv |> Term.string_of_term
@@ -75,7 +73,6 @@ let rec string_of_array ty elements =
     List.fold_left (fun acc (indices, t) ->
       match indices with
       | i :: inner ->
-        let i = unsigned i in
         let others = try List.assoc i acc with Not_found -> [] in
         (i, (inner, t) :: others) :: List.remove_assoc i acc
       | [] -> assert false
