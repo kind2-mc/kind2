@@ -84,6 +84,16 @@ val mk_canonical_exprs :
   LustreAst.lustre_type ->
   LustreAst.expr list
 
+(** [default_value ctx adt_map pos ty] is a value of type [ty]: the one the
+    payload fields of the constructors other than the active one hold in
+    canonical form *)
+val default_value :
+  TypeCheckerContext.tc_context ->
+  adt_map ->
+  Lib.position ->
+  LustreAst.lustre_type ->
+  LustreAst.expr
+
 (** The constructor whose payload field has the given internal record field
     name, if any *)
 val ctor_of_payload_field : adt_info -> HString.t -> HString.t option

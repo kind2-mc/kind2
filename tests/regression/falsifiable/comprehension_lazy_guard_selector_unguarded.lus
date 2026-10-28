@@ -1,0 +1,11 @@
+-- A comprehension equal to one under a lazy guard, but not itself under the
+-- guard, does not share its definition: its selector is undefined where 'x'
+-- is built with 'B'
+datatype D = A (v: int) | B (b: bool);
+
+node main(x: D) returns (C1, C2: int^3);
+let
+  C1 = when A?(x) then (x.v + i foreach i)^3 else 0^3;
+  C2 = (x.v + i foreach i)^3;
+  check true;
+tel

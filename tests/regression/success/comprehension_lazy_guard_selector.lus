@@ -1,0 +1,51 @@
+-- A comprehension is replaced with a local defined in the body of the node,
+-- which is evaluated under the lazy guards around the comprehension: they
+-- establish the constructor of a selector in its body (#1860), and gate a
+-- call in its body
+datatype D = A (v: int) | B (b: bool);
+
+node Count() returns (c: int);
+let
+  c = 1 -> pre c + 1;
+tel
+
+function f(x: D) returns (y: int^3);
+let
+  y = when A?(x) then (x.v + i foreach i)^3 else 0^3;
+tel
+
+node main(x: D; c: bool) returns (
+  y: int; C1, C2, C3, C4, C5, C6: int^3; b1, b2, b3: bool; N: int^1; n: int
+)
+(*@contract
+  guarantee A?(x) ==> ((x.v + i foreach i)^2)[1] = x.v + 1;
+*)
+let
+  y = when A?(x) then x.v else 0;
+  C1 = when A?(x) then (x.v + i foreach i)^3 else 0^3;
+  b1 = A?(x) and then ((x.v * i foreach i)^3)[0] = 0;
+  b2 = B?(x) or else ((x.v - i foreach i)^3)[1] = x.v - 1;
+  b3 = A?(x) ==> ((x.v + 2 * i foreach i)^3)[2] = x.v + 4;
+  when A?(x) then
+    C2 = (x.v + 3 * i foreach i)^3;
+  else
+    C2 = 0^3;
+  end
+  -- Nested guards, the inner one with a selector of its own
+  C3 = when A?(x) then
+         (when x.v > 0 then (x.v + 4 * i foreach i)^3 else 0^3)
+       else 0^3;
+  -- Nested comprehensions
+  C4 = when A?(x) then (((x.v + i foreach i)^3)[0] + j foreach j)^3 else 0^3;
+  C5 = f(x);
+  -- Nested in the body of a when block
+  when B?(x) then
+    C6 = 0^3;
+  else
+    C6 = (when x.v > 0 then (x.v foreach i)^3 else 0^3);
+  end
+  -- A call in a comprehension is made only where the guard holds
+  N = when c then (Count() foreach i)^1 else 0^1;
+  n = when c then Count() else 0;
+  check c => N[0] = n;
+tel
