@@ -801,13 +801,14 @@ let extract uf_defs env term =
           )
 
         (* Boolean atoms, including a tester or a Boolean selector of an
-           algebraic datatype *)
-        | `IS_INT 
+           algebraic datatype, and an element of an array of Booleans *)
+        | `IS_INT
         | `TO_REAL
-        | `TO_INT 
+        | `TO_INT
         | `DIVISIBLE _
         | `IsConstructor _
-        | `Selector _ ->
+        | `Selector _
+        | `SELECT _ ->
 
           (match l with 
 
