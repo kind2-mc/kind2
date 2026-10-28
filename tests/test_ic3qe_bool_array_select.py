@@ -58,4 +58,6 @@ def test_ic3qe_answers(tmp_path, model, answer):
     res = run_kmoxi_process(path, "--enable", "IC3QE", timeout=60)
     out = res.stdout + res.stderr
     assert "Assertion failed" not in out, out
+    assert "Runtime error" not in out, out
+    assert "Runtime failure" not in out, out
     assert query_answer(out) == answer, out
