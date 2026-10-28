@@ -1295,12 +1295,13 @@ let select simplify_term_node model fterm = function
 
           else
 
-            let term_to_index =
-              let idx_ty = Type.index_type_of_array (Var.type_of_var v) in
-              if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
-                (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
-              else
-                (fun t -> Numeral.to_int (Term.numeral_of_term t))
+            (* As [SMTSolver.get_var_values] gives the indices: an index
+               of [w] bits as a number in [0, 2^w), whatever its
+               dimension *)
+            let term_to_index t =
+              if Term.is_bitvector t then
+                Numeral.to_int (Bitvector.ubv_to_num (Term.bitvector_of_term t))
+              else Numeral.to_int (Term.numeral_of_term t)
             in
 
             let args = List.map term_to_index i' in

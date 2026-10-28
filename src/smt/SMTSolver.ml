@@ -927,20 +927,26 @@ let get_var_values ?array_limit s state_var_indexes vars =
             ) indexes
         in
 
-        let index_term, term_to_index =
-          let idx_ty = Type.index_type_of_array ty in
+        (* The term of an index of the dimension of index type [idx_ty]:
+           an index of [w] bits is the bit-vector of a number in
+           [0, 2^w), and is read back as that number *)
+        let index_term idx_ty i =
           if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
             let size =
               match Type.get_bv_size idx_ty with
               | Some s -> Numeral.of_int s
               | None -> assert false
             in
-            (fun i -> Bitvector.num_to_ubv size (Numeral.of_int i) |> Term.mk_ubv),
-            (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
-          else
-            (fun i -> (Term.mk_num_of_int i)),
-            (fun t -> Numeral.to_int (Term.numeral_of_term t))
+            Bitvector.num_to_ubv size (Numeral.of_int i) |> Term.mk_ubv
+          else Term.mk_num_of_int i
         in
+        let term_to_index t =
+          if Term.is_bitvector t then
+            Numeral.to_int (Bitvector.ubv_to_num (Term.bitvector_of_term t))
+          else Numeral.to_int (Term.numeral_of_term t)
+        in
+        (* The index types of the dimensions, from the outermost one in *)
+        let idx_tys = Type.all_index_types_of_array ty in
 
         (* The elements of the array, checked against the limit before any
            is read *)
@@ -964,8 +970,10 @@ let get_var_values ?array_limit s state_var_indexes vars =
         let vt = Term.mk_var v in
         let sexprs =
           List.map (fun args ->
+              (* [cross] gives the indices from the innermost one out *)
               List.fold_left Term.mk_select
-                vt (List.rev_map index_term args)
+                vt (List.mapi (fun k i -> index_term (List.nth idx_tys k) i)
+                      (List.rev args))
               |> Term.convert_select
               |> S.Conv.smtexpr_of_term
             ) args_list in

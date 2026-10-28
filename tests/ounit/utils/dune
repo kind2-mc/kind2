@@ -1,5 +1,5 @@
 (tests
   (names testGraph testLib testSolverExit testSolverPipes testSolverStdin
    testFunEvalKilled testSolverDeleteRace testSexprLets
-   testSexprDatatypes)
+   testSexprDatatypes testNestedArrayModel)
   (libraries ounit2 unix kind2dev))
