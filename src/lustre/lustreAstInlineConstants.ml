@@ -117,6 +117,18 @@ let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   | _ -> false
 (** is the expression in a normal form? *)
          
+(* Whether [e] is a map, as far as its form tells: a map variable, a map
+   literal, or updates of one. Types cannot be inferred here, since
+   [LustreTypeChecker] depends on this module *)
+let rec is_map ctx = function
+  | LA.Ident (_, i) -> (
+    match TC.lookup_ty ctx i with
+    | Some ty -> (match TC.expand_type_syn ctx ty with LA.Map _ -> true | _ -> false)
+    | None -> false)
+  | LA.EmptyMap _ -> true
+  | LA.StructUpdate (_, e, _, _) -> is_map ctx e
+  | _ -> false
+
 let rec eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
@@ -267,8 +279,8 @@ and simplify_index_access ?(keep_oob = false) ctx ?(ind_vars = []) pos e1 idx ki
     IndexAccess (pos, e1', idx', kind)
 (** picks out the idx'th component of an array if it can *)
 
-and push_pre is_guarded pos =
-  let r e = push_pre is_guarded pos e in
+and push_pre ctx is_guarded pos =
+  let r e = push_pre ctx is_guarded pos e in
   function
   | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Ident _ as e -> LA.Pre (pos, e)
@@ -296,14 +308,20 @@ and push_pre is_guarded pos =
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
-  (* A user-written array access, or element update, is evaluated where the
-     'pre' around it is, at the previous instant, and its bounds obligation
-     with it (see [LustreAstNormalizer]): 'pre' is not pushed into it, which
-     would make it evaluated at the current instant on previous values *)
+  (* A user-written access is evaluated where the 'pre' around it is, at the
+     previous instant, and so is its bounds obligation (see
+     [LustreAstNormalizer]): 'pre' is not pushed into it, which would read the
+     previous array or map at the current index (#1464). An array update is
+     not pushed into either, for its bounds obligation; the index of an
+     update, generic until the normalizer resolves it, is one of an array
+     unless the updated value is known to be a map (see [is_map]) *)
   | IndexAccess (_, _, _, LA.Unknown) as e -> LA.Pre (pos, e)
-  | StructUpdate (_, _, l, _) as e
+  | StructUpdate (_, e1, l, _) as e
     when List.exists
-           (function LA.Index (_, _, LA.ArrayElem) | LA.GenericIndex _ -> true | _ -> false)
+           (function
+             | LA.Index (_, _, LA.ArrayElem) -> true
+             | LA.GenericIndex _ -> not (is_map ctx e1)
+             | _ -> false)
            l ->
     LA.Pre (pos, e)
   | StructUpdate (p, e1, l, Some e2) -> 
@@ -345,6 +363,14 @@ and push_pre is_guarded pos =
   | ADTTester (p, e, c) -> ADTTester (p, r e, c)
 
 and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx =
+  (* The sizes of a comprehension are constant expressions, which nothing
+     guards (see [simplify_index_access]) *)
+  let simplify_size = simplify_expr ~keep_oob:false in
+  (* The subexpressions keep [keep_oob] *)
+  let simplify_expr ?is_guarded ?ind_vars ctx e =
+    simplify_expr ~keep_oob ?is_guarded ?ind_vars ctx e
+  in
+  let simplify_index_access = simplify_index_access ~keep_oob in
   function
   | LA.Const _ as c -> c
   | LA.Ident (_, i) as ident ->
@@ -355,11 +381,11 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
           | LA.Ident (_, i') as ident' ->
              if HString.compare i i' = 0 (* If This is a free constant *)
              then ident
-             else simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx ident'
-          | _ -> simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx const_expr)
+             else simplify_expr ~ind_vars ~is_guarded ctx ident'
+          | _ -> simplify_expr ~ind_vars ~is_guarded ctx const_expr)
       | None -> ident)
   | LA.UnaryOp (pos, op, e1) ->
-    let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
+    let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
     let e' = LA.UnaryOp (pos, op, e1') in
     (match op with
     | LA.Uminus -> (match eval_int_unary_op ctx pos op e1' with
@@ -370,30 +396,30 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
       | Error _ -> e')
     | _ -> e')
   | LA.Pre (pos, e) ->
-    let e' = simplify_expr ~keep_oob ~ind_vars ~is_guarded:false ctx e in
+    let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     if is_guarded && LH.expr_is_const e' then e'
     else
       if Flags.lus_push_pre ()
-      then push_pre is_guarded pos e'
+      then push_pre ctx is_guarded pos e'
       else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
-    let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
-    let e2' = simplify_expr ~keep_oob ~ind_vars ~is_guarded:true ctx e2 in
+    let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+    let e2' = simplify_expr ~ind_vars ~is_guarded:true ctx e2 in
     Arrow (pos, e1', e2')
   (* 'e1 fby e2' is 'e1 -> pre e2', which is what 'pre' is pushed into *)
   | Fby (pos, e1, e2) when Flags.lus_push_pre () ->
-    simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx (Arrow (pos, e1, Pre (pos, e2)))
+    simplify_expr ~ind_vars ~is_guarded ctx (Arrow (pos, e1, Pre (pos, e2)))
   | Fby (pos, e1, e2) ->
-    let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
-    let e2' = simplify_expr ~keep_oob ~ind_vars ~is_guarded:false ctx e2 in
+    let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+    let e2' = simplify_expr ~ind_vars ~is_guarded:false ctx e2 in
     Fby (pos, e1', e2')
   | LA.TypeAscription (pos, e, ty) ->
-    let e' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e in
+    let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
     let ty' = inline_constants_of_lustre_type ~ind_vars ctx ty in
     LA.TypeAscription (pos, e', ty')
   | LA.BinaryOp (pos, bop, e1, e2) ->
-     let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
-     let e2' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e2 in
+     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+     let e2' = simplify_expr ~ind_vars ~is_guarded ctx e2 in
      let e' = LA.BinaryOp (pos, bop, e1', e2') in
      (match (eval_int_binary_op ctx pos bop e1' e2') with
       | Ok v -> LA.Const (pos, Num (v |> string_of_int |> HString.mk_hstring))
@@ -402,36 +428,36 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
      (match top with
      | Ite | LazyIte -> 
         (match eval_bool_expr ctx cond with
-        | Ok v -> if v then simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1
-          else simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e2 
+        | Ok v -> if v then simplify_expr ~ind_vars ~is_guarded ctx e1
+          else simplify_expr ~ind_vars ~is_guarded ctx e2 
         | Error _ ->
-          let cond' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx cond in
-          let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
-          let e2' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e2 in
+          let cond' = simplify_expr ~ind_vars ~is_guarded ctx cond in
+          let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+          let e2' = simplify_expr ~ind_vars ~is_guarded ctx e2 in
             TernaryOp (pos, top, cond', e1', e2')))
   | LA.CompOp (pos, cop, e1, e2) ->
-     let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
-     let e2' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e2 in
+     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+     let e2' = simplify_expr ~ind_vars ~is_guarded ctx e2 in
      let e' = LA.CompOp (pos, cop, e1', e2') in
      (match (eval_comp_op ctx cop e1' e2') with
       | Ok v -> LA.Const (pos, lift_bool v)
       | Error _ -> e')
   | LA.GroupExpr (pos, g, es) ->
-     let es' = List.map (fun e -> simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e) es in 
+     let es' = List.map (fun e -> simplify_expr ~ind_vars ~is_guarded ctx e) es in 
      LA.GroupExpr (pos, g, es')
   | LA.RecordExpr (pos, i, ps, fields) ->
-     let fields' = List.map (fun (f, e) -> (f, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e)) fields in
+     let fields' = List.map (fun (f, e) -> (f, simplify_expr ~ind_vars ~is_guarded ctx e)) fields in
      LA.RecordExpr (pos, i, ps, fields')
   | LA.ArrayConstr (pos, e1, e2) ->
-     let e1' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e1 in
-     let e2' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e2 in
+     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
+     let e2' = simplify_expr ~ind_vars ~is_guarded ctx e2 in
      let e' = LA.ArrayConstr (pos, e1', e2') in e'
      (*(match (eval_int_expr ctx e2) with
       | Ok size -> LA.GroupExpr (pos, LA.ArrayExpr, List.init size (fun _ -> e1'))
       | Error _ -> e')*)
-  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_index_access ~keep_oob ctx ~ind_vars pos e1 e2 kind
+  | LA.IndexAccess (pos, e1, e2, kind) -> simplify_index_access ctx ~ind_vars pos e1 e2 kind
   | Call (pos, ty_args, i, es) ->
-    let es' = List.map (fun e -> simplify_expr ~keep_oob ~ind_vars ~is_guarded:false ctx e) es in
+    let es' = List.map (fun e -> simplify_expr ~ind_vars ~is_guarded:false ctx e) es in
     Call (pos, ty_args, i, es')
   | Quantifier (pos, q, tis, e) -> 
     (* 1. Don't inline constants that are shadowed by quantified vars (by removing these constants from the ctx)
@@ -442,7 +468,7 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
       let acc_ctx = TC.remove_const acc_ctx id in 
       acc_ctx, acc_tis @ [acc_ti] 
     ) (ctx, []) tis in
-    let e' = simplify_expr ~keep_oob ~ind_vars ~is_guarded:false ctx e in
+    let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
     (* A free constant left in a binder's type must not resolve to the binder *)
     let tis, e' = LH.rename_self_referencing_binders tis e' in
     Quantifier (pos, q, tis, e')
@@ -450,11 +476,11 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
     (* The sizes are constant expressions, in which the index variables are not
        in scope; in the body, the index variables shadow the constants *)
     let bs =
-      List.map (fun (p, id, n) -> (p, id, simplify_expr ~ind_vars ctx n)) bs
+      List.map (fun (p, id, n) -> (p, id, simplify_size ~ind_vars ctx n)) bs
     in
     let ids = List.map (fun (_, id, _) -> id) bs in
     let ctx = List.fold_left TC.remove_const ctx ids in
-    let e' = simplify_expr ~keep_oob ~ind_vars:(ids @ ind_vars) ~is_guarded:false ctx e in
+    let e' = simplify_expr ~ind_vars:(ids @ ind_vars) ~is_guarded:false ctx e in
     ArrayComprehension (pos, bs, e')
   | EmptySet (pos, Some ty) -> 
     EmptySet (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx ty))
@@ -462,7 +488,7 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
     EmptyMap (pos, Some (inline_constants_of_lustre_type ~ind_vars ctx kt, 
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
   | Match (pos, e, arms, ty_opt) ->
-    let e' = simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e in
+    let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
     (* Don't inline constants that are shadowed by an arm's pattern variables
        (by removing these constants from the ctx) *)
     let arms' = List.map (fun (pat, body) ->
@@ -470,21 +496,21 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
         LH.pat_bound_vars pat |> LA.SI.elements
         |> List.fold_left TC.remove_const ctx
       in
-      (pat, simplify_expr ~keep_oob ~ind_vars ~is_guarded arm_ctx body)
+      (pat, simplify_expr ~ind_vars ~is_guarded arm_ctx body)
     ) arms in
     Match (pos, e', arms', ty_opt)
   | StructUpdate (p, e, lois, e_opt) -> 
     let lois = List.map (fun loi -> match loi with 
     | LA.Label _ -> loi
-    | Index (p, e, k) -> Index (p, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e, k)
-    | MapIndex (p, e) -> MapIndex (p, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e)
-    | SetIndex (p, e) -> SetIndex (p, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e) 
-    | GenericIndex  (p, e) -> GenericIndex (p, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e) 
+    | Index (p, e, k) -> Index (p, simplify_expr ~ind_vars ~is_guarded ctx e, k)
+    | MapIndex (p, e) -> MapIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e)
+    | SetIndex (p, e) -> SetIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
+    | GenericIndex  (p, e) -> GenericIndex (p, simplify_expr ~ind_vars ~is_guarded ctx e) 
     ) lois in 
-    let e_opt = Option.map (simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx) e_opt in
-    StructUpdate (p, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e, lois, e_opt) 
+    let e_opt = Option.map (simplify_expr ~ind_vars ~is_guarded ctx) e_opt in
+    StructUpdate (p, simplify_expr ~ind_vars ~is_guarded ctx e, lois, e_opt) 
   | FieldProject (p, e, id, pk) ->
-    FieldProject (p, simplify_expr ~keep_oob ~ind_vars ~is_guarded ctx e, id, pk)
+    FieldProject (p, simplify_expr ~ind_vars ~is_guarded ctx e, id, pk)
   | e -> e
 (** Assumptions: These constants are arranged in dependency order, 
    all of the constants have been type checked *)

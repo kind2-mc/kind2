@@ -3611,12 +3611,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
      value at the previous instant, otherwise 'pre (a[i])' becomes '(pre a)[i]' *)
   | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind))
     when index_is_time_invariant info expr2 -> (
-    let size = match kind with
-      | A.Unknown -> (
-        match get_expr_ty info map node_id expr1 with
-        | ArrayType (_, (_, size)) -> Some size
-        | _ -> None)
-      | _ -> None
+    let size =
+      if kind = A.Unknown then array_size_of info map node_id expr1 else None
     in
     match size with
     | Some size ->
@@ -4067,6 +4063,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         | A.Index (p, e, k) ->
           let ne, gids1, warnings1 = normalize_expr ?guard info node_id map e in
           let gids2, warnings2 = match k, info.emit_obligations with
+            (* Checked here as well, which saves inferring the type of the
+               array when the obligations are not emitted *)
             | A.ArrayElem, true ->
               let size = match array_size_of info map node_id expr1 with
                 | Some size -> size
@@ -4094,22 +4092,21 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       List.fold_left union (empty ()) [gids1; gids2; gids3],
       warnings1 @ warnings2 @ warnings3
   | IndexAccess (pos, expr1, expr2, kind) ->
-    let expr1_ty = get_expr_ty info map node_id expr1 in 
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    let kind' =
-      match expr1_ty with
-      | ArrayType _ -> A.Array
-      | Map _ -> Map
-      | TupleType _ -> Tuple
-      | _ -> assert false
-    in
     (* An access is user-written while its kind is unresolved: the accesses
-       Kind 2 generates, and the normalized ones, have a resolved kind *)
-    let gids3, warnings3 = match kind, expr1_ty with
-      | A.Unknown, ArrayType (_, (_, size)) ->
-        mk_array_access_obligation info node_id map pos size expr2 nexpr2
-      | _ -> empty (), []
+       Kind 2 generates, and the normalized ones, have a resolved kind, which
+       their type need not be inferred for *)
+    let kind', (gids3, warnings3) =
+      match kind with
+      | A.Unknown -> (
+        match get_expr_ty info map node_id expr1 with
+        | ArrayType (_, (_, size)) ->
+          A.Array, mk_array_access_obligation info node_id map pos size expr2 nexpr2
+        | Map _ -> Map, (empty (), [])
+        | TupleType _ -> Tuple, (empty (), [])
+        | _ -> assert false)
+      | kind -> kind, (empty (), [])
     in
     IndexAccess (pos, nexpr1, nexpr2, kind'),
     union_list [gids1; gids2; gids3],

@@ -1,0 +1,11 @@
+-- 'pre (m[k])' reads the key at the previous instant, not '(pre m)[k]', and an
+-- update under 'pre' updates the previous map with the previous key and value
+node Top(m: map<int, int>; k, v: int) returns ();
+var x, y, w: int;
+let
+  w = m[k];
+  x = 0 -> pre (m[k]);
+  y = 0 -> pre ((m[k := v])[k]);
+  check "sel_local" true -> (x = pre w);
+  check "upd_pre" true -> (y = pre v);
+tel

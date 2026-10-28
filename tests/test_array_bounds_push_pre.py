@@ -1,7 +1,8 @@
-"""The bounds obligation of an access under 'pre' is checked at the instant
-the access is evaluated, whether or not 'pre' is pushed into expressions
-(`--lus_push_pre`): it is not pushed into an array access or element update,
-which would make it evaluated at the current instant on previous values.
+"""An access under 'pre' is evaluated at the previous instant, and its bounds
+obligation is checked there, whether or not 'pre' is pushed into expressions
+(`--lus_push_pre`): it is not pushed into an array or map access, which would
+read the previous array or map at the current index (#1464), nor into an
+array element update.
 """
 
 import json
@@ -18,6 +19,8 @@ models = [
         "array_bounds_pre_time_invariant_index",
         "array_bounds_pre_update",
         "array_bounds_pre_index_initialized",
+        "pre_index_access_var_index",
+        "pre_map_access_var_key",
     ]
 ]
 
@@ -38,8 +41,4 @@ def test_array_bounds_push_pre(model, push_pre):
         for obj in json.loads(proc.stdout)
         if obj.get("objectType") == "property"
     }
-    bounds = {
-        name: value for name, value in answers.items()
-        if name.startswith("ArrayBounds[")
-    }
-    assert bounds and all(v == "valid" for v in bounds.values()), answers
+    assert answers and all(v == "valid" for v in answers.values()), answers
