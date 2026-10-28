@@ -3853,7 +3853,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
                 id
             in
             let sigma = [(id, A.Ident (p, fresh))] in
-            let subst_ty = AH.map_lustre_ty (AH.apply_subst_in_expr sigma) in
+            let subst_ty = AH.subst_in_type_exprs sigma in
             (p, fresh, ty)
             :: List.map (fun (p', id', ty') -> (p', id', subst_ty ty')) vars,
             AH.apply_subst_in_expr sigma expr))

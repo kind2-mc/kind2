@@ -1,0 +1,13 @@
+-- Renaming the inner q apart from the outer one must not reach into the
+-- refinement types, whose own binder q shadows it: z is positive, so
+-- both properties hold
+
+datatype O<T> = N | S (v: T);
+
+node M(p: int) returns (ok: bool);
+let
+  ok = true;
+  check forall (q: int) forall (q: int; z: subtype { q: int | q > 0 }) z > 0;
+  check forall (q: int) forall (q: int; z: O<subtype { q: int | q > 0 }>)
+    (match z with | S(v) : v > 0 | N : true end);
+tel
