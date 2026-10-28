@@ -67,13 +67,26 @@ type system_variables =
 
 type system_check = TS.t SubSystem.t
 
+type encoding =
+  | Current_state_condition
+  | Next_state_condition
+  | Flags
+
+type check =
+{
+  systems: system_check list ;
+  queries: (string * encoding) list
+}
+
 type input =
 {
   systems: (TS.t * system_variables) HSM.t ;
+  (* The definitions of the systems, by name *)
+  system_defs: A.define_system_cmd HSM.t ;
   (* The checks, last first *)
-  checks: (system_check * string list) list ;
+  checks: check list ;
   (* The names of all the systems of the script, and the number of the next
-     check, for the names of the systems of the checks *)
+     system of a check, for the names of the systems of the checks *)
   system_names: HSS.t ;
   next_check: int ;
   (* The logic set with set-logic, if any *)
@@ -101,6 +114,7 @@ type input =
 let empty_input =
 {
   systems = HSM.empty ;
+  system_defs = HSM.empty ;
   checks = [] ;
   system_names = HSS.empty ;
   next_check = 0 ;
@@ -763,7 +777,11 @@ let rec bounds ty =
   | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
-let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
+(* The system of a definition. A system of a check has variables of kmoxi's
+   own as well, [defs], each with the initial value it may have and its
+   value in a transition, given the environment of the translation of the
+   terms of the system. *)
+let mk_system ?(defs=fun _ -> []) ?(local_map=HSM.empty) (input : input)
     (sys_def: A.define_system_cmd) =
 
   let sys_name_hs = hstring_of_symbol sys_def.A.name in
@@ -782,23 +800,22 @@ let mk_system ?(defs=[]) ?(local_map=HSM.empty) (input : input)
 
   let def_svars, init_defs, trans_defs =
     List.fold_left
-      (fun (def_svars, init_defs, trans_defs) ((symb, sort), (init, trans)) ->
-        let svar = mk_svar ~reserved:true enums sys_name false symb sort in
+      (fun (def_svars, init_defs, trans_defs) (svar, (init, trans)) ->
         let init_defs =
           match init with
           | None -> init_defs
           | Some init -> (
             let var = Var.mk_state_var_instance svar TS.init_base in
-            let eq = Term.mk_eq [Term.mk_var var; kind2_term env init] in
+            let eq = Term.mk_eq [Term.mk_var var; init] in
             eq :: init_defs
           )
         in
         let var' = Var.mk_state_var_instance svar TS.trans_base in
-        let eq' = Term.mk_eq [Term.mk_var var'; kind2_term env trans] in
+        let eq' = Term.mk_eq [Term.mk_var var'; trans] in
         svar :: def_svars, init_defs, eq' :: trans_defs
       )
       ([], [], [])
-      defs
+      (defs env)
   in
 
   let subsystems, subsys_svars, (subsys_init, subsys_trans) =
@@ -983,100 +1000,219 @@ let rec current_state_term = function
     List.for_all (fun (_, _, t') -> current_state_term t') bindings &&
     current_state_term t
 
-let negate term =
-  let symb = (Lib.dummy_span, HString.mk_hstring "not") in
-  let id = (Lib.dummy_span, symb, []) in
-  A.App (Lib.dummy_span, (id, false, None), [term])
+(* Copies of the system [name] and of the systems it calls, directly or not,
+   without their initial conditions, added to [copies] by the names of the
+   systems they copy: the systems a query with a :current condition checks,
+   which replaces the initial condition of every system (MoXI paper, SPIN
+   2024, Sect. 3.2). The invariants of the systems hold in the first state
+   still. The copy of a system [S] is named [prefix_S], after the system of
+   the check, whose prefix no system of the script has. *)
+let rec init_free_systems decls prefix copies name =
+  if HSM.mem name copies then copies
+  else
+    let def = HSM.find name decls.system_defs in
+    let copies =
+      List.fold_left (fun copies sub ->
+        init_free_systems decls prefix copies
+          (hstring_of_symbol sub.A.system_name)
+      ) copies def.A.subsys
+    in
+    let copy_name =
+      Format.sprintf "%s_%s" prefix (HString.string_of_hstring name)
+    in
+    let def =
+      { def with
+        A.name = (fst def.A.name, HString.mk_hstring copy_name) ;
+        init = A.Constant A.True }
+    in
+    let _, sys, svars = mk_system { decls with systems = copies } def in
+    HSM.add name (sys, svars) copies
 
-let mk_check decls sys_name (check_cmd: A.check_system_cmd) =
-  let queries, formulas =
-    List.partition A.is_query_attr check_cmd.A.attrs
-  in
+(* The variable of kmoxi's own that records whether a :reachable condition
+   of a query with several has held, in the system [sys_name]. Its scope is
+   not that of the variable that encodes the condition of a query with only
+   that one, which is named after the condition too. *)
+let flag_svar sys_name symb =
+  StateVar.mk_state_var ~is_input:false ~is_const:false ~for_inv_gen:true
+    (string_of_symbol symb) (sys_name :: "held" :: I.reserved_scope)
+    Type.t_bool
+
+(* The elements of a list of conditions, or of symbols, with the first
+   occurrence of each name only *)
+let first_occurrences name l =
+  List.fold_left (fun acc x ->
+    if List.exists (fun y -> HS.equal (name y) (name x)) acc then acc
+    else x :: acc
+  ) [] l
+  |> List.rev
+
+let condition_name (_, ((_, s), _)) = s
+
+(* The systems of a check-system, one per group of its queries with the
+   same assumptions and the same initiality condition, with how each query
+   is encoded, in the order of the script. A query is a property of the
+   system of its group: the assumptions constrain the transitions of the
+   system, and the initiality condition, or the initial condition of the
+   checked system if there is none, its initial states. The system of a
+   group is named [fresh_name ()]. *)
+let mk_check decls fresh_name (check_cmd: A.check_system_cmd) =
   (* What the type checker accepts of a check-system but kmoxi does not
      translate *)
   let unsupported_cmd = unsupported check_cmd.A.loc in
-  match queries with
-  | [] -> unsupported_cmd "kmoxi requires a :query in every check-system"
-  | [q] -> (
-    let query_name, query_symbols =
-      match q with
-      | A.QueryAttr (q_symb, symb_lst) -> (
-        q_symb, List.fold_left
-          (fun acc (_, symb_hs) -> HSS.add symb_hs acc)
-          HSS.empty
-          symb_lst
-      )
-      | _ -> assert false
-    in
-    let named_fs =
-      formulas |> List.filter_map (function
-        | A.FormulaAttr attr ->
-          let (_, ((_, s), _)) = attr in
-          if HSS.mem s query_symbols then Some attr else None
-        | _ -> None
-      )
-    in
-    (* The conditions of the query that kmoxi does not translate *)
-    named_fs |> List.iter (fun (ty, ((span, _), _)) ->
-      match ty with
-      | A.Fairness ->
+  let conditions =
+    check_cmd.A.attrs |> List.filter_map (function
+      | A.FormulaAttr f -> Some f
+      | A.QueryAttr _ | A.QueriesAttr _ -> None
+    )
+  in
+  (* The queries of a :queries attribute are satisfied by the same values
+     of the declared constants; as separate properties, each would have
+     values of its own *)
+  let queries =
+    check_cmd.A.attrs |> List.concat_map (function
+      | A.QueryAttr q -> [q]
+      | A.QueriesAttr (span, _ :: _ :: _) when decls.const_vars <> [] ->
         unsupported span
-          "kmoxi does not support :fairness conditions (liveness queries)"
-      | A.Current ->
-        unsupported span "kmoxi does not support :current conditions"
-      | A.Assumption | A.Reachable -> ()
-    ) ;
-    let assumption_fs, reachable_fs =
-      List.partition (fun (ty, _) -> ty = A.Assumption) named_fs
+          "kmoxi does not support a :queries attribute with several \
+           queries in a script with declared constants"
+      | A.QueriesAttr (_, qs) -> qs
+      | A.FormulaAttr _ -> []
+    )
+  in
+  if queries = [] then
+    unsupported_cmd "kmoxi requires a :query in every check-system" ;
+  (* Each query, with its initiality condition, if any, its assumptions,
+     and its reachability conditions *)
+  let queries =
+    queries |> List.map (fun (q, names) ->
+      let named =
+        first_occurrences snd names
+        |> List.map (fun (_, s) ->
+          List.find (fun c -> HS.equal (condition_name c) s) conditions)
+      in
+      named |> List.iter (fun (ty, ((span, _), _)) ->
+        if ty = A.Fairness then
+          unsupported span
+            "kmoxi does not support :fairness conditions (liveness queries)"
+      ) ;
+      let of_type ty =
+        List.filter_map (fun (ty', c) -> if ty' = ty then Some c else None)
+          named
+      in
+      let current = List.nth_opt (of_type A.Current) 0 in
+      let assumptions =
+        of_type A.Assumption
+        |> List.sort (fun ((_, s), _) ((_, s'), _) -> HS.compare s s')
+      in
+      match of_type A.Reachable with
+      | [] ->
+        unsupported_cmd "kmoxi requires a query to name a :reachable condition"
+      | reachables -> current, assumptions, (q, reachables)
+    )
+  in
+  (* The groups of queries, in the order of their first queries *)
+  let groups =
+    let same_names = List.equal (fun ((_, s), _) ((_, s'), _) -> HS.equal s s') in
+    List.fold_left (fun groups (current, assumptions, query) ->
+      let same_group (current', assumptions', _) =
+        same_names (Option.to_list current) (Option.to_list current')
+        && same_names assumptions assumptions'
+      in
+      if List.exists same_group groups then
+        List.map (fun ((c, a, qs) as group) ->
+          if same_group group then c, a, query :: qs else group
+        ) groups
+      else (current, assumptions, [query]) :: groups
+    ) [] queries
+    |> List.rev_map (fun (c, a, qs) -> c, a, List.rev qs)
+  in
+  let mk_group_system (current, assumptions, queries) =
+    let sys_name = fresh_name () in
+    let decls =
+      match current with
+      | None -> decls
+      | Some _ ->
+        let systems =
+          init_free_systems decls sys_name HSM.empty
+            (hstring_of_symbol check_cmd.A.system_id)
+        in
+        { decls with systems }
+    in
+    let reserved_svar symb =
+      mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
+    in
+    let assumption_svars =
+      List.map (fun (symb, _) -> reserved_svar symb) assumptions
+    in
+    (* The conditions of the queries with one, and of the queries with
+       several, each once *)
+    let single =
+      queries
+      |> List.filter_map (function (_, [c]) -> Some c | _ -> None)
+      |> first_occurrences (fun ((_, s), _) -> s)
+    in
+    let flagged =
+      queries
+      |> List.concat_map (function (_, [_]) -> [] | (_, cs) -> cs)
+      |> first_occurrences (fun ((_, s), _) -> s)
+    in
+    (* The variable of an assumption is its value in a transition. The
+       variable of the condition of a query with only that one is its
+       negation, in the transition to a state, and true in the initial
+       state: the property of the query. A flag is whether its condition
+       has held, in a state or in a transition up to the state, so that a
+       witness ends where the last condition holds. *)
+    let defs env =
+      List.map2 (fun sv (_, term) -> sv, (None, kind2_term env term))
+        assumption_svars assumptions
+      @ List.map (fun (symb, term) ->
+        reserved_svar symb,
+        (Some Term.t_true, Term.mk_not (kind2_term env term))
+      ) single
+      @ List.map (fun (symb, term) ->
+        let flag = flag_svar sys_name symb in
+        let held = Term.mk_var (Var.mk_state_var_instance flag TS.init_base) in
+        let r = kind2_term env term in
+        if current_state_term term then
+          flag, (Some r, Term.mk_or [held; Term.bump_state Numeral.one r])
+        else
+          flag, (Some Term.t_false, Term.mk_or [held; r])
+      ) flagged
+    in
+    let prop_var sv =
+      Term.mk_var (Var.mk_state_var_instance sv TS.prop_base)
+    in
+    let props, encodings =
+      queries |> List.map (fun (q, reachables) ->
+        let prop_name = string_of_symbol q in
+        let span, prop_term, encoding =
+          match reachables with
+          | [(symb, term)] ->
+            fst symb, prop_var (reserved_svar symb),
+            if current_state_term term then Current_state_condition
+            else Next_state_condition
+          | _ ->
+            fst q,
+            reachables
+            |> List.map (fun (symb, _) -> prop_var (flag_svar sys_name symb))
+            |> Term.mk_and |> Term.mk_not,
+            Flags
+        in
+        Property.{
+          prop_name ;
+          prop_source = PropAnnot (Lib.start_pos span) ;
+          prop_kind = Reachable None ;
+          prop_term ;
+          prop_status = PropUnknown ;
+          prop_expr = None ;
+        },
+        (prop_name, encoding)
+      )
+      |> List.split
     in
     let loc = check_cmd.A.loc in
     let name =
       (Lib.dummy_span, HString.mk_hstring sys_name)
-    in
-    let defs, assumption_vars =
-      List.fold_left
-        (fun (defs, vars) (_, (symb, term)) ->
-          let v =
-            let svar =
-              mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
-            in
-            Var.mk_state_var_instance svar TS.trans_base
-          in
-          ((symb, bool_sort), (None, term)) :: defs, v :: vars
-        )
-        ([], [])
-        assumption_fs
-    in
-    let defs, props, curr_state_props =
-      match reachable_fs with
-      | [] ->
-        unsupported_cmd "kmoxi requires a query to name a :reachable condition"
-      | [(_, (symb, term))] -> (
-        let v =
-          let svar =
-            mk_svar ~reserved:true decls.enums sys_name false symb bool_sort
-          in
-          Var.mk_state_var_instance svar TS.prop_base
-        in
-        let p =
-          Property.{
-            prop_name = string_of_symbol query_name;
-            prop_source = PropAnnot (Lib.start_pos (fst symb)) ;
-            prop_kind = Reachable None;
-            prop_term = Term.mk_var v;
-            prop_status = PropUnknown ; 
-            prop_expr = None ;
-          }
-        in
-        let curr_state_props =
-          if current_state_term term then [p.Property.prop_name]
-          else []
-        in
-        ((symb, bool_sort), (Some (A.Constant A.True), negate term)) :: defs,
-        [p], curr_state_props
-      )
-      | _ :: (_, ((span, _), _)) :: _ ->
-        unsupported span "kmoxi supports one :reachable condition per query"
     in
     let input = check_cmd.A.input in
     let output = check_cmd.A.output in
@@ -1107,7 +1243,11 @@ let mk_check decls sys_name (check_cmd: A.check_system_cmd) =
         variables ;
       }]
     in
-    let init = A.Constant True in
+    let init =
+      match current with
+      | None -> A.Constant True
+      | Some (_, term) -> term
+    in
     let trans = A.Constant True in
     let inv = A.Constant True in
     let sys_def = A.{
@@ -1122,7 +1262,10 @@ let mk_check decls sys_name (check_cmd: A.check_system_cmd) =
     let sys =
       let (_, init_eq, trans_eq) = TS.init_trans_open sys in
       let trans_ass =
-        List.map Term.mk_var assumption_vars |> Term.mk_and
+        List.map (fun sv ->
+          Term.mk_var (Var.mk_state_var_instance sv TS.trans_base)
+        ) assumption_svars
+        |> Term.mk_and
       in
       let trans_eq = Term.mk_and [trans_ass; trans_eq] in
       TS.set_subsystem_equations sys sys_scope init_eq trans_eq
@@ -1130,9 +1273,18 @@ let mk_check decls sys_name (check_cmd: A.check_system_cmd) =
     let sys =
       TS.set_subsystem_properties sys sys_scope props
     in
-    mk_subsystem (Scope.Hashtbl.create 7) sys, curr_state_props
-  )
-  | _ -> unsupported_cmd "kmoxi supports one :query per check-system"
+    mk_subsystem (Scope.Hashtbl.create 7) sys, encodings
+  in
+  let systems, encodings = List.map mk_group_system groups |> List.split in
+  let encodings = List.concat encodings in
+  {
+    systems ;
+    queries =
+      List.map (fun (_, _, (q, _)) ->
+        let name = string_of_symbol q in
+        name, List.assoc name encodings
+      ) queries
+  }
 
 let process_command (input : input) = function
   | A.SetLogicCmd (_, logic) ->
@@ -1218,20 +1370,30 @@ let process_command (input : input) = function
   )
   | A.DefineSystemCmd sys_def -> (
     let name, sys, svars = mk_system input sys_def in
-    { input with systems = HSM.add name (sys, svars) input.systems }
+    { input with
+      systems = HSM.add name (sys, svars) input.systems ;
+      system_defs = HSM.add name sys_def input.system_defs }
   )
   | A.CheckSystemCmd check_cmd ->
-    (* The system of the check has a name of its own, which no other check
-       and no system of the script has: its scope, those of its variables,
-       and the names of its predicates are its own *)
-    let rec fresh k =
-      let name = Format.sprintf "__kmoxi_check_%d" k in
-      if HSS.mem (HString.mk_hstring name) input.system_names then fresh (k + 1)
-      else k, name
+    (* Each system of the check has a name of its own, which no other
+       system of a check and no system of the script has, and is the prefix
+       of the name of no system of the script, as it is of those of the
+       copies of systems it checks: its scope, those of its variables, and
+       the names of its predicates are its own *)
+    let next = ref input.next_check in
+    let rec fresh_name () =
+      let name = Format.sprintf "__kmoxi_check_%d" !next in
+      incr next ;
+      let taken =
+        HSS.exists (fun s ->
+          let s = HString.string_of_hstring s in
+          s = name || String.starts_with ~prefix:(name ^ "_") s
+        ) input.system_names
+      in
+      if taken then fresh_name () else name
     in
-    let k, sys_name = fresh input.next_check in
-    let check = mk_check input sys_name check_cmd in
-    { input with checks = check :: input.checks ; next_check = k + 1 }
+    let check = mk_check input fresh_name check_cmd in
+    { input with checks = check :: input.checks ; next_check = !next }
 
 let process_ast ast =
   let system_names =
@@ -1266,4 +1428,7 @@ let of_file filename =
     let input = process_ast ast in
     (* In the order of the script, which the responses follow *)
     List.rev input.checks, input.logic)
+
+let subsystems_of_checks checks =
+  List.concat_map (fun (check : check) -> check.systems) checks
    

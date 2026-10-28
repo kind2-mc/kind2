@@ -1327,26 +1327,25 @@ let run in_sys =
 
   | modules when InputSystem.is_moxi_input in_sys -> (
 
-    let params = ISys.moxi_params in_sys in
-    (* The checks not answered yet, and the system of the one being
-       analyzed, for the responses to give when time runs out *)
-    let pending = ref params in
-    let current = ref None in
-    let print_results sys =
-      MoxiResults.pp_print_results sys in_sys (TSys.get_properties sys)
-    in
+    let checks = ISys.moxi_checks in_sys in
+    let build param = fst (ISys.trans_sys_of_analysis in_sys param) in
+    (* The checks not answered yet, and the systems of the first one whose
+       analysis has started, last first, for the responses to give when
+       time runs out. They are changed between analyses with the timer
+       disarmed, or by a single assignment. *)
+    let pending = ref checks in
+    let started = ref [] in
     (* Out of time, every check still gets its response: the one being
        analyzed with what the engines established, and the others with every
        query unknown. Printed by [on_exit], once the engines are stopped and
        under its watchdog. *)
     let respond_to_pending () =
-      List.iter (fun param ->
-        let sys =
-          match !current with
-          | Some sys -> current := None ; sys
-          | None -> fst (ISys.trans_sys_of_analysis in_sys param)
-        in
-        print_results sys
+      List.iteri (fun i (check, params) ->
+        let started = if i = 0 then List.rev !started else [] in
+        let n = List.length started in
+        let not_started = List.filteri (fun j _ -> j >= n) params in
+        MoxiResults.pp_print_results check
+          (started @ List.map build not_started)
       ) !pending
     in
 
@@ -1358,31 +1357,32 @@ let run in_sys =
       (* Array values are read whole, and printed as SMT-LIB terms *)
       Flags.Arrays.set_read_whole true ;
 
-      let run_check param =
-        let sys, _ =
-          ISys.trans_sys_of_analysis in_sys param
-        in
-        current := Some sys ;
+      let run_system param =
+        let sys = build param in
+        started := sys :: !started ;
         KEvent.log_analysis_start in_sys sys param ;
         Stat.start_timer Stat.analysis_time ;
         
         (* Analyze... *)
         analyze msg_setup false false false true modules in_sys param sys ;
 
+        KEvent.log_analysis_end ()
+      in
+      let run_check (check, params) =
+        List.iter run_system params ;
+
         (* Print results, with the timer disarmed, so that the response is
            not cut short; the timer is armed again for the time left, which
            raises [TimeoutWall] at once if none is *)
         Signals.unset_timeout () ;
-        print_results sys ;
-        current := None ;
+        MoxiResults.pp_print_results check (List.rev !started) ;
         pending := List.tl !pending ;
-        Signals.set_sigalrm_timeout_from_flag () ;
-
-        KEvent.log_analysis_end ()
+        started := [] ;
+        Signals.set_sigalrm_timeout_from_flag ()
       in
-      (match params with
+      (match checks with
        | [] -> (KEvent.log L_note "No system checks found.")
-       | _ -> List.iter run_check params
+       | _ -> List.iter run_check checks
       ) ;
       
       post_clean_exit_success `Supervisor Exit

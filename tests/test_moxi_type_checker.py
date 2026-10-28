@@ -358,17 +358,9 @@ unsupported = {
         check + "  :reachable (r (> y 0)))\n",
         "5:1", "kmoxi requires a :query in every check-system",
     ),
-    "two-queries": (
-        check + "  :reachable (r (> y 0)) :query (q (r)) :query (q2 (r)))\n",
-        "5:1", "kmoxi supports one :query per check-system",
-    ),
     "query-without-reachable": (
         check + "  :assumption (a (> x 0)) :query (q (a)))\n",
         "5:1", "kmoxi requires a query to name a :reachable condition",
-    ),
-    "two-reachable-conditions": (
-        check + "  :reachable (r (> y 0)) :reachable (s (< y 0)) :query (q (r s)))\n",
-        "6:38", "kmoxi supports one :reachable condition per query",
     ),
 }
 

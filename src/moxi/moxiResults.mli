@@ -18,8 +18,9 @@
 
  (** @author Rob Lorch *)
 
-val pp_print_results:
-  TransSys.t -> _ InputSystem.t -> Property.t list -> unit
+(** Print the response to a check, given the systems of its groups of
+    queries, analyzed or not *)
+val pp_print_results: MoxiInput.check -> TransSys.t list -> unit
 
 (** The term with every atom that uses a variable of an enumeration sort
     other than in an equation with its values written as a case split over

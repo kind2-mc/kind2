@@ -28,6 +28,31 @@ val pp_print_error : Format.formatter -> error -> unit
 
 type system_check = TransSys.t SubSystem.t
 
+(** How the reachability conditions of a query are encoded in its property,
+    which a trail of the query depends on *)
+type encoding =
+  | Current_state_condition
+    (** One condition over the current state, which the property is the
+        negation of one step later: a counterexample has a last state that
+        is not part of the witness *)
+  | Next_state_condition
+    (** One condition that may use next-state variables, which the property
+        is the negation of in the transition to a state *)
+  | Flags
+    (** Several conditions, each recorded by a flag of whether it has held:
+        a counterexample is the witness *)
+
+(** The systems of a [check-system] command, one per group of its queries
+    with the same assumptions and initiality condition, and the names of
+    the queries with how each is encoded, in the order of the script. Each
+    query is a property of the system of its group, named after the
+    query. *)
+type check =
+{
+  systems: system_check list ;
+  queries: (string * encoding) list
+}
+
 (** Parse and type check the script in a file, without translating it *)
 val check_file : string -> (unit, error) result
 
@@ -40,11 +65,10 @@ val moxi_name_of_uf : UfSymbol.t -> string option
     builds has. *)
 val call_name : TransSys.t -> TransSys.instance -> string
 
-(** Parse, type check and translate the script in a file into one
-    transition system per [check-system] command, in the order of the
-    script, each with the names of
-    its properties that are current-state formulas, and the logic set
-    with [set-logic], if any *)
-val of_file :
-  string ->
-  ((system_check * string list) list * string option, error) result
+(** Parse, type check and translate the script in a file into the checks
+    of its [check-system] commands, in the order of the script, and the
+    logic set with [set-logic], if any *)
+val of_file : string -> (check list * string option, error) result
+
+(** The systems of checks *)
+val subsystems_of_checks : check list -> system_check list

@@ -73,6 +73,9 @@ type query_attr = symbol * symbol list
 type check_system_attr =
   | FormulaAttr of formula_attr
   | QueryAttr of query_attr
+  (* A :queries attribute, whose queries share the interpretation of the
+     declared constants *)
+  | QueriesAttr of span * query_attr list
 
 type system_variables = (span * sorted_var list) option
 
@@ -147,5 +150,5 @@ type t = script
 
 
 let is_query_attr = function
-| QueryAttr _ -> true
-| _ -> false
+| QueryAttr _ | QueriesAttr _ -> true
+| FormulaAttr _ -> false
