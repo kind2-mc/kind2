@@ -27,30 +27,32 @@ function imported fu (x: int) returns (a: int^3);
 
 node main (const n: int; c: bool; P: int^3) returns (A, B, C: int^n);
 let
-  -- A call applied to a quantified variable
-  check forall (k: int) 0 <= k and k < 3 => get3(0^3, k) = 0;
+  -- A call applied to a quantified variable. The bounds of k, within which
+  -- get3 reads p, are established by a lazy '==>' (an eager '=>' does not
+  -- guard the read)
+  check forall (k: int) 0 <= k and k < 3 ==> get3(0^3, k) = 0;
   -- A call applied to the index variable of a comprehension of symbolic size
   A = (get(n, 0^n, i) foreach i)^n;
-  check forall (j: int) 0 <= j and j < n => A[j] = 0;
+  check forall (j: int) 0 <= j and j < n ==> A[j] = 0;
   -- An argument that contains an array constructor
   B = (get(n, (-1)^n -> pre B, i) foreach i)^n;
-  check forall (j: int) 0 <= j and j < n => B[j] = -1;
+  check forall (j: int) 0 <= j and j < n ==> B[j] = -1;
   -- An array constructor in the arguments of a nested inlined call
   C = (get(n, 2^n, get(n, 0^n, i) + i) foreach i)^n;
-  check forall (j: int) 0 <= j and j < n => C[j] = 2;
+  check forall (j: int) 0 <= j and j < n ==> C[j] = 2;
   -- An array literal, whose local is reused by the second call
-  check forall (k: int) 0 <= k and k < 3 => get3([1,1,1], k) = 1;
-  check forall (k: int) 0 <= k and k < 3 => get3([1,1,1], k) > 0;
+  check forall (k: int) 0 <= k and k < 3 ==> get3([1,1,1], k) = 1;
+  check forall (k: int) 0 <= k and k < 3 ==> get3([1,1,1], k) > 0;
   -- The output of a call to a node, and to a function, whose instance is
   -- shared by the second call
-  check forall (k: int) 0 <= k and k < 3 => get3(mk(0), k) = 0;
-  check forall (k: int) 0 <= k and k < 3 => get3(mkf(0), k) = 0;
-  check forall (k: int) 0 <= k and k < 3 => get3(mkf(0), k) >= 0;
+  check forall (k: int) 0 <= k and k < 3 ==> get3(mk(0), k) = 0;
+  check forall (k: int) 0 <= k and k < 3 ==> get3(mkf(0), k) = 0;
+  check forall (k: int) 0 <= k and k < 3 ==> get3(mkf(0), k) >= 0;
   -- Arguments that contain them
-  check forall (k: int) 0 <= k and k < 3 =>
+  check forall (k: int) 0 <= k and k < 3 ==>
     get3(if c then mk(0) else [0,0,0], k) = 0;
-  check forall (k: int) 0 <= k and k < 3 =>
+  check forall (k: int) 0 <= k and k < 3 ==>
     get3(if c then fu(1) else [1,1,1], k) = (if c then get3(fu(1), k) else 1);
-  check forall (k: int) 0 <= k and k < 3 =>
+  check forall (k: int) 0 <= k and k < 3 ==>
     get3(0^3 -> pre P, k) = (0 -> pre P[k]);
 tel

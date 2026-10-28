@@ -3,19 +3,28 @@ const len : int = 3;
 node array_pre( 
     ins : real;
 ) returns (
-    prevs1, prevs2 : real^len;
+    prevs1, prevs2, prevs3, prevs4 : real^len;
 )
 var
   zeros : real^len;
 let
   -- Workaround for typechecker bug: (0.0^len -> pre prevs1)[i] fails.
   zeros = 0.0^len;
-  -- These two definitions should be equivalent:
-  prevs1 = (if i = 0 then ins else (zeros -> pre prevs1)[i - 1] foreach i)^len;
-  prevs2 = (if i = 0 then ins else (0.0 -> pre (prevs2[i - 1])) foreach i)^len;
+  -- These two definitions should be equivalent (the index is clamped, as
+  -- an eager 'if' does not guard the read of the 'else' branch):
+  prevs1 = (if i = 0 then ins else (zeros -> pre prevs1)[if i = 0 then 0 else i - 1] foreach i)^len;
+  prevs2 = (if i = 0 then ins else (0.0 -> pre (prevs2[if i = 0 then 0 else i - 1])) foreach i)^len;
   --%PROPERTY prevs1[0] = prevs2[0];
   --%PROPERTY prevs1[1] = prevs2[1];
   --%PROPERTY prevs1[2] = prevs2[2];
+  -- The same definitions with a lazy 'when', which only reads the 'else'
+  -- branch where i > 0, so that the index needs no clamping. The size of the
+  -- array is a constant, so the temporal branch under a condition on the
+  -- index variable is supported.
+  prevs3 = (when i = 0 then ins else (zeros -> pre prevs3)[i - 1] foreach i)^len;
+  prevs4 = (when i = 0 then ins else (0.0 -> pre (prevs4[i - 1])) foreach i)^len;
+  --%PROPERTY prevs3 = prevs1;
+  --%PROPERTY prevs4 = prevs2;
 tel
 
 

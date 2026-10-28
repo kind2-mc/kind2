@@ -1,0 +1,5 @@
+-- The guard covers the outer dimension only
+node main(m: int^3^2; i, j: int) returns (y: int);
+let
+  y = when 0 <= i and i < 2 then m[i][j] else 0;
+tel

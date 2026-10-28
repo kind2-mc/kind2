@@ -1,0 +1,5 @@
+-- An element update at an unconstrained index
+node main(a: int^3; i, v: int) returns (b: int^3);
+let
+  b = a[i := v];
+tel

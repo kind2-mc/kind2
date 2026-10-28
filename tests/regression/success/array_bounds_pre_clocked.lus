@@ -1,0 +1,6 @@
+-- 'pre' in a branch of a 'when' expression is the value at the last step the
+-- branch was evaluated at, where the guard held
+node main(a: int^3; i: int) returns (y: int);
+let
+  y = when 0 <= i and i < 3 then (0 -> pre a[i]) else 0;
+tel

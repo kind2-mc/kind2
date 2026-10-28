@@ -1,0 +1,5 @@
+-- The index of the last element of the comprehension is past the end of 'a'
+node main(const n: int; a: int^n) returns (b: int^n);
+let
+  b = (a[i + 1] foreach i)^n;
+tel

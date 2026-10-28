@@ -1,0 +1,17 @@
+-- An access in the body of a comprehension under a lazy guard is guarded by it
+-- (#1860), like the same access outside of a comprehension
+node G(x: int) returns (c: int);
+let
+  c = x;
+tel
+
+node main(a: int^3; m, z: int) returns (A, B, C, D: int^3; p, q: bool);
+let
+  A = when 0 <= m and m < 3 then (a[m] + i foreach i)^3 else 0^3;
+  B = when m < 0 or m >= 3 then 0^3 else (a[m] + i foreach i)^3;
+  C = when 0 <= m and m < 3 then (G(a[m]) + G(i) foreach i)^3 else 0^3;
+  D = when 0 <= m and m < 3 then (when z = i then G(a[m]) else 0 foreach i)^3 else 0^3;
+  p = (0 <= m and m < 3) ==> ((a[m] + i foreach i)^3)[0] = a[m];
+  q = (m < 0 or m >= 3) or else ((a[m] + i foreach i)^3)[1] = a[m] + 1;
+  check p and q;
+tel

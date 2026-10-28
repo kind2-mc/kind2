@@ -1,0 +1,5 @@
+-- An eager 'if' evaluates both branches, so it does not guard the read
+node main(a: int^3; i: int) returns (y: int);
+let
+  y = if 0 <= i and i < 3 then a[i] else 0;
+tel

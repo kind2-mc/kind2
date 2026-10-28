@@ -1,0 +1,8 @@
+-- A read in a guarantee
+node main(a: int^3; i: int) returns (y: int);
+(*@contract
+  guarantee y = a[i];
+*)
+let
+  y = when 0 <= i and i < 3 then a[i] else 0;
+tel

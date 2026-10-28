@@ -1,0 +1,7 @@
+-- The read B[i + 1] in an array literal over the index variable of a
+-- comprehension is past the end of B for the last element
+node main(B: int^3) returns (A: int^2^3);
+let
+  A = ([B[i + 1], 0] foreach i)^3;
+  check A[0][1] = 0;
+tel

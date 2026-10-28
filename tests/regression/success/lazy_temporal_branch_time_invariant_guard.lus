@@ -17,7 +17,7 @@ let
   check "quant_refinement" forall (k: int | 0 <= k and k < n) b[k] = (0 -> pre a[k]);
   check "quant_and_then" forall (k: int) (0 <= k and k < n and then (true -> pre a[k] = b[k])) = (0 <= k and k < n);
   check "quant_or_else" forall (k: int) k < 0 or k >= n or else (true -> pre a[k] = b[k]);
-  check "quant_when" forall (k: int) (when 0 <= k and k < n then (0 -> pre a[k]) else 0) = (if 0 <= k and k < n then b[k] else 0);
+  check "quant_when" forall (k: int) (when 0 <= k and k < n then (0 -> pre a[k]) else 0) = (when 0 <= k and k < n then b[k] else 0);
   -- A guard on a local constant and a free constant
   check "local_const" forall (k: int) 0 <= k and k < m and m <= n ==> (true -> pre a[k] = b[k]);
   check "free_const" C > 0 ==> (true -> pre (s + C) = pre s + C);

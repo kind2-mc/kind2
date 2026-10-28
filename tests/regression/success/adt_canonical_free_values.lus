@@ -29,7 +29,7 @@ let
   check "imported node output" d1 = A(i);
 
   check "array element"
-    forall (k: int) (0 <= k and k < 3) =>
+    forall (k: int) (0 <= k and k < 3) ==>
       (A?(arr[k]) ==> (arr[k].a = i => arr[k] = A(i)));
   check "map value"
     forall (k: int) (k in m) =>

@@ -1,0 +1,7 @@
+-- An eager conditional around a comprehension does not guard the accesses in
+-- its body
+node main(a: int^3; m: int) returns (A: int^3);
+let
+  A = if 0 <= m and m < 3 then (a[m] + i foreach i)^3 else 0^3;
+  check true;
+tel

@@ -20,7 +20,7 @@ let
   R = ((i + j foreach j < 3) foreach i < 2);
   check "nested" R[1][2] = 3;
   S = (c foreach k < N);
-  check "symbolic" forall (k: int) 0 <= k and k < N => S[k] = c;
+  check "symbolic" forall (k: int) 0 <= k and k < N ==> S[k] = c;
   check "replicate" (i foreach i < 3)^2 = [[0, 1, 2], [0, 1, 2]];
   Z = (i * i foreach i < 2 + 2);
   check "expr_size" Z = Sq;

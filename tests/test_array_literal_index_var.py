@@ -39,6 +39,11 @@ expected = {
     "a_elem_zero": "falsifiable",
     "s_zero": "falsifiable",
     "u_index": "falsifiable",
+    # The reads of the literals at B[i] mod 2 and (B[i] + 1) mod 2, which are
+    # within the bounds of a literal of two elements
+    "ArrayBounds[L5C29]": "valid",
+    "ArrayBounds[L6C18]": "valid",
+    "ArrayBounds[L6C42]": "valid",
 }
 
 

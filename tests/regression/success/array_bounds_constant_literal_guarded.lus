@@ -1,0 +1,9 @@
+-- A constant index out of the bounds of a constant array is not an error: the
+-- obligation of the access is discharged by the lazy guard it is under
+const c: int^3 = [1, 2, 3];
+const k: int = -1;
+
+node main(i: int) returns (y: int);
+let
+  y = when i >= 0 and k >= 0 then c[k] else 0;
+tel

@@ -1,0 +1,5 @@
+-- A constant index past the end of an array of constant size
+node main(a: int^3) returns (y: int);
+let
+  y = a[3];
+tel

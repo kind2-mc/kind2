@@ -1,0 +1,11 @@
+-- The callee guards its read. The read is checked in the callee, although no
+-- property of the caller depends on the call
+function get(a: int^3; k: int) returns (y: int);
+let
+  y = when 0 <= k and k < 3 then a[k] else 0;
+tel
+
+node main(a: int^3) returns (y: int);
+let
+  y = get(a, 3);
+tel

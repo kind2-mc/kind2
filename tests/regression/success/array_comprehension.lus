@@ -6,22 +6,25 @@
 node Or (const n: int; A, B: bool^n) returns (C: bool^n);
 let
   C = (A[i] or B[i] foreach i)^n;
-  check "or" forall (i: int) 0 <= i and i < n => C[i] = (A[i] or B[i]);
+  check "or" forall (i: int) 0 <= i and i < n ==> C[i] = (A[i] or B[i]);
 tel
 
 -- Two dimensions: the sizes follow the type, so i < m and j < n
 node Or2 (const n, m: int; A, B: bool^n^m) returns (C: bool^n^m);
 let
   C = (A[i][j] or B[i][j] foreach i, j)^n^m;
-  check "or2" forall (i, j: int) 0 <= i and i < m and 0 <= j and j < n =>
+  check "or2" forall (i, j: int) 0 <= i and i < m and 0 <= j and j < n ==>
     C[i][j] = (A[i][j] or B[i][j]);
 tel
 
--- A sliding window: an element may depend on the previous value of the array
+-- A sliding window: an element may depend on the previous value of the array.
+-- The lazy 'when' only reads A[i-1] where i > 0, and its condition only depends
+-- on the index variable, so its temporal branch is supported for a symbolic
+-- size
 node Slide (const n: int; s: int) returns (A: int^n);
 let
-  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
-  check "slide" n > 1 => (true -> A[1] = pre s);
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i)^n;
+  check "slide" n > 1 ==> (true -> A[1] = pre s);
 tel
 
 -- Comprehensions in properties, a caret past the sizes, nested comprehensions

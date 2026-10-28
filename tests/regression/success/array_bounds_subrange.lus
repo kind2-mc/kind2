@@ -1,0 +1,8 @@
+-- An index of a subrange type within the bounds of the array, also at the
+-- previous step
+node main(a: int^3; i: subrange [0, 2] of int; v: int) returns (y: int; b: int^3);
+let
+  y = a[i] + (0 -> pre a[i]);
+  b = a[i := v];
+  check b[i] = v;
+tel

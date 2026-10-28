@@ -21,5 +21,5 @@ node N (const n: int; a: int^n) returns ();
 let
   check "fill_done" Fill(n, a, n, a) = a;
   check "sum_done" Sum(n, a, n) = 0;
-  check "fill_one" n = 1 => Fill(n, a, 0, a)[0] = a[0] + 1;
+  check "fill_one" n = 1 ==> Fill(n, a, 0, a)[0] = a[0] + 1;
 tel

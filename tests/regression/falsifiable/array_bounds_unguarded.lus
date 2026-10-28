@@ -1,0 +1,5 @@
+-- A read at an unconstrained index
+node main(a: int^3; i: int) returns (y: int);
+let
+  y = a[i];
+tel

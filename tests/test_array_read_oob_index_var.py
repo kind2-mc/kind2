@@ -88,4 +88,14 @@ def test_array_read_oob_index_var(tmp_path, inline, name, model):
         for obj in objs
         if obj.get("objectType") == "property"
     }
-    assert answers == {"in_type": "valid"}, answers
+    # The models read past the bounds of the arrays on purpose, so some of
+    # the proof obligations of their array accesses are falsified
+    bounds = {
+        name: value for name, value in answers.items()
+        if name.startswith("ArrayBounds[")
+    }
+    assert "falsifiable" in bounds.values(), answers
+    others = {
+        name: value for name, value in answers.items() if name not in bounds
+    }
+    assert others == {"in_type": "valid"}, answers
