@@ -71,7 +71,27 @@ let check outer inner _ =
     assert_bv (ubv 3 5) (Simplify.simplify_term_model [] model element)
   | _ -> assert_failure "the array was not read element by element"
 
+(* An index past the integers of OCaml is no key of a map, and the
+   select from it is the default value, as the select from an index the
+   map does not have *)
+let test_index_too_large _ =
+  let ty = Type.mk_array (Type.mk_ubv 8) (Type.mk_ubv 64) in
+  let sv = StateVar.mk_state_var "wide" ["nested"] ty in
+  let v = Var.mk_state_var_instance sv Numeral.zero in
+  let model = Model.create 1 in
+  Var.VarHashtbl.add model v
+    (Model.Map (Model.MIL.singleton [1] (ubv 8 7))) ;
+  let select i =
+    Simplify.simplify_term_model [] model
+      (Term.mk_select (Term.mk_var v)
+         (Term.mk_ubv (Bitvector.num_to_ubv (Numeral.of_int 64) i)))
+  in
+  assert_bv (ubv 8 7) (select Numeral.one) ;
+  assert_bv (TermLib.default_of_type (Type.mk_ubv 8))
+    (select (Numeral.of_string "18446744073709551615"))
+
 let tests = "NestedArrayModel" >::: [
+  "an index too large for a key" >:: test_index_too_large ;
   "outer index narrower than the inner one" >:: check 1 2 ;
   "outer index wider than the inner one" >:: check 3 2 ;
   "indices of the same width" >:: check 2 2 ;

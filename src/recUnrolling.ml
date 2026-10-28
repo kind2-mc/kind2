@@ -290,21 +290,13 @@ let fix_value var value =
   | Model.Term t -> [ Term.mk_eq [ var ; t ] ]
   | Model.Lambda _ -> []
   | Model.Map m ->
-    let index ty i =
-      if Type.is_ubitvector ty || Type.is_bitvector ty then
-        match Type.get_bv_size ty with
-        | Some size ->
-          Bitvector.num_to_ubv (Numeral.of_int size) (Numeral.of_int i)
-          |> Term.mk_ubv
-        | None -> raise Exit
-      else Term.mk_num_of_int i
-    in
     (* The indexes of an element are from the outermost array in *)
     let rec select t ty = function
       | [] -> t
       | i :: indexes ->
         select
-          (Term.mk_select t (index (Type.index_type_of_array ty) i))
+          (Term.mk_select t
+             (Model.term_of_index (Type.index_type_of_array ty) i))
           (Type.elem_type_of_array ty) indexes
     in
     let ty = Term.type_of_term var in
@@ -314,7 +306,7 @@ let fix_value var value =
             (Term.mk_eq [ select var ty indexes ; v ] |> Term.convert_select)
             :: acc)
          m []
-     with Exit | Invalid_argument _ -> [])
+     with Invalid_argument _ -> [])
 
 (* The solver for a query on a counterexample of length [k + 1] of the
    system: the one of the round if there is one, with the state variables
