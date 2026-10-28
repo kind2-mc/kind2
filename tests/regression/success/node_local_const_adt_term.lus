@@ -1,0 +1,12 @@
+datatype Msg = Pcr0 | Atomic (v: int);
+datatype Box<T> = Bx (b: T);
+
+node N () returns (x: Msg; y: Box<int>)
+const c: Msg = Atomic(0);
+const d: Box<int> = Bx(3);
+let
+  x = c -> pre x;
+  y = d;
+  check x = Atomic(0);
+  check y.b = 3;
+tel

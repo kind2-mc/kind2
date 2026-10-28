@@ -2303,8 +2303,8 @@ and check_type_node_decl: Lib.position -> tc_context -> bool -> LA.node_decl -> 
         let* ldecls, warnings1 = R.seq (List.map (fun local_decl -> match local_decl with 
           | LA.NodeConstDecl (p, (TypedConst (p2, i, e, ty))) ->
             let* () = check_no_constructor_clash p2 ctx clash_with_const i in
-            let* _ = check_expr_is_constant local_ctx "constant definition" e in
             let* checked, warnings1 = check_type_expr (add_ty local_ctx i ty) (Some node_name) e ty in 
+            let* _ = check_expr_is_constant local_ctx "constant definition" checked in
             let* _ = check_no_refinement_type_arg local_ctx (Some ty) e checked in
             let* ty, warnings2 = check_type_well_formed local_ctx Local (Some node_name) true ty in 
             R.ok (LA.NodeConstDecl (p, (TypedConst (p2, i, checked, ty))), warnings1 @ warnings2)
