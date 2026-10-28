@@ -161,6 +161,26 @@ val slice_to_abstraction :
 
 val slice_node_to_abstraction : LustreNode.t -> LustreNode.t
 
+(** [props_lifted_from_call ~relevant n] is [true] if the properties of
+    the node [n], other than those that come from assumptions, are lifted
+    into the calling node at a call that is [relevant] (see
+    [relevant_calls]): always if [n] is internal, and otherwise in a
+    non-modular analysis, according to [--check_subproperties]. Slicing
+    keeps the calls whose properties are lifted. *)
+val props_lifted_from_call : relevant:bool -> NodeId.t -> bool
+
+(** [relevant_calls a s] holds of the identifier of a node and of a call in
+    it if the call is in the cone of influence of the properties of the top
+    node of the analysis [a], in the node hierarchy [s] reduced to the cone
+    of influence as [slice_to_abstraction true a s] does it. A call kept
+    only for the assumptions of its contract, which depend on the inputs of
+    the call alone, is not, and neither is a call in an internal node kept
+    only for the properties of the internal node, unless they depend on it.
+    With [--check_subproperties relevant], the properties of a called node
+    are lifted only from these calls. *)
+val relevant_calls :
+    Analysis.param -> LustreNode.t SubSystem.t -> NodeId.t -> int -> bool
+
 (** [keep_inline_call c p] is [true] if the node call [c], whose outputs are
     dead (an inlined call, or the instance retained for a call compiled to an
     application of the functional symbol of the callee), is worth keeping while

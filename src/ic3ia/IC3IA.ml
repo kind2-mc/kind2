@@ -333,12 +333,42 @@ let add_predicates solver old_predicates new_predicates =
   new_predicates ;
   TS.union old_predicates new_predicates
 
+(* The advice that ends the message of a decline by the interpolating
+   solver [current]: the other interpolating solvers that support the
+   features of [sys], which are [sys_features]. The quantifier elimination
+   solvers take no abstract function and no array. MathSAT and SMTInterpol
+   take no quantifier; MathSAT takes no machine integers together with
+   integers or reals, and SMTInterpol no machine integers at all. When none
+   is left, say so, rather than send the user to a solver that declines the
+   system in turn. [sys] must be the system the property is checked on,
+   which slicing reduces to what the property depends on. *)
+let itp_solver_advice sys sys_features current =
+  let open TermLib in
+  let has f = FeatureSet.mem f sys_features in
+  let qe_supported =
+    not (TransSys.subsystem_includes_function_symbol sys) && not (has A)
+  in
+  let mathsat_supported = not (has Q) && not (has BV && (has IA || has RA)) in
+  let smtinterpol_supported = not (has Q) && not (has BV) in
+  let others =
+    (if qe_supported then [`Z3_QE; `cvc5_QE] else [])
+    @ (if mathsat_supported then [`MathSAT_SMTLIB] else [])
+    @ (if smtinterpol_supported then [`SMTInterpol_SMTLIB] else [])
+    |> List.filter (fun s -> s <> current)
+    |> List.map Flags.Smt.string_of_itp_solver
+  in
+  match others with
+  | [] ->
+    "No other interpolating solver supports this system: the other engines \
+     may still answer for it."
+  | l -> Format.sprintf "Use %s instead." (String.concat " or " l)
+
 (* Interpolation Group ids for MathSAT *)
 let ig_newid =
   let r = ref 0 in
   fun () -> incr r; Format.sprintf "g%d" !r
 
-let refine fwd solver sys predicates cubes =
+let refine fwd solver sys prop_name sys_features predicates cubes =
 
   let len = List.length cubes in
 
@@ -364,6 +394,46 @@ let refine fwd solver sys predicates cubes =
         s
 
       | None ->
+
+        (* MathSAT does not support quantifiers, and its SMT-LIB front end
+           did not reject them either: a query over a formula with a
+           quantifier came back satisfiable, with a model that violates the
+           formula, and IC3IA reported that model as a genuine counterexample
+           to a quantified property whose proof needed a refinement (#1840).
+           The driver now refuses an inferred logic with quantifiers, as
+           OpenSMT's does, hence this check on the features computed from
+           the terms. It is reached only once interpolation is
+           actually needed: the solver of the frames is the only one to see
+           the system until then, and a property IC3IA settles without
+           refining is still proved.
+
+           The features are those of the system the property is checked on,
+           which slicing reduces to what the property depends on. Without
+           slicing, a quantified property of the node is defined in the
+           concrete unrolling of every other property, and the solver would
+           see its quantifier: a plain property that needs a refinement is
+           then declined too. *)
+        (match Flags.Smt.itp_solver () with
+         | (`MathSAT_SMTLIB | `OpenSMT_SMTLIB) as s
+           when TermLib.FeatureSet.mem TermLib.Q sys_features ->
+           let name = Flags.Smt.string_of_itp_solver s in
+           raise (UnsupportedFeature
+             (Format.sprintf
+                "IC3IA (%s) disabled for property %s: %s does not support \
+                 quantified formulas, and the refinement of the abstraction \
+                 needs them. %s"
+                name prop_name name (itp_solver_advice sys sys_features s)))
+         (* SMTInterpol refuses machine integers when its instance is
+            created, which ended the engine with a runtime failure *)
+         | `SMTInterpol_SMTLIB as s
+           when TermLib.FeatureSet.mem TermLib.BV sys_features ->
+           raise (UnsupportedFeature
+             (Format.sprintf
+                "IC3IA (SMTInterpol) disabled for property %s: SMTInterpol \
+                 does not support machine integers, and the refinement of the \
+                 abstraction needs them. %s"
+                prop_name (itp_solver_advice sys sys_features s)))
+         | _ -> ()) ;
 
         let produce_interpolants, logic =
           match Flags.Smt.itp_solver () with
@@ -413,8 +483,11 @@ let refine fwd solver sys predicates cubes =
               (Flags.Smt.get_itp_solver ())
           with Failure msg when unsupported_array_encoding msg ->
             raise (UnsupportedFeature
-              "IC3IA disabled: the interpolating solver does not support the \
-               arrays this system uses. Use MathSAT or SMTInterpol instead.")
+              (Format.sprintf
+                "IC3IA disabled for property %s: the interpolating solver does \
+                 not support the arrays this system uses. Use MathSAT or \
+                 SMTInterpol instead."
+                prop_name))
         in
 
         (try
@@ -429,8 +502,11 @@ let refine fwd solver sys predicates cubes =
         with Failure msg when unsupported_array_encoding msg -> (
           SMTSolver.delete_instance solver ;
           raise (UnsupportedFeature
-            "IC3IA disabled: the interpolating solver does not support the \
-             arrays this system uses. Use SMTInterpol instead.")
+            (Format.sprintf
+              "IC3IA disabled for property %s: the interpolating solver does \
+               not support the arrays this system uses. Use SMTInterpol \
+               instead."
+              prop_name))
         )) ;
 
         declare_init_var
@@ -598,8 +674,36 @@ let refine fwd solver sys predicates cubes =
         SMTSolver.get_qe_interpolants fwd intrpo interpolizers
       )
       | _ -> (
-        SMTSolver.get_interpolants intrpo names
-        |> (fun itps -> SMTSolver.pop intrpo; itps)
+        (* SMTInterpol answers `unsupported` to the interpolation query
+           over a formula with a quantifier, which its interpolation
+           procedure does not take (it is for quantifier-free input only),
+           and IC3IA failed an assertion on the reply. Decline the system
+           instead, as for an array encoding the solver rejects: a property
+           settled without refining is still proved, and so is one whose
+           quantifiers the solver simplifies away before interpolating, as
+           a quantifier over a variable the formula does not use (#1842). *)
+        match SMTSolver.get_interpolants intrpo names with
+        | itps -> SMTSolver.pop intrpo; itps
+        | exception SMTSolver.Unsupported_interpolants ->
+          SMTSolver.pop intrpo ;
+          let current = Flags.Smt.itp_solver () in
+          let name = Flags.Smt.string_of_itp_solver current in
+          let advice = itp_solver_advice sys sys_features current in
+          let msg =
+            if TermLib.FeatureSet.mem TermLib.Q sys_features then
+              Format.sprintf
+                "IC3IA (%s) disabled for property %s: %s computes no \
+                 interpolants over quantified formulas, and the refinement of \
+                 the abstraction needs them. %s"
+                name prop_name name advice
+            else
+              Format.sprintf
+                "IC3IA (%s) disabled for property %s: %s answered that it \
+                 does not support the interpolation query the refinement of \
+                 the abstraction needs. %s"
+                name prop_name name advice
+          in
+          raise (UnsupportedFeature msg)
       )
     in
 
@@ -940,7 +1044,7 @@ let add_blocked_cube solver sys init frames s =
   frames
 
 
-let block_cube fwd solver actlits in_sys param sys prop_name predicates next_cube frames s0 =
+let block_cube fwd solver actlits in_sys param sys prop_name sys_features predicates next_cube frames s0 =
 
   let init = get_init base_offset in
 
@@ -959,7 +1063,7 @@ let block_cube fwd solver actlits in_sys param sys prop_name predicates next_cub
       | Frame 0 -> (
         let predicates =
           get_cubes next_cube (TCube.cube s)
-          |> refine fwd solver sys predicates
+          |> refine fwd solver sys prop_name sys_features predicates
         in
         SMTSolver.trace_comment solver "Refined abstraction" ;
         predicates, next_cube, frames
@@ -1075,7 +1179,8 @@ let propogate_blocked_cubes solver actlits in_sys param sys prop_name predicates
   loop frames 1
 
 
-let main_ic3ia fwd prop in_sys param sys =
+(* [sys_features] are the features of the terms of [sys], see [features] *)
+let main_ic3ia fwd sys_features prop in_sys param sys =
 
    (* The clauses of an earlier run in the domain are of another system *)
    Term.TermHashtbl.reset (clause_logics ()) ;
@@ -1111,7 +1216,7 @@ let main_ic3ia fwd prop in_sys param sys =
           TCube.mk cube (TCube.Frame (depth frames))
         in
         let predicates, next_cube, frames =
-          block_cube fwd solver actlits in_sys param sys prop_name predicates next_cube frames s
+          block_cube fwd solver actlits in_sys param sys prop_name sys_features predicates next_cube frames s
         in
         loop predicates next_cube frames
       )
@@ -1164,32 +1269,12 @@ let main_ic3ia fwd prop in_sys param sys =
 
    SMTSolver.delete_instance solver
 
-(* [TransSys.get_logic] reports the logic that gets declared to the solver,
-   which is whatever `--smt_logic` says whenever it is not `detect`: it says
-   nothing about the terms then, and `ALL` in particular lists no features at
-   all. Anything the soundness of an answer rests on has to be decided on the
-   terms, so recompute the features the way the `detect` branch of
-   [TransSys.mk_trans_sys] does when the logic on record is not an inferred
-   one. The subsystems are covered too, since their definitions sit behind
-   uninterpreted symbols in the top system's init and trans terms. *)
-let features_of_terms sys =
-  let open TermLib.FeatureSet in
-  TransSys.fold_subsystems ~include_top:true
-    (fun acc t ->
-      TransSys.init_of_bound None t Numeral.zero ::
-      TransSys.trans_of_bound None t Numeral.one ::
-      TransSys.global_constraints t @
-      List.map Property.get_prop_term (TransSys.get_properties t)
-      |> List.fold_left
-           (fun acc term -> union acc (TermLib.logic_of_term [] term))
-           acc)
-    empty
-    sys
-
+(* The features of the terms of [sys], which [TransSys.mk_trans_sys]
+   infers *)
 let features sys =
   match TransSys.get_logic sys with
   | `Inferred l -> l
-  | `SMTLogic _ | `None -> features_of_terms sys
+  | `SMTLogic _ | `None -> assert false
 
 let main fwd slice_to_prop prop in_sys param sys =
 
@@ -1251,14 +1336,26 @@ let main fwd slice_to_prop prop in_sys param sys =
      validates counterexamples ([refine]), so these systems are supported
      (see [TransSys.fn_congruence_instances]). *)
 
+  (* With Z3qe and cvc5qe, IC3IA runs twice for each property, forward and
+     backward (see [Kind2Flow.create_processes]), and the checks below are
+     the same in both directions. The backward instance reports the decline,
+     as the only instance that runs with the other solvers does, and the
+     forward one ends quietly, so that each property gets one warning. *)
+  let decline msg =
+    if fwd then raise KEvent.Terminate else raise (UnsupportedFeature msg)
+  in
+
+  (* The checks look at [sys], the system the property is checked on, which
+     slicing reduces to what the property depends on: an abstract function
+     of the node that the property does not depend on is not in it. *)
   let check_system_is_supported itp_solver =
     if TransSys.subsystem_includes_function_symbol sys then
       let msg =
-        Format.sprintf "IC3IA (%s) disabled for property %s: system includes an abstract function. \
-          Use MathSAT or SMTInterpol instead."
-          itp_solver prop.Property.prop_name
+        Format.sprintf "IC3IA (%s) disabled for property %s: system includes an abstract function. %s"
+          (Flags.Smt.string_of_itp_solver itp_solver) prop.Property.prop_name
+          (itp_solver_advice sys l itp_solver)
       in
-      raise (UnsupportedFeature msg)
+      decline msg
   in
 
   (* Arrays are encoded with an uninterpreted sort and an uninterpreted select
@@ -1269,26 +1366,25 @@ let main fwd slice_to_prop prop in_sys param sys =
   let check_arrays_are_supported itp_solver =
     if mem A l then
       let msg =
-        Format.sprintf "IC3IA (%s) disabled for property %s: arrays are not supported. \
-          Use MathSAT or SMTInterpol instead."
-          itp_solver prop.Property.prop_name
+        Format.sprintf "IC3IA (%s) disabled for property %s: arrays are not supported. %s"
+          (Flags.Smt.string_of_itp_solver itp_solver) prop.Property.prop_name
+          (itp_solver_advice sys l itp_solver)
       in
-      raise (UnsupportedFeature msg)
+      decline msg
   in
 
   (match Flags.Smt.itp_solver () with
-  | `cvc5_QE -> check_system_is_supported "cvc5qe" ; check_arrays_are_supported "cvc5qe"
-  | `Z3_QE -> check_system_is_supported "Z3qe" ; check_arrays_are_supported "Z3qe"
-  | `MathSAT_SMTLIB -> (
+  | (`cvc5_QE | `Z3_QE) as s -> check_system_is_supported s ; check_arrays_are_supported s
+  | `MathSAT_SMTLIB as s -> (
     if mem BV l && (mem IA l || mem RA l) then
       let msg =
         Format.sprintf
-          "IC3IA disabled for property %s: MathSAT does not support programs with \
-           both integers/reals and machine integers. Use z3 or cvc5 instead."
-           prop.Property.prop_name
+          "IC3IA (MathSAT) disabled for property %s: MathSAT does not support \
+           programs with both integers/reals and machine integers. %s"
+           prop.Property.prop_name (itp_solver_advice sys l s)
       in
       raise (UnsupportedFeature msg)
   )
   | _ -> () ) ;
 
-  main_ic3ia fwd prop in_sys param sys
+  main_ic3ia fwd l prop in_sys param sys

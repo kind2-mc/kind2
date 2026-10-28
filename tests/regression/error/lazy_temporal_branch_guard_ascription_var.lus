@@ -1,0 +1,9 @@
+-- The bound variable of a type ascription stands for the ascribed value at
+-- each step, so a guard that mentions it changes over time, and a temporal
+-- operand under it is abstracted into a call to a node, which a symbolic
+-- array index in the guard does not allow (issue #1837)
+
+node N (const n: int; s: int) returns (A: int^n);
+let
+  A = ((s : subtype { v: int | v > i ==> (true -> pre s > i) }) foreach i)^n;
+tel

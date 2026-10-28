@@ -1067,7 +1067,7 @@ let history_var_type info id =
 let record_history_def info id h_id =
   let ty = history_var_type info id in
   let equation =
-    let index = HString.mk_hstring "i" in
+    let index = generated_index_id in
     let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, h_id, [index])]) in
     let eq_rhs =
       let cond =
@@ -2935,10 +2935,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       (* A literal that mentions index variables of the enclosing array
          equation is defined element by element, over those variables and an
          index [k], as in [l[i][k] = if k = 0 then e0 else e1], rather than
-         from the expanded literal (see #1748). The name of [k] is fixed, and
-         no generated name starts with '0', so that identical literals have
-         identical definitions, which share a local *)
-      let k = HString.mk_hstring "0_idx" in
+         from the expanded literal (see #1748). The name of [k] is fixed, so
+         that identical literals have identical definitions, which share a
+         local *)
+      let k = generated_index_id in
       let rhs = ite_over_index k nexprs in
       mk_fresh_local ~indices:[k] false info pos ivars
         (generalized_type pos ivars ty rhs) rhs
@@ -3237,7 +3237,13 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | Some guard -> guard, empty (), [], true
       | None ->
         let guard, _, gids = mk_fresh_oracle ty nexpr in
-        let warnings = [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))] in
+        (* The local a match block binds its scrutinee to is read only in the
+           branch that defines it, so the value it stutters with in a frame
+           block is never observed *)
+        let warnings = match expr with
+          | A.Ident (_, id) when var_is_match_scrutinee id -> []
+          | _ -> [mk_warning pos (UnguardedPreWarning (Pre (pos, expr)))]
+        in
         guard, gids, warnings, false
     in
     let gids = union gids1 gids2 in
@@ -3262,40 +3268,31 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* Misc. abstractions                                                       *)
   (* ************************************************************************ *)
   | ArrayConstr (pos, expr, _) as e -> (
-    (* Desugar v^N into a new array variable A, defined as A[i]=v *)
+    (* Desugar v^N into a new array variable A, defined as A[j]=v. If v
+       mentions index variables of the enclosing array equation, A is
+       generalized over them, as in A[i][j]=v, and read as A[i] *)
     let base_expr, gids1, warnings =
       normalize_expr ?guard info node_id map expr
     in
     i := !i + 1;
     let prefix = HString.mk_hstring (string_of_int !i) in
     let name = HString.concat2 prefix (HString.mk_hstring "_array_ctor") in
-    let gids2 =
-      let locals =
-        let expr_type = infer_type info node_id e in
-        add_generated_type name (Lazy.from_val expr_type);
-        StringMap.singleton name expr_type
-      in
-      let indices = info.inductive_variables |> StringMap.bindings |> List.map fst |> List.rev in
-      match List.length indices with 
-      | 1 ->
-        let eq_lhs = A.StructDef (dpos, [A.ArrayDef (dpos, name, indices)]) in
-        let equations =
-          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
-        in
-        { (empty ()) with locals; equations }
-      (* Array constructors containing inductive variables in definitions of multi-dimensional 
-         arrays are rejected in lustreSyntaxChecks. So if there is not exactly one index 
-         variable, then the generated name does not matter. *)
-      | _ -> 
-        let eq_lhs = 
-            A.StructDef (dpos, [A.ArrayDef (dpos, name, [HString.mk_hstring "i"])]) 
-        in
-        let equations =
-          [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
-        in
-        { (empty ()) with locals; equations }
+    let ivars = info.inductive_variables in
+    let eq_lhs, nexpr =
+      generalize_to_array_expr ~indices:[generated_index_id]
+        name ivars base_expr (A.Ident (pos, name))
     in
-    let nexpr = A.Ident (pos, name) in
+    let gids2 =
+      let expr_type =
+        generalized_type pos ivars (infer_type info node_id e) base_expr
+      in
+      add_generated_type name (Lazy.from_val expr_type);
+      let locals = StringMap.singleton name expr_type in
+      let equations =
+        [(info.quantified_variables, info.contract_scope, eq_lhs, base_expr, None)]
+      in
+      { (empty ()) with locals; equations }
+    in
     nexpr, union gids1 gids2, warnings
   )
   | GroupExpr (pos, ArrayExpr, expr_list) as expr ->
@@ -3763,7 +3760,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
    [var] in the condition the calls are made under. The construct is expanded
    as a whole instead, into one instance per index, where [var] is replaced
    with the index ([index]), and every call it makes is the instance for that
-   index.
+   index. So is a construct whose condition makes a call, since the call is
+   expanded into the selection of its instances over [var], which mentions
+   [var] as well.
 
    So is a call whose operands make calls of their own: substituting the index
    into the call once its operands are expanded would rebuild the instances of
@@ -3784,7 +3783,8 @@ and expand_node_calls_in_place ?index info node_id var count expr =
   match AH.lazy_construct expr with
   | Some (cond, guarded)
     when index = None
-      && A.SI.mem var (AH.vars_without_node_call_ids cond)
+      && (A.SI.mem var (AH.vars_without_node_call_ids cond)
+          || AH.expr_contains_call cond)
       && List.exists AH.expr_contains_call guarded ->
     expand_per_index info node_id var count expr
   | _ ->
@@ -3875,9 +3875,10 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
-(* [expr], a lazy construct whose condition mentions [var] or a call whose
-   operands make calls, as a conditional over the indices of [var] selecting
-   the instance of [expr] for each index (see [expand_node_calls_in_place]) *)
+(* [expr], a lazy construct whose condition mentions [var] or makes a call,
+   or a call whose operands make calls, as a conditional over the indices of
+   [var] selecting the instance of [expr] for each index (see
+   [expand_node_calls_in_place]) *)
 and expand_per_index info node_id var count expr =
   let ty = infer_type info (Some node_id) expr in
   select_instance info var count ty (fun k ->

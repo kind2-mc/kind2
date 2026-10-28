@@ -903,6 +903,7 @@ let add_call_context_to_prop call_context prop =
    This factors out node calls with or without an activation
    condition *)
 let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
+    relevant_call
     { N.call_node_id ;
       N.call_id        ;
       N.call_pos       ;
@@ -1061,7 +1062,9 @@ let call_terms_of_node_call mk_fresh_state_var globals caller_comp_type
       (* Candidate invariants are lifted so that, once proven, they can
          strengthen the analysis of the calling node *)
       | P.Candidate _ -> lift
-      | _ -> internal || (Flags.check_subproperties () && lift)
+      | _ ->
+        S.props_lifted_from_call ~relevant:(relevant_call call_id)
+          call_node_id
     )
     |> List.fold_left (
       fun a ({ P.prop_name = n; P.prop_term = t; P.prop_kind ; P.prop_expr } as p) ->
@@ -1341,6 +1344,7 @@ let rec constraints_of_node_calls
   mk_fresh_state_var
   globals
   comp_type
+  relevant_call
   num_unrollings_map
   trans_sys_defs
   node_locals
@@ -1399,6 +1403,7 @@ let rec constraints_of_node_calls
         mk_fresh_state_var
         globals
         comp_type
+        relevant_call
         node_call
         node_locals
         node_props
@@ -1438,6 +1443,7 @@ let rec constraints_of_node_calls
       mk_fresh_state_var
       globals
       comp_type
+      relevant_call
       num_unrollings_map
       trans_sys_defs
       node_locals
@@ -1476,7 +1482,7 @@ let rec constraints_of_node_calls
         node_crt_svars, node_assumes, _, init_term, _, trans_term =
       (* Create node call *)
       call_terms_of_node_call
-        mk_fresh_state_var globals comp_type node_call node_locals
+        mk_fresh_state_var globals comp_type relevant_call node_call node_locals
         [] node_hist_svars node_crt_svars node_def
     in
 
@@ -1528,6 +1534,7 @@ let rec constraints_of_node_calls
       mk_fresh_state_var
       globals
       comp_type
+      relevant_call
       num_unrollings_map
       trans_sys_defs
       node_locals
@@ -1684,6 +1691,7 @@ let rec constraints_of_node_calls
         mk_fresh_state_var
         globals
         comp_type
+        relevant_call
         (* Modify node call to use shadow inputs *)
         { node_call with N.call_inputs = shadow_inputs }
         node_locals
@@ -2003,6 +2011,7 @@ let rec constraints_of_node_calls
       mk_fresh_state_var
       globals
       comp_type
+      relevant_call
       num_unrollings_map
       trans_sys_defs
       node_locals
@@ -3458,7 +3467,8 @@ let facts_of_calls
                |> facts)
     calls
 
-let rec trans_sys_of_node' options globals fun_defs evaluation top_name
+let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
+  top_name
   analysis_param trans_sys_defs output_input_dep nodes definition_set = function
 
   (* Transition system for all nodes created *)
@@ -3473,7 +3483,8 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
-        options globals fun_defs evaluation top_name analysis_param trans_sys_defs
+        options globals fun_defs evaluation relevant_call top_name analysis_param
+        trans_sys_defs
         output_input_dep nodes definition_set tl
 
     (* Transition system has not been created *)
@@ -3730,6 +3741,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
             globals
             fun_defs
             evaluation
+            relevant_call
             top_name
             analysis_param
             trans_sys_defs
@@ -4179,6 +4191,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
               mk_fresh_state_var
               globals
               comp_type
+              (relevant_call node_id)
               num_unrollings_map
               trans_sys_defs
               []  (* No lifted locals *)
@@ -4790,6 +4803,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation top_name
             globals
             fun_defs
             evaluation
+            relevant_call
             top_name
             analysis_param
             (NodeInstanceMap.add 
@@ -4848,7 +4862,7 @@ let warn_undefined_uf_applications fun_defs nodes =
               inputs that the solver can be given"
            else
              "because recursive functions are not defined at the SMT level \
-              with the current solver or logic")
+              with the current solver")
       )
     )
   )
@@ -4897,6 +4911,19 @@ let trans_sys_of_nodes
   (* The nodes before slicing, which still have the bodies of the functions
      the contracts abstract, to be evaluated with *)
   let unsliced_nodes = N.nodes_of_subsystem subsystem' in
+
+  (* Whether the properties of a called node are lifted from the call with
+     identifier [call_id] in the node [node_id], with --check_subproperties
+     relevant: the call has to be in the cone of influence of the properties
+     of the top node. It is computed from the nodes before slicing, so that
+     the same properties are checked whatever the slicing. The properties of
+     a called node are not lifted in a modular analysis anyway (see
+     [call_terms_of_node_call]). *)
+  let relevant_call =
+    if Flags.check_subproperties () = `Relevant && not (Flags.modular ())
+    then S.relevant_calls analysis_param subsystem'
+    else fun _ _ -> true
+  in
 
   let { SubSystem.source = { N.node_id = top_name } } as subsystem' =
 
@@ -4962,6 +4989,7 @@ let trans_sys_of_nodes
         globals
         fun_defs
         evaluation
+        relevant_call
         top_name
         analysis_param
         NodeInstanceMap.empty

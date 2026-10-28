@@ -68,7 +68,7 @@
     body is a total function of its inputs, without assertions, oracles,
     array-typed variables or calls to nodes, and the same holds for the
     functions it calls that are neither recursive nor imported. Definitions are only produced for the solvers that
-    support them (Z3 and cvc5) and when no logic is set with [--smt_logic]; a
+    support them (Z3 and cvc5); a
     function that is applied to quantified variables but not defined, for
     any of these reasons, has its functional symbol left uninterpreted, and
     {!LustreTransSys} warns about it. *)

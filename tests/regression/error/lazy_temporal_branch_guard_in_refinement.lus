@@ -1,0 +1,10 @@
+-- The predicate of a refinement type is made into a node of its own, where a
+-- variable quantified outside it changes over time, so a temporal operand
+-- under a guard that mentions it is abstracted into a call to a node, which a
+-- quantified variable in the guard does not allow (issue #1837)
+
+node N (x: int) returns (ok: bool);
+let
+  ok = true;
+  check forall (k: int) (x : subtype { v: int | k = 0 ==> (true -> pre x > 0) }) = x;
+tel

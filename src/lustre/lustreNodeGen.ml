@@ -904,12 +904,6 @@ let find_recursive_selector adt_map ty_name field =
           find_idx 0 fields
       ) info.ctor_fields None
 
-(* The type a datatype's field has, with a self-reference resolved to the
-   datatype itself *)
-let resolve_datatype_ref dt ft =
-  if Type.is_datatype_ref ft
-     && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
-  then dt else ft
 
 (* An enum is an integer everywhere else, but a datatype field of integer sort
    lets a model read a value outside the enum out of a free datatype value: a
@@ -1165,7 +1159,7 @@ and compile_ast_type
     (* Declare every constructor, not only the ones the program builds a term
        with: a model returned by the solver may mention any of them *)
     List.iter (fun (ctor, field_types) ->
-      let arg_types = List.map (resolve_datatype_ref adt_type) field_types in
+      let arg_types = List.map (Type.resolve_datatype_ref adt_type) field_types in
       ignore (UfSymbol.mk_uf_symbol ctor arg_types adt_type)
     ) ctors';
     X.singleton X.empty_index adt_type
@@ -1203,7 +1197,25 @@ and compile_ast_expr
   (bounds:E.expr E.bound_or_fixed list)
   map
   expr
-  : LustreExpr.t LustreIndex.t = 
+  : LustreExpr.t LustreIndex.t =
+  compile_ast_expr_in cstate ctx bounds bounds map expr
+
+(* Compile [expr] with the bounds [bounds], in an equation with the bounds
+   [eq_bounds]. The index variables are numbered by their position in
+   [eq_bounds], from which the bound of an index variable is removed in
+   [bounds] for the array a read at it is from *)
+and compile_ast_expr_in
+  (cstate:compiler_state)
+  (ctx:Ctx.tc_context)
+  (eq_bounds:E.expr E.bound_or_fixed list)
+  (bounds:E.expr E.bound_or_fixed list)
+  map
+  expr
+  : LustreExpr.t LustreIndex.t =
+
+  let compile_ast_expr cstate ctx bounds map expr =
+    compile_ast_expr_in cstate ctx eq_bounds bounds map expr
+  in
 
   let rec compile_id_string bounds id_str =
     let ident = mk_ident id_str in
@@ -1727,19 +1739,28 @@ and compile_ast_expr
       )
       compiled_expr
       index_exprs
+    |> X.map (E.mk_in_type_read index_var_bound)
+
+  (* The exclusive upper bound of the index variable [k] of the equation, if
+     it is a numeral *)
+  and index_var_bound k =
+    match List.nth_opt eq_bounds k with
+    | Some (E.Bound b) when E.is_numeral b -> Some (E.numeral_of_expr b)
+    | _ -> None
 
   and compile_array_index bounds expr i =
     let compiled_i = compile_ast_expr cstate ctx bounds map i in
     let index = compiled_i |> X.values |> List.hd in
-    let bounds =
+    let expr_bounds =
       try
         let index_nb = E.int_of_index_var index in
         let _, bounds = Lib.list_extract_nth bounds index_nb in
         bounds
       with Invalid_argument _ | Failure _ -> bounds
     in
-    let compiled_expr = compile_ast_expr cstate ctx bounds map expr in
+    let compiled_expr = compile_ast_expr cstate ctx expr_bounds map expr in
     compile_array_index' compiled_expr index
+    |> X.map (E.mk_in_type_read index_var_bound)
 
   and compile_array_index' compiled_expr index =
     let rec push expr = match X.choose expr with
@@ -1922,8 +1943,8 @@ and compile_ast_expr
       let dt = E.type_of_lustre_expr e' in
       let ctor_sym = compiled_ctor_sym dt ctor in
       let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
-      let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
-      let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
+      let selector_name = Type.selector_name ctor_sym field_pos in
+      let result_type = Type.resolve_datatype_ref dt (List.nth field_types field_pos) in
       let sel = E.mk_selector selector_name result_type e' in
       let sel =
         if Type.is_enum_field_sort result_type then
@@ -2022,7 +2043,7 @@ and compile_ast_expr
     let arg_types =
       if Type.is_datatype adt_type then
         List.assoc ctor_name (Type.constructors_of_datatype adt_type)
-        |> List.map (resolve_datatype_ref adt_type)
+        |> List.map (Type.resolve_datatype_ref adt_type)
       else
         List.map
           (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
@@ -2583,11 +2604,12 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         let ident = mk_ident i
         and index_types = compile_ast_type cstate ctx map ast_type in
         (* Locals introduced to desugar the 'last' operator and array
-           comprehensions are Kind 2 generated and therefore invisible (not
-           shown in counterexamples). *)
+           comprehensions, and to bind a shared match scrutinee, are Kind 2
+           generated and therefore invisible (not shown in counterexamples). *)
         let over_indices = fun index index_type accum ->
           let source =
             if GI.var_is_last_local i || GI.var_is_array_comprehension i
+               || GI.var_is_match_scrutinee i
             then N.Generated N.Plain
             else adt_source_for_index N.Local index
           in

@@ -1,6 +1,6 @@
 
 (tests
-  (names testAstDependencies testLustreFrontend)
+  (names testAstDependencies testLustreFrontend testManyLocals)
   (deps
    (glob_files lustreParser/*.lus)
    (glob_files lustreAstInlineConstants/*.lus)
@@ -11,5 +11,6 @@
    (glob_files lustreDesugarMatchBlocks/*.lus)
    (glob_files lustreCheckADTDecreases/*.lus)
    (glob_files lustreFunDefs/*.lus)
+   (glob_files lustreGenNodes/*.lus)
   )
   (libraries ounit2 kind2dev))

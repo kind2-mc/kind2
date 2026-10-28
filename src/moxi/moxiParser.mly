@@ -137,41 +137,40 @@ check_system:
       input;
       output;
       local;
-      attrs = List.concat attrs;
+      attrs;
     }
   }
 
-(* An attribute, or the queries of a :queries attribute *)
 check_system_attribute:
   | ASSUMPTION_KW "(" s=symbol t=term ")"
   {
-    [A.FormulaAttr (Assumption, (s, t))]
+    A.FormulaAttr (Assumption, (s, t))
   } 
   | REACHABLE_KW "(" s=symbol t=term ")"
   {
-    [A.FormulaAttr (Reachable, (s, t))]
+    A.FormulaAttr (Reachable, (s, t))
   }
   | FAIRNESS_KW "(" s=symbol t=term ")"
   {
-    [A.FormulaAttr (Fairness, (s, t))]
+    A.FormulaAttr (Fairness, (s, t))
   }
   | CURRENT_KW "(" s=symbol t=term ")"
   {
-    [A.FormulaAttr (Current, (s, t))]
+    A.FormulaAttr (Current, (s, t))
   }
   | QUERY_KW q=query
   {
-    [q]
+    A.QueryAttr q
   }
   | QUERIES_KW "(" qs=query+ ")"
   {
-    qs
+    A.QueriesAttr (mk_span $startpos $endpos, qs)
   }
 
 query:
   "(" s=symbol "(" l=symbol+ ")" ")"
   {
-    A.QueryAttr (s, l)
+    (s, l)
   }
 
 define_fun:

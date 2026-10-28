@@ -1,0 +1,15 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd () returns (t: T);
+(*@contract guarantee t = A (1) or t = B (2); *)
+
+node main () returns (ok: bool);
+var r: int;
+let
+  r = match nd () with
+      | A (v) : v
+      | B (w) : w
+      end;
+  ok = true;
+  check reachable "impossible" r = 0;
+tel

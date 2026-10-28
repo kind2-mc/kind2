@@ -1,0 +1,18 @@
+datatype T = A (v: int) | B (w: int);
+
+function imported lo () returns (y: int);
+(*@contract guarantee y = 0; *)
+
+node imported nd (x: subtype { z: int | z > lo () }) returns (t: T);
+(*@contract guarantee t = A (1) or t = B (2); *)
+
+node main () returns (ok: bool);
+var y: int;
+let
+  match nd (5) with
+  | A (v) : y = v;
+  | B (w) : y = w;
+  end
+  ok = y = 1 or y = 2;
+  check "shared scrutinee" ok;
+tel

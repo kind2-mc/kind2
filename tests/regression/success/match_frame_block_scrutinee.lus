@@ -1,0 +1,21 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd () returns (t: T);
+(*@contract guarantee t = A (1) or t = B (2); *)
+
+node main (m: bool) returns (ok: bool);
+var r: int;
+let
+  frame (r)
+    r = 0;
+  let
+    when m then
+      match nd () with
+      | A (v) : r = v;
+      | B (w) : r = w;
+      end
+    end
+  tel
+  ok = true;
+  check "ok" r = 0 or r = 1 or r = 2;
+tel

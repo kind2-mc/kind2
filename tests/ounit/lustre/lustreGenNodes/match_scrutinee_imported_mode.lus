@@ -1,0 +1,17 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd (b: bool) returns (t: T);
+
+contract C (x: int) returns (y: bool);
+let
+  mode M (require x > 0;);
+tel
+
+node main (x: int) returns (ok: bool);
+(*@contract
+  import C (x) returns (ok);
+  guarantee match nd (::C::M) with | A (v) : v = 1 | B (w) : w = 2 end;
+*)
+let
+  ok = true;
+tel

@@ -1,0 +1,14 @@
+datatype T = A (v: int) | B (w: int);
+
+node main (u: T; r: bool) returns (ok: bool);
+var y: int;
+let
+  restart
+    match (u : T) with
+    | A (v) : y = v;
+    | B (w) : y = w;
+    end
+  every r end
+  ok = true;
+  check "ok" ok;
+tel

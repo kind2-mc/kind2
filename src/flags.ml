@@ -242,6 +242,8 @@ module Smt = struct
     | `MathSAT_SMTLIB -> "MathSAT"
     | `OpenSMT_SMTLIB -> "OpenSMT"
     | `SMTInterpol_SMTLIB -> "SMTInterpol"
+    | `cvc5_QE -> "cvc5qe"
+    | `Z3_QE -> "Z3qe"
     | `detect -> "detect"
   let itp_solver_values = "MathSAT, SMTInterpol, Z3qe, cvc5qe, OpenSMT, Bitwuzla"
   let itp_solver_default = `detect
@@ -270,43 +272,6 @@ module Smt = struct
     | `SMTInterpol_SMTLIB -> `SMTInterpol_SMTLIB
     | `Z3_QE -> `Z3_SMTLIB
     | _ -> failwith "No interpolating SMT solver found"
-
-  (* Active SMT logic. *)
-  type logic = [
-    `None | `detect | `Logic of string
-  ]
-  let logic_of_string = function
-    | "none" | "None" -> `None
-    | "detect" | "Detect" -> `detect
-    | s -> `Logic s
-  let string_of_logic = function
-    | `None -> "none"
-    | `detect -> "detect"
-    | `Logic s -> s
-  let logic_default = `detect
-  let logic = ref logic_default
-  let _ = add_spec
-    "--smt_logic"
-    (Arg.String (fun str -> logic := logic_of_string str))
-    (fun fmt ->
-      Format.fprintf fmt
-        "@[<v>\
-          where <string> is none, detect, or a legal SMT-LIB logic@ \
-          Select logic for SMT solvers@ \
-          \"none\" for no logic@ \
-          \"detect\" to detect with the input system@ \
-          Other SMT-LIB logics will be passed to the solver@ \
-          Default: %s\
-        @]"
-        (string_of_logic logic_default)
-    )
-
-  let set_logic l = logic := l
-    
-  let detect_logic_if_none () =
-    if !logic = `None then logic := `detect
-          
-  let logic () = !logic
 
   (* Activates check-sat with assumptions when supported.
      Domain-local with inheritance: solver drivers may disable it from
@@ -3720,22 +3685,43 @@ let check_nonvacuity_default = true
   let set_check_nonvacuity b = check_nonvacuity := b
   let check_nonvacuity () = !check_nonvacuity
 
-  let check_subproperties_default = true
+  type check_subproperties = [`True | `Relevant | `False]
+  let check_subproperties_of_string = function
+    | "true" -> `True
+    | "relevant" -> `Relevant
+    | "false" -> `False
+    | unexpected -> Arg.Bad (
+      Format.sprintf
+        "Unexpected value \"%s\" for flag --check_subproperties" unexpected
+    ) |> raise
+  let string_of_check_subproperties = function
+    | `True -> "true"
+    | `Relevant -> "relevant"
+    | `False -> "false"
+  let check_subproperties_default = `True
   let check_subproperties = ref check_subproperties_default
   let _ = add_spec ~kind2_only:true
     "--check_subproperties"
-    (bool_arg check_subproperties)
+    (Arg.String
+      (fun str -> check_subproperties := check_subproperties_of_string str)
+    )
     (fun fmt ->
       Format.fprintf fmt
         "\
-          Check properties of subnodes in addition to properties of the main node.@ \
+          where <string> can be true, relevant, or false@ \
+          Check properties of subnodes in addition to properties of the main node:@ \
+          all of them (true), only those in the cone of influence of the@ \
+          properties of the main node (relevant), or none (false).@ \
+          With relevant, the proof obligations of the subnodes outside of@ \
+          that cone, such as the checks of ADT selectors, are not checked.@ \
           The properties of the nodes Kind 2 generates for parts of a node,@ \
-          such as the temporal branches of lazy constructs, are checked in@ \
+          such as the temporal branches of lazy constructs, and the@ \
+          assumptions of the contracts of the called nodes are checked in@ \
           any case.@ \
           Ignored if --modular is true@ \
-          Default: %a\
+          Default: %s\
         "
-        fmt_bool check_subproperties_default
+        (string_of_check_subproperties check_subproperties_default)
     )
   let check_subproperties () = !check_subproperties
 
@@ -3987,6 +3973,7 @@ type input_format = Global.input_format
 type real_precision = Global.real_precision
 type exit_code_convention = Global.exit_code_convention
 type slice_nodes = Global.slice_nodes
+type check_subproperties = Global.check_subproperties
 
 
 (* ********************************************************************** *)
@@ -4306,13 +4293,6 @@ let solver_dependent_actions solver =
           else actions
         in
         let actions =
-          if Smt.logic () = `None then (
-            Smt.set_logic `detect;
-            "enabling detection of SMT logic" :: actions
-          )
-          else actions
-        in
-        let actions =
           if Smt.check_sat_assume () then (
             Smt.set_check_sat_assume false;
             "disabling check_sat_assume" :: actions
@@ -4558,7 +4538,6 @@ let parse_argv ?(profile = kind2_profile) () =
   
   if Certif.certif () || Certif.proof () then (
     Smt.set_short_names false;
-    Smt.detect_logic_if_none () ;
     BmcKind.disable_compress ();
     Log.log L_warn "Certification post-analysis enabled: disabling ind_compress"
   ) ;

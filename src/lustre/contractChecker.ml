@@ -341,6 +341,7 @@ let node_kind_description in_sys scope node_id =
   | FreeConstant -> "Global constant"
   | ClockedExpr -> "clocked expression"
   | Restarted -> "restart"
+  | Matched -> "Match expression"
   | Choose -> "'Choose' operator"
 
 let pp_print_realizability_result_pt

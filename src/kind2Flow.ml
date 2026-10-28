@@ -282,10 +282,8 @@ let status_of_exn process status = function
   | Failure msg -> (
     if msg = "SMT solver failed: non-linear arithmetic is not allowed in logic ALL" then (
       (* Yices 2 error *)
-      KEvent.log L_error "In %a: no logic has been provided, but Yices 2 requires one when@ \
-        the model contains non-linear expressions.@ \
-        Consider running Kind 2 with `--smt_logic detect`\
-      "
+      KEvent.log L_error "In %a: Yices 2 does not support non-linear arithmetic@ \
+        in this combination of theories. Consider using Z3 or cvc5."
       pp_print_kind_module process;
       status
     )
@@ -808,30 +806,16 @@ let create_processes slice_to_prop modules sys =
   | _ -> (
     if Flags.IC3IA.max_processes () > 0 then
       (
-        let qe_itp_support_model =
-          let check_system_is_supported itp_solver =
-            let supported =
-              TSys.subsystem_includes_function_symbol sys |> not
-            in
-            if not supported then
-              KEvent.log L_warn 
-                "IC3IA (%s) disabled: system includes an abstract function. Use MathSAT or SMTInterpol instead."
-                itp_solver;
-            supported
-          in
-          match Flags.Smt.itp_solver () with
-          | `cvc5_QE -> check_system_is_supported "cvc5qe"
-          | `Z3_QE -> check_system_is_supported "Z3qe"
-          | _ -> false
-        in
+        (* Whether IC3IA supports the system a property is checked on is
+           decided by [IC3IA.main], which slices the node to the property
+           first: the node as a whole may use what the property does not *)
         let pending =
           List.fold_left
             (fun acc p ->
               match Flags.Smt.itp_solver () with
-              | `cvc5_QE | `Z3_QE when qe_itp_support_model ->
+              | `cvc5_QE | `Z3_QE ->
                 IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ())
                 :: IC3IA_Call (true, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
-              | `cvc5_QE | `Z3_QE -> acc
               | _ ->
                 IC3IA_Call (false, slice_to_prop, p, fresh_ic3ia_instance_name ()) :: acc
             )
@@ -897,7 +881,7 @@ let process_invgen_arith_modules: TSys.t -> kind_module list -> kind_module list
   let logic_has feature =
     match TSys.get_logic sys with
     | `Inferred fs -> TermLib.FeatureSet.mem feature fs
-    (* Logic given rather than inferred: nothing to consult. *)
+    (* Not reached: the logic of a system is always inferred *)
     | _ -> true
   in
   (* One question per domain, not one per module: the one state and two state
@@ -1343,28 +1327,20 @@ let run in_sys =
 
   | modules when InputSystem.is_moxi_input in_sys -> (
 
-    let params = ISys.moxi_params in_sys in
-    (* The checks not answered yet, and the system of the one being
-       analyzed, for the responses to give when time runs out *)
-    let pending = ref params in
-    let current = ref None in
-    let print_results sys =
-      MoxiResults.pp_print_results sys in_sys (TSys.get_properties sys)
+    let checks = ISys.moxi_checks in_sys in
+    let build param = fst (ISys.trans_sys_of_analysis in_sys param) in
+    (* The checks not answered yet, for the responses to give when time
+       runs out. The system of an analysis is the same every time it is
+       built, with what the engines established. *)
+    let pending = ref checks in
+    let print_results (check, params) =
+      MoxiResults.pp_print_results check (List.map build params)
     in
     (* Out of time, every check still gets its response: the one being
        analyzed with what the engines established, and the others with every
        query unknown. Printed by [on_exit], once the engines are stopped and
        under its watchdog. *)
-    let respond_to_pending () =
-      List.iter (fun param ->
-        let sys =
-          match !current with
-          | Some sys -> current := None ; sys
-          | None -> fst (ISys.trans_sys_of_analysis in_sys param)
-        in
-        print_results sys
-      ) !pending
-    in
+    let respond_to_pending () = List.iter print_results !pending in
 
     try (
       let msg_setup = KEvent.setup () in
@@ -1374,31 +1350,30 @@ let run in_sys =
       (* Array values are read whole, and printed as SMT-LIB terms *)
       Flags.Arrays.set_read_whole true ;
 
-      let run_check param =
-        let sys, _ =
-          ISys.trans_sys_of_analysis in_sys param
-        in
-        current := Some sys ;
+      let run_system param =
+        let sys = build param in
         KEvent.log_analysis_start in_sys sys param ;
         Stat.start_timer Stat.analysis_time ;
         
         (* Analyze... *)
         analyze msg_setup false false false true modules in_sys param sys ;
 
+        KEvent.log_analysis_end ()
+      in
+      let run_check ((_, params) as check) =
+        List.iter run_system params ;
+
         (* Print results, with the timer disarmed, so that the response is
            not cut short; the timer is armed again for the time left, which
            raises [TimeoutWall] at once if none is *)
         Signals.unset_timeout () ;
-        print_results sys ;
-        current := None ;
+        print_results check ;
         pending := List.tl !pending ;
-        Signals.set_sigalrm_timeout_from_flag () ;
-
-        KEvent.log_analysis_end ()
+        Signals.set_sigalrm_timeout_from_flag ()
       in
-      (match params with
+      (match checks with
        | [] -> (KEvent.log L_note "No system checks found.")
-       | _ -> List.iter run_check params
+       | _ -> List.iter run_check checks
       ) ;
       
       post_clean_exit_success `Supervisor Exit

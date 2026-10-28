@@ -1,0 +1,9 @@
+datatype T = A (v: int) | B (w: int);
+
+node imported nd () returns (t: T);
+
+node main () returns (ok: bool);
+let
+  ok = true;
+  check forall (q: int) ((match nd () with | A (v) : v + 0*q | B (w) : w + 0*q end) >= 1);
+tel

@@ -347,16 +347,31 @@ that proves it as a certificate, or `sat`, with a witnessing trace:
  )
 ```
 
-The invariant of a certificate, `:certificate (q_cert :inv I :k k)`, is an
-SMT-LIB term over the variables of the check, which the MoXI definition
-leaves the format of open. A variable of a subsystem instance is named by
-the path of the instances down to it, as `|C1::l|`. A variable of kMoXI's
-own encoding is named after an `@`, which SMT-LIB reserves for solvers: the
-one a reachability condition `r` is encoded by, `@r`, holds in the initial
-state and in each state whose predecessor does not satisfy `r`. A trail
-names the variables it shows the same way, and shows a reachability
-condition under the name `r` the check declares it with rather than as
-`@r`.
+The invariant of a certificate, `:certificate (q_cert :inv I :k k)`, is a
+term over the variables of the check, which the MoXI definition leaves the
+format of open. It is an SMT-LIB term, except that a variable of a
+subsystem instance is named by a qualified name: the path of the instances
+down to it, each name quoted on its own if needed and joined by `::`
+without spaces, as `C1::l` or `C1::|the sub|::l`. No SMT-LIB token contains
+`::` outside quotes, so the path is told apart from a variable `|C1::l|` of
+the check, and from a variable `|C::l|` of the instance `C1`. A variable of
+kMoXI's own encoding is named after an `@`, which SMT-LIB reserves for
+solvers: the one a reachability condition `r` is encoded by, `@r`, holds in
+the initial state and in each state whose predecessor does not satisfy `r`;
+in a query with several reachability conditions, `@held::r` holds in each
+state after one that satisfies `r` (or after a transition that does, if
+`r` uses next-state variables).
+A trail names the variables it shows the same way, and shows a reachability
+condition under the name `r` the check declares it with, which no variable
+of the check may have, rather than as `@r`. The trail of a query with
+several reachability conditions shows none of them.
+
+A `check-system` command may have several queries, which kMoXI answers in
+the order of the command. The queries with the same `:assumption`
+conditions and `:current` condition are properties of one system, which
+the engines analyze together. A `:current` condition replaces the initial
+condition (`:init`) of the checked system and of the systems it calls, but
+not their invariants (`:inv`).
 
 The exit code is 0 when the analysis completes, whatever the answer; it is
 3 when the model does not parse or type check, and `--only_parse true`
@@ -381,9 +396,11 @@ kMoXI reads native MoXI (the S-expression syntax) with the logics `QF_BV`,
 `QF_ABV`, `QF_LIA`, `QF_LRA` and `QF_NIA`, and checks every model against
 the MoXI language definition before analyzing it. Its restrictions:
 
-- a `check-system` command has exactly one `:query`, over `:reachable` and
-  `:assumption` conditions; `:fairness` (liveness) and `:current` are not
-  supported;
+- `:fairness` conditions (liveness queries) are not supported;
+- a `:queries` attribute with several queries is not supported when the
+  checked system or the conditions of its queries use declared constants
+  (`declare-const`), since its queries must agree on the values of the
+  constants; otherwise, its queries are answered as separate queries;
 - arrays are indexed by bit-vectors, and their elements are not of an
   enumeration sort;
 - the values of an enumeration sort (`declare-enum-sort`) stand for

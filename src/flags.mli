@@ -253,8 +253,10 @@ val check_reach : unit -> bool
 (** Check non-vacuity of contract modes and conditional properties *)
 val check_nonvacuity : unit -> bool
 
-(** Check properties of subnodes *)
-val check_subproperties : unit -> bool
+(** Check properties of subnodes: all of them, those in the cone of
+    influence of the properties of the main node, or none *)
+type check_subproperties = [`True | `Relevant | `False]
+val check_subproperties : unit -> check_subproperties
 
 (** Strict Lustre mode. *)
 val lus_strict : unit -> bool
@@ -275,14 +277,6 @@ val support_new_bv_cast_operators : unit -> bool
 
 (** {2 SMT solver flags} *)
 module Smt : sig
-
-  (** Logic sendable to the SMT solver. *)
-  type logic = [
-    `None | `detect | `Logic of string
-  ]
-
-  (** Logic to send to the SMT solver *)
-  val logic : unit -> logic
 
   (** Legal SMT solvers. *)
   type solver = [
@@ -329,6 +323,9 @@ module Smt : sig
 
   (** Which SMT solver for interpolation to use. *)
   val itp_solver : unit -> itp_solver
+
+  (** The name of an interpolating solver, as `--smt_itp_solver` takes it *)
+  val string_of_itp_solver : itp_solver -> string
 
   val get_itp_solver : unit -> solver
 

@@ -1,0 +1,14 @@
+-- A valid property under a quantifier, about a `pre` value that holds only
+-- because of an assertion on the previous state (issue #1840). Proving it
+-- needs the abstraction refined with the predicate `y > 0`, and the refinement
+-- goes through the interpolating solver, MathSAT here, which does not support
+-- quantifiers and does not reject them either: it answered the query with a
+-- model that violates the quantified definition, and IC3IA reported the
+-- property falsifiable, with a counterexample in which `y` is 1 at both steps.
+-- IC3IA must not claim it is falsifiable: declining to answer (and leaving it
+-- to the other engines) is the expected outcome here.
+node N (y: int) returns ();
+let
+  assert y > 0;
+  check "p" forall (j: int) (true -> pre y > 0);
+tel

@@ -1,0 +1,10 @@
+-- The index of the array that 'history(i)' is desugared into must not
+-- capture the variable 'i'
+node N(i: int) returns (y: int);
+(*@contract
+  assume i = 7;
+  guarantee "G" forall (z: history(i)) z = 7;
+*)
+let
+  y = i;
+tel

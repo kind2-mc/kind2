@@ -1033,10 +1033,10 @@ for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
 value of its type parameter. In the body of a polymorphic node, a type
 parameter of the node given as a type argument is taken to be an array
 type, whatever the instantiations of the node. Kind 2 warns when the
-definition is left out because the solver or logic does not take recursive
-definitions (Z3 and cvc5 do, under the inferred logic). The symbol is then
-an arbitrary function under the quantifier, and a property that holds may be
-reported falsifiable: with `--smt_logic UFLIA`, for instance.
+definition is left out because the solver does not take recursive
+definitions (Z3 and cvc5 do). The symbol is then an arbitrary function
+under the quantifier, and a property that holds may be reported
+falsifiable.
 
 ### Benefits and limitations
 
@@ -1555,9 +1555,9 @@ Restrictions:
   of the enclosing node.
 - Only equations, `when` blocks, nested `match` blocks and `auto` may appear in
   an arm.
-- The scrutinee may not call a node or contain an `any` operator. Assign it to a
-  local variable and match on that instead. Calls to functions, and the `choose`
-  operator, are allowed.
+- A block whose scrutinee calls a node or uses `any`, `restart`, or a temporal
+  `when` branch may not appear under a `restart`. Assign the scrutinee to a
+  local variable and match on that instead.
 - As with `cond` blocks, `match` blocks cannot be nested inside `if` blocks,
   and `if` blocks cannot be nested inside `match` blocks. `match` and `when`
   blocks may be nested inside each other in either direction.

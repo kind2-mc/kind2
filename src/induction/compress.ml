@@ -200,10 +200,6 @@ let new_function_symbol_name () =
 
 let only_bv trans_sys =
   match TransSys.get_logic trans_sys with
-  | `SMTLogic "QF_BV"
-  | `SMTLogic "QF_ABV"
-  | `SMTLogic "QF_UFBV"
-  | `SMTLogic "QF_AUFBV" -> true
   | `SMTLogic _
   | `None -> false
   | `Inferred l when TermLib.FeatureSet.(subset l (of_list [Q; UF; A])) -> (

@@ -170,6 +170,10 @@ let iboracle =  "iboracle"
    of reachability queries with timestep bounds. *)
 let ctr_id = HString.mk_hstring "*counter"
 
+(* Index of the equations of generated arrays. No identifier starts with '0',
+   so it does not capture a variable of the right-hand side (see #1827) *)
+let generated_index_id = HString.mk_hstring "0_idx"
+
 
 (* String constant used in lustreNameCalls.ml as the suffix of the fresh local
    variables introduced to capture the discarded results of a call statement
@@ -242,6 +246,17 @@ let clocked_call_tie = "wbtie"
    the desugaring of blocks duplicates guards, so a guard with a
    nondeterministic call must be bound to a single local first. *)
 let block_guard = "bguard"
+
+(* String constant used in lustreGenNodes.ml as the suffix of the fresh locals a
+   match block binds its scrutinee to (e.g. '4_mscrut'). Desugaring copies the
+   scrutinee into every constructor tester and field projection, so one that
+   calls a node must name a single instance of it. *)
+let match_scrutinee = "mscrut"
+
+(* Checks if a variable name is the AST name of a bound match block scrutinee,
+   '<n>_mscrut', as opposed to a user name such as 'my_mscrut', which the
+   passes below must not exempt from the checks a user variable must meet. *)
+let var_is_match_scrutinee = is_generated_ast_name match_scrutinee
 
 (* String constant used in lustreDesugarArrayComprehensions.ml as the suffix of
    the fresh locals holding the value of an array comprehension

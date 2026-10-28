@@ -60,6 +60,16 @@ val default_of_type : Type.t -> Term.t
     apart. Raises [Not_found] for a term of another form. *)
 val canonical_array_value : Type.t -> Term.t -> Term.t
 
+(** [array_value_eqs limit ty a t] is the list of equations
+    [(select a i) = v] between the elements of the array [a] of type [ty]
+    and those of its value [t], in canonical form, over every index [i],
+    nested arrays included: by extensionality, they are equivalent to
+    [a = t], without the constant array that some solvers do not take. It
+    is [None] if the arrays of [ty] have more than [limit] elements, or an
+    index type that is not finite. *)
+val array_value_eqs :
+  int -> Type.t -> Term.t -> Term.t -> Term.t list option
+
 (** Whether a term is an array value: a constant array with stores of
     constant indices and values *)
 val is_array_value : Term.t -> bool

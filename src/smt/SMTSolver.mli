@@ -49,6 +49,11 @@ exception Killed
     process ended, with what it wrote to its standard error. *)
 exception Died of string
 
+(** Raised by {!get_interpolants} when the solver answers [unsupported] to
+    the interpolation query, as SMTInterpol does over a formula with a
+    quantifier, which its interpolation procedure does not take. *)
+exception Unsupported_interpolants
+
 (** {1 Creating and finalizing a solver instance} *)
 
 (** Create a new instance of an SMT solver of the given kind and with

@@ -1295,19 +1295,11 @@ let select simplify_term_node model fterm = function
 
           else
 
-            let term_to_index =
-              let idx_ty = Type.index_type_of_array (Var.type_of_var v) in
-              if Type.is_ubitvector idx_ty || Type.is_bitvector idx_ty then
-                (fun t -> Numeral.to_int (Bitvector.bv_to_num (Term.bitvector_of_term t)))
-              else
-                (fun t -> Numeral.to_int (Term.numeral_of_term t))
-            in
-
-            let args = List.map term_to_index i' in
-
+            (* An index too large for an OCaml integer is no key of the
+               map, whose keys are below the bounds of the array *)
             let value =
-              try Model.MIL.find args m
-              with Not_found ->
+              try Model.MIL.find (List.map Model.index_of_term i') m
+              with Not_found | Failure _ ->
                 TermLib.default_of_type
                   (Type.last_elem_type_of_array
                      (Var.type_of_var v))
