@@ -53,6 +53,27 @@ constant = f"""(set-logic QF_ALIA)
   :query (q (r)))
 """
 
+# Arrays of arrays, with an integer index in the inner dimension only and in
+# both, whose values are in the :model
+nested_sorts = {
+    "t": "(Array (_ BitVec 2) (Array Int Int))",
+    "u": "(Array Int (Array Int Int))",
+}
+
+nested = f"""(set-logic ALL)
+(declare-const t {nested_sorts["t"]})
+(declare-const u {nested_sorts["u"]})
+(define-system main :input ()
+  :output ((n Int)) :local ()
+  :init (= n 0)
+  :trans (= n' (+ n 1)))
+(check-system main :input ()
+  :output ((n Int)) :local ()
+  :reachable (r (and (= n 1) (= (select (select t #b10) (- 6)) 9)
+                     (= (select (select u 100000000000000000000) (- 1)) 3)))
+  :query (q (r)))
+"""
+
 engines = {"bmc": ["BMC"], "ic3qe": ["IC3QE"], "ic3ia": ["IC3IA"], "default": []}
 
 
@@ -89,3 +110,18 @@ def test_constant_in_model(tmp_path, engine):
     assert query_answer(out) == "sat", out
     model = out.split(":model", 1)[1].split(":trail", 1)[0]
     assert f"(define-fun t () {sort} " in model, model
+
+
+# IC3IA is left out: MathSAT rejects a system with both integers and
+# bit-vectors
+@pytest.mark.parametrize("engine", ["bmc", "ic3qe", "default"])
+def test_nested_constants_in_model(tmp_path, engine):
+    out = run(tmp_path, nested, engine)
+    assert query_answer(out) == "sat", out
+    model = out.split(":model", 1)[1].split(":trail", 1)[0]
+    for name, nested_sort in nested_sorts.items():
+        value = re.search(
+            rf"\(define-fun {name} \(\) {re.escape(nested_sort)} (.*)\)\s*$",
+            model, re.M)
+        assert value, model
+        assert value.group(1).startswith(("(store ", "((as const")), model

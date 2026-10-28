@@ -352,7 +352,7 @@ unsupported = {
         head(logic="ALL", input="()", output="((a (Array Bool Int)))")
         + "  :init (= (select a true) 0))\n",
         "3:22", "kmoxi supports arrays indexed by bit-vectors or integers "
-        "only; a has sort",
+        "only; a has sort (Array Bool Int)",
     ),
     "no-query": (
         check + "  :reachable (r (> y 0)))\n",
