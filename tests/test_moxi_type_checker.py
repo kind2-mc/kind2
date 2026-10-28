@@ -349,10 +349,10 @@ unsupported = {
         "4:14", "kmoxi does not support the function symbol '(_ int2bv 8)'",
     ),
     "array-index-sort": (
-        head(logic="QF_ALIA", input="()", output="((a (Array Int Int)))")
-        + "  :init (= (select a 0) 0))\n",
-        "3:22", "kmoxi supports arrays indexed by bit-vectors only; a has sort "
-        "(Array Int Int)",
+        head(logic="ALL", input="()", output="((a (Array Bool Int)))")
+        + "  :init (= (select a true) 0))\n",
+        "3:22", "kmoxi supports arrays indexed by bit-vectors or integers "
+        "only; a has sort (Array Bool Int)",
     ),
     "no-query": (
         check + "  :reachable (r (> y 0)))\n",

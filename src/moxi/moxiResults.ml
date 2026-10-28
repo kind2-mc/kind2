@@ -59,8 +59,10 @@ let rec string_of_value ty value =
 
 (* A value of an array sort in MoXI syntax, given the elements at each list
    of indices, outermost first: a constant array of the most frequent
-   element, with a store of each other one. MoXI arrays are indexed by
-   bit-vectors. *)
+   element, with a store of each other one. Only arrays indexed by
+   bit-vectors in every dimension get here: an array with an integer index
+   has no bound to read its elements up to, so its elements are empty when
+   its value is not read whole, and it prints as _. *)
 let rec string_of_array ty elements =
   let elem_ty = Type.elem_type_of_array ty in
   let width = Type.bitvectorsize (Type.index_type_of_array ty) in
