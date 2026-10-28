@@ -1,0 +1,12 @@
+datatype Opt<T> = N | S (val: T);
+
+node f<T, U>(a: Opt<U>; b: Opt<Opt<T>>) returns (r: bool);
+let
+  r = S?(a) and S?(b);
+tel
+
+node main(i: int; c: bool) returns (ok: bool);
+let
+  ok = f(S(c), S(S(i)));
+  check ok;
+tel
