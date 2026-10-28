@@ -53,6 +53,7 @@ type error_kind = Unknown of string
   | DanglingIdentifier of HString.t
   | QuantifiedVariableInPre of string * HString.t
   | QuantifiedVariableInNodeArgument of HString.t * HString.t
+  | QuantifiedPatternVariableInNodeArgument of HString.t * HString.t * HString.t
   | SymbolicArrayIndexInNodeArgument of HString.t * HString.t
   | SymbolicArrayIndexInRestart of HString.t
   | QuantifiedVariableInLazyGuardedNodeCall of HString.t * HString.t
@@ -60,6 +61,7 @@ type error_kind = Unknown of string
   | QuantifiedVariableInLazyGuardedTemporalBranch of HString.t
   | SymbolicArrayIndexInLazyGuardedTemporalBranch of HString.t
   | SymbolicArrayIndexInTemporalBranch of HString.t
+  | QuantifiedPatternVariableInTemporalBranch of HString.t * HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
   | IllegalNodeCall of (HString.t * string)
@@ -139,6 +141,10 @@ let error_message kind = match kind with
   | SymbolicArrayIndexInNodeArgument (idx, node) -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in an argument of a call to node or non-inlinable function '"
     ^ HString.string_of_hstring node ^ "'"
+  | QuantifiedPatternVariableInNodeArgument (var, q, node) -> "Pattern variable '"
+    ^ HString.string_of_hstring var ^ "', bound by matching an expression that depends on quantified variable '"
+    ^ HString.string_of_hstring q ^ "', is not allowed in an argument of a call to node or non-inlinable function '"
+    ^ HString.string_of_hstring node ^ "'"
   | SymbolicArrayIndexInRestart idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed under a restart"
   | QuantifiedVariableInLazyGuardedNodeCall (var, node) -> "Quantified variable or refinement type bound variable '"
@@ -153,6 +159,9 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring idx ^ "' appears in a lazy branch guard, so a temporal operator in that branch is not allowed"
   | SymbolicArrayIndexInTemporalBranch idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in a branch of a lazy construct that uses a temporal operator"
+  | QuantifiedPatternVariableInTemporalBranch (var, q) -> "Pattern variable '"
+    ^ HString.string_of_hstring var ^ "', bound by matching an expression that depends on quantified variable '"
+    ^ HString.string_of_hstring q ^ "', is not allowed in a branch of a lazy construct that uses a temporal operator"
   | QuantifiedVariableInTypeAscription var -> "Quantified variable '"
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
@@ -1974,10 +1983,21 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
       StringMap.mem j ctx.symbolic_array_indices &&
       is_non_inlinable
     in
+    (* A pattern variable bound by matching a quantified variable stands for
+       it (see [quant_deps]) *)
+    let quant_of_pattern_var =
+      if quant_vars_allowed then None
+      else StringMap.find_opt j ctx.quant_pattern_vars
+    in
     (match found_quant_in_non_inlinable, found_symbolic_index_in_non_inlinable with
     | true, _ -> syntax_error pos (QuantifiedVariableInNodeArgument (j, (NI.get_internal_name node_id)))
     | _, true -> syntax_error pos (SymbolicArrayIndexInNodeArgument (j, (NI.get_internal_name node_id)))
-    | false, false -> Ok [])
+    | false, false ->
+      match quant_of_pattern_var with
+      | Some q ->
+        syntax_error pos
+          (QuantifiedPatternVariableInNodeArgument (j, q, NI.get_internal_name node_id))
+      | None -> Ok [])
   in
   (* The instance of a call to a function under the lazy guards, activated
      where some values of the quantified variables make them hold (see
@@ -2056,7 +2076,10 @@ and check_temporal_branches ctx guard branches =
           (* As for an argument of a node call, a symbolic array index in the
              branch has no known number of values to expand the call over. A
              quantified variable in the branch is rejected when the branch is
-             abstracted (see [LustreGenNodes.abstract_temporal_branch]). *)
+             abstracted (see [LustreGenNodes.abstract_temporal_branch]), but a
+             pattern variable that stands for one (see [quant_deps]) has to
+             be rejected here, since that pass does not know it. The variables
+             of the pattern of an arm are bound inside the branch. *)
           let vars =
             LA.SI.diff (LAH.vars_without_node_call_ids e) (LA.SI.of_list pat_vars)
           in
@@ -2065,7 +2088,18 @@ and check_temporal_branches ctx guard branches =
               (LA.SI.elements vars)
           with
           | Some v -> syntax_error (LAH.pos_of_expr e) (SymbolicArrayIndexInTemporalBranch v)
-          | None -> Ok [])))
+          | None -> (
+            match
+              List.find_map
+                (fun v ->
+                  Option.map (fun q -> v, q)
+                    (StringMap.find_opt v ctx.quant_pattern_vars))
+                (LA.SI.elements vars)
+            with
+            | Some (v, q) ->
+              syntax_error (LAH.pos_of_expr e)
+                (QuantifiedPatternVariableInTemporalBranch (v, q))
+            | None -> Ok []))))
   in
   List.fold_left (>>) (Ok []) (List.map check_branch branches)
 

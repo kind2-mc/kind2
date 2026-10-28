@@ -1,0 +1,19 @@
+-- A pattern variable bound by matching the quantified variable stands for it,
+-- so it is rejected in an argument of a call to a node, as the quantified
+-- variable is. It made the solvers fail with an unknown constant (issue
+-- #1849)
+
+datatype O = Some (f: bool) | None;
+
+node prev (x: int) returns (y: int);
+let
+  y = x -> pre x;
+tel
+
+node main (x: int) returns ();
+let
+  check forall (k: O)
+    (match k with
+     | Some(v) : prev(if v then x else 0) = prev(if v then x else 0)
+     | None : true end);
+tel

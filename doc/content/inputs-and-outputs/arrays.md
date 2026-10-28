@@ -461,7 +461,9 @@ then select it at different steps. A guard that is a conjunction of conditions
 that either do not mention `i`, such as `x > 0`, or do not change over time,
 such as `Q(i)` or `0 <= i and i < n` for a constant `n`, is accepted: every
 value of `i` that satisfies the latter selects the call or operand at the same
-steps.
+steps. Such an operand, under a guard that changes over time, and the
+arguments of a call to a node cannot mention `i`, nor a variable of a pattern
+matched against an expression that mentions `i`.
 
 #### Example
 

@@ -45,6 +45,27 @@ let
 tel
 """, "Symbolic array index 'i' appears in a lazy branch guard, so a temporal "
      "operator in that branch is not allowed"),
+    # A pattern variable bound by matching the quantified variable stands for
+    # it, but the pass that abstracts the branch does not know it (#1849)
+    "quantified_pattern_var": ("""
+datatype O = Some (f: bool) | None;
+node main (c: bool) returns ();
+let
+  check forall (k: O) (match k with | Some(v) : c ==> (true -> v) | None : true end);
+tel
+""", "Pattern variable 'v', bound by matching an expression that depends on "
+     "quantified variable 'k', is not allowed in a branch of a lazy construct "
+     "that uses a temporal operator"),
+    "quantified_pattern_var_node_argument": ("""
+datatype O = Some (f: bool) | None;
+node N (b: bool) returns (r: bool); let r = b; tel
+node main () returns ();
+let
+  check forall (k: O) (match k with | Some(v) : N(v) | None : true end);
+tel
+""", "Pattern variable 'v', bound by matching an expression that depends on "
+     "quantified variable 'k', is not allowed in an argument of a call to node "
+     "or non-inlinable function 'N'"),
 }
 
 
