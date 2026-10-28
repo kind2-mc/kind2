@@ -1,0 +1,20 @@
+-- Renaming the inner q apart from the outer one must not reach into the
+-- refinement types, whose own binder q shadows it, whether the refinement
+-- is written inline, through a type synonym, in a datatype argument, or
+-- before the shadowing binder: z is positive, so no property holds
+
+type R = subtype { q: int | q > 0 };
+
+datatype O<T> = N | S (v: T);
+
+node M(p: int) returns (ok: bool);
+let
+  ok = true;
+  check exists (q: int) exists (q: int; z: subtype { q: int | q > 0 }) z < 0;
+  check exists (q: int) exists (q: int; z: R) z < 0;
+  check exists (q: int) exists (z: subtype { q: int | q > 0 }; q: int) z < 0;
+  check exists (q: int) exists (q: int; z: O<subtype { q: int | q > 0 }>)
+    (match z with | S(v) : v < 0 | N : false end);
+  check exists (q: int) exists (q: int; z: O<R>)
+    (match z with | S(v) : v < 0 | N : false end);
+tel

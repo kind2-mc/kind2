@@ -3836,7 +3836,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     (* A variable that shadows one of an enclosing quantifier is renamed, so
        that nested quantifiers bind distinct names: the guard of a call is
        evaluated outside of the quantifiers, where a name must denote a
-       single variable (see [close_guard]) *)
+       single variable (see [close_guard]). The types of the binders need no
+       renaming: they cannot mention a quantified variable, which the type
+       checker rejects, so a name in them is bound elsewhere, possibly by a
+       refinement type's own binder *)
     let vars, expr =
       List.fold_right
         (fun (p, id, ty) (vars, expr) ->
@@ -3853,10 +3856,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
                 id
             in
             let sigma = [(id, A.Ident (p, fresh))] in
-            let subst_ty = AH.map_lustre_ty (AH.apply_subst_in_expr sigma) in
-            (p, fresh, ty)
-            :: List.map (fun (p', id', ty') -> (p', id', subst_ty ty')) vars,
-            AH.apply_subst_in_expr sigma expr))
+            (p, fresh, ty) :: vars, AH.apply_subst_in_expr sigma expr))
         vars ([], expr)
     in
     let ctx = List.fold_left Ctx.union info.context
