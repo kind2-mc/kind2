@@ -95,4 +95,4 @@ def test_large_array(tmp_path, solver):
         assert "Property q disproved by IC3QE" in out, out
     else:
         assert query_answer(stdout) == "unknown", out
-        assert "IC3QE stops: a counterexample of the system has arrays" in out, out
+        assert "IC3QE stops: a counterexample of the system has an array of more" in out, out
