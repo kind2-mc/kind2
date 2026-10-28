@@ -250,17 +250,18 @@ let mk_svar ?(reserved=false) enums sys_name is_input symbol sort =
     ~is_input ~is_const:false ~for_inv_gen:true
     name scope (type_of_sort enums sort)
 
-(* The engines bound the indices of an array by its index type, which must
-   be a bit-vector type (see [bounds]). The elements are not constrained, so
-   they cannot be of an enumeration sort, whose values are a range of the
-   integers. *)
+(* The index type of an array is a bit-vector type, whose values bound the
+   indices, or the integers, which do not (see [bounds]). The elements are
+   not constrained, so they cannot be of an enumeration sort, whose values
+   are a range of the integers. *)
 let rec check_array_indices span name ty =
   match Type.node_of_type ty with
   | Array (e, i) ->
-    if not (Type.is_bitvector i || Type.is_ubitvector i) then
+    if not (Type.is_bitvector i || Type.is_ubitvector i || Type.is_int i) then
       unsupported span
         (Format.asprintf
-           "kmoxi supports arrays indexed by bit-vectors only; %s has sort %a"
+           "kmoxi supports arrays indexed by bit-vectors or integers only; \
+            %s has sort %a"
            name Type.pp_print_type ty);
     if Type.is_enum e then
       unsupported span
@@ -802,16 +803,21 @@ let applied_fun_defs fun_defs terms =
     (used, []) fun_defs
   |> snd
 
+(* The bounds of the indices of an array: the number of values of a
+   bit-vector index type, or none for the integers *)
 let rec bounds ty =
-  let fixed_bound ty' =
+  let bound ty' =
     match Type.node_of_type ty' with
     | UBV s
-    | BV s -> LustreExpr.mk_int_expr (Lib.power_of_two s |> Numeral.of_int)
-    | _ -> failwith("Only arrays with a Bitvector index type are currently supported")
+    | BV s ->
+      LustreExpr.Fixed
+        (LustreExpr.mk_int_expr (Lib.power_of_two s |> Numeral.of_int))
+    | Int -> LustreExpr.Unbound None
+    | _ -> failwith "kmoxi supports arrays indexed by bit-vectors or integers only"
   in
   match Type.node_of_type ty with
   | Bool | Int | IntRange _ | Enum _ | Real | UBV _ | BV _ | Abstr _ -> []
-  | Array (e, i) -> LustreExpr.Fixed (fixed_bound i) :: bounds e
+  | Array (e, i) -> bound i :: bounds e
   | Datatype _ | DatatypeRef _ -> failwith "MoXI input does not support algebraic datatypes"
 
 (* The system of a definition. A system of a check has variables of kmoxi's

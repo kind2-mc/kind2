@@ -393,16 +393,17 @@ engines.
 ### Supported subset of MoXI
 
 kMoXI reads native MoXI (the S-expression syntax) with the logics `QF_BV`,
-`QF_ABV`, `QF_LIA`, `QF_LRA` and `QF_NIA`, and checks every model against
-the MoXI language definition before analyzing it. Its restrictions:
+`QF_ABV`, `QF_LIA`, `QF_ALIA`, `QF_LRA` and `QF_NIA`, and checks every
+model against the MoXI language definition before analyzing it. Its
+restrictions:
 
 - `:fairness` conditions (liveness queries) are not supported;
 - a `:queries` attribute with several queries is not supported when the
   checked system or the conditions of its queries use declared constants
   (`declare-const`), since its queries must agree on the values of the
   constants; otherwise, its queries are answered as separate queries;
-- arrays are indexed by bit-vectors, and their elements are not of an
-  enumeration sort;
+- arrays are indexed by bit-vectors or integers, and their elements are not
+  of an enumeration sort;
 - the values of an enumeration sort (`declare-enum-sort`) stand for
   integers, so a model with one needs a solver with integer arithmetic,
   such as Z3, even in `QF_BV`;
