@@ -1,0 +1,14 @@
+-- Reads guarded by the lazy operators, a 'when' expression and a 'when' block
+node main(a: int^3; i: int) returns (y1, y2: int; b1, b2, b3: bool);
+let
+  y1 = when 0 <= i and i < 3 then a[i] else 0;
+  b1 = (0 <= i and i < 3) ==> a[i] > 0;
+  b2 = (0 <= i and i < 3) and then a[i] > 0;
+  b3 = (i < 0 or i >= 3) or else a[i] > 0;
+  when 0 <= i and i < 3 then
+    y2 = a[i];
+  else
+    y2 = 0;
+  end
+  check y1 = y2;
+tel

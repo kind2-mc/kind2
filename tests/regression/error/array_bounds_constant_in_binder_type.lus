@@ -1,0 +1,9 @@
+-- A constant index out of the bounds of a constant array, in the type of a
+-- quantified variable, is an error, as in any other type: no obligation guards
+-- it
+const c: int^3 = [1, 2, 3];
+
+node main() returns ();
+let
+  check forall (k: int | k = c[5]) k = k;
+tel

@@ -168,6 +168,11 @@ def test_ascription_in_generated_node_instances(tmp_path):
     assert [top for top, _ in analyses] == ["main"], analyses
     assert analyses[0][1] == {
         f"{kind}[{pos}][{i}]": "valid"
-        for kind, pos in [("SubType", "L6C18"), ("TypeAscription", "L6C26")]
+        for kind, pos in [
+            ("SubType", "L6C18"),
+            ("TypeAscription", "L6C26"),
+            # The read x[i] in the generated node
+            ("ArrayBounds", "L6C29"),
+        ]
         for i in range(3)
     }, analyses

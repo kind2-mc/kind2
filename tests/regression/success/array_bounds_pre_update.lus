@@ -1,0 +1,6 @@
+-- The element update under 'pre' is evaluated at the previous instant, which
+-- its obligation is checked at: the index is in bounds there
+node main(i: subrange [0, 2] of int; v: int; a: int^3) returns (b: int^3);
+let
+  b = a -> pre (a[i := v]);
+tel

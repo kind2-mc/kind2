@@ -1,0 +1,7 @@
+-- A negative constant index into a constant array literal
+const c: int^3 = [1, 2, 3];
+
+node main() returns (y: int);
+let
+  y = c[-1];
+tel

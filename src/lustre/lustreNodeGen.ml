@@ -2729,7 +2729,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in let glocals =
     List.fold_left
       (fun glocals (_, id, _) -> add_generated_bool_local glocals id)
-      glocals gids.GI.selector_obligations
+      glocals
+      (gids.GI.selector_obligations @ gids.GI.array_bounds_obligations)
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -3637,6 +3638,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     let create_selector_name_pos (pos : position) =
       Format.asprintf "@[<h>Selector%a@]" pp_print_line_and_column pos
     in
+    let create_array_bounds_name_pos (pos : position) =
+      Format.asprintf "@[<h>ArrayBounds%a@]" pp_print_line_and_column pos
+    in
     let uniq_name =
       make_uniquifier
         (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
@@ -3686,17 +3690,17 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (assumes, List.length assumes, guarantees, List.length guarantees, props)
       gids.GI.refinement_type_constraints
     in
-    (* Selector obligations are always body properties: they are about a read
-       inside an expression, not about the interface of the node. *)
-    let props =
+    (* Selector and array bounds obligations are always body properties: they
+       are about a read inside an expression, not about the interface of the
+       node. *)
+    let add_obligation_props create_name_pos obligations props =
       let uniq_name =
         make_uniquifier
-          (List.map (fun (pos, _, _) -> create_selector_name_pos pos)
-            gids.GI.selector_obligations)
+          (List.map (fun (pos, _, _) -> create_name_pos pos) obligations)
       in
       List.fold_left (fun p (pos, id, oexpr) ->
         let sv = H.find !map.state_var (mk_ident id) in
-        let name = uniq_name (create_selector_name_pos pos) in
+        let name = uniq_name (create_name_pos pos) in
         let soexpr =
           LDAT.string_of_expr_as_source
             ~ref_type_names:cstate.ref_type_names cstate.adt_map oexpr
@@ -3704,7 +3708,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         let gen_src = if is_extern then Property.Contract else Property.Body in
         let src = Property.Generated (Some pos, [sv], gen_src) in
         (sv, name, src, Property.Invariant, soexpr) :: p
-      ) props gids.GI.selector_obligations
+      ) props obligations
+    in
+    let props =
+      add_obligation_props create_selector_name_pos
+        gids.GI.selector_obligations props
+    in
+    let props =
+      add_obligation_props create_array_bounds_name_pos
+        gids.GI.array_bounds_obligations props
     in
     (assumes, guarantees, props)
   (* ****************************************************************** *)

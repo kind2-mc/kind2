@@ -1,3 +1,5 @@
+-- An update past the end of the array leaves the array unchanged, but its
+-- index is out of bounds
 node Top(a: int^3; v: int) returns ();
 var b: int^3;
 let

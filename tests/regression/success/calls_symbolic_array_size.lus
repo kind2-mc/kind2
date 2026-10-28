@@ -20,12 +20,13 @@ function rec Sum(const L: int; a: int^L; i: int) returns (s: int);
   decreases i;
 *)
 let
-  s = if i <= 0 or i > L then 0 else a[i-1] + Sum(L, a, i-1);
+  s = when i <= 0 or i > L then 0 else a[i-1] + Sum(L, a, i-1);
 tel
 
 node N(const L: int; a: int^L; b: int^2) returns ();
 var c: int;
 let
+  assert L > 0;
   assert a[0] >= 0;
   c = 0 -> pre c + 1;
   check "id_eq" Id(2, b) = b;

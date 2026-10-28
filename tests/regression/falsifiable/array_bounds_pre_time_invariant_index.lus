@@ -1,0 +1,9 @@
+-- 'pre a[c]', with an index that does not change over time, out of bounds:
+-- the access is evaluated at the initial instant, and read at the next one
+node main(const c: int; a: int^3) returns (y: int);
+(*@contract
+  assume c = 5;
+*)
+let
+  y = 0 -> pre a[c];
+tel

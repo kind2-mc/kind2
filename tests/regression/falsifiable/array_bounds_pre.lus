@@ -1,0 +1,5 @@
+-- The read under 'pre' is at the index of the previous step
+node main(a: int^3; i: int) returns (y: int);
+let
+  y = 0 -> pre a[i];
+tel

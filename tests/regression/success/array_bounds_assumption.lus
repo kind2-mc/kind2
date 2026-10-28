@@ -1,0 +1,9 @@
+-- An assumption of the contract establishes the bounds
+node main(const n: int; a: int^n; i: int) returns (y: int);
+(*@contract
+  assume 0 <= i and i < n;
+  guarantee y = a[i];
+*)
+let
+  y = a[i];
+tel

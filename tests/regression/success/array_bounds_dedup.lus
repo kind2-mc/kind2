@@ -1,0 +1,11 @@
+-- The same read evaluated under the same quantifiers and guards yields a
+-- single obligation
+function get(a: int^3; k: int) returns (y: int);
+let
+  y = when 0 <= k and k < 3 then a[k] else 0;
+tel
+
+node main(a: int^3) returns ();
+let
+  check forall (k: int) get(a, k) = get(a, k);
+tel

@@ -1,0 +1,9 @@
+-- Accesses that are within bounds whatever the state generate no obligation:
+-- a constant index within an array of constant size, and an index variable of
+-- a comprehension ranging over a dimension of the array
+node main(const n: int; a: int^3; b: int^n; m: int^n^n) returns (c: int^n; d: int^n^n);
+let
+  c = (b[i] + a[2] foreach i)^n;
+  d = (m[j][i] foreach i, j)^n^n;
+  check a[0] + a[1] = a[1] + a[0];
+tel

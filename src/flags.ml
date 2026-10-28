@@ -3713,7 +3713,8 @@ let check_nonvacuity_default = true
           all of them (true), only those in the cone of influence of the@ \
           properties of the main node (relevant), or none (false).@ \
           With relevant, the proof obligations of the subnodes outside of@ \
-          that cone, such as the checks of ADT selectors, are not checked.@ \
+          that cone, such as the checks of ADT selectors and of array@ \
+          accesses, are not checked.@ \
           The properties of the nodes Kind 2 generates for parts of a node,@ \
           such as the temporal branches of lazy constructs, and the@ \
           assumptions of the contracts of the called nodes are checked in@ \

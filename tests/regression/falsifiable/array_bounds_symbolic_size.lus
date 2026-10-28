@@ -1,0 +1,5 @@
+-- An array of symbolic size may be empty
+node main(const n: int; a: int^n) returns (y: int);
+let
+  y = a[0];
+tel

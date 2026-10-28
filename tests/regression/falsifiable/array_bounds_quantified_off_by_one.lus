@@ -1,0 +1,5 @@
+-- The quantifier ranges one element past the end of the array
+node main(const n: int; a: int^n) returns ();
+let
+  check forall (k: int | 0 <= k and k <= n) a[k] = a[k];
+tel

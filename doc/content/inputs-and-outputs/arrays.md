@@ -38,14 +38,20 @@ generic nodes and functions that are parametric in the size of the array. For
 instance one can write the following node returns the last element of an array.
 
 ```lustre
-node last (const n: int; A: int ^ n) returns (x: int);
+node last_element (const n: int; A: int ^ n) returns (x: int);
+(*@contract
+  assume n > 0;
+*)
 let
   x = A[n-1];
 tel
 ```
 
 It takes as input the size of the array and the array itself. Note that the
-type of the input `A` depends on the value of the first constant input `n`. In
+type of the input `A` depends on the value of the first constant input `n`.
+The assumption that `n` is positive ensures that the index `n-1` is within the
+bounds of the array (see
+[Out-of-bounds accesses](#out-of-bounds-accesses)). In
 Lustre, calls to such nodes should of course end up by having concrete values
 for `n`, this is however not the case in Kind 2 (see
 [Extension to unbounded arrays]({{< relref "/inputs-and-outputs/arrays#extension-to-unbounded-arrays" >}})).
@@ -142,6 +148,70 @@ multidimensional array or of an array of compound values. For instance, given
 the matrix `M` above, `M[1 := M[1][2 := 0]]` denotes a copy of `M` in
 which the element at row `1`, column `2` is set to `0`.
 
+### Out-of-bounds accesses
+
+The index of an array access `A[i]` must be within the bounds of the array, that
+is, between `0` and `n - 1`, where `n` is the size of `A`. Kind 2 generates a
+**proof obligation** for each access, stating that its index is within the
+bounds of the array wherever the access is evaluated, and the same for the index
+of each element update `A[i := v]`. The obligation is reported as a property
+named `ArrayBounds[L<line>C<column>]`, positioned at the index. When the
+obligation does not hold, an update leaves the array unchanged, and the value of
+the access is an unspecified value of the type of the elements: for an
+enumerated type, one of its values. A subrange or another refinement type
+constrains only the elements within the bounds, so for such a type the value is
+an unspecified value of the type it refines, possibly outside of the range.
+
+An obligation is checked at every step, the initial one included. An index
+that reads a `pre` under an enclosing `->`, as in `true -> a[pre i]`, has no
+previous value at the initial step: the obligation is then checked on an
+arbitrary index there, and is falsified. Giving the index a value of its own
+at the initial step, as in `true -> a[0 -> pre i]`, avoids it.
+
+The obligations of the accesses in a called node are checked like its other
+properties. With `--check_subproperties relevant`, only the obligations of the
+calls that the properties of the main node depend on are checked, and with
+`--check_subproperties false`, none of them.
+
+For instance, the node
+
+```lustre
+node get (A: int^3; i: int) returns (x: int);
+let
+  x = A[i];
+tel
+```
+
+carries the obligation `0 <= i and i < 3`, which is falsified by any value of
+`i` outside of this range.
+
+To discharge an obligation, an access must only be evaluated where its index is
+known to be within bounds. As with [ADT
+selectors]({{< relref "/inputs-and-outputs/algebraic-datatypes#selectors" >}}),
+the *lazy* constructs guard an access: the antecedent of a lazy implication
+`==>`, the left operand of `and then` and `or else`, the condition of a
+`when ... then ... else ...` expression, and the guard of a `when` block. The
+branches of `if ... then ... else ...` and the operands of `and`, `or` and `=>`
+are all evaluated unconditionally, so they do not guard an access. The type of
+the index, an assumption of the contract of the node, or the refinement type of
+a quantified variable may also establish the bounds:
+
+```lustre
+node get (A: int^3; i: int) returns (x: int);
+let
+  x = when 0 <= i and i < 3 then A[i] else 0;
+  check forall (k: int) 0 <= k and k < 3 ==> A[k] >= A[k];
+  check forall (k: int | 0 <= k and k < 3) A[k] >= A[k];
+tel
+```
+
+An access whose index is within bounds regardless of the state generates no
+obligation: this is the case of a constant index within an array of constant
+size, and of the index variable of an [array
+comprehension](#array-comprehensions) used to access an array whose size is the
+one of the dimension the variable ranges over, as in `(A[i] + 1 foreach i) ^ n`
+where `A` has type `int ^ n`.
+
 ### Array comprehensions
 
 An array can also be defined element by element with an *array
@@ -208,18 +278,26 @@ window over a stream `s`, which stores the last `n` values of `s` (with `-1`
 for the values before the first step).
 
 ```lustre
-A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
 ```
+
+The lazy `when` evaluates the `else` branch only where `i` is not `0`, so the
+index `i-1` is always within the bounds of the array (see
+[Out-of-bounds accesses](#out-of-bounds-accesses)). With the eager
+`if ... then ... else ...` instead, the `else` branch would also be read at
+`i = 0`, at index `-1`.
 
 A temporal operator in a branch of a `when` expression, in an arm of a
 `match` expression, or in the right operand of `and then`, `or else` or
-`==>`, is evaluated only when its
-condition holds, which Kind 2 compiles as a call to a node. If the condition
-mentions an index variable, this is supported only when the size of the
-comprehension is a constant, as in
-`(when i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ 3`. With a symbolic
-size, such as a constant input of the node, it is rejected, as is a call to a
-node in the same position. The eager conditional above can be used instead.
+`==>`, is evaluated only when its condition holds: a `pre` refers to the last
+step where the condition held. A condition that only depends on index
+variables and constants, as `i = 0` above, holds at every step or at none for
+each index, so the branch is supported whatever the size of the
+comprehension. A condition that mentions an index variable and changes over
+time, as `i = x` for an input `x`, is supported only when the size of the
+comprehension is a constant. With a symbolic size, such as a constant input of
+the node, it is rejected, as is a call to a node in a branch whose condition
+mentions an index variable.
 
 A node call in the body whose arguments do not mention the index variables
 takes the same arguments at every index, and is made once for the whole
@@ -365,6 +443,9 @@ Note that this node is parametric in the size of the array.
 ```lustre
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
+(*@contract
+  assume 0 <= low and low <= up and up <= n;
+*)
 let
   B = (A[low + i] foreach i) ^ (up - low);
 tel
@@ -389,9 +470,9 @@ nodes are not first order objects in Lustre.
 ```lustre
 node slide (const n:int; s: int) returns(A: int^n);
 let
-  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
 
-  --%PROPERTY n > 1 => (true -> A[1] = pre s);
+  --%PROPERTY n > 1 ==> (true -> A[1] = pre s);
 tel
 ```
 
@@ -420,10 +501,12 @@ formula or a predicate in which the variable `x` can appear.
 For example, the following
 
 ```lustre
-forall (i, j: int) 0 <= i and i < n and 0 <= j and j < n => M[i][j] = M[j][i]
+forall (i, j: int) 0 <= i and i < n and 0 <= j and j < n ==> M[i][j] = M[j][i]
 ```
 
-is a formula that specifies that the matrix `M` is symmetric.
+is a formula that specifies that the matrix `M` is symmetric. The lazy
+implication `==>` guards the accesses to `M` (see
+[Out-of-bounds accesses](#out-of-bounds-accesses)), which the eager `=>` does not.
 
 > **Remark**
 >
@@ -486,10 +569,10 @@ the property that `A` contains in each of its cells, an uninitialized value
 node slide (const n:int; s: int) returns(ok: bool^n);
 var A: int^n;
 let
-  A = (if i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
+  A = (when i = 0 then s else (-1 -> pre A[i-1]) foreach i) ^ n;
   ok = (A[i] = -1 or A[i] = s or (false -> pre ok[i]) foreach i) ^ n;
 
-  --%PROPERTY forall (i: int) 0 <= i and i < n => ok[i];
+  --%PROPERTY forall (i: int) 0 <= i and i < n ==> ok[i];
 tel
 ```
 

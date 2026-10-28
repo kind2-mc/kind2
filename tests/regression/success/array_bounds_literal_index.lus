@@ -1,0 +1,10 @@
+-- Reads in an array literal that mentions the index variable of a
+-- comprehension, which is defined element by element: the read B[i] is within
+-- bounds by construction, and the read B[i - 1] is guarded by a 'when'
+node main(const n: int; B: int^n; C: int^3) returns (A: int^2^n; D: int^2^3);
+let
+  A = ([when i > 0 then B[i - 1] else 0, i] foreach i)^n;
+  D = ([C[i], 0] foreach i)^3;
+  check n > 1 ==> A[1] = [B[0], 1];
+  check D[2] = [C[2], 0];
+tel

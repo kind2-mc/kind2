@@ -565,9 +565,13 @@ tel
 ```lustre
 node Nth(a: int^10; k: int) returns (out: int);
 let
-  out = if 0 <= k and k < 10 then a[k] else a[0];
+  out = when 0 <= k and k < 10 then a[k] else a[0];
 tel
 ```
+
+An access carries a proof obligation that its index is within the bounds of
+the array, which the `when` expression establishes here (see
+[Lazy Operators](#lazy-operators)).
 
 See [Arrays]({{< relref "/inputs-and-outputs/arrays" >}}) for element
 update, structural equality, and inductively defined arrays.
@@ -977,7 +981,9 @@ evaluated only where `Some?(x)` holds, and the obligation is discharged.
 
 The lazy Boolean operators 
 can be used to guard selectors in the same way, as in `Some?(x) ==> x.val > 0`,
-as well as the division in `x <> 0 and then y / x > 1`.
+as well as the division in `x <> 0 and then y / x > 1`. Array accesses carry a
+proof obligation that their index is within the bounds of the array, which the
+lazy operators discharge in the same way, as in `0 <= k and k < n ==> a[k] > 0`.
 
 The same laziness is available at statement level, in the `when` and `cond`
 blocks described next.
@@ -1193,7 +1199,7 @@ define a node's outputs, and they are indispensable for models parameterized by
 a size:
 
 ```lustre
-check forall (i: int) 0 <= i and i < n => a[i] >= 0;
+check forall (i: int) 0 <= i and i < n ==> a[i] >= 0;
 ```
 
 A quantified variable may be given a refinement type with the concise syntax

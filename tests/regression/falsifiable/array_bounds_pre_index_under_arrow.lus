@@ -1,0 +1,9 @@
+-- An index read through a 'pre' under an arrow: the obligation of the access
+-- is an equation of its own, outside the arrow, where an oracle stands for the
+-- 'pre' at the initial instant, as for the scrutinee of a selector (see
+-- adt_selector_pre_under_arrow.lus). The obligation is falsified there,
+-- although the index type keeps every other index within bounds.
+node main(a: int^3; i: subrange [0, 2] of int) returns ();
+let
+  check true -> ((pre a)[pre i] = (pre a)[pre i]);
+tel
