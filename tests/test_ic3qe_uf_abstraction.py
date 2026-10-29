@@ -66,6 +66,34 @@ let
 tel
 """
 
+# A value of the function is buffered for a step before it is added: the
+# property is not inductive, and its proof needs the invariant that the
+# buffer is nonnegative, which IC3QE finds by generalizing through the
+# application of the function, the path the other models do not take
+buffered = imported + """
+node main(x: int) returns (z: int);
+var stage: bool; buf: int;
+let
+  stage = false -> not pre stage;
+  buf = 0 -> if not pre stage then f(x) else pre buf;
+  z = 0 -> if pre stage then pre z + pre buf else pre z;
+  check "prop" z >= 0;
+tel
+"""
+
+# The same with a buffer that may be negative: falsified two steps in, by a
+# counterexample built from a generalized cube and checked on the system
+buffered_falsified = imported + """
+node main(x: int) returns (z: int);
+var stage: bool; buf: int;
+let
+  stage = false -> not pre stage;
+  buf = 0 -> if not pre stage then f(x) - 1 else pre buf;
+  z = 0 -> if pre stage then pre z + pre buf else pre z;
+  check "prop" z >= 0;
+tel
+"""
+
 # A recursive function, with calls within the default limit on unrollings
 # (when, the lazy if, guards the recursive call)
 recursive = """
@@ -103,16 +131,19 @@ def run_ic3qe(tmp_path, model):
 
 
 @pytest.mark.parametrize(
-    "model", [accumulated, same_step, recursive],
-    ids=["accumulated", "same_step", "recursive"])
+    "model", [accumulated, same_step, buffered, recursive],
+    ids=["accumulated", "same_step", "buffered", "recursive"])
 def test_proved(tmp_path, model):
     output = run_ic3qe(tmp_path, model)
     assert "Property prop is valid by property directed reachability (QE)" \
         in output, output
 
 
-def test_falsified(tmp_path):
-    output = run_ic3qe(tmp_path, falsified)
+@pytest.mark.parametrize(
+    "model", [falsified, buffered_falsified],
+    ids=["falsified", "buffered_falsified"])
+def test_falsified(tmp_path, model):
+    output = run_ic3qe(tmp_path, model)
     assert "Property prop is invalid by property directed reachability (QE)" \
         in output, output
 
