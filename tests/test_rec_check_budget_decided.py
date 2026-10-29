@@ -56,14 +56,20 @@ z3 = subprocess.Popen([{z3!r}, *sys.argv[1:]], stdin=subprocess.PIPE)
 
 def forward():
     slow = False
+    # The end of the previous chunk, for a token split across two reads
+    tail = b""
     try:
         while True:
             chunk = os.read(0, 65536)
             if not chunk:
                 break
-            slow = slow or b":rlimit" in chunk
-            if slow and b"check-sat" in chunk:
+            text = tail + chunk
+            tail = text[-16:]
+            slow = slow or b":rlimit" in text
+            if slow and b"check-sat" in text:
                 time.sleep(3)
+                # A command is not slowed down twice
+                tail = b""
             z3.stdin.write(chunk)
             z3.stdin.flush()
         z3.stdin.close()
@@ -99,6 +105,10 @@ def test_genuine_counterexample_checked_after_slow_evaluation(tmp_path):
             *arg_list,
             "--smt_solver", "Z3",
             "--z3_bin", str(wrapper),
+            # The spurious counterexample to "p" comes before the genuine
+            # one with these engines
+            "--enable", "BMC",
+            "--enable", "IND",
             str(path),
         ]
     )

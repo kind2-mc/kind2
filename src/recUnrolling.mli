@@ -68,8 +68,8 @@ val requested : unit -> Scope.t list
     asks again, until the model only executes calls it knows the values of
     (genuine) or there is no violation left (spurious). A function without a
     definition, a call that cannot be evaluated or a query that cannot be
-    decided in time, or a round whose undecided checks have taken their
-    budget, leave the counterexample suspect. The supervisor is meant to
+    decided in time, or a round whose undecided checks, or whose decided
+    ones, have taken their budget, leave the counterexample suspect. The supervisor is meant to
     call this. *)
 val suspect :
   TransSys.t -> string -> (StateVar.t * Model.value list) list -> Scope.t list
