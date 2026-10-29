@@ -1,2 +1,4 @@
 type R<T> = struct { f: T };
 const C: R<int> = R@<subtype { w: int | w >= 100 }> { f = 0 };
+node N(x: int) returns (y: int);
+let y = x + C.f; tel

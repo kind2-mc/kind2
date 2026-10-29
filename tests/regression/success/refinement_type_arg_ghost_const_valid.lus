@@ -1,0 +1,7 @@
+type R<T> = struct { f: T };
+node N(x: int) returns (y: int);
+(*@contract
+  const C: R<int> = R@<subtype { w: int | w >= 100 }> { f = 100 };
+  guarantee y >= C.f;
+*)
+let y = 1000; tel
