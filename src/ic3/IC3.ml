@@ -757,8 +757,10 @@ let system_term term =
 
 (* The abstraction: the scope of the variables IC3QE adds; the application
    variables, those declared in the solver of IC3QE and those not yet; the
-   instances of the variables declared; the bounds of the array variables
-   of the system, where those of the variables IC3QE adds are recorded; the
+   instances of the variables declared; a copy of the bounds of the array
+   variables of the system, for the models IC3QE reads, where those of the
+   variables IC3QE adds are recorded (the table of the system is shared
+   with the other engines, and is not written); the
    definitions of the application variables after a transition, with the
    applications; the constraints over the variables IC3QE adds, over
    offsets zero and one, and those on the initial state; and the history of the refinements (see
@@ -800,7 +802,10 @@ let reset_abstraction aparam trans_sys =
   Domain.DLS.set abstraction_key
     (empty_abstraction
        (ic3qe_scope (Analysis.info_of_param aparam).Analysis.uid)
-       (TransSys.get_state_var_bounds trans_sys))
+       (StateVar.StateVarHashtbl.copy (TransSys.get_state_var_bounds trans_sys)))
+
+(* The bounds of the array variables, for the models IC3QE reads *)
+let bounds () = (abstraction ()).bounds
 
 (* A fresh variable of IC3QE *)
 let mk_ic3qe_var ?(is_const = false) name ty =
@@ -1215,7 +1220,7 @@ let cex_of_trace trans_sys trace =
       List.iter (fun t -> SMTSolver.assert_term solver (Term.mk_and t)) transitions ;
       if SMTSolver.check_sat solver then
         Some
-          (get_var_values solver (TransSys.get_state_var_bounds trans_sys)
+          (get_var_values solver (bounds ())
              (TransSys.vars_of_bounds trans_sys Numeral.zero (num n))
            |> fun m ->
              Model.path_from_model (TransSys.state_vars trans_sys) m (num n)
@@ -1621,7 +1626,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                    expensive due to the many activation literals *)
                 get_var_values
                   solver
-                  (TransSys.get_state_var_bounds trans_sys)
+                  (bounds ())
                   (cti_vars trans_sys))
 
               (fun _ -> ())
@@ -1873,7 +1878,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                   | _ ->
                     get_var_values
                       solver
-                      (TransSys.get_state_var_bounds trans_sys)
+                      (bounds ())
                       (cti_vars trans_sys))
 
               (* Get unsat core from unsatisfiable query *)
@@ -2340,7 +2345,7 @@ let rec partition_inductive
       (fun solver ->
         get_var_values
           solver
-          (TransSys.get_state_var_bounds trans_sys)
+          (bounds ())
           (cti_vars trans_sys))
       
       (fun _ -> ())
@@ -2442,7 +2447,7 @@ let partition_fwd_prop
         (fun solver ->
           get_var_values
             solver
-            (TransSys.get_state_var_bounds trans_sys)
+            (bounds ())
             (cti_vars trans_sys))
 
         (fun _ -> ())
@@ -3268,7 +3273,7 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (get_var_values
                    solver
-                   (TransSys.get_state_var_bounds trans_sys)
+                   (bounds ())
                    (cti_vars trans_sys))
                 path
                 (TransSys.state_vars trans_sys)
@@ -3329,7 +3334,7 @@ let extract_cex_path solver trans_sys trace =
                 (* SMTSolver.get_model solver *)
                 (get_var_values
                    solver
-                   (TransSys.get_state_var_bounds trans_sys)
+                   (bounds ())
                    (cti_vars trans_sys))
                 []
                 (TransSys.state_vars trans_sys)
@@ -3641,7 +3646,7 @@ let bmc_checks solver input_sys aparam trans_sys props bound =
       (* SMTSolver.get_model solver *)
       get_var_values
         solver
-        (TransSys.get_state_var_bounds trans_sys)
+        (bounds ())
         (cti_vars trans_sys)
     in
 
@@ -4043,12 +4048,13 @@ let main input_sys aparam trans_sys =
        for functions with container-typed arguments.")
   ;
 
+  reset_abstraction aparam trans_sys ;
+
   match Flags.IC3QE.abstr () with
   | `IA -> main_ic3 input_sys aparam trans_sys
   | `None -> (
     (* The applications of the function symbols are abstracted over
        application variables (see [app_var]) *)
-    reset_abstraction aparam trans_sys ;
     set_abstracted_ufs trans_sys ;
     if not (UfSymbol.UfSymbolSet.is_empty !(abstracted_ufs ())) then
       KEvent.log L_info
