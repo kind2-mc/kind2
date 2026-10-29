@@ -685,45 +685,182 @@ let ind_generalize solver prop_set frame clause literals =
 (* Extrapolation from a two-state counterexample                            *)
 (* ************************************************************************ *)
 
-(* Given a model and two formulas f and g return a conjunction of
-   literals such that 
+(* ************************************************************************ *)
+(* Abstraction of function symbols in the generalization                    *)
+(* ************************************************************************ *)
 
-   (1) x = s |= B[x] 
-   (2) B[x] |= exists x' (F[x] & T[x,x'] & G[x']) *)
-let extrapolate trans_sys state f g = 
+(* The function symbols of the system that quantifier elimination does not
+   reason about: those of abstract functions (imported functions, functions
+   abstracted by their contracts, ...) and of recursive functions defined at
+   the SMT level. Empty if the system has none. *)
+let abstracted_ufs =
+  let key = Domain.DLS.new_key (fun () -> ref UfSymbol.UfSymbolSet.empty) in
+  fun () -> Domain.DLS.get key
+
+let set_abstracted_ufs trans_sys =
+  abstracted_ufs () :=
+    TransSys.fold_subsystems ~include_top:true
+      (fun acc ts ->
+        let acc =
+          List.fold_left (fun acc uf -> UfSymbol.UfSymbolSet.add uf acc)
+            acc (TransSys.get_function_symbols ts)
+        in
+        List.fold_left
+          (List.fold_left (fun acc (uf, _, _) -> UfSymbol.UfSymbolSet.add uf acc))
+          acc (TransSys.get_rec_fun_defs ts))
+      UfSymbol.UfSymbolSet.empty trans_sys
+
+(* The term with the predicates of [uf_defs] inlined and each application of
+   an abstracted function symbol replaced by a fresh variable, the same for
+   equal applications; and the fresh variables, each with the application it
+   stands for, in the original term *)
+let abstract_ufs uf_defs term =
+  let abstracted = !(abstracted_ufs ()) in
+  (* The fresh variable of each application, over the fresh variables of
+     the applications in its arguments, and the application in the original
+     term *)
+  let apps : (Var.t * Term.t) Term.TermHashtbl.t = Term.TermHashtbl.create 17 in
+  let memo = Term.TermHashtbl.create 17 in
+  let rec abstract term =
+    match Term.TermHashtbl.find_opt memo term with
+    | Some t -> t
+    | None ->
+      let t =
+        Term.eval_t ~fail_on_quantifiers:true (fun flat args ->
+          match flat with
+          | Term.T.Var v -> Term.mk_var v
+          | Term.T.Const s -> Term.mk_const s
+          | Term.T.App (s, _) -> (
+            match Symbol.node_of_symbol s with
+            | `UF uf when List.mem_assq uf uf_defs ->
+              let vars, def = List.assq uf uf_defs in
+              abstract (Term.apply_subst (List.combine vars args) def)
+            | `UF uf when UfSymbol.UfSymbolSet.mem uf abstracted ->
+              let app = Term.mk_uf uf args in
+              (match Term.TermHashtbl.find_opt apps app with
+               | Some (v, _) -> Term.mk_var v
+               | None ->
+                 let v = Var.mk_fresh_var (UfSymbol.res_type_of_uf_symbol uf) in
+                 Term.TermHashtbl.add apps app (v, app) ;
+                 Term.mk_var v)
+            | _ -> Term.mk_app s args))
+          term
+      in
+      Term.TermHashtbl.add memo term t ;
+      t
+  in
+  let term' = abstract term in
+  (* The applications over the original arguments, for their values *)
+  let fresh = Term.TermHashtbl.fold (fun _ (v, app) acc -> (v, app) :: acc) apps [] in
+  let back = List.map (fun (v, app) -> v, app) fresh in
+  let rec original t =
+    let t' = Term.apply_subst back t in
+    if Term.equal t t' then t else original t'
+  in
+  term', List.map (fun (v, app) -> v, app, original app) fresh
+
+(* The Ackermann constraints of the applications of a symbol: equal
+   arguments give equal values, the congruence that the fresh variables of
+   [abstract_ufs] forget *)
+let ackermann_constraints fresh =
+  let rec pairs acc = function
+    | [] -> acc
+    | (v, app, _) :: rest ->
+      let acc =
+        List.fold_left (fun acc (v', app', _) ->
+          match Term.destruct app, Term.destruct app' with
+          | Term.T.App (s, args), Term.T.App (s', args') when s == s' ->
+            Term.mk_implies
+              [ Term.mk_and (List.map2 (fun a a' -> Term.mk_eq [a; a']) args args') ;
+                Term.mk_eq [Term.mk_var v; Term.mk_var v'] ]
+            :: acc
+          | _ -> acc
+        ) acc rest
+      in
+      pairs acc rest
+  in
+  pairs [] fresh
+
+
+(* Given a model and two formulas f and g return a conjunction of
+   literals such that
+
+   (1) x = s |= B[x]
+   (2) B[x] |= exists x' (F[x] & T[x,x'] & G[x'])
+
+   If the system has abstracted function symbols (see [abstracted_ufs]),
+   the applications of these symbols are replaced by fresh variables, with
+   the Ackermann constraints of the applications of each symbol, whose
+   values are those of the applications in the model of the last check of
+   [solver], which must still be available. The fresh variables are
+   eliminated with the primed variables: B is over the unprimed variables,
+   without the symbols, and (2) holds for some interpretation of the
+   symbols that agrees with the model on the applications of the
+   transition. Across transitions the interpretations may differ: a
+   counterexample built from the cubes is checked on the system with the
+   symbols (see [extract_cex_path]). *)
+let extrapolate solver trans_sys state f g =
 
   (* Construct term to be generalized with the transition relation and
      the invariants *)
-  let term = 
+  let term =
     Term.mk_and
       ((TransSys.global_constraints trans_sys) @
-      [f; 
-       TransSys.trans_of_bound None trans_sys Numeral.one; 
+      [f;
+       TransSys.trans_of_bound None trans_sys Numeral.one;
 (*
-       TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
-       TransSys.invars_of_bound trans_sys Numeral.one; 
+       TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero;
+       TransSys.invars_of_bound trans_sys Numeral.one;
 *)
        Term.bump_state Numeral.one g])
   in
 
+  let term, state, fresh_vars =
+    if UfSymbol.UfSymbolSet.is_empty !(abstracted_ufs ()) then term, state, []
+    else
+      let term', fresh =
+        try abstract_ufs (TransSys.uf_defs trans_sys) term
+        with Invalid_argument _ ->
+          raise (UnsupportedFeature
+            "Shutting down IC3QE: Cannot generalize quantified terms.")
+      in
+      let state =
+        match fresh with
+        | [] -> state
+        | _ ->
+          let values =
+            SMTSolver.get_term_values_at_once solver
+              (List.map (fun (_, _, app) -> app) fresh)
+          in
+          let state = Var.VarHashtbl.copy state in
+          List.iter2 (fun (v, _, _) (_, value) ->
+            Var.VarHashtbl.replace state v (Model.Term value)
+          ) fresh values ;
+          state
+      in
+      Term.mk_and (term' :: ackermann_constraints fresh),
+      state,
+      List.map (fun (v, _, _) -> v) fresh
+  in
+
   (* Get primed variables in the transition system *)
-  let primed_vars = 
+  let primed_vars =
     Var.VarSet.elements
-      (Term.vars_at_offset_of_term (Numeral.one) term) 
-  in 
+      (Term.vars_at_offset_of_term (Numeral.one) term)
+  in
 
   Stat.start_timer Stat.ic3_generalize_time;
 
   (* Generalize term by quantifying over and eliminating primed
      variables *)
-  let gen_term = 
-    try 
-      QE.generalize 
+  let gen_term =
+    try
+      QE.generalize
         trans_sys
-        (TransSys.uf_defs trans_sys) 
+        (TransSys.uf_defs trans_sys)
         state
-        primed_vars
-        term 
+        (primed_vars @ fresh_vars)
+        term
     with
     | QE.QuantifiedTermFound _ ->
         let err = "Shutting down IC3QE: Cannot generalize quantified terms." in
@@ -1017,6 +1154,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
 
                          R_k does not imply P[x] yet *)
                       extrapolate 
+                        solver
                         trans_sys 
                         cti 
                         (C.term_of_prop_set prop_set :: 
@@ -1599,6 +1737,7 @@ let rec block solver input_sys aparam trans_sys prop_set term_tbl predicates =
                      | `None ->
 
                        extrapolate 
+                         solver
                          trans_sys 
                          cti
                          ((C.term_of_clause block_clause ::
@@ -2580,6 +2719,55 @@ let no_cex_path trans_sys =
   else
     assert false
 
+(* With function symbols abstracted in the generalization (see
+   [extrapolate]), the counterexample [cex_path] that [extract_cex_path]
+   builds may interpret a symbol differently at different steps: each step
+   is a check of its own. It is checked as a whole on the system, with the
+   symbols, unrolled to its length: a path there that falsifies one of the
+   properties [props] is the counterexample returned, and if there is none,
+   the counterexample was spurious and IC3QE stops. *)
+let check_cex_with_ufs trans_sys props cex_path =
+  let k =
+    match cex_path with
+    | (_, values) :: _ -> Numeral.of_int (List.length values - 1)
+    | [] -> Numeral.zero
+  in
+  let solver =
+    SMTSolver.create_instance ~produce_models:true
+      (TransSys.get_logic trans_sys) (Flags.Smt.solver ())
+  in
+  Fun.protect ~finally:(fun () -> SMTSolver.delete_instance solver) (fun () ->
+    TransSys.define_and_declare_of_bounds trans_sys
+      (SMTSolver.define_fun solver)
+      ~define_rec:(SMTSolver.define_funs_rec solver)
+      (SMTSolver.declare_fun solver)
+      (SMTSolver.declare_sort solver)
+      Numeral.zero k ;
+    TransSys.assert_global_constraints trans_sys (SMTSolver.assert_term solver) ;
+    SMTSolver.assert_term solver
+      (TransSys.init_of_bound None trans_sys Numeral.zero) ;
+    let rec unroll i =
+      if Numeral.(i <= k) then (
+        SMTSolver.assert_term solver (TransSys.trans_of_bound None trans_sys i) ;
+        unroll (Numeral.succ i))
+    in
+    unroll Numeral.one ;
+    SMTSolver.assert_term solver
+      (Term.mk_or
+         (List.map (fun (_, t) -> Term.mk_not (Term.bump_state k t)) props)) ;
+    if SMTSolver.check_sat solver then
+      let model =
+        get_var_values solver
+          (TransSys.get_state_var_bounds trans_sys)
+          (TransSys.vars_of_bounds trans_sys Numeral.zero k)
+      in
+      Model.path_from_model (TransSys.state_vars trans_sys) model k
+      |> Model.path_to_list
+    else
+      raise (UnsupportedFeature
+        "IC3QE stops: the counterexample found is spurious, as it \
+         interprets a function symbol differently at different steps"))
+
 (* Extract a concrete counterexample from a sequence of blocking
    clauses *)
 let extract_cex_path solver trans_sys trace = 
@@ -2796,6 +2984,10 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
                   trace
               with SMTSolver.Unknown when has_arrays trans_sys ->
                 no_cex_path trans_sys
+            in
+            let cex_path =
+              if UfSymbol.UfSymbolSet.is_empty !(abstracted_ufs ()) then cex_path
+              else check_cex_with_ufs trans_sys props cex_path
             in
 (*
             debug ic3
@@ -3372,10 +3564,13 @@ let main input_sys aparam trans_sys =
   match Flags.IC3QE.abstr () with
   | `IA -> main_ic3 input_sys aparam trans_sys
   | `None -> (
+    (* The applications of the function symbols are abstracted in the
+       generalization (see [extrapolate]) *)
+    set_abstracted_ufs trans_sys ;
     if TransSys.subsystem_includes_function_symbol trans_sys then
-      raise (UnsupportedFeature
-        "Shutting down IC3QE: system includes an abstract function.")
-    ;
+      KEvent.log L_info
+        "IC3QE: system includes function symbols, abstracted in the \
+         generalization with Ackermann constraints." ;
     main_ic3 input_sys aparam trans_sys
   )
 
