@@ -264,6 +264,11 @@ let match_scrutinee = "mscrut"
    passes below must not exempt from the checks a user variable must meet. *)
 let var_is_match_scrutinee = is_generated_ast_name match_scrutinee
 
+(* String constant used in lustreGenNodes.ml as the suffix of the fresh
+   constants that hold the subtype obligation of a record or constructor
+   expression met where an ascription is not allowed (e.g. '4_gsubtype'). *)
+let const_subtype_check = "gsubtype"
+
 (* String constant used in lustreDesugarArrayComprehensions.ml as the suffix of
    the fresh locals holding the value of an array comprehension
    (e.g. '4_gcomp'). *)

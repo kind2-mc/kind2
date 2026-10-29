@@ -45,3 +45,11 @@ val is_user_ascription : NodeId.t -> bool
 val gen_nodes : TypeCheckerContext.tc_context -> 
                          LustreAst.declaration list -> 
                          (LustreAst.declaration list * [> error] option, [> error]) result
+
+(* The global constant and type declarations, with a fresh global constant
+   inserted for each record or constructor expression in one of them whose
+   field types contain a refinement type. A constant expression is expected
+   there, so the refinement cannot be checked by an inserted ascription; the
+   declared type of the fresh constant yields the obligation instead. *)
+val global_const_subtype_checks : TypeCheckerContext.tc_context ->
+                         LustreAst.declaration list -> LustreAst.declaration list

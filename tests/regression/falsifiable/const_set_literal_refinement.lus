@@ -1,0 +1,8 @@
+type Nat = subtype { n: int | n >= 0 };
+type R = struct { f: Nat };
+const s: set<R> = { R { f = -1 } };
+node N(x: int) returns (y: bool);
+let
+  y = R { f = 0 } in s;
+  check not y;
+tel

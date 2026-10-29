@@ -1,0 +1,7 @@
+type R = struct { f: subtype { w: int | w >= 1 } };
+node imported M(x: subtype { v: int | v = (R { f = 2 }).f }) returns (y: int);
+node N(x: int) returns (y: int);
+let
+  y = M(2);
+  check true;
+tel

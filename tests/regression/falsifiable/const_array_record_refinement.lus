@@ -1,0 +1,8 @@
+type Nat = subtype { n: int | n >= 0 };
+type R = struct { f: Nat };
+const K: R^2 = [R { f = -1 }, R { f = 0 }];
+node N(x: int) returns (y: int);
+let
+  y = K[0].f;
+  check y = -1;
+tel

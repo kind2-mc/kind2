@@ -177,6 +177,10 @@ val var_is_iboracle: HString.t -> bool
    results of a call statement (see lustreNameCalls.ml). *)
 val discarded_output : string
 
+(** Suffix of the fresh constants holding the subtype obligation of a record or
+    constructor expression met where an ascription is not allowed *)
+val const_subtype_check : string
+
 (** Suffix of the fresh locals holding the value of an array comprehension *)
 val array_comprehension : string
 

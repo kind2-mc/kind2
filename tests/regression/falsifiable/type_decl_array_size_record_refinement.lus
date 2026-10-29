@@ -1,0 +1,4 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+type T = int^((R { f = 2 }).f);
+node N(x: int) returns (y: T);
+let y = x^((R { f = 2 }).f); tel

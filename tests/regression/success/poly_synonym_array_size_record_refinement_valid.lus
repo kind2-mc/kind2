@@ -1,0 +1,8 @@
+type Nat = subtype { n: int | n >= 0 };
+type R<T> = struct { f: T };
+type S = R<Nat>;
+node N(x: int) returns (y: int^((S { f = 2 }).f));
+let
+  y = x^((S { f = 2 }).f);
+  check y[0] = x;
+tel
