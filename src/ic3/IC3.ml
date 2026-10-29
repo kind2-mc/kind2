@@ -721,6 +721,16 @@ let abstract_ufs uf_defs term =
      term *)
   let apps : (Var.t * Term.t) Term.TermHashtbl.t = Term.TermHashtbl.create 17 in
   let memo = Term.TermHashtbl.create 17 in
+  (* The fresh variable of an application of an abstracted symbol *)
+  let fresh_var uf args =
+    let app = Term.mk_uf uf args in
+    match Term.TermHashtbl.find_opt apps app with
+    | Some (v, _) -> Term.mk_var v
+    | None ->
+      let v = Var.mk_fresh_var (UfSymbol.res_type_of_uf_symbol uf) in
+      Term.TermHashtbl.add apps app (v, app) ;
+      Term.mk_var v
+  in
   let rec abstract term =
     match Term.TermHashtbl.find_opt memo term with
     | Some t -> t
@@ -729,20 +739,19 @@ let abstract_ufs uf_defs term =
         Term.eval_t ~fail_on_quantifiers:true (fun flat args ->
           match flat with
           | Term.T.Var v -> Term.mk_var v
-          | Term.T.Const s -> Term.mk_const s
+          (* An application without arguments, such as the output of a
+             function without inputs, is a constant *)
+          | Term.T.Const s -> (
+            match Symbol.node_of_symbol s with
+            | `UF uf when UfSymbol.UfSymbolSet.mem uf abstracted -> fresh_var uf []
+            | _ -> Term.mk_const s)
           | Term.T.App (s, _) -> (
             match Symbol.node_of_symbol s with
             | `UF uf when List.mem_assq uf uf_defs ->
               let vars, def = List.assq uf uf_defs in
               abstract (Term.apply_subst (List.combine vars args) def)
             | `UF uf when UfSymbol.UfSymbolSet.mem uf abstracted ->
-              let app = Term.mk_uf uf args in
-              (match Term.TermHashtbl.find_opt apps app with
-               | Some (v, _) -> Term.mk_var v
-               | None ->
-                 let v = Var.mk_fresh_var (UfSymbol.res_type_of_uf_symbol uf) in
-                 Term.TermHashtbl.add apps app (v, app) ;
-                 Term.mk_var v)
+              fresh_var uf args
             | _ -> Term.mk_app s args))
           term
       in

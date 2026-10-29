@@ -111,10 +111,28 @@ tel
 """
 
 
-def run_ic3qe(tmp_path, model):
+# A function without inputs, abstracted by its contract: its output is an
+# application of a symbol to no argument, a constant in the terms
+nullary = """
+type Nat = subrange [0,*] of int;
+
+function U() returns (r: Nat);
+let
+  r = 0;
+tel
+
+node G() returns (x: int);
+let
+  x = U() -> pre x + 2;
+  check "prop" x <> 1;
+tel
+"""
+
+
+def run_ic3qe(tmp_path, model, extra={}):
     path = tmp_path / "model.lus"
     path.write_text(model)
-    args = common_args | {"--timeout": "30"}
+    args = common_args | {"--timeout": "30"} | extra
     arg_list = [arg for pair in args.items() for arg in pair]
     run = subprocess.run(
         [kind2_bin, *arg_list, "--enable", "IC3QE", str(path)],
@@ -125,6 +143,7 @@ def run_ic3qe(tmp_path, model):
     output = run.stdout + run.stderr
     assert "terminated on exception" not in output, output
     assert "Runtime failure" not in output, output
+    assert "Runtime error" not in output, output
     assert "Assertion failed" not in output, output
     assert "system includes an abstract function" not in output, output
     return output
@@ -152,3 +171,9 @@ def test_spurious_counterexample_not_reported(tmp_path):
     output = run_ic3qe(tmp_path, cross_step)
     assert "is invalid" not in output, output
     assert "IC3QE stops: the counterexample found is spurious" in output, output
+
+
+def test_nullary_application(tmp_path):
+    output = run_ic3qe(tmp_path, nullary,
+                       {"--modular": "true", "--compositional": "true"})
+    assert "Property prop is invalid" not in output, output
