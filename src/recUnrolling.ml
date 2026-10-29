@@ -71,10 +71,19 @@ let evaluation_timeout = 500
    the budget. Counted, the first start took the budget on the first
    counterexample of a round, whichever it was, and a genuine one that came
    after it was left undecided, its property unknown, depending on the
-   machine and the order in which the engines reported. *)
+   machine and the order in which the engines reported.
+
+   Only the checks that leave their counterexample undecided are counted:
+   they are the ones the budget is for. A check that decides its
+   counterexample takes as long as its queries and evaluations, which are
+   bounded each and whose values are facts for the checks that follow, and
+   it is many times longer on a loaded machine than on another. Counted, a
+   check that showed a counterexample spurious took the budget on a loaded
+   machine, and a genuine one that came after it was left undecided. *)
 let round_budget = 5.
 
-(* The time the checks of the round took so far *)
+(* The time the checks of the round that left their counterexample
+   undecided took so far *)
 let round_time = ref 0.
 
 (* The time it took to start the solvers that take a limit per query the
@@ -94,18 +103,20 @@ let first_start started t =
     started := true ;
     startup_time := !startup_time +. t)
 
-(* Run the check [f], and count the time it takes in [round_time], but for
-   the time it takes to start the solvers that take a limit per query the
-   first time *)
+(* Run the check [f], and count the time it takes in [round_time] if it
+   leaves the counterexample undecided, but for the time it takes to start
+   the solvers that take a limit per query the first time *)
 let counted f =
   let started = Unix.gettimeofday () and startup = !startup_time in
-  Fun.protect
-    ~finally:(fun () ->
+  let result = f () in
+  ( match result with
+    | `Undecided ->
       round_time :=
         !round_time
         +. (Unix.gettimeofday () -. started)
-        -. (!startup_time -. startup))
-    f
+        -. (!startup_time -. startup)
+    | `Result _ -> () ) ;
+  result
 
 (* The solver the queries of a round are put to: one per round, with the
    system declared and its initial state asserted once, and every query
@@ -692,13 +703,6 @@ let outcome ?(abstracted = false) sys prop cex =
   in
   result
 
-(* Whether the counterexample is genuine (see [outcome]), an undecided one
-   not being taken as genuine *)
-let genuine ?abstracted sys prop cex =
-  match outcome ?abstracted sys prop cex with
-  | `Result r -> r
-  | `Undecided -> false
-
 (* The recursive functions the counterexample to the property may be
    spurious for: a cutoff of theirs is reached, and the counterexample is
    not known to be genuine *)
@@ -724,8 +728,10 @@ let suspect sys prop cex =
       if not (List.for_all (fun f -> List.exists (Scope.equal f) evaluable) reached)
       then reached
       else if !round_time > round_budget then reached
-      else if counted (fun () -> genuine sys prop cex) then []
-      else reached
+      else
+        match counted (fun () -> outcome sys prop cex) with
+        | `Result true -> []
+        | `Result false | `Undecided -> reached
 
 (* Run [f] with a round solver, an evaluator and tables of facts of its own,
    for a system other than the one of the round, whose symbols the round's
@@ -778,7 +784,7 @@ let check_abstractions ~sliced sys prop cex =
   && Flags.Contracts.refinement ()
   && !round_time <= round_budget
   then (
-    let genuine =
+    let outcome =
       counted
         (fun () ->
            (* A counterexample shown spurious only failed with values of
@@ -788,13 +794,11 @@ let check_abstractions ~sliced sys prop cex =
               the facts of the check, before [isolated] restores those of
               the round. *)
            let check sys =
-             match outcome ~abstracted:true sys prop cex with
-             | `Result true -> true
-             | `Result false ->
-               if Flags.Contracts.rec_learn_values () then
-                 Facts.iter (Facts.replace learned) facts ;
-               false
-             | `Undecided -> false
+             let outcome = outcome ~abstracted:true sys prop cex in
+             ( if outcome = `Result false
+               && Flags.Contracts.rec_learn_values () then
+                 Facts.iter (Facts.replace learned) facts ) ;
+             outcome
            in
            (* On the system sliced to the property, the counterexample only
               executes the calls the property depends on, or an assertion
@@ -805,7 +809,8 @@ let check_abstractions ~sliced sys prop cex =
            | Some sliced_sys -> isolated (fun () -> check sliced_sys)
            | None -> check sys)
     in
-    if genuine then genuine_props := SSet.add prop !genuine_props)
+    if outcome = `Result true then
+      genuine_props := SSet.add prop !genuine_props)
 
 let genuine_properties () = SSet.elements !genuine_props
 
