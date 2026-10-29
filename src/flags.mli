@@ -435,6 +435,10 @@ module IC3QE : sig
   (** Check inductiveness of blocking clauses. *)
   val check_inductive : unit -> bool
 
+  (** The number of refinements of the abstraction of the function symbols
+      in the generalization, for the spurious counterexamples *)
+  val uf_refinements : unit -> int
+
   (** File for inductive blocking clauses. *)
   val print_to_file : unit -> string option
 
