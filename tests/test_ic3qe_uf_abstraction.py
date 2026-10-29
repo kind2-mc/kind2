@@ -177,3 +177,16 @@ def test_nullary_application(tmp_path):
     output = run_ic3qe(tmp_path, nullary,
                        {"--modular": "true", "--compositional": "true"})
     assert "Property prop is invalid" not in output, output
+
+
+# Without check-sat-assuming, which Kind 2 turns off for some solvers, the
+# check runs in a push and pop, and its model is gone once it returns: the
+# values of the applications are read with the model of the variables
+@pytest.mark.parametrize(
+    "model, answer",
+    [(buffered, "valid"), (buffered_falsified, "invalid")],
+    ids=["buffered", "buffered_falsified"])
+def test_without_check_sat_assuming(tmp_path, model, answer):
+    output = run_ic3qe(tmp_path, model, {"--check_sat_assume": "false"})
+    assert f"Property prop is {answer} by property directed reachability (QE)" \
+        in output, output
