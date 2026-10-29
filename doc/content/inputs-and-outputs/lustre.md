@@ -1329,6 +1329,36 @@ x = when c then (0 -> pre x + 1) else 0;
 `if c then (0 -> pre x + 1) else 0`, the previous value of `x` would be 0
 whenever `c` was false at the previous step.
 
+The first time a branch is selected, there is no earlier step on its clock, so
+a `pre` in the branch is undefined unless a `->` *inside the branch* guards
+it. An arrow that encloses the whole `when` expression does not help, since it
+counts steps of the enclosing clock, not of the branch. For example, in
+
+```lustre
+x = i;
+ok = true -> (when i > 0 then pre x = pre i else true);
+```
+
+`ok` may be false at the first step at which `i > 0`, even though `x = i`.
+At that step `pre x` and `pre i` refer to a previous selection of the branch
+that does not exist, so their values are unconstrained. Kind 2 reports such
+a `pre` as unguarded. Depending on the intended meaning, write instead:
+
+```lustre
+ok = when i > 0 then (true -> pre x = pre i) else true;
+```
+
+where the arrow inside the branch guards the `pre`, which refers to the last
+time the branch was selected, or
+
+```lustre
+ok = true -> (if i > 0 then pre x = pre i else true);
+```
+
+where the eager `if` evaluates `pre` at every step, so that it refers to the
+immediately preceding step. The second form only applies when the branch does
+not need to be lazy.
+
 Each form has a corresponding statement-level block, described in the next
 section: `if` statements desugar to `if ... then ... else ...` expressions,
 while `when` and `cond` blocks desugar to `when ... then ... else ...`
