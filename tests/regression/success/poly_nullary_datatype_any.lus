@@ -1,0 +1,6 @@
+datatype Opt<T> = NoneA | NoneB;
+node N(p: Opt<int>) returns (y: Opt<int>);
+let
+  y = any { z: Opt<int> | z <> p };
+  check y <> p;
+tel

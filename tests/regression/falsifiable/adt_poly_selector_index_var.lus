@@ -1,0 +1,9 @@
+datatype Opt<T> = Absent | Present (val: T);
+
+node main(a: Opt<int>^3) returns (ok: bool);
+var b: bool^3;
+let
+  b = ((true -> ((pre a[i]).val > 0 or true)) foreach i)^3;
+  ok = b[0] and b[1] and b[2];
+  check ok;
+tel

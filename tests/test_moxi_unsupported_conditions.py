@@ -3,11 +3,12 @@
 The attributes :current, :fairness and :queries are parsed and type
 checked; kmoxi used to reject them as an unexpected character. An
 initiality condition is a one-state formula, at most one per query, and a
-fairness condition may prime inputs only. A query that names a :current or
-:fairness condition, or a check-system with several queries, is reported as
-unsupported, at the condition or command; so is a query with several
-:reachable conditions, at the second one. A condition that no query names
-is ignored, as it does not change the query.
+fairness condition may prime inputs only. A query that names a :fairness
+condition is reported as unsupported, at the condition, and so is a
+:queries attribute with several queries whose conditions or checked
+system use declared constants, at the attribute, since its queries share
+the values of the constants. A condition that no query names is ignored, as it does not
+change the query.
 """
 
 import subprocess
@@ -48,37 +49,31 @@ def run(tmp_path, model, extra, env=None, timeout=60):
 
 
 unsupported = {
-    "current": (
-        "  :current (c (= n 1)) :reachable (r (> n 3)) :query (q (c r)))\n",
-        "5:13", "kmoxi does not support :current conditions",
-    ),
-    # A query may name its :current condition more than once
-    "current named twice": (
-        "  :current (c (= n 1)) :reachable (r (> n 3)) :query (q (c c r)))\n",
-        "5:13", "kmoxi does not support :current conditions",
-    ),
     "fairness": (
         "  :fairness (f (> i' 0)) :reachable (r (> n 3)) :query (q (f r)))\n",
-        "5:14", "kmoxi does not support :fairness conditions",
+        "6:14", "kmoxi does not support :fairness conditions",
     ),
-    "queries": (
-        "  :reachable (r (> n 3)) :reachable (s (< n 0))\n"
+    "queries with constants": (
+        "  :reachable (r (> n k)) :reachable (s (< n k))\n"
         "  :queries ((q1 (r)) (q2 (s))))\n",
-        "4:1", "kmoxi supports one :query per check-system",
-    ),
-    "several reachable": (
-        "  :reachable (r (> n 3)) :reachable (s (< n 0)) :query (q (r s)))\n",
-        "5:38", "kmoxi supports one :reachable condition per query",
+        "7:3", "kmoxi does not support a :queries attribute with several "
+        "queries that use declared constants",
     ),
 }
+
+
+def with_constant(model):
+    return model.replace("(set-logic QF_LIA)\n",
+                         "(set-logic QF_LIA)\n(declare-const k Int)\n")
 
 
 @pytest.mark.parametrize("case", unsupported, ids=unsupported)
 def test_unsupported_reported(tmp_path, case):
     attrs, position, message = unsupported[case]
-    code, _, _ = run(tmp_path, head + attrs, ["--only_parse", "true"])
+    model = with_constant(head + attrs)
+    code, _, _ = run(tmp_path, model, ["--only_parse", "true"])
     assert code == 0
-    code, out, err = run(tmp_path, head + attrs, [])
+    code, out, err = run(tmp_path, model, [])
     assert code == PARSE_ERROR, out + err
     assert f"model.moxi:{position}: error: {message}" in out, out
     assert out.startswith('(error "') and out.endswith('")\n'), out
@@ -113,8 +108,8 @@ def test_ill_typed_conditions(tmp_path, case):
     assert err == "", err
 
 
-# Answered queries: conditions no query names are ignored, and a :queries
-# attribute with one query is a :query
+# Answered queries: conditions no query names are ignored, a :queries
+# attribute with one query is a :query, even with declared constants
 answered = {
     "unnamed current":
         "  :current (c (= n 1)) :reachable (r (= n 4)) :query (q (r)))\n",
@@ -124,10 +119,15 @@ answered = {
         "  :reachable (r (= n 4)) :queries ((q (r))))\n",
     "reachable named twice":
         "  :reachable (r (= n 4)) :query (q (r r)))\n",
+    "current named twice":
+        "  :current (c (= n 1)) :reachable (r (= n 3)) :query (q (c c r)))\n",
+    "one query in queries with constants":
+        "  :reachable (r (= n (+ k 4))) :queries ((q (r))))\n",
 }
 
 
 @pytest.mark.parametrize("case", answered, ids=answered)
 def test_answered(tmp_path, case):
-    code, out, err = run(tmp_path, head + answered[case], ["--enable", "BMC"])
+    model = with_constant(head + answered[case])
+    code, out, err = run(tmp_path, model, ["--enable", "BMC"])
     assert code == 0 and query_answer(out) == "sat", out + err

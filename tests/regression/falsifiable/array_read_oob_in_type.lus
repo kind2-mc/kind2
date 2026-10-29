@@ -1,5 +1,7 @@
 (* A read out of the bounds of an array of enumerated values is unspecified,
-   but it denotes a value of the enumerated type (see #1727) *)
+   but it denotes a value of the enumerated type (see #1727). The reads are out
+   of bounds on purpose, so their proof obligations are falsified; that the
+   properties below hold is checked by test_array_read_oob_in_type.py *)
 type E = enum { A, B };
 type R = struct { f: E^2 };
 datatype L = LN | LC (h: E, t: L);

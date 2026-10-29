@@ -1,5 +1,5 @@
 -- 'pre (a[i])' reads the index at the previous instant, not '(pre a)[i]'
-node Top(a: int^3; i: int; v: int) returns ();
+node Top(a: int^3; i: subrange [0, 2] of int; v: int) returns ();
 var x, y, z, w: int;
 let
   w = a[i];

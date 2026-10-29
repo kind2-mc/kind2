@@ -1,0 +1,5 @@
+-- A negative constant index
+node main(a: int^3) returns (y: int);
+let
+  y = a[-1];
+tel

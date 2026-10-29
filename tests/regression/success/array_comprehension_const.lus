@@ -13,8 +13,8 @@ node Use (A: int^N) returns (B: int^N);
 *)
 let
   B = (A[i] + Sq[i] foreach i)^N;
-  check "forall" forall (k: int) 0 <= k and k < N => Sq[k] = k * k;
-  check "two" N > 2 => Two = 4;
+  check "forall" forall (k: int) 0 <= k and k < N ==> Sq[k] = k * k;
+  check "two" N > 2 ==> Two = 4;
   check "identity" Id[1] = [0, 1, 0];
 tel
 

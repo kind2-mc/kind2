@@ -263,6 +263,9 @@ let gen_imp_nodes: Ctx.tc_context -> A.declaration list -> (A.declaration list *
     match decl with 
     | A.ConstDecl (_, FreeConst _)
     | A.ConstDecl (_, TypedConst _) -> R.ok (acc_decls, acc_ctx, acc_gids)
+    | A.TypeDecl (_, AliasType (_, id, _, _))
+      when LustreDesugarADTs.is_generated_type_name id ->
+      R.ok (acc_decls, acc_ctx, acc_gids)
     | A.TypeDecl (_, AliasType (p, id, ps, ty)) -> 
       (match type_to_contract p id ty ps with 
       | Some decl1 -> R.ok (decl1 :: acc_decls, acc_ctx, acc_gids)

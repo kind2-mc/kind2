@@ -1,0 +1,7 @@
+-- An index of a comprehension within the bounds of an array of symbolic size
+-- that is not the index variable itself
+node main(const n: int; a: int^n) returns (r: int^n);
+let
+  r = (a[n - 1 - i] foreach i)^n;
+  check n > 0 ==> r[0] = a[n - 1];
+tel

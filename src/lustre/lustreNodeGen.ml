@@ -802,12 +802,14 @@ let ldat_adt_map_to_g_adt_map (ldat_map : LDAT.adt_map) : G.adt_map =
     { G.disc_field = info.LDAT.disc_field;
       G.ctor_fields = StringMap.map (fun fields ->
         List.map (fun (fname, ftype) ->
-          (* A recursive ADT is a single datatype-sorted state variable, not
-             a record with a tag of its own *)
+          (* Only a record-encoded ADT field has a tag of its own: a recursive
+             one is a single datatype-sorted state variable, and an enum-like
+             one a single enum-sorted state variable *)
           let field_info = match ftype with
             | A.UserType (_, _, tname)
               when (match StringMap.find_opt tname ldat_map with
-                    | Some nested -> not nested.LDAT.is_recursive
+                    | Some nested ->
+                      not nested.LDAT.is_recursive && not (LDAT.is_enum_like nested)
                     | None -> false) ->
               G.AdtFieldNested tname
             | _ -> G.AdtFieldPlain
@@ -888,28 +890,29 @@ let find_recursive_selector adt_map ty_name field =
   | Some (info : LDAT.adt_info) ->
     if not info.is_recursive then None
     else
-      let field_str = HString.string_of_hstring field in
+      (* The internal name of a payload field is generated, so it is looked
+         up rather than rebuilt *)
       StringMap.fold (fun ctor_hs fields acc ->
         match acc with
         | Some _ -> acc
         | None ->
-          let ctor_str = HString.string_of_hstring ctor_hs in
-          let target = ctor_str ^ "_" ^ field_str in
-          let rec find_idx i = function
-            | [] -> None
-            | (fname, _) :: rest ->
-              if HString.string_of_hstring fname = target then Some (ctor_hs, i)
-              else find_idx (i + 1) rest
+          let internal =
+            List.find_opt (fun (c, user, _) ->
+              HString.equal c ctor_hs && HString.equal user field
+            ) info.LDAT.field_names
           in
-          find_idx 0 fields
+          match internal with
+          | None -> None
+          | Some (_, _, internal) ->
+            let rec find_idx i = function
+              | [] -> None
+              | (fname, _) :: rest ->
+                if HString.equal fname internal then Some (ctor_hs, i)
+                else find_idx (i + 1) rest
+            in
+            find_idx 0 fields
       ) info.ctor_fields None
 
-(* The type a datatype's field has, with a self-reference resolved to the
-   datatype itself *)
-let resolve_datatype_ref dt ft =
-  if Type.is_datatype_ref ft
-     && String.equal (Type.name_of_datatype_ref ft) (Type.name_of_datatype dt)
-  then dt else ft
 
 (* An enum is an integer everywhere else, but a datatype field of integer sort
    lets a model read a value outside the enum out of a free datatype value: a
@@ -1165,7 +1168,7 @@ and compile_ast_type
     (* Declare every constructor, not only the ones the program builds a term
        with: a model returned by the solver may mention any of them *)
     List.iter (fun (ctor, field_types) ->
-      let arg_types = List.map (resolve_datatype_ref adt_type) field_types in
+      let arg_types = List.map (Type.resolve_datatype_ref adt_type) field_types in
       ignore (UfSymbol.mk_uf_symbol ctor arg_types adt_type)
     ) ctors';
     X.singleton X.empty_index adt_type
@@ -1949,8 +1952,8 @@ and compile_ast_expr_in
       let dt = E.type_of_lustre_expr e' in
       let ctor_sym = compiled_ctor_sym dt ctor in
       let field_types = List.assoc ctor_sym (Type.constructors_of_datatype dt) in
-      let selector_name = ctor_sym ^ "_" ^ string_of_int field_pos in
-      let result_type = resolve_datatype_ref dt (List.nth field_types field_pos) in
+      let selector_name = Type.selector_name ctor_sym field_pos in
+      let result_type = Type.resolve_datatype_ref dt (List.nth field_types field_pos) in
       let sel = E.mk_selector selector_name result_type e' in
       let sel =
         if Type.is_enum_field_sort result_type then
@@ -2049,7 +2052,7 @@ and compile_ast_expr_in
     let arg_types =
       if Type.is_datatype adt_type then
         List.assoc ctor_name (Type.constructors_of_datatype adt_type)
-        |> List.map (resolve_datatype_ref adt_type)
+        |> List.map (Type.resolve_datatype_ref adt_type)
       else
         List.map
           (fun ty -> X.find X.empty_index (compile_ast_type cstate ctx map ty))
@@ -2065,8 +2068,15 @@ and compile_ast_expr_in
   | A.Match _ -> assert false
   | A.ADTTester (_, expr, ctor) ->
     let e' = X.find X.empty_index (compile_ast_expr cstate ctx bounds map expr) in
-    let ctor_str = compiled_ctor_sym (E.type_of_lustre_expr e') ctor in
-    X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
+    let ty = E.type_of_lustre_expr e' in
+    (* An ADT that collapsed to an enum has one value per constructor, so
+       testing its constructor is comparing it with that value *)
+    if Type.is_enum ty then
+      let ctor_str = HString.string_of_hstring ctor in
+      X.singleton X.empty_index (E.mk_eq e' (E.mk_constr ctor_str ty))
+    else
+      let ctor_str = compiled_ctor_sym ty ctor in
+      X.singleton X.empty_index (E.mk_is_constructor ctor_str e')
 
 and compile_node_call ?(uf_applied=false) ?(instance=[]) node_scope pos ctx cstate map mk_outputs cond restart call_ctx node_id args defaults inlined ties =
   let ident = NI.get_internal_name node_id |> I.of_hstring in
@@ -2719,7 +2729,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   in let glocals =
     List.fold_left
       (fun glocals (_, id, _) -> add_generated_bool_local glocals id)
-      glocals gids.GI.selector_obligations
+      glocals
+      (gids.GI.selector_obligations @ gids.GI.array_bounds_obligations)
   (* ****************************************************************** *)
   (* (State Variables for) Generated Locals for Node Arguments          *)
   (* ****************************************************************** *)
@@ -2789,14 +2800,30 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
   let (oracles, oracle_state_var_map) =
     let over_oracles (oracles, osvm) (id, expr_type, expr) =
       let oracle_ident = mk_ident id in
-      let closed_sv = match expr with
-        | A.Ident (_, id')
-        | A.IndexAccess (_, A.Ident (_, id'), _, _) ->
-          let ident = mk_ident id' in
-          let closed_sv = H.find !map.state_var ident in
-          Some closed_sv
-        | A.Const (_, _) -> None
-        | _ -> assert false
+      (* The variable the oracle stands in for, which names it in IVC/MCS
+         output, printed invariants and certificates. An array local is read
+         through one index access per dimension *)
+      let closed_sv =
+        let rec base expr =
+          match expr with
+          | A.Ident (_, id') -> Some id'
+          | A.IndexAccess (_, e, _, _) | A.Pre (_, e) -> base e
+          (* An expression of several variables has no single state variable to
+             be named after *)
+          | _ -> None
+        in
+        (* A constant is compiled to its value, not to a state variable: a
+           ghost constant is renamed and only reachable through the constants
+           compiled so far. Any other identifier must have a state variable *)
+        let is_constant id =
+          Option.is_some (Ctx.lookup_const ctx id)
+          || StringMap.mem id cstate.local_constants
+          || StringMap.mem id cstate.other_constants
+        in
+        match base expr with
+        | Some id' when is_constant id' -> None
+        | Some id' -> Some (H.find !map.state_var (mk_ident id'))
+        | None -> None
       in
       let index_types = compile_ast_type cstate ctx map expr_type in
       let over_indices = fun index index_type accum ->
@@ -3611,6 +3638,9 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     let create_selector_name_pos (pos : position) =
       Format.asprintf "@[<h>Selector%a@]" pp_print_line_and_column pos
     in
+    let create_array_bounds_name_pos (pos : position) =
+      Format.asprintf "@[<h>ArrayBounds%a@]" pp_print_line_and_column pos
+    in
     let uniq_name =
       make_uniquifier
         (List.map (fun (_, pos, _, _, _) -> create_constraint_name_pos pos)
@@ -3660,17 +3690,17 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
       (assumes, List.length assumes, guarantees, List.length guarantees, props)
       gids.GI.refinement_type_constraints
     in
-    (* Selector obligations are always body properties: they are about a read
-       inside an expression, not about the interface of the node. *)
-    let props =
+    (* Selector and array bounds obligations are always body properties: they
+       are about a read inside an expression, not about the interface of the
+       node. *)
+    let add_obligation_props create_name_pos obligations props =
       let uniq_name =
         make_uniquifier
-          (List.map (fun (pos, _, _) -> create_selector_name_pos pos)
-            gids.GI.selector_obligations)
+          (List.map (fun (pos, _, _) -> create_name_pos pos) obligations)
       in
       List.fold_left (fun p (pos, id, oexpr) ->
         let sv = H.find !map.state_var (mk_ident id) in
-        let name = uniq_name (create_selector_name_pos pos) in
+        let name = uniq_name (create_name_pos pos) in
         let soexpr =
           LDAT.string_of_expr_as_source
             ~ref_type_names:cstate.ref_type_names cstate.adt_map oexpr
@@ -3678,7 +3708,15 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
         let gen_src = if is_extern then Property.Contract else Property.Body in
         let src = Property.Generated (Some pos, [sv], gen_src) in
         (sv, name, src, Property.Invariant, soexpr) :: p
-      ) props gids.GI.selector_obligations
+      ) props obligations
+    in
+    let props =
+      add_obligation_props create_selector_name_pos
+        gids.GI.selector_obligations props
+    in
+    let props =
+      add_obligation_props create_array_bounds_name_pos
+        gids.GI.array_bounds_obligations props
     in
     (assumes, guarantees, props)
   (* ****************************************************************** *)

@@ -1,0 +1,11 @@
+-- A function inlined under a quantifier: the read is checked for every value of
+-- the quantified variable
+function get(a: int^3; k: int) returns (y: int);
+let
+  y = a[k];
+tel
+
+node main(a: int^3) returns ();
+let
+  check forall (k: int) get(a, k) = get(a, k);
+tel

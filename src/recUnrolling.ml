@@ -54,8 +54,8 @@ let query_timeout = 2
    enough that the time it takes grows faster than its depth *)
 let evaluation_timeout = 500
 
-(* The time the checks of the counterexamples of a round may take in all,
-   in seconds. A check may be undecidable in practice, for a function that
+(* The time the checks of a round that leave their counterexample undecided
+   may take in all, in seconds. A check may be undecidable in practice, for a function that
    is expensive to evaluate, such as Ackermann's, and every counterexample
    of a round tends to need the same evaluations: past this budget, the
    counterexamples of the round are left undecided without a check, which
@@ -71,14 +71,44 @@ let evaluation_timeout = 500
    the budget. Counted, the first start took the budget on the first
    counterexample of a round, whichever it was, and a genuine one that came
    after it was left undecided, its property unknown, depending on the
-   machine and the order in which the engines reported. *)
+   machine and the order in which the engines reported.
+
+   Only the checks that leave their counterexample undecided are counted:
+   they are the ones the budget is for. A check that decides its
+   counterexample takes as long as its queries and evaluations, which are
+   bounded each and whose values are facts for the checks that follow, and
+   it is many times longer on a loaded machine than on another. Counted, a
+   check that showed a counterexample spurious took the budget on a loaded
+   machine, and a genuine one that came after it was left undecided. The
+   checks that decide their counterexample have a budget of their own,
+   [decided_budget]. *)
 let round_budget = 5.
 
-(* The time the checks of the round took so far *)
+(* The time the checks of a round that decide their counterexample may take
+   in all, in seconds, past which the counterexamples of the round are left
+   undecided without a check as well. Each check is bounded, but a round
+   can bring dozens of genuine counterexamples, or of spurious ones to
+   functions at the limit of their unrollings, which are all checked; the
+   budget is many times [round_budget], so that it holds on a loaded
+   machine the checks that take a fraction of a second on another. The time
+   it takes to start the solvers the first time is not counted, as in
+   [round_budget]. *)
+let decided_budget = 30.
+
+(* The time the checks of the round that left their counterexample
+   undecided took so far *)
 let round_time = ref 0.
 
+(* The time the checks of the round that decided their counterexample took
+   so far *)
+let decided_time = ref 0.
+
+(* Whether the checks of the round are within their budgets *)
+let within_budgets () =
+  !round_time <= round_budget && !decided_time <= decided_budget
+
 (* The time it took to start the solvers that take a limit per query the
-   first time, which is not counted in [round_time] *)
+   first time, which is not counted in [round_time] or [decided_time] *)
 let startup_time = ref 0.
 
 (* Whether the solver of the queries and the one of the evaluations were
@@ -87,25 +117,29 @@ let startup_time = ref 0.
 let query_solver_started = ref false
 let evaluator_started = ref false
 
-(* Leave the time [t] that starting a solver took out of [round_time], if
-   the solver was not started before *)
+(* Leave the time [t] that starting a solver took out of the time of the
+   checks, if the solver was not started before *)
 let first_start started t =
   if not !started then (
     started := true ;
     startup_time := !startup_time +. t)
 
-(* Run the check [f], and count the time it takes in [round_time], but for
-   the time it takes to start the solvers that take a limit per query the
-   first time *)
+(* Run the check [f], and count the time it takes in [round_time] if it
+   leaves the counterexample undecided, or in [decided_time] if it decides
+   it, but for the time it takes to start the solvers that take a limit per
+   query the first time *)
 let counted f =
   let started = Unix.gettimeofday () and startup = !startup_time in
-  Fun.protect
-    ~finally:(fun () ->
-      round_time :=
-        !round_time
-        +. (Unix.gettimeofday () -. started)
-        -. (!startup_time -. startup))
-    f
+  let result = f () in
+  let time = match result with
+    | `Undecided -> round_time
+    | `Result _ -> decided_time
+  in
+  time :=
+    !time
+    +. (Unix.gettimeofday () -. started)
+    -. (!startup_time -. startup) ;
+  result
 
 (* The solver the queries of a round are put to: one per round, with the
    system declared and its initial state asserted once, and every query
@@ -290,21 +324,13 @@ let fix_value var value =
   | Model.Term t -> [ Term.mk_eq [ var ; t ] ]
   | Model.Lambda _ -> []
   | Model.Map m ->
-    let index ty i =
-      if Type.is_ubitvector ty || Type.is_bitvector ty then
-        match Type.get_bv_size ty with
-        | Some size ->
-          Bitvector.num_to_ubv (Numeral.of_int size) (Numeral.of_int i)
-          |> Term.mk_ubv
-        | None -> raise Exit
-      else Term.mk_num_of_int i
-    in
     (* The indexes of an element are from the outermost array in *)
     let rec select t ty = function
       | [] -> t
       | i :: indexes ->
         select
-          (Term.mk_select t (index (Type.index_type_of_array ty) i))
+          (Term.mk_select t
+             (Model.term_of_index (Type.index_type_of_array ty) i))
           (Type.elem_type_of_array ty) indexes
     in
     let ty = Term.type_of_term var in
@@ -314,7 +340,7 @@ let fix_value var value =
             (Term.mk_eq [ select var ty indexes ; v ] |> Term.convert_select)
             :: acc)
          m []
-     with Exit | Invalid_argument _ -> [])
+     with Invalid_argument _ -> [])
 
 (* The solver for a query on a counterexample of length [k + 1] of the
    system: the one of the round if there is one, with the state variables
@@ -368,6 +394,7 @@ let solver_for sys k =
 
 let reset () =
   round_time := 0. ;
+  decided_time := 0. ;
   drop_round_solver () ;
   drop_evaluator () ;
   query_solver_started := false ;
@@ -386,6 +413,7 @@ let reset () =
 
 let start_round sys =
   round_time := 0. ;
+  decided_time := 0. ;
   drop_round_solver () ;
   drop_evaluator () ;
   query_solver_started := false ;
@@ -700,13 +728,6 @@ let outcome ?(abstracted = false) sys prop cex =
   in
   result
 
-(* Whether the counterexample is genuine (see [outcome]), an undecided one
-   not being taken as genuine *)
-let genuine ?abstracted sys prop cex =
-  match outcome ?abstracted sys prop cex with
-  | `Result r -> r
-  | `Undecided -> false
-
 (* The recursive functions the counterexample to the property may be
    spurious for: a cutoff of theirs is reached, and the counterexample is
    not known to be genuine *)
@@ -731,9 +752,11 @@ let suspect sys prop cex =
       let evaluable = TransSys.evaluable_functions sys in
       if not (List.for_all (fun f -> List.exists (Scope.equal f) evaluable) reached)
       then reached
-      else if !round_time > round_budget then reached
-      else if counted (fun () -> genuine sys prop cex) then []
-      else reached
+      else if not (within_budgets ()) then reached
+      else
+        match counted (fun () -> outcome sys prop cex) with
+        | `Result true -> []
+        | `Result false | `Undecided -> reached
 
 (* Run [f] with a round solver, an evaluator and tables of facts of its own,
    for a system other than the one of the round, whose symbols the round's
@@ -784,9 +807,9 @@ let check_abstractions ~sliced sys prop cex =
   else if Flags.Contracts.compositional ()
   && Flags.modular ()
   && Flags.Contracts.refinement ()
-  && !round_time <= round_budget
+  && within_budgets ()
   then (
-    let genuine =
+    let outcome =
       counted
         (fun () ->
            (* A counterexample shown spurious only failed with values of
@@ -796,13 +819,11 @@ let check_abstractions ~sliced sys prop cex =
               the facts of the check, before [isolated] restores those of
               the round. *)
            let check sys =
-             match outcome ~abstracted:true sys prop cex with
-             | `Result true -> true
-             | `Result false ->
-               if Flags.Contracts.rec_learn_values () then
-                 Facts.iter (Facts.replace learned) facts ;
-               false
-             | `Undecided -> false
+             let outcome = outcome ~abstracted:true sys prop cex in
+             ( if outcome = `Result false
+               && Flags.Contracts.rec_learn_values () then
+                 Facts.iter (Facts.replace learned) facts ) ;
+             outcome
            in
            (* On the system sliced to the property, the counterexample only
               executes the calls the property depends on, or an assertion
@@ -813,7 +834,8 @@ let check_abstractions ~sliced sys prop cex =
            | Some sliced_sys -> isolated (fun () -> check sliced_sys)
            | None -> check sys)
     in
-    if genuine then genuine_props := SSet.add prop !genuine_props)
+    if outcome = `Result true then
+      genuine_props := SSet.add prop !genuine_props)
 
 let genuine_properties () = SSet.elements !genuine_props
 

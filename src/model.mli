@@ -18,6 +18,19 @@
 
 module MIL : Map.S with type key = int list
 
+(** The term of the index [i] in a dimension of index type [ty], for the
+    keys of a {!Map}: an index of [w] bits is the bit-vector of the number
+    [i] in [\[0, 2^w)], any other index the integer [i]
+
+    @raise Invalid_argument for a bit-vector type of no known width *)
+val term_of_index : Type.t -> int -> Term.t
+
+(** The index of a constant term of an index, the inverse of
+    {!term_of_index}: a bit-vector is read as an unsigned number
+
+    @raise Failure for an index that is no OCaml integer *)
+val index_of_term : Term.t -> int
+
 (** Term or lambda expression *)
 type value =
   | Term of Term.t

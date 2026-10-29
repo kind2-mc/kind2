@@ -1,0 +1,12 @@
+-- 'pre a[c]', with an index that does not change over time, reads the array
+-- at the previous instant: its obligation is checked there, where the guards
+-- of the access are compared against it. Here the access is never evaluated
+node main(const c: int; a: int^3) returns (y: bool);
+(*@contract
+  assume c = 5;
+*)
+var first: bool;
+let
+  first = true -> false;
+  y = first ==> ((0 -> pre a[c]) = 0);
+tel

@@ -1,0 +1,8 @@
+-- The bounds of a quantified variable, from its refinement type or a lazy
+-- implication
+node main(const n: int; a: int^n; m: int^n^n) returns ();
+let
+  check forall (k: int | 0 <= k and k < n) a[k] = a[k];
+  check forall (k: int) 0 <= k and k < n ==> a[k] = a[k];
+  check forall (k, l: int) (0 <= k and k < n and 0 <= l and l < n) ==> m[k][l] = m[k][l];
+tel

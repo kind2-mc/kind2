@@ -1,0 +1,8 @@
+datatype D = P (a: int) | Q;
+datatype R = MkR (d: subtype { z: D | Q?(z) });
+
+node main (r: R) returns (ok: bool);
+let
+  ok = Q?(r.d);
+  check ok;
+tel

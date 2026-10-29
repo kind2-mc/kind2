@@ -1,0 +1,6 @@
+-- An arrow in the index gives it a value of its own at the initial instant, so
+-- no oracle is introduced and the index type keeps the access within bounds
+node main(a: int^3; i: subrange [0, 2] of int) returns ();
+let
+  check true -> (a[0 -> pre i] = a[0 -> pre i]);
+tel

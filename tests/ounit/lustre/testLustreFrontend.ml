@@ -278,11 +278,19 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/ref_type_noninlinable_func.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInNodeArgument _)) -> true
     | _ -> false);
-  mk_test "quantified lazy guard rejects non-inlinable call" (fun () ->
+  mk_test "quantified lazy guard allows non-inlinable function call" (fun () ->
     match load_file "./lustreSyntaxChecks/lazy_quant_noninlinable_call.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "time-varying quantified lazy guard rejects node call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_node_call.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedNodeCall _)) -> true
     | _ -> false);
-  mk_test "quantified lazy guard rejects temporal branch" (fun () ->
+  mk_test "time-invariant quantified lazy guard allows node call" (fun () ->
+    match load_file "./lustreSyntaxChecks/lazy_quant_node_call_time_invariant.lus" with
+    | Ok _ -> true
+    | _ -> false);
+  mk_test "time-varying quantified lazy guard rejects temporal branch" (fun () ->
     match load_file "./lustreSyntaxChecks/lazy_quant_temporal_branch.lus" with
     | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInLazyGuardedTemporalBranch _)) -> true
     | _ -> false);
@@ -664,7 +672,19 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test redeclaration of enum" (fun () ->
     match load_file "./lustreTypeChecker/enum_02.lus" with
-    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
+    | _ -> false);
+  mk_test "test applied constructor of another enum in a match arm" (fun () ->
+    match load_file "./lustreTypeChecker/enum_match_foreign_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test bare constructor of another enum in a match arm" (fun () ->
+    match load_file "./lustreTypeChecker/enum_match_foreign_bare_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, UnboundConstructor _)) -> true
+    | _ -> false);
+  mk_test "test enum match arm with arguments" (fun () ->
+    match load_file "./lustreTypeChecker/enum_match_variant_arity.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
     | _ -> false);
   mk_test "test type redeclaration" (fun () ->
     match load_file "./lustreTypeChecker/type_redeclaration.lus" with
@@ -1026,13 +1046,93 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_constructor_clashes_with_const_reversed.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
     | _ -> false);
-  mk_test "test constructor name shadows node name at call site" (fun () ->
+  mk_test "test constructor name clashes with node name" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_shadows_node_call.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
     | _ -> false);
-  mk_test "test constructor name shadows function name at call site" (fun () ->
+  mk_test "test constructor name clashes with function name" (fun () ->
     match load_file "./lustreTypeChecker/adt_constructor_shadows_function_call.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorArityMismatch _)) -> true
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test node name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/node_name_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test nullary node name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_nullary_node.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test formal parameter name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_parameter.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test imported node name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_imported_node.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test imported function name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_imported_function.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test contract formal name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_contract_formal.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test standalone contract mode name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_contract_mode.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashMode))) -> true
+    | _ -> false);
+  mk_test "test inline contract mode name clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_inline_mode.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashMode))) -> true
+    | _ -> false);
+  mk_test "test local variable clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_local_var.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashLocalVariable))) -> true
+    | _ -> false);
+  mk_test "test ghost variable clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_ghost_var.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashGhostVariable))) -> true
+    | _ -> false);
+  mk_test "test array-typed ghost variable clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_array_ghost_var.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashGhostVariable))) -> true
+    | _ -> false);
+  mk_test "test node declared before the enum it clashes with" (fun () ->
+    match load_file "./lustreTypeChecker/node_before_enum_clash.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test node-local constant clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_local_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test function-local constant clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_function_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test ghost constant clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/enum_variant_clash_with_ghost_const.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
+    | _ -> false);
+  mk_test "test 'any' binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/any_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
+    | _ -> false);
+  mk_test "test quantifier binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/quant_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashQuantifierBinder))) -> true
+    | _ -> false);
+  mk_test "test refinement type binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/ref_type_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashRefinementBinder))) -> true
+    | _ -> false);
+  mk_test "test pattern binder clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/pattern_binder_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashPatternBinder))) -> true
+    | _ -> false);
+  mk_test "test array comprehension index clashes with enum variant" (fun () ->
+    match load_file "./lustreTypeChecker/array_index_clash_with_enum_variant.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
     | _ -> false);
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
@@ -1329,6 +1429,14 @@ let _ = run_test_tt_main ("frontend LustreCheckMatchExpressions error tests" >::
     | _ -> false);
   mk_test "test redundant pattern subsumed by earlier arms" (fun () ->
     match load_file "./lustreCheckMatchExpressions/redundant_nested.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
+    | _ -> false);
+  mk_test "test non-exhaustive match on an enum" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/non_exhaustive_enum.lus" with
+    | Error (`LustreCheckMatchExpressionsError (_, IncompletePatternMatch)) -> true
+    | _ -> false);
+  mk_test "test redundant arm in match on an enum" (fun () ->
+    match load_file "./lustreCheckMatchExpressions/redundant_enum.lus" with
     | Error (`LustreCheckMatchExpressionsError (_, RedundantPattern _)) -> true
     | _ -> false);
   mk_test "test non-exhaustive match block" (fun () ->

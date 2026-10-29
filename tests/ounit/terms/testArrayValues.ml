@@ -129,6 +129,41 @@ let test_selects _ =
   assert_equal ~msg:"a[2], from the constant array" ~printer:string_of_int 0
     (value (Term.mk_select t_a (num 2)))
 
+(* The equations of the elements of a value, which IC3 constrains a state
+   of a counterexample path to, since some solvers do not take an equation
+   with a constant array *)
+let assert_eqs ~msg expected actual =
+  let printer = function
+    | None -> "None"
+    | Some l -> String.concat "; " (List.map pp l)
+  in
+  assert_equal ~msg ~printer
+    ~cmp:(Option.equal (List.equal Term.equal)) expected actual
+
+let test_element_equations _ =
+  let a = Term.mk_var (Var.mk_free_var (HString.mk_hstring "a") t_bv_array) in
+  let eq i v = Term.mk_eq [ Term.mk_select a (ubv 1 i); ubv 4 v ] in
+  assert_eqs ~msg:"an array of two elements"
+    (Some [ eq 0 3; eq 1 5 ])
+    (TermLib.array_value_eqs 2 t_bv_array a
+       (store (const_bv 5) (ubv 1 0) (ubv 4 3))) ;
+  assert_eqs ~msg:"more elements than the limit" None
+    (TermLib.array_value_eqs 1 t_bv_array a (const_bv 5)) ;
+  (* An array of arrays, of 2 x 2 elements *)
+  let t_nested = Type.mk_array t_bv_array (Type.t_ubv 1) in
+  let n = Term.mk_var (Var.mk_free_var (HString.mk_hstring "n") t_nested) in
+  let inner = store (const_bv 5) (ubv 1 1) (ubv 4 3) in
+  let eq i j v =
+    Term.mk_eq
+      [ Term.mk_select (Term.mk_select n (ubv 1 i)) (ubv 1 j); ubv 4 v ]
+  in
+  assert_eqs ~msg:"an array of arrays"
+    (Some [ eq 0 0 5; eq 0 1 5; eq 1 0 5; eq 1 1 3 ])
+    (TermLib.array_value_eqs 4 t_nested n
+       (store (Term.mk_const_array t_nested (const_bv 5)) (ubv 1 1) inner)) ;
+  assert_eqs ~msg:"an index type that is not finite" None
+    (TermLib.array_value_eqs 4 t_int_array t_a (const_int 0))
+
 let tests =
   "Values of arrays: canonical forms and evaluation" >::: [
     "stores in either order" >:: test_order;
@@ -137,6 +172,7 @@ let tests =
     "different arrays" >:: test_different;
     "equations between array values" >:: test_equations;
     "selects from array values" >:: test_selects;
+    "equations of the elements of a value" >:: test_element_equations;
   ]
 
 let () = run_test_tt_main tests

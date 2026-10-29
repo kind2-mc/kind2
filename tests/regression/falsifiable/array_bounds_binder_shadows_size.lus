@@ -1,0 +1,7 @@
+-- A quantified variable named after the constant input that sizes the array
+-- does not take its place in the obligation: the access is out of bounds for
+-- a size of at most 3
+node main(const n: int; a: int^n) returns ();
+let
+  check forall (n: int | n > 5) a[3] = a[3];
+tel

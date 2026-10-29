@@ -1,0 +1,9 @@
+-- A temporal operand of a lazy construct, under a guard that changes over time
+-- and an outer guard that mentions a quantified variable, is abstracted into a
+-- call to a node activated by the existential closure of its guards
+-- (issue #1849). See also lazy_quant_guard_temporal_branch_refinement.lus.
+
+node main (const n: int; x: int) returns ();
+let
+  check forall (k: int) 0 <= k and k < n ==> (x > 0 ==> (true -> pre x > 0));
+tel

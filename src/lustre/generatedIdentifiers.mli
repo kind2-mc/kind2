@@ -100,6 +100,12 @@ type t = {
     * HString.t (* Generated name for the obligation *)
     * LustreAst.expr) (* Obligation expression, for display *)
     list;
+  (* Proof obligations that the index of a user-written array read or element
+     update is within the bounds of the array *)
+  array_bounds_obligations: (Lib.position
+    * HString.t (* Generated name for the obligation *)
+    * LustreAst.expr) (* Obligation expression, for display *)
+    list;
   empty_maps: (HString.t * LustreAst.lustre_type * LustreAst.lustre_type) list;
   empty_sets: (HString.t * LustreAst.lustre_type) list;
   map_element_updates: (HString.t * 

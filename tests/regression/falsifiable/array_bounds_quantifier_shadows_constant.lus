@@ -1,0 +1,8 @@
+-- A quantified variable that shadows a constant is not evaluated as the
+-- constant, which would put the read within bounds
+const k: int = 1;
+
+node main(a: int^3) returns ();
+let
+  check forall (k: int) a[k] = a[k];
+tel

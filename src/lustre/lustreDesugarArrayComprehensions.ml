@@ -24,6 +24,16 @@
     In a contract, it is replaced with a fresh ghost variable defined
     element-wise in the same way, just before the contract item it is in.
 
+    A comprehension under lazy guards (the conditions of the [when]
+    expressions and blocks, and the left operands of [and then], [or else] and
+    [==>], it is evaluated under) is only evaluated where they hold, and so is
+    its definition: [x[i][j] = when g then e else x[i][j]], where the element
+    being defined stands for any value of its type, given to it by
+    [LustreAstNormalizer]. The guards then establish the constructor of a
+    selector of [e], and gate the calls of [e], as they do around the
+    comprehension. A guard is left out of the definition if it is not
+    meaningful there (see [usable_guards]).
+
     A comprehension whose body is a comprehension is lowered as a single one
     with the index variables of both. Otherwise, a comprehension is lowered
     after the comprehensions in its body, so that its equation mentions their
@@ -104,8 +114,9 @@ type lowering = {
   (* The node or contract the comprehensions are in, and its context *)
   scope_id : NodeId.t;
   mutable ctx : Ctx.tc_context;
-  (* The comprehensions lowered so far, with their fresh variables *)
-  mutable lowered : (A.expr * HString.t) list;
+  (* The comprehensions lowered so far, with the guards of their definitions
+     and their fresh variables *)
+  mutable lowered : (A.expr * A.expr list * HString.t) list;
   (* [define p x ty ids extra_ids e] defines the fresh variable [x] of type
      [ty] by the equation [x[ids][extra_ids] = e]: a local variable in a node
      body, a ghost variable in a contract *)
@@ -120,10 +131,31 @@ type mode =
   | Lower of lowering
   | Reject of string
 
+(** The guards of a comprehension that its definition, in the body of the
+    node, keeps, outermost first: those that do not mention a variable [bound]
+    around the comprehension, which is not in scope there, nor one of its
+    index variables [ids], which the left-hand side of the definition binds,
+    nor a call or an unguarded 'pre', which would not have the same value there
+    as where the comprehension is. Keeping fewer guards than the comprehension
+    is under only makes the definition matter at more steps. [guards] is
+    innermost first. *)
+let usable_guards bound ids guards =
+  let excluded = A.SI.union bound (A.SI.of_list ids) in
+  List.rev guards
+  |> List.filter (fun g ->
+    A.SI.is_empty (A.SI.inter (AH.vars_without_node_call_ids g) excluded)
+    && not (AH.expr_contains_call g)
+    && not (AH.has_unguarded_pre_no_warn g))
+
+let negate e = A.UnaryOp (AH.pos_of_expr e, A.Not, e)
+
 (** Lower the array comprehensions of [e], innermost first. [bound] holds the
-    variables bound around [e] in the expression being lowered. *)
-let rec lower_expr mode bound e =
-  let r = lower_expr mode bound in
+    variables bound around [e] in the expression being lowered, and [guards]
+    the conditions of the lazy constructs [e] is evaluated under, innermost
+    first, up to the innermost 'pre' around [e] (see [usable_guards]). *)
+let rec lower_expr mode bound guards e =
+  let r = lower_expr mode bound guards in
+  let under g = lower_expr mode bound (g :: guards) in
   let rl = seq_map r in
   match e with
   | A.Ident _ | ModeRef _ | Const _ | Last _ | AbstractSymConst _
@@ -135,10 +167,20 @@ let rec lower_expr mode bound e =
   | UnaryOp (p, op, e) -> let* e = r e in R.ok (A.UnaryOp (p, op, e))
   | ConvOp (p, op, e) -> let* e = r e in R.ok (A.ConvOp (p, op, e))
   | Extract (p, e, i, j) -> let* e = r e in R.ok (A.Extract (p, e, i, j))
-  | Pre (p, e) -> let* e = r e in R.ok (A.Pre (p, e))
+  (* The value of the operand of a 'pre' is read at the previous step, at
+     which the enclosing guards need not hold *)
+  | Pre (p, e) -> let* e = lower_expr mode bound [] e in R.ok (A.Pre (p, e))
   | TypeAscription (p, e, ty) ->
     let* () = check_type ty in let* e = r e in R.ok (A.TypeAscription (p, e, ty))
   | ADTTester (p, e, c) -> let* e = r e in R.ok (A.ADTTester (p, e, c))
+  (* The right operand of a lazy Boolean operator is evaluated only where
+     the left one does not determine the result *)
+  | BinaryOp (p, ((AndThen | LazyImpl) as op), e1, e2) ->
+    let* e1 = r e1 in let* e2 = under e1 e2 in R.ok (A.BinaryOp (p, op, e1, e2))
+  | BinaryOp (p, OrElse, e1, e2) ->
+    let* e1 = r e1 in
+    let* e2 = under (negate e1) e2 in
+    R.ok (A.BinaryOp (p, OrElse, e1, e2))
   | BinaryOp (p, op, e1, e2) ->
     let* e1 = r e1 in let* e2 = r e2 in R.ok (A.BinaryOp (p, op, e1, e2))
   | CompOp (p, op, e1, e2) ->
@@ -150,9 +192,15 @@ let rec lower_expr mode bound e =
   | Arrow (p, e1, e2) ->
     let* e1 = r e1 in let* e2 = r e2 in R.ok (A.Arrow (p, e1, e2))
   | Fby (p, e1, e2) ->
-    let* e1 = r e1 in let* e2 = r e2 in R.ok (A.Fby (p, e1, e2))
+    let* e1 = r e1 in let* e2 = lower_expr mode bound [] e2 in
+    R.ok (A.Fby (p, e1, e2))
   | Restart (p, e1, e2) ->
     let* e1 = r e1 in let* e2 = r e2 in R.ok (A.Restart (p, e1, e2))
+  | TernaryOp (p, LazyIte, e1, e2, e3) ->
+    let* e1 = r e1 in
+    let* e2 = under e1 e2 in
+    let* e3 = under (negate e1) e3 in
+    R.ok (A.TernaryOp (p, LazyIte, e1, e2, e3))
   | TernaryOp (p, op, e1, e2, e3) ->
     let* e1 = r e1 in let* e2 = r e2 in let* e3 = r e3 in
     R.ok (A.TernaryOp (p, op, e1, e2, e3))
@@ -169,27 +217,27 @@ let rec lower_expr mode bound e =
     let* es = rl es in let* e = r e in R.ok (A.RestartEvery (p, id, es, e))
   | StructUpdate (p, e1, idxs, e2) ->
     let* e1 = r e1 in
-    let* idxs = seq_map (lower_label_or_index mode bound) idxs in
+    let* idxs = seq_map (lower_label_or_index mode bound guards) idxs in
     let* e2 = match e2 with
       | Some e2 -> let* e2 = r e2 in R.ok (Some e2)
       | None -> R.ok None
     in
     R.ok (A.StructUpdate (p, e1, idxs, e2))
   | AnyOp (p, ((_, id, _) as ti), e) ->
-    let* e = lower_expr mode (A.SI.add id bound) e in R.ok (A.AnyOp (p, ti, e))
+    let* e = lower_expr mode (A.SI.add id bound) guards e in R.ok (A.AnyOp (p, ti, e))
   | ChooseOp (p, ((_, id, _) as ti), e) ->
-    let* e = lower_expr mode (A.SI.add id bound) e in R.ok (A.ChooseOp (p, ti, e))
+    let* e = lower_expr mode (A.SI.add id bound) guards e in R.ok (A.ChooseOp (p, ti, e))
   | Quantifier (p, q, tis, e) ->
     let* () = check_types (List.map (fun (_, _, ty) -> ty) tis) in
     let bound = List.fold_left (fun acc (_, id, _) -> A.SI.add id acc) bound tis in
-    let* e = lower_expr mode bound e in
+    let* e = lower_expr mode bound guards e in
     R.ok (A.Quantifier (p, q, tis, e))
   | Match (p, e, arms, ty) ->
     let* () = match ty with Some ty -> check_type ty | None -> R.ok () in
     let* e = r e in
     let* arms = seq_map (fun (pat, arm) ->
       let bound = A.SI.union bound (AH.pat_bound_vars pat) in
-      let* arm = lower_expr mode bound arm in
+      let* arm = lower_expr mode bound guards arm in
       R.ok (pat, arm)
     ) arms in
     R.ok (A.Match (p, e, arms, ty))
@@ -207,7 +255,9 @@ let rec lower_expr mode bound e =
     | Reject where -> mk_error p (UnsupportedComprehensionPosition where)
     | Lower st ->
       let ids = List.map (fun (_, id, _) -> id) bs in
-      let* body = lower_expr mode (A.SI.union bound (A.SI.of_list ids)) body in
+      let* body =
+        lower_expr mode (A.SI.union bound (A.SI.of_list ids)) guards body
+      in
       let comp = A.ArrayComprehension (p, bs, body) in
       (* The free variables of the comprehension, whose own index variables
          are bound in it *)
@@ -218,17 +268,23 @@ let rec lower_expr mode bound e =
         | v :: _ -> mk_error p (BoundVariableInComprehension v)
         | [] -> R.ok ()
       in
-      (* An equal comprehension lowered before has the same value, and shares
-         its variable, unless it has calls, which may have distinct instances
-         with distinct values *)
+      let guards = usable_guards bound ids guards in
+      (* An equal comprehension lowered before has the same value wherever
+         the guards of its definition hold, in particular wherever the guards
+         of this one hold if they include them, and then shares its variable,
+         unless it has calls, which may have distinct instances with distinct
+         values *)
+      let equal e1 e2 = AH.syn_expr_equal None e1 e2 = Ok true in
       let previous =
         if AH.expr_contains_call comp then None
         else
-          List.find_opt (fun (c, _) -> AH.syn_expr_equal None c comp = Ok true)
-            st.lowered
+          List.find_opt (fun (c, gs, _) ->
+            equal c comp
+            && List.for_all (fun g -> List.exists (equal g) guards) gs
+          ) st.lowered
       in
       match previous with
-      | Some (_, x) -> R.ok (A.Ident (p, x))
+      | Some (_, _, x) -> R.ok (A.Ident (p, x))
       | None ->
         (* The context holds the fresh variables of the comprehensions of the
            body, lowered above *)
@@ -252,9 +308,22 @@ let rec lower_expr mode bound e =
         in
         let* k = extra_dims elem_ty in
         let extra_ids = List.init k (fun _ -> mk_fresh_var ()) in
-        let body =
+        let index e ids =
           List.fold_left (fun e j -> A.IndexAccess (p, e, A.Ident (p, j), A.Array))
-            body extra_ids
+            e ids
+        in
+        let body = index body extra_ids in
+        let x = mk_fresh_var () in
+        (* The comprehension is only evaluated where its guards hold, so is
+           the body of its definition: a lazy guard establishes the
+           definedness of a selector, and gates a call, in the body as it does
+           in the comprehension. The definition does not matter elsewhere,
+           where it is the element being defined, which stands for a value of
+           its type (see [LustreAstNormalizer]) *)
+        let body =
+          let elem = index (A.Ident (p, x)) (ids @ extra_ids) in
+          List.fold_right (fun g e -> A.TernaryOp (p, A.LazyIte, g, e, elem))
+            guards body
         in
         (* The fresh variable has the base type of the comprehension, without
            its refinement types (such as the subrange types of the values of
@@ -262,10 +331,9 @@ let rec lower_expr mode bound e =
            the ones of the variables the comprehension is assigned to are
            checked on those variables *)
         let* ty = Chk.expand_type_syn_reftype_history st.ctx ty in
-        let x = mk_fresh_var () in
         Hashtbl.replace sources x source;
         st.ctx <- Ctx.add_ty st.ctx x ty;
-        st.lowered <- (comp, x) :: st.lowered;
+        st.lowered <- (comp, guards, x) :: st.lowered;
         st.define p x ty ids extra_ids body;
         R.ok (A.Ident (p, x))
   )
@@ -275,7 +343,7 @@ let rec lower_expr mode bound e =
 and check_type ty =
   let first a b = match a with Some _ -> a | None -> b in
   let find e =
-    match lower_expr (Reject "") A.SI.empty e with
+    match lower_expr (Reject "") A.SI.empty [] e with
     | Ok _ -> None
     | Error (`LustreDesugarArrayComprehensionsError (pos, _)) -> Some pos
     | Error _ -> None
@@ -286,53 +354,54 @@ and check_type ty =
 
 and check_types tys = R.seq_ (List.map check_type tys)
 
-and lower_label_or_index mode bound = function
+and lower_label_or_index mode bound guards = function
   | A.Label _ as l -> R.ok l
-  | Index (p, e, k) -> let* e = lower_expr mode bound e in R.ok (A.Index (p, e, k))
-  | MapIndex (p, e) -> let* e = lower_expr mode bound e in R.ok (A.MapIndex (p, e))
-  | SetIndex (p, e) -> let* e = lower_expr mode bound e in R.ok (A.SetIndex (p, e))
+  | Index (p, e, k) -> let* e = lower_expr mode bound guards e in R.ok (A.Index (p, e, k))
+  | MapIndex (p, e) -> let* e = lower_expr mode bound guards e in R.ok (A.MapIndex (p, e))
+  | SetIndex (p, e) -> let* e = lower_expr mode bound guards e in R.ok (A.SetIndex (p, e))
   | GenericIndex (p, e) ->
-    let* e = lower_expr mode bound e in R.ok (A.GenericIndex (p, e))
+    let* e = lower_expr mode bound guards e in R.ok (A.GenericIndex (p, e))
 
-let lower mode e = lower_expr mode A.SI.empty e
+let lower mode e = lower_expr mode A.SI.empty [] e
 
-let lower_node_equation mode bound = function
-  | A.Assert (p, e) -> let* e = lower_expr mode bound e in R.ok (A.Assert (p, e))
+let lower_node_equation mode bound guards = function
+  | A.Assert (p, e) -> let* e = lower_expr mode bound guards e in R.ok (A.Assert (p, e))
   | A.Equation (p, lhs, e) ->
-    let* e = lower_expr mode bound e in R.ok (A.Equation (p, lhs, e))
+    let* e = lower_expr mode bound guards e in R.ok (A.Equation (p, lhs, e))
 
 (** Lower the comprehensions of a node item. [bound] holds the variables bound
-    around the item, by the arms of the match blocks it is in. *)
-let rec lower_node_item mode bound item =
-  let low = lower_expr mode bound in
+    around the item, by the arms of the match blocks it is in, and [guards]
+    the conditions of the when blocks it is in. *)
+let rec lower_node_item mode bound guards item =
+  let low = lower_expr mode bound guards in
   match item with
-  | A.Body eq -> let* eq = lower_node_equation mode bound eq in R.ok (A.Body eq)
+  | A.Body eq -> let* eq = lower_node_equation mode bound guards eq in R.ok (A.Body eq)
   | IfBlock (p, e, l1, l2) ->
     let* e = low e in
-    let* l1 = lower_node_items mode bound l1 in
-    let* l2 = lower_node_items mode bound l2 in
+    let* l1 = lower_node_items mode bound guards l1 in
+    let* l2 = lower_node_items mode bound guards l2 in
     R.ok (A.IfBlock (p, e, l1, l2))
   | WhenBlock (p, e, l1, l2) ->
     let* e = low e in
-    let* l1 = lower_node_items mode bound l1 in
-    let* l2 = lower_node_items mode bound l2 in
+    let* l1 = lower_node_items mode bound (e :: guards) l1 in
+    let* l2 = lower_node_items mode bound (negate e :: guards) l2 in
     R.ok (A.WhenBlock (p, e, l1, l2))
   | MatchBlock (p, e, arms, ty) ->
     let* () = match ty with Some ty -> check_type ty | None -> R.ok () in
     let* e = low e in
     let* arms = seq_map (fun (pat, items) ->
       let bound = A.SI.union bound (AH.pat_bound_vars pat) in
-      let* items = lower_node_items mode bound items in
+      let* items = lower_node_items mode bound guards items in
       R.ok (pat, items)
     ) arms in
     R.ok (A.MatchBlock (p, e, arms, ty))
   | RestartBlock (p, items, e) ->
-    let* items = lower_node_items mode bound items in
+    let* items = lower_node_items mode bound guards items in
     let* e = low e in
     R.ok (A.RestartBlock (p, items, e))
   | FrameBlock (p, vars, nes, nis) ->
-    let* nes = seq_map (lower_node_equation mode bound) nes in
-    let* nis = lower_node_items mode bound nis in
+    let* nes = seq_map (lower_node_equation mode bound guards) nes in
+    let* nis = lower_node_items mode bound guards nis in
     R.ok (A.FrameBlock (p, vars, nes, nis))
   | AnnotProperty (p, name, e, kind) ->
     let* e = low e in
@@ -343,8 +412,8 @@ let rec lower_node_item mode bound item =
     R.ok (A.AnnotProperty (p, name, e, kind))
   | AnnotMain _ | Auto _ as item -> R.ok item
 
-and lower_node_items mode bound items =
-  seq_map (lower_node_item mode bound) items
+and lower_node_items mode bound guards items =
+  seq_map (lower_node_item mode bound guards) items
 
 (** Lower the comprehensions of a contract to fresh ghost variables, each
     defined just before the item it is lowered from *)
@@ -436,7 +505,7 @@ let lower_node ctx (node_id, ext, opac, nps, cctds, ctds, nlds, nis, co) =
     eqs := A.Body (A.Equation (p, lhs, body)) :: !eqs
   in
   let mode = Lower { scope_id = node_id; ctx; lowered = []; define } in
-  let* nis = lower_node_items mode A.SI.empty nis in
+  let* nis = lower_node_items mode A.SI.empty [] nis in
   R.ok (node_id, ext, opac, nps, cctds, ctds,
         nlds @ List.rev !decls, nis @ List.rev !eqs, co)
 

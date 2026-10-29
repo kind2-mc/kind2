@@ -1,0 +1,16 @@
+-- A node call is abstracted into an instance that lies outside the
+-- quantifier, under a guard whose condition that mentions the quantified
+-- variable does not change over time, and whose other condition does not
+-- mention it.
+
+node M (y: int) returns (r: int);
+let
+  r = y -> pre y;
+tel
+
+node N (y: int) returns ();
+let
+  check forall (x : int) (
+    when x > 0 and y > 0 then M(y) > 0 else true
+  );
+tel

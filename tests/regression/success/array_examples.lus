@@ -17,6 +17,9 @@ tel
 
 node slice (const n: int; A: int ^ n; const low: int; const up: int)
 returns (B : int ^ (up-low));
+(*@contract
+  assume 0 <= low and low <= up and up <= n;
+*)
 let
   B = (A[low + i] foreach i)^(up-low);
 tel

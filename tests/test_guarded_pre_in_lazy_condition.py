@@ -3,16 +3,16 @@
 The guard of a lazy construct whose guarded operand is temporal, the condition
 of a restart, and the guards of a selector obligation are abstracted into
 locals, or into the definition of the obligation, outside of the '->' that
-guards their 'pre'. They were defined at the initial state too, where the 'pre'
-refers to offset -1, and the solver rejected the queries with an unknown
-constant. The other engines prove the properties of the issue, so BMC runs
-alone, on properties it can falsify: it reports each of them falsifiable
-rather than failing (see #1744).
+guards their 'pre'. They are defined at the initial state too, where the 'pre'
+refers to offset -1, so each of them supplies its own initial instant with an
+oracle, as a node-call argument always has. BMC runs alone here, on properties
+it can falsify, so none of the queries may be rejected with an unknown
+constant (see #1744, #1562).
 
-A guard is false at the initial state, so the call it activates first runs at
-the first later step where the guard holds. The length of each counterexample
-pins this down: with the guard true at the initial state instead, the
-properties would fail one step earlier.
+An oracle is unconstrained, so a guard may hold at the initial state: a call
+the guard activates may already run there. The length of each counterexample
+pins this down -- wherever the guard gates a stateful call, the property fails
+one step earlier than it would if the guard were false at the initial state.
 """
 
 import json
@@ -57,19 +57,19 @@ tel
 # The model, and the length of the counterexample of each of its properties
 cases = {
     "lazy": (lazy_model, {
-        "==>": 3,
+        "==>": 2,
         "and then": 1,
-        "or else": 3,
-        "when": 3,
+        "or else": 2,
+        "when": 2,
         "restart": 2,
     }),
     "selector": (selector_model, {
         "selector": 1,
-        "Selector[L5C40]": 1,
+        "Selector[L5C40]": 0,
     }),
     "shifted_selector": (shifted_selector_model, {
         "selector": 2,
-        "Selector[L5C53]": 2,
+        "Selector[L5C53]": 1,
     }),
 }
 

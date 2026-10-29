@@ -1,0 +1,15 @@
+-- A node call under a guard whose condition mentions a quantified variable
+-- and changes over time is rejected: each value of the variable would select
+-- the call at different steps, so that 'prev(x)' is the value of x when c
+-- last had its current value, which a single instance cannot provide
+-- (issue #1849)
+
+node prev (x: int) returns (y: int);
+let
+  y = x -> pre x;
+tel
+
+node main (c: bool; x: int) returns ();
+let
+  check forall (k: bool) k = c ==> (prev(x) > 0) = (x > 0);
+tel

@@ -117,6 +117,18 @@ let rec is_normal_form: TC.tc_context -> LA.expr -> bool = fun ctx ->
   | _ -> false
 (** is the expression in a normal form? *)
          
+(* Whether [e] is a map, as far as its form tells: a map variable, a map
+   literal, or updates of one. Types cannot be inferred here, since
+   [LustreTypeChecker] depends on this module *)
+let rec is_map ctx = function
+  | LA.Ident (_, i) -> (
+    match TC.lookup_ty ctx i with
+    | Some ty -> (match TC.expand_type_syn ctx ty with LA.Map _ -> true | _ -> false)
+    | None -> false)
+  | LA.EmptyMap _ -> true
+  | LA.StructUpdate (_, e, _, _) -> is_map ctx e
+  | _ -> false
+
 let rec eval_int_expr: TC.tc_context -> LA.expr -> (int, [> error]) result = fun ctx ->
   function
   | LA.Ident (pos, i) ->
@@ -236,27 +248,39 @@ and eval_comp_op: TC.tc_context -> LA.comparison_operator
   | Gt -> R.ok (v1 > v2)
 (** try and evalutate comparison op expression to bool, return error otherwise *)
 
-and simplify_index_access ctx ?(ind_vars = []) pos e1 idx kind =
-  let e1' = simplify_expr ctx ~ind_vars e1 in
-  let idx' = simplify_expr ctx ~ind_vars idx in
+(* [keep_oob] is whether an access with a constant index out of the bounds of
+   a constant array is left as is, rather than reported: in the body and the
+   contract of a node, its bounds obligation decides it, under the lazy guards
+   it is evaluated under (see [LustreAstNormalizer]). Nothing guards an access
+   in a constant, a type or the measure of a decreases clause *)
+and simplify_index_access ?(keep_oob = false) ctx ?(ind_vars = []) pos e1 idx kind =
+  let e1' = simplify_expr ~keep_oob ctx ~ind_vars e1 in
+  (* An index inlined to a constant keeps its position, at which the bounds
+     obligation of the access is reported, rather than the one of the
+     definition of the constant *)
+  let idx' = match simplify_expr ~keep_oob ctx ~ind_vars idx with
+    | LA.Const (_, c) -> LA.Const (LH.pos_of_expr idx, c)
+    | idx' -> idx'
+  in
   let raise_error () =
-    raise (Out_of_bounds (pos, "Array element access out of bounds."))
+    if keep_oob then LA.IndexAccess (pos, e1', idx', kind)
+    else raise (Out_of_bounds (pos, "Array element access out of bounds."))
   in
   match e1' with
   | LA.GroupExpr (_, ArrayExpr, es) ->
      (match (eval_int_expr ctx idx) with
-      | Ok i -> if List.length es > i then List.nth es i else raise_error ()
+      | Ok i -> if 0 <= i && i < List.length es then List.nth es i else raise_error ()
       | Error _ -> LA.IndexAccess (pos, e1', idx', kind))
   | LA.ArrayConstr (_, v, s) ->
      (match (eval_int_expr ctx idx), (eval_int_expr ctx s) with
-     | Ok i, Ok j -> if j > i then v else raise_error ()
+     | Ok i, Ok j -> if 0 <= i && i < j then v else raise_error ()
      | _, _ -> LA.IndexAccess (pos, e1', idx', kind))
   | _ ->
     IndexAccess (pos, e1', idx', kind)
 (** picks out the idx'th component of an array if it can *)
 
-and push_pre is_guarded pos =
-  let r e = push_pre is_guarded pos e in
+and push_pre ctx is_guarded pos =
+  let r e = push_pre ctx is_guarded pos e in
   function
   | LA.Restart _ -> assert false (* desugared in lustreGenNodes *)
   | LA.Ident _ as e -> LA.Pre (pos, e)
@@ -284,6 +308,22 @@ and push_pre is_guarded pos =
   | GroupExpr (p, op, es) ->
     let es' = List.map (fun e -> r e) es in
     GroupExpr (p, op, es')
+  (* A user-written access is evaluated where the 'pre' around it is, at the
+     previous instant, and so is its bounds obligation (see
+     [LustreAstNormalizer]): 'pre' is not pushed into it, which would read the
+     previous array or map at the current index (#1464). An array update is
+     not pushed into either, for its bounds obligation; the index of an
+     update, generic until the normalizer resolves it, is one of an array
+     unless the updated value is known to be a map (see [is_map]) *)
+  | IndexAccess (_, _, _, LA.Unknown) as e -> LA.Pre (pos, e)
+  | StructUpdate (_, e1, l, _) as e
+    when List.exists
+           (function
+             | LA.Index (_, _, LA.ArrayElem) -> true
+             | LA.GenericIndex _ -> not (is_map ctx e1)
+             | _ -> false)
+           l ->
+    LA.Pre (pos, e)
   | StructUpdate (p, e1, l, Some e2) -> 
     let l = List.map (fun loi -> match loi with 
     | LA.Label _ -> loi
@@ -322,7 +362,15 @@ and push_pre is_guarded pos =
   | AbstractSymConst _ as e -> LA.Pre (pos, e)
   | ADTTester (p, e, c) -> ADTTester (p, r e, c)
 
-and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
+and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx =
+  (* The sizes of a comprehension are constant expressions, which nothing
+     guards (see [simplify_index_access]) *)
+  let simplify_size = simplify_expr ~keep_oob:false in
+  (* The subexpressions keep [keep_oob] *)
+  let simplify_expr ?is_guarded ?ind_vars ctx e =
+    simplify_expr ~keep_oob ?is_guarded ?ind_vars ctx e
+  in
+  let simplify_index_access = simplify_index_access ~keep_oob in
   function
   | LA.Const _ as c -> c
   | LA.Ident (_, i) as ident ->
@@ -352,7 +400,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     if is_guarded && LH.expr_is_const e' then e'
     else
       if Flags.lus_push_pre ()
-      then push_pre is_guarded pos e'
+      then push_pre ctx is_guarded pos e'
       else Pre (pos, e')
   | Arrow (pos, e1, e2) ->
     let e1' = simplify_expr ~ind_vars ~is_guarded ctx e1 in
@@ -428,7 +476,7 @@ and simplify_expr ?(is_guarded = false) ?(ind_vars = []) ctx =
     (* The sizes are constant expressions, in which the index variables are not
        in scope; in the body, the index variables shadow the constants *)
     let bs =
-      List.map (fun (p, id, n) -> (p, id, simplify_expr ~ind_vars ctx n)) bs
+      List.map (fun (p, id, n) -> (p, id, simplify_size ~ind_vars ctx n)) bs
     in
     let ids = List.map (fun (_, id, _) -> id) bs in
     let ctx = List.fold_left TC.remove_const ctx ids in
@@ -509,7 +557,7 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
 let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.node_equation
   = fun ctx ->
   function
-  | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ctx e))
+  | (LA.Assert (pos, e)) -> (Assert (pos, simplify_expr ~keep_oob:true ctx e))
   | (LA.Equation (pos, (StructDef (_, sis) as lhs), e)) ->
     (* Collect the index variables of an element-wise array definition (from
        an array comprehension), as they shadow global constants. Such a
@@ -519,7 +567,7 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
       | LA.ArrayDef (_, _, vars) -> acc @ vars 
       | _ -> acc
     ) [] sis in
-    (LA.Equation (pos, lhs, simplify_expr ~ind_vars ctx e))
+    (LA.Equation (pos, lhs, simplify_expr ~keep_oob:true ~ind_vars ctx e))
 
 let rec inline_constants_of_const_clocked_type_decl ctx = function
   | [] -> []
@@ -582,10 +630,10 @@ let rec inline_constants_of_node_items: TC.tc_context -> LA.node_item list -> LA
     assert false (* desugared in lustreGenNodes *)
   | (AnnotProperty (pos, n, e, k)) :: items ->
     let k = match k with
-      | LA.Provided g -> LA.Provided (simplify_expr ctx g)
+      | LA.Provided g -> LA.Provided (simplify_expr ~keep_oob:true ctx g)
       | LA.Invariant | LA.Reachable _ -> k
     in
-    (AnnotProperty (pos, n, simplify_expr ctx e, k))
+    (AnnotProperty (pos, n, simplify_expr ~keep_oob:true ctx e, k))
     :: inline_constants_of_node_items ctx items
   | (AnnotMain (pos, b)) :: items
     -> (AnnotMain (pos, b)) :: inline_constants_of_node_items ctx items
@@ -606,18 +654,18 @@ let rec inline_constants_of_contract: TC.tc_context -> LA.contract_node_equation
      (LA.GhostConst (TypedConst (pos', i, simplify_expr ctx e, ty)))
      :: inline_constants_of_contract ctx others 
   | (LA.GhostVars (pos, lhs, e)) :: others ->
-    (LA.GhostVars (pos, lhs, simplify_expr ctx e))
+    (LA.GhostVars (pos, lhs, simplify_expr ~keep_oob:true ctx e))
      :: inline_constants_of_contract ctx others 
   | (LA.Assume (pos, n, b, e)) :: others ->
-     (LA.Assume (pos, n, b, simplify_expr ctx e))
+     (LA.Assume (pos, n, b, simplify_expr ~keep_oob:true ctx e))
      :: inline_constants_of_contract ctx others 
   | (LA.Guarantee (pos, n, b, e)) :: others ->
-     (LA.Guarantee (pos, n, b, simplify_expr ctx e))
+     (LA.Guarantee (pos, n, b, simplify_expr ~keep_oob:true ctx e))
      :: inline_constants_of_contract ctx others 
   | (LA.Mode (pos, i, rs, es)) :: others ->
      (LA.Mode (pos, i
-               , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) rs
-               , List.map (fun (p, s, e) -> (p, s, simplify_expr ctx e)) es))
+               , List.map (fun (p, s, e) -> (p, s, simplify_expr ~keep_oob:true ctx e)) rs
+               , List.map (fun (p, s, e) -> (p, s, simplify_expr ~keep_oob:true ctx e)) es))
       :: inline_constants_of_contract ctx others
   | (LA.Decreases (pos, e)) :: others ->
      (LA.Decreases (pos, simplify_expr ctx e))

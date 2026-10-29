@@ -143,17 +143,17 @@ end
 
 module LocalCache = Hashtbl.Make(LocalHash)
 
-(* Key of a selector proof obligation: its source position and the tester it
+(* Key of a proof obligation: its source position and the condition it
    requires. The guards are not part of the key but of the value, so that an
-   obligation implied by an emitted one can be dropped (mk_selector_obligation). *)
-module SelectorHash = struct
+   obligation implied by an emitted one can be dropped (mk_obligation). *)
+module ObligationHash = struct
   type t = Lib.position * A.expr
   let equal (p1, e1) (p2, e2) = Lib.equal_pos p1 p2 && expr_equal e1 e2
 
   let hash (_, e) = AH.hash None e
 end
 
-module SelectorCache = Hashtbl.Make(SelectorHash)
+module ObligationCache = Hashtbl.Make(ObligationHash)
 
 module NodeArgHash = struct
   type t = A.expr
@@ -179,6 +179,13 @@ let force_fresh = true
   )*)
 
 let local_cache = LocalCache.create 20
+
+(* The locals that hold the sizes of arrays whose names a variable bound
+   around an access shadows (see [mk_array_access_obligation]). A size names
+   the constants of the node only, so its definition alone keys its local,
+   which [local_cache] would share with a definition naming the bound
+   variables *)
+let size_local_cache = LocalCache.create 20
 let node_arg_cache = NodeArgCache.create 20
 
 (* A call to a function abstracted in the node being normalized, to be
@@ -215,10 +222,10 @@ type qcall_entry = {
    symbol of the callee to the variables the quantifiers bind, so an
    expression that mentions it is only meaningful under them *)
 let qcalls_by_name : qcall_entry StringMap.t ref = ref StringMap.empty
-(* Selector proof obligations already emitted, each recording the enclosing
+(* Proof obligations already emitted, each recording the enclosing
    quantifiers and guards it was emitted under *)
-let selector_cache : (HString.t list * A.expr list) list SelectorCache.t =
-  SelectorCache.create 20
+let obligation_cache : (HString.t list * A.expr list) list ObligationCache.t =
+  ObligationCache.create 20
 
 (* The types of the identifiers generated in the node being normalized, which
    the locals generated for an expression do not always record: a local
@@ -236,11 +243,12 @@ let add_generated_type id ty =
 
 let clear_cache () =
   LocalCache.clear local_cache;
+  LocalCache.clear size_local_cache;
   HString.HStringHashtbl.clear generated_types;
   NodeArgCache.clear node_arg_cache;
   shared_calls := [];
   qcalls_by_name := StringMap.empty;
-  SelectorCache.clear selector_cache;
+  ObligationCache.clear obligation_cache;
 
 type info = {
   context : Ctx.tc_context;
@@ -283,8 +291,9 @@ type info = {
   (* Number of enclosing 'pre' operators *)
   pre_depth : int;
   (* False while normalizing arguments a second time for the node instance an
-     inlined call retains, whose obligations the inlined expansion already emitted *)
-  emit_selector_obligations : bool;
+     inlined call retains, whose proof obligations (for selectors and array
+     accesses) the inlined expansion already emitted *)
+  emit_obligations : bool;
   inlined_expr_ctx : bool;
   (* Whether the expression being normalized is (part of) the measure of a
      decreases clause, which must be an expression of the inputs of the
@@ -360,7 +369,7 @@ let pp_print_generated_identifiers ppf gids =
       HString.pp_print_hstring id
       A.pp_print_expr rexpr
   in
-  let pp_print_selector_obligation ppf (pos, id, oexpr) =
+  let pp_print_obligation ppf (pos, id, oexpr) =
     Format.fprintf ppf "(%a, %a, %a)"
       Lib.pp_print_position pos
       HString.pp_print_hstring id
@@ -402,7 +411,7 @@ let pp_print_generated_identifiers ppf gids =
     A.pp_print_expr expr1 
     A.pp_print_expr expr2
   in
-  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
+  Format.fprintf ppf "%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n%a\n"
     (pp_print_list pp_print_oracle "\n") gids.oracles
     (pp_print_list pp_print_local "\n") gids.ib_oracles
     (pp_print_list pp_print_node_arg "\n") gids.node_args
@@ -410,7 +419,8 @@ let pp_print_generated_identifiers ppf gids =
     (pp_print_list pp_print_call "\n") gids.calls
     (pp_print_list pp_print_qcall "\n") gids.qcalls
     (pp_print_list pp_print_refinement_type_constraint "\n") gids.refinement_type_constraints
-    (pp_print_list pp_print_selector_obligation "\n") gids.selector_obligations
+    (pp_print_list pp_print_obligation "\n") gids.selector_obligations
+    (pp_print_list pp_print_obligation "\n") gids.array_bounds_obligations
     (pp_print_list pp_print_empty_map "\n") gids.empty_maps
     (pp_print_list pp_print_map_element_update "\n") gids.map_element_updates
     (pp_print_list pp_print_contract_call "\n") contract_calls_list
@@ -458,6 +468,17 @@ let expanded_call_instances : (A.expr * int list) list ref = ref []
 
 let call_instance_of_expr expr =
   try List.assq expr !expanded_call_instances with Not_found -> []
+
+(* The calls of an array equation that every instance of an expression
+   expanded per index makes alike (see [expand_node_calls_in_place]): the
+   instances hold the same call, by physical equality, which is normalized
+   once, into the expression recorded here for each projection of the
+   equation, until the expanded equation has been normalized *)
+let shared_index_free_calls : (A.expr * (int * A.expr) list ref) list ref = ref []
+
+let reset_expanded_calls () =
+  expanded_call_instances := [];
+  shared_index_free_calls := []
 
 let dpos = Lib.dummy_pos
 
@@ -908,6 +929,47 @@ let mk_enum_reftype_constraints node_id info vars =
     in
     Some conj
 
+(* The operands of the conjunctions [e] is made of *)
+let rec conjuncts = function
+  | A.BinaryOp (_, A.And, e1, e2) -> conjuncts e1 @ conjuncts e2
+  | e -> [e]
+
+(* [c] conjoined to [conj], but for the conjuncts of [c] that already are
+   conjuncts of [conj] *)
+let conjoin_new c conj =
+  let present = conjuncts conj in
+  List.fold_left
+    (fun acc c' ->
+      if List.exists (expr_equal c') present then acc
+      else A.BinaryOp (dpos, A.And, c', acc))
+    conj (conjuncts c)
+
+(* Whether a variable of type [ty] has a value that satisfies the constraints
+   of [ty] (see [mk_enum_reftype_constraints]) whatever the values of the
+   constants: [ty] is an enum type, or a subrange whose bounds are literals
+   (see the parser) *)
+let has_constant_free_value info ty =
+  let literal = function
+    | A.Const (_, A.Num n) -> Some (Numeral.of_string (HString.string_of_hstring n))
+    | A.UnaryOp (_, A.Uminus, A.Const (_, A.Num n)) ->
+      Some (Numeral.neg (Numeral.of_string (HString.string_of_hstring n)))
+    | _ -> None
+  in
+  match Ctx.expand_type_syn info.context ty with
+  | A.EnumType _ -> true
+  | A.RefinementType (_, (_, v, A.Int _), pred) -> (
+    let is_v = function A.Ident (_, id) -> HString.equal id v | _ -> false in
+    match pred with
+    | A.BinaryOp (_, A.And, A.CompOp (_, A.Lte, l, x), A.CompOp (_, A.Lte, y, u))
+      when is_v x && is_v y -> (
+      match literal l, literal u with
+      | Some l, Some u -> Numeral.leq l u
+      | _ -> false)
+    | A.CompOp (_, A.Lte, b, x) when is_v x -> Option.is_some (literal b)
+    | A.CompOp (_, A.Lte, x, b) when is_v x -> Option.is_some (literal b)
+    | _ -> false)
+  | _ -> false
+
 let mk_fresh_oracle expr_type expr =
   i := !i + 1;
   let prefix = HString.mk_hstring (string_of_int !i) in
@@ -919,14 +981,17 @@ let mk_fresh_oracle expr_type expr =
   add_generated_type name (Lazy.from_val expr_type);
   nexpr, name, gids
 
-let mk_fresh_local ?indices force info pos ind_vars expr_type expr =
-  let key =
-    List.map
-      (fun id -> let (_, size, _, _) = StringMap.find id ind_vars in size)
-      (get_inductive_vars ind_vars expr),
-    expr
-  in
-  match (LocalCache.find_opt local_cache key, force) with
+(* The key a local is cached under: the sizes the index variables of the
+   expression range over, so that one expression under two bounds is not shared *)
+let local_cache_key ind_vars expr =
+  List.map
+    (fun id -> let (_, size, _, _) = StringMap.find id ind_vars in size)
+    (get_inductive_vars ind_vars expr),
+  expr
+
+let mk_fresh_local ?indices ?(cache = local_cache) force info pos ind_vars expr_type expr =
+  let key = local_cache_key ind_vars expr in
+  match (LocalCache.find_opt cache key, force) with
   | Some nexpr, false -> nexpr, empty ()
   | _ ->
   i := !i + 1;
@@ -940,21 +1005,45 @@ let mk_fresh_local ?indices force info pos ind_vars expr_type expr =
     locals = StringMap.singleton name expr_type;
     equations = [(info.quantified_variables, info.contract_scope, eq_lhs, expr, None)]; }
   in
-  LocalCache.add local_cache key nexpr;
+  LocalCache.add cache key nexpr;
   add_generated_type name (Lazy.from_val expr_type);
   nexpr, gids
 
-(* A 'pre' guarded by an enclosing '->' is left bare by the normalization, and
-   is never read at the initial instant. A Boolean condition with such a 'pre'
-   that is abstracted into a local of its own, outside of the '->', is [init]
-   at the initial instant instead, where the 'pre' has no value (see #1744) *)
-let guard_initial_value init cond =
-  if AH.has_unguarded_pre_no_warn cond then
-    A.Arrow (AH.pos_of_expr cond, A.Const (dpos, init), cond)
-  else cond
+(* A 'pre' an enclosing '->' guards is left bare by the normalization, which
+   only holds while the expression stays under that '->'. A pass that moves it
+   into a node-level equation makes it read the instant before the first one,
+   so the relocated expression supplies its own initial instant with an oracle,
+   as a node-call argument always has (see #1562) *)
+(* A 'pre' an enclosing '->' guards is left bare by the normalization, which
+   only holds while the expression stays under that '->'. A pass that moves it
+   into a node-level equation makes it read the instant before the first one,
+   so the relocated expression supplies its own initial instant with an oracle,
+   as a node-call argument always has (see #1562) *)
+let guard_relocated_expr expr_type expr =
+  if AH.has_unguarded_pre_no_warn expr then
+    let oracle, _, gids = mk_fresh_oracle expr_type expr in
+    A.Arrow (AH.pos_of_expr expr, oracle, expr), gids
+  else expr, empty ()
 
-(* A guard is not established at the initial instant *)
-let guard_initial_condition = guard_initial_value A.False
+(* Abstract a relocated expression into a local that every occurrence of the
+   expression shares. [mk_fresh_local] keys its cache on the definition, which
+   an oracle makes unique, so the lookup and the alias are on the expression
+   itself. The lookup comes first: an oracle minted on a cache hit would be
+   read by nothing. [oracle_type] defaults to the type of the local, and is
+   given separately where the local generalizes to an array equation, whose
+   definition, and so whose oracle, stands at the element level *)
+let abstract_relocated ?oracle_type info pos local_type nexpr =
+  let key = local_cache_key info.inductive_variables nexpr in
+  match LocalCache.find_opt local_cache key with
+  | Some local -> local, empty ()
+  | None ->
+    let oracle_type = Option.value oracle_type ~default:local_type in
+    let def, gids1 = guard_relocated_expr oracle_type nexpr in
+    let local, gids2 =
+      mk_fresh_local false info pos info.inductive_variables local_type def
+    in
+    LocalCache.replace local_cache key local;
+    local, union gids1 gids2
 
 let mk_fresh_constant pos name expr_type =
   i := !i + 1;
@@ -1071,21 +1160,22 @@ let declare_history_vars gids =
   in
   { gids with locals; equations; history_defs = StringMap.empty }
 
+(* The typing context of [info] with the generated locals of [node_id] *)
+let ctx_with_generated_locals info map node_id =
+  match node_id with
+  | Some node_id -> (
+    match NI.Map.find_opt node_id map with
+    | Some { locals } ->
+      StringMap.fold
+        (fun id ty acc -> Ctx.add_ty acc id ty)
+        locals info.context
+    | None -> info.context
+  )
+  | None -> info.context
+
 let get_expr_ty info map node_id expr =
   let ty =
-    let ctx =
-      match node_id with 
-      | Some node_id -> (
-        (* Add generated local variables to context *)
-        match NI.Map.find_opt node_id map with
-        | Some { locals } ->
-          StringMap.fold
-            (fun id ty acc -> Ctx.add_ty acc id ty)
-            locals info.context
-        | None -> info.context 
-      )
-      | None -> info.context
-    in
+    let ctx = ctx_with_generated_locals info map node_id in
     Chk.infer_type_expr ctx node_id expr |> unwrap |> (fun (ty, _, _) -> ty) in
   Chk.expand_type_syn_reftype_history info.context ty |> unwrap
 
@@ -1101,6 +1191,50 @@ let add_call_output_type info map node_id call nexpr =
         List.nth tys info.local_group_projection
       | ty -> ty))
   | _ -> ()
+
+(* The size of the outermost dimension of [expr], if it is an array *)
+let array_size_of info map node_id expr =
+  match get_expr_ty info map node_id expr with
+  | A.ArrayType (_, (_, size)) -> Some size
+  | _ -> None
+
+(* Whether [v] is bound by an enclosing quantifier or array equation *)
+let bound_by_binder info v =
+  StringMap.mem v info.inductive_variables
+  || List.exists (fun (_, q, _) -> HString.equal q v) info.quantified_variables
+
+(* [info.context] with [id] bound to a variable of type [ty]: a constant it
+   shadows is no longer one *)
+let add_binder_to_context ctx id ty =
+  Ctx.union (Ctx.remove_const ctx id) (Ctx.singleton_ty id ty)
+
+(* The value of the constant integer expression [e], if it is one. A variable
+   that shadows a constant is not one in [info.context] (see
+   [add_binder_to_context]) *)
+let eval_const_int info e =
+  AIC.eval_int_expr info.context e |> Result.to_option
+
+(* Whether the index [idx] is within the bounds of an array of size [size]
+   whatever the state, [idx_val] being the value of [idx] if it is constant:
+   [idx] is a constant in range, or an index variable of an enclosing array
+   equation that ranges over a dimension of the same size *)
+let index_statically_in_bounds info idx_val idx size =
+  let eval = eval_const_int info in
+  let size_val = eval size in
+  match idx_val, size_val with
+  | Some i, Some n -> 0 <= i && i < n
+  | _ ->
+    match idx with
+    | A.Ident (_, v) -> (
+      match StringMap.find_opt v info.inductive_variables with
+      | Some (_, vsize, _, _) ->
+        expr_equal vsize size
+        || (match eval vsize, size_val with
+            | Some m, Some n -> m <= n
+            | _ -> false)
+      | None -> false
+    )
+    | _ -> false
 
 let normalize_list f list =
   let over_list (nitems, gids, warnings1) item =
@@ -1366,7 +1500,7 @@ let rec normalize adt_map ctx inlinable_funcs uf_callable_funcs (decls:LustreAst
     call_context = [];
     value_context = [];
     pre_depth = 0;
-    emit_selector_obligations = true;
+    emit_obligations = true;
     inlined_expr_ctx = false;
     in_measure = false;
     adt_map; }
@@ -2094,6 +2228,9 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
          node (see [LustreDesugarArrayComprehensions]) *)
       | GhostVars (pos, GhostArrayDef (pos2, (p, id, ty), is), expr) ->
         let ety = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+        let expr =
+          fill_comprehension_default info id is (array_def_elem_type info ety is) expr
+        in
         let info = add_array_def_indices info pos2 ety is in
         (* As for an array definition in a node, the node calls that take
            index variables are expanded into one instance per index, when the
@@ -2123,7 +2260,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
         let nexpr, gids1, warnings1 =
           normalize_expr ?guard:None info (Some node_id) map expr
         in
-        expanded_call_instances := [];
+        reset_expanded_calls ();
         let gids1 =
           if expanded then
             union gids1 { (empty ()) with expanded_variables = StringSet.singleton id }
@@ -2206,7 +2343,7 @@ and normalize_contract info node_id map is_extern ivars ovars (p, items) =
           else normalize_expr ?guard:None info (Some node_id) map expr, false
         )
         in
-        expanded_call_instances := [];
+        reset_expanded_calls ();
         let gids2 = (
           if expanded then
           let items = tis in
@@ -2267,7 +2404,7 @@ and add_array_def_indices info pos ty is =
   let index_types = index_types_of_array_type pos ty in
   let info = List.fold_left2
     (fun info i (_, _, index_ty) ->
-      { info with context = Ctx.add_ty info.context i index_ty })
+      { info with context = add_binder_to_context info.context i index_ty })
     info
     is
     index_types 
@@ -2280,6 +2417,38 @@ and add_array_def_indices info pos ty is =
     index_types
   in { info with inductive_variables = ivars}
 
+(* The definition of the local [id] of an array comprehension under lazy
+   guards is the element [id[is]] being defined where the guards do not hold
+   (see [LustreDesugarArrayComprehensions]), which stands for any value of
+   type [ty], the type of the element. The definition does not matter there,
+   so it is the default value of the type *)
+and fill_comprehension_default info id is ty expr =
+  if not (var_is_array_comprehension id) then expr
+  else
+    let elem =
+      List.fold_left
+        (fun e i -> A.IndexAccess (dpos, e, A.Ident (dpos, i), A.Array))
+        (A.Ident (dpos, id)) is
+    in
+    let default = lazy (LDAT.default_value info.context info.adt_map dpos ty) in
+    let rec fill e =
+      if AH.syn_expr_equal None e elem = Ok true then Lazy.force default
+      else match e with
+        | A.TernaryOp (p, A.LazyIte, c, e1, e2) ->
+          A.TernaryOp (p, A.LazyIte, c, fill e1, fill e2)
+        | e -> e
+    in
+    fill expr
+
+(* The type of the elements of an array of type [ty] defined element-wise
+   over the indices [is] *)
+and array_def_elem_type info ty is =
+  List.fold_left (fun ty _ ->
+    match Chk.expand_type_syn_reftype_history info.context ty |> unwrap with
+    | A.ArrayType (_, (ty, _)) -> ty
+    | _ -> assert false
+  ) ty is
+
 and normalize_equation info node_id map = function
   | A.Assert (pos, expr) ->
     let info, h_gids, expr = desugar_history info expr in
@@ -2289,6 +2458,14 @@ and normalize_equation info node_id map = function
   | Equation (pos, lhs, expr) ->
     (* Need to track array indexes of the left hand side if there are any *)
     let items = match lhs with | A.StructDef (_, items) -> items in
+    let expr = match items with
+      | [A.ArrayDef (_, v, is)] ->
+        (match Ctx.lookup_ty info.context v with
+         | Some ty ->
+           fill_comprehension_default info v is (array_def_elem_type info ty is) expr
+         | None -> expr)
+      | _ -> expr
+    in
     let info = List.fold_left (fun info item -> match item with
       | A.ArrayDef (pos, v, is) ->
         let ty = match Ctx.lookup_ty info.context v with
@@ -2361,7 +2538,7 @@ and normalize_equation info node_id map = function
         normalize_expr info (Some node_id) map expanded_expr, true
       else normalize_expr info (Some node_id) map expr, false)
     in
-    expanded_call_instances := [];
+    reset_expanded_calls ();
     let gids2 = if expanded then
       let items = match lhs with | StructDef (_, items) -> items in
       let ids = List.map (function
@@ -2375,21 +2552,23 @@ and normalize_equation info node_id map = function
     Equation (pos, lhs, nexpr), union gids1 gids2, warnings
 
 (* [def] maps the normalized expression to the definition of the local that
-   abstracts it *)
-and abstract_expr ?guard ?ty ?(def = Fun.id) force info (node_id : NI.t option) map expr =
+   abstracts it, along with the identifiers that definition generates *)
+and abstract_expr ?guard ?ty ?(def = fun e -> e, empty ()) force info
+    (node_id : NI.t option) map expr =
   let nexpr, gids1, warnings = normalize_expr ?guard info node_id map expr in
   if should_not_abstract info force nexpr then
     nexpr, gids1, warnings
   else
     let ivars = info.inductive_variables in
     let pos = AH.pos_of_expr expr in
+    let dexpr, gids2 = def nexpr in
     let ty =
       match ty with
       | Some ty -> ty
-      | None -> generalized_type pos ivars (infer_type info node_id expr) (def nexpr)
+      | None -> generalized_type pos ivars (infer_type info node_id expr) dexpr
     in
-    let iexpr, gids2 = mk_fresh_local force info pos ivars ty (def nexpr) in
-    iexpr, union gids1 gids2, warnings
+    let iexpr, gids3 = mk_fresh_local force info pos ivars ty dexpr in
+    iexpr, union_list [gids1; gids2; gids3], warnings
 
 (* Proof obligation that the constructor owning a user-written selector is
    active where the selector is read. Each enclosing lazy guard is shifted to
@@ -2439,136 +2618,308 @@ and selector_statically_guarded info (adt_info : LDAT.adt_info) ctor scrut =
     ) info.value_context
   | _ -> false
 
-and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info) ctor base src_base =
-  match adt_info with
-  | adt_info ->
-    (* A value of a single-constructor ADT is always built with that constructor *)
-    (match adt_info.LDAT.ctor_variants with
-      | [] | [_] -> empty ()
-      | _ :: _ :: _ ->
-        let mk_tester scrut =
-          if adt_info.LDAT.is_recursive then A.ADTTester (pos, scrut, ctor)
-          else
-            A.CompOp (pos, A.Eq,
-              A.FieldProject (pos, scrut, adt_info.LDAT.disc_field, A.RecordField),
-              A.Ident (pos, ctor))
-        in
-        let tester = mk_tester base in
-        let mk_pre e = A.Arrow (pos, A.Const (pos, A.True), A.Pre (pos, e)) in
-        let rec shift_display d e =
-          if d <= 0 then e else mk_pre (shift_display (d - 1) e)
-        in
-        (* A local generalized to an array equation is read as l[i]; 'pre' has
-           to sit under the index access, as it does everywhere else in the AST *)
-        let mk_pre_local e =
-          let rec push e =
-            match e with
-            | A.IndexAccess (p, e1, e2, kind) -> A.IndexAccess (p, push e1, e2, kind)
-            | e -> A.Pre (pos, e)
+(* Proof obligation that the index [idx] of a user-written read or update of
+   an element of the array [arr], at [pos], is within its bounds, unless it
+   statically is. [nidx] is the normalized index. The obligation is positioned
+   at the index, which tells apart the accesses to the dimensions of a
+   multidimensional array, or at [pos] if the index has no position of its
+   own (a call expanded over the index variable of an array equation, see
+   [expand_node_call]). [size] is the size of the array, from its type, and
+   [previous] whether the access is evaluated at the previous instant *)
+and mk_array_access_obligation ?(previous = false) info node_id map pos size idx nidx =
+  if not info.emit_obligations then empty (), []
+  else
+    let idx_val = eval_const_int info idx in
+    if index_statically_in_bounds info idx_val idx size
+    then empty (), []
+    else
+      (* The size of an array type mentions no variable bound by a quantifier
+         or an array equation, which the type checker rejects in a type, so
+         a name of [size] they bind is one they shadow. The obligation is
+         closed over them (see [mk_obligation]), and so reads the size from a
+         local defined outside of them *)
+      let shadowed =
+        A.SI.filter (bound_by_binder info) (AH.vars_without_node_call_ids size)
+      in
+      let nsize, gids1, warnings =
+        if not (A.SI.is_empty shadowed) then
+          let info =
+            { info with quantified_variables = []; inductive_variables = StringMap.empty }
           in
-          A.Arrow (pos, A.Const (pos, A.True), push e)
-        in
-        (* A local abstracting a 'pre' operand is generalized to an array
-           equation over the index variables the operand mentions, in the order
-           generalize_to_array_expr uses, so its type mirrors the dimensions
-           those variables range over *)
-        let local_type e =
-          generalized_type pos info.inductive_variables (A.Bool pos) e
-        in
-        (* Introduce locals to abstract the pre operands *)
-        let shift_gids = ref (empty ()) in
-        let rec shift d e =
-          if d <= 0 then e
-          else
-            let ie, gids =
-              mk_fresh_local false info pos info.inductive_variables (local_type e)
-                (guard_initial_condition e)
-            in
-            shift_gids := union !shift_gids gids;
-            shift (d - 1) (mk_pre_local ie)
-        in
-        (* 'pick' selects the normalized or the source form of each guard *)
-        let shifted_guards pick shift_fn =
-          List.map
-            (fun c -> let g, d = pick c in shift_fn d g)
-            info.call_context
-        in
-        let mk_body pick core shift_fn =
-          let core = shift_fn info.pre_depth core in
-          match shifted_guards pick shift_fn with
-          | [] -> core
-          | g :: gs ->
-            let conj =
-              List.fold_left (fun acc g' -> A.BinaryOp (pos, A.And, g', acc)) g gs
-            in
-            A.BinaryOp (pos, A.Impl, conj, core)
-        in
-        let normalized_pick (g, _, d) = (g, d) in
-        let source_pick (_, g, d) = (g, d) in
-        (* Same shape as the obligation but with no generated locals: used to
-           discover the variables to close over *)
-        let probe = mk_body normalized_pick tester shift_display in
-        (* Close over the variables the selector is read under: the enclosing
-           quantifiers, and the index variables of an enclosing array equation. *)
-        let close =
-          let ind_vars =
-            get_inductive_vars info.inductive_variables probe
-            |> List.map (fun id ->
-                 let (_, _, index_ty, _) = StringMap.find id info.inductive_variables in
-                 (pos, id, index_ty))
+          let nsize, gids1, warnings = normalize_expr info node_id map size in
+          let local, gids2 =
+            mk_fresh_local ~cache:size_local_cache false info pos StringMap.empty
+              (A.Int pos) nsize
           in
-          let vars = List.rev (info.quantified_variables @ ind_vars) in
-          fun e ->
-            List.fold_left (fun acc ((p, id, ty) as var) ->
-              match mk_enum_reftype_constraints node_id info [var] with
-              | None -> A.Quantifier (pos, A.Forall, [var], acc)
-              | Some c ->
-                let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
-                A.Quantifier (pos, A.Forall, [(p, id, ty)],
-                  A.BinaryOp (pos, A.Impl, c, acc))
-            ) e vars
+          local, union gids1 gids2, warnings
+        else normalize_expr info node_id map size
+      in
+      let pos =
+        let idx_pos = AH.pos_of_expr idx in
+        if Lib.is_dummy_pos idx_pos then pos else idx_pos
+      in
+      let nonneg = match idx_val with Some i -> i >= 0 | None -> false in
+      let src_size, display = display_outside_binders pos shadowed size in
+      let gids2 =
+        mk_array_bounds_obligation info node_id pos ~nonneg ~previous ~display
+          nidx nsize idx src_size
+      in
+      union gids1 gids2, warnings
+
+(* [size] as displayed in an obligation that binds the names [shadowed] it
+   mentions, and the function that makes the display of the obligation read
+   them outside of the binders: the binders are renamed to generated names,
+   which the display numbers as '$1', '$2', ... (see
+   [LustreDesugarADTs.string_of_expr_as_source]), and [size] stands for the
+   names it mentions until then *)
+and display_outside_binders pos shadowed size =
+  if A.SI.is_empty shadowed then size, Fun.id
+  else
+    let names = A.SI.elements shadowed in
+    let outer v = HString.concat2 (HString.mk_hstring "%outer%") v in
+    let renamed =
+      List.map (fun v ->
+        i := !i + 1;
+        v, HString.concat2 (HString.mk_hstring (string_of_int !i ^ "_")) v)
+        names
+    in
+    let fresh v = List.assoc v renamed in
+    let to_outer = List.map (fun v -> v, A.Ident (pos, outer v)) names in
+    let from_outer = List.map (fun v -> outer v, A.Ident (pos, v)) names in
+    (* The binders the obligation is closed with (see [mk_obligation]) *)
+    let rec rename = function
+      | A.Quantifier (p, q, vars, body) ->
+        let sigma =
+          List.filter_map (fun (p, v, _) ->
+            if A.SI.mem v shadowed then Some (v, A.Ident (p, fresh v)) else None)
+            vars
         in
-        let key = (pos, shift_display info.pre_depth tester) in
-        let guards = shifted_guards normalized_pick shift_display in
-        let quantifiers = List.map (fun (_, id, _) -> id) info.quantified_variables in
-        let emitted =
-          match SelectorCache.find_opt selector_cache key with
-          | Some e -> e
-          | None -> []
+        let vars =
+          List.map (fun (p, v, ty) ->
+            if A.SI.mem v shadowed then (p, fresh v, ty) else (p, v, ty))
+            vars
         in
-        let implies (quantifiers', guards') =
-          List.length quantifiers' = List.length quantifiers
-          && List.for_all2 HString.equal quantifiers' quantifiers
-          && List.for_all
-               (fun g' -> List.exists (expr_equal g') guards)
-               guards'
-        in
-        if List.exists implies emitted then empty ()
-        else begin
-          SelectorCache.replace selector_cache key ((quantifiers, guards) :: emitted);
-          (* A selector under a guarded 'pre' is not read at the initial
-             instant, where the obligation holds *)
-          let obligation =
-            close (mk_body normalized_pick tester shift)
-            |> guard_initial_value A.True
-          in
-          (* Displayed in terms of the input model *)
-          let display =
-            close (mk_body source_pick (mk_tester src_base) shift_display)
-          in
-          i := !i + 1;
-          let prefix = HString.mk_hstring (string_of_int !i) in
-          let name = HString.concat2 prefix (HString.mk_hstring "_selector") in
-          let nexpr = A.Ident (pos, name) in
-          (* The obligation is closed, so it never generalizes to an array equation *)
-          let eq_lhs, _ =
-            generalize_to_array_expr name StringMap.empty obligation nexpr
-          in
-          union !shift_gids
-            { (empty ()) with
-              selector_obligations = [(pos, name, AH.rename_contract_vars display)];
-              equations = [([], info.contract_scope, eq_lhs, obligation, None)] }
-        end)
+        A.Quantifier (p, q, vars, rename (AH.apply_subst_in_expr sigma body))
+      | A.BinaryOp (p, A.Impl, c, e) -> A.BinaryOp (p, A.Impl, c, rename e)
+      | e -> e
+    in
+    AH.apply_subst_in_expr to_outer size,
+    fun display -> AH.apply_subst_in_expr from_outer (rename display)
+
+and mk_selector_obligation info node_id pos (adt_info : LDAT.adt_info)
+    (scrut_ty : A.lustre_type Lazy.t) ctor base src_base =
+  (* A value of a single-constructor ADT is always built with that constructor *)
+  match adt_info.LDAT.ctor_variants with
+  | [] | [_] -> empty ()
+  | _ :: _ :: _ ->
+    let mk_tester scrut =
+      if adt_info.LDAT.is_recursive then A.ADTTester (pos, scrut, ctor)
+      else
+        A.CompOp (pos, A.Eq,
+          A.FieldProject (pos, scrut, adt_info.LDAT.disc_field, A.RecordField),
+          A.Ident (pos, ctor))
+    in
+    (* The scrutinee is relocated into the equation of the obligation, where
+       an oracle stands for each undefined value it reads (see
+       [guard_relocated_expr]) *)
+    mk_obligation info node_id pos "_selector"
+      ~core:(fun relocate -> mk_tester (relocate (Lazy.force scrut_ty) base))
+      (mk_tester src_base)
+      (fun name display ->
+        { (empty ()) with selector_obligations = [(pos, name, display)] })
+
+(* Proof obligation that the index of a user-written array read or element
+   update is within the bounds of the array. [idx] and [size] are the
+   normalized index and size of the array, [src_idx] and [src_size] the same
+   as written, used for display. The lower bound is left out when the index is
+   a nonnegative constant ([nonneg]).
+
+   An access evaluated at the previous instant ([previous]) has an index that
+   does not change over time (see the case of 'pre' in [normalize_expr]), and
+   so do the bounds, which the type of the array gives. Its obligation holds
+   at the previous instant if and only if it holds at the current one, which
+   it is checked at, except at the initial instant, where the access is not
+   evaluated. The obligation is not shifted under a 'pre' instead, which would
+   abstract it into a local, where a quantified variable it mentions is not in
+   scope *)
+and mk_array_bounds_obligation info node_id pos ~nonneg ~previous ~display idx
+    size src_idx src_size =
+  let mk_in_bounds ~src idx size =
+    let ub = A.CompOp (pos, A.Lt, idx, size) in
+    let in_bounds =
+      if nonneg then ub
+      else
+        A.BinaryOp (pos, A.And,
+          A.CompOp (pos, A.Lte, A.Const (pos, A.Num (HString.mk_hstring "0")), idx),
+          ub)
+    in
+    if not previous then in_bounds
+    else
+      A.Arrow (pos, A.Const (pos, A.True),
+        if src then A.Pre (pos, in_bounds) else in_bounds)
+  in
+  (* The index and the size are relocated into the equation of the
+     obligation like the scrutinee of a selector: an oracle stands for each
+     'pre' they read bare under an enclosing '->', so the obligation is
+     checked at the initial instant on an arbitrary index (see
+     [mk_selector_obligation]) *)
+  mk_obligation info node_id pos "_bounds"
+    ~core:(fun relocate ->
+      mk_in_bounds ~src:false (relocate (A.Int pos) idx) (relocate (A.Int pos) size))
+    (mk_in_bounds ~src:true src_idx src_size)
+    (fun name d ->
+      { (empty ()) with array_bounds_obligations = [(pos, name, display d)] })
+
+(* Proof obligation that [core] holds wherever the partial operation at [pos]
+   is evaluated. [core relocate] is built from normalized expressions, whose
+   operands [relocate] makes stand on their own in the equation of the
+   obligation, and [src_core] is the same condition as written, used for
+   display; [record] records the obligation under the generated name in the
+   field of its kind. Each enclosing lazy guard is shifted to its own 'pre'
+   depth, so a guard is only ever compared against the operation it actually
+   protects. *)
+and mk_obligation info node_id pos suffix ~core src_core record =
+  let mk_pre e = A.Arrow (pos, A.Const (pos, A.True), A.Pre (pos, e)) in
+  let rec shift_display d e =
+    if d <= 0 then e else mk_pre (shift_display (d - 1) e)
+  in
+  (* A local generalized to an array equation is read as l[i]; 'pre' has
+     to sit under the index access, as it does everywhere else in the AST *)
+  let mk_pre_local e =
+    let rec push e =
+      match e with
+      | A.IndexAccess (p, e1, e2, kind) -> A.IndexAccess (p, push e1, e2, kind)
+      | e -> A.Pre (pos, e)
+    in
+    A.Arrow (pos, A.Const (pos, A.True), push e)
+  in
+  (* A local abstracting a 'pre' operand is generalized to an array
+     equation over the index variables the operand mentions, in the order
+     generalize_to_array_expr uses, so its type mirrors the dimensions
+     those variables range over *)
+  let local_type e =
+    generalized_type pos info.inductive_variables (A.Bool pos) e
+  in
+  (* Introduce locals to abstract the pre operands *)
+  let shift_gids = ref (empty ()) in
+  let rec shift d e =
+    if d <= 0 then e
+    else
+      let ie, gids =
+        abstract_relocated ~oracle_type:(A.Bool pos) info pos
+          (local_type e) e
+      in
+      shift_gids := union !shift_gids gids;
+      shift (d - 1) (mk_pre_local ie)
+  in
+  (* 'pick' selects the normalized or the source form of each guard *)
+  let shifted_guards pick shift_fn =
+    List.map
+      (fun c -> let g, d = pick c in shift_fn d g)
+      info.call_context
+  in
+  let mk_body pick core shift_fn relocate =
+    let core = shift_fn info.pre_depth core in
+    match List.map relocate (shifted_guards pick shift_fn) with
+    | [] -> core
+    | g :: gs ->
+      let conj =
+        List.fold_left (fun acc g' -> A.BinaryOp (pos, A.And, g', acc)) g gs
+      in
+      A.BinaryOp (pos, A.Impl, conj, core)
+  in
+  let normalized_pick (g, _, d) = (g, d) in
+  let source_pick (_, g, d) = (g, d) in
+  (* Same shape as the obligation but with no generated locals: used to
+     discover the variables to close over *)
+  let core0 = core (fun _ e -> e) in
+  let probe = mk_body normalized_pick core0 shift_display Fun.id in
+  (* Close over the variables the operation is evaluated under: the
+     enclosing quantifiers, and the index variables of an enclosing array
+     equation. *)
+  let close =
+    let ind_vars =
+      get_inductive_vars info.inductive_variables probe
+      |> List.map (fun id ->
+           let (_, _, index_ty, _) = StringMap.find id info.inductive_variables in
+           (pos, id, index_ty))
+    in
+    let vars = List.rev (info.quantified_variables @ ind_vars) in
+    (* The conditions of the guards that the obligation has as they are, not
+       shifted (see [mk_body]) *)
+    let unshifted =
+      List.concat_map
+        (fun (g, _, d) -> if d <= 0 then conjuncts g else [])
+        info.call_context
+    in
+    let in_guards c =
+      List.for_all
+        (fun c' -> List.exists (expr_equal c') unshifted)
+        (conjuncts c)
+    in
+    fun e ->
+      List.fold_left (fun acc ((p, id, ty) as var) ->
+        match mk_enum_reftype_constraints node_id info [var] with
+        | None -> A.Quantifier (pos, A.Forall, [var], acc)
+        | Some c when in_guards c ->
+          let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+          A.Quantifier (pos, A.Forall, [(p, id, ty)], acc)
+        | Some c ->
+          let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+          A.Quantifier (pos, A.Forall, [(p, id, ty)],
+            A.BinaryOp (pos, A.Impl, c, acc))
+      ) e vars
+  in
+  let key = (pos, shift_display info.pre_depth core0) in
+  let guards = shifted_guards normalized_pick shift_display in
+  let quantifiers = List.map (fun (_, id, _) -> id) info.quantified_variables in
+  let emitted =
+    match ObligationCache.find_opt obligation_cache key with
+    | Some e -> e
+    | None -> []
+  in
+  let implies (quantifiers', guards') =
+    List.length quantifiers' = List.length quantifiers
+    && List.for_all2 HString.equal quantifiers' quantifiers
+    && List.for_all
+         (fun g' -> List.exists (expr_equal g') guards)
+         guards'
+  in
+  if List.exists implies emitted then empty ()
+  else begin
+    ObligationCache.replace obligation_cache key ((quantifiers, guards) :: emitted);
+    (* The obligation is a property: the oracle stands in for each
+       undefined value it reads -- a guard 'shift' leaves at depth 0, and a
+       relocated operand of [core] -- never for the obligation *)
+    let value_gids = ref (empty ()) in
+    let relocate ty e =
+      let e, gids = guard_relocated_expr ty e in
+      value_gids := union !value_gids gids;
+      e
+    in
+    let obligation =
+      close
+        (mk_body normalized_pick (core relocate) shift (relocate (A.Bool pos)))
+    in
+    (* Displayed in terms of the input model *)
+    let display =
+      close (mk_body source_pick src_core shift_display Fun.id)
+    in
+    i := !i + 1;
+    let prefix = HString.mk_hstring (string_of_int !i) in
+    let name = HString.concat2 prefix (HString.mk_hstring suffix) in
+    let nexpr = A.Ident (pos, name) in
+    (* The obligation is closed, so it never generalizes to an array equation *)
+    let eq_lhs, _ =
+      generalize_to_array_expr name StringMap.empty obligation nexpr
+    in
+    union_list [
+      !shift_gids;
+      !value_gids;
+      record name (AH.rename_contract_vars display);
+      { (empty ()) with
+        equations = [([], info.contract_scope, eq_lhs, obligation, None)] } ]
+  end
 
 (* The variables bound by the enclosing quantifiers that [e] depends on,
    directly or through a call applied to them (see [mk_fresh_qcall]) *)
@@ -2598,11 +2949,13 @@ and call_context_depends_on_quant_vars info =
    them, at the instance the call is abstracted to, and [info] with the
    identifiers the guard introduces in its typing context.
 
-   A call under a guard that depends on the variables the quantifiers bind is
-   inlined, or compiled to an application of the functional symbol of the
-   callee (a call to any other function is rejected by [LustreSyntaxChecks]):
-   the output of its instance is not read, and the instance is retained for
-   the obligations of the callee, which the guard gates. The variables are
+   This is the guard of the instance retained by a call that is inlined, or
+   compiled to an application of the functional symbol of the callee, as a
+   call applied to the variables is, and so is a call to such a function under
+   a guard that depends on them (the guard of the instance of any other call
+   is closed by [exists_guard]): the output of the instance is not read,
+   and the instance is retained for the obligations of the callee, which the
+   guard gates. The variables are
    replaced by free constants in the arguments of the instance ([vmap]), and
    so are they in the guard, with a free constant of its own for a variable
    the arguments do not mention. A call applied to them in the guard is
@@ -2635,8 +2988,7 @@ and close_guard info vmap conj =
       let conj, deps =
         List.fold_left
           (fun (conj, deps) c ->
-            A.BinaryOp (dpos, A.And, c, conj),
-            A.SI.union deps (quant_deps info c))
+            conjoin_new c conj, A.SI.union deps (quant_deps info c))
           (conj, deps) constraints
       in
       close_vars conj deps ((v, nexpr) :: vmap)
@@ -2684,6 +3036,74 @@ and close_guard info vmap conj =
   in
   let conj = close conj in
   conj, !info, !gids
+
+(* The guard [conj] of the instance of a call under quantifiers that is not
+   applied to the variables they bind (a call to a node or a non-inlinable
+   function applied to them is rejected by [LustreSyntaxChecks]), made to
+   evaluate outside of them. The call is made at a step if and only if some
+   values of the variables the guard depends on make it hold, and its output
+   is only read where they do, since it does not depend on them. The guard of
+   the instance is then [(exists k. A(k)) and B], where [A(k)] is the
+   conjunction of the conditions of [conj] that depend on the variables [k],
+   and of the constraints of their types, and [B] that of the others, so that
+   the instance is activated at exactly the steps the call is made, and its
+   assumptions are only required there.
+
+   The instance stands for the instances the call would have for each value
+   of the variables if the call has no state, or if [A(k)] does not change
+   over time: the instance for a value is then either never activated, or
+   activated where [B] holds. [LustreSyntaxChecks] rejects any other call or
+   temporal branch, which is abstracted into a call.
+
+   A call applied to the variables in the guard stands for an application of
+   the functional symbol of the callee, whose free variables are named after
+   the variables they stand for (see [mk_fresh_qcall]), so the existential
+   binds them too *)
+and exists_guard info conj =
+  let conjoin = function
+    | [] -> None
+    | c :: cs ->
+      Some (List.fold_left (fun acc c' -> A.BinaryOp (dpos, A.And, acc, c')) c cs)
+  in
+  let dependent, independent =
+    List.partition
+      (fun c -> not (A.SI.is_empty (quant_deps info c)))
+      (conjuncts conj)
+  in
+  match conjoin dependent with
+  | None -> conj
+  | Some dependent ->
+    let rec close_vars conj deps bound =
+      match
+        List.find_opt
+          (fun (_, v, _) -> A.SI.mem v deps && not (A.SI.mem v bound))
+          info.quantified_variables
+      with
+      | None -> conj, bound
+      | Some ((_, v, _) as var) ->
+        let conj, deps =
+          match mk_enum_reftype_constraints None info [var] with
+          | None -> conj, deps
+          | Some c -> conjoin_new c conj, A.SI.union deps (quant_deps info c)
+        in
+        close_vars conj deps (A.SI.add v bound)
+    in
+    let dependent, bound =
+      close_vars dependent (quant_deps info dependent) A.SI.empty
+    in
+    (* The variables bound by the outer quantifiers come first *)
+    let closed =
+      List.fold_right
+        (fun (p, v, ty) acc ->
+          if not (A.SI.mem v bound) then acc
+          else
+            let ty = Chk.expand_type_syn_reftype_history info.context ty |> unwrap in
+            A.Quantifier (dpos, A.Exists, [(p, v, ty)], acc))
+        info.quantified_variables dependent
+    in
+    match conjoin independent with
+    | None -> closed
+    | Some independent -> A.BinaryOp (dpos, A.And, closed, independent)
 
 (* The free constant that stands for a variable bound by an enclosing
    quantifier, or the index variable of a comprehension, of type [ty], in the
@@ -2773,8 +3193,12 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) po
       in
       (* The call is abstracted to an instance outside of the enclosing
          quantifiers, so its guard is evaluated there too, and must not
-         depend on the variables the quantifiers bind *)
-      let conj, info, gids0 = close_guard info vmap conj in
+         depend on the variables the quantifiers bind. The guard of an
+         inlined instance shares the free constants of its arguments *)
+      let conj, info, gids0 =
+        if inlined then close_guard info vmap conj
+        else exists_guard info conj, info, empty ()
+      in
       (* The guard is closed: it is not generalized over the variables *)
       let info = { info with quantified_variables = [] } in
       let nexpr, gids =
@@ -2787,9 +3211,7 @@ and mk_fresh_call ?(vmap=[]) ?(inlined=false) ?(instance=[]) info (id : NI.t) po
         *)
         if should_not_abstract info false conj then conj, empty ()
         else
-          mk_fresh_local false info (AH.pos_of_expr conj)
-            info.inductive_variables (A.Bool dummy_pos)
-            (guard_initial_condition conj)
+          abstract_relocated info (AH.pos_of_expr conj) (A.Bool dummy_pos) conj
       in
       match AH.id_of_expr nexpr with
       | None -> assert false
@@ -2937,7 +3359,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       let iexpr, gids2 = mk_fresh_node_arg_local info pos is_const ty nexpr in
       iexpr, union gids1 gids2, warnings
   in
-  function
+  let normalize : A.expr -> _ = function
   (* ************************************************************************ *)
   (* Node calls                                                               *)
   (* ************************************************************************ *)
@@ -3021,7 +3443,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
          emitted the obligations, and the constants carry no information. *)
       let info =
         if vmap = [] then info
-        else { info with emit_selector_obligations = false }
+        else { info with emit_obligations = false }
       in
       (* The constraints of the types of the variables gate the instance (see
          [mk_quant_arg_constant]), and so do they the calls in its arguments,
@@ -3124,8 +3546,11 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       assert (is_uf_callable);
       (* The call is compiled to an application of the functional symbol of
          the callee, also when it is not applied to quantified variables but
-         is made under a guard that depends on them, which its instance could
-         not evaluate (see [close_guard]). The node instance is kept, with
+         is made under a guard that depends on them: the application is
+         defined by the body of the callee, where an instance of it would
+         only unroll its recursive calls a bounded number of times. The guard
+         of the instance (see [close_guard]) gates the obligations of the
+         callee. The node instance is kept, with
          free constants in place of the quantified variables, so that the
          callee remains a subsystem of the caller and its functional symbol is
          declared (or defined).
@@ -3156,9 +3581,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let nrestart, gids1, warnings1 =
       if AH.expr_is_const restart then restart, empty (), []
       else
-        (* A restart at the initial instant leaves the callee in its initial
-           state, so the condition may be false there *)
-        abstract_expr ?guard ~def:guard_initial_condition true info node_id map restart
+        (* The condition becomes the reset flag of the call instance, read at
+           every instant, the initial one included *)
+        abstract_expr ?guard ~def:(guard_relocated_expr (A.Bool pos)) true
+          info node_id map restart
     in let nargs, gids2, warnings2 = normalize_list
       (fun (arg, is_const) -> abstract_node_arg ?guard:None false is_const info map arg)
       (combine_args_with_const info args flags)
@@ -3184,9 +3610,30 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   (* 'pre' can only be pushed under an index access if the index has the same
      value at the previous instant, otherwise 'pre (a[i])' becomes '(pre a)[i]' *)
   | Pre (pos1, IndexAccess (pos2, expr1, expr2, kind))
-    when index_is_time_invariant info expr2 ->
-    let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, kind) in
-    normalize_expr ?guard info node_id map expr
+    when index_is_time_invariant info expr2 -> (
+    let size =
+      if kind = A.Unknown then array_size_of info map node_id expr1 else None
+    in
+    match size with
+    | Some size ->
+      (* The access is evaluated at the previous instant, as without the
+         rewriting, so its obligation is vacuous at the initial one (see
+         [mk_array_bounds_obligation]), and the rewritten access, which is no
+         longer user-written, makes none *)
+      let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, A.Array) in
+      let nexpr, gids1, warnings1 = normalize_expr ?guard info node_id map expr in
+      let nidx = match nexpr with
+        | A.IndexAccess (_, _, nidx, _) -> nidx
+        | _ -> assert false
+      in
+      let gids2, warnings2 =
+        mk_array_access_obligation ~previous:true info node_id map pos2 size
+          expr2 nidx
+      in
+      nexpr, union gids1 gids2, warnings1 @ warnings2
+    | None ->
+      let expr = A.IndexAccess (pos2, Pre (pos1, expr1), expr2, kind) in
+      normalize_expr ?guard info node_id map expr)
   | Pre (pos, expr) ->
     let ivars = info.inductive_variables in
     let force = expr_has_inductive_var ivars expr in
@@ -3403,9 +3850,18 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
         && not (expr_has_inductive_var info.inductive_variables expr)
       | _ -> false
     in
-    let nexpr, gids1, warnings =
-      if abstract_scrutinee then abstract_expr ?guard false info node_id map expr
-      else normalize_expr ?guard info node_id map expr
+    let nexpr0, gids1, warnings = normalize_expr ?guard info node_id map expr in
+    (* The scrutinee's type as instantiated here: the [adt_ty] the selector
+       carries has no type argument for a polymorphic datatype *)
+    let scrut_ty = lazy (infer_type info node_id expr) in
+    let nexpr, gids1 =
+      if not abstract_scrutinee || should_not_abstract info false nexpr0 then
+        nexpr0, gids1
+      else
+        let local, gids2 =
+          abstract_relocated info pos (Lazy.force scrut_ty) nexpr0
+        in
+        local, union gids1 gids2
     in
     (* A user-written selector accounts for its obligation here, once. The
        normalized projection is marked as generated so that re-normalizing this
@@ -3414,8 +3870,9 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let npk, gids2 = match pk, selector_info with
       | A.Selector (A.UserWritten, _, _), Some (adt_info, adt_ty, ctor, guarded) ->
         let gids =
-          if info.emit_selector_obligations then
-            mk_selector_obligation info node_id pos adt_info ctor nexpr expr
+          if info.emit_obligations then
+            mk_selector_obligation info node_id pos adt_info scrut_ty ctor
+              nexpr expr
           else empty ()
         in
         let npk =
@@ -3604,8 +4061,19 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
          node call or a read that later passes require to have been abstracted *)
       let normalize_idx ?guard idx = match idx with
         | A.Index (p, e, k) ->
-          let ne, gids, warnings = normalize_expr ?guard info node_id map e in
-          A.Index (p, ne, k), gids, warnings
+          let ne, gids1, warnings1 = normalize_expr ?guard info node_id map e in
+          let gids2, warnings2 = match k, info.emit_obligations with
+            (* Checked here as well, which saves inferring the type of the
+               array when the obligations are not emitted *)
+            | A.ArrayElem, true ->
+              let size = match array_size_of info map node_id expr1 with
+                | Some size -> size
+                | None -> assert false
+              in
+              mk_array_access_obligation info node_id map p size e ne
+            | _ -> empty (), []
+          in
+          A.Index (p, ne, k), union gids1 gids2, warnings1 @ warnings2
         | A.Label _ as idx -> idx, empty (), []
         (* Map and set updates take their own branches above, and generic
            indices are resolved by desugar_generic_index *)
@@ -3623,18 +4091,26 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       A.StructUpdate (pos, nexpr1, ni, nexpr2),
       List.fold_left union (empty ()) [gids1; gids2; gids3],
       warnings1 @ warnings2 @ warnings3
-  | IndexAccess (pos, expr1, expr2, _) ->
-    let expr1_ty = get_expr_ty info map node_id expr1 in 
+  | IndexAccess (pos, expr1, expr2, kind) ->
     let nexpr1, gids1, warnings1 = normalize_expr ?guard info node_id map expr1 in
     let nexpr2, gids2, warnings2 = normalize_expr ?guard info node_id map expr2 in
-    let kind' =
-      match expr1_ty with
-      | ArrayType _ -> A.Array
-      | Map _ -> Map
-      | TupleType _ -> Tuple
-      | _ -> assert false
+    (* An access is user-written while its kind is unresolved: the accesses
+       Kind 2 generates, and the normalized ones, have a resolved kind, which
+       their type need not be inferred for *)
+    let kind', (gids3, warnings3) =
+      match kind with
+      | A.Unknown -> (
+        match get_expr_ty info map node_id expr1 with
+        | ArrayType (_, (_, size)) ->
+          A.Array, mk_array_access_obligation info node_id map pos size expr2 nexpr2
+        | Map _ -> Map, (empty (), [])
+        | TupleType _ -> Tuple, (empty (), [])
+        | _ -> assert false)
+      | kind -> kind, (empty (), [])
     in
-    IndexAccess (pos, nexpr1, nexpr2, kind'), union gids1 gids2, warnings1 @ warnings2
+    IndexAccess (pos, nexpr1, nexpr2, kind'),
+    union_list [gids1; gids2; gids3],
+    warnings1 @ warnings2 @ warnings3
   | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (pos, kind, vars, expr) ->
     (* Binder types are only fully known here, after synonym expansion and
@@ -3645,7 +4121,10 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     (* A variable that shadows one of an enclosing quantifier is renamed, so
        that nested quantifiers bind distinct names: the guard of a call is
        evaluated outside of the quantifiers, where a name must denote a
-       single variable (see [close_guard]) *)
+       single variable (see [close_guard]). The types of the binders need no
+       renaming: they cannot mention a quantified variable, which the type
+       checker rejects, so a name in them is bound elsewhere, possibly by a
+       refinement type's own binder *)
     let vars, expr =
       List.fold_right
         (fun (p, id, ty) (vars, expr) ->
@@ -3662,18 +4141,35 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
                 id
             in
             let sigma = [(id, A.Ident (p, fresh))] in
-            let subst_ty = AH.map_lustre_ty (AH.apply_subst_in_expr sigma) in
-            (p, fresh, ty)
-            :: List.map (fun (p', id', ty') -> (p', id', subst_ty ty')) vars,
-            AH.apply_subst_in_expr sigma expr))
+            (p, fresh, ty) :: vars, AH.apply_subst_in_expr sigma expr))
         vars ([], expr)
     in
-    let ctx = List.fold_left Ctx.union info.context
-      (List.map (fun (_, i, ty) -> Ctx.singleton_ty i ty) vars)
+    let ctx =
+      List.fold_left (fun ctx (_, i, ty) -> add_binder_to_context ctx i ty)
+        info.context vars
     in
     let info = { 
       info with context = ctx;
         quantified_variables = info.quantified_variables @ vars }
+    in
+    (* [forall (k: T | Q(k)) P(k)] is [forall (k: T) Q(k) ==> P(k)], and
+       [exists (k: T | Q(k)) P(k)] is [exists (k: T) Q(k) and then P(k)]: the
+       constraints of the type of a variable are a lazy guard of the body, so
+       that a call in the body is only made where they hold (see
+       [exists_guard]). They are constant expressions, as below. Constraints
+       that some value satisfies whatever the constants are left out, since
+       they do not change the steps at which the call is made; [exists_guard]
+       still binds the variable to them where other guards mention it *)
+    let info =
+      List.fold_left
+        (fun info ((_, _, ty) as var) ->
+          match mk_enum_reftype_constraints node_id info [var] with
+          | Some _ when has_constant_free_value info ty -> info
+          | None -> info
+          | Some c ->
+            { info with
+              call_context = (c, c, info.pre_depth) :: info.call_context })
+        info vars
     in
     let nexpr, gids, warnings = normalize_expr ?guard info node_id map expr in
     List.fold_left (fun acc ((p, id, ty) as var) ->
@@ -3701,27 +4197,63 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
   | A.AbstractSymConst _ as e ->
     (* Pass through to the compiler, which handles it in compile_ast_expr. *)
     e, empty (), []
+  in
+  fun expr ->
+    match List.assq_opt expr !shared_index_free_calls with
+    | None -> normalize expr
+    | Some normalized ->
+      let proj = info.local_group_projection in
+      match List.assoc_opt proj !normalized with
+      | Some nexpr -> nexpr, empty (), []
+      | None ->
+        let (nexpr, _, _) as res = normalize expr in
+        normalized := (proj, nexpr) :: !normalized;
+        res
 
 (* [expr] with the node calls it makes in an array equation over [var]
    expanded into one instance per index (see [expand_node_call]), [count]
    being the size of the dimension [var] ranges over.
 
-   A call under a lazy construct whose condition mentions [var] is only made
+   A call under a lazy construct whose condition mentions [var], possibly in
+   the operands of a call, is only made
    at the indices where the condition selects it, so the instances cannot be
    selected by an eager conditional below the construct, which would leave
    [var] in the condition the calls are made under. The construct is expanded
    as a whole instead, into one instance per index, where [var] is replaced
    with the index ([index]), and every call it makes is the instance for that
-   index. So is a construct whose condition makes a call, since the call is
-   expanded into the selection of its instances over [var], which mentions
-   [var] as well.
+   index. A call in the condition that takes [var] is expanded into the
+   selection of its instances over [var], which mentions [var] as well.
 
    So is a call whose operands make calls of their own: substituting the index
    into the call once its operands are expanded would rebuild the instances of
    those calls, which would lose their indices (see [expanded_call_instances]),
-   and so would the properties lifted from them. *)
-and expand_node_calls_in_place ?index info node_id var count expr =
-  let r = expand_node_calls_in_place ?index info node_id var count in
+   and so would the properties lifted from them.
+
+   A call whose operands do not mention [var] takes the same value at every
+   index, so a single instance of it suffices (see #1755): outside of an
+   expansion per index, it is left as is. So is it in each instance of an
+   expansion per index ([guarded] being false), when its operands mention no
+   index variable of the equation, and it is under no lazy construct of the
+   expanded expression, whose condition may select it at some indices only.
+   Every instance then holds the same call, which is normalized once (see
+   [shared_index_free_calls]). *)
+and expand_node_calls_in_place ?index ?(guarded = false) info node_id var count expr =
+  let r = expand_node_calls_in_place ?index ~guarded info node_id var count in
+  let rg = expand_node_calls_in_place ?index ~guarded:true info node_id var count in
+  let vars e = AH.vars_without_node_call_ids e in
+  let mentions_var e = A.SI.mem var (vars e) in
+  (* Whether the call [call] is left as is, registered as shared by the
+     instances of an expansion per index *)
+  let index_free call =
+    match index with
+    | None -> not (mentions_var call)
+    | Some _ ->
+      not guarded
+      && not (A.SI.exists (fun v -> StringMap.mem v info.inductive_variables) (vars call))
+      && (if not (List.mem_assq call !shared_index_free_calls) then
+            shared_index_free_calls := (call, ref []) :: !shared_index_free_calls;
+          true)
+  in
   (* The call [call], rebuilt as [call'] with its operands expanded: the
      instance for [index], or the selection of its instances over [var] *)
   let expand_call call call' =
@@ -3735,12 +4267,15 @@ and expand_node_calls_in_place ?index info node_id var count expr =
   match AH.lazy_construct expr with
   | Some (cond, guarded)
     when index = None
-      && (A.SI.mem var (AH.vars_without_node_call_ids cond)
-          || AH.expr_contains_call cond)
+      && mentions_var cond
       && List.exists AH.expr_contains_call guarded ->
     expand_per_index info node_id var count expr
   | _ ->
   match expr with
+  | BinaryOp (p, ((AndThen | OrElse | LazyImpl) as op), e1, e2) when index <> None ->
+    A.BinaryOp (p, op, r e1, rg e2)
+  | TernaryOp (p, LazyIte, e1, e2, e3) when index <> None ->
+    A.TernaryOp (p, LazyIte, r e1, rg e2, rg e3)
   | A.Ident (p, v) when index <> None && HString.equal v var ->
     mk_index ~pos:p (Option.get index)
   | Quantifier (_, _, ids, _)
@@ -3779,15 +4314,13 @@ and expand_node_calls_in_place ?index info node_id var count expr =
        The literal is transposed instead: its element [j] at index [k] is the
        element [j] of the array of the instances for index [k], and the
        transposed literal is selected by [var]. An element that does not
-       depend on [var], and makes no call, is the same at every index. *)
+       mention [var], which is left as is, is the same at every index. *)
     let instances_of e =
       match e with
       | A.IndexAccess (_, A.GroupExpr (_, ArrayExpr, es), A.Ident (_, v), A.Array)
         when HString.equal v var && List.length es = count ->
         Some (Some es)
-      | e when not (A.SI.mem var (AH.vars_without_node_call_ids e))
-            && not (AH.expr_contains_call e) ->
-        Some None
+      | e when not (mentions_var e) -> Some None
       | _ -> None
     in
     let instances = List.map instances_of expr_list in
@@ -3815,6 +4348,7 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     A.ADTTerm (p, ty_args, ctor, List.map r expr_list)
   | ADTTester (p, e, ctor) -> A.ADTTester (p, r e, ctor)
   | Extract (p, e, ub, lb) -> A.Extract (p, r e, ub, lb)
+  | (Call _ | RestartEvery _) as e when index_free e -> e
   | Call (_, _, _, expr_list) as e
     when index = None && List.exists AH.expr_contains_call expr_list ->
     expand_per_index info node_id var count e
@@ -3827,7 +4361,7 @@ and expand_node_calls_in_place ?index info node_id var count expr =
     expand_call e' (A.RestartEvery (p, id, List.map r expr_list, r e))
   | e -> e
 
-(* [expr], a lazy construct whose condition mentions [var] or makes a call,
+(* [expr], a lazy construct whose condition mentions [var],
    or a call whose operands make calls, as a conditional over the indices of
    [var] selecting the instance of [expr] for each index (see
    [expand_node_calls_in_place]) *)

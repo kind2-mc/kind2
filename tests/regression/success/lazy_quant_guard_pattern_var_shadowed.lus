@@ -1,0 +1,29 @@
+-- A pattern variable that shadows one bound by matching the quantified
+-- variable, but is bound by matching an expression that does not depend on
+-- it, may appear in a temporal branch under a guard that changes over time,
+-- and in an argument of a call to a node (issue #1849)
+
+datatype O = Some (f: bool) | None;
+
+node prev (x: int) returns (y: int);
+let
+  y = x -> pre x;
+tel
+
+node main (c: bool; x: int; o: O) returns ();
+let
+  check "temporal_branch" forall (k: O)
+    (match k with
+     | Some(v) :
+       (match o with
+        | Some(v) : (c ==> (true -> pre v) = (true -> pre v))
+        | None : true end)
+     | None : true end);
+  check "node_argument" forall (k: O)
+    (match k with
+     | Some(v) :
+       (match o with
+        | Some(v) : prev(if v then x else 0) = prev(if v then x else 0)
+        | None : true end)
+     | None : true end);
+tel

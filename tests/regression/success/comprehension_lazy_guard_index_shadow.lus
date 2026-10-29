@@ -1,0 +1,11 @@
+-- A lazy guard around a comprehension that mentions a variable with the name
+-- of an index variable of the comprehension refers to that variable, not to
+-- the index, in the definition of the comprehension
+node main(i: int; x: int) returns (C: int^3)
+(*@contract
+  guarantee i > 0 ==> ((x + i foreach i)^3)[0] = x;
+*)
+let
+  C = when i > 0 then (x + i foreach i)^3 else 0^3;
+  check i > 0 => C[0] = x;
+tel

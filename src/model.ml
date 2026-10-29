@@ -30,6 +30,23 @@ module MIL = Map.Make
       let compare = List.compare Int.compare
     end)
 
+(* The keys of a map are the indices from the outermost array in. An index
+   of [w] bits is a number in [0, 2^w), whether the bit-vector is signed or
+   not, so that the keys follow the order of the indices. *)
+let term_of_index ty i =
+  if Type.is_ubitvector ty || Type.is_bitvector ty then
+    match Type.get_bv_size ty with
+    | Some size ->
+      Bitvector.num_to_ubv (Numeral.of_int size) (Numeral.of_int i)
+      |> Term.mk_ubv
+    | None -> invalid_arg "term_of_index"
+  else Term.mk_num_of_int i
+
+let index_of_term t =
+  if Term.is_bitvector t then
+    Numeral.to_int (Bitvector.ubv_to_num (Term.bitvector_of_term t))
+  else Numeral.to_int (Term.numeral_of_term t)
+
 
 (* Hashconsed term or hashconsed lambda expression *)
 type value =

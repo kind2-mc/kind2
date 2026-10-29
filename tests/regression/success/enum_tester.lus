@@ -1,0 +1,7 @@
+type color = enum { Red, Green, Blue };
+
+node main (c: color) returns (ok: bool);
+let
+  ok = Red?(c) = (c = Red) and (Red?(c) or Green?(c) or Blue?(c));
+  check ok;
+tel

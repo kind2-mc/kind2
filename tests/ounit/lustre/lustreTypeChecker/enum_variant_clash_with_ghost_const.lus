@@ -1,0 +1,10 @@
+type E = enum { A, B };
+
+node top (e: E) returns (y: int);
+(*@contract
+  const A: E = B;
+  guarantee y = 0;
+*)
+let
+  y = 0;
+tel

@@ -1,0 +1,6 @@
+-- A branch of a 'when' expression with 'pre' is abstracted into a node, which
+-- takes the size of the array it reads as an input, since its type mentions it
+node main(const n: int; s: int; a: int^n) returns (y: int);
+let
+  y = when n > 0 and s = 0 then (-1 -> pre a[0]) else 0;
+tel

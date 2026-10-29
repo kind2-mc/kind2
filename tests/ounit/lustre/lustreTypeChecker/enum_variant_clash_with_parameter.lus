@@ -1,0 +1,6 @@
+type my_enum = enum { A, B };
+
+node f (A: my_enum) returns (y: bool);
+let
+  y = (A = B);
+tel

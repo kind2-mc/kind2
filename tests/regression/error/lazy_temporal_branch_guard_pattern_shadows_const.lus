@@ -1,7 +1,7 @@
 -- A pattern variable that shadows a constant changes over time, so a guard
 -- that mentions it does too, and a temporal operand under it is abstracted
--- into a call to a node, which a quantified variable in the guard does not
--- allow (issue #1837)
+-- into a call to a node, which a quantified variable in a condition of the
+-- guard that changes over time does not allow (issues #1837, #1849)
 
 datatype O = Some(f: int) | None;
 

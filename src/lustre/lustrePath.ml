@@ -1232,19 +1232,23 @@ let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
       (* A state var with no recorded source is not a discriminant; skip it. *)
       | exception Not_found -> None
     ) bindings in
-    List.filter_map (fun (_disc_index, disc_sv, type_name, root_index) ->
-      (* Derive the user-visible stream name by stripping ".disc_field" from
-         the state var name (which bakes the full index path into its name). *)
+    List.filter_map (fun (disc_index, disc_sv, type_name, root_index) ->
+      (* Derive the user-visible stream name by stripping the discriminant
+         index from the state var name, which bakes the full index path into
+         its name.  The suffix is printed rather than rebuilt from the field
+         name, which need not spell it. *)
       let sv_name = StateVar.name_of_state_var disc_sv in
       let root_name =
-        match G.HStringMap.find_opt type_name adt_map with
-        | None -> assert false
-        | Some adt_info ->
-          let disc_suffix = "." ^ HString.string_of_hstring adt_info.G.disc_field in
-          let n = String.length sv_name and m = String.length disc_suffix in
-          if n > m && String.sub sv_name (n - m) m = disc_suffix
-          then String.sub sv_name 0 (n - m)
-          else assert false
+        let disc_suffix =
+          match List.rev disc_index with
+          | last :: _ -> Lib.string_of_t (D.pp_print_one_index true) last
+          (* A discriminant source implies a discriminant index *)
+          | [] -> assert false
+        in
+        let n = String.length sv_name and m = String.length disc_suffix in
+        if n > m && String.sub sv_name (n - m) m = disc_suffix
+        then String.sub sv_name 0 (n - m)
+        else assert false
       in
       let disc_sv_values =
         try SVT.find model disc_sv with Not_found -> []

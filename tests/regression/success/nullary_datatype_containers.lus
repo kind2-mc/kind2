@@ -1,0 +1,9 @@
+datatype color = Red | Green | Blue;
+
+node main (s: set<color>; m: map<color, color>; a: color^3) returns (ok: bool);
+let
+  ok = ((Red in s) or not (Red in s))
+       and ((Red in m) => (m[Red] = Red or m[Red] = Green or m[Red] = Blue))
+       and (a[0] = Red or a[0] <> Red);
+  check ok;
+tel

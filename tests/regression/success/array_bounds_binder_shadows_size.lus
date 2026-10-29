@@ -1,0 +1,10 @@
+-- A quantified variable or an index variable named after the constant input
+-- that sizes the array does not take its place in the obligation
+node main(const n: int; a: int^n) returns (y: int^3);
+(*@contract
+  assume n = 10;
+*)
+let
+  check forall (n: int | 0 <= n and n < 3) a[n] = a[n];
+  y = (a[0] + n foreach n)^3;
+tel
