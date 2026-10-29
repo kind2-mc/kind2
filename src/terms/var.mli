@@ -173,6 +173,10 @@ val declare_constant_vars : (UfSymbol.t -> unit) -> t list -> unit
     provided function. *)
 val declare_vars : (UfSymbol.t -> unit) -> t list -> unit
 
+(** Declares the variables, constant or not, as constant ufsymbols using the
+    provided function *)
+val declare_all_vars : (UfSymbol.t -> unit) -> t list -> unit
+
 (** encode array select operation *)
 val encode_select : t -> UfSymbol.t
 

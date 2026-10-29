@@ -637,6 +637,12 @@ let rec declare_vars declare = function
 
   | [] -> ()
 
+(* Declares variables, constant or not, as constant ufsymbols using the
+   provided function. *)
+let declare_all_vars declare vars =
+  declare_constant_vars declare vars ;
+  declare_vars declare vars
+
 (* Gets the state var instance associated with a unrolled
    symbol. Throws [Not_found] if the sym is unknown. *)
 let state_var_instance_of_symbol sym =

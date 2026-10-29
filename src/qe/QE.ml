@@ -92,8 +92,7 @@ let get_solver_instance trans_sys =
         Numeral.zero !(ubound ());
 
       (* Declare the variables of the engines *)
-      Var.declare_vars (SMTSolver.declare_fun solver) !(extra_vars ()) ;
-      Var.declare_constant_vars (SMTSolver.declare_fun solver) !(extra_vars ()) ;
+      Var.declare_all_vars (SMTSolver.declare_fun solver) !(extra_vars ()) ;
       
       SMTSolver.trace_comment solver "Defining predicates";
 
@@ -132,9 +131,7 @@ let get_solver_instance trans_sys =
 let declare_vars vars =
   extra_vars () := !(extra_vars ()) @ vars ;
   match !(solver_qe ()) with
-  | Some solver ->
-    Var.declare_vars (SMTSolver.declare_fun solver) vars ;
-    Var.declare_constant_vars (SMTSolver.declare_fun solver) vars
+  | Some solver -> Var.declare_all_vars (SMTSolver.declare_fun solver) vars
   | None -> ()
 
 

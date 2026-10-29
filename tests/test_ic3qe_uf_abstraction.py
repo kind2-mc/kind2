@@ -158,6 +158,47 @@ tel
 """
 
 
+# Two analyses (modular and compositional), the first with a function to
+# int and the second with a function to bool: the variables IC3QE adds in
+# one analysis outlive it, and those of the next must not collide with them
+two_analyses = """
+function imported f(x: int) returns (y: int);
+(*@contract guarantee y >= 0; *)
+function imported g(x: int) returns (b: bool);
+
+node sub(x: int) returns (ok: bool);
+(*@contract guarantee ok; *)
+var n: int;
+let
+  n = 0 -> if pre n < 2 then pre n + 1 else 2;
+  ok = n < 2 or (x = pre pre x => f(x) = pre pre f(x));
+tel
+
+node main(x: int) returns (ok: bool);
+var n: int; s: bool;
+let
+  s = sub(x);
+  n = 0 -> if pre n < 2 then pre n + 1 else 2;
+  ok = s and (n < 2 or (x = pre pre x => g(x) = pre pre g(x)));
+  check "prop" ok;
+tel
+"""
+
+# A function to an array: its application variable is an array without
+# bounds, whose values the models do not give
+array_application = """
+function imported f(x: int) returns (a: int^3);
+node main(x: int) returns (ok: bool);
+var a: int^3; n: int;
+let
+  n = 0 -> pre n + 1;
+  a = f(x);
+  ok = n < 2 or (x = pre pre x => a[0] = pre pre a[0]);
+  check "prop" ok;
+tel
+"""
+
+
 def run_ic3qe(tmp_path, model, extra={}, flags=[]):
     path = tmp_path / "model.lus"
     path.write_text(model)
@@ -244,3 +285,35 @@ def test_solver_qe(tmp_path):
     output = run_ic3qe(tmp_path, cross_step, {"--qe_method": "impl"})
     assert "Property prop is valid by property directed reachability (QE)" \
         in output, output
+
+
+def test_two_analyses(tmp_path):
+    output = run_ic3qe(tmp_path, two_analyses,
+                       {"--modular": "true", "--compositional": "true"})
+    assert "Property prop is valid by property directed reachability (QE)" \
+        in output, output
+    assert "is valid by property directed reachability (QE)" in \
+        output.split("Analyzing main")[0], output
+
+
+# IC3QE does not generalize through an array without bounds, and declines
+# the system, without failing
+def test_array_application(tmp_path):
+    output = run_ic3qe(tmp_path, array_application)
+    assert "Shutting down IC3QE" in output, output
+
+
+# The certificate of a proof is over the variables of the system: those
+# IC3QE adds are left out, and a certificate the proof needed them for is
+# not proved, without failing
+@pytest.mark.parametrize(
+    "model, proved", [(buffered, True), (cross_step, False)],
+    ids=["buffered", "cross_step"])
+def test_certificate(tmp_path, model, proved):
+    output = run_ic3qe(tmp_path, model, {"--certif": "true"})
+    assert "Property prop is valid by property directed reachability (QE)" \
+        in output, output
+    if proved:
+        assert "Certificate checker was written" in output, output
+    else:
+        assert "CouldNotProve" in output, output

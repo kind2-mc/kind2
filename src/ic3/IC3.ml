@@ -739,29 +739,42 @@ type app_var =
   offsets : [ `None | `Zero | `Mixed ] ;
 }
 
-(* The scope of the variables IC3QE adds, which no system has *)
-let ic3qe_scope = [ "__ic3qe" ]
+(* The scope of the variables IC3QE adds, which no system has: with the
+   identifier of the analysis, as the variables of an analysis outlive it
+   (the certificates and invariants of other analyses may mention them), and
+   a variable of another analysis with the same name may have another type *)
+let ic3qe_scope uid = [ "__ic3qe" ; "a" ^ string_of_int uid ]
 
-let is_ic3qe_var sv = StateVar.scope_of_state_var sv = ic3qe_scope
+let is_ic3qe_var sv =
+  match StateVar.scope_of_state_var sv with
+  | "__ic3qe" :: _ -> true
+  | _ -> false
 
 (* Whether a term is over the variables of the system alone, without those
    IC3QE adds, which the other engines do not know *)
 let system_term term =
   not (StateVar.StateVarSet.exists is_ic3qe_var (Term.state_vars_of_term term))
 
-(* The abstraction: the application variables, those declared in the solver
-   of IC3QE and those not yet; the constraints over the variables IC3QE
-   adds, over offsets zero and one, and those on the initial state; and the
-   history of the refinements (see [refine]): for each delay [d], the
-   variable that says the history is [d] steps long, and for each
-   application variable and delay the variables of the arguments and of the
-   value of the application [d] steps earlier; the lemmas added; the number
-   of refinements done, and of variables created *)
+(* The abstraction: the scope of the variables IC3QE adds; the application
+   variables, those declared in the solver of IC3QE and those not yet; the
+   instances of the variables declared; the bounds of the array variables
+   of the system, where those of the variables IC3QE adds are recorded; the
+   definitions of the application variables after a transition, with the
+   applications; the constraints over the variables IC3QE adds, over
+   offsets zero and one, and those on the initial state; and the history of the refinements (see
+   [refine]): for each delay [d], the variable that says the history is [d]
+   steps long, and for each application variable and delay the variables of
+   the arguments and of the value of the application [d] steps earlier; the
+   lemmas added; the number of refinements done, and of variables created *)
 type abstraction =
 {
+  scope : string list ;
   mutable app_vars : app_var list ;
   mutable declared : app_var list ;
   mutable pending : app_var list ;
+  mutable vars : Var.t list ;
+  bounds : (LustreExpr.expr LustreExpr.bound_or_fixed list) StateVar.StateVarHashtbl.t ;
+  mutable definitions : Term.t list ;
   mutable constraints : Term.t list ;
   mutable init_constraints : Term.t list ;
   mutable valid : (int * StateVar.t) list ;
@@ -771,21 +784,30 @@ type abstraction =
   mutable counter : int ;
 }
 
-let abstraction =
-  let key =
-    Domain.DLS.new_key (fun () ->
-      { app_vars = [] ; declared = [] ; pending = [] ; constraints = [] ;
-        init_constraints = [] ; valid = [] ; cells = [] ; lemmas = [] ;
-        refinements = 0 ; counter = 0 })
-  in
-  fun () -> Domain.DLS.get key
+let empty_abstraction scope bounds =
+  { scope ; app_vars = [] ; declared = [] ; pending = [] ; vars = [] ; bounds ;
+    definitions = [] ; constraints = [] ; init_constraints = [] ;
+    valid = [] ; cells = [] ; lemmas = [] ; refinements = 0 ; counter = 0 }
+
+let abstraction_key =
+  Domain.DLS.new_key (fun () ->
+    empty_abstraction (ic3qe_scope 0) (StateVar.StateVarHashtbl.create 1))
+
+let abstraction () = Domain.DLS.get abstraction_key
+
+(* Start the abstraction of an analysis *)
+let reset_abstraction aparam trans_sys =
+  Domain.DLS.set abstraction_key
+    (empty_abstraction
+       (ic3qe_scope (Analysis.info_of_param aparam).Analysis.uid)
+       (TransSys.get_state_var_bounds trans_sys))
 
 (* A fresh variable of IC3QE *)
 let mk_ic3qe_var ?(is_const = false) name ty =
   let a = abstraction () in
   a.counter <- a.counter + 1 ;
   StateVar.mk_state_var ~is_input:false ~is_const ~for_inv_gen:false
-    (Format.sprintf "%s_%d" name a.counter) ic3qe_scope ty
+    (Format.sprintf "%s_%d" name a.counter) a.scope ty
 
 let at0 sv = Term.mk_var (Var.mk_state_var_instance sv Numeral.zero)
 let at1 sv = Term.mk_var (Var.mk_state_var_instance sv Numeral.one)
@@ -826,12 +848,21 @@ let app_var_at av k =
    variables, for the applications in its arguments. *)
 let app_var_of_application app =
   let a = abstraction () in
+  (* An application over the variable of a shape over the two states is
+     over the two states too, as that variable has an instance at offset
+     one only *)
+  let over_mixed =
+    StateVar.StateVarSet.exists (fun sv ->
+      List.exists (fun av ->
+        av.offsets = `Mixed && StateVar.equal_state_vars av.var sv) a.app_vars)
+      (Term.state_vars_of_term app)
+  in
   let offsets, shape =
     match Term.var_offsets_of_term app with
     | None, None -> `None, app
-    | Some lo, Some hi ->
-      (if Numeral.equal lo hi then `Zero else `Mixed),
-      Term.bump_state (Numeral.neg lo) app
+    | Some lo, Some hi when Numeral.equal lo hi && not over_mixed ->
+      `Zero, Term.bump_state (Numeral.neg lo) app
+    | Some _, Some hi -> `Mixed, Term.bump_state (Numeral.sub Numeral.one hi) app
     | _ -> assert false
   in
   match List.find_opt (fun av -> Term.equal av.shape shape) a.app_vars with
@@ -894,36 +925,52 @@ let abstract_ufs uf_defs term =
   in
   abstract term
 
-(* A term over the application variables as one over the system: the
-   variables are replaced by their shapes, those in the shapes too *)
-let externalize term =
-  let a = abstraction () in
-  let subst =
-    List.concat_map (fun av ->
-      List.map (fun v ->
-        v, snd (app_var_at av (match Var.offset_of_state_var_instance v with
-                                | k -> k
-                                | exception _ -> Numeral.zero)))
-        (instances_of_app_var av)) a.app_vars
+(* The clauses of a conjunction that are over the variables of the system.
+   A clause over the variables IC3QE adds is left out: no system has them,
+   and with the applications in place of the application variables the
+   clause would have applications of the symbols, which the evaluation of
+   a term in a model does not interpret. *)
+let system_clauses term =
+  let clauses =
+    match Term.destruct term with
+    | Term.T.App (s, args) when Symbol.node_of_symbol s = `AND -> args
+    | _ -> [ term ]
   in
-  let rec fix t =
-    let t' = Term.apply_subst subst t in
-    if Term.equal t t' then t else fix t'
-  in
-  fix term
+  List.filter system_term clauses
 
 (* Declare variables IC3QE adds: in its solver, and in the solver of the
    quantifier elimination *)
 let declare_ic3qe_vars solver vars =
-  Var.declare_vars (SMTSolver.declare_fun solver) vars ;
-  Var.declare_constant_vars (SMTSolver.declare_fun solver) vars ;
+  let a = abstraction () in
+  a.vars <- a.vars @ vars ;
+  (* The values of an array variable are read with its bounds, which a
+     variable IC3QE adds does not have: it is unbounded, and has no value in
+     the models *)
+  List.iter (fun v ->
+    let ty = Var.type_of_var v in
+    if Type.is_array ty then
+      StateVar.StateVarHashtbl.replace a.bounds
+        (Var.state_var_of_state_var_instance v)
+        (List.map (fun _ -> LustreExpr.Unbound None)
+           (Type.all_index_types_of_array ty))) vars ;
+  Var.declare_all_vars (SMTSolver.declare_fun solver) vars ;
   QE.declare_vars vars
 
 (* Add a constraint of the abstraction: to the solver of IC3QE, and to the
-   constraints the generalization sees *)
+   constraints the generalization sees, which are over the variables IC3QE
+   adds and those of the system, without the symbols *)
 let add_constraint solver c =
   let a = abstraction () in
   a.constraints <- c :: a.constraints ;
+  SMTSolver.assert_term solver c
+
+(* Add the definition of an application variable after a transition, with
+   the application: to the solver of IC3QE, and to the definitions, which
+   the generalization does not see (the definition is trivial once the
+   application is abstracted) *)
+let add_definition solver c =
+  let a = abstraction () in
+  a.definitions <- c :: a.definitions ;
   SMTSolver.assert_term solver c
 
 (* Add a constraint on the initial state *)
@@ -954,11 +1001,11 @@ let declare_pending solver =
     declare_ic3qe_vars solver (instances_of_app_var av) ;
     let def k = let v, s = app_var_at av k in Term.mk_eq [ v ; s ] in
     (match av.offsets with
-     | `None -> add_constraint solver (def Numeral.zero)
+     | `None -> add_definition solver (def Numeral.zero)
      | `Zero ->
-       add_constraint solver (def Numeral.one) ;
+       add_definition solver (def Numeral.one) ;
        add_init_constraint solver (def Numeral.zero)
-     | `Mixed -> add_constraint solver (def Numeral.one)) ;
+     | `Mixed -> add_definition solver (def Numeral.one)) ;
     List.iter (fun bv ->
       if symbol_of_shape bv.shape == symbol_of_shape av.shape then (
         add_constraint solver (congruence av bv Numeral.one) ;
@@ -1011,14 +1058,7 @@ let abstract_system solver trans_sys =
 
 (* The variables IC3QE adds that are declared: the application variables
    and the history variables, at offsets zero and one, or constant *)
-let ic3qe_vars () =
-  let a = abstraction () in
-  List.concat_map instances_of_app_var a.declared
-  @ List.concat_map (fun sv ->
-      [ Var.mk_state_var_instance sv Numeral.zero ;
-        Var.mk_state_var_instance sv Numeral.one ])
-      (List.map snd a.valid
-       @ List.concat_map (fun (_, (args, v)) -> v :: args) a.cells)
+let ic3qe_vars () = (abstraction ()).vars
 
 (* The variables of the models IC3QE reads: those of the system at offsets
    zero and one, and those IC3QE adds *)
@@ -1148,8 +1188,7 @@ let cex_of_trace trans_sys trace =
       (SMTSolver.declare_fun solver)
       (SMTSolver.declare_sort solver)
       Numeral.zero (num n) ;
-    Var.declare_vars (SMTSolver.declare_fun solver) ic3qe_instances ;
-    Var.declare_constant_vars (SMTSolver.declare_fun solver) ic3qe_instances ;
+    Var.declare_all_vars (SMTSolver.declare_fun solver) ic3qe_instances ;
     Fun.protect ~finally:(fun () -> SMTSolver.delete_instance solver)
       (fun () -> f solver)
   in
@@ -1162,7 +1201,8 @@ let cex_of_trace trans_sys trace =
         TransSys.global_constraints trans_sys
         @ TransSys.trans_of_bound None trans_sys (num k)
           :: Term.bump_state (num k) cube
-          :: List.map (Term.bump_state (num (k - 1))) a.constraints
+          :: List.map (Term.bump_state (num (k - 1)))
+               (a.definitions @ a.constraints)
       in
       if k = 1 then
         TransSys.init_of_bound None trans_sys Numeral.zero
@@ -1284,10 +1324,7 @@ let extrapolate solver trans_sys state f g =
        TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero;
        TransSys.invars_of_bound trans_sys Numeral.one;
 *)
-       Term.bump_state Numeral.one g]
-       (* The constraints of the abstraction, over the variables IC3QE
-          adds *)
-       @ (abstraction ()).constraints)
+       Term.bump_state Numeral.one g])
   in
 
   let term =
@@ -1299,8 +1336,10 @@ let extrapolate solver trans_sys state f g =
           raise (UnsupportedFeature
             "Shutting down IC3QE: Cannot generalize quantified terms.")
       in
+      (* The constraints of the abstraction, over the variables IC3QE adds,
+         with those of the application variables the term may have added *)
       declare_pending solver ;
-      term'
+      Term.mk_and (term' :: (abstraction ()).constraints)
   in
 
   (* Get primed variables in the transition system *)
@@ -2649,13 +2688,11 @@ let fwd_propagate solver input_sys aparam trans_sys prop_set frames =
                   List.map C.term_of_clause inductive_clauses_gen
                 in
 
-                (* The invariants for the system: the clauses over the
-                   variables of the system, with the application variables
-                   replaced by their applications; those over history
-                   variables (see [refine]) are kept to IC3QE *)
+                (* The invariants for the system: the clauses over its
+                   variables; those over the variables IC3QE adds (see
+                   [system_clauses]) are kept to IC3QE *)
                 let inductive_terms =
-                  List.map externalize inductive_clause_terms
-                  |> List.filter system_term
+                  List.filter system_term inductive_clause_terms
                 in
 
                 (* Broadcast inductive clauses as invariants *)
@@ -3371,8 +3408,11 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
           (
 
             (* Certificate = 1-inductive invariant in conjunction of the
-               properties *)
-            let cert = 1, Term.mk_and (ind_inv :: List.map snd props) in
+               properties: the clauses over the variables of the system
+               (see [system_clauses]) *)
+            let cert =
+              1, Term.mk_and (system_clauses ind_inv @ List.map snd props)
+            in
             
             (* Send out valid properties *)
             List.iter
@@ -3412,7 +3452,10 @@ let rec restart_loop solver input_sys aparam trans_sys props predicates =
                        trace
                    with SMTSolver.Unknown when has_arrays trans_sys ->
                      no_cex_path trans_sys)
-              else cex_of_trace trans_sys trace
+              else
+                try cex_of_trace trans_sys trace
+                with SMTSolver.Unknown when has_arrays trans_sys ->
+                  no_cex_path trans_sys
             in
             match cex with
             | `Conflicts conflicts ->
@@ -4005,6 +4048,7 @@ let main input_sys aparam trans_sys =
   | `None -> (
     (* The applications of the function symbols are abstracted over
        application variables (see [app_var]) *)
+    reset_abstraction aparam trans_sys ;
     set_abstracted_ufs trans_sys ;
     if not (UfSymbol.UfSymbolSet.is_empty !(abstracted_ufs ())) then
       KEvent.log L_info
