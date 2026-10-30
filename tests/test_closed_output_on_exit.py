@@ -77,23 +77,37 @@ stops = [
 ]
 
 
+# The analysis, with engines of their own, and the interpreter, which runs
+# in the main process and exits through a path of its own. The interpreter
+# writes the timeout or the interruption first, in plain text through the
+# standard formatter rather than the formatter of the log.
+modes = [
+    pytest.param([], id="analysis"),
+    pytest.param(["--enable", "interpreter", "--interpreter_steps", "2000000"],
+                 id="interpreter"),
+]
+
+
 @pytest.mark.parametrize("output", [[], ["-json"]], ids=["text", "json"])
 @pytest.mark.parametrize("stop", stops)
-def test_solvers_killed_with_output_closed(tmp_path, stop, output):
+@pytest.mark.parametrize("mode", modes)
+def test_solvers_killed_with_output_closed(tmp_path, mode, stop, output):
     path = tmp_path / "late_cex.lus"
     path.write_text(model)
     timeout = "8" if stop == "timeout" else "120"
     proc = subprocess.Popen(
-        [kind2_bin, "--color", "false", "--timeout", timeout, *output,
+        [kind2_bin, "--color", "false", "--timeout", timeout, *mode, *output,
          str(path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
+    # The interpreter runs a single solver
+    started = 1 if mode else 2
     solvers = set()
     try:
         # Wait for the engines to start their solvers
         deadline = time.monotonic() + 60
-        while len(solvers) < 2 and time.monotonic() < deadline:
+        while len(solvers) < started and time.monotonic() < deadline:
             assert proc.poll() is None, "Kind 2 exited before the test stopped it"
             solvers |= child_pids(proc.pid)
             time.sleep(0.2)
@@ -104,8 +118,21 @@ def test_solvers_killed_with_output_closed(tmp_path, stop, output):
             proc.send_signal(signal.SIGTERM)
         proc.wait(timeout=60)
 
-        # 2 is the exit code of an uncaught exception
-        assert proc.returncode != 2, "Kind 2 died writing to its closed output"
+        # The exit code the run has with its output still read: on a
+        # timeout, the analysis is incomplete (the interpreter just stops),
+        # and on SIGTERM it is 128 + OCaml's number for it, -11. Anything
+        # else means the exit was cut short, by an uncaught exception (2)
+        # or by the catch-all of main (1), and the solvers were not killed:
+        # they only go away because their input reaches its end once
+        # Kind 2 is gone, which the check below cannot tell from being
+        # killed.
+        if stop == "sigterm":
+            expected = 117
+        else:
+            expected = 0 if mode else 30
+        assert proc.returncode == expected, (
+            f"exit code {proc.returncode}, expected {expected}: "
+            "the exit was cut short by the closed output")
 
         # The solvers are killed before Kind 2 exits, but may take a moment
         # to be gone
