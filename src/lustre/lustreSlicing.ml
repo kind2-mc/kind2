@@ -1638,8 +1638,11 @@ let slice_to_abstraction_and_property
         if is_impl then
           Some vars
         else
-          (* Always include at least roots of contract *)
-          Some (roots_of_contract_ass contract)
+          (* Always include at least roots of contract, and keep the cone
+             of influence of the property, which may be about the abstract
+             node itself (e.g. a subtype check of a ghost variable of an
+             imported node analyzed on its own) *)
+          Some (SVS.union vars (roots_of_contract_ass contract))
         )
     )
   in
