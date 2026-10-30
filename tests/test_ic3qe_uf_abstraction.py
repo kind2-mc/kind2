@@ -208,9 +208,12 @@ def test_without_check_sat_assuming(tmp_path, model, answer):
         in output, output
 
 
+# With the default method, Cooper's, the datatype is not in linear integer
+# arithmetic, and IC3QE switches to the solver's QE with the method impl:
+# the path of a run with the default flags
 @pytest.mark.parametrize(
     "qe_method", [None, "precise", "impl", "impl2"],
-    ids=["default", "precise", "impl", "impl2"])
+    ids=["default_fallback_impl", "precise", "impl", "impl2"])
 def test_selector(tmp_path, qe_method):
     extra = {} if qe_method is None else {"--qe_method": qe_method}
     output = run_ic3qe(tmp_path, selector, extra)
