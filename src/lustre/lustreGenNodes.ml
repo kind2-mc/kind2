@@ -34,6 +34,7 @@ type error_kind =
   | MatchScrutineeInLocalDecl
   | MatchScrutineeUnsupported
   | TemporalBranchQuantifiedVariable of HString.t
+  | RefinedConstructionBoundVariable of HString.t
 
 (* The matches whose scrutinee must be shared, as scrutinee_must_be_shared
    classifies them *)
@@ -67,6 +68,11 @@ let error_message = function
     "Quantified variable '" ^ HString.string_of_hstring id
     ^ "' is not allowed in a branch of a lazy construct that uses a \
        temporal operator"
+  | RefinedConstructionBoundVariable v ->
+    "Bound variable '" ^ HString.string_of_hstring v
+    ^ "' is not allowed in a record or constructor expression whose field \
+       types contain a refinement type, where the refinement is checked on a \
+       constant"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
@@ -538,17 +544,19 @@ let collecting_hoisted f =
   | exception e -> ignore (drain ()); raise e
 
 (* Record that the obligation of the construction e of type ty is to be carried
-   by a fresh constant. Only a construction that mentions nothing but the
-   constants in scope can define one. *)
+   by a fresh constant. No declaration can mention a variable bound inside e, so
+   such a construction is refused; any other variable leaves it unchecked, as
+   the position is then one a later pass reports on. *)
 let hoist_construction ~bound ctx e ty =
   let vars =
     AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx
   in
-  let is_const v =
-    not (Ctx.SI.mem v bound) && Option.is_some (Ctx.lookup_const ctx v)
-  in
-  if List.for_all is_const vars then
-    hoisted_consts := (AH.pos_of_expr e, e, ty) :: !hoisted_consts
+  match List.find_opt (fun v -> Ctx.SI.mem v bound) vars with
+  | Some v ->
+    raise (Gen_nodes_error (AH.pos_of_expr e, RefinedConstructionBoundVariable v))
+  | None ->
+    if List.for_all (fun v -> Option.is_some (Ctx.lookup_const ctx v)) vars then
+      hoisted_consts := (AH.pos_of_expr e, e, ty) :: !hoisted_consts
 
 (* The declaration of the constant that carries one hoisted obligation. Its
    position is the construction's, so the obligation is reported there. *)
@@ -579,20 +587,21 @@ let ascribe_construction ~insert ~bound ctx node_name orig e name ty_args field_
   | None -> e, gen_nodes
 
 (* Every subexpression of a constant expression is constant, so none of its
-   constructions can be ascribed: each has its obligation hoisted. A binder is
-   removed from the constants in scope, so a construction that mentions one is
-   left unchecked, as one mentioning a variable is. *)
-let rec hoist_in_const_expr: Ctx.tc_context -> NI.t option -> A.expr -> unit =
-fun ctx nname e ->
-  let r = hoist_in_const_expr ctx nname in
-  let r_ty = hoist_in_const_type ctx nname in
+   constructions can be ascribed: each has its obligation hoisted. The binders
+   met on the way are recorded, since a construction mentioning one is refused. *)
+let rec hoist_in_const_expr: ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t option -> A.expr -> unit =
+fun ?(bound = Ctx.SI.empty) ctx nname e ->
+  let r = hoist_in_const_expr ~bound ctx nname in
+  let r_ty = hoist_in_const_type ~bound ctx nname in
+  (* A binder shadows a constant of the same name, which is why it is removed
+     from the context as well as recorded *)
   let under_binders ids body =
-    hoist_in_const_expr
+    hoist_in_const_expr ~bound:(Ctx.SI.union bound (Ctx.SI.of_list ids))
       (List.fold_left (fun ctx id -> Ctx.remove_const ctx id) ctx ids) nname body
   in
   let construction orig name ty_args field_tys =
     match refined_construction_type ctx nname orig name ty_args field_tys with
-    | Some ty -> hoist_construction ~bound:Ctx.SI.empty ctx e ty
+    | Some ty -> hoist_construction ~bound ctx e ty
     | None -> ()
   in
   match e with
@@ -652,26 +661,27 @@ fun ctx nname e ->
 
 (* The expressions of a type are constant: an array's length and a refinement's
    predicate. A type synonym is not followed, its own declaration is visited. *)
-and hoist_in_const_type: Ctx.tc_context -> NI.t option -> A.lustre_type -> unit =
-fun ctx nname ty ->
-  let r = hoist_in_const_type ctx nname in
+and hoist_in_const_type: ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t option -> A.lustre_type -> unit =
+fun ?(bound = Ctx.SI.empty) ctx nname ty ->
+  let r = hoist_in_const_type ~bound ctx nname in
   match ty with
   | A.Bool _ | Int _ | Real _ | SBitVector _ | UBitVector _
   | AbstractType _ | EnumType _ | History _ -> ()
   | UserType (_, ty_args, _) -> List.iter r ty_args
   | TupleType (_, tys) | GroupType (_, tys) -> List.iter r tys
   | RecordType (_, _, tis) -> List.iter (fun (_, _, ty) -> r ty) tis
-  | ArrayType (_, (ty, len)) -> r ty; hoist_in_const_expr ctx nname len
+  | ArrayType (_, (ty, len)) -> r ty; hoist_in_const_expr ~bound ctx nname len
   | TArr (_, ty1, ty2) | Map (_, ty1, ty2) -> r ty1; r ty2
   | Set (_, ty) -> r ty
   | RefinementType (_, (_, id, ty), e) ->
-    r ty; hoist_in_const_expr (Ctx.remove_const ctx id) nname e
+    r ty;
+    hoist_in_const_expr ~bound:(Ctx.SI.add id bound) (Ctx.remove_const ctx id) nname e
   | ADT (_, _, ctors) ->
     List.iter (fun (_, flds) -> List.iter (fun (_, ty) -> r ty) flds) ctors
 
-let rec desugar_type: Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
-fun ctx node_name fun_ids ty -> 
-  let r = desugar_type ctx node_name fun_ids in 
+let rec desugar_type: ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t -> NI.t list -> A.lustre_type -> A.lustre_type * A.declaration list =
+fun ?(bound = Ctx.SI.empty) ctx node_name fun_ids ty -> 
+  let r = desugar_type ~bound ctx node_name fun_ids in 
   match ty with 
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | EnumType _ | AbstractType _ 
@@ -685,7 +695,7 @@ fun ctx node_name fun_ids ty ->
     Set (p, ty), gen_nodes  
   | ArrayType (p, (ty, len)) ->
     let ty, gen_nodes1 = r ty in
-    let len, gen_nodes2 = desugar_expr ~insert:false ctx node_name fun_ids len in
+    let len, gen_nodes2 = desugar_expr ~insert:false ~bound ctx node_name fun_ids len in
     ArrayType (p, (ty, len)), gen_nodes1 @ gen_nodes2
   | TArr (p, ty1, ty2) ->
     let ty1, gen_nodes1 = r ty1 in
@@ -705,8 +715,8 @@ fun ctx node_name fun_ids ty ->
     (* The binder is in scope in the predicate, so the nodes the predicate needs
        are generated in a context that holds it *)
     let e, gen_nodes2 =
-      desugar_expr ~insert:false (Ctx.add_ty (Ctx.remove_const ctx id) id ty)
-        node_name fun_ids e
+      desugar_expr ~insert:false ~bound:(Ctx.SI.add id bound)
+        (Ctx.add_ty (Ctx.remove_const ctx id) id ty) node_name fun_ids e
     in
     RefinementType (p1, (p2, id, ty), e), gen_nodes1 @ gen_nodes2
   | ADT (p, name, constructors) ->
@@ -762,12 +772,12 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
   match expr with
   | TypeAscription (pos, e, ty) ->
     let e, gen_nodes1 = rec_call e in
-    let ty, gen_nodes2 = desugar_type ctx node_name fun_ids ty in
+    let ty, gen_nodes2 = desugar_type ~bound ctx node_name fun_ids ty in
     let call, decl = mk_type_ascription ctx node_name pos e ty in
     call, decl :: gen_nodes1 @ gen_nodes2
   | A.ChooseOp (pos, (_, id, ty), expr1)
   | A.AnyOp (pos, (_, id, ty), expr1) -> 
-    let ty, ty_gen_nodes = desugar_type ctx node_name fun_ids ty in
+    let ty, ty_gen_nodes = desugar_type ~bound ctx node_name fun_ids ty in
     (* The binder is in scope in the predicate, so the nodes the predicate needs
        are generated in a context that holds it *)
     let expr1, gen_nodes =
@@ -827,12 +837,12 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
   | ModeRef (_, _) as e -> e, []
   | A.EmptySet (pos, None) -> A.EmptySet (pos, None), []
   | A.EmptySet (pos, Some ty) ->
-    let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+    let ty, gen_nodes = desugar_type ~bound ctx node_name fun_ids ty in
     A.EmptySet (pos, Some ty), gen_nodes
   | A.EmptyMap (pos, None) -> A.EmptyMap (pos, None), []
   | A.EmptyMap (pos, Some (kt, vt)) ->
-    let kt', gen_nodes1 = desugar_type ctx node_name fun_ids kt in
-    let vt', gen_nodes2 = desugar_type ctx node_name fun_ids vt in
+    let kt', gen_nodes1 = desugar_type ~bound ctx node_name fun_ids kt in
+    let vt', gen_nodes2 = desugar_type ~bound ctx node_name fun_ids vt in
     A.EmptyMap (pos, Some (kt', vt')), gen_nodes1 @ gen_nodes2
   | Const (_, _) as e -> e, []
   | FieldProject (pos, e, idx, pk) ->
@@ -888,7 +898,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     let e, gen_nodes = rec_call e in 
     Extract (pos, e, ub, lb), gen_nodes
   | RecordExpr (pos, ident, ps, expr_list) ->
-    let ps, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ps |> List.split in
+    let ps, gen_nodes_ty = List.map (desugar_type ~bound ctx node_name fun_ids) ps |> List.split in
     let id_list, exprs_gen_nodes = 
       List.map (fun (i, e) -> (i, (rec_call) e)) expr_list |> List.split 
     in
@@ -929,7 +939,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     IndexAccess (pos, e1, e2, kind), gen_nodes1 @ gen_nodes2
   | Quantifier (pos, kind, tis , e) ->
     let tis, gen_nodes_ty = List.map (fun (p, id, ty) ->
-      let ty, gen_nodes = desugar_type ctx node_name fun_ids ty in
+      let ty, gen_nodes = desugar_type ~bound ctx node_name fun_ids ty in
       (p, id, ty), gen_nodes
     ) tis |> List.split in
     (* The binders are in scope in the body, so the nodes the body needs are
@@ -983,7 +993,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     let e2, gen_nodes2 = rec_split e2 in
     Fby (pos, e1, e2), gen_nodes1 @ gen_nodes2
   | Call (pos, ty_args, id, expr_list) ->
-    let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
+    let ty_args, gen_nodes_ty = List.map (desugar_type ~bound ctx node_name fun_ids) ty_args |> List.split in
     let args, gen_nodes = desugar_args id expr_list in
     let e = A.Call (pos, ty_args, id, args) in
     let gen_nodes = List.flatten gen_nodes_ty @ gen_nodes in
@@ -1039,7 +1049,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     else
       Match (pos, e, arms, ty_opt), gen_nodes
   | ADTTerm (pos, ty_args, ctor, args) ->
-    let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
+    let ty_args, gen_nodes_ty = List.map (desugar_type ~bound ctx node_name fun_ids) ty_args |> List.split in
     let args, gen_nodes = List.map rec_call args |> List.split in
     let e = A.ADTTerm (pos, ty_args, ctor, args) in
     let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
@@ -1692,9 +1702,9 @@ fun ctx decls ->
    obligations of the constructions in them are carried by fresh global
    constants. Each is declared before the declaration it comes from, which the
    dependency order already places after everything it mentions. *)
-let global_const_subtype_checks: Ctx.tc_context -> A.declaration list -> A.declaration list =
+let global_const_subtype_checks: Ctx.tc_context -> A.declaration list -> (A.declaration list, [> error]) result =
 fun ctx decls ->
-  List.concat_map (fun decl ->
+  let checks_of decl =
     let (), hoisted = collecting_hoisted (fun () ->
       match decl with
       | A.ConstDecl (_, A.TypedConst (_, _, e, ty)) ->
@@ -1705,12 +1715,15 @@ fun ctx decls ->
       | A.TypeDecl (_, A.FreeType _) | A.NodeDecl _ | A.FuncDecl _
       | A.ContractNodeDecl _ | A.NodeParamInst _ -> ())
     in
-    List.map (fun h ->
-      let (pos, _, _) = h in
+    List.map (fun ((pos, _, _) as h) ->
       A.ConstDecl ({ A.start_pos = pos; A.end_pos = pos }, const_check_decl h)
     ) hoisted
     @ [decl]
-  ) decls
+  in
+  (* This pass runs outside the handler of gen_nodes below, so a construction
+     it refuses is caught here *)
+  try Ok (List.concat_map checks_of decls)
+  with Gen_nodes_error (pos, kind) -> Error (`LustreGenNodesError (pos, kind))
 
 let gen_nodes: Ctx.tc_context -> A.declaration list
   -> (A.declaration list * [> error] option, [> error]) result =

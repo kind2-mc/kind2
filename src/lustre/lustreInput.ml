@@ -183,7 +183,7 @@ let type_check declarations =
        definition or type declaration whose field types carry a refinement:
        a constant expression is expected there, so step 6 cannot check it with
        an ascription *)
-    let const_inlined_type_and_consts =
+    let* const_inlined_type_and_consts =
       LGN.global_const_subtype_checks inlined_ctx const_inlined_type_and_consts
     in
 
