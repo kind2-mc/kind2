@@ -360,11 +360,12 @@ val log_ppf : Format.formatter ref
     For the exit path, before it writes anything. *)
 val drop_partial_output : unit -> unit
 
-(** From now on, a write to the output that fails, because its reader
-    closed it, sends the output to the null device and succeeds instead
-    of raising [Sys_error]. For the exit path, which must get to the
-    killing of the solvers whether or not anyone still reads what it
-    writes. *)
+(** From now on, a write to the output, through [log_ppf] or the
+    standard formatter, that fails because its reader closed it sends the
+    output to the null device and succeeds instead of raising
+    [Sys_error]. Other failures still raise. For the exit path, which
+    must get to the killing of the solvers whether or not anyone still
+    reads what it writes. *)
 val tolerate_closed_output : unit -> unit
 
 (** Ouputs all log messages to the given file *)

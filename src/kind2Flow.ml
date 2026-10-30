@@ -595,11 +595,17 @@ let on_exit ?(results = fun () -> ()) sys process status exn =
 let post_clean_exit_success process exn =
   post_clean_exit process ExitCodes.success exn
 
+(* The exit starts here rather than in [post_clean_exit] or [on_exit]:
+   the status of the results is logged when the analysis is incomplete,
+   and that write must not cut the exit short either *)
+
 let post_clean_exit_safety_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_safety_results in_sys in
   post_clean_exit process base_status exn
 
 let post_clean_exit_realiz_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_realiz_results in_sys in
   post_clean_exit process base_status exn
 
@@ -608,10 +614,12 @@ let on_exit_success ?results process exn =
 
 (** Clean up before exit. *)
 let on_exit_safety_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_safety_results in_sys in
   on_exit None process base_status exn
 
 let on_exit_realiz_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_realiz_results in_sys in
   on_exit None process base_status exn
 

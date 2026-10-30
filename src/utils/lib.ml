@@ -839,17 +839,41 @@ let exiting = Atomic.make false
 
 let tolerate_closed_output () = Atomic.set exiting true
 
-(* From now on the output goes to the null device. The descriptor of the
+(* From now on [oc] goes to the null device. The descriptor of the
    channel is redirected rather than the channel replaced, so that the
-   writes still pending in the channel, and those made to it through
-   other formatters, succeed as well. On Windows, the descriptor carries
+   writes made to it through other formatters succeed as well. On
+   Windows, the descriptor carries
    the C runtime descriptor of the channel, which [Unix.dup2] redirects
    too. *)
-let silence_output () =
+let silence_output oc =
   let null = Unix.openfile Filename.null [ Unix.O_WRONLY ] 0 in
   Fun.protect
     ~finally:(fun () -> try Unix.close null with Unix.Unix_error _ -> ())
-    (fun () -> Unix.dup2 null (Unix.descr_of_out_channel !out_channel))
+    (fun () -> Unix.dup2 null (Unix.descr_of_out_channel oc))
+
+(* Whether [msg], the message of a [Sys_error] raised by a write, says the
+   reader of the pipe has closed it, SIGPIPE being ignored. Both messages
+   are the [strerror] of the error, whatever the locale. The error is
+   EPIPE, except on Windows: there the write fails with ERROR_NO_DATA,
+   which the C runtime turns into EINVAL. *)
+let broken_pipe =
+  let epipe = Unix.error_message Unix.EPIPE in
+  let einval = Unix.error_message Unix.EINVAL in
+  fun msg -> msg = epipe || (Sys.win32 && msg = einval)
+
+(* Run [write], a write to [oc]. The reader of the output may have closed
+   it, and on the way out that must not cut the exit short before it
+   kills the solvers: [oc] is silenced and [write] run again. Should [oc]
+   fail to be silenced, [drop] gives up on what was to be written.
+
+   Only a closed pipe is tolerated. Any other failure, such as a full
+   disk under a redirected output, still raises: the output would be
+   truncated, and that must not pass for a normal run. *)
+let tolerating_closed_output oc ~drop write =
+  try write () with
+  | Sys_error msg when Atomic.get exiting && broken_pipe msg ->
+    try silence_output oc ; write () with
+    | Sys_error _ | Unix.Unix_error _ -> drop ()
 
 (* Current formatter for output *)
 let log_ppf =
@@ -860,21 +884,28 @@ let log_ppf =
             Buffer.add_substring out_buffer s pos len))
        (fun () ->
           Mutex.protect out_lock (fun () ->
-            let write () =
-              if not !discarding then
-                output_string !out_channel (Buffer.contents out_buffer) ;
-              Buffer.clear out_buffer ;
-              flush !out_channel
-            in
-            (* The reader of the output may have closed it. SIGPIPE is
-               ignored, so the write raises [Sys_error]. On the way out,
-               that must not cut the exit short before it kills the
-               solvers. Should the output fail to be silenced, what was
-               to be written is dropped instead. *)
-            try write () with
-            | Sys_error _ when Atomic.get exiting ->
-              try silence_output () ; write () with
-              | Sys_error _ | Unix.Unix_error _ -> Buffer.clear out_buffer)))
+            tolerating_closed_output !out_channel
+              ~drop:(fun () -> Buffer.clear out_buffer)
+              (fun () ->
+                if not !discarding then
+                  output_string !out_channel (Buffer.contents out_buffer) ;
+                Buffer.clear out_buffer ;
+                flush !out_channel))))
+
+(* Some messages are written to standard output through the standard
+   formatter rather than [log_ppf]: the timeout and the interruption, in
+   plain text. They are written on the way out, possibly before anything
+   through [log_ppf] has silenced the output, so the standard formatter
+   tolerates a closed output too. *)
+let () =
+  let out = Format.pp_get_formatter_out_functions Format.std_formatter () in
+  Format.pp_set_formatter_out_functions Format.std_formatter
+    { out with
+      out_string = (fun s pos len ->
+        tolerating_closed_output stdout ~drop:ignore (fun () ->
+          out.out_string s pos len)) ;
+      out_flush = (fun () ->
+        tolerating_closed_output stdout ~drop:ignore out.out_flush) }
 
 (* Empties the buffer of the output without writing it: what a record
    interrupted by an exception left there. The tokens the formatter holds
