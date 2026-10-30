@@ -4841,31 +4841,23 @@ let uf_applied_warned = ref NI.Set.empty
    a way the check does not see. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
-   hold of the function can be reported falsifiable. Say so. *)
+   hold of the function can be reported falsifiable. So is a defined function
+   whose definition applies such a function (see
+   [LustreFunDefs.undefined_applications]). [LustreInput] rejects such a call
+   once the nodes are compiled, from the definitions of the nodes of the
+   subsystems of the main nodes; this is a safeguard for the systems built
+   from the nodes sliced to an analysis. Say so. *)
 let warn_undefined_uf_applications fun_defs nodes =
-  nodes |> List.iter (fun { N.calls } ->
-    calls |> List.iter (fun { N.call_uf_applied; N.call_node_id } ->
-      if call_uf_applied
-         && not (LustreFunDefs.is_defined fun_defs call_node_id)
-         && not (NI.Set.mem call_node_id !uf_applied_warned)
-      then (
-        uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
-        Log.log L_warn
-          "@[<hov>Function %a is applied to quantified variables but has \
-           no definition at the SMT level, %s.@ Under the quantifier it is \
-           an arbitrary function of its inputs,@ so a property that does \
-           hold of it may be reported falsifiable.@]"
-          NI.pp_print_node_id_user_name call_node_id
-          (if LustreFunDefs.enabled () then
-             "because its body, or the body of a function of its recursive \
-              group or of a function it calls, is not a total function of its \
-              inputs that the solver can be given"
-           else
-             "because recursive functions are not defined at the SMT level \
-              with the current solver")
-      )
-    )
-  )
+  LustreFunDefs.undefined_applications fun_defs nodes
+  |> List.iter (fun ({ N.call_node_id }, reason) ->
+    if not (NI.Set.mem call_node_id !uf_applied_warned) then (
+      uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
+      Log.log L_warn
+        "@[<hov>Function %a is applied to quantified variables, but %a.@ \
+         Under the quantifier it is an arbitrary function of its inputs,@ so \
+         a property that does hold of it may be reported falsifiable.@]"
+        NI.pp_print_node_id_user_name call_node_id
+        LustreFunDefs.pp_print_undefined_reason reason))
 
 let trans_sys_of_nodes
     ?(options=default_settings)

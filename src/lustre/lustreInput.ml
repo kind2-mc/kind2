@@ -384,6 +384,45 @@ let print_nodes_and_globals nodes globals =
       |> List.flatten)
 
 
+(* A call applied to quantified variables is compiled to an application of
+   the functional symbol of the callee, which only its definition at the SMT
+   level gives a meaning to (see [LustreFunDefs]). [LustreUserFunctions]
+   accepts such a call for a function a definition is to be built for, but
+   the definition can still be left out: the solver does not take recursive
+   definitions, or a body is not a total function of its inputs in a way the
+   front end does not see, such as a body that passes an array literal to a
+   call, which the normalizer defines element by element. Under the
+   quantifier the symbol would be an arbitrary function, and a property that
+   holds could be reported falsifiable: the call is rejected. Only the nodes
+   of the subsystems of the main nodes are checked, which are the ones an
+   analysis may reach. *)
+let check_quantified_calls subsystems { LG.adt_junk_ufs } =
+  let nodes =
+    List.concat_map LN.nodes_of_subsystem subsystems
+    |> List.fold_left
+      (fun (seen, acc) ({ LN.node_id } as node) ->
+         if NI.Set.mem node_id seen then seen, acc
+         else NI.Set.add node_id seen, node :: acc)
+      (NI.Set.empty, [])
+    |> snd
+  in
+  let fun_defs = LustreFunDefs.compute ~adt_junk_ufs nodes in
+  match
+    LustreFunDefs.undefined_applications fun_defs nodes
+    |> List.sort (fun ({ LN.call_pos = p1 }, _) ({ LN.call_pos = p2 }, _) ->
+      Lib.compare_pos p1 p2)
+  with
+  | [] -> Ok ()
+  | ({ LN.call_pos; LN.call_node_id }, reason) :: _ ->
+    Error
+      (`LustreParserError
+         (call_pos,
+          Format.asprintf
+            "Function '%a' cannot be applied to quantified variables: %a"
+            NI.pp_print_node_id_user_name call_node_id
+            LustreFunDefs.pp_print_undefined_reason reason))
+
+
 (* Parse from input channel *)
 let of_channel only_parse in_ch =
   (* Get declarations from channel. *)
@@ -527,7 +566,9 @@ let of_channel only_parse in_ch =
       in
       print_nodes_and_globals nodes globals;
       (* Return a subsystem tree from the list of nodes *)
-      Ok (Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations))
+      let subsystems = LN.subsystems_of_nodes main_nodes nodes in
+      let* () = check_quantified_calls subsystems globals in
+      Ok (Some (subsystems, globals, declarations))
     | Error e -> Error e)
 
 
