@@ -3914,8 +3914,9 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
                   (* Node is top, forcing contract assumption. *)
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
-                    abstract. *)
-                  if is_abstract then
+                    abstract to check its modes. The top node is also
+                    abstract when it has no implementation. *)
+                  if is_abstract && Flags.Contracts.check_modes () then
                     List.rev_append
                       (mode_non_vacuity_checks scope contract)
                       (one_mode_active scope contract)
@@ -4885,6 +4886,14 @@ let trans_sys_of_nodes
   let { A.top } =
     A.info_of_param analysis_param
   in
+  (* A refinement of the contract check of a system without an
+     implementation, whose top system stays abstract (see
+     [Strategy.next_modular_analysis]) *)
+  let rec refines_contract_check = function
+    | A.ContractCheck _ -> true
+    | A.Refinement (_, { A.param }) -> refines_contract_check param
+    | _ -> false
+  in
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
@@ -4892,6 +4901,7 @@ let trans_sys_of_nodes
     | A.Interpreter _
     | A.ContractCheck _ 
     | A.ContractMonitor _-> ()
+    | A.Refinement _ when refines_contract_check analysis_param -> ()
     | _ -> if A.param_scope_is_abstract analysis_param top then raise (
       Invalid_argument
         "trans_sys_of_nodes: Top-level system must not be abstract"

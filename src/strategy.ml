@@ -25,6 +25,8 @@ type info = {
   has_contract: bool ; (** Does the system have a contract? *)
   has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
+  has_props: bool ;    (** Does the system have properties of its own to
+                           check, besides those of its implementation? *)
   rec_group: int option ; (** The recursive group of a recursive function *)
   is_internal: bool ;  (** Is the system an internal artifact of the
                            translation, only analyzed as part of the systems
@@ -316,9 +318,14 @@ let assumptions_of_refined results (prev_abstraction, prev_unrollings) (abstract
       | exception Not_found -> acc
   ) abstraction A.assumptions_empty
 
-let is_candidate_for_analysis { has_impl ; has_modes ; is_internal } =
+(* A system without an implementation is analyzed to check its modes, or
+   the properties of its contract, such as the subtype checks of its ghost
+   variables and constants. These are not checked in the systems that call
+   it in a modular analysis, so they would be checked nowhere else. *)
+let is_candidate_for_analysis
+    { has_impl ; has_modes ; has_props ; is_internal } =
   not is_internal &&
-  ((has_modes && Flags.Contracts.check_modes ()) || has_impl)
+  ((has_modes && Flags.Contracts.check_modes ()) || has_impl || has_props)
 
 (* Returns an option of the parameter for the first analysis of a system. *)
 let first_param_of ass results all_nodes scope =
@@ -326,9 +333,11 @@ let first_param_of ass results all_nodes scope =
   let rec loop abstraction = function
     | (sys, { opacity; has_impl ; has_contract ; has_modes }) :: tail -> (
       (* Can/should we abstract this system? *)
+      (* A system without an implementation is always abstracted by its
+         contract, even as the top system *)
       let is_abstract =
-        if sys = scope then 
-          has_modes && (Flags.Contracts.check_modes ())
+        if sys = scope then
+          (has_modes && (Flags.Contracts.check_modes ())) || not has_impl
         else
           (not has_impl) || (has_contract &&
             (opacity=O.Opaque ||
@@ -527,13 +536,17 @@ let next_modular_analysis results subs_of_scope = function
         try (
           match A.results_find sys results with
           | [] -> assert false
-          | _ when Flags.Contracts.check_implem () |> not ||
-              not has_impl -> go_up prefix
+          | _ when has_impl && Flags.Contracts.check_implem () |> not ->
+            go_up prefix
+          (* A system without an implementation has no analysis after its
+             contract check, whose properties, such as the subtype checks of
+             the ghost variables of its contract, are refined in the same
+             way as those of the analysis of an implementation *)
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;
             (* A.sys = trans_sys ; *)
-          } ] ->
+          } ] when has_impl ->
             (* last_trans_sys := Some trans_sys ; *)
             (* ^^-- Invariants generated during ContractCheck analysis are discarded.
                They were generated assuming the contract! *)

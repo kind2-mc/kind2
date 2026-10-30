@@ -44,6 +44,9 @@ type 'a t = {
 
   has_impl : bool ;        (** System has an implementation *)
 
+  has_props : bool ;       (** System has properties of its own to check,
+                               besides those of its implementation *)
+
   rec_group : int option ; (** The recursive group of a recursive function *)
 
   is_internal : bool ;     (** System is an internal artifact of the

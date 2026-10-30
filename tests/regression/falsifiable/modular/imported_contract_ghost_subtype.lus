@@ -1,0 +1,18 @@
+-- The subtype checks of the ghost variables and constants in the contract
+-- of an imported function are checked in a modular analysis, compositional
+-- or not, as in a monolithic one. They are checked once, in an analysis of
+-- the imported function of its own, where they are falsified (issue #1878).
+type Pos = subtype { x: int | x >= 1 };
+
+function imported F() returns (x: int);
+(*@contract
+  var l: Pos = 0;
+  const c: Pos = 0;
+  guarantee x > l;
+*)
+
+node N() returns (z: int);
+let
+  z = F();
+  check "P1" z > 0;
+tel
