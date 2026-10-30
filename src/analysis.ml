@@ -540,7 +540,17 @@ let pp_print_param_of_result pp_print_system_user_name fmt { param ; sys } =
   match param with
   | Interpreter _ -> Format.fprintf fmt "simulating system"
   | ContractMonitor _ -> Format.fprintf fmt "monitoring contract"
-  | ContractCheck _ -> Format.fprintf fmt "checking mode exhaustiveness"
+  | ContractCheck _ ->
+    (* The contract check of a system without an implementation may not
+       check its modes, only the other properties of its contract *)
+    let checks_modes =
+      TransSys.get_real_properties sys
+      |> List.exists (function
+        | { Property.prop_source = Property.GuaranteeOneModeActive _ } -> true
+        | _ -> false)
+    in
+    if checks_modes then Format.fprintf fmt "checking mode exhaustiveness"
+    else Format.fprintf fmt "checking contract"
   | First { abstraction_map } ->
     let count =
       Scope.Map.fold (

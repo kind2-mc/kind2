@@ -536,13 +536,17 @@ let next_modular_analysis results subs_of_scope = function
         try (
           match A.results_find sys results with
           | [] -> assert false
-          | _ when Flags.Contracts.check_implem () |> not ||
-              not has_impl -> go_up prefix
+          | _ when has_impl && Flags.Contracts.check_implem () |> not ->
+            go_up prefix
+          (* A system without an implementation has no analysis after its
+             contract check, whose properties, such as the subtype checks of
+             the ghost variables of its contract, are refined in the same
+             way as those of the analysis of an implementation *)
           | [ {
             A.param = A.ContractCheck info ;
             A.contract_valid ;
             (* A.sys = trans_sys ; *)
-          } ] ->
+          } ] when has_impl ->
             (* last_trans_sys := Some trans_sys ; *)
             (* ^^-- Invariants generated during ContractCheck analysis are discarded.
                They were generated assuming the contract! *)
