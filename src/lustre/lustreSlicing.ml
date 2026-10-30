@@ -1380,16 +1380,17 @@ let root_and_leaves_of_contracts
       node 
   in
     
-  (* Slice starting with contracts *)
+  (* Slice starting with contracts. The obligations of the contract are
+     kept in the abstraction (see [slice_all_of_node]), so their
+     definitions must be kept too, whatever the roots given *)
   let node_roots =
-    match roots node false with
-    | None ->
-      roots_of_contract ~with_sofar_var:(not is_top) contract
-      |> SVS.union (roots_of_inlined_calls property calls)
-      |> SVS.union (roots_of_props_contract props)
-      |> SVS.elements
-    | Some r ->
-      SVS.elements r
+    ( match roots node false with
+      | None ->
+        roots_of_contract ~with_sofar_var:(not is_top) contract
+        |> SVS.union (roots_of_inlined_calls property calls)
+      | Some r -> r )
+    |> SVS.union (roots_of_props_contract props)
+    |> SVS.elements
   in
 
   (* Do not consider anything below outputs *)
@@ -1476,7 +1477,6 @@ let no_slice {N.inputs; N.outputs ; N.locals ; N.contract; N.props } is_impl =
       )
     else
       (roots_of_contract ~with_sofar_var:true contract)
-      |> SVS.union (roots_of_props_contract props)
   in
   Some vars
 

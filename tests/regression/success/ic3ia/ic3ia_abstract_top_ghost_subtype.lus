@@ -1,0 +1,15 @@
+-- An imported node with modes is analyzed on its own, abstracted by its
+-- contract, to check its modes. IC3IA slices the system to each property,
+-- and the slice of an abstract node kept the variables of the assumptions,
+-- guarantees and modes, but not a ghost variable none of them refers to: the
+-- subtype check of l was left unconstrained, and IC3IA falsified it,
+-- although the guarantee makes it hold (#1881).
+type Pos = subtype { x: int | x >= 1 };
+
+function imported F(y: int) returns (x: int);
+(*@contract
+  guarantee x >= 1;
+  var l: Pos = x;
+  mode m (require y > 0;);
+  mode n (require y <= 0;);
+*)
