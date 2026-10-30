@@ -199,25 +199,27 @@ struct
       List.fold_left 
         (function accum -> function v -> 
 
-           (* Get name of state variable *)
-           let sv = 
-             StateVar.name_of_state_var
-               (Var.state_var_of_state_var_instance v)
+           (* Name of the temporary variable: a free variable, such as a
+              fresh variable IC3QE abstracts a function application by,
+              keeps its own name; a state variable instance is named
+              after its state variable and offset *)
+           let name =
+             if Var.is_free_var v then Var.hstring_of_free_var v
+             else
+               let sv =
+                 StateVar.name_of_state_var
+                   (Var.state_var_of_state_var_instance v)
+               in
+               let o = Var.offset_of_state_var_instance v in
+               HString.mk_hstring (sv ^ Numeral.string_of_numeral o)
            in
-
-           (* Get offset of state variable instance *)
-           let o = Var.offset_of_state_var_instance v in
 
            (* Convert type of variable to SMT sort *)
            let t' = smtsort_of_type (Var.type_of_var v) in
 
-           (* Create temporary variable of state variable instance with
-              type converted to an SMT sort *)
-           let v' = 
-             Var.mk_free_var 
-               (HString.mk_hstring (sv ^ Numeral.string_of_numeral o))
-               t'
-           in
+           (* Create temporary variable of the variable with type
+              converted to an SMT sort *)
+           let v' = Var.mk_free_var name t' in
 
            (* Add pair of variable and temporary variable
               to association list *)
