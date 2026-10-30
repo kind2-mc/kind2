@@ -100,7 +100,13 @@ def test_solvers_killed_with_output_closed(tmp_path, mode, stop, output):
         pytest.skip("the interpreter does not time out on Windows")
     path = tmp_path / "late_cex.lus"
     path.write_text(model)
-    timeout = "8" if stop == "timeout" else "120"
+    # Long enough for the test to see the solvers start before the run times
+    # out. On Windows, Kind 2 starts slower and each look at its children
+    # starts PowerShell: 8s was not always enough there.
+    if stop == "timeout":
+        timeout = "30" if sys.platform == "win32" else "8"
+    else:
+        timeout = "120"
     proc = subprocess.Popen(
         [kind2_bin, "--color", "false", "--timeout", timeout, *mode, *output,
          str(path)],
