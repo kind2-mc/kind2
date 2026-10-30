@@ -1032,11 +1032,30 @@ call: `Id@<int>` may be applied to a quantified variable while `Id@<Nat>`,
 for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
 value of its type parameter. In the body of a polymorphic node, a type
 parameter of the node given as a type argument is taken to be an array
-type, whatever the instantiations of the node. Kind 2 warns when the
-definition is left out because the solver does not take recursive
-definitions (Z3 and cvc5 do). The symbol is then an arbitrary function
-under the quantifier, and a property that holds may be reported
-falsifiable.
+type, whatever the instantiations of the node.
+
+The call is also rejected when the function is not given a definition after
+all, because the solver does not take recursive definitions (Z3 and cvc5
+do), or because its body is not one a definition is built from in a way the
+conditions above do not see. An array literal or an array repetition passed
+to a call, for instance, is defined element by element, which no definition
+is built from:
+
+```
+function rec S(a: int^3; n: int) returns (s: int);
+con
+  decreases n;
+noc
+let
+  -- Rejected under a quantifier: [a[1], a[2], a[0]] is defined element
+  -- by element
+  s = when n <= 0 then a[0] + a[1] + a[2] else S([a[1], a[2], a[0]], n - 1);
+tel
+```
+
+So is a call to a function whose definition applies such a function. Under
+the quantifier, the function would be an arbitrary function of its inputs,
+and a property that holds could be reported falsifiable.
 
 ### Benefits and limitations
 

@@ -4841,7 +4841,10 @@ let uf_applied_warned = ref NI.Set.empty
    a way the check does not see. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
-   hold of the function can be reported falsifiable. Say so. *)
+   hold of the function can be reported falsifiable. [LustreInput] rejects such
+   a call once the nodes are compiled, from the definitions of all the nodes;
+   this is a safeguard for the systems built from the nodes sliced to an
+   analysis. Say so. *)
 let warn_undefined_uf_applications fun_defs nodes =
   nodes |> List.iter (fun { N.calls } ->
     calls |> List.iter (fun { N.call_uf_applied; N.call_node_id } ->

@@ -384,6 +384,53 @@ let print_nodes_and_globals nodes globals =
       |> List.flatten)
 
 
+(* A call applied to quantified variables is compiled to an application of
+   the functional symbol of the callee, which only its definition at the SMT
+   level gives a meaning to (see [LustreFunDefs]). [LustreUserFunctions]
+   accepts such a call for a function a definition is to be built for, but
+   the definition can still be left out: the solver does not take recursive
+   definitions, or a body is not a total function of its inputs in a way the
+   front end does not see, such as a body that passes an array literal to a
+   call, which the normalizer defines element by element. Under the
+   quantifier the symbol would be an arbitrary function, and a property that
+   holds could be reported falsifiable: the call is rejected. *)
+let check_quantified_calls nodes { LG.adt_junk_ufs } =
+  let fun_defs = LustreFunDefs.compute ~adt_junk_ufs nodes in
+  match
+    LustreFunDefs.undefined_applications fun_defs nodes
+    |> List.sort (fun ({ LN.call_pos = p1 }, _) ({ LN.call_pos = p2 }, _) ->
+      Lib.compare_pos p1 p2)
+  with
+  | [] -> Ok ()
+  | ({ LN.call_pos; LN.call_node_id }, reason) :: _ ->
+    let pp_name = NI.pp_print_node_id_user_name in
+    let reason ppf =
+      match reason with
+      | `Applies callee ->
+        Format.fprintf ppf
+          "its definition applies '%a', which has no definition at the SMT \
+           level"
+          pp_name callee
+      | `Undefined when LustreFunDefs.enabled () ->
+        Format.fprintf ppf
+          "it has no definition at the SMT level, because its body, or the \
+           body of a function of its recursive group or of a function it \
+           calls, is not a total function of its inputs that the solver can \
+           be given (an array literal or an array repetition passed to a \
+           call, for instance, is defined element by element)"
+      | `Undefined ->
+        Format.fprintf ppf
+          "recursive functions are not defined at the SMT level with the \
+           current solver (Z3 and cvc5 define them)"
+    in
+    Error
+      (`LustreParserError
+         (call_pos,
+          Format.asprintf
+            "Function '%a' cannot be applied to quantified variables: %t"
+            pp_name call_node_id reason))
+
+
 (* Parse from input channel *)
 let of_channel only_parse in_ch =
   (* Get declarations from channel. *)
@@ -400,6 +447,7 @@ let of_channel only_parse in_ch =
         type_check declarations
       in
       let nodes, globals = LNG.compile ctx gids adt_map scc_map decls in
+      let* () = check_quantified_calls nodes globals in
       let contractck_enabled = List.mem `CONTRACTCK (Flags.enabled ()) in
       let main_nodes = match Flags.lus_main () with
         | Some s -> 

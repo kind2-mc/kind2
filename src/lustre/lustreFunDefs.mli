@@ -140,6 +140,15 @@ val ufs_of_node : t -> NodeId.t -> UfSymbol.t list
     of their definitions, as the definitions used to be built. *)
 val helper_ufs_of_node : t -> NodeId.t -> UfSymbol.t list
 
+(** The calls applied to quantified variables, among those of the nodes,
+    whose callee the definitions leave without one ([`Undefined]), or whose
+    definition applies the given function, which is not imported and has no
+    definition ([`Applies f]). Under the quantifier, such a callee is an
+    arbitrary function of its inputs. *)
+val undefined_applications :
+  t -> LustreNode.t list ->
+  (LustreNode.node_call * [ `Undefined | `Applies of NodeId.t ]) list
+
 (** [bounded_below ms] states that every component of the measure [ms] is
     non-negative *)
 val bounded_below : Term.t list -> Term.t

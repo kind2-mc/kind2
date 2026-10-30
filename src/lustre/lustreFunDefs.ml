@@ -842,6 +842,40 @@ let compute ~adt_junk_ufs nodes =
   in
   compute_for ~adt_junk_ufs applied nodes
 
+(* The calls applied to quantified variables whose callee [compute] leaves
+   without a definition, or whose definition applies a function without
+   one, other than an imported function, which is meant to be arbitrary. A
+   function of another recursive group that a definition applies is applied
+   whether or not it is defined itself (see [bindings_of_node]), and is an
+   arbitrary function under the quantifier as well. *)
+let undefined_applications t nodes =
+  (* The functions that are not imported, by functional symbol *)
+  let function_of_uf =
+    List.fold_left
+      (fun acc { N.node_id; N.comp_type; N.is_extern } ->
+         match comp_type with
+         | N.Function { N.uf_symbols } when not is_extern ->
+           SVM.fold
+             (fun _ uf acc -> UfSymbol.UfSymbolMap.add uf node_id acc)
+             uf_symbols acc
+         | _ -> acc)
+      UfSymbol.UfSymbolMap.empty nodes
+  in
+  List.concat_map
+    (fun { N.calls } ->
+       List.filter_map
+         (fun ({ N.call_uf_applied; N.call_node_id } as call) ->
+            if not call_uf_applied then None
+            else if not (is_defined t call_node_id) then
+              Some (call, `Undefined)
+            else
+              ufs_of_node t call_node_id
+              |> List.find_map (fun uf ->
+                UfSymbol.UfSymbolMap.find_opt uf function_of_uf)
+              |> Option.map (fun callee -> call, `Applies callee))
+         calls)
+    nodes
+
 let compute_all ~adt_junk_ufs nodes =
   let recursive =
     List.fold_left
