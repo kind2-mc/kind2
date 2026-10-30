@@ -62,7 +62,22 @@ tel
 solvers = {"Z3": "z3", "cvc5": "cvc5", "Yices2": "yices-smt2"}
 
 
-def run(tmp_path, model, solver):
+# The only call applied to quantified variables is in a node the main node
+# M does not call
+unreached = """
+node Unused(a: int^3) returns ();
+let
+  check "p" forall (n: int) S(a, n) = a[0] + a[1] + a[2];
+tel
+
+node M(x: int) returns ();
+let
+  check "q" x = x;
+tel
+"""
+
+
+def run(tmp_path, model, solver, *extra):
     if shutil.which(solvers[solver]) is None:
         pytest.skip(f"{solvers[solver]} is not installed")
     path = tmp_path / "quantified_call_undefined_function.lus"
@@ -70,7 +85,7 @@ def run(tmp_path, model, solver):
     args = common_args | {"--timeout": "20", "--smt_solver": solver}
     arg_list = [arg for pair in args.items() for arg in pair]
     proc = subprocess.run(
-        [kind2_bin, "-json", *arg_list, str(path)],
+        [kind2_bin, "-json", *arg_list, *extra, str(path)],
         capture_output=True,
         text=True,
         timeout=run_timeout,
@@ -114,8 +129,9 @@ def test_call_is_rejected(tmp_path, solver, model, function, reason):
 def test_call_is_rejected_without_recursive_definitions(tmp_path):
     errors, answers = run(tmp_path, rotate("a") + direct, "Yices2")
     assert any(
-        "Function 'S' cannot be applied to quantified variables: recursive "
-        "functions are not defined at the SMT level with the current solver"
+        "Function 'S' cannot be applied to quantified variables: it has no "
+        "definition at the SMT level, because recursive functions are not "
+        "defined at the SMT level with the current solver"
         in e
         for e in errors
     ), errors
@@ -127,4 +143,19 @@ def test_defined_call_is_accepted(tmp_path, solver):
     # S passes its array input as it is, and is defined
     errors, answers = run(tmp_path, rotate("a") + direct, solver)
     assert not any("cannot be applied to quantified variables" in e for e in errors), errors
-    assert "p" in answers, answers
+    assert answers.get("p") not in (None, "falsifiable"), answers
+
+
+@pytest.mark.parametrize("main, rejected", [("M", False), ("Unused", True)])
+def test_only_reached_calls_are_checked(tmp_path, main, rejected):
+    errors, answers = run(
+        tmp_path, rotate("[a[1], a[2], a[0]]") + unreached, "Z3",
+        "--lus_main", main,
+    )
+    reported = any(
+        "Function 'S' cannot be applied to quantified variables" in e
+        for e in errors
+    )
+    assert reported == rejected, errors
+    if not rejected:
+        assert answers.get("q") == "valid", answers

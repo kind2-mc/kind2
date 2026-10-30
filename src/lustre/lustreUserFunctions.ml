@@ -300,9 +300,12 @@ let callees declared items =
    an output or local of an array type (see [uf_callable_instance]).
 
    The remaining condition of [LustreFunDefs] -- the solver or logic takes
-   recursive definitions -- is not checked: whether a call is accepted does
-   not depend on the options. A call to a function that is not defined for
-   this reason is accepted here, and [LustreTransSys] warns about it. *)
+   recursive definitions -- is not checked here, and neither are the bodies
+   as the normalizer leaves them, such as an array literal passed to a call,
+   which it defines element by element. A call to a function that is not
+   defined for one of these reasons is accepted here, and rejected by
+   [LustreInput] once the nodes are compiled, which depends on the solver
+   given with --smt_solver. *)
 let uf_callable_functions: Ctx.tc_context -> A.declaration list -> NI.Set.t
 = fun ctx decls ->
   let inlinable = inlinable_functions ctx decls in

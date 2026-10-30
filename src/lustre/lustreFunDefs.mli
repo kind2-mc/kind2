@@ -149,6 +149,11 @@ val undefined_applications :
   t -> LustreNode.t list ->
   (LustreNode.node_call * [ `Undefined | `Applies of NodeId.t ]) list
 
+(** Print why the callee of a call that [undefined_applications] returns
+    is an arbitrary function under the quantifier *)
+val pp_print_undefined_reason :
+  Format.formatter -> [ `Undefined | `Applies of NodeId.t ] -> unit
+
 (** [bounded_below ms] states that every component of the measure [ms] is
     non-negative *)
 val bounded_below : Term.t list -> Term.t

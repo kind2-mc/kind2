@@ -393,8 +393,19 @@ let print_nodes_and_globals nodes globals =
    front end does not see, such as a body that passes an array literal to a
    call, which the normalizer defines element by element. Under the
    quantifier the symbol would be an arbitrary function, and a property that
-   holds could be reported falsifiable: the call is rejected. *)
-let check_quantified_calls nodes { LG.adt_junk_ufs } =
+   holds could be reported falsifiable: the call is rejected. Only the nodes
+   of the subsystems of the main nodes are checked, which are the ones an
+   analysis may reach. *)
+let check_quantified_calls subsystems { LG.adt_junk_ufs } =
+  let nodes =
+    List.concat_map LN.nodes_of_subsystem subsystems
+    |> List.fold_left
+      (fun (seen, acc) ({ LN.node_id } as node) ->
+         if NI.Set.mem node_id seen then seen, acc
+         else NI.Set.add node_id seen, node :: acc)
+      (NI.Set.empty, [])
+    |> snd
+  in
   let fun_defs = LustreFunDefs.compute ~adt_junk_ufs nodes in
   match
     LustreFunDefs.undefined_applications fun_defs nodes
@@ -403,32 +414,13 @@ let check_quantified_calls nodes { LG.adt_junk_ufs } =
   with
   | [] -> Ok ()
   | ({ LN.call_pos; LN.call_node_id }, reason) :: _ ->
-    let pp_name = NI.pp_print_node_id_user_name in
-    let reason ppf =
-      match reason with
-      | `Applies callee ->
-        Format.fprintf ppf
-          "its definition applies '%a', which has no definition at the SMT \
-           level"
-          pp_name callee
-      | `Undefined when LustreFunDefs.enabled () ->
-        Format.fprintf ppf
-          "it has no definition at the SMT level, because its body, or the \
-           body of a function of its recursive group or of a function it \
-           calls, is not a total function of its inputs that the solver can \
-           be given (an array literal or an array repetition passed to a \
-           call, for instance, is defined element by element)"
-      | `Undefined ->
-        Format.fprintf ppf
-          "recursive functions are not defined at the SMT level with the \
-           current solver (Z3 and cvc5 define them)"
-    in
     Error
       (`LustreParserError
          (call_pos,
           Format.asprintf
-            "Function '%a' cannot be applied to quantified variables: %t"
-            pp_name call_node_id reason))
+            "Function '%a' cannot be applied to quantified variables: %a"
+            NI.pp_print_node_id_user_name call_node_id
+            LustreFunDefs.pp_print_undefined_reason reason))
 
 
 (* Parse from input channel *)
@@ -447,7 +439,6 @@ let of_channel only_parse in_ch =
         type_check declarations
       in
       let nodes, globals = LNG.compile ctx gids adt_map scc_map decls in
-      let* () = check_quantified_calls nodes globals in
       let contractck_enabled = List.mem `CONTRACTCK (Flags.enabled ()) in
       let main_nodes = match Flags.lus_main () with
         | Some s -> 
@@ -575,7 +566,9 @@ let of_channel only_parse in_ch =
       in
       print_nodes_and_globals nodes globals;
       (* Return a subsystem tree from the list of nodes *)
-      Ok (Some (LN.subsystems_of_nodes main_nodes nodes, globals, declarations))
+      let subsystems = LN.subsystems_of_nodes main_nodes nodes in
+      let* () = check_quantified_calls subsystems globals in
+      Ok (Some (subsystems, globals, declarations))
     | Error e -> Error e)
 
 
