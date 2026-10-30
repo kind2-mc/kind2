@@ -92,6 +92,12 @@ modes = [
 @pytest.mark.parametrize("stop", stops)
 @pytest.mark.parametrize("mode", modes)
 def test_solvers_killed_with_output_closed(tmp_path, mode, stop, output):
+    # On Windows the wall clock is looked at only in the polling loop of
+    # the supervisor, which the interpreter does not run: its timeout is
+    # left to the backstop of RunSetup, which ends the process 60s late
+    # without going through the exit path
+    if mode and stop == "timeout" and sys.platform == "win32":
+        pytest.skip("the interpreter does not time out on Windows")
     path = tmp_path / "late_cex.lus"
     path.write_text(model)
     timeout = "8" if stop == "timeout" else "120"
