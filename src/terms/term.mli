@@ -706,6 +706,10 @@ val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
 (** Return the uninterpreted function symbols applied in a term *)
 val uf_symbols_of_term : t -> UfSymbol.UfSymbolSet.t
 
+(** Return the uninterpreted function symbols applied in a term under a
+    quantifier *)
+val uf_symbols_under_quantifiers : t -> UfSymbol.UfSymbolSet.t
+
 
 (** {1 Arrays } *)
 

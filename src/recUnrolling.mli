@@ -79,15 +79,21 @@ val suspect :
     variables applies but that has no definition at the SMT level (see
     [TransSys.undefined_quantified_applications]). Under the quantifier the
     function is arbitrary, so the counterexample may be spurious, and
-    unrolling the recursive functions does not change that: the property is
-    then given up on, and [`Unknown fs] gives those of the functions that
-    were not reported yet, to be reported once. The applications are looked
-    for in the system [sliced ()] gives, the system of the analysis sliced
-    to the property, if any, and in the system of the analysis otherwise.
-    The supervisor is meant to call this before [suspect]. *)
+    unrolling the recursive functions does not change that. The property
+    applies such a function under a quantifier, in the system [sliced ()]
+    gives, the system of the analysis sliced to the property, if any, or in
+    the system of the analysis otherwise; and with the inputs and constants
+    of the counterexample, the property may hold for some values of the
+    functions the system leaves uninterpreted, or the query cannot be
+    decided. The property is then given up on, and [`Unknown fs] gives those
+    of the functions that were not reported yet, to be reported once. The
+    applications are looked for once per property and round. The query takes
+    from the budget of [suspect]. The supervisor is meant to call this before
+    [suspect]. *)
 val undefined_applications :
   sliced:(unit -> TransSys.t option) ->
-  TransSys.t -> string -> [ `None | `Unknown of Scope.t list ]
+  TransSys.t -> string -> (StateVar.t * Model.value list) list ->
+  [ `None | `Unknown of Scope.t list ]
 
 (** The counterexample to the property, which is reported, executes
     instances of recursive functions that their contracts abstract, in a

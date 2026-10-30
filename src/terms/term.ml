@@ -1944,6 +1944,35 @@ let has_select term =
   in
   try has term; false with Found -> true
 
+(* Return the uninterpreted function symbols applied in a term under a
+   quantifier, in one traversal: each subterm, which may be shared, is
+   visited once outside of any quantifier and once under one *)
+let uf_symbols_under_quantifiers term =
+  let ufs = ref UfSymbol.UfSymbolSet.empty in
+  let visited = Hashtbl.create 97 in
+  let rec visit under t =
+    let key = (T.tag_of_t t, under) in
+    if not (Hashtbl.mem visited key) then (
+      Hashtbl.add visited key ();
+      match node_of_term t with
+      | T.FreeVar _ | T.BoundVar _ -> ()
+      | T.Leaf s ->
+        if under && Symbol.is_uf s then
+          ufs := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !ufs
+      | T.Node (s, args) ->
+        if under && Symbol.is_uf s then
+          ufs := UfSymbol.UfSymbolSet.add (Symbol.uf_of_symbol s) !ufs;
+        List.iter (visit under) args
+      | T.Let (l, args) -> visit_lambda under l; List.iter (visit under) args
+      | T.Exists l | T.Forall l -> visit_lambda true l
+      | T.Annot (t, _) -> visit under t)
+  and visit_lambda under l =
+    let T.L (_, t) = T.node_of_lambda l in
+    visit under t
+  in
+  visit false term;
+  !ufs
+
 (* Return the uninterpreted function symbols applied in a term; a symbol of
    arity zero is applied as a constant, i.e. a leaf *)
 let uf_symbols_of_term term =

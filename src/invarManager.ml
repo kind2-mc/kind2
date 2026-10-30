@@ -70,13 +70,13 @@ let handle_events input_sys aparam trans_sys =
           let sys = lazy (sliced_to_property input_sys aparam trans_sys p ()) in
           fun () -> Lazy.force sys
         in
-        match RecUnrolling.undefined_applications ~sliced trans_sys p with
+        match RecUnrolling.undefined_applications ~sliced trans_sys p cex with
         | `Unknown unreported ->
           if unreported <> [] then
             KEvent.log L_warn
-              "@[<hov>Counterexamples rely on an application of %a to \
-               quantified variables, where it has no definition at the SMT \
-               level;@ the properties they falsify are left unknown.@]"
+              "@[<hov>Counterexamples may rely on an application of %a to \
+               quantified variables, where it is an arbitrary function;@ the \
+               properties they falsify are left unknown.@]"
               (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
               unreported ;
           false

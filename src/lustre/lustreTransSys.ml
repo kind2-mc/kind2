@@ -2910,12 +2910,6 @@ let function_congruence_group globals inputs uf_symbols
    systems it builds *)
 let check_fun_defs = ref LustreFunDefs.empty
 
-(* The functions that calls applied to quantified variables apply but that
-   have no definition, with their functional symbols (see
-   [undefined_uf_applications]), set by [trans_sys_of_nodes] for the systems
-   it builds *)
-let undefined_quantified_ufs = ref []
-
 (* The evaluation of the calls to recursive functions at constant arguments,
    in a compositional and modular analysis. A function whose own analysis
    proved its termination checks, and those of the recursive functions it
@@ -3473,8 +3467,8 @@ let facts_of_calls
                |> facts)
     calls
 
-let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
-  top_name
+let rec trans_sys_of_node' options globals fun_defs undefined_quantified_ufs
+  evaluation relevant_call top_name
   analysis_param trans_sys_defs output_input_dep nodes definition_set = function
 
   (* Transition system for all nodes created *)
@@ -3489,7 +3483,8 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
 
       (* Continue with next transition systems *)
       trans_sys_of_node'
-        options globals fun_defs evaluation relevant_call top_name analysis_param
+        options globals fun_defs undefined_quantified_ufs evaluation
+        relevant_call top_name analysis_param
         trans_sys_defs
         output_input_dep nodes definition_set tl
 
@@ -3746,6 +3741,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
             options
             globals
             fun_defs
+            undefined_quantified_ufs
             evaluation
             relevant_call
             top_name
@@ -4782,7 +4778,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
               ~check_helpers:(
                 if is_defined || not options.add_functional_constraints then []
                 else LustreFunDefs.helper_ufs_of_node !check_fun_defs node_id)
-              ~undefined_quantified_ufs:!undefined_quantified_ufs
+              ~undefined_quantified_ufs
               scope
               None (* instance_state_var *)
               init_flag
@@ -4809,6 +4805,7 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
             options
             globals
             fun_defs
+            undefined_quantified_ufs
             evaluation
             relevant_call
             top_name
@@ -4839,36 +4836,61 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
 let uf_applied_warned = ref NI.Set.empty
 
 (* The functions that calls applied to quantified variables apply but that
-   have no definition, each once. A call applied to quantified variables is
-   compiled to an application of the functional symbol of the callee (see
-   [GeneratedIdentifiers.t.qcalls]). Such a call is only accepted for a
-   function [LustreUserFunctions] finds a definition is to be built for,
-   together with the functions of its recursive group and the functions they
-   call, but the definition can still be left out here: the solver or logic
-   does not take definitions, which the check of the call does not depend
-   on, or a body is not a total function of its inputs in a way the check
-   does not see, such as a function that passes an array literal, which is
-   defined at fixed indexes. The symbol is then uninterpreted and tied to the
-   outputs of the instances of the function only, so under the quantifier it
-   is an arbitrary function of its inputs. *)
-let undefined_uf_applications fun_defs nodes =
-  List.fold_left
-    (fun acc { N.calls } ->
-       List.fold_left
-         (fun acc { N.call_uf_applied; N.call_node_id } ->
-            if call_uf_applied
-            && not (LustreFunDefs.is_defined fun_defs call_node_id)
-            then NI.Set.add call_node_id acc
-            else acc)
-         acc calls)
-    NI.Set.empty nodes
-  |> NI.Set.elements
+   have no definition, each once, with the function without a definition
+   that the definition of the function applies, if it has one. A call
+   applied to quantified variables is compiled to an application of the
+   functional symbol of the callee (see [GeneratedIdentifiers.t.qcalls]).
+   Such a call is only accepted for a function [LustreUserFunctions] finds a
+   definition is to be built for, together with the functions of its
+   recursive group and the functions they call, but the definition can still
+   be left out here: the solver or logic does not take definitions, which the
+   check of the call does not depend on, or a body is not a total function of
+   its inputs in a way the check does not see, such as a body that passes an
+   array literal, which is defined at fixed indexes. The symbol is then
+   uninterpreted and tied to the outputs of the instances of the function
+   only, so under the quantifier it is an arbitrary function of its inputs.
 
-(* The undefined functions applied to quantified variables, with their
-   functional symbols, for [TransSys.undefined_quantified_applications] *)
-let undefined_quantified_ufs_of fun_defs nodes =
-  undefined_uf_applications fun_defs nodes
-  |> List.map (fun node_id ->
+   A function of another recursive group that a definition applies is
+   applied whether or not it is defined itself (see [LustreFunDefs]): a
+   function whose definition applies a function without one, other than an
+   imported function, which is meant to be arbitrary, is just as arbitrary
+   under the quantifier. *)
+let undefined_uf_applications fun_defs nodes =
+  (* The functions that are not imported, by functional symbol *)
+  let function_of_uf =
+    List.fold_left
+      (fun acc { N.node_id; N.comp_type; N.is_extern } ->
+         match comp_type with
+         | N.Function { N.uf_symbols } when not is_extern ->
+           SVM.fold
+             (fun _ uf acc -> UfSymbol.UfSymbolMap.add uf node_id acc)
+             uf_symbols acc
+         | _ -> acc)
+      UfSymbol.UfSymbolMap.empty nodes
+  in
+  let applied =
+    List.fold_left
+      (fun acc { N.calls } ->
+         List.fold_left
+           (fun acc { N.call_uf_applied; N.call_node_id } ->
+              if call_uf_applied then NI.Set.add call_node_id acc else acc)
+           acc calls)
+      NI.Set.empty nodes
+  in
+  NI.Set.elements applied
+  |> List.filter_map (fun node_id ->
+    if not (LustreFunDefs.is_defined fun_defs node_id) then Some (node_id, None)
+    else
+      LustreFunDefs.ufs_of_node fun_defs node_id
+      |> List.find_map (fun uf ->
+        UfSymbol.UfSymbolMap.find_opt uf function_of_uf)
+      |> Option.map (fun callee -> node_id, Some callee))
+
+(* The functional symbols of the undefined functions applied to quantified
+   variables, for [TransSys.undefined_quantified_applications] *)
+let undefined_quantified_ufs_of nodes undefined =
+  undefined
+  |> List.map (fun (node_id, _) ->
     let ufs =
       match N.node_of_node_id node_id nodes with
       | { N.comp_type = N.Function { N.uf_symbols } } ->
@@ -4881,24 +4903,37 @@ let undefined_quantified_ufs_of fun_defs nodes =
 (* A counterexample to a property that relies on an application of an
    undefined function under a quantifier may be spurious, and the property
    is left unknown (see [InvarManager]). Say so, once per function. *)
-let warn_undefined_uf_applications fun_defs nodes =
-  undefined_uf_applications fun_defs nodes
-  |> List.iter (fun call_node_id ->
+let warn_undefined_uf_applications undefined =
+  undefined
+  |> List.iter (fun (call_node_id, callee) ->
       if not (NI.Set.mem call_node_id !uf_applied_warned) then (
         uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
+        let reason ppf =
+          match callee with
+          | Some callee ->
+            Format.fprintf ppf
+              "its definition applies %a, which has no definition at the SMT \
+               level"
+              NI.pp_print_node_id_user_name callee
+          | None when LustreFunDefs.enabled () ->
+            Format.fprintf ppf
+              "has no definition at the SMT level, because its body, or the \
+               body of a function of its recursive group or of a function it \
+               calls, is not a total function of its inputs that the solver \
+               can be given"
+          | None ->
+            Format.fprintf ppf
+              "has no definition at the SMT level, because recursive \
+               functions are not defined at the SMT level with the current \
+               solver"
+        in
         Log.log L_warn
-          "@[<hov>Function %a is applied to quantified variables but has \
-           no definition at the SMT level, %s.@ Under the quantifier it is \
-           an arbitrary function of its inputs,@ so a property whose \
-           counterexample relies on it is left unknown.@]"
+          "@[<hov>Function %a is applied to quantified variables but %t.@ \
+           Under the quantifier it is an arbitrary function of its inputs,@ \
+           so a counterexample that relies on it is not reported, and the \
+           property it falsifies is left unknown.@]"
           NI.pp_print_node_id_user_name call_node_id
-          (if LustreFunDefs.enabled () then
-             "because its body, or the body of a function of its recursive \
-              group or of a function it calls, is not a total function of its \
-              inputs that the solver can be given"
-           else
-             "because recursive functions are not defined at the SMT level \
-              with the current solver")
+          reason
       ))
 
 let trans_sys_of_nodes
@@ -5000,8 +5035,9 @@ let trans_sys_of_nodes
     LustreFunDefs.compute_all
       ~adt_junk_ufs:globals.G.adt_junk_ufs unsliced_nodes ;
 
-  warn_undefined_uf_applications fun_defs nodes;
-  undefined_quantified_ufs := undefined_quantified_ufs_of fun_defs nodes;
+  let undefined = undefined_uf_applications fun_defs nodes in
+  warn_undefined_uf_applications undefined;
+  let undefined_quantified_ufs = undefined_quantified_ufs_of nodes undefined in
 
   (* The calls at constant arguments to the recursive functions proved
      terminating are evaluated while the systems are built *)
@@ -5023,6 +5059,7 @@ let trans_sys_of_nodes
         options
         globals
         fun_defs
+        undefined_quantified_ufs
         evaluation
         relevant_call
         top_name

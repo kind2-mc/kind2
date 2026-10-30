@@ -45,6 +45,13 @@ let reported = ref Scope.Set.empty
    counterexample relied on, and that were reported *)
 let reported_undefined = ref Scope.Set.empty
 
+(* For each property a counterexample was checked for in the round, the
+   undefined functions applied to quantified variables that it applies
+   under a quantifier, and the system sliced to it if those were looked for
+   in it (see [undefined_applications]) *)
+let undefined_applied : (string, Scope.t list * TransSys.t option) Hashtbl.t =
+  Hashtbl.create 7
+
 let depth param f =
   match Analysis.param_unrollings_of_scope param f with
   | Some n -> n
@@ -413,6 +420,7 @@ let reset () =
   Facts.reset learned ;
   reported := Scope.Set.empty ;
   reported_undefined := Scope.Set.empty ;
+  Hashtbl.reset undefined_applied ;
   current_count := 0 ;
   previous_count := 0
 
@@ -428,6 +436,7 @@ let start_round sys =
   pending := [] ;
   conditional := [] ;
   requested_functions := Scope.Set.empty ;
+  Hashtbl.reset undefined_applied ;
   previous_count := !current_count ;
   current_count :=
     List.fold_left
@@ -472,6 +481,30 @@ let requested () = Scope.Set.elements !requested_functions
 (* The number of times the calls past the unrollings a model uses are
    evaluated before the counterexample is given up on as undecided *)
 let max_evaluation_rounds = 8
+
+(* Assert the transition relation of the system along a counterexample of
+   length [k + 1], after the initial state that [solver_for] asserted, and
+   fix the inputs and constants of the system at every step to their values
+   in the counterexample. A system sliced to the property may not have all
+   the variables of the counterexample, which was found on the whole system:
+   the others, not in [state_vars], are not in the cone of influence of the
+   property. *)
+let assert_along_cex solver sys state_vars cex k =
+  let rec assert_trans i =
+    if Numeral.(i <= k) then (
+      TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys i
+      |> SMTSolver.assert_term solver ;
+      assert_trans Numeral.(succ i))
+  in
+  assert_trans Numeral.one ;
+  cex |> List.iter (fun (sv, values) ->
+    if (StateVar.is_input sv || StateVar.is_const sv)
+    && StateVar.StateVarSet.mem sv state_vars then
+      values |> List.iteri (fun i value ->
+        fix_value
+          (Term.mk_var (Var.mk_state_var_instance sv (Numeral.of_int i)))
+          value
+        |> List.iter (SMTSolver.assert_term solver)))
 
 (* Whether the counterexample is genuine. The system is unrolled along the
    counterexample, its inputs and constants are fixed to the values of the
@@ -668,20 +701,8 @@ let outcome ?(abstracted = false) sys prop cex =
     let observed = observed () in
     let { solver ; kept } = solver_for sys k in
     SMTSolver.push solver ;
-    let rec assert_trans i =
-      if Numeral.(i <= k) then (
-        TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys i
-        |> SMTSolver.assert_term solver ;
-        assert_trans Numeral.(succ i))
-    in
-    assert_trans Numeral.one ;
     (* The inputs and the constants at every step of the counterexample *)
-    cex |> List.iter (fun (sv, values) ->
-      if (StateVar.is_input sv || StateVar.is_const sv)
-      && StateVar.StateVarSet.mem sv state_vars then
-        values |> List.iteri (fun i value ->
-          fix_value (var_at sv (Numeral.of_int i)) value
-          |> List.iter (SMTSolver.assert_term solver))) ;
+    assert_along_cex solver sys state_vars cex k ;
     TransSys.get_prop_term sys prop
     |> Term.bump_state k
     |> Term.mk_not
@@ -763,31 +784,6 @@ let suspect sys prop cex =
         | `Result true -> []
         | `Result false | `Undecided -> reached
 
-let undefined_applications ~sliced sys prop =
-  match TransSys.undefined_quantified_applications sys prop with
-  | [] -> `None
-  | applied ->
-    (* On the system sliced to the property, the applications the property
-       does not depend on are sliced away *)
-    let applied =
-      match sliced () with
-      | Some sliced_sys -> (
-        try TransSys.undefined_quantified_applications sliced_sys prop
-        with Not_found -> applied)
-      | None -> applied
-    in
-    match applied with
-    | [] -> `None
-    | _ ->
-      exhausted := SSet.add prop !exhausted ;
-      let unreported =
-        List.filter (fun f -> not (Scope.Set.mem f !reported_undefined)) applied
-      in
-      reported_undefined :=
-        List.fold_left (fun s f -> Scope.Set.add f s) !reported_undefined
-          unreported ;
-      `Unknown unreported
-
 (* Run [f] with a round solver, an evaluator and tables of facts of its own,
    for a system other than the one of the round, whose symbols the round's
    solver and facts may not have, and restore those of the round after *)
@@ -823,6 +819,94 @@ let isolated f =
       query_solver_started := saved_query_solver_started ;
       evaluator_started := saved_evaluator_started)
     f
+
+(* Whether the property may hold with the inputs and constants of the
+   counterexample. The system is unrolled along the counterexample, with its
+   inputs and constants fixed as in [outcome], and the property is asserted
+   to hold at the last step, which the functional symbols the system leaves
+   uninterpreted are free to satisfy. If it cannot hold, [`Result false],
+   the violation does not depend on their values. A query the solver cannot
+   decide in time, or that fails, is [`Undecided]. *)
+let may_hold sys prop cex =
+  let path = Model.path_of_list cex in
+  let k = Numeral.of_int (Model.path_length path - 1) in
+  let state_vars = StateVar.StateVarSet.of_list (TransSys.state_vars sys) in
+  try
+    let { solver ; kept } = solver_for sys k in
+    SMTSolver.push solver ;
+    assert_along_cex solver sys state_vars cex k ;
+    TransSys.get_prop_term sys prop
+    |> Term.bump_state k
+    |> SMTSolver.assert_term solver ;
+    let result =
+      try `Result (SMTSolver.check_sat solver)
+      with SMTSolver.Unknown -> `Undecided
+    in
+    if kept then SMTSolver.pop solver else drop_round_solver () ;
+    result
+  with
+  | SMTSolver.Timeout ->
+    (* The solver was killed on its timeout, the instance is gone *)
+    round_solver := None ;
+    `Undecided
+  | Failure _ | Unix.Unix_error _ | End_of_file | Sys_error _
+  | SMTSolver.Unknown | SMTSolver.Exiting | SMTSolver.Killed
+  | SMTSolver.Died _ as e ->
+    KEvent.log L_debug
+      "Query on the counterexample to %s failed: %s" prop
+      (Printexc.to_string e) ;
+    drop_round_solver () ;
+    `Undecided
+  | e ->
+    drop_round_solver () ;
+    raise e
+
+let undefined_applications ~sliced sys prop cex =
+  (* The applications the property depends on, once per property and
+     round. On the system sliced to the property, the applications it does
+     not depend on are sliced away. *)
+  let applied, sliced_sys =
+    match Hashtbl.find_opt undefined_applied prop with
+    | Some r -> r
+    | None ->
+      let r =
+        match TransSys.undefined_quantified_applications sys prop with
+        | [] -> [], None
+        | applied ->
+          match sliced () with
+          | Some sliced_sys -> (
+            try
+              TransSys.undefined_quantified_applications sliced_sys prop,
+              Some sliced_sys
+            with Not_found -> applied, None)
+          | None -> applied, None
+      in
+      Hashtbl.replace undefined_applied prop r ;
+      r
+  in
+  match applied with
+  | [] -> `None
+  | _ ->
+    (* Past the budget of the round, the counterexample is left undecided,
+       which is the safe answer, as in [suspect] *)
+    let relies =
+      not (within_budgets ())
+      || counted (fun () ->
+           match sliced_sys with
+           | Some sliced_sys -> isolated (fun () -> may_hold sliced_sys prop cex)
+           | None -> may_hold sys prop cex)
+         <> `Result false
+    in
+    if not relies then `None
+    else (
+      exhausted := SSet.add prop !exhausted ;
+      let unreported =
+        List.filter (fun f -> not (Scope.Set.mem f !reported_undefined)) applied
+      in
+      reported_undefined :=
+        List.fold_left (fun s f -> Scope.Set.add f s) !reported_undefined
+          unreported ;
+      `Unknown unreported)
 
 let check_abstractions ~sliced sys prop cex =
   if Flags.Contracts.compositional ()

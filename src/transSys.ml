@@ -2808,15 +2808,7 @@ let undefined_quantified_applications t prop =
   | [] -> []
   | undefined ->
     let under_quantifiers acc term =
-      let ufs = ref acc in
-      Term.map
-        (fun _ t ->
-           if Term.is_forall t || Term.is_exists t then
-             ufs := UfSymbol.UfSymbolSet.union (Term.uf_symbols_of_term t) !ufs ;
-           t)
-        term
-      |> ignore ;
-      !ufs
+      UfSymbol.UfSymbolSet.union acc (Term.uf_symbols_under_quantifiers term)
     in
     let applied =
       fold_subsystems
