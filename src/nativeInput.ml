@@ -452,6 +452,7 @@ let rec mk_subsystem map sys =
       opacity = Opacity.Transparent;
       has_contract = false;
       has_impl = true;
+      has_props = false;
       rec_group = None;
       is_internal = false;
       has_modes = false;

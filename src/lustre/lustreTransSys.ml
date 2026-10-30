@@ -3914,8 +3914,9 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
                   (* Node is top, forcing contract assumption. *)
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
-                    abstract. *)
-                  if is_abstract then
+                    abstract to check its modes. The top node is also
+                    abstract when it has no implementation. *)
+                  if is_abstract && Flags.Contracts.check_modes () then
                     List.rev_append
                       (mode_non_vacuity_checks scope contract)
                       (one_mode_active scope contract)

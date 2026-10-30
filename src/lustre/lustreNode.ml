@@ -1117,6 +1117,18 @@ let rec subsystem_of_nodes' map nodes top =
   (* Does node have an implementation? *)
   let has_impl = not node.is_extern in
 
+  (* Does an imported node have properties of its own to check, such as the
+     subtype checks of the ghost variables and constants of its contract?
+     Candidate invariants are not proof obligations. *)
+  let has_props =
+    node.is_extern
+    && List.exists
+      (function
+        | (_, _, Property.Candidate _, _, _) -> false
+        | _ -> true)
+      node.props
+  in
+
   (* The recursive group of a recursive function *)
   let rec_group =
     match node.comp_type with
@@ -1131,6 +1143,7 @@ let rec subsystem_of_nodes' map nodes top =
       has_contract;
       has_modes;
       has_impl;
+      has_props;
       rec_group;
       is_internal = NodeId.is_internal top;
       map;

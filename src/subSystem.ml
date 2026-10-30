@@ -35,6 +35,10 @@ type 'a t = {
   (* System has an implementation. *)
   has_impl : bool ;
 
+  (* System has properties of its own to check, besides those of its
+     implementation. *)
+  has_props : bool ;
+
   (* The recursive group of a recursive function. *)
   rec_group : int option ;
 
@@ -50,12 +54,14 @@ type 'a t = {
 
 (* Strategy info of a subsystem. *)
 let strategy_info_of {
-  opacity; has_contract ; has_modes ; has_impl ; rec_group ; is_internal
+  opacity; has_contract ; has_modes ; has_impl ; has_props ; rec_group ;
+  is_internal
 } = {
   Strategy.opacity ;
   Strategy.has_contract ;
   Strategy.has_modes ;
   Strategy.has_impl;
+  Strategy.has_props;
   Strategy.rec_group;
   Strategy.is_internal;
 }
