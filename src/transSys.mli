@@ -316,6 +316,10 @@ val mk_trans_sys :
   ?rec_abstracted:Scope.t ->
   ?rec_cutoff_io:(StateVar.t list * (StateVar.t * UfSymbol.t) list) ->
 
+  (* The functions that calls applied to quantified variables apply but
+     that have no definition, with their functional symbols *)
+  ?undefined_quantified_ufs:(Scope.t * UfSymbol.t list) list ->
+
   (* Name of the transition system *)
   Scope.t ->
     
@@ -818,6 +822,15 @@ val instantiate_term_all_levels:
     unconstrained, is executed at some step of the counterexample, which may
     therefore be spurious *)
 val cutoffs_reached : t -> (StateVar.t * Model.value list) list -> Scope.t list
+
+(** [undefined_quantified_applications t p] is the functions that a call
+    applied to quantified variables applies, but that have no definition at
+    the SMT level, whose functional symbols the property [p], or the initial
+    state or transition relation of [t] or of one of its subsystems, applies
+    under a quantifier. Under the quantifier such a function is arbitrary,
+    so a counterexample to [p] may be spurious, and no unrolling changes
+    that. *)
+val undefined_quantified_applications : t -> string -> Scope.t list
 
 (** The recursive functions with a cutoff in the system *)
 val cutoff_functions : t -> Scope.t list

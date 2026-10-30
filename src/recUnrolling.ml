@@ -41,6 +41,10 @@ let genuine_props = ref SSet.empty
    that were reported *)
 let reported = ref Scope.Set.empty
 
+(* The undefined functions applied to quantified variables that a
+   counterexample relied on, and that were reported *)
+let reported_undefined = ref Scope.Set.empty
+
 let depth param f =
   match Analysis.param_unrollings_of_scope param f with
   | Some n -> n
@@ -408,6 +412,7 @@ let reset () =
   genuine_props := SSet.empty ;
   Facts.reset learned ;
   reported := Scope.Set.empty ;
+  reported_undefined := Scope.Set.empty ;
   current_count := 0 ;
   previous_count := 0
 
@@ -757,6 +762,31 @@ let suspect sys prop cex =
         match counted (fun () -> outcome sys prop cex) with
         | `Result true -> []
         | `Result false | `Undecided -> reached
+
+let undefined_applications ~sliced sys prop =
+  match TransSys.undefined_quantified_applications sys prop with
+  | [] -> `None
+  | applied ->
+    (* On the system sliced to the property, the applications the property
+       does not depend on are sliced away *)
+    let applied =
+      match sliced () with
+      | Some sliced_sys -> (
+        try TransSys.undefined_quantified_applications sliced_sys prop
+        with Not_found -> applied)
+      | None -> applied
+    in
+    match applied with
+    | [] -> `None
+    | _ ->
+      exhausted := SSet.add prop !exhausted ;
+      let unreported =
+        List.filter (fun f -> not (Scope.Set.mem f !reported_undefined)) applied
+      in
+      reported_undefined :=
+        List.fold_left (fun s f -> Scope.Set.add f s) !reported_undefined
+          unreported ;
+      `Unknown unreported
 
 (* Run [f] with a round solver, an evaluator and tables of facts of its own,
    for a system other than the one of the round, whose symbols the round's

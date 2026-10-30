@@ -259,6 +259,14 @@ type t =
         order of the arguments of its functional symbols, and its outputs
         with their functional symbols; empty if the system is neither *)
 
+    undefined_quantified_ufs : (Scope.t * UfSymbol.t list) list;
+    (** The functions of the model that a call applied to quantified
+        variables applies, but that have no definition at the SMT level,
+        each with its functional symbols: under a quantifier they are
+        arbitrary functions of their inputs, so a counterexample that relies
+        on such an application may be spurious, whatever the unrollings (see
+        [undefined_quantified_applications]) *)
+
     datatype_types : Type.t list;
     (** Recursive ADTs used anywhere in this system, in dependency order. *)
 
@@ -2177,6 +2185,7 @@ let mk_trans_sys
   ?rec_cutoff
   ?rec_abstracted
   ?(rec_cutoff_io = ([], []))
+  ?(undefined_quantified_ufs = [])
   scope
   instance_state_var
   init_flag_state_var
@@ -2483,6 +2492,7 @@ let mk_trans_sys
       rec_cutoff;
       rec_abstracted;
       rec_cutoff_io;
+      undefined_quantified_ufs;
       datatype_types;}
   in
 
@@ -2786,6 +2796,41 @@ let cutoffs_reached t cex =
          else if List.exists (reached_at term) steps then f :: acc
          else acc)
       [] cutoffs
+
+(* The functions among [undefined_quantified_ufs] whose symbols the
+   property, or the initial state or transition relation of the system or of
+   one of its subsystems, applies under a quantifier. A call applied to
+   quantified variables is compiled to such an application, and its
+   retained instance (see [LustreNode.call_uf_applied]) applies the symbol
+   outside of any quantifier, which is not counted. *)
+let undefined_quantified_applications t prop =
+  match t.undefined_quantified_ufs with
+  | [] -> []
+  | undefined ->
+    let under_quantifiers acc term =
+      let ufs = ref acc in
+      Term.map
+        (fun _ t ->
+           if Term.is_forall t || Term.is_exists t then
+             ufs := UfSymbol.UfSymbolSet.union (Term.uf_symbols_of_term t) !ufs ;
+           t)
+        term
+      |> ignore ;
+      !ufs
+    in
+    let applied =
+      fold_subsystems
+        (fun acc { init ; trans } ->
+           under_quantifiers (under_quantifiers acc init) trans)
+        (under_quantifiers UfSymbol.UfSymbolSet.empty (get_prop_term t prop))
+        t
+    in
+    List.filter_map
+      (fun (f, ufs) ->
+         if List.exists (fun uf -> UfSymbol.UfSymbolSet.mem uf applied) ufs
+         then Some f
+         else None)
+      undefined
 
 (* Carries what was established of [from] over to [into]: the statuses of
    the properties of [from] that [into] has, by name, and the invariants of

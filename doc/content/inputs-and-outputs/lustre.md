@@ -1033,10 +1033,13 @@ for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
 value of its type parameter. In the body of a polymorphic node, a type
 parameter of the node given as a type argument is taken to be an array
 type, whatever the instantiations of the node. Kind 2 warns when the
-definition is left out because the solver does not take recursive
-definitions (Z3 and cvc5 do). The symbol is then an arbitrary function
-under the quantifier, and a property that holds may be reported
-falsifiable.
+definition is left out, because the solver does not take recursive
+definitions (Z3 and cvc5 do) or because the body is not one a definition is
+built from in a way the conditions above do not see, such as a body that
+passes an array literal to a call. The symbol is then an arbitrary function
+under the quantifier, so a counterexample to a property that applies it
+there may be spurious: it is not reported, and the property is left
+unknown.
 
 ### Benefits and limitations
 

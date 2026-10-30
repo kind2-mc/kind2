@@ -48,7 +48,10 @@ let handle_events input_sys aparam trans_sys =
      may be spurious, and the event is dropped. The function is unrolled
      further and the engines run again (see [RecUnrolling] and
      [Kind2Flow]), or, when it is at the limit, the property is left
-     unknown. *)
+     unknown. A property found false by a counterexample that may rely on
+     an application under a quantifier of a function that has no definition,
+     which is arbitrary there, is left unknown as well: no unrolling gives
+     the function a definition. *)
   let events =
     events |> List.filter (function
       | (_, KEvent.PropStatus (p, Property.PropFalse cex)) -> (
@@ -61,13 +64,28 @@ let handle_events input_sys aparam trans_sys =
             Stat.update_time Stat.total_time ;
             if timeout > 0. && Stat.get_float Stat.total_time > timeout then
               raise TimeoutWall ) ;
+        (* Built at most once for the counterexample, by whichever check
+           needs it first *)
+        let sliced =
+          let sys = lazy (sliced_to_property input_sys aparam trans_sys p ()) in
+          fun () -> Lazy.force sys
+        in
+        match RecUnrolling.undefined_applications ~sliced trans_sys p with
+        | `Unknown unreported ->
+          if unreported <> [] then
+            KEvent.log L_warn
+              "@[<hov>Counterexamples rely on an application of %a to \
+               quantified variables, where it has no definition at the SMT \
+               level;@ the properties they falsify are left unknown.@]"
+              (pp_print_list (KEvent.pp_print_user_node_name input_sys) ", ")
+              unreported ;
+          false
+        | `None ->
         match RecUnrolling.suspect trans_sys p cex with
         | [] ->
           (* Reported: whether refining the recursive functions whose
              contracts abstract them may rule the counterexample out *)
-          RecUnrolling.check_abstractions
-            ~sliced:(sliced_to_property input_sys aparam trans_sys p)
-            trans_sys p cex ;
+          RecUnrolling.check_abstractions ~sliced trans_sys p cex ;
           true
         | reached ->
           ( match RecUnrolling.request aparam p reached with
