@@ -1,0 +1,10 @@
+-- A function contract with modes and a contract variable with state, which
+-- the function y = (if on then 1 else 0) realizes.
+
+function imported M(on: bool) returns (y: int);
+(*@contract
+  var was_on: bool = on -> (on or pre was_on);
+  mode active (require on; ensure y = 1;);
+  mode idle (require not on; ensure y = 0;);
+  guarantee was_on or y = 0;
+*)

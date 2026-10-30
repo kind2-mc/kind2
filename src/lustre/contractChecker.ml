@@ -382,6 +382,15 @@ let pp_print_realizability_result_pt
   | Unrealizable u_res ->
     print_not_unknown_result Pretty.failure_tag ;
 
+    match Realizability.function_certificate u_res with
+    | Some traces ->
+      (* No function has the outputs these input traces need *)
+      if Flags.Contracts.print_deadlock () then (
+        FunctionRealizability.pp_print_certificate_pt fmt traces ;
+        Format.pp_print_flush fmt ()
+      )
+    | None ->
+
     if Flags.Contracts.print_deadlock () || Flags.Contracts.dump_deadlock () then (
       KEvent.log L_note "Computing deadlocking trace and conflict..." ;
       let trace, cpd =
@@ -431,6 +440,14 @@ let pp_print_realizability_result_json
           ",@,\"viableStates\" : \"%s\"" fp_str
       )
       else (fun _ -> ())
+    )
+    | Unrealizable u_res
+      when Realizability.function_certificate u_res <> None
+        && Flags.Contracts.print_deadlock () -> (
+      let traces = Option.get (Realizability.function_certificate u_res) in
+      (fun fmt ->
+        Format.fprintf fmt ",@,\"conflictingInputTraces\" : %a"
+          FunctionRealizability.pp_print_certificate_json traces)
     )
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (
@@ -492,6 +509,12 @@ let pp_print_realizability_result_xml
           (pp_print_viable_states in_sys param) fp
       )
       else (fun _ -> ())
+    )
+    | Unrealizable u_res
+      when Realizability.function_certificate u_res <> None
+        && Flags.Contracts.print_deadlock () -> (
+      let traces = Option.get (Realizability.function_certificate u_res) in
+      (fun fmt -> FunctionRealizability.pp_print_certificate_xml fmt traces)
     )
     | Unrealizable u_res -> (
       if Flags.Contracts.print_deadlock () then (

@@ -686,23 +686,33 @@ function cannot depend on the `->`, `pre`, `fby` or `restart` operators.
 A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
-In Kind 2, these restrictions also apply to the contract attached to a function,
-if any. Moreover, Kind 2 strictly enforces that imported functions
+In Kind 2, the contract attached to a function, if any, may not call a node
+either, but it may use the `->`, `pre` and `fby` operators. A function is
+applied pointwise, and its contract constrains the streams of its inputs and
+outputs at each call: a guarantee such as `true -> y >= pre y` states that the
+outputs of a call never decrease, which a function satisfies when, for
+instance, the contract also assumes that its inputs never decrease. A
+temporal contract may be satisfied by a node but not by a function, which the
+[contract check]({{< relref "/advanced-features/contract-check#contracts-of-functions" >}})
+takes into account. Moreover, Kind 2 strictly enforces that imported functions
 and functions abstracted by their contracts
 behave as mathematical functions. That is, given the same inputs,
 such a function always produces the same outputs, regardless of the step at
 which it is called.
 
 The stateless nature of functions also determines the scope of their contract
-assumptions. For a function, an assumption constrains only the *current*
-timestep: when reasoning about a call, the function's guarantees may rely on its
-assumptions holding at the current step alone. For a node, by contrast, the
-scope extends to all previous timesteps: the node's guarantees may rely on its
-assumptions having held at every step up to and including the current one (the
-"assumptions always hold implies guarantees always hold" semantics described in
-[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})). This mirrors the fact
-that a function's outputs depend only on the current values of its inputs,
-whereas a node may also depend on their previous values.
+assumptions. For a node, an assumption constrains all previous timesteps: the
+node's guarantees may rely on its assumptions having held at every step up to
+and including the current one (the "assumptions always hold implies guarantees
+always hold" semantics described in
+[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})).
+For a function whose contract has no temporal operators, an assumption
+constrains only the *current* timestep: when reasoning about a call, the
+function's guarantees may rely on its assumptions holding at the current step
+alone. This mirrors the fact that such guarantees only relate the current
+values of the inputs and outputs. A function contract with temporal operators
+relates them to their previous values, and its assumptions have the scope of
+those of a node.
 
 ### Recursive functions
 

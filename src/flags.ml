@@ -1264,6 +1264,23 @@ module Contracts = struct
     )
   let assumption_gen_iter () = !assumption_gen_iter
 
+  let function_realizability_iter_default = 20
+  let function_realizability_iter = ref function_realizability_iter_default
+  let _ = add_spec
+    "--function_realizability_iter"
+    (Arg.Int (fun n -> function_realizability_iter := n))
+    (fun fmt ->
+      Format.fprintf fmt
+      "@[<v>\
+        Maximum number of candidate functions tried when checking whether@ \
+        a function contract with temporal operators is realizable by a@ \
+        function.@ \
+        Default: %d\
+      @]"
+      function_realizability_iter_default
+    )
+  let function_realizability_iter () = !function_realizability_iter
+
 
   let refinement_default = true
   let refinement = ref refinement_default

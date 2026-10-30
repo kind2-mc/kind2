@@ -1,0 +1,8 @@
+-- A node realizes the contract by remembering its input, a function does
+-- not: on input 0 at the first step, the output must be 0, and after input
+-- 1, it must be 1.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y = (0 -> pre x);
+*)

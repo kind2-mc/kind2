@@ -1246,7 +1246,33 @@ let run in_sys =
               Realizability.Realizable Term.t_true
             else
               if satisfy_input_requirements in_sys param then
-                ContractChecker.check_contract_realizability in_sys sys
+                match ContractChecker.check_contract_realizability in_sys sys with
+                (* A function is applied pointwise: a contract with state
+                   that a reactive component realizes may not be realized
+                   by a function *)
+                | Realizability.Realizable _ as result
+                  when FunctionRealizability.applies in_sys param -> (
+                  KEvent.log L_note
+                    "Checking whether a function realizes the contract..." ;
+                  match
+                    FunctionRealizability.check
+                      (analyze msg_setup false false false) in_sys param
+                  with
+                  | FunctionRealizability.Realizable witness ->
+                    KEvent.log L_note
+                      "@[<v>The contract is realized by the function:@,%a@]"
+                      (FunctionRealizability.pp_print_witness in_sys sys)
+                      witness ;
+                    result
+                  | FunctionRealizability.Unrealizable traces ->
+                    Realizability.unrealizable_function traces
+                  | FunctionRealizability.Unknown ->
+                    KEvent.log L_warn
+                      "The contract is realizable by a node, but it could \
+                       not be determined whether a function realizes it." ;
+                    Realizability.Unknown
+                )
+                | result -> result
               else
                 Realizability.Unknown
           in

@@ -80,7 +80,7 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | _ -> false);
   mk_test "test any operator in contract import" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_contract_import.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
+    | Error (`LustreSyntaxChecksError (_, IllegalImportOfContractWithNodeCall _)) -> true
     | _ -> false);
   mk_test "test any operator in global refinement type" (fun () ->
     match load_file "./lustreSyntaxChecks/global_ref_ty_any.lus" with
@@ -130,13 +130,13 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/function_no_pre_in_body.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
     | _ -> false);
-  mk_test "test function contract with stateful import 1" (fun () ->
-    match load_file "./lustreSyntaxChecks/function_stateful_contract_import.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
+  mk_test "test function contract with temporal import" (fun () ->
+    match load_file "./lustreSyntaxChecks/function_temporal_contract_import.lus" with
+    | Ok _ -> true
     | _ -> false);
-  mk_test "test function contract with stateful import 2" (fun () ->
-    match load_file "./lustreSyntaxChecks/function_stateful_contract_import_2.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalImportOfStatefulContract _)) -> true
+  mk_test "test function contract importing a node call" (fun () ->
+    match load_file "./lustreSyntaxChecks/function_contract_import_node_call.lus" with
+    | Error (`LustreSyntaxChecksError (_, IllegalImportOfContractWithNodeCall _)) -> true
     | _ -> false);
   mk_test "test dangling identifier 2" (fun () ->
     match load_file "./lustreSyntaxChecks/test_eqn_lhs_not_defined.lus" with
@@ -151,8 +151,8 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | Error (`LustreSyntaxChecksError (_, DanglingIdentifier _)) -> true
     | _ -> false);
   mk_test "test temporal operator in contract import type argument of a function" (fun () ->
-    match load_file "./lustreSyntaxChecks/contract_import_type_arg_pre_in_function.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    match load_file "./lustreSyntaxChecks/function_contract_import_type_arg_pre.lus" with
+    | Ok _ -> true
     | _ -> false);
   mk_test "unbounded inner index of a bounded comprehension" (fun () ->
     match load_file "./lustreSyntaxChecks/comprehension_unbounded_inner.lus" with
@@ -199,11 +199,11 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInNodeArgument _)) -> true
     | _ -> false);
   mk_test "test temporal operator in function contract" (fun () ->
-    match load_file "./lustreSyntaxChecks/function_no_stateful_contract.lus" with
-    | Error (`LustreSyntaxChecksError (_, IllegalTemporalOperator _)) -> true
+    match load_file "./lustreSyntaxChecks/function_temporal_contract.lus" with
+    | Ok _ -> true
     | _ -> false);  
   mk_test "test node call in function contract" (fun () ->
-    match load_file "./lustreSyntaxChecks/function_no_stateful_contract_2.lus" with
+    match load_file "./lustreSyntaxChecks/function_no_node_call_in_contract.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalNodeCall _)) -> true
     | _ -> false);
   mk_test "test defining a variable more than once 1" (fun () ->

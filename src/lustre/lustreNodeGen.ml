@@ -3736,7 +3736,20 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
           (fun {C.pos = a} {C.pos = b} -> compare_pos a b)
           modes
       in
-      if is_function then
+      (* The guarantees of a function whose contract has no state only
+         depend on the current values of the streams, and so on the
+         assumptions at the current instant. Those of a contract with state
+         may depend on the assumptions at the previous instants, as the
+         guarantees of a node do. The body of a function has no state, so
+         an equation with state is one of its contract. *)
+      let contract_has_state =
+        List.exists
+          (fun (_, e) ->
+            E.has_pre_var E.base_offset e
+            || not (E.equal_expr (E.init_expr e) (E.step_expr e)))
+          (equations @ gequations)
+      in
+      if is_function && not contract_has_state then
         let contract = C.mk assumes None guarantees modes in
         Some (contract), [], []
       else
