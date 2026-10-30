@@ -1046,6 +1046,13 @@ let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, (Some v) -> Some v
   | _, (Some v), (Some _) -> Some v
 
+(* Key a datatype comparison on both instantiations: two instantiations of one
+   polymorphic datatype share their name and differ only in their field types *)
+let adt_comparison_key name ty1 ty2 =
+  Format.asprintf "%a: %a =?= %a" HString.pp_print_hstring name
+    LA.pp_print_lustre_type ty1 LA.pp_print_lustre_type ty2
+  |> HString.mk_hstring
+
 (* Unify `ty1` with `ty2` in the context of inferring type arguments for node calls. 
    `ty1` represents the function signature with type parameters, and 
    `ty2` represents the types of the concrete arguments.  
@@ -1087,12 +1094,13 @@ let unify_types pos ctx is_type_ascription ty1 ty2 =
     | LA.EnumType (_, id1, _), LA.EnumType (_, id2, _) when HString.equal id1 id2 ->
       R.ok StringMap.empty
     | LA.ADT (_, id1, cons1), LA.ADT (_, id2, cons2) when HString.equal id1 id2 ->
-      (* Expand each ADT at most once per unification path. Keyed on the name,
-         not the instantiation, so a nested second occurrence of the same
-         datatype is taken for a cycle and contributes no bindings. *)
-      if HString.HStringSet.mem id1 seen then R.ok StringMap.empty
+      (* Expand each ADT comparison at most once per unification path. Keys stay
+         finite: a self-reference may only sit at the datatype's own parameters,
+         and a cycle between two declared types is rejected before type checking *)
+      let key = adt_comparison_key id1 ty1 ty2 in
+      if HString.HStringSet.mem key seen then R.ok StringMap.empty
       else
-        let seen' = HString.HStringSet.add id1 seen in
+        let seen' = HString.HStringSet.add key seen in
         let tys1 = List.concat_map (fun (_, flds) -> List.map snd flds) cons1 in
         let tys2 = List.concat_map (fun (_, flds) -> List.map snd flds) cons2 in
         let* maps = R.seq (List.map2 (aux seen') tys1 tys2) in
@@ -3535,9 +3543,8 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
 and eq_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
   = fun ctx t1 t2 -> eq_lustre_type_seen HString.HStringSet.empty ctx t1 t2
 
-(* [seen] holds the datatypes the comparison is already inside of, so that the
-   recursion through a datatype's self-referential fields terminates; every case
-   but the datatype one passes it through unchanged *)
+(* [seen] holds the datatype comparisons in progress, keyed on the pair of
+   instantiated types, so recursion through self-referential fields terminates *)
 and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
   = fun seen ctx t1 t2 ->
   let eq_lustre_type ctx t1 t2 = eq_lustre_type_seen seen ctx t1 t2 in
@@ -3610,18 +3617,19 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
     else
       R.ok false
   | ADT (_, n1, cons1), ADT (_, n2, cons2) ->
-    (* Two instantiations of a polymorphic datatype share their name and differ
-       only in their constructors' field types. The guard is keyed on the name,
-       not the instantiation, so a nested second occurrence of the same datatype
-       is taken for a cycle and compared equal even at different arguments. *)
+    (* Two instantiations differ only in their field types, so the key records
+       them. Keys stay finite: a self-reference may only sit at the datatype's
+       own parameters, and a cycle through two or more types is rejected earlier *)
     if not (HString.equal n1 n2) then R.ok false
-    else if HString.HStringSet.mem n1 seen then R.ok true
     else
-      let seen = HString.HStringSet.add n1 seen in
-      let field_types cons = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
-      let tys1, tys2 = field_types cons1, field_types cons2 in
-      if List.length tys1 <> List.length tys2 then R.ok false
-      else R.seqM (&&) true (List.map2 (eq_lustre_type_seen seen ctx) tys1 tys2)
+      let key = adt_comparison_key n1 t1 t2 in
+      if HString.HStringSet.mem key seen then R.ok true
+      else
+        let seen = HString.HStringSet.add key seen in
+        let field_types cons = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+        let tys1, tys2 = field_types cons1, field_types cons2 in
+        if List.length tys1 <> List.length tys2 then R.ok false
+        else R.seqM (&&) true (List.map2 (eq_lustre_type_seen seen ctx) tys1 tys2)
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
     R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2

@@ -1,0 +1,9 @@
+datatype Opt<T> = N | S (val: T);
+
+node main(b: bool) returns (ok: bool);
+var m: map<int, Opt<Opt<int>>>;
+let
+  m = map[]@<int, Opt<Opt<int>>>[0 := S(S(b))];
+  ok = true;
+  check ok;
+tel

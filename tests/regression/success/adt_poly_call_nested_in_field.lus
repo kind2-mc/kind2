@@ -1,0 +1,15 @@
+datatype Opt<T> = N | S (val: T);
+datatype W<T> = WN | WC (v: Opt<Opt<T>>);
+
+node f<T>(p: W<T>) returns (r: bool);
+let
+  r = WN?(p);
+tel
+
+node main(i: int) returns (ok: bool);
+var q: W<int>;
+let
+  q = WN@<int>;
+  ok = f(q);
+  check ok;
+tel
