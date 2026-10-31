@@ -1,0 +1,13 @@
+-- A global free constant the contract does not depend on does not prevent
+-- the check (see function_temporal_contract.lus).
+
+const N: int;
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  assume true -> x >= pre x;
+  guarantee x <= 0 => y = 0;
+  guarantee x > 0 => y > 0;
+  guarantee true -> y >= pre y;
+  guarantee y <= 10;
+*)

@@ -390,6 +390,33 @@ let slice_trans_sys_and_cex_to_property
 
 
 (* Pretty-print a trace *)
+(* Write [print] to a new file of the trace directory of the output
+   directory, with the margin of [ppf], and return the path of the file *)
+let dump_to_trace_file ppf print =
+  let dirname =
+    Filename.concat (Flags.output_dir ()) "trace"
+  in
+  (* Create directories if they don't exist. *)
+  Flags.output_dir () |> mk_dir ; mk_dir dirname ;
+  let path =
+    let filename = Format.asprintf "%d.txt" (cex_id_counter ()) in
+    Filename.concat dirname filename
+  in
+  let out_channel = open_out path in
+  let fmt = Format.formatter_of_out_channel out_channel in
+  Format.pp_set_margin fmt (Format.pp_get_margin ppf ());
+  print fmt ;
+  Format.pp_print_flush fmt ();
+  close_out out_channel ;
+  path
+
+let dump_pt level title ppf print =
+  let path = dump_to_trace_file ppf print in
+  (ignore_or_fprintf level)
+    !log_ppf
+    ("@[<hov>%t %s written to '%s'@.")
+    note_tag title path
+
 let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
   dump level input_sys analysis trans_sys prop_name disproved ppf
 = function
@@ -412,33 +439,15 @@ let pp_print_trace_pt ?(title="Counterexample") ?(color="red")
   in
 
   if dump then (
-    let dirname =
-      Filename.concat (Flags.output_dir ()) "trace"
-    in
-    (* Create directories if they don't exist. *)
-    Flags.output_dir () |> mk_dir ; mk_dir dirname ;
-    let path =
-      let filename = Format.asprintf "%d.txt" (cex_id_counter ()) in
-      Filename.concat dirname filename
-    in
-    let out_channel = open_out path in
-    let fmt = Format.formatter_of_out_channel out_channel in
-    Format.pp_set_margin fmt (Format.pp_get_margin ppf ());
-    print_trace fmt ;
-    Format.pp_print_flush fmt ();
-    close_out out_channel ;
     match prop_name with
     | Some prop_name -> (
+      let path = dump_to_trace_file ppf print_trace in
       (ignore_or_fprintf level)
         !log_ppf
         ("@[<hov>%t %s of @{<blue_b>%s@} written to '%s'@.")
         note_tag title prop_name path
     )
-    | None ->
-      (ignore_or_fprintf level)
-        !log_ppf
-        ("@[<hov>%t %s written to '%s'@.")
-        note_tag title path
+    | None -> dump_pt level title ppf print_trace
   )
   else (
     print_trace ppf

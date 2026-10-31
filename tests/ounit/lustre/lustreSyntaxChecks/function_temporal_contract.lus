@@ -1,4 +1,4 @@
--- Illegal temporal contract for function.
+-- A function contract may have temporal operators.
 function blah ( i: int ) returns ( out: int ) ;
 (*@contract
   guarantee out = (0 -> pre i) ;

@@ -537,6 +537,9 @@ module Contracts : sig
   (** Assumption generation: generalization iterations *)
   val assumption_gen_iter : unit -> int
 
+  (** Function realizability: maximum number of candidate functions *)
+  val function_realizability_iter : unit -> int
+
   (** Activate refinement. *)
   val refinement : unit -> bool
 

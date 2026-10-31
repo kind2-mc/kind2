@@ -37,6 +37,64 @@ the last state.
 Kind 2 will also show a set of conflicting constraints for the
 last state in the trace.
 
+### Contracts of functions
+
+A function is applied pointwise: its outputs at each step only depend on
+its inputs at that step. When the contract of a function has temporal
+operators, a component that realizes it may still need to remember its past
+inputs, which no function can do. For example, the contract
+
+```lustre
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y = (0 -> pre x);
+*)
+```
+
+is realized by a node that outputs its previous input, but not by a function:
+on input `0` at the first step, the output must be `0`, and on input `0`
+after input `1`, it must be `1`.
+
+For such a contract, once it is known to be realizable by a node, Kind 2
+checks whether a function realizes it. It looks for a function in a loop
+guided by counterexamples:
+
+1. It collects input traces from the counterexamples to the guarantees,
+   with the outputs left free.
+2. It checks whether some function satisfies the contract on all of the
+   traces at once. If none does, the contract is unrealizable, and the
+   traces show why.
+3. Otherwise, it generalizes the values of such a function at the inputs of
+   the traces into a candidate function defined over all inputs, an
+   `if ... then ... else` over the conditions of the contract.
+4. It checks the contract with the outputs defined by the candidate. If the
+   guarantees hold, the candidate realizes the contract. Otherwise, the
+   inputs of the counterexamples are added to the traces, and the loop
+   repeats from step 2.
+
+When the contract is realizable, Kind 2 shows the function it found. When it
+is unrealizable and `--print_deadlock` is true, Kind 2 shows the conflicting
+input traces instead of a deadlocking trace. The loop tries at most
+`--function_realizability_iter` candidates (20 by default). The check may be
+unable to decide: a candidate may never be found, and a contract whose
+outputs range over infinitely many values may be unrealizable by a function
+while every finite set of traces is satisfiable. The contract is then left
+undetermined.
+
+The assumptions of the contract may refer to the previous values of the
+outputs. A function that violates an assumption on some input trace is not
+excluded: it only no longer needs to satisfy the guarantees on that trace.
+Kind 2 does not check realizability by a function, and leaves the contract
+undetermined, when an input or an output has an array type, or when the
+contract depends on a constant stream, such as the initial value of an
+unguarded `pre` or a free constant the contract refers to.
+
+Other analyses do not check that a function realizes its contract. When an
+imported function whose contract has temporal operators is called, Kind 2
+notes it and suggests running the contract checker: if no function realizes
+the contract, the calls constrain their outputs to values no function has,
+and the properties of the callers may hold vacuously.
+
 When the `--check_contract_is_sat` flag is true, Kind 2 will also check
 whether the unrealizable contract is at least satisfiable, i.e.,
 it is possible to construct a component such that for

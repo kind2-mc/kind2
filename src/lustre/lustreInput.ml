@@ -423,6 +423,36 @@ let check_quantified_calls subsystems { LG.adt_junk_ufs } =
             LustreFunDefs.pp_print_undefined_reason reason))
 
 
+(* A contract with temporal operators may be realizable by a node but not
+   by a function, which only sees its current inputs. The calls to an
+   imported function with such a contract then constrain its outputs to
+   values no function has, and may exclude the traces of its callers: a
+   property can be proven that does not hold. The contract checker checks
+   whether a function realizes the contract. Say so when it is not run, once
+   per imported function called from the subsystems of the main nodes. *)
+let note_temporal_function_contracts subsystems =
+  if not (List.mem `CONTRACTCK (Flags.enabled ())) then
+    let nodes = List.concat_map LN.nodes_of_subsystem subsystems in
+    nodes
+    |> List.concat_map (fun { LN.calls } -> calls)
+    |> List.filter_map (fun { LN.call_node_id } ->
+      match LN.node_of_node_id call_node_id nodes with
+      | { LN.is_extern = true;
+          LN.contract = Some { LustreContract.sofar_assump = Some _ } }
+        as node when LN.is_function node ->
+        Some call_node_id
+      | _ -> None
+      | exception Not_found -> None)
+    |> List.sort_uniq NI.compare
+    |> List.iter (fun node_id ->
+      Log.log L_note
+        "@[<hov>The contract of imported function %a has temporal \
+         operators,@ and Kind 2 does not check whether a function realizes \
+         it.@ If none does, its calls may make the properties of its callers \
+         hold vacuously.@ Use --enable CONTRACTCK to check it.@]"
+        NI.pp_print_node_id_user_name node_id)
+
+
 (* Parse from input channel *)
 let of_channel only_parse in_ch =
   (* Get declarations from channel. *)
@@ -568,6 +598,7 @@ let of_channel only_parse in_ch =
       (* Return a subsystem tree from the list of nodes *)
       let subsystems = LN.subsystems_of_nodes main_nodes nodes in
       let* () = check_quantified_calls subsystems globals in
+      note_temporal_function_contracts subsystems ;
       Ok (Some (subsystems, globals, declarations))
     | Error e -> Error e)
 

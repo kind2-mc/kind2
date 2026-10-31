@@ -1241,12 +1241,45 @@ let run in_sys =
           (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
           KEvent.log_contractck_analysis_start in_sys scope ;
           Stat.start_timer Stat.analysis_time ;
+          let start = Unix.gettimeofday () in
           let result =
             if not has_contract then
               Realizability.Realizable Term.t_true
             else
               if satisfy_input_requirements in_sys param then
-                ContractChecker.check_contract_realizability in_sys sys
+                match ContractChecker.check_contract_realizability in_sys sys with
+                (* A function is applied pointwise: a contract with state
+                   that a reactive component realizes may not be realized
+                   by a function *)
+                | Realizability.Realizable _ as result
+                  when FunctionRealizability.applies in_sys param -> (
+                  KEvent.log L_note
+                    "Checking whether a function realizes the contract..." ;
+                  let function_result =
+                    FunctionRealizability.check
+                      (analyze msg_setup false false false) in_sys param
+                  in
+                  (* The analyses of the check restart the timer: the time
+                     of the contract check is the time since its start *)
+                  Stat.start_timer Stat.analysis_time ;
+                  Stat.set_float
+                    (Unix.gettimeofday () -. start) Stat.analysis_time ;
+                  match function_result with
+                  | FunctionRealizability.Realizable witness ->
+                    KEvent.log L_note
+                      "@[<v>The contract is realized by the function:@,%a@]"
+                      (FunctionRealizability.pp_print_witness in_sys sys)
+                      witness ;
+                    result
+                  | FunctionRealizability.Unrealizable traces ->
+                    Realizability.unrealizable_function traces
+                  | FunctionRealizability.Unknown ->
+                    KEvent.log L_warn
+                      "The contract is realizable by a node, but it could \
+                       not be determined whether a function realizes it." ;
+                    Realizability.Unknown
+                )
+                | result -> result
               else
                 Realizability.Unknown
           in

@@ -41,6 +41,13 @@
       <xs:enumeration value="type"/>
       <xs:enumeration value="contract"/>
       <xs:enumeration value="environment"/>
+      <xs:enumeration value="'any' operator"/>
+      <xs:enumeration value="type ascription operator"/>
+      <xs:enumeration value="global constant"/>
+      <xs:enumeration value="clocked expression"/>
+      <xs:enumeration value="restart"/>
+      <xs:enumeration value="match expression"/>
+      <xs:enumeration value="'choose' operator"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -407,18 +414,37 @@
 
   <xs:complexType name="RealizabilityCheckType">
     <xs:sequence>
-      <xs:element name="Result" type="RealizabilityCheckResult" minOccurs="1" maxOccurs="1"/>
       <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Result" type="RealizabilityCheckResult" minOccurs="1" maxOccurs="1"/>
       <xs:element name="ViableStates" type="xs:string" minOccurs="0" maxOccurs="1"/>
       <xs:element name="DeadlockingTrace" type="TraceInfoType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="ConflictingSet" type="ModelElementSetType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="ConflictingInputTrace" type="ConflictingInputTraceType" minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
+  </xs:complexType>
+
+  <!-- The values of an input of a function at each step of a trace,
+       separated by spaces -->
+  <xs:complexType name="ConflictingInputType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- An input trace of a certificate that no function realizes a contract -->
+  <xs:complexType name="ConflictingInputTraceType">
+    <xs:sequence>
+      <xs:element name="Input" type="ConflictingInputType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="length" type="NonNegativeInteger" use="required"/>
   </xs:complexType>
 
   <xs:complexType name="SatisfiabilityCheckType">
     <xs:sequence>
-      <xs:element name="Result" type="SatisfiabilityCheckResult" minOccurs="1" maxOccurs="1"/>
       <xs:element name="Runtime" type="RuntimeType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="Result" type="SatisfiabilityCheckResult" minOccurs="1" maxOccurs="1"/>
     </xs:sequence>
   </xs:complexType>
 
