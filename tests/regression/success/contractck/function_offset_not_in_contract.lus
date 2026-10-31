@@ -1,0 +1,10 @@
+-- The function y = x + 7 realizes the contract, and the constant 7 is not one
+-- of the contract: the candidate comes from a linear template with free
+-- constants, once those with the constants of the contract are refuted.
+
+function imported O(x: int) returns (y: int);
+(*@contract
+  assume true -> x >= pre x;
+  guarantee true -> y - pre y = x - pre x;
+  guarantee x = 3 => y = 10;
+*)

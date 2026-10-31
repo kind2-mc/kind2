@@ -1,0 +1,10 @@
+-- The function y = max(a, b, c) realizes the contract: a tree of depth two
+-- with linear guards (see function_max_of_two_inputs.lus).
+
+function imported M(a, b, c: int) returns (y: int);
+(*@contract
+  assume true -> a >= pre a and b >= pre b and c >= pre c;
+  guarantee true -> y >= pre y;
+  guarantee y >= a and y >= b and y >= c;
+  guarantee y = a or y = b or y = c;
+*)

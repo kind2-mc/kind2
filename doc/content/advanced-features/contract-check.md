@@ -65,8 +65,15 @@ guided by counterexamples:
    traces at once. If none does, the contract is unrealizable, and the
    traces show why.
 3. Otherwise, it generalizes the values of such a function at the inputs of
-   the traces into a candidate function defined over all inputs, an
-   `if ... then ... else` over the conditions of the contract.
+   the traces into a candidate function defined over all inputs. The
+   candidate is the simplest function of a sequence of shapes that is
+   consistent with the traces: an input or a term of the contract, a
+   constant, a linear combination of the inputs, and a piecewise linear
+   function whose pieces are selected by conditions of the contract or by
+   linear comparisons of the inputs, such as `if a - b <= 0 then b else a`.
+   The constants are taken from the contract and from small values first.
+   When no shape fits, the candidate is an `if ... then ... else` over the
+   conditions of the contract and the values of the traces.
 4. It checks the contract with the outputs defined by the candidate. If the
    guarantees hold, the candidate realizes the contract. Otherwise, the
    inputs of the counterexamples are added to the traces, and the loop
