@@ -384,8 +384,13 @@ let pp_print_realizability_result_pt
 
     match Realizability.function_certificate u_res with
     | Some traces ->
-      (* No function has the outputs these input traces need *)
-      if Flags.Contracts.print_deadlock () then (
+      (* No function has the outputs these input traces need. They are
+         written to a file instead of printed under --dump_deadlock, as a
+         deadlocking trace is. *)
+      if Flags.Contracts.dump_deadlock () then
+        KEvent.dump_pt L_warn "Conflicting input traces" fmt
+          (fun fmt -> FunctionRealizability.pp_print_certificate_pt fmt traces)
+      else if Flags.Contracts.print_deadlock () then (
         FunctionRealizability.pp_print_certificate_pt fmt traces ;
         Format.pp_print_flush fmt ()
       )

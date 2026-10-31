@@ -72,34 +72,16 @@ exception Unsupported of string
 (* Applicability                                                          *)
 (* ********************************************************************** *)
 
-(* Whether a Lustre expression has state: a previous value, or an initial
-   value that differs from the value at the following instants *)
-let expr_has_state e =
-  E.has_pre_var E.base_offset e
-  || not (E.equal_expr (E.init_expr e) (E.step_expr e))
-
-(* Whether the contract of the function [node] has state. The equation of
-   the variable for the assumptions so far always has state, and is left
-   out: a contract without temporal operators only constrains the current
-   values of the streams. *)
-let contract_has_state ({ N.oracles; N.equations; N.contract } as node) =
+(* Whether the contract of the function [node] has state. A function is
+   only given a variable for its assumptions so far when its contract has
+   state (see [LustreNodeGen]): the guarantees of a contract without state
+   only depend on the assumptions at the current instant. *)
+let contract_has_state ({ N.contract } as node) =
   N.is_function node
-  && contract <> None
   &&
-  let sofar =
-    match contract with
-    | Some { C.sofar_assump = Some sv } -> Some sv
-    | _ -> None
-  in
-  let is_sofar sv =
-    match sofar with
-    | Some sv' -> StateVar.equal_state_vars sv sv'
-    | None -> false
-  in
-  oracles <> []
-  || List.exists
-       (fun ((sv, _), e) -> not (is_sofar sv) && expr_has_state e)
-       equations
+  match contract with
+  | Some { C.sofar_assump = Some _ } -> true
+  | _ -> false
 
 let applies in_sys param =
   let scope = (A.info_of_param param).A.top in
@@ -115,30 +97,49 @@ let applies in_sys param =
 (* Contract system                                                        *)
 (* ********************************************************************** *)
 
-(* The system of the contract with the outputs of the function left free,
-   the assumptions assumed, and the guarantees as properties. The function
-   is imported, so its outputs are undefined when it is not abstract. Its
-   signature is preserved: an input the contract does not mention is still
-   an argument of the function.
-
-   A fresh system is built for each analysis: the systems made from one
-   with [TSys.set_subsystem_equations] share its properties, and the
-   invariants an analysis proves of one candidate function would be taken
-   to hold of the next. *)
-let contract_system in_sys param =
+(* The info of an analysis of the contract of the function with its outputs
+   left free. The function is imported, so its outputs are undefined when it
+   is not abstract. *)
+let concrete_info param =
   let info = A.info_of_param param in
-  let param' =
-    A.ContractCheck {
-      info with
-      A.uid = A.get_uid () ;
-      A.abstraction_map = Scope.Map.add info.A.top false info.A.abstraction_map ;
-    }
-  in
+  { info with
+    A.uid = A.get_uid () ;
+    A.abstraction_map = Scope.Map.add info.A.top false info.A.abstraction_map }
+
+(* The system of the contract with the outputs of the function left free,
+   the assumptions assumed, and the guarantees as properties. Its signature
+   is preserved: an input the contract does not mention is still an argument
+   of the function. *)
+let contract_system in_sys param =
   let sys, _ =
     ISys.trans_sys_of_analysis
-      ~preserve_sig:true ~add_functional_constraints:false in_sys param'
+      ~preserve_sig:true ~add_functional_constraints:false
+      in_sys (A.ContractCheck (concrete_info param))
   in
-  param', sys
+  sys
+
+(* The system of the contract with the outputs left free, without the
+   assumptions assumed, for the refutation queries (see
+   [constraints_of_trace]). Its guarantees are its properties. It is not
+   sliced, so that it keeps the variable for the assumptions so far, which
+   no guarantee depends on. *)
+let query_system in_sys param =
+  let sys, _ =
+    ISys.trans_sys_of_analysis
+      ~preserve_sig:true ~slice_nodes:`Off ~add_functional_constraints:false
+      in_sys (A.ContractMonitor (concrete_info param))
+  in
+  sys
+
+(* A copy of the contract system [sys] for an analysis, and the parameter of
+   the analysis. The system an analysis runs on stores the invariants it
+   proves, and the systems made from it with [TSys.set_subsystem_equations]
+   share them with it: an analysis of one candidate function must not reuse
+   those of another. *)
+let fresh_copy param sys =
+  let sys = TSys.copy sys in
+  TSys.clear_all_invariants sys ;
+  A.ContractCheck (concrete_info param), sys
 
 (* The engines the contract system is checked with *)
 let modules = [`BMC; `IND; `IC3]
@@ -153,6 +154,7 @@ let guarantees sys =
    counterexamples of the falsified ones, or [None] if a property is left
    undecided *)
 let check_properties analyze in_sys param sys =
+  (* A copy of a system keeps the status of its properties *)
   TSys.get_real_properties sys
   |> List.iter (fun { Property.prop_name } -> TSys.set_prop_unknown sys prop_name) ;
   let old_log_level = Lib.get_log_level () in
@@ -213,15 +215,23 @@ let values_at ((_, trace) : sized_trace) svs i =
 (* Refutation query                                                       *)
 (* ********************************************************************** *)
 
+(* The logic of a Lustre system is always inferred *)
 let add_uf = function
   | `Inferred l -> `Inferred (TermLib.FeatureSet.add TermLib.UF l)
-  | l -> l
+  | `None | `SMTLogic _ -> assert false
 
 (* The constraints of a trace starting at offset [base]: the system is
    unrolled along the trace, the environment has the values of the trace,
    the outputs are the uninterpreted functions [ufs] of the inputs, and the
-   guarantees hold *)
-let constraints_of_trace sys env inputs ufs base trace =
+   guarantees hold at each instant at which the assumptions [sofar] have
+   held so far.
+
+   The assumptions are not assumed by the system: they may depend on the
+   previous values of the outputs, and a function that violates them on a
+   trace is relieved of the guarantees from then on, rather than excluded.
+
+   The contract does not depend on constant streams (see [check]). *)
+let constraints_of_trace sys sofar env inputs ufs base trace =
   let n = length_of_trace trace in
   let at i = Numeral.of_int (base + i) in
   let var sv i = Term.mk_var (Var.mk_state_var_instance sv (at i)) in
@@ -242,7 +252,7 @@ let constraints_of_trace sys env inputs ufs base trace =
     let props =
       guarantees sys
       |> List.map (fun { Property.prop_term } ->
-        Term.bump_state (at i) prop_term)
+        Term.mk_implies [var sofar i; Term.bump_state (at i) prop_term])
     in
     unrolling :: env_eqs @ out_eqs @ props)
   |> List.flatten
@@ -256,7 +266,7 @@ type query_result =
 
 (* Whether some function satisfies the contract of [sys] on each of the
    [traces] *)
-let solve_query sys env inputs outputs traces =
+let solve_query sys sofar env inputs outputs traces =
   let total = List.fold_left (fun acc t -> acc + length_of_trace t) 0 traces in
   let solver =
     SMTSolver.create_instance
@@ -294,7 +304,7 @@ let solve_query sys env inputs outputs traces =
         let act = Actlit.term_of_actlit actlit in
         SMTSolver.assert_term solver
           (Term.mk_implies
-             [act; constraints_of_trace sys env inputs ufs base trace]) ;
+             [act; constraints_of_trace sys sofar env inputs ufs base trace]) ;
         (act, trace) :: acc, base + length_of_trace trace)
         ([], 0) traces
     in
@@ -312,16 +322,26 @@ let solve_query sys env inputs outputs traces =
     let sat = SMTSolver.check_sat_assuming_and_get_term_values solver
       (fun _ values ->
         let value t = List.assoc t values |> eval in
-        Some (points |> List.map (fun x ->
+        Ok (points |> List.map (fun x ->
           x, List.map (fun (_, uf) -> value (Term.mk_uf uf x)) ufs)))
-      (fun _ -> None)
+      (fun solver -> Error (SMTSolver.get_unsat_core_lits solver))
       (List.map fst actlits)
       point_terms
     in
     match sat with
-    | Some points -> Points points
-    | None ->
-      (* Remove the traces the refutation does not need *)
+    | Ok points -> Points points
+    | Error core_lits ->
+      (* Remove the traces the refutation does not need, starting from those
+         of the unsat core *)
+      let actlits =
+        match
+          List.filter
+            (fun (act, _) -> List.exists (Term.equal act) core_lits)
+            actlits
+        with
+        | [] -> actlits
+        | core -> core
+      in
       let is_unsat = function
         | [] -> false (* Every function satisfies the contract on no trace *)
         | acts ->
@@ -497,6 +517,22 @@ let with_outputs ?restrict inputs sys witness =
 (* Check                                                                  *)
 (* ********************************************************************** *)
 
+(* Whether the contract of [node] depends on constant streams: the initial
+   values of unguarded [pre] operators, or global free constants. They would
+   be shared by all the traces of a refutation query, which would then remain
+   satisfiable with values of the constants that fit the previous candidate,
+   and the check would make no progress. Handling them requires a copy of
+   the oracles for each trace, and the global constants as arguments of the
+   function, which may depend on them. *)
+let depends_on_constants { N.oracles; N.equations } =
+  oracles <> []
+  || List.exists (fun (_, e) ->
+    [ E.base_term_of_expr Numeral.zero (E.init_expr e) ;
+      E.cur_term_of_expr Numeral.zero (E.step_expr e) ]
+    |> List.exists (fun t ->
+      VS.exists Var.is_const_state_var (Term.vars_of_term t)))
+    equations
+
 let check analyze in_sys param =
   let scope = (A.info_of_param param).A.top in
   let node =
@@ -505,11 +541,18 @@ let check analyze in_sys param =
     | None -> assert false
   in
   try
-    (* The system the refutation queries unroll, which is never analyzed *)
-    let _, sys = contract_system in_sys param in
+    if depends_on_constants node then
+      raise (Unsupported "the contract depends on constant streams") ;
+    (* The contract system, which is only analyzed through copies, and the
+       system the refutation queries unroll *)
+    let sys = contract_system in_sys param in
+    let qsys = query_system in_sys param in
+    let sofar =
+      match node.N.contract with
+      | Some { C.sofar_assump = Some sv } -> sv
+      | _ -> assert false (* See [applies] *)
+    in
     let in_sys_vars = SVS.of_list (TSys.state_vars sys) in
-    if SVS.exists StateVar.is_const in_sys_vars then
-      raise (Unsupported "the contract has constant streams") ;
     let present svs = List.filter (fun sv -> SVS.mem sv in_sys_vars) svs in
     let inputs = present (D.values node.N.inputs) in
     let outputs = present (D.values node.N.outputs) in
@@ -520,7 +563,7 @@ let check analyze in_sys param =
     then raise (Unsupported "an input or output is of an array type") ;
     let traces_of_cexs = List.map (trace_of_cex env) in
     let check_with_outputs ?restrict witness =
-      let param', sys' = contract_system in_sys param in
+      let param', sys' = fresh_copy param sys in
       check_properties analyze in_sys param'
         (with_outputs ?restrict inputs sys' witness)
     in
@@ -542,7 +585,7 @@ let check analyze in_sys param =
     let rec loop traces iter =
       if iter > Flags.Contracts.function_realizability_iter () then Unknown
       else
-        match solve_query sys env inputs outputs traces with
+        match solve_query qsys sofar env inputs outputs traces with
         | Refuted traces -> Unrealizable traces
         | Points points ->
           let witness = generalize node inputs outputs points in

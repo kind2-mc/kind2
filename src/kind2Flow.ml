@@ -1241,6 +1241,7 @@ let run in_sys =
           (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
           KEvent.log_contractck_analysis_start in_sys scope ;
           Stat.start_timer Stat.analysis_time ;
+          let start = Unix.gettimeofday () in
           let result =
             if not has_contract then
               Realizability.Realizable Term.t_true
@@ -1254,10 +1255,16 @@ let run in_sys =
                   when FunctionRealizability.applies in_sys param -> (
                   KEvent.log L_note
                     "Checking whether a function realizes the contract..." ;
-                  match
+                  let function_result =
                     FunctionRealizability.check
                       (analyze msg_setup false false false) in_sys param
-                  with
+                  in
+                  (* The analyses of the check restart the timer: the time
+                     of the contract check is the time since its start *)
+                  Stat.start_timer Stat.analysis_time ;
+                  Stat.set_float
+                    (Unix.gettimeofday () -. start) Stat.analysis_time ;
+                  match function_result with
                   | FunctionRealizability.Realizable witness ->
                     KEvent.log L_note
                       "@[<v>The contract is realized by the function:@,%a@]"

@@ -3742,14 +3742,14 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
          may depend on the assumptions at the previous instants, as the
          guarantees of a node do. The body of a function has no state, so
          an equation with state is one of its contract. *)
-      let contract_has_state =
+      let contract_has_state () =
         List.exists
           (fun (_, e) ->
             E.has_pre_var E.base_offset e
             || not (E.equal_expr (E.init_expr e) (E.step_expr e)))
           (equations @ gequations)
       in
-      if is_function && not contract_has_state then
+      if is_function && not (contract_has_state ()) then
         let contract = C.mk assumes None guarantees modes in
         Some (contract), [], []
       else

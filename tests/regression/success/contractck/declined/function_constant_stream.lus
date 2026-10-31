@@ -1,0 +1,10 @@
+-- The contract depends on a global free constant, which the refutation
+-- queries would share between all their traces. Realizability by a function
+-- is not checked, and the contract is left undetermined.
+
+const N: int;
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  guarantee y = (N -> pre x);
+*)
