@@ -1,0 +1,20 @@
+-- The recursive call of a function whose contract has temporal operators is
+-- in a branch of a when block, and is clocked by it (see
+-- function_temporal_contract_lazy_branch.lus). Whether the contract has
+-- state is only known once the function is compiled, after its recursive
+-- call.
+
+function rec R(n: int) returns (y: int)
+(*@contract
+  decreases n;
+  guarantee y >= 0;
+  guarantee true -> (n >= pre n => y >= pre y);
+*)
+let
+  y = when n <= 0 then 0 else 1 + R(n - 1);
+tel
+
+node Main(n: int) returns (y: int);
+let
+  y = R(n);
+tel

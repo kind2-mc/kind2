@@ -4073,8 +4073,9 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
              invariant generator checks its candidates against them and lifts
              what it proves into the caller. The history flag at the current
              step also covers the previous step of a two-state invariant. A
-             function has no history flag, and is guarded by its assumptions
-             at the steps an invariant is about: the current step, and for a
+             function whose contract has no state has no history flag, and
+             is guarded by its assumptions at the steps an invariant is
+             about: the current step, and for a
              two-state invariant the previous step as well. The properties of
              the node found among them are asserted under the same guard
              below. *)

@@ -712,7 +712,9 @@ function's guarantees may rely on its assumptions holding at the current step
 alone. This mirrors the fact that such guarantees only relate the current
 values of the inputs and outputs. A function contract with temporal operators
 relates them to their previous values, and its assumptions have the scope of
-those of a node.
+those of a node. Such a function is also clocked as a node when it is called in
+a branch of a `when` expression: the temporal operators of its contract refer
+to the previous step at which the branch was selected.
 
 ### Recursive functions
 

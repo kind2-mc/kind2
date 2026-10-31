@@ -966,6 +966,30 @@ let encode_enum_field sort e =
     (fun (sym, _) -> E.mk_uf (UfSymbol.uf_symbol_of_string sym) sort [])
     (enum_field_values sort)
 
+(* A function whose contract has state is called as a node in a branch of a
+   when block: the guard of the branch is the activation condition of the
+   call, rather than its context (see [compile_node_call]), so that the
+   temporal operators of its contract refer to the previous instant at which
+   it was called. Whether a contract has state is only known once it is
+   compiled, which may be after its calls for (mutually) recursive
+   functions. *)
+let clock_stateful_function_calls nodes =
+  let is_stateful_function node_id =
+    match N.node_of_node_id node_id nodes with
+    | { N.contract = Some { C.sofar_assump = Some _ } } as node ->
+      N.is_function node
+    | _ -> false
+    | exception Not_found -> false
+  in
+  let clock_call call =
+    match call with
+    | { N.call_context = Some id; N.call_cond = []; N.call_node_id }
+      when is_stateful_function call_node_id ->
+      { call with N.call_cond = [N.CActivate id]; N.call_context = None }
+    | _ -> call
+  in
+  List.map (fun node -> { node with N.calls = List.map clock_call node.N.calls }) nodes
+
 let rec compile ctx gids adt_map scc_map decls =
   let over_decls_1 cstate decl = compile_declaration_phase1 cstate ctx decl in
   let output = List.fold_left over_decls_1 ({ (empty_compiler_state ()) with adt_map }) decls in
@@ -990,6 +1014,7 @@ let rec compile ctx gids adt_map scc_map decls =
   let over_decls_2 cstate decl =
     compile_declaration_phase2 cstate gids ctx scc_map rec_decreases_map decl in
   let output = List.fold_left over_decls_2 output decls in
+  let output = { output with nodes = clock_stateful_function_calls output.nodes } in
   (* Register the global abstract-type default constants *)
   let output =
     Hashtbl.fold (fun _ (id, v) cs ->

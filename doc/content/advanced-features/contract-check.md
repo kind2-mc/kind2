@@ -89,6 +89,12 @@ undetermined, when an input or an output has an array type, or when the
 contract depends on a constant stream, such as the initial value of an
 unguarded `pre` or a free constant the contract refers to.
 
+Other analyses do not check that a function realizes its contract. When an
+imported function whose contract has temporal operators is called, Kind 2
+notes it and suggests running the contract checker: if no function realizes
+the contract, the calls constrain their outputs to values no function has,
+and the properties of the callers may hold vacuously.
+
 When the `--check_contract_is_sat` flag is true, Kind 2 will also check
 whether the unrealizable contract is at least satisfiable, i.e.,
 it is possible to construct a component such that for
