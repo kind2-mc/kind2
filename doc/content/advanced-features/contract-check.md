@@ -81,6 +81,14 @@ outputs range over infinitely many values may be unrealizable by a function
 while every finite set of traces is satisfiable. The contract is then left
 undetermined.
 
+The assumptions of the contract may refer to the previous values of the
+outputs. A function that violates an assumption on some input trace is not
+excluded: it only no longer needs to satisfy the guarantees on that trace.
+Kind 2 does not check realizability by a function, and leaves the contract
+undetermined, when an input or an output has an array type, or when the
+contract depends on a constant stream, such as the initial value of an
+unguarded `pre` or a free constant the contract refers to.
+
 When the `--check_contract_is_sat` flag is true, Kind 2 will also check
 whether the unrealizable contract is at least satisfiable, i.e.,
 it is possible to construct a component such that for

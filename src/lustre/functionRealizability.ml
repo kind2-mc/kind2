@@ -215,6 +215,13 @@ let values_at ((_, trace) : sized_trace) svs i =
 (* Refutation query                                                       *)
 (* ********************************************************************** *)
 
+let input_vars inputs =
+  List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) inputs
+
+(* The value of [t] at the point [x] of the inputs *)
+let eval_at inputs t x =
+  eval (Term.apply_subst (List.combine (input_vars inputs) x) t)
+
 (* The logic of a Lustre system is always inferred *)
 let add_uf = function
   | `Inferred l -> `Inferred (TermLib.FeatureSet.add TermLib.UF l)
@@ -266,7 +273,7 @@ type query_result =
 
 (* Whether some function satisfies the contract of [sys] on each of the
    [traces] *)
-let solve_query sys sofar env inputs outputs traces =
+let solve_query sys sofar env inputs outputs prefs traces =
   let total = List.fold_left (fun acc t -> acc + length_of_trace t) 0 traces in
   let solver =
     SMTSolver.create_instance
@@ -319,13 +326,42 @@ let solve_query sys sofar env inputs outputs traces =
       points |> List.concat_map (fun x ->
         List.map (fun (_, uf) -> Term.mk_uf uf x) ufs)
     in
+    let acts = List.map fst actlits in
+    let is_sat lits =
+      SMTSolver.check_sat_assuming solver (fun _ -> true) (fun _ -> false) lits
+    in
+    (* The values of the outputs are arbitrary, and the decision lists are
+       smaller when the values of an output at all points are those of a
+       single leaf. An output is made equal to the first term of [prefs]
+       that the traces allow, if any. *)
+    let prefs =
+      if not (is_sat acts) then []
+      else
+        List.fold_left (fun kept (y, terms) ->
+          let uf = List.assq y ufs in
+          let allowed e =
+            let pref = Actlit.fresh_actlit () in
+            SMTSolver.declare_fun solver pref ;
+            let pref = Actlit.term_of_actlit pref in
+            SMTSolver.assert_term solver
+              (Term.mk_implies
+                 [pref;
+                  Term.mk_and (points |> List.map (fun x ->
+                    Term.mk_eq [Term.mk_uf uf x; eval_at inputs e x]))]) ;
+            if is_sat (pref :: kept @ acts) then Some pref else None
+          in
+          match List.find_map allowed terms with
+          | Some pref -> pref :: kept
+          | None -> kept)
+          [] prefs
+    in
     let sat = SMTSolver.check_sat_assuming_and_get_term_values solver
       (fun _ values ->
         let value t = List.assoc t values |> eval in
         Ok (points |> List.map (fun x ->
           x, List.map (fun (_, uf) -> value (Term.mk_uf uf x)) ufs)))
       (fun solver -> Error (SMTSolver.get_unsat_core_lits solver))
-      (List.map fst actlits)
+      (prefs @ acts)
       point_terms
     in
     match sat with
@@ -388,13 +424,6 @@ let contract_terms node inputs =
     let vars = Term.vars_of_term t in
     not (VS.is_empty vars) && VS.for_all is_input_var vars)
   |> List.sort_uniq Term.compare
-
-let input_vars inputs =
-  List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) inputs
-
-(* The value of [t] at the point [x] of the inputs *)
-let eval_at inputs t x =
-  eval (Term.apply_subst (List.combine (input_vars inputs) x) t)
 
 (* The guards of the decision lists: the Boolean terms of the contract over
    the inputs and the Boolean inputs, with their negations, and, for each
@@ -562,6 +591,12 @@ let check analyze in_sys param =
          (inputs @ outputs)
     then raise (Unsupported "an input or output is of an array type") ;
     let traces_of_cexs = List.map (trace_of_cex env) in
+    (* The leaves of the decision lists that do not depend on the points *)
+    let prefs =
+      let terms = contract_terms node inputs in
+      outputs |> List.map (fun y ->
+        y, leaves_of terms inputs (StateVar.type_of_state_var y) [])
+    in
     let check_with_outputs ?restrict witness =
       let param', sys' = fresh_copy param sys in
       check_properties analyze in_sys param'
@@ -585,7 +620,7 @@ let check analyze in_sys param =
     let rec loop traces iter =
       if iter > Flags.Contracts.function_realizability_iter () then Unknown
       else
-        match solve_query qsys sofar env inputs outputs traces with
+        match solve_query qsys sofar env inputs outputs prefs traces with
         | Refuted traces -> Unrealizable traces
         | Points points ->
           let witness = generalize node inputs outputs points in
