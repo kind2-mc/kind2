@@ -222,6 +222,49 @@ let input_vars inputs =
 let eval_at inputs t x =
   eval (Term.apply_subst (List.combine (input_vars inputs) x) t)
 
+(* The terms of the equations of [node], at the initial instant and at the
+   following ones, with the current instant at offset zero *)
+let equation_terms node =
+  node.N.equations
+  |> List.concat_map (fun (_, e) ->
+    [ E.base_term_of_expr Numeral.zero (E.init_expr e) ;
+      E.cur_term_of_expr Numeral.zero (E.step_expr e) ])
+
+(* The subterms of [t] *)
+let rec subterms acc t =
+  let acc = t :: acc in
+  match Term.destruct t with
+  | Term.T.App (_, args) -> List.fold_left subterms acc args
+  | Term.T.Var _ | Term.T.Const _ -> acc
+  | exception _ -> acc
+
+(* The subterms of the equations of [node] whose only variables are the
+   current values of [inputs] *)
+let contract_terms node inputs =
+  let is_input_var v =
+    Var.is_state_var_instance v
+    && Numeral.equal (Var.offset_of_state_var_instance v) Numeral.zero
+    && List.exists
+         (StateVar.equal_state_vars (Var.state_var_of_state_var_instance v))
+         inputs
+  in
+  equation_terms node
+  |> List.fold_left subterms []
+  |> List.filter (fun t ->
+    let vars = Term.vars_of_term t in
+    not (VS.is_empty vars) && VS.for_all is_input_var vars)
+  |> List.sort_uniq Term.compare
+
+(* The Boolean terms of the contract over the inputs, and the Boolean
+   inputs: the conditions a candidate may test *)
+let atoms_of terms inputs =
+  List.filter (fun t -> Type.is_bool (Term.type_of_term t)) terms
+  @ List.filter_map
+      (fun v ->
+         if Type.is_bool (Var.type_of_var v) then Some (Term.mk_var v)
+         else None)
+      (input_vars inputs)
+
 (* ********************************************************************** *)
 (* Templates                                                              *)
 (* ********************************************************************** *)
@@ -277,16 +320,15 @@ let in_range ty range c =
   | Bound n -> Term.mk_and [Term.mk_leq [num ty (-n); c]; Term.mk_leq [c; num ty n]]
   | Free -> Term.t_true
 
-(* The numeric features of the inputs as terms of type [ty], int or real: a
-   numeric input, cast when it is an integer and [ty] is real, and a Boolean
-   input as 0 or 1. A real input is no feature of an integer type. *)
+(* The numeric inputs as terms of type [ty], int or real, cast when the
+   input is an integer and [ty] is real. A real input is no feature of an
+   integer type. A Boolean input is no feature: it is a condition. *)
 let features inputs ty =
   let real = Type.is_real ty in
   input_vars inputs |> List.filter_map (fun v ->
     let t = Term.mk_var v in
     let vty = Var.type_of_var v in
-    if Type.is_bool vty then Some (Term.mk_ite t (num ty 1) (num ty 0))
-    else if Type.is_int vty || Type.is_int_range vty then
+    if Type.is_int vty || Type.is_int_range vty then
       Some (if real then Term.mk_to_real t else t)
     else if Type.is_real vty && real then Some t
     else None)
@@ -407,69 +449,85 @@ let ite_template g t e =
       Term.mk_and [g.constraint_of cg; t.constraint_of ct; e.constraint_of ce]) ;
     finite = g.finite && t.finite && e.finite }
 
-(* The subterms of [t] *)
-let rec subterms acc t =
-  let acc = t :: acc in
-  match Term.destruct t with
-  | Term.T.App (_, args) -> List.fold_left subterms acc args
-  | Term.T.Var _ | Term.T.Const _ -> acc
-  | exception _ -> acc
-
 (* The numeric constants of the equations of [node], of type [ty], with
    the small constants: the constants of the templates. A constant of a
-   candidate is most often one of the contract. *)
+   candidate is most often one of the contract. A literal is of the type of
+   its sort: [2.0] is no integer constant. *)
 let constants node ty =
   let real = Type.is_real ty in
   let small =
     List.map (num ty) [-1; 0; 1; 2]
     @ (if real then [Term.mk_dec Decimal.(div one (of_int 2))] else [])
   in
-  node.N.equations
-  |> List.concat_map (fun (_, e) ->
-    [ E.base_term_of_expr Numeral.zero (E.init_expr e) ;
-      E.cur_term_of_expr Numeral.zero (E.step_expr e) ])
+  equation_terms node
   |> List.fold_left subterms []
-  |> List.filter (if real then Term.is_decimal else Term.is_numeral)
+  |> List.filter (fun t ->
+    (Term.is_numeral t || Term.is_decimal t)
+    && (if real then Type.is_real else Type.is_int) (Term.type_of_term t))
   |> List.append small
   |> List.sort_uniq Term.compare
 
-(* The templates for the output [y], simplest first. A numeric output is a
-   constant, a linear combination of the inputs with coefficients in
-   {-1, 0, 1}, then larger, and a piecewise linear function with two, then
-   three, then four pieces in a tree of depth two, selected by one of the
-   Boolean [atoms] of the contract, or by a linear atom over the inputs. A
-   Boolean output is a linear atom, then a conditional of atoms. The linear
-   atoms are over the real features when an input is real, since a real
-   input is no feature of an integer type.
+(* The templates for the output [y], simplest first. The guards are the
+   Boolean [atoms] of the contract (with the Boolean inputs), and, when an
+   input is numeric, linear atoms over the numeric inputs: a threshold, or
+   a comparison of two inputs. A Boolean output is a literal of the atoms
+   or a constant, then a conditional of those with two, then four leaves,
+   then the linear atoms and their conditionals. A numeric output is a
+   constant, a linear combination of the numeric inputs with coefficients
+   in {-1, 0, 1}, then larger, and a piecewise linear function with two,
+   then three, then four pieces in a tree of depth two.
 
    The constants are first those of the contract and small ones, so that
    the templates are finite and the first candidates simple; the templates
-   with free constants come last. *)
+   with free constants come last. A template is a value: its unknowns are
+   allocated when it is tried (see [solve_query]), so that one may appear
+   several times in a conditional. *)
 let templates_of_output node atoms inputs y =
   let ty = StateVar.type_of_state_var y in
-  let guard_ty =
+  let num_ty =
     if List.exists
          (fun sv -> Type.is_real (StateVar.type_of_state_var sv)) inputs
     then Type.t_real else Type.t_int
   in
-  let guard_feats = features inputs guard_ty in
-  let guard_consts = constants node guard_ty in
-  let guard () = atom guard_ty guard_feats ~threshold:(Set guard_consts) in
-  let free_guard () = atom guard_ty guard_feats ~threshold:Free in
-  (* Templates with a guard of the contract, when it has some *)
-  let with_atoms f = if atoms = [] then [] else [f (fun () -> choice atoms)] in
+  let num_feats = features inputs num_ty in
+  (* Guards: one of the atoms of the contract; a linear atom over the
+     numeric inputs with a constant of the contract as threshold, then with
+     any threshold *)
+  let with_atoms f = if atoms = [] then [] else [f (choice atoms)] in
+  let with_linear f =
+    if num_feats = [] then []
+    else [f (atom num_ty num_feats ~threshold:(Set (constants node num_ty)))]
+  in
+  let with_free f =
+    if num_feats = [] then [] else [f (atom num_ty num_feats ~threshold:Free)]
+  in
+  let pw2 g l = ite_template g l l in
+  let pw3 g l = ite_template g l (ite_template g l l) in
+  (* A tree of depth two: the maximum of three inputs, for instance, needs
+     a guard under each branch of the first *)
+  let tree g l = ite_template g (pw2 g l) (pw2 g l) in
   if Type.is_bool ty then
-    [ guard () ]
-    @ with_atoms (fun g -> ite_template (g ()) (guard ()) (guard ()))
-    @ [ ite_template (guard ()) (guard ()) (guard ()) ;
-        free_guard () ;
-        ite_template (free_guard ()) (free_guard ()) (free_guard ()) ]
+    (* A literal of the atoms, or a constant *)
+    let leaf =
+      choice (Term.t_true :: Term.t_false :: atoms @ List.map Term.mk_not atoms)
+    in
+    [ leaf ]
+    @ with_atoms (fun g -> pw2 g leaf)
+    @ with_atoms (fun g -> tree g leaf)
+    @ with_linear (fun g -> g)
+    @ List.concat_map (fun c -> with_linear (fun g -> pw2 c g)) (with_atoms Fun.id)
+    @ with_linear (fun g -> pw2 g g)
+    @ with_free (fun g -> g)
+    @ with_free (fun g -> pw2 g g)
   else if Type.is_int ty || Type.is_int_range ty || Type.is_real ty then
     let ty = if Type.is_real ty then Type.t_real else Type.t_int in
     let feats = features inputs ty in
     let consts = constants node ty in
     let units = Set (List.map (num ty) [-1; 0; 1]) in
-    let const = linear ty feats ~coefs:(Set [num ty 0]) ~const:(Set consts) in
+    let const = linear ty [] ~coefs:units ~const:(Set consts) in
+    (* Without numeric inputs of the type of the output, the linear
+       combinations are constants *)
+    let with_feats l = if feats = [] then [] else [l] in
     let lin = linear ty feats ~coefs:units ~const:(Set consts) in
     (* Larger coefficients: an integer in [-3; 3], or a constant of the
        contract *)
@@ -479,18 +537,20 @@ let templates_of_output node atoms inputs y =
         ~const:(Set consts)
     in
     let free = linear ty feats ~coefs:Free ~const:Free in
-    let pw2 g l = ite_template (g ()) (l ()) (l ()) in
-    let pw3 g l = ite_template (g ()) (l ()) (ite_template (g ()) (l ()) (l ())) in
-    (* A tree of depth two: the maximum of three inputs, for instance,
-       needs a guard under each branch of the first *)
-    let tree g l = ite_template (g ()) (pw2 g l) (pw2 g l) in
-    [ const ; lin ]
-    @ with_atoms (fun g -> pw2 g (fun () -> const))
-    @ with_atoms (fun g -> pw2 g (fun () -> lin))
-    @ [ wide ; pw2 guard (fun () -> lin) ]
-    @ with_atoms (fun g -> pw3 g (fun () -> lin))
-    @ [ pw3 guard (fun () -> lin) ; tree guard (fun () -> lin) ;
-        free ; pw2 free_guard (fun () -> free) ; pw3 free_guard (fun () -> free) ]
+    (* The leaves of the pieces: linear, or constant without features *)
+    let leaf = if feats = [] then const else lin in
+    [ const ] @ with_feats lin
+    @ with_atoms (fun g -> pw2 g const)
+    @ (if feats = [] then [] else with_atoms (fun g -> pw2 g lin))
+    @ with_feats wide
+    @ with_linear (fun g -> pw2 g lin)
+    @ with_atoms (fun g -> pw3 g leaf)
+    @ with_linear (fun g -> pw3 g lin)
+    @ with_linear (fun g -> tree g lin)
+    @ with_atoms (fun g -> tree g leaf)
+    @ with_feats free
+    @ with_free (fun g -> pw2 g free)
+    @ with_free (fun g -> pw3 g free)
   else []
 
 (* ********************************************************************** *)
@@ -618,6 +678,17 @@ let solve_query sys sofar env inputs outputs templates traces =
     let is_sat lits =
       SMTSolver.check_sat_assuming solver (fun _ -> true) (fun _ -> false) lits
     in
+    (* The value of a feature at a point, which every template tried
+       needs, computed once *)
+    let memo = List.map (fun _ -> Term.TermHashtbl.create 17) points in
+    let at_point memo x f =
+      match Term.TermHashtbl.find_opt memo f with
+      | Some v -> v
+      | None ->
+        let v = eval_at inputs f x in
+        Term.TermHashtbl.add memo f v ;
+        v
+    in
     (* The values of the outputs in a model are arbitrary. Each output is
        made equal, at every point, to the first of its [templates] that the
        traces allow together with those chosen for the previous outputs, if
@@ -643,10 +714,10 @@ let solve_query sys sofar env inputs outputs templates traces =
                  [act;
                   Term.mk_and
                     (tmpl.constraint_of cs
-                     :: (points |> List.map (fun x ->
+                     :: (List.map2 (fun memo x ->
                        Term.mk_eq
-                         [Term.mk_uf uf x;
-                          tmpl.term_of (fun f -> eval_at inputs f x) cs])))]) ;
+                         [Term.mk_uf uf x; tmpl.term_of (at_point memo x) cs])
+                       memo points))]) ;
             if is_sat (act :: kept @ acts) then (
               (* The simplest candidate of the template: as many of its
                  numeric unknowns as the traces allow are made zero, in
@@ -724,37 +795,12 @@ let solve_query sys sofar env inputs outputs templates traces =
 (* Generalization                                                         *)
 (* ********************************************************************** *)
 
-(* The subterms of the equations of [node] whose only variables are the
-   current values of [inputs], with the current instant at offset zero *)
-let contract_terms node inputs =
-  let is_input_var v =
-    Var.is_state_var_instance v
-    && Numeral.equal (Var.offset_of_state_var_instance v) Numeral.zero
-    && List.exists
-         (StateVar.equal_state_vars (Var.state_var_of_state_var_instance v))
-         inputs
-  in
-  node.N.equations
-  |> List.concat_map (fun (_, e) ->
-    [ E.base_term_of_expr Numeral.zero (E.init_expr e) ;
-      E.cur_term_of_expr Numeral.zero (E.step_expr e) ])
-  |> List.fold_left subterms []
-  |> List.filter (fun t ->
-    let vars = Term.vars_of_term t in
-    not (VS.is_empty vars) && VS.for_all is_input_var vars)
-  |> List.sort_uniq Term.compare
-
 (* The guards of the decision lists: the Boolean terms of the contract over
    the inputs and the Boolean inputs, with their negations, and, for each
    numeric input, a threshold at each value of the points *)
 let guards_of terms inputs points =
   let inputs_vars = input_vars inputs in
-  let atoms =
-    List.filter (fun t -> Type.is_bool (Term.type_of_term t)) terms
-    @ List.filter_map (fun v ->
-      if Type.is_bool (Var.type_of_var v) then Some (Term.mk_var v) else None)
-      inputs_vars
-  in
+  let atoms = atoms_of terms inputs in
   let thresholds =
     List.mapi (fun k v ->
       let ty = Var.type_of_var v in
@@ -875,14 +921,11 @@ let with_outputs ?restrict inputs sys witness =
    and the check would make no progress. Handling them requires a copy of
    the oracles for each trace, and the global constants as arguments of the
    function, which may depend on them. *)
-let depends_on_constants { N.oracles; N.equations } =
+let depends_on_constants ({ N.oracles } as node) =
   oracles <> []
-  || List.exists (fun (_, e) ->
-    [ E.base_term_of_expr Numeral.zero (E.init_expr e) ;
-      E.cur_term_of_expr Numeral.zero (E.step_expr e) ]
-    |> List.exists (fun t ->
-      VS.exists Var.is_const_state_var (Term.vars_of_term t)))
-    equations
+  || List.exists
+       (fun t -> VS.exists Var.is_const_state_var (Term.vars_of_term t))
+       (equation_terms node)
 
 let check analyze in_sys param =
   let scope = (A.info_of_param param).A.top in
@@ -926,14 +969,7 @@ let check analyze in_sys param =
        every iteration, such as a larger constant. A finite template has
        finitely many candidates, each refuted at most once. *)
     let terms = contract_terms node inputs in
-    let atoms =
-      List.filter (fun t -> Type.is_bool (Term.type_of_term t)) terms
-      @ List.filter_map
-          (fun v ->
-             if Type.is_bool (Var.type_of_var v) then Some (Term.mk_var v)
-             else None)
-          (input_vars inputs)
-    in
+    let atoms = atoms_of terms inputs in
     let leaves =
       outputs |> List.map (fun y ->
         y,
@@ -966,6 +1002,17 @@ let check analyze in_sys param =
     in
     let check_with_outputs ?restrict witness =
       let param', sys' = fresh_copy param sys in
+      (* The candidate may use arithmetic the contract does not: the logic
+         of the copy is widened to that of its terms *)
+      let sys' =
+        match TSys.get_logic sys' with
+        | `Inferred l ->
+          TSys.set_logic sys'
+            (`Inferred
+               (TermLib.sup_logics
+                  (l :: List.map (fun (_, f) -> TermLib.logic_of_term [] f) witness)))
+        | `None | `SMTLogic _ -> assert false
+      in
       check_properties analyze in_sys param'
         (with_outputs ?restrict inputs sys' witness)
     in
