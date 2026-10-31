@@ -1,0 +1,10 @@
+-- The function y = |a - b| realizes the contract: a comparison of the inputs
+-- selects one of two linear leaves.
+
+function imported D(a, b: int) returns (y: int);
+(*@contract
+  assume true -> a >= pre a and b = pre b;
+  guarantee y >= 0;
+  guarantee y = a - b or y = b - a;
+  guarantee true -> (pre a >= b => y >= pre y);
+*)

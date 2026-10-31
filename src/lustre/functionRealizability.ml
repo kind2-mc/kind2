@@ -36,12 +36,16 @@
    - If not, no function satisfies the contract on every input stream, and
      the traces are a certificate that the contract is unrealizable by a
      function.
-   - Otherwise, the model of [u] at the inputs of the traces is generalized
-     to a total function [f], a decision list whose guards and leaves are
-     taken from the contract and the points of the model. The contract
-     system is checked with its outputs defined by [f]. If its guarantees
-     hold, [f] realizes the contract; otherwise, the inputs of the
-     counterexamples are added to [S], and the check is repeated.
+   - Otherwise, a total function [f] consistent with the traces is taken:
+     the simplest instance of a sequence of templates (a term of the
+     contract, a constant, a linear combination of the inputs, a piecewise
+     linear function) whose unknowns the query is solved for, since the
+     points of the traces are concrete; or, when no template fits, a
+     decision list whose guards and leaves are taken from the contract and
+     the points of a model of [u]. The contract system is checked with its
+     outputs defined by [f]. If its guarantees hold, [f] realizes the
+     contract; otherwise, the inputs of the counterexamples are added to
+     [S], and the check is repeated.
 
    The answers are sound both ways, but the check is incomplete: the
    generalization may not find a function that realizes the contract, and
@@ -211,10 +215,6 @@ let values_at ((_, trace) : sized_trace) svs i =
     in
     List.nth values i |> term_of_value |> eval)
 
-(* ********************************************************************** *)
-(* Refutation query                                                       *)
-(* ********************************************************************** *)
-
 let input_vars inputs =
   List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) inputs
 
@@ -222,9 +222,289 @@ let input_vars inputs =
 let eval_at inputs t x =
   eval (Term.apply_subst (List.combine (input_vars inputs) x) t)
 
-(* The logic of a Lustre system is always inferred *)
-let add_uf = function
-  | `Inferred l -> `Inferred (TermLib.FeatureSet.add TermLib.UF l)
+(* ********************************************************************** *)
+(* Templates                                                              *)
+(* ********************************************************************** *)
+
+(* A template of a candidate function for an output: a term over the
+   current inputs and unknown constants, with a constraint on the unknowns.
+   The refutation query is strengthened with the equality of the output to
+   the template at every point of the traces. The points are concrete, so
+   the equalities are linear in the unknowns, and a model of the query gives
+   their values; the template with those values is the candidate for the
+   output. The templates of an output are tried from the simplest, and the
+   first one the traces allow is taken: the candidate is the simplest
+   function of the shapes below that is consistent with the traces, rather
+   than a decision list that fits their points.
+
+   [term_of fe cs] is the term for the unknowns [cs], with the features (the
+   terms over the inputs the template combines) mapped by [fe]: the identity
+   gives the candidate, and the evaluation at a point gives the equality
+   asserted in the query. *)
+type template = {
+  unknown_types : Type.t list ;
+  term_of : (Term.t -> Term.t) -> Term.t list -> Term.t ;
+  constraint_of : Term.t list -> Term.t ;
+  finite : bool ;
+  (* Whether the unknowns range over finite sets: a refuted candidate of a
+     finite template is one of finitely many, and the template may be tried
+     again (see [check]) *)
+}
+
+(* A term of the contract, or an input, as a template without unknowns *)
+let template_of_term e =
+  { unknown_types = [] ;
+    term_of = (fun fe _ -> fe e) ;
+    constraint_of = (fun _ -> Term.t_true) ;
+    finite = true }
+
+(* The values an unknown may take *)
+type range =
+  | Set of Term.t list (* One of the constants *)
+  | Bound of int (* An integer within [-n; n] *)
+  | Free
+
+let is_finite = function Set _ | Bound _ -> true | Free -> false
+
+(* The constant [n] of the numeric type [ty] *)
+let num ty n =
+  if Type.is_real ty then Term.mk_dec (Decimal.of_int n)
+  else Term.mk_num_of_int n
+
+let in_range ty range c =
+  match range with
+  | Set ks -> Term.mk_or (List.map (fun k -> Term.mk_eq [c; k]) ks)
+  | Bound n -> Term.mk_and [Term.mk_leq [num ty (-n); c]; Term.mk_leq [c; num ty n]]
+  | Free -> Term.t_true
+
+(* The numeric features of the inputs as terms of type [ty], int or real: a
+   numeric input, cast when it is an integer and [ty] is real, and a Boolean
+   input as 0 or 1. A real input is no feature of an integer type. *)
+let features inputs ty =
+  let real = Type.is_real ty in
+  input_vars inputs |> List.filter_map (fun v ->
+    let t = Term.mk_var v in
+    let vty = Var.type_of_var v in
+    if Type.is_bool vty then Some (Term.mk_ite t (num ty 1) (num ty 0))
+    else if Type.is_int vty || Type.is_int_range vty then
+      Some (if real then Term.mk_to_real t else t)
+    else if Type.is_real vty && real then Some t
+    else None)
+
+(* Whether [t] is the constant [n] *)
+let is_num n t =
+  (Term.is_numeral t && Numeral.(equal (Term.numeral_of_term t) (of_int n)))
+  || (Term.is_decimal t && Decimal.(equal (Term.decimal_of_term t) (of_int n)))
+
+let neg_num t =
+  if Term.is_numeral t then Term.mk_num (Numeral.neg (Term.numeral_of_term t))
+  else if Term.is_decimal t then Term.mk_dec (Decimal.neg (Term.decimal_of_term t))
+  else Term.mk_minus [t]
+
+(* [c0 + c1 f1 + ... + cn fn], without the terms whose coefficient is the
+   constant 0, and with [f] and [- f] for the coefficients 1 and -1: the
+   candidates are printed, and the unknowns are constants in them *)
+let combine ty c0 coefs feats =
+  let pos, neg =
+    List.fold_left2 (fun (pos, neg) c f ->
+      if is_num 0 c then pos, neg
+      else if is_num 1 c then f :: pos, neg
+      else if is_num (-1) c then pos, f :: neg
+      else Term.mk_times [c; f] :: pos, neg)
+      ([], []) coefs feats
+  in
+  let pos = List.rev pos and neg = List.rev neg in
+  let pos = if is_num 0 c0 && (pos <> [] || neg <> []) then pos else c0 :: pos in
+  let base =
+    match pos with
+    | [] -> num ty 0
+    | [t] -> t
+    | ts -> Term.mk_plus ts
+  in
+  List.fold_left (fun acc f -> Term.mk_minus [acc; f]) base neg
+
+(* A linear combination [c0 + c1 f1 + ... + cn fn] of the features [feats]
+   of type [ty], with the coefficients in [coefs] and the constant in
+   [const] *)
+let linear ty feats ~coefs ~const =
+  { unknown_types = List.init (List.length feats + 1) (fun _ -> ty) ;
+    term_of = (fun fe cs ->
+      match cs with
+      | c0 :: cs -> combine ty c0 cs (List.map fe feats)
+      | [] -> assert false) ;
+    constraint_of = (fun cs ->
+      match cs with
+      | c0 :: cs ->
+        Term.mk_and (in_range ty const c0 :: List.map (in_range ty coefs) cs)
+      | [] -> assert false) ;
+    finite = is_finite coefs && is_finite const }
+
+(* A linear atom [a1 f1 + ... + an fn <= b] over the features [feats] of
+   type [ty], with the coefficients in {-1, 0, 1} and the threshold [b] in
+   [threshold]: a threshold on an input, a comparison of two inputs, or,
+   with no feature, a constant *)
+let atom ty feats ~threshold =
+  { unknown_types = List.init (List.length feats + 1) (fun _ -> ty) ;
+    term_of = (fun fe cs ->
+      match cs with
+      | b :: cs -> (
+        let feats = List.map fe feats in
+        (* A threshold on a single feature reads better as [f <= b] or
+           [f >= -b] *)
+        match
+          List.filter (fun (a, _) -> not (is_num 0 a)) (List.combine cs feats)
+        with
+        | [a, f] when is_num 1 a -> Term.mk_leq [f; b]
+        | [a, f] when is_num (-1) a -> Term.mk_geq [f; neg_num b]
+        | _ -> Term.mk_leq [combine ty (num ty 0) cs feats; b])
+      | [] -> assert false) ;
+    constraint_of = (fun cs ->
+      match cs with
+      | b :: cs ->
+        Term.mk_and
+          (in_range ty threshold b
+           :: List.map (in_range ty (Set (List.map (num ty) [-1; 0; 1]))) cs)
+      | [] -> assert false) ;
+    finite = is_finite threshold }
+
+(* One of the Boolean [terms], selected by Boolean unknowns of which
+   exactly one is true: a guard taken from the contract *)
+let choice terms =
+  { unknown_types = List.map (fun _ -> Type.t_bool) terms ;
+    term_of = (fun fe sels ->
+      match
+        List.find_opt (fun (s, _) -> Term.equal s Term.t_true)
+          (List.combine sels terms)
+      with
+      | Some (_, g) -> fe g
+      | None ->
+        Term.mk_or (List.map2 (fun s g -> Term.mk_and [s; fe g]) sels terms)) ;
+    constraint_of = (fun sels ->
+      let rec at_most_one = function
+        | [] -> []
+        | s :: rest ->
+          List.map (fun s' -> Term.mk_not (Term.mk_and [s; s'])) rest
+          @ at_most_one rest
+      in
+      Term.mk_and (Term.mk_or sels :: at_most_one sels)) ;
+    finite = true }
+
+(* [if g then t else e], with the unknowns of the three templates *)
+let ite_template g t e =
+  let ng = List.length g.unknown_types in
+  let nt = List.length t.unknown_types in
+  let split cs =
+    let cg, cs = Lib.list_split ng cs in
+    let ct, ce = Lib.list_split nt cs in
+    cg, ct, ce
+  in
+  { unknown_types = g.unknown_types @ t.unknown_types @ e.unknown_types ;
+    term_of = (fun fe cs ->
+      let cg, ct, ce = split cs in
+      Term.mk_ite (g.term_of fe cg) (t.term_of fe ct) (e.term_of fe ce)) ;
+    constraint_of = (fun cs ->
+      let cg, ct, ce = split cs in
+      Term.mk_and [g.constraint_of cg; t.constraint_of ct; e.constraint_of ce]) ;
+    finite = g.finite && t.finite && e.finite }
+
+(* The subterms of [t] *)
+let rec subterms acc t =
+  let acc = t :: acc in
+  match Term.destruct t with
+  | Term.T.App (_, args) -> List.fold_left subterms acc args
+  | Term.T.Var _ | Term.T.Const _ -> acc
+  | exception _ -> acc
+
+(* The numeric constants of the equations of [node], of type [ty], with
+   the small constants: the constants of the templates. A constant of a
+   candidate is most often one of the contract. *)
+let constants node ty =
+  let real = Type.is_real ty in
+  let small =
+    List.map (num ty) [-1; 0; 1; 2]
+    @ (if real then [Term.mk_dec Decimal.(div one (of_int 2))] else [])
+  in
+  node.N.equations
+  |> List.concat_map (fun (_, e) ->
+    [ E.base_term_of_expr Numeral.zero (E.init_expr e) ;
+      E.cur_term_of_expr Numeral.zero (E.step_expr e) ])
+  |> List.fold_left subterms []
+  |> List.filter (if real then Term.is_decimal else Term.is_numeral)
+  |> List.append small
+  |> List.sort_uniq Term.compare
+
+(* The templates for the output [y], simplest first. A numeric output is a
+   constant, a linear combination of the inputs with coefficients in
+   {-1, 0, 1}, then larger, and a piecewise linear function with two, then
+   three, then four pieces in a tree of depth two, selected by one of the
+   Boolean [atoms] of the contract, or by a linear atom over the inputs. A
+   Boolean output is a linear atom, then a conditional of atoms. The linear
+   atoms are over the real features when an input is real, since a real
+   input is no feature of an integer type.
+
+   The constants are first those of the contract and small ones, so that
+   the templates are finite and the first candidates simple; the templates
+   with free constants come last. *)
+let templates_of_output node atoms inputs y =
+  let ty = StateVar.type_of_state_var y in
+  let guard_ty =
+    if List.exists
+         (fun sv -> Type.is_real (StateVar.type_of_state_var sv)) inputs
+    then Type.t_real else Type.t_int
+  in
+  let guard_feats = features inputs guard_ty in
+  let guard_consts = constants node guard_ty in
+  let guard () = atom guard_ty guard_feats ~threshold:(Set guard_consts) in
+  let free_guard () = atom guard_ty guard_feats ~threshold:Free in
+  (* Templates with a guard of the contract, when it has some *)
+  let with_atoms f = if atoms = [] then [] else [f (fun () -> choice atoms)] in
+  if Type.is_bool ty then
+    [ guard () ]
+    @ with_atoms (fun g -> ite_template (g ()) (guard ()) (guard ()))
+    @ [ ite_template (guard ()) (guard ()) (guard ()) ;
+        free_guard () ;
+        ite_template (free_guard ()) (free_guard ()) (free_guard ()) ]
+  else if Type.is_int ty || Type.is_int_range ty || Type.is_real ty then
+    let ty = if Type.is_real ty then Type.t_real else Type.t_int in
+    let feats = features inputs ty in
+    let consts = constants node ty in
+    let units = Set (List.map (num ty) [-1; 0; 1]) in
+    let const = linear ty feats ~coefs:(Set [num ty 0]) ~const:(Set consts) in
+    let lin = linear ty feats ~coefs:units ~const:(Set consts) in
+    (* Larger coefficients: an integer in [-3; 3], or a constant of the
+       contract *)
+    let wide =
+      linear ty feats
+        ~coefs:(if Type.is_real ty then Set consts else Bound 3)
+        ~const:(Set consts)
+    in
+    let free = linear ty feats ~coefs:Free ~const:Free in
+    let pw2 g l = ite_template (g ()) (l ()) (l ()) in
+    let pw3 g l = ite_template (g ()) (l ()) (ite_template (g ()) (l ()) (l ())) in
+    (* A tree of depth two: the maximum of three inputs, for instance,
+       needs a guard under each branch of the first *)
+    let tree g l = ite_template (g ()) (pw2 g l) (pw2 g l) in
+    [ const ; lin ]
+    @ with_atoms (fun g -> pw2 g (fun () -> const))
+    @ with_atoms (fun g -> pw2 g (fun () -> lin))
+    @ [ wide ; pw2 guard (fun () -> lin) ]
+    @ with_atoms (fun g -> pw3 g (fun () -> lin))
+    @ [ pw3 guard (fun () -> lin) ; tree guard (fun () -> lin) ;
+        free ; pw2 free_guard (fun () -> free) ; pw3 free_guard (fun () -> free) ]
+  else []
+
+(* ********************************************************************** *)
+(* Refutation query                                                       *)
+(* ********************************************************************** *)
+
+(* The logic of the refutation query: that of the system, which is always
+   inferred for a Lustre system, with uninterpreted functions for the
+   outputs and linear arithmetic for the templates *)
+let query_logic ~has_real = function
+  | `Inferred l ->
+    let l = List.fold_left (fun l f -> TermLib.FeatureSet.add f l) l
+        TermLib.[UF; IA; LA] in
+    `Inferred (if has_real then TermLib.FeatureSet.add TermLib.RA l else l)
   | `None | `SMTLogic _ -> assert false
 
 (* The constraints of a trace starting at offset [base]: the system is
@@ -266,20 +546,28 @@ let constraints_of_trace sys sofar env inputs ufs base trace =
   |> Term.mk_and
 
 type query_result =
-  | Points of (Term.t list * Term.t list) list
-  (* The values of the outputs at the distinct inputs of the traces *)
+  | Points of
+      (Term.t list * Term.t list) list
+      * (StateVar.t * (Term.t * int option)) list
+  (* The values of the outputs at the distinct inputs of the traces, and
+     the candidates of the outputs a template fits, with the position of
+     the template among those of the output (see [check]) *)
   | Refuted of sized_trace list
   (* A subset of the traces no function satisfies the contract on *)
 
 (* Whether some function satisfies the contract of [sys] on each of the
    [traces] *)
-let solve_query sys sofar env inputs outputs prefs traces =
+let solve_query sys sofar env inputs outputs templates traces =
   let total = List.fold_left (fun acc t -> acc + length_of_trace t) 0 traces in
   let solver =
     SMTSolver.create_instance
       ~produce_models:true
       ~produce_unsat_assumptions:true
-      (add_uf (TSys.get_logic sys))
+      (query_logic
+         ~has_real:(List.exists
+                      (fun sv -> Type.is_real (StateVar.type_of_state_var sv))
+                      (inputs @ outputs))
+         (TSys.get_logic sys))
       (Flags.Smt.solver ())
   in
   Fun.protect ~finally:(fun () -> SMTSolver.delete_instance solver) (fun () ->
@@ -330,42 +618,81 @@ let solve_query sys sofar env inputs outputs prefs traces =
     let is_sat lits =
       SMTSolver.check_sat_assuming solver (fun _ -> true) (fun _ -> false) lits
     in
-    (* The values of the outputs are arbitrary, and the decision lists are
-       smaller when the values of an output at all points are those of a
-       single leaf. An output is made equal to the first term of [prefs]
-       that the traces allow, if any. *)
-    let prefs =
+    (* The values of the outputs in a model are arbitrary. Each output is
+       made equal, at every point, to the first of its [templates] that the
+       traces allow together with those chosen for the previous outputs, if
+       any: the model then follows the template, whose unknowns it gives. *)
+    let chosen =
       if not (is_sat acts) then []
       else
-        List.fold_left (fun kept (y, terms) ->
+        List.fold_left (fun chosen (y, tmpls) ->
           let uf = List.assq y ufs in
-          let allowed e =
-            let pref = Actlit.fresh_actlit () in
-            SMTSolver.declare_fun solver pref ;
-            let pref = Actlit.term_of_actlit pref in
+          let kept = List.concat_map (fun (acts, _, _, _, _) -> acts) chosen in
+          let allowed (idx, tmpl) =
+            let cs =
+              tmpl.unknown_types |> List.map (fun ty ->
+                let c = UfSymbol.mk_fresh_uf_symbol [] ty in
+                SMTSolver.declare_fun solver c ;
+                Term.mk_uf c [])
+            in
+            let act = Actlit.fresh_actlit () in
+            SMTSolver.declare_fun solver act ;
+            let act = Actlit.term_of_actlit act in
             SMTSolver.assert_term solver
               (Term.mk_implies
-                 [pref;
-                  Term.mk_and (points |> List.map (fun x ->
-                    Term.mk_eq [Term.mk_uf uf x; eval_at inputs e x]))]) ;
-            if is_sat (pref :: kept @ acts) then Some pref else None
+                 [act;
+                  Term.mk_and
+                    (tmpl.constraint_of cs
+                     :: (points |> List.map (fun x ->
+                       Term.mk_eq
+                         [Term.mk_uf uf x;
+                          tmpl.term_of (fun f -> eval_at inputs f x) cs])))]) ;
+            if is_sat (act :: kept @ acts) then (
+              (* The simplest candidate of the template: as many of its
+                 numeric unknowns as the traces allow are made zero, in
+                 order, so that the candidate has few terms and the
+                 candidates of a template are tried from the simplest *)
+              let zeros =
+                List.fold_left (fun zeros c ->
+                  let ty = Term.type_of_term c in
+                  if Type.is_bool ty then zeros
+                  else
+                    let z = Actlit.fresh_actlit () in
+                    SMTSolver.declare_fun solver z ;
+                    let z = Actlit.term_of_actlit z in
+                    SMTSolver.assert_term solver
+                      (Term.mk_implies [z; Term.mk_eq [c; num ty 0]]) ;
+                    if is_sat (z :: zeros @ act :: kept @ acts) then z :: zeros
+                    else zeros)
+                  [] cs
+              in
+              Some (act :: zeros, y, cs, tmpl, idx))
+            else None
           in
-          match List.find_map allowed terms with
-          | Some pref -> pref :: kept
-          | None -> kept)
-          [] prefs
+          match List.find_map allowed tmpls with
+          | Some c -> c :: chosen
+          | None -> chosen)
+          [] templates
     in
+    let unknowns = List.concat_map (fun (_, _, cs, _, _) -> cs) chosen in
     let sat = SMTSolver.check_sat_assuming_and_get_term_values solver
       (fun _ values ->
         let value t = List.assoc t values |> eval in
-        Ok (points |> List.map (fun x ->
-          x, List.map (fun (_, uf) -> value (Term.mk_uf uf x)) ufs)))
+        let points =
+          points |> List.map (fun x ->
+            x, List.map (fun (_, uf) -> value (Term.mk_uf uf x)) ufs)
+        in
+        let candidates =
+          chosen |> List.map (fun (_, y, cs, tmpl, idx) ->
+            y, (tmpl.term_of Fun.id (List.map value cs), idx))
+        in
+        Ok (points, candidates))
       (fun solver -> Error (SMTSolver.get_unsat_core_lits solver))
-      (prefs @ acts)
-      point_terms
+      (List.concat_map (fun (acts, _, _, _, _) -> acts) chosen @ acts)
+      (point_terms @ unknowns)
     in
     match sat with
-    | Ok points -> Points points
+    | Ok (points, candidates) -> Points (points, candidates)
     | Error core_lits ->
       (* Remove the traces the refutation does not need, starting from those
          of the unsat core *)
@@ -396,14 +723,6 @@ let solve_query sys sofar env inputs outputs prefs traces =
 (* ********************************************************************** *)
 (* Generalization                                                         *)
 (* ********************************************************************** *)
-
-(* The subterms of [t] *)
-let rec subterms acc t =
-  let acc = t :: acc in
-  match Term.destruct t with
-  | Term.T.App (_, args) -> List.fold_left subterms acc args
-  | Term.T.Var _ | Term.T.Const _ -> acc
-  | exception _ -> acc
 
 (* The subterms of the equations of [node] whose only variables are the
    current values of [inputs], with the current instant at offset zero *)
@@ -502,15 +821,18 @@ let decision_list inputs guards leaves points =
   loop points []
 
 (* A total function with the values of the outputs at the [points] *)
-let generalize node inputs outputs points =
+let generalize node inputs outputs points candidates =
   let terms = contract_terms node inputs in
   List.mapi (fun k y ->
-    let points_y = List.map (fun (a, b) -> a, List.nth b k) points in
-    let guards = guards_of terms inputs points_y in
-    let leaves =
-      leaves_of terms inputs (StateVar.type_of_state_var y) (List.map snd points_y)
-    in
-    y, decision_list inputs guards leaves points_y)
+    match List.assq_opt y candidates with
+    | Some (f, idx) -> y, (f, idx)
+    | None ->
+      let points_y = List.map (fun (a, b) -> a, List.nth b k) points in
+      let guards = guards_of terms inputs points_y in
+      let leaves =
+        leaves_of terms inputs (StateVar.type_of_state_var y) (List.map snd points_y)
+      in
+      y, (decision_list inputs guards leaves points_y, None))
     outputs
 
 (* The contract system with the outputs defined by [witness], and, if
@@ -591,11 +913,56 @@ let check analyze in_sys param =
          (inputs @ outputs)
     then raise (Unsupported "an input or output is of an array type") ;
     let traces_of_cexs = List.map (trace_of_cex env) in
-    (* The leaves of the decision lists that do not depend on the points *)
-    let prefs =
-      let terms = contract_terms node inputs in
+    (* The templates of each output, in the order they are tried: its
+       previous candidate, if any, which is kept while the traces allow it;
+       the leaves of the decision lists that do not depend on the points (the
+       inputs and the terms of the contract); then the templates with
+       unknowns, by position, except the ones that gave a refuted candidate.
+       A candidate that is refuted is not allowed by the trace of its
+       counterexample, so a previous candidate that is still allowed was not
+       the cause of the refutation: it is kept. The template of a previous
+       candidate that is not kept is given up when its unknowns are free:
+       it would otherwise give another candidate that fits the traces at
+       every iteration, such as a larger constant. A finite template has
+       finitely many candidates, each refuted at most once. *)
+    let terms = contract_terms node inputs in
+    let atoms =
+      List.filter (fun t -> Type.is_bool (Term.type_of_term t)) terms
+      @ List.filter_map
+          (fun v ->
+             if Type.is_bool (Var.type_of_var v) then Some (Term.mk_var v)
+             else None)
+          (input_vars inputs)
+    in
+    let leaves =
       outputs |> List.map (fun y ->
-        y, leaves_of terms inputs (StateVar.type_of_state_var y) [])
+        y,
+        List.map (fun e -> None, template_of_term e)
+          (leaves_of terms inputs (StateVar.type_of_state_var y) []))
+    in
+    let indexed =
+      outputs |> List.map (fun y ->
+        y, List.mapi (fun i t -> Some i, t) (templates_of_output node atoms inputs y))
+    in
+    let templates prevs failed =
+      outputs |> List.map (fun y ->
+        let prev = List.assq_opt y prevs in
+        let failed = try List.assq y failed with Not_found -> [] in
+        let failed =
+          match prev with
+          | Some (_, Some i)
+            when not (List.assq y indexed |> List.assoc (Some i)).finite ->
+            i :: failed
+          | _ -> failed
+        in
+        y,
+        (match prev with
+         | Some (f, idx) -> [idx, template_of_term f]
+         | None -> [])
+        @ List.assq y leaves
+        @ List.filter
+            (fun (i, _) -> match i with Some i -> not (List.mem i failed) | None -> true)
+            (List.assq y indexed))
     in
     let check_with_outputs ?restrict witness =
       let param', sys' = fresh_copy param sys in
@@ -617,13 +984,16 @@ let check analyze in_sys param =
       | Some (_ :: _) as cexs -> cexs
       | Some [] | None -> check_with_outputs witness
     in
-    let rec loop traces iter =
+    let rec loop traces iter prevs failed =
       if iter > Flags.Contracts.function_realizability_iter () then Unknown
       else
-        match solve_query qsys sofar env inputs outputs prefs traces with
+        match
+          solve_query qsys sofar env inputs outputs (templates prevs failed) traces
+        with
         | Refuted traces -> Unrealizable traces
-        | Points points ->
-          let witness = generalize node inputs outputs points in
+        | Points (points, candidates) ->
+          let candidates = generalize node inputs outputs points candidates in
+          let witness = List.map (fun (y, (f, _)) -> y, f) candidates in
           KEvent.log L_info "Function realizability: candidate %d:@ %a" iter
             (Lib.pp_print_list
                (fun fmt (y, f) ->
@@ -635,14 +1005,27 @@ let check analyze in_sys param =
           match check_candidate points witness with
           | None -> Unknown
           | Some [] -> Realizable witness
-          | Some cexs -> loop (traces @ traces_of_cexs cexs) (iter + 1)
+          | Some cexs ->
+            (* The templates of the previous candidates that were not kept *)
+            let failed =
+              List.fold_left (fun failed (y, (f, _)) ->
+                match List.assq_opt y prevs with
+                | Some (f', Some i)
+                  when not (Term.equal f f')
+                    && not (List.assq y indexed |> List.assoc (Some i)).finite ->
+                  let failed_y = try List.assq y failed with Not_found -> [] in
+                  (y, i :: failed_y) :: List.remove_assq y failed
+                | _ -> failed)
+                failed candidates
+            in
+            loop (traces @ traces_of_cexs cexs) (iter + 1) candidates failed
     in
     (* The initial traces are the inputs of the counterexamples of the
        guarantees with the outputs left free *)
     match check_with_outputs [] with
     | None -> Unknown
     | Some [] -> Realizable []
-    | Some cexs -> loop (traces_of_cexs cexs) 1
+    | Some cexs -> loop (traces_of_cexs cexs) 1 [] []
   with Unsupported msg ->
     KEvent.log L_note
       "Realizability by a function was not checked: %s." msg ;
