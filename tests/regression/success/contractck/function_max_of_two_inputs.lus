@@ -1,0 +1,12 @@
+-- The function y = a, z = max(a, b) realizes the contract. No term of the
+-- contract compares the two inputs: the candidate z = (if a - b <= 0 then b
+-- else a) comes from a piecewise linear template with a linear guard.
+
+function imported H(a, b: int) returns (y, z: int);
+(*@contract
+  assume true -> a >= pre a and b >= pre b;
+  guarantee true -> y >= pre y;
+  guarantee true -> z >= pre z;
+  guarantee z >= y;
+  guarantee y >= a and z >= b;
+*)

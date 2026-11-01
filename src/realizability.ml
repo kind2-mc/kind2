@@ -30,11 +30,20 @@ type unrealizable_result =
   (* Valid region for initial states *)
   | InductiveCase of (Term.t * Term.t)
   (* One-step valid region without (fst) and with (snd) uncontrollable variables *)
+  | FunctionCase of (int * (StateVar.t * Model.value list) list) list
+  (* Input traces of a function, with their lengths, on which no function satisfies the contract
+     (see [FunctionRealizability]) *)
 
 type realizability_result =
   | Realizable of Term.t (* Fixpoint *)
   | Unrealizable of unrealizable_result
   | Unknown
+
+let function_certificate = function
+  | FunctionCase traces -> Some traces
+  | BaseCase _ | InductiveCase _ -> None
+
+let unrealizable_function traces = Unrealizable (FunctionCase traces)
 
 let result_to_string = function
   | Realizable _ -> "realizable"
@@ -658,6 +667,10 @@ let compute_deadlocking_trace_and_conflict
     match u_result with
 
     | BaseCase vr -> vr, [], true, Numeral.zero, controllable_vars_at_0
+
+    | FunctionCase _ ->
+      raise (Trace_or_conflict_computation_failed
+        "A function contract has no deadlocking trace")
 
     | InductiveCase (vr_wo, vr_w) -> (
 

@@ -1,0 +1,11 @@
+-- No function realizes the contract: on a constant input, the output of a
+-- function is a constant c >= 0, which the counter reaches at step c. But a
+-- function satisfies the contract on any finite set of finite input traces,
+-- so the check can neither find a function nor a certificate, and leaves the
+-- contract undetermined. A node realizes it with y = c + 1.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  var c: int = 0 -> pre c + 1;
+  guarantee y >= 0 and y <> c;
+*)

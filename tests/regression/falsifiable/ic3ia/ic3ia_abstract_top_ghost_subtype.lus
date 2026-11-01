@@ -1,0 +1,12 @@
+-- The model of ../../success/ic3ia/ic3ia_abstract_top_ghost_subtype.lus with
+-- a guarantee too weak for the subtype of the ghost variable l: keeping the
+-- definition of l in the slice must not make its subtype check hold.
+type Pos = subtype { x: int | x >= 1 };
+
+function imported F(y: int) returns (x: int);
+(*@contract
+  guarantee x >= 0;
+  var l: Pos = x;
+  mode m (require y > 0;);
+  mode n (require y <= 0;);
+*)

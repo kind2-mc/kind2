@@ -686,23 +686,35 @@ function cannot depend on the `->`, `pre`, `fby` or `restart` operators.
 A function is also not allowed to call a node, only other functions.
 In Lustre terms, functions are stateless.
 
-In Kind 2, these restrictions also apply to the contract attached to a function,
-if any. Moreover, Kind 2 strictly enforces that imported functions
+In Kind 2, the contract attached to a function, if any, may not call a node
+either, but it may use the `->`, `pre` and `fby` operators. A function is
+applied pointwise, and its contract constrains the streams of its inputs and
+outputs at each call: a guarantee such as `true -> y >= pre y` states that the
+outputs of a call never decrease, which a function satisfies when, for
+instance, the contract also assumes that its inputs never decrease. A
+temporal contract may be satisfied by a node but not by a function, which the
+[contract check]({{< relref "/advanced-features/contract-check#contracts-of-functions" >}})
+takes into account. Moreover, Kind 2 strictly enforces that imported functions
 and functions abstracted by their contracts
 behave as mathematical functions. That is, given the same inputs,
 such a function always produces the same outputs, regardless of the step at
 which it is called.
 
 The stateless nature of functions also determines the scope of their contract
-assumptions. For a function, an assumption constrains only the *current*
-timestep: when reasoning about a call, the function's guarantees may rely on its
-assumptions holding at the current step alone. For a node, by contrast, the
-scope extends to all previous timesteps: the node's guarantees may rely on its
-assumptions having held at every step up to and including the current one (the
-"assumptions always hold implies guarantees always hold" semantics described in
-[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})). This mirrors the fact
-that a function's outputs depend only on the current values of its inputs,
-whereas a node may also depend on their previous values.
+assumptions. For a node, an assumption constrains all previous timesteps: the
+node's guarantees may rely on its assumptions having held at every step up to
+and including the current one (the "assumptions always hold implies guarantees
+always hold" semantics described in
+[Contract Semantics]({{< relref "/advanced-features/contract-semantics" >}})).
+For a function whose contract has no temporal operators, an assumption
+constrains only the *current* timestep: when reasoning about a call, the
+function's guarantees may rely on its assumptions holding at the current step
+alone. This mirrors the fact that such guarantees only relate the current
+values of the inputs and outputs. A function contract with temporal operators
+relates them to their previous values, and its assumptions have the scope of
+those of a node. Such a function is also clocked as a node when it is called in
+a branch of a `when` expression: the temporal operators of its contract refer
+to the previous step at which the branch was selected.
 
 ### Recursive functions
 
@@ -1032,11 +1044,30 @@ call: `Id@<int>` may be applied to a quantified variable while `Id@<Nat>`,
 for a refinement type `Nat`, and `Id@<int^2>` may not, if `Id` returns a
 value of its type parameter. In the body of a polymorphic node, a type
 parameter of the node given as a type argument is taken to be an array
-type, whatever the instantiations of the node. Kind 2 warns when the
-definition is left out because the solver does not take recursive
-definitions (Z3 and cvc5 do). The symbol is then an arbitrary function
-under the quantifier, and a property that holds may be reported
-falsifiable.
+type, whatever the instantiations of the node.
+
+The call is also rejected when the function is not given a definition after
+all, because the solver does not take recursive definitions (Z3 and cvc5
+do), or because its body is not one a definition is built from in a way the
+conditions above do not see. An array literal or an array repetition passed
+to a call, for instance, is defined element by element, which no definition
+is built from:
+
+```
+function rec S(a: int^3; n: int) returns (s: int);
+con
+  decreases n;
+noc
+let
+  -- Rejected under a quantifier: [a[1], a[2], a[0]] is defined element
+  -- by element
+  s = when n <= 0 then a[0] + a[1] + a[2] else S([a[1], a[2], a[0]], n - 1);
+tel
+```
+
+So is a call to a function whose definition applies such a function. Under
+the quantifier, the function would be an arbitrary function of its inputs,
+and a property that holds could be reported falsifiable.
 
 ### Benefits and limitations
 
@@ -1328,6 +1359,36 @@ x = when c then (0 -> pre x + 1) else 0;
 `x` counts the steps at which `c` holds (starting from 0), whereas with
 `if c then (0 -> pre x + 1) else 0`, the previous value of `x` would be 0
 whenever `c` was false at the previous step.
+
+The first time a branch is selected, there is no earlier step on its clock, so
+a `pre` in the branch is undefined unless a `->` *inside the branch* guards
+it. An arrow that encloses the whole `when` expression does not help, since it
+counts steps of the enclosing clock, not of the branch. For example, in
+
+```lustre
+x = i;
+ok = true -> (when i > 0 then pre x = pre i else true);
+```
+
+`ok` may be false at the first step at which `i > 0`, even though `x = i`.
+At that step `pre x` and `pre i` refer to a previous selection of the branch
+that does not exist, so their values are unconstrained. Kind 2 reports such
+a `pre` as unguarded. Depending on the intended meaning, write instead:
+
+```lustre
+ok = when i > 0 then (true -> pre x = pre i) else true;
+```
+
+where the arrow inside the branch guards the `pre`, which refers to the last
+time the branch was selected, or
+
+```lustre
+ok = true -> (if i > 0 then pre x = pre i else true);
+```
+
+where the eager `if` evaluates `pre` at every step, so that it refers to the
+immediately preceding step. The second form only applies when the branch does
+not need to be lazy.
 
 Each form has a corresponding statement-level block, described in the next
 section: `if` statements desugar to `if ... then ... else ...` expressions,

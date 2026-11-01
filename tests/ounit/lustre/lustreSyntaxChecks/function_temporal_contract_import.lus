@@ -1,10 +1,7 @@
--- Illegal import of a stateful contract in a function contract.
-
-node imported N( i: int ) returns ( out: int );
-
+-- A function contract may import a contract with temporal operators.
 contract blah_spec (i: int) returns (out: int) ;
 let
-  guarantee out = N(i);
+  guarantee out = (0 -> pre i) ;
 tel
 
 function blah ( i: int ) returns ( out: int ) ;

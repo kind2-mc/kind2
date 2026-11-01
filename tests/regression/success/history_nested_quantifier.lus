@@ -1,0 +1,12 @@
+(* A history quantifier nested inside another quantifier, next to a property
+   with a history quantifier at the top level (issue #1721). The body of P1
+   holds for every k, which leaves a quantified system without arrays once the
+   property is sliced to what it depends on, and IC3IA refined it through
+   MathSAT, which answers quantified queries unsoundly: it reported P1 invalid
+   while the inductive step proved it, and the analysis ended in a runtime
+   failure of the invariant manager about one time in three. *)
+node N(x: int) returns ();
+let
+  check "P1" forall (k: int) exists (z: history(x)) z = x or k = k;
+  check "P2" exists (z: history(x)) z = x;
+tel

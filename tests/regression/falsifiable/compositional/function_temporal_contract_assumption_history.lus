@@ -1,0 +1,24 @@
+-- The guarantee of F at the second step is about the output at the first
+-- step, which only the assumption at the first step makes nonnegative. The
+-- call violates the assumption at the first step, so a caller may not rely
+-- on the guarantee at the second step, although the assumption holds then:
+-- the property "ok" is false, since F(-1) = -1.
+
+function F(x: int) returns (y: int);
+(*@contract
+  assume x >= 0;
+  guarantee true -> pre y >= 0;
+*)
+let
+  y = x;
+tel
+
+node main() returns (ok: bool);
+var x, y: int;
+let
+  x = -1 -> 1;
+  y = F(x);
+  ok = true -> pre y >= 0;
+  --%PROPERTY "ok" ok;
+  --%MAIN;
+tel

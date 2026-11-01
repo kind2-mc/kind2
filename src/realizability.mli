@@ -26,6 +26,7 @@ type 'a analyze_func =
 
 type unrealizable_result
 
+
 (** Result of a realizability check *)
 type realizability_result =
   | Realizable of Term.t (* Fixpoint *)
@@ -33,6 +34,17 @@ type realizability_result =
   | Unknown
 
 val result_to_string : realizability_result -> string
+
+(** The input traces of a function, with their lengths, on which no
+    function satisfies its contract, if the contract was proven unrealizable by
+    [FunctionRealizability], or [None] *)
+val function_certificate :
+  unrealizable_result -> (int * (StateVar.t * Model.value list) list) list option
+
+(** The result for the input traces of a function on which no function
+    satisfies its contract *)
+val unrealizable_function :
+  (int * (StateVar.t * Model.value list) list) list -> realizability_result
 
 (** Checks whether there exists an implementation that satisfies a given specification
 

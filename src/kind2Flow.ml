@@ -530,6 +530,8 @@ let post_clean_exit process base_status exn =
      of it that is pending must not precede what is written next, the
      report of the exception first of all *)
   Lib.drop_partial_output () ;
+  (* Nothing written from here on may keep us from killing the solvers *)
+  Lib.tolerate_closed_output () ;
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process base_status exn in
   (* Arms on the paths that come here directly; on the path through
@@ -576,6 +578,8 @@ let on_exit ?(results = fun () -> ()) sys process status exn =
   (* The exception may have interrupted a record being written: the piece
      of it that is pending must not precede what is written next *)
   Lib.drop_partial_output () ;
+  (* Nothing written from here on may keep us from killing the solvers *)
+  Lib.tolerate_closed_output () ;
   try
     slaughter_kids ~exiting:true process sys;
     (try results () with
@@ -589,11 +593,17 @@ let on_exit ?(results = fun () -> ()) sys process status exn =
 let post_clean_exit_success process exn =
   post_clean_exit process ExitCodes.success exn
 
+(* The exit starts here rather than in [post_clean_exit] or [on_exit]:
+   the status of the results is logged when the analysis is incomplete,
+   and that write must not cut the exit short either *)
+
 let post_clean_exit_safety_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_safety_results in_sys in
   post_clean_exit process base_status exn
 
 let post_clean_exit_realiz_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_realiz_results in_sys in
   post_clean_exit process base_status exn
 
@@ -602,10 +612,12 @@ let on_exit_success ?results process exn =
 
 (** Clean up before exit. *)
 let on_exit_safety_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_safety_results in_sys in
   on_exit None process base_status exn
 
 let on_exit_realiz_results in_sys process exn =
+  Lib.tolerate_closed_output () ;
   let base_status = status_of_realiz_results in_sys in
   on_exit None process base_status exn
 
@@ -614,6 +626,7 @@ run a single process without engine domains (interpreter, contract
 monitor). Give the exception [exn] that was raised or [Exit] on normal
 termination. *)
 let on_exit_child process exn =
+  Lib.tolerate_closed_output () ;
   (* Exit status of process depends on exception *)
   let status = status_of_exn process ExitCodes.success exn in
   (* Call cleanup of process *)
@@ -1061,6 +1074,9 @@ let handle_exception process e =
   (* Get backtrace now, Printf changes it *)
   let backtrace = Printexc.get_raw_backtrace () in
 
+  (* What follows is the exit, see [on_exit] *)
+  Lib.tolerate_closed_output () ;
+
   if Printexc.backtrace_status () then
     KEvent.log L_fatal "Caught %s in %a.@\nBacktrace:@\n%a"
       (Printexc.to_string e)
@@ -1225,12 +1241,45 @@ let run in_sys =
           (*Format.printf "TS:@.%a@." (TSys.pp_print_subsystems true) sys;*)
           KEvent.log_contractck_analysis_start in_sys scope ;
           Stat.start_timer Stat.analysis_time ;
+          let start = Unix.gettimeofday () in
           let result =
             if not has_contract then
               Realizability.Realizable Term.t_true
             else
               if satisfy_input_requirements in_sys param then
-                ContractChecker.check_contract_realizability in_sys sys
+                match ContractChecker.check_contract_realizability in_sys sys with
+                (* A function is applied pointwise: a contract with state
+                   that a reactive component realizes may not be realized
+                   by a function *)
+                | Realizability.Realizable _ as result
+                  when FunctionRealizability.applies in_sys param -> (
+                  KEvent.log L_note
+                    "Checking whether a function realizes the contract..." ;
+                  let function_result =
+                    FunctionRealizability.check
+                      (analyze msg_setup false false false) in_sys param
+                  in
+                  (* The analyses of the check restart the timer: the time
+                     of the contract check is the time since its start *)
+                  Stat.start_timer Stat.analysis_time ;
+                  Stat.set_float
+                    (Unix.gettimeofday () -. start) Stat.analysis_time ;
+                  match function_result with
+                  | FunctionRealizability.Realizable witness ->
+                    KEvent.log L_note
+                      "@[<v>The contract is realized by the function:@,%a@]"
+                      (FunctionRealizability.pp_print_witness in_sys sys)
+                      witness ;
+                    result
+                  | FunctionRealizability.Unrealizable traces ->
+                    Realizability.unrealizable_function traces
+                  | FunctionRealizability.Unknown ->
+                    KEvent.log L_warn
+                      "The contract is realizable by a node, but it could \
+                       not be determined whether a function realizes it." ;
+                    Realizability.Unknown
+                )
+                | result -> result
               else
                 Realizability.Unknown
           in

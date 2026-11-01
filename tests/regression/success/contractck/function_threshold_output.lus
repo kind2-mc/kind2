@@ -1,0 +1,10 @@
+-- The function z = (a <= b + 1) realizes the contract: a Boolean output from
+-- a linear atom over the inputs that the contract does not state as a term.
+
+function imported C(a, b: int) returns (z: bool);
+(*@contract
+  assume true -> b >= pre b and a <= pre a;
+  guarantee true -> (pre z => z);
+  guarantee a <= b + 1 => z;
+  guarantee a > b + 1 => not z;
+*)

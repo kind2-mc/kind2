@@ -1,0 +1,9 @@
+-- The function y = 2 * x + 1 realizes the contract, and is no term of the
+-- contract: the candidate comes from a linear template.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  assume true -> x >= pre x;
+  guarantee true -> y - pre y = 2 * (x - pre x);
+  guarantee x = 0 => y = 1;
+*)

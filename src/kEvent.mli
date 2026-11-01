@@ -120,6 +120,13 @@ val log_timeout : bool -> unit
 (** Logs an interruption for some signal. *)
 val log_interruption : int -> unit
 
+(** [dump_pt level title ppf print] writes [print] to a new file of the
+    trace directory of the output directory, as the traces that
+    {!pp_print_trace_pt} dumps are, and logs its path at level [level] *)
+val dump_pt :
+  Lib.log_level -> string -> Format.formatter ->
+  (Format.formatter -> unit) -> unit
+
 val pp_print_trace_pt :
   ?title:string -> ?color:string -> bool (* dump *)
   -> Lib.log_level -> 'a InputSystem.t -> Analysis.param -> TransSys.t

@@ -49,7 +49,7 @@ type error_kind = Unknown of string
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
-  | IllegalImportOfStatefulContract of HString.t
+  | IllegalImportOfContractWithNodeCall of HString.t
   | UnsupportedClockedInputOrOutput
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr

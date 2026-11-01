@@ -383,7 +383,7 @@
                     "$ref": "#/definitions/scope"
                 },
                 "context": {
-                    "enum": ["type","contract","environment"]
+                    "enum": ["type","contract","environment","'any' operator","type ascription operator","global constant","clocked expression","restart","match expression","'choose' operator"]
                 }
             },
             "required": ["objectType", "top", "context"]
@@ -837,6 +837,35 @@
                 },
                 "conflictingSet": {
                     "$ref": "#/definitions/modelElementSet"
+                },
+                "conflictingInputTraces": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "length": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "inputs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "values": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/definitions/kind2Value" }
+                                        }
+                                    },
+                                    "required": ["name", "values"]
+                                }
+                            }
+                        },
+                        "required": ["length", "inputs"]
+                    }
                 }
             },
             "required": [

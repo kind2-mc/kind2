@@ -31,6 +31,8 @@ type info = {
   has_contract: bool ; (** Does the system have a contract? *)
   has_impl: bool ;     (** Does the system have an implementation? *)
   has_modes: bool ;    (** Does the system have modes? *)
+  has_props: bool ;    (** Does the system have properties of its own to
+                           check, besides those of its implementation? *)
   rec_group: int option ; (** The recursive group of a recursive function *)
   is_internal: bool ;  (** Is the system an internal artifact of the
                            translation, only analyzed as part of the systems

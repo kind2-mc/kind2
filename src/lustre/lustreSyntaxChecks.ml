@@ -69,7 +69,7 @@ type error_kind = Unknown of string
   | NodeCallInConstant of HString.t
   | NodeCallInGlobalTypeDecl of HString.t
   | IllegalTemporalOperator of string * string
-  | IllegalImportOfStatefulContract of HString.t
+  | IllegalImportOfContractWithNodeCall of HString.t
   | UnsupportedClockedInputOrOutput
   | UnsupportedClockedLocal of HString.t
   | UnsupportedExpression of LustreAst.expr
@@ -173,8 +173,9 @@ let error_message kind = match kind with
   | NodeCallInConstant id -> "Illegal node call, restart, 'any'/'choose' operator, or type ascription in definition of constant '" ^ HString.string_of_hstring id ^ "'"
   | NodeCallInGlobalTypeDecl id -> "Illegal node call, 'any'/'choose' operator, or type ascription in definition of global type '" ^ HString.string_of_hstring id ^ "'"
   | IllegalTemporalOperator (kind, variant) -> "Illegal " ^ kind ^ " in expression, " ^ variant ^ " cannot have state"
-  | IllegalImportOfStatefulContract contract -> "Illegal import of stateful contract '"
-    ^ HString.string_of_hstring contract ^ "'. Functions can only be specified by stateless contracts"
+  | IllegalImportOfContractWithNodeCall contract -> "Illegal import of contract '"
+    ^ HString.string_of_hstring contract ^ "'. Functions can only be specified by contracts \
+    without node calls, restarts, or 'any' operators"
   | UnsupportedClockedInputOrOutput -> "Clocked inputs or outputs are not supported"
   | UnsupportedClockedLocal id -> "Clocked node local variable not supported for '" ^ HString.string_of_hstring id ^ "'"
   | UnsupportedExpression e -> "The expression '" ^ LA.string_of_expr e ^ "' is not supported"
@@ -297,7 +298,7 @@ let (>>) = fun a b -> let* _ = a in b
 type node_data = unit (* We used to need data, but not anymore *)
 
 type contract_data = {
-  stateful: bool;
+  calls_node: bool;
   imports: StringSet.t }
 
 type context = {
@@ -555,11 +556,14 @@ let symbolic_index_in_lazy_guard ctx =
   List.find_opt (fun v -> StringMap.mem v ctx.symbolic_array_indices)
     (LA.SI.elements ctx.lazy_cond_vars)
 
-(* Expression contains a pre, an arrow, or a call to a node *)
-let rec has_stateful_op ctx =
+(* Expression contains a call to a node, a restart, or an 'any' operator,
+   which a function contract may not have. Temporal operators are allowed:
+   the contract of a function constrains the streams of its arguments and
+   results at each call, and the function is applied to them pointwise. *)
+let rec has_node_op ctx =
 function
-| LA.Pre _ | Arrow _ | Fby _ -> true
-| Last _ -> true
+| LA.Pre _ | Arrow _ | Fby _ -> false
+| Last _ -> false
 
 | Restart _ | RestartEvery _
 | AnyOp _ -> true
@@ -568,7 +572,7 @@ function
 | Call (_, _, node_id, l) ->
   StringMap.mem (NI.get_internal_name node_id) ctx.nodes ||
   List.fold_left
-    (fun acc e -> acc || has_stateful_op ctx e)
+    (fun acc e -> acc || has_node_op ctx e)
     false l
 
 | Const _ | Ident _ | ModeRef _  | EmptyMap _ | EmptySet _ -> false
@@ -576,42 +580,42 @@ function
 | FieldProject (_, e, _, _) | ConvOp (_, _, e)
 | UnaryOp (_, _, e) 
 | Quantifier (_, _, _, e) | ArrayComprehension (_, _, e) | Extract (_, e, _, _) ->
-  has_stateful_op ctx e
+  has_node_op ctx e
 
 | BinaryOp (_, _, e1, e2) | CompOp (_, _, e1, e2)
 | IndexAccess (_, e1, e2, _) | ArrayConstr (_, e1, e2)  ->
-  has_stateful_op ctx e1 || has_stateful_op ctx e2
+  has_node_op ctx e1 || has_node_op ctx e2
 
-| TypeAscription (_, e, _) -> has_stateful_op ctx e
+| TypeAscription (_, e, _) -> has_node_op ctx e
 
 | TernaryOp (_, _, e1, e2, e3) ->
-  has_stateful_op ctx e1 || has_stateful_op ctx e2 || has_stateful_op ctx e3
+  has_node_op ctx e1 || has_node_op ctx e2 || has_node_op ctx e3
 
 | GroupExpr (_, _, l) ->
   List.fold_left
-    (fun acc e -> acc || has_stateful_op ctx e)
+    (fun acc e -> acc || has_node_op ctx e)
     false l
 
 
 | RecordExpr (_, _, _, l) ->
   List.fold_left
-    (fun acc (_, e) -> acc || has_stateful_op ctx e)
+    (fun acc (_, e) -> acc || has_node_op ctx e)
     false l
 
 | Match (_, e, arms, _) ->
-  has_stateful_op ctx e ||
-  List.fold_left (fun acc (_, body) -> acc || has_stateful_op ctx body) false arms
+  has_node_op ctx e ||
+  List.fold_left (fun acc (_, body) -> acc || has_node_op ctx body) false arms
 
 | ADTTerm (_, _, _, args) ->
-  List.fold_left (fun acc e -> acc || has_stateful_op ctx e) false args
+  List.fold_left (fun acc e -> acc || has_node_op ctx e) false args
 | AbstractSymConst _ -> assert false 
 
-| ADTTester (_, e, _) -> has_stateful_op ctx e
+| ADTTester (_, e, _) -> has_node_op ctx e
 
 | StructUpdate (_, e1, li, e2) ->
-  has_stateful_op ctx e1 ||
+  has_node_op ctx e1 ||
   match e2 with 
-  | Some e2 -> has_stateful_op ctx e2
+  | Some e2 -> has_node_op ctx e2
   | None -> false 
   ||
   List.fold_left
@@ -621,7 +625,7 @@ function
       | GenericIndex (_, e) 
       | MapIndex (_, e)
       | SetIndex (_, e)
-      | Index (_, e, _) -> has_stateful_op ctx e
+      | Index (_, e, _) -> has_node_op ctx e
       )
     )
     false li
@@ -653,56 +657,56 @@ let build_global_ctx (decls:LustreAst.t) =
     | _ -> acc
   in
   let ctx = List.fold_left over_decls (empty_ctx ()) others in
-  let over_contract_eq (stateful, imports) = function
+  let over_contract_eq (calls_node, imports) = function
     | LA.GhostConst (FreeConst _) ->
-      (stateful, imports)
+      (calls_node, imports)
     | GhostConst (UntypedConst (_, _, e))
     | GhostConst (TypedConst (_, _, e, _))
     | GhostVars (_, _, e)
     | Assume (_, _, _, e) ->
-      (stateful || has_stateful_op ctx e, imports)
+      (calls_node || has_node_op ctx e, imports)
     | Guarantee (_, _, _, e)
     | Decreases (_, e) ->
-      (stateful || has_stateful_op ctx e, imports)
+      (calls_node || has_node_op ctx e, imports)
     | Mode (_, _, reqs, enss) ->
-      let req_or_ens_has_stateful_op req_ens_lst =
+      let req_or_ens_has_node_op req_ens_lst =
         List.fold_left
-          (fun acc (_, _, e) -> acc || has_stateful_op ctx e)
+          (fun acc (_, _, e) -> acc || has_node_op ctx e)
           false req_ens_lst
       in
-      let stateful' = stateful ||
-        req_or_ens_has_stateful_op reqs || req_or_ens_has_stateful_op enss
+      let calls_node' = calls_node ||
+        req_or_ens_has_node_op reqs || req_or_ens_has_node_op enss
       in
-      (stateful', imports)
+      (calls_node', imports)
     | ContractCall (_, node_id, ty_args, ins, _) ->
-      let arg_has_stateful_op ins =
+      let arg_has_node_op ins =
         List.fold_left
-          (fun acc e -> acc || has_stateful_op ctx e)
+          (fun acc e -> acc || has_node_op ctx e)
           false ins
       in
       (* A type argument carries expressions of its own, which are part of the
          contract just as the arguments are *)
-      let ty_arg_has_stateful_op ty_args =
+      let ty_arg_has_node_op ty_args =
         List.fold_left
           (fun acc ty ->
-            acc || LAH.fold_lustre_ty ~into_ty_args:true (has_stateful_op ctx) false (||) ty)
+            acc || LAH.fold_lustre_ty ~into_ty_args:true (has_node_op ctx) false (||) ty)
           false ty_args
       in
-      (stateful || arg_has_stateful_op ins || ty_arg_has_stateful_op ty_args,
+      (calls_node || arg_has_node_op ins || ty_arg_has_node_op ty_args,
        StringSet.add (NI.get_internal_name node_id) imports
       )
     | AssumptionVars _ ->
-      (stateful, imports)
+      (calls_node, imports)
   in
   let over_contract_decls acc = function
     | LA.ContractNodeDecl (_, (node_id, _, _, _, (_, eqns))) ->
-      let stateful, imports =
+      let calls_node, imports =
         List.fold_left
           over_contract_eq
           (false, StringSet.empty)
           eqns
       in
-      ctx_add_contract acc (NI.get_internal_name node_id) {stateful; imports }
+      ctx_add_contract acc (NI.get_internal_name node_id) {calls_node; imports }
     | _ -> acc
   in
   List.fold_left over_contract_decls ctx contract_decls
@@ -1089,26 +1093,26 @@ let over_contract_props props = function
   | LA.ContractCall _ ->
       Ok props
 
-let no_stateful_contract_imports ctx contract =
+let no_contract_imports_with_node_calls ctx contract =
   try
-    let rec check_import_stateful visited pos initial i =
+    let rec check_import visited pos initial i =
       if StringSet.mem i visited then raise Cycle ;
       match StringMap.find_opt i ctx.contracts with
-      | Some { stateful; imports } ->
-        if not stateful then
+      | Some { calls_node; imports } ->
+        if not calls_node then
           let visited = StringSet.add i visited in
           StringSet.fold
             (fun j a ->
-              a >> (check_import_stateful visited pos initial j)
+              a >> (check_import visited pos initial j)
             )
             imports
             (Ok ())
-        else syntax_error pos (IllegalImportOfStatefulContract initial)
+        else syntax_error pos (IllegalImportOfContractWithNodeCall initial)
       | None -> Ok ()
     in
     let over_eqn acc = function
       | LA.ContractCall (pos, node_id, _, _, _) ->
-        acc >> (check_import_stateful StringSet.empty pos (NI.get_internal_name node_id) (NI.get_internal_name node_id))
+        acc >> (check_import StringSet.empty pos (NI.get_internal_name node_id) (NI.get_internal_name node_id))
       | _ -> acc
     in
     List.fold_left over_eqn (Ok ()) contract
@@ -1349,12 +1353,12 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
     >> (no_restart "functions" e)
     >> (common_node_equations_checks ctx e)
   in
+  (* A function contract may have temporal operators (see [has_node_op]) *)
   let function_contract_checks ctx e =
     (no_calls_to_node "function contracts" ctx e) >> 
     let* warnings1 =  (common_contract_checks ctx e) in
-    let* warnings2 = (no_temporal_operator "function contracts" e) in 
-    let* warnings3 = (no_restart "function contracts" e) in
-    Ok (warnings1 @ warnings2 @ warnings3)
+    let* warnings2 = (no_restart "function contracts" e) in
+    Ok (warnings1 @ warnings2)
   in
   let* () =
     if is_rec.LA.is_rec then
@@ -1389,7 +1393,7 @@ and check_func_decl ctx span (node_id, ext, opac, params, inputs, outputs, local
   >> (Res.seq_ (List.map check_output_items outputs)) >> 
   let* warnings1 = (Res.seq (List.map (check_local_items ctx) locals)) in
   let* (warnings2, props) = (match contract with
-  | Some (p, c) -> no_stateful_contract_imports ctx c
+  | Some (p, c) -> no_contract_imports_with_node_calls ctx c
     >> check_contract false ctx function_contract_checks empty_ty_check (p, c) props
   | None -> Ok ([], StringSet.empty)) in 
   let* (warnings3, _) = (check_items

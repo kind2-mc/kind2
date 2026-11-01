@@ -198,6 +198,21 @@ let
 tel
 """
 
+# A selector of a datatype, partial: the generalization abstracts its
+# applications like those of any other function symbol. The quantifier
+# elimination of the solver, rather than Cooper's, used to fail on the fresh
+# variables, which are not instances of state variables (#1879).
+selector = """
+datatype D = A (v: int) | B;
+node main(i: int) returns (ok: bool);
+var d: D;
+let
+  d = A(i);
+  ok = true -> ((pre d).v = pre i);
+  check "prop" ok;
+tel
+"""
+
 
 def run_ic3qe(tmp_path, model, extra={}, flags=[]):
     path = tmp_path / "model.lus"
@@ -317,3 +332,16 @@ def test_certificate(tmp_path, model, proved):
         assert "Certificate checker was written" in output, output
     else:
         assert "CouldNotProve" in output, output
+
+
+# With the default method, Cooper's, the datatype is not in linear integer
+# arithmetic, and IC3QE switches to the solver's QE with the method impl:
+# the path of a run with the default flags
+@pytest.mark.parametrize(
+    "qe_method", [None, "precise", "impl", "impl2"],
+    ids=["default_fallback_impl", "precise", "impl", "impl2"])
+def test_selector(tmp_path, qe_method):
+    extra = {} if qe_method is None else {"--qe_method": qe_method}
+    output = run_ic3qe(tmp_path, selector, extra)
+    assert "Property prop is valid by property directed reachability (QE)" \
+        in output, output

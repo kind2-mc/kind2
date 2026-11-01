@@ -39,6 +39,10 @@ let cmd_line
       "--mbqi";                (* Use model-based quantifier instantiation (best for sat) *)
       "--full-saturate-quant"; (* Resort to full effort techniques instead of answering
                                   unknown due to limited quantifier reasoning (best for unsat) *)
+      "--no-model-var-elim-uneval"; (* Keep a variable defined as a quantified formula
+                                       from being eliminated: cvc5 may then not decide it,
+                                       and before 1.3.1 get-value returns the formula
+                                       itself instead of a value *)
     |]
   in
 

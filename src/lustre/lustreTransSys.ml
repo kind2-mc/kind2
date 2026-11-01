@@ -3914,8 +3914,9 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
                   (* Node is top, forcing contract assumption. *)
                   [ assumption_of_contract contract ],
                   (* Add property for completeness of modes if top node is
-                    abstract. *)
-                  if is_abstract then
+                    abstract to check its modes. The top node is also
+                    abstract when it has no implementation. *)
+                  if is_abstract && Flags.Contracts.check_modes () then
                     List.rev_append
                       (mode_non_vacuity_checks scope contract)
                       (one_mode_active scope contract)
@@ -4072,8 +4073,9 @@ let rec trans_sys_of_node' options globals fun_defs evaluation relevant_call
              invariant generator checks its candidates against them and lifts
              what it proves into the caller. The history flag at the current
              step also covers the previous step of a two-state invariant. A
-             function has no history flag, and is guarded by its assumptions
-             at the steps an invariant is about: the current step, and for a
+             function whose contract has no state has no history flag, and
+             is guarded by its assumptions at the steps an invariant is
+             about: the current step, and for a
              two-state invariant the previous step as well. The properties of
              the node found among them are asserted under the same guard
              below. *)
@@ -4841,31 +4843,23 @@ let uf_applied_warned = ref NI.Set.empty
    a way the check does not see. The symbol is then
    uninterpreted and tied to the outputs of the instances of the function only,
    so under the quantifier it is an arbitrary function and a property that does
-   hold of the function can be reported falsifiable. Say so. *)
+   hold of the function can be reported falsifiable. So is a defined function
+   whose definition applies such a function (see
+   [LustreFunDefs.undefined_applications]). [LustreInput] rejects such a call
+   once the nodes are compiled, from the definitions of the nodes of the
+   subsystems of the main nodes; this is a safeguard for the systems built
+   from the nodes sliced to an analysis. Say so. *)
 let warn_undefined_uf_applications fun_defs nodes =
-  nodes |> List.iter (fun { N.calls } ->
-    calls |> List.iter (fun { N.call_uf_applied; N.call_node_id } ->
-      if call_uf_applied
-         && not (LustreFunDefs.is_defined fun_defs call_node_id)
-         && not (NI.Set.mem call_node_id !uf_applied_warned)
-      then (
-        uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
-        Log.log L_warn
-          "@[<hov>Function %a is applied to quantified variables but has \
-           no definition at the SMT level, %s.@ Under the quantifier it is \
-           an arbitrary function of its inputs,@ so a property that does \
-           hold of it may be reported falsifiable.@]"
-          NI.pp_print_node_id_user_name call_node_id
-          (if LustreFunDefs.enabled () then
-             "because its body, or the body of a function of its recursive \
-              group or of a function it calls, is not a total function of its \
-              inputs that the solver can be given"
-           else
-             "because recursive functions are not defined at the SMT level \
-              with the current solver")
-      )
-    )
-  )
+  LustreFunDefs.undefined_applications fun_defs nodes
+  |> List.iter (fun ({ N.call_node_id }, reason) ->
+    if not (NI.Set.mem call_node_id !uf_applied_warned) then (
+      uf_applied_warned := NI.Set.add call_node_id !uf_applied_warned;
+      Log.log L_warn
+        "@[<hov>Function %a is applied to quantified variables, but %a.@ \
+         Under the quantifier it is an arbitrary function of its inputs,@ so \
+         a property that does hold of it may be reported falsifiable.@]"
+        NI.pp_print_node_id_user_name call_node_id
+        LustreFunDefs.pp_print_undefined_reason reason))
 
 let trans_sys_of_nodes
     ?(options=default_settings)
@@ -4893,6 +4887,14 @@ let trans_sys_of_nodes
   let { A.top } =
     A.info_of_param analysis_param
   in
+  (* A refinement of the contract check of a system without an
+     implementation, whose top system stays abstract (see
+     [Strategy.next_modular_analysis]) *)
+  let rec refines_contract_check = function
+    | A.ContractCheck _ -> true
+    | A.Refinement (_, { A.param }) -> refines_contract_check param
+    | _ -> false
+  in
   (* Make sure top level system is not abstract
 
      Contracts would be trivially satisfied otherwise *)
@@ -4900,6 +4902,7 @@ let trans_sys_of_nodes
     | A.Interpreter _
     | A.ContractCheck _ 
     | A.ContractMonitor _-> ()
+    | A.Refinement _ when refines_contract_check analysis_param -> ()
     | _ -> if A.param_scope_is_abstract analysis_param top then raise (
       Invalid_argument
         "trans_sys_of_nodes: Top-level system must not be abstract"

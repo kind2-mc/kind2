@@ -842,6 +842,62 @@ let compute ~adt_junk_ufs nodes =
   in
   compute_for ~adt_junk_ufs applied nodes
 
+(* The calls applied to quantified variables whose callee [compute] leaves
+   without a definition, or whose definition applies a function without
+   one, other than an imported function, which is meant to be arbitrary. A
+   function of another recursive group that a definition applies is applied
+   whether or not it is defined itself (see [bindings_of_node]), and is an
+   arbitrary function under the quantifier as well. *)
+let undefined_applications t nodes =
+  let applied =
+    List.concat_map
+      (fun { N.calls } ->
+         List.filter (fun { N.call_uf_applied } -> call_uf_applied) calls)
+      nodes
+  in
+  if applied = [] then [] else
+  (* The functions that are not imported, by functional symbol *)
+  let function_of_uf =
+    List.fold_left
+      (fun acc { N.node_id; N.comp_type; N.is_extern } ->
+         match comp_type with
+         | N.Function { N.uf_symbols } when not is_extern ->
+           SVM.fold
+             (fun _ uf acc -> UfSymbol.UfSymbolMap.add uf node_id acc)
+             uf_symbols acc
+         | _ -> acc)
+      UfSymbol.UfSymbolMap.empty nodes
+  in
+  List.filter_map
+    (fun ({ N.call_node_id } as call) ->
+       if not (is_defined t call_node_id) then Some (call, `Undefined)
+       else
+         ufs_of_node t call_node_id
+         |> List.find_map (fun uf ->
+           UfSymbol.UfSymbolMap.find_opt uf function_of_uf)
+         |> Option.map (fun callee -> call, `Applies callee))
+    applied
+
+(* Why a call that [undefined_applications] returns has an arbitrary
+   callee under the quantifier *)
+let pp_print_undefined_reason ppf = function
+  | `Applies callee ->
+    Format.fprintf ppf
+      "its definition applies '%a', which has no definition at the SMT level"
+      NI.pp_print_node_id_user_name callee
+  | `Undefined when enabled () ->
+    Format.fprintf ppf
+      "it has no definition at the SMT level, because its body, or the body \
+       of a function of its recursive group or of a function it calls, is \
+       not a total function of its inputs that the solver can be given (an \
+       array literal or an array repetition passed to a call, for instance, \
+       is defined element by element)"
+  | `Undefined ->
+    Format.fprintf ppf
+      "it has no definition at the SMT level, because recursive functions \
+       are not defined at the SMT level with the current solver (Z3 and \
+       cvc5 define them)"
+
 let compute_all ~adt_junk_ufs nodes =
   let recursive =
     List.fold_left

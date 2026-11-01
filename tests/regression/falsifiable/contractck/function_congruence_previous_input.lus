@@ -1,0 +1,19 @@
+-- The contract of G is realizable by a node but not by a function. Without
+-- the contract checker, the calls of G constrain their outputs to values no
+-- function has: when a = a2, the functional constraints make the outputs
+-- equal, while the contract makes them equal to different previous inputs,
+-- and the traces on which P is false are excluded. Kind 2 then notes that it
+-- does not check whether a function realizes the contract (see
+-- test_function_temporal_contract_calls.py).
+
+function imported G(x: int) returns (y: int);
+(*@contract
+  guarantee y = (0 -> pre x);
+*)
+
+node Main(a, a2: int) returns (b, b2: int);
+let
+  b = G(a);
+  b2 = G(a2);
+  check "P" true -> not (a = a2 and pre a <> pre a2);
+tel

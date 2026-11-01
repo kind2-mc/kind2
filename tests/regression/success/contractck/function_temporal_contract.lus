@@ -1,0 +1,12 @@
+-- A function contract with temporal operators that a function realizes,
+-- y = (if x > 0 then 1 else 0). The monotonicity of the output follows from
+-- that of the input, which is only assumed.
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  assume true -> x >= pre x;
+  guarantee x <= 0 => y = 0;
+  guarantee x > 0 => y > 0;
+  guarantee true -> y >= pre y;
+  guarantee y <= 10;
+*)

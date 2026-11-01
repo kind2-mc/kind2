@@ -1,0 +1,10 @@
+-- A function contract with several inputs and outputs, realized by the
+-- function y = a, z = (a > b).
+
+function imported F(a, b: int) returns (y: int; z: bool);
+(*@contract
+  assume true -> a >= pre a;
+  guarantee true -> y >= pre y;
+  guarantee y >= a;
+  guarantee z = (a > b);
+*)

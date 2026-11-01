@@ -1,0 +1,12 @@
+-- An alarm with hysteresis on a level that never decreases: the history no
+-- longer matters, and the function alarm = (level >= 90) realizes the
+-- contract (see falsifiable/contractck/function_hysteresis.lus).
+
+function imported Alarm(level: int) returns (alarm: bool);
+(*@contract
+  assume "A1" true -> level >= pre level;
+  guarantee "G1" level >= 90 => alarm;
+  guarantee "G2" level < 50 => not alarm;
+  guarantee "G3" true -> (pre alarm and level >= 50 => alarm);
+  guarantee "G4" true -> (not pre alarm and level < 90 => not alarm);
+*)

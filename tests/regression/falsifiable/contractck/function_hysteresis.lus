@@ -1,0 +1,12 @@
+-- An alarm with hysteresis: it turns on at level 90 and stays on until the
+-- level drops below 50. A node realizes the contract, a function does not:
+-- at a level between 50 and 90, the alarm is on after level 90, and off
+-- after level 0.
+
+function imported Alarm(level: int) returns (alarm: bool);
+(*@contract
+  guarantee "G1" level >= 90 => alarm;
+  guarantee "G2" level < 50 => not alarm;
+  guarantee "G3" true -> (pre alarm and level >= 50 => alarm);
+  guarantee "G4" true -> (not pre alarm and level < 90 => not alarm);
+*)

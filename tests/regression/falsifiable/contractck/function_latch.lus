@@ -1,0 +1,9 @@
+-- A latch: a node realizes the contract, a function does not, since the
+-- output when neither input is set depends on the previous inputs.
+
+function imported L(s, r: bool) returns (y: bool);
+(*@contract
+  guarantee s => y;
+  guarantee r and not s => not y;
+  guarantee (not s and not r) => (y = (false fby y));
+*)

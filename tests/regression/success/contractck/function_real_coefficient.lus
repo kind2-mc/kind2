@@ -1,0 +1,9 @@
+-- The function y = 0.5 * x realizes the contract: a linear template over a
+-- real input, with a coefficient among the small constants.
+
+function imported R(x: real) returns (y: real);
+(*@contract
+  assume true -> x >= pre x;
+  guarantee true -> y >= pre y;
+  guarantee 2.0 * y = x;
+*)

@@ -1,0 +1,7 @@
+-- A node realizes the contract by alternating its output, a function does
+-- not: on a constant input, the output of a function is constant.
+
+function imported F(x: int) returns (y: bool);
+(*@contract
+  guarantee true -> y <> pre y;
+*)

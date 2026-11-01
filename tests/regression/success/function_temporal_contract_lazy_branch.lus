@@ -1,0 +1,20 @@
+-- A function whose contract has temporal operators is clocked by the branch
+-- of a when block it is called in, as a node is: the temporal operators of
+-- its contract refer to the previous instant at which it was called. Its
+-- output at the instants the branch is not taken is not one of its values,
+-- and its guarantee would otherwise compare its output on reactivation with
+-- that value.
+
+function G(x: int) returns (y: int);
+(*@contract
+  guarantee y >= 0;
+  guarantee true -> (x >= pre x => y >= pre y);
+*)
+let
+  y = if x < 0 then 0 else x;
+tel
+
+node Main(a: int; c: bool) returns (b: int);
+let
+  b = when c then G(a) else 0;
+tel

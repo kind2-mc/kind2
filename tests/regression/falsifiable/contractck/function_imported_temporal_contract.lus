@@ -1,0 +1,12 @@
+-- The temporal operators of a function contract may come from an imported
+-- contract. No function realizes this one (see function_previous_input.lus).
+
+contract Delay(x: int) returns (y: int);
+let
+  guarantee y = (0 -> pre x);
+tel
+
+function imported F(x: int) returns (y: int);
+(*@contract
+  import Delay(x) returns (y);
+*)
