@@ -715,9 +715,11 @@ exception Quantified_term
 
 (* The generalization abstracts the system over application variables: a
    state variable [a] for each shape of application [f(t)] of an abstracted
-   symbol, with [a' = f(t')] after each transition, [a = f(t)] in the
-   initial states, and the congruence of the application variables of a
-   symbol, [t = u => a = b] for [a = f(t)] and [b = f(u)], in both states.
+   symbol, with [a = f(t)] in both states of each transition (an
+   application of a symbol to the previous state is one at offset zero in
+   the transition relation), and the congruence of the application
+   variables of a symbol, [t = u => a = b] for [a = f(t)] and [b = f(u)],
+   in both states.
    The abstract system is the system with the applications as function
    outputs, which Kind 2 gives a state variable each: the quantifier
    elimination sees variables only, and the cubes, clauses and frames are
@@ -995,9 +997,9 @@ let congruence av bv k =
       Term.mk_eq [ a ; b ] ]
 
 (* Declare the application variables not declared yet in the solver of
-   IC3QE, with their constraints: their definition, after a transition and
-   in the initial state, and their congruence with the application
-   variables of the symbol declared before *)
+   IC3QE, with their constraints: their definition, in both states of a
+   transition, and their congruence with the application variables of the
+   symbol declared before *)
 let declare_pending solver =
   let a = abstraction () in
   let pending = a.pending in
@@ -1009,7 +1011,7 @@ let declare_pending solver =
      | `None -> add_definition solver (def Numeral.zero)
      | `Zero ->
        add_definition solver (def Numeral.one) ;
-       add_init_constraint solver (def Numeral.zero)
+       add_definition solver (def Numeral.zero)
      | `Mixed -> add_definition solver (def Numeral.one)) ;
     List.iter (fun bv ->
       if symbol_of_shape bv.shape == symbol_of_shape av.shape then (

@@ -5,9 +5,9 @@ function symbols, so IC3QE used to shut down on any system with an abstract
 function (an imported function, a function abstracted by its contract, ...)
 or a recursive function defined at the SMT level. The generalization now
 works on an abstraction of the system: each shape of application of such
-a symbol, f(t), has an application variable a, with a' = f(t') after each
-transition, a = f(t) in the initial states and the congruence of the
-application variables of a symbol (equal arguments give equal values). The
+a symbol, f(t), has an application variable a, with a = f(t) in both
+states of each transition and the congruence of the application variables
+of a symbol (equal arguments give equal values). The
 checks of IC3QE keep the symbols, so its proofs hold of the system. The
 abstraction relates the applications of one state and the next only, so a
 counterexample of the abstraction may interpret a symbol differently at
