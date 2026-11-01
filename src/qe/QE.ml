@@ -46,6 +46,12 @@ let get_ubound () = !(ubound ())
 
 let set_ubound bound = ubound () := bound
 
+(* The variables of the engines beyond those of the system, to declare in
+   the solver of the quantifier elimination *)
+let extra_vars =
+  let key = Domain.DLS.new_key (fun () -> ref []) in
+  fun () -> Domain.DLS.get key
+
 let get_qe_solver () =
   match Flags.Smt.qe_solver () with
   | `cvc5_SMTLIB -> `cvc5_SMTLIB
@@ -84,6 +90,9 @@ let get_solver_instance trans_sys =
         (SMTSolver.declare_fun solver)
         (SMTSolver.declare_sort solver)
         Numeral.zero !(ubound ());
+
+      (* Declare the variables of the engines *)
+      Var.declare_all_vars (SMTSolver.declare_fun solver) !(extra_vars ()) ;
       
       SMTSolver.trace_comment solver "Defining predicates";
 
@@ -115,6 +124,15 @@ let get_solver_instance trans_sys =
     (* Return existing instance *)
     | Some s -> s 
   
+
+
+(* Declare variables of an engine in the solver of the quantifier
+   elimination, now and when it is created *)
+let declare_vars vars =
+  extra_vars () := !(extra_vars ()) @ vars ;
+  match !(solver_qe ()) with
+  | Some solver -> Var.declare_all_vars (SMTSolver.declare_fun solver) vars
+  | None -> ()
 
 
 (*

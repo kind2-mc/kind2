@@ -754,6 +754,22 @@ module IC3QE = struct
     )
   let check_inductive () = !check_inductive
 
+  let uf_refinements_default = 20
+  let uf_refinements = ref uf_refinements_default
+  let _ = add_spec
+    "--ic3qe_uf_refinements"
+    (Arg.Set_int uf_refinements)
+    (fun fmt ->
+    Format.fprintf fmt
+      "@[<v>Number of refinements of the abstraction of the function symbols@ \
+       of a system in the generalization (0 for none): a spurious@ \
+       counterexample, which interprets a symbol differently at different@ \
+       steps, adds history variables that relate the applications of the@ \
+       two steps@ Default: %d@]"
+      uf_refinements_default
+    )
+  let uf_refinements () = !uf_refinements
+
   let print_to_file_default = None
   let print_to_file = ref print_to_file_default
   let _ = add_spec
