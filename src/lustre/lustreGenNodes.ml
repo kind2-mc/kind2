@@ -71,8 +71,8 @@ let error_message = function
   | RefinedConstructionBoundVariable v ->
     "Bound variable '" ^ HString.string_of_hstring v
     ^ "' is not allowed in a record or constructor expression whose field \
-       types contain a refinement type, where the refinement is checked on a \
-       constant"
+       types contain a refinement type; define the expression as a constant of \
+       the record's type, outside the binder, and use that constant here"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
@@ -88,6 +88,11 @@ let deferred_errors: (Lib.position * error_kind) list ref = ref []
    unless type checking rejects it first *)
 let defer_match_refusal pos =
   deferred_errors := (pos, MatchScrutineeUnsupported) :: !deferred_errors
+
+(* Refuse a construction whose obligation has nowhere to go, unless type
+   checking rejects the program first with a message of its own *)
+let defer_construction_refusal pos v =
+  deferred_errors := (pos, RefinedConstructionBoundVariable v) :: !deferred_errors
 
 let inserted_ascription_infix = ".subtype_"
 
@@ -545,15 +550,15 @@ let collecting_hoisted f =
 
 (* Record that the obligation of the construction e of type ty is to be carried
    by a fresh constant. No declaration can mention a variable bound inside e, so
-   such a construction is refused; any other variable leaves it unchecked, as
-   the position is then one a later pass reports on. *)
+   such a construction is refused. A construction mentioning a variable of the
+   enclosing node is left unchecked: a measure and a refinement predicate may
+   mention one, and no obligation about a constant covers those. *)
 let hoist_construction ~bound ctx e ty =
   let vars =
     AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx
   in
   match List.find_opt (fun v -> Ctx.SI.mem v bound) vars with
-  | Some v ->
-    raise (Gen_nodes_error (AH.pos_of_expr e, RefinedConstructionBoundVariable v))
+  | Some v -> defer_construction_refusal (AH.pos_of_expr e) v
   | None ->
     if List.for_all (fun v -> Option.is_some (Ctx.lookup_const ctx v)) vars then
       hoisted_consts := (AH.pos_of_expr e, e, ty) :: !hoisted_consts
@@ -659,8 +664,9 @@ fun ?(bound = Ctx.SI.empty) ctx nname e ->
       under_binders (AH.pat_bound_vars_with_pos pat |> List.map fst) arm_e
     ) arms
 
-(* The expressions of a type are constant: an array's length and a refinement's
-   predicate. A type synonym is not followed, its own declaration is visited. *)
+(* An array's length is a constant expression; a refinement's predicate is not,
+   but takes no ascription either. A type synonym is not followed, its own
+   declaration is visited. *)
 and hoist_in_const_type: ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t option -> A.lustre_type -> unit =
 fun ?(bound = Ctx.SI.empty) ctx nname ty ->
   let r = hoist_in_const_type ~bound ctx nname in
@@ -1720,10 +1726,16 @@ fun ctx decls ->
     ) hoisted
     @ [decl]
   in
-  (* This pass runs outside the handler of gen_nodes below, so a construction
-     it refuses is caught here *)
-  try Ok (List.concat_map checks_of decls)
-  with Gen_nodes_error (pos, kind) -> Error (`LustreGenNodesError (pos, kind))
+  (* The global declarations are type checked before this pass, so a refusal
+     here stands at once; the ones gen_nodes collects wait for type checking *)
+  let saved = !deferred_errors in
+  deferred_errors := [];
+  let decls = List.concat_map checks_of decls in
+  let refused = List.rev !deferred_errors in
+  deferred_errors := saved;
+  match refused with
+  | [] -> Ok decls
+  | (pos, kind) :: _ -> Error (`LustreGenNodesError (pos, kind))
 
 let gen_nodes: Ctx.tc_context -> A.declaration list
   -> (A.declaration list * [> error] option, [> error]) result =

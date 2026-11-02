@@ -1647,6 +1647,10 @@ let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
     match load_file "./lustreGenNodes/refined_construction_quantified_in_refinement.lus" with
     | Error (`LustreGenNodesError (_, RefinedConstructionBoundVariable _)) -> true
     | _ -> false);
+  mk_test "test refined construction mentioning a quantified variable in a ghost constant" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_quantified_in_ghost_const.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionBoundVariable _)) -> true
+    | _ -> false);
   mk_test "test ascribed scrutinee under a quantifier is accepted" (fun () ->
     match load_file "./lustreGenNodes/match_ascribed_scrutinee_quantifier.lus" with
     | Ok _ -> true
