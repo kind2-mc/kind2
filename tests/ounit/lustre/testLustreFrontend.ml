@@ -58,6 +58,14 @@ let _ = run_test_tt_main ("frontend LustreAstInlineConstants error tests" >::: [
 (*                           Lustre Syntax Checks                              *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
+  mk_test "brace constructor in global const type" (fun () ->
+    match load_file "./lustreSyntaxChecks/brace_constructor_in_global_const_type.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
+    | _ -> false);
+  mk_test "brace constructor in global type array size" (fun () ->
+    match load_file "./lustreSyntaxChecks/brace_constructor_in_global_type_array_size.lus" with
+    | Error (`LustreSyntaxChecksError (_, NodeCallInGlobalTypeDecl _)) -> true
+    | _ -> false);
   mk_test "test bad underscore" (fun () ->
     match load_file "./lustreSyntaxChecks/bad_underscore.lus" with
     | Error (`LustreSyntaxChecksError (_, InvalidUnderscore)) -> true
@@ -1283,6 +1291,38 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | Error (`LustreTypeCheckerError (_,
         MismatchedNodeType (_, TArr (_, Bool _, _), TArr (_, Int _, _)))) -> true
     | _ -> false);
+  mk_test "brace constructor in quantifier binder type" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_in_quantifier_binder_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "brace constructor explicit in quantifier binder type" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_explicit_in_quantifier_binder_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "brace constructor in local const type" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_in_local_const_type.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "brace constructor in call type arg" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_in_call_type_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
+    | _ -> false);
+  mk_test "refinement type argument in brace constructor in constant" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_refinement_type_arg_in_constant.lus" with
+    | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
+    | _ -> false);
+  mk_test "quantifier binder shadowing a brace constructor" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_quantifier_binder_shadows.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashQuantifierBinder))) -> true
+    | _ -> false);
+  mk_test "wrong field type in a brace constructor" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_wrong_field_type.lus" with
+    | Error (`LustreTypeCheckerError (_, IlltypedIdentifier _)) -> true
+    | _ -> false);
+  mk_test "duplicate constructor reported over a brace field error" (fun () ->
+    match load_file "./lustreTypeChecker/brace_constructor_duplicate_declaration.lus" with
+    | Error (`LustreTypeCheckerError (_, DuplicateConstructor _)) -> true
+    | _ -> false);
   mk_test "refinement type argument in global constant" (fun () ->
     match load_file "./lustreTypeChecker/refinement_type_arg_global_const.lus" with
     | Error (`LustreTypeCheckerError (_, RefinementTypeArgInConstant _)) -> true
@@ -1623,9 +1663,91 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
 ])
 
 (* *************************************************************************** *)
+(*                    Lustre Desugar Constructor Braces Checks                 *)
+(* *************************************************************************** *)
+let _ = run_test_tt_main ("frontend LustreDesugarConstructorBraces error tests" >::: [
+  mk_test "test name clash record" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_record.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test name clash record declared after" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_record_declared_after.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test name clash alias" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_alias.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test name clash abstract" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_abstract.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test name clash datatype" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_datatype.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test name clash enum value" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_enum_value.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test name clash before field error" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/name_clash_before_field_error.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, ConstructorNamedAsType _)) -> true
+    | _ -> false);
+  mk_test "test missing field" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/missing_field.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, MissingConstructorField _)) -> true
+    | _ -> false);
+  mk_test "test missing field empty braces" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/missing_field_empty_braces.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, MissingConstructorField _)) -> true
+    | _ -> false);
+  mk_test "test unknown field" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/unknown_field.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, UnknownConstructorField _)) -> true
+    | _ -> false);
+  mk_test "test unknown field nullary" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/unknown_field_nullary.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, UnknownConstructorField _)) -> true
+    | _ -> false);
+  mk_test "test unknown field in type predicate" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/unknown_field_in_type_predicate.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, UnknownConstructorField _)) -> true
+    | _ -> false);
+  mk_test "test repeated field" (fun () ->
+    match load_file "./lustreDesugarConstructorBraces/repeated_field.lus" with
+    | Error (`LustreDesugarConstructorBracesError (_, RepeatedConstructorField _)) -> true
+    | _ -> false);
+])
+
+(* *************************************************************************** *)
 (*                            Lustre Gen Nodes Checks                          *)
 (* *************************************************************************** *)
 let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
+  mk_test "test constructor type arg forall variable" (fun () ->
+    match load_file "./lustreGenNodes/constructor_type_arg_forall_variable.lus" with
+    | Error (`LustreGenNodesError (_, ConstructorTypeArgBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test constructor type arg exists variable" (fun () ->
+    match load_file "./lustreGenNodes/constructor_type_arg_exists_variable.lus" with
+    | Error (`LustreGenNodesError (_, ConstructorTypeArgBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test constructor type arg any binder" (fun () ->
+    match load_file "./lustreGenNodes/constructor_type_arg_any_binder.lus" with
+    | Error (`LustreGenNodesError (_, ConstructorTypeArgBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test constructor type arg choose binder" (fun () ->
+    match load_file "./lustreGenNodes/constructor_type_arg_choose_binder.lus" with
+    | Error (`LustreGenNodesError (_, ConstructorTypeArgBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test constructor type arg comprehension index" (fun () ->
+    match load_file "./lustreGenNodes/constructor_type_arg_comprehension_index.lus" with
+    | Error (`LustreGenNodesError (_, ConstructorTypeArgBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test constructor type arg nested" (fun () ->
+    match load_file "./lustreGenNodes/constructor_type_arg_nested.lus" with
+    | Error (`LustreGenNodesError (_, ConstructorTypeArgBoundVariable _)) -> true
+    | _ -> false);
   mk_test "test quantified variable in an arm of a shared-scrutinee match" (fun () ->
     match load_file "./lustreGenNodes/match_arm_quantified_var.lus" with
     | Error (`LustreGenNodesError (_, MatchScrutineeQuantifiedVariable _)) -> true

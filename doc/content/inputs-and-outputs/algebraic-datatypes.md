@@ -50,6 +50,29 @@ datatype Color = Red | Green | Blue;
 const c: Color = Red;
 ```
 
+A constructor can also be applied with curly braces and named fields, given in
+any order and separated by semicolons:
+
+```lustre
+datatype List = Cons (head: int, tail: List) | Nil;
+
+node main(x: int) returns (y: List);
+let
+  y = Cons { tail = Nil; head = x };  -- same as Cons(x, Nil)
+tel
+```
+
+Every field must be given exactly once. `Nil {}` is the same as `Nil`, and type
+arguments may be given explicitly, as in `Some@<int> { val = x }` or
+`None@<int> {}`. An explicit type argument may not mention a variable bound
+within the expression, such as a quantified variable.
+
+Since record values are written the same way, a constructor may not have the name of a
+declared type (including a record, a type alias, an abstract type, another datatype or
+an enum), whichever is declared first. The one exception is the datatype that
+declares the constructor, as in `datatype Wrap = Wrap (val: int);`, where
+`Wrap { val = 1 }` builds a `Wrap`.
+
 ADT equality (`=` and
 `<>`) is structurally defined: two values are equal if and only if they were built with
 the same constructor and all their fields are pairwise equal (within this given constructor).

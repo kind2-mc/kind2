@@ -1,0 +1,8 @@
+datatype D = C (a: subtype { w: int | w >= 0 }, b: int) | N;
+
+const k: D = C { b = 0; a = 0 - 1 };
+
+node main() returns (y: D);
+let
+  y = k;
+tel

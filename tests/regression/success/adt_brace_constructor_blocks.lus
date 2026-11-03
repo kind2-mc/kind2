@@ -1,0 +1,23 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+
+node main(c: bool; x: int; s: L)
+returns (i: L; w: L; m: L; f: L; t: L; n: int);
+let
+  if c then i = Cons { tl = Nil; hd = x }; else i = Nil {}; fi
+  when c then w = Cons { tl = Nil; hd = x }; else w = Nil {}; end
+  match s with
+  | Cons (a, b): m = Cons { tl = b; hd = a };
+  | Nil: m = Nil {};
+  end
+  frame (f) f = Cons { tl = Nil; hd = 0 };
+  let
+    if c then f = Cons { tl = Nil; hd = x }; fi
+  tel
+  t = when c then Cons { tl = Nil; hd = 0 -> pre n + 1 } else Nil;
+  n = 0 -> pre n + 1;
+  check c => i = Cons(x, Nil);
+  check Cons?(w) = c;
+  check m = s;
+  check Cons?(f);
+  check Cons?(t) = c;
+tel

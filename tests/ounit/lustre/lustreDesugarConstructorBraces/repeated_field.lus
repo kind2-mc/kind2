@@ -1,0 +1,5 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+node N(x: int) returns (y: L);
+let
+  y = Cons { hd = x; hd = 1; tl = Nil };
+tel

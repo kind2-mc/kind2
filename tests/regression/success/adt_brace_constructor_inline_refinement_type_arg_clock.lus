@@ -1,0 +1,14 @@
+datatype O<T> = Some (v: T) | None;
+
+node once(c: bool) returns (o: bool);
+let
+  o = c or (false -> pre o);
+tel
+
+node main(c: bool) returns (y: O<int>);
+var seen: bool;
+let
+  seen = false -> pre once(c);
+  y = when c then Some@<subtype { z: int | z >= 0 }> { v = 0 -> 1 } else None@<int>;
+  check (c and not seen) ==> y = Some { v = 0 };
+tel

@@ -1,0 +1,6 @@
+datatype A = X (a: int);
+datatype B = X (b: int);
+node N(x: int) returns (y: A);
+let
+  y = X { a = x };
+tel

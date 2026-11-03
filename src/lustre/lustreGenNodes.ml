@@ -34,6 +34,7 @@ type error_kind =
   | MatchScrutineeInLocalDecl
   | MatchScrutineeUnsupported
   | TemporalBranchQuantifiedVariable of HString.t
+  | ConstructorTypeArgBoundVariable of HString.t * HString.t
 
 (* The matches whose scrutinee must be shared, as scrutinee_must_be_shared
    classifies them *)
@@ -63,6 +64,9 @@ let error_message = function
     ^ " cannot appear in the type of a local declaration"
   | MatchScrutineeUnsupported ->
     "A match " ^ shared_scrutinee ^ " is not supported here"
+  | ConstructorTypeArgBoundVariable (id, ctor) ->
+    "The type argument of constructor '" ^ HString.string_of_hstring ctor
+    ^ "' mentions the locally bound variable '" ^ HString.string_of_hstring id ^ "'"
   | TemporalBranchQuantifiedVariable id ->
     "Quantified variable '" ^ HString.string_of_hstring id
     ^ "' is not allowed in a branch of a lazy construct that uses a \
@@ -894,6 +898,14 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     else
       Match (pos, e, arms, ty_opt), gen_nodes
   | ADTTerm (pos, ty_args, ctor, args) ->
+    (* The refinement of a type argument could not be checked on the fields *)
+    let ty_arg_vars =
+      List.fold_left (fun acc ty -> Ctx.SI.union acc (AH.vars_of_type ~into_ty_args:true ty))
+        Ctx.SI.empty ty_args
+    in
+    (match args, Ctx.SI.min_elt_opt (Ctx.SI.inter ty_arg_vars bound) with
+     | _ :: _, Some id -> raise (Gen_nodes_error (pos, ConstructorTypeArgBoundVariable (id, ctor)))
+     | [], _ | _, None -> ());
     let ty_args, gen_nodes_ty = List.map (desugar_type ctx node_name fun_ids) ty_args |> List.split in
     let args, gen_nodes = List.map rec_call args |> List.split in
     let e = A.ADTTerm (pos, ty_args, ctor, args) in

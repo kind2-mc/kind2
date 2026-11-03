@@ -410,6 +410,11 @@ and mk_graph_expr ?(only_modes = false)
   | LA.Call (_, _, _, es) ->
      List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
        (List.map (mk_graph_expr ~only_modes) es)
+  | LA.ADTTerm (_, ty_args, _, es) ->
+     List.fold_left union_dependency_analysis_data
+       (List.fold_left union_dependency_analysis_data empty_dependency_analysis_data
+         (List.map mk_graph_type ty_args))
+       (List.map (mk_graph_expr ~only_modes) es)
   | LA.EmptyMap (_, Some (kt, vt)) -> 
     union_dependency_analysis_data
       (mk_graph_type kt)

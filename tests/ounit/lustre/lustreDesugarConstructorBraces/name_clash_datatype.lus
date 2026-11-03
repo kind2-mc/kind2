@@ -1,0 +1,6 @@
+datatype Foo = K;
+datatype D = Foo (b: int) | E;
+node N() returns (y: D);
+let
+  y = E;
+tel
