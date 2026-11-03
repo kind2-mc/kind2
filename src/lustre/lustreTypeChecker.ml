@@ -247,7 +247,7 @@ let error_message kind = match kind with
       NI.pp_print_node_id_user_name node_id
   | TempOperatorInFuncTypeAscription -> "Type ascription in the context of a function cannot have temporal operator or node call"
   | RefinementTypeArgInConstant id ->
-    Format.asprintf "Record expression of type %a with a refinement type argument is not supported where a constant expression is expected"
+    Format.asprintf "Record or constructor expression of type %a with a refinement type argument is not supported where a constant expression is expected"
       HString.pp_print_hstring id
   | NoIndexAccessInArrayLength ty -> 
     Format.asprintf "Index access is not supported in array length in type %a"
@@ -609,9 +609,8 @@ let rec refinement_in_type_args ctx name ty_args =
     refinement_in_type_args ctx name' args
   | Some _ | None -> false
 
-(* A record expression in e with a type argument containing a refinement
-   type, whose refinement cannot be checked in a constant expression. The
-   record expression e itself is not reported if exempt_top holds. *)
+(* A record or constructor expression in e with a refinement type argument, which
+   a constant expression cannot check. With exempt_top, e itself is not reported. *)
 let rec refinement_type_arg_in_expr ?(exempt_top = false) ctx e =
   let r = refinement_type_arg_in_expr ctx in
   let first l = List.fold_left (fun acc x -> match acc with Some _ -> acc | None -> x) None l in
@@ -637,21 +636,34 @@ let rec refinement_type_arg_in_expr ?(exempt_top = false) ctx e =
   | Quantifier (_, _, tis, e) -> first (List.map (fun (_, _, ty) -> r_ty ty) tis @ [r e])
   | ArrayComprehension (_, bs, e) -> first (List.map (fun (_, _, n) -> r n) bs @ [r e])
   | RestartEvery (_, _, es, e) -> first (List.map r es @ [r e])
+  (* A nullary constructor carries no value to check *)
+  | ADTTerm (pos, (_ :: _ as ty_args), ctor, (_ :: _ as es)) ->
+    let name = match lookup_constructor ctx ctor with
+      | Some (ty_name, _) -> ty_name
+      | None -> ctor
+    in
+    if not exempt_top && refinement_in_type_args ctx name ty_args then Some (pos, name)
+    else first (List.map r_ty ty_args @ List.map r es)
   | Call (_, ty_args, _, es) | ADTTerm (_, ty_args, _, es) ->
     first (List.map r_ty ty_args @ List.map r es)
   | Match (_, e, arms, _) -> first (r e :: List.map (fun (_, e) -> r e) arms)
 
-(* Reject a refinement type argument in the constant expression e, unless e is
-   a record expression whose type is exactly the declared type, which then
-   yields the refinement check. checked is e after type checking, which carries
-   the inferred type arguments. *)
+(* Reject a refinement type argument in the constant expression e, unless e has
+   exactly the declared type, which yields the check. checked is e type-checked. *)
 let check_no_refinement_type_arg ctx declared e checked =
+  let has_declared_type pos name ty_args ty =
+    let inst_ty = expand_type_syn ctx (LA.UserType (pos, ty_args, name)) in
+    match LH.syn_type_equal None inst_ty (expand_type_syn ctx ty) with
+    | Ok equal -> equal
+    | Error () -> false
+  in
   let exempt_top = match e, checked, declared with
     | LA.RecordExpr _, LA.RecordExpr (pos, name, ty_args, _), Some ty ->
-      let rec_ty = expand_type_syn ctx (LA.UserType (pos, ty_args, name)) in
-      (match LH.syn_type_equal None rec_ty (expand_type_syn ctx ty) with
-      | Ok equal -> equal
-      | Error () -> false)
+      has_declared_type pos name ty_args ty
+    | LA.ADTTerm _, LA.ADTTerm (pos, ty_args, ctor, _), Some ty ->
+      (match lookup_constructor ctx ctor with
+      | Some (name, _) -> has_declared_type pos name ty_args ty
+      | None -> false)
     | _, _, _ -> false
   in
   match refinement_type_arg_in_expr ~exempt_top ctx e with

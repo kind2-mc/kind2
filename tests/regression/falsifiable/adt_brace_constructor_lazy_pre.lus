@@ -1,0 +1,9 @@
+datatype D = C (a: int) | N;
+
+node main(c: bool) returns (y: D);
+var n: int;
+let
+  n = 0 -> pre n + 1;
+  y = when c then C { a = 0 -> n } else N;
+  check C?(y) ==> y.a = 0;
+tel

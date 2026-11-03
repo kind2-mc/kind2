@@ -12,5 +12,6 @@
    (glob_files lustreCheckADTDecreases/*.lus)
    (glob_files lustreFunDefs/*.lus)
    (glob_files lustreGenNodes/*.lus)
+   (glob_files lustreDesugarConstructorBraces/*.lus)
   )
   (libraries ounit2 kind2dev))

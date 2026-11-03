@@ -1,0 +1,5 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+node N() returns ();
+let
+  check forall (Nil: int) Nil {} = Nil {};
+tel

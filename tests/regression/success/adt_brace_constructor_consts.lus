@@ -1,0 +1,19 @@
+const a: L = Cons { tl = t; hd = b };
+const t: L = Cons { hd = c; tl = Nil {} };
+const b: int = c + 1;
+const c: int = 2;
+const o: O<T> = Some@<T> { v = b };
+
+type P = subtype { w: L | w <> Cons { tl = Nil; hd = c } };
+datatype L = Cons (hd: int, tl: L) | Nil;
+datatype O<X> = Some (v: X) | None;
+type T = int;
+
+node main() returns (y: L; z: O<int>; p: P);
+let
+  y = a;
+  z = o;
+  p = Nil;
+  check y = Cons(3, Cons(2, Nil));
+  check z = Some(3);
+tel

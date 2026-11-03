@@ -1,0 +1,7 @@
+datatype P = Mk (a: int, b: int);
+
+node main(x: int) returns (y: P);
+let
+  y = Mk { b = x; a = 0 };
+  check y = Mk(x, 0);
+tel

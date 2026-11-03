@@ -1,0 +1,5 @@
+datatype O<T> = Some (v: T) | None;
+node N() returns (y: int);
+let
+  y = any { z: int | Some@<subtype { w: int | w > z }> { v = z - 1 } <> None@<int> };
+tel

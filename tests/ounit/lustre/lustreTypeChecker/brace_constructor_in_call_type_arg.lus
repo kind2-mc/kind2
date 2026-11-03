@@ -1,0 +1,9 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+node id<T>(x: T) returns (y: T);
+let
+  y = x;
+tel
+node N(x: L) returns (y: L);
+let
+  y = id@<subtype { w: L | w <> Cons { tl = Nil; hd = 1 } }>(x);
+tel

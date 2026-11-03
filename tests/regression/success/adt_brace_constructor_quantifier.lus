@@ -1,0 +1,9 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+datatype O<T> = Some (v: T) | None;
+
+node main() returns ();
+let
+  check forall (i: int) Cons { tl = Nil; hd = i } <> Nil {};
+  check exists (i: int) Cons { tl = Nil; hd = i } = Cons(3, Nil);
+  check forall (i: int) Some@<int> { v = i } <> None@<int>;
+tel

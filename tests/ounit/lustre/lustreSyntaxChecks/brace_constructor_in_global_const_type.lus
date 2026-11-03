@@ -1,0 +1,6 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+const k: subtype { w: L | w <> Cons { tl = Nil; hd = 1 } } = Nil;
+node N() returns (y: L);
+let
+  y = k;
+tel

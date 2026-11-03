@@ -1,0 +1,5 @@
+datatype O<T> = Some (v: T) | None;
+node N() returns ();
+let
+  check forall (j: subtype { w: O<int> | w = Some@<int> { v = 1 } }) Some?(j);
+tel

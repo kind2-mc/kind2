@@ -1,0 +1,21 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+
+contract c(a: int) returns (r: L);
+let
+  var g: L = Cons { tl = Nil; hd = a };
+  guarantee r = g;
+tel
+
+node main(x: int) returns (y: L);
+(*@contract
+  const k: L = Cons { hd = 1; tl = Nil };
+  var g: L = Cons { tl = Nil; hd = x };
+  assume x > 0 or x <= 0;
+  guarantee g <> k or x = 1;
+  mode pos (require x > 0; ensure y = Cons { hd = x; tl = Nil };);
+  mode neg (require x <= 0; ensure y = Cons { tl = Nil {}; hd = x };);
+  import c(x) returns (y);
+*)
+let
+  y = Cons(x, Nil);
+tel
