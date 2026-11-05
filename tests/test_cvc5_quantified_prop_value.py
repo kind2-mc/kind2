@@ -12,7 +12,8 @@ from the counterexample of the other one.
 cvc5 1.3.1 and later compute such values with a subsolver, unless given
 --no-check-model-subsolver. A wrapper passes that option when the installed
 cvc5 has it, so that the behavior of 1.3.0 is reproduced whatever the
-version.
+version. The wrapper also reports version 1.3.0, for which Kind 2 keeps cvc5
+from eliminating the variable.
 """
 
 import json
@@ -61,6 +62,7 @@ def test_cvc5_quantified_prop_value(tmp_path, engines):
     wrapper = tmp_path / "cvc5"
     wrapper.write_text(
         "#!/bin/sh\n"
+        'if [ "$1" = --version ]; then echo "cvc5 1.3.0"; exit 0; fi\n'
         f'exec "{cvc5}" {" ".join(without_subsolver_option())} "$@"\n'
     )
     wrapper.chmod(0o755)
