@@ -425,6 +425,12 @@ module Smt = struct
   let set_yices2_smt2models b = yices2_smt2models := b
   let yices2_smt2models () = !yices2_smt2models
 
+  (* Until the version of cvc5 shows it computes the value of a variable
+     defined as an undecided quantified formula, keep the variable *)
+  let cvc5_keep_quantified_vars = ref true
+  let set_cvc5_keep_quantified_vars b = cvc5_keep_quantified_vars := b
+  let cvc5_keep_quantified_vars () = !cvc5_keep_quantified_vars
+
   (* Activates logging of SMT interactions. *)
   let trace_default = false
   let trace = ref trace_default
@@ -4368,6 +4374,12 @@ let solver_dependent_actions solver =
         if (major > 1) ||
            (major = 1 && (minor > 3 || (minor = 3 && patch >= 0)))
         then support_new_bv_cast_operators' := true;
+        (* From 1.3.1 on, get-value computes the value of an undecided
+           quantified formula with a subsolver (cvc5/cvc5#12002) *)
+        Smt.set_cvc5_keep_quantified_vars (
+          not ((major > 1) ||
+               (major = 1 && (minor > 3 || (minor = 3 && patch >= 1))))
+        );
   )
   | _ -> ()
 

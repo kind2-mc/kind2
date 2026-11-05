@@ -372,6 +372,12 @@ module Smt : sig
 
   val set_yices2_smt2models : bool -> unit
 
+  (** Keep cvc5 from eliminating a variable defined as a quantified
+      formula: true unless the version of cvc5 is 1.3.1 or later *)
+  val cvc5_keep_quantified_vars : unit -> bool
+
+  val set_cvc5_keep_quantified_vars : bool -> unit
+
   (** Executable of Z3 solver *)
   val z3_bin : unit -> string
 

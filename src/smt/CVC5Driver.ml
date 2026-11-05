@@ -39,11 +39,19 @@ let cmd_line
       "--mbqi";                (* Use model-based quantifier instantiation (best for sat) *)
       "--full-saturate-quant"; (* Resort to full effort techniques instead of answering
                                   unknown due to limited quantifier reasoning (best for unsat) *)
-      "--no-model-var-elim-uneval"; (* Keep a variable defined as a quantified formula
-                                       from being eliminated: cvc5 may then not decide it,
-                                       and before 1.3.1 get-value returns the formula
-                                       itself instead of a value *)
     |]
+  in
+
+  (* cvc5 may eliminate a variable defined as a quantified formula and
+     then never decide the formula. Before 1.3.1, get-value then returns
+     the formula itself instead of a value, so the variable is kept for
+     those versions. The option is not passed to later versions, which
+     compute the value: it can slow down unsat queries by orders of
+     magnitude. *)
+  let common_flags =
+    if Flags.Smt.cvc5_keep_quantified_vars () then
+      Array.append common_flags [| "--no-model-var-elim-uneval" |]
+    else common_flags
   in
 
   (* Without bounded finite model finding for recursive functions, cvc5
