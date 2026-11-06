@@ -62,6 +62,7 @@ def test_helper_definitions_are_not_recursive(tmp_path):
             kind2_bin,
             *arg_list,
             "--smt_trace",
+            "true",
             "--output_dir",
             str(tmp_path / "out"),
             str(path),

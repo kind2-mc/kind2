@@ -23,7 +23,7 @@ kind2 <lustre_file> --enable MCS
 - `--print_mcs <bool>` (default `true`) -- Print the minimal cut set computed
 - `--print_mcs_complement <bool>` (default `false`) -- Print the complement of the minimal cut set computed (this is equivalent to computing a Maximal Unsafe Abstraction)
 - `--print_mcs_legacy <bool>` (default `false`) -- Print the minimal cut set using the legacy format
-- `--print_mcs_counterexample <bool>` (default `false`) -- Print a counterexample for each MCS found (ignored if `--print_mcs_legacy` is true)
+- `--print_mcs_cex <bool>` (default `false`) -- Print a counterexample for each MCS found (ignored if `--print_mcs_legacy` is true)
 - `--mcs_per_property <bool>` (default `true`) -- If true, MCSs will be computed for each property separately
 
 ## Example

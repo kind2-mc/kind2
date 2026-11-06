@@ -436,10 +436,11 @@ module Smt = struct
   let trace = ref trace_default
   let _ = add_spec
     "--smt_trace"
-    (Arg.Set trace)
+    (bool_arg trace)
     (fun fmt ->
       Format.fprintf fmt
-        "@[<v>Write all SMT commands to files@]"
+        "@[<v>Write all SMT commands to files@ Default: %a@]"
+        fmt_bool trace_default
     )
   let set_trace b = trace := b
   let trace () = !trace
@@ -2221,10 +2222,11 @@ module Arrays = struct
     recdef := b;
     match Smt.solver () with
     | `cvc5_SMTLIB -> ()
+    | _ when not b -> ()
     | _ ->
-      raise (Arg.Bad 
+      raise (Arg.Bad
                "Recursive encoding of arrays can only be used with cvc5. \
-                Use the flag --smtsolver cvc5")  
+                Use the flag --smt_solver cvc5")
 
   let _ = add_spec
     "--arrays_rec"
