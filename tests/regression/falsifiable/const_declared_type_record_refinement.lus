@@ -1,0 +1,5 @@
+type Nat = subtype { n: int | n >= 0 };
+type R = struct { f: Nat };
+const k: R = R { f = 0 - 1 };
+node N(x: int) returns (y: int);
+let y = x + k.f; tel

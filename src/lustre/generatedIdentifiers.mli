@@ -181,6 +181,10 @@ val discarded_output : string
     constructor expression met where an ascription is not allowed *)
 val const_subtype_check : string
 
+(** The declaration a global subtype-check constant ['<n>_gsubtype_<x>'] carries
+    the obligation of, for reporting its analysis under a name the user wrote *)
+val const_subtype_check_source : HString.t -> HString.t option
+
 (** Suffix of the fresh locals holding the value of an array comprehension *)
 val array_comprehension : string
 

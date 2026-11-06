@@ -227,6 +227,10 @@ val expand_type_syn_reftype_history :
 val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
+val non_constant_subexpr: tc_context -> LA.expr -> (Lib.position * string) option
+(** The position of the first subexpression of the given expression that a
+    constant expression cannot hold, with a description of it *)
+
 val bind_pattern_ty: tc_context -> tc_type -> LA.pattern
   -> (tc_context * LA.pattern, [> error]) result
 (** Resolve a match pattern against the type it matches, returning the context

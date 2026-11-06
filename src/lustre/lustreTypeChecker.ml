@@ -453,20 +453,25 @@ let is_user_written_node node_id =
    too, and never as the constructor an expression there cannot mean. *)
 let shadow_value ctx i = remove_adt_ctor (shadow_const ctx i) i
 
-let rec infer_const_attr ctx exp =
-  let r = infer_const_attr ctx in
-  let combine l1 l2 = List.map2 (fun r1 r2 -> r1 >> r2) l1 l2 in
-  let error exp what =
-    let pos = LH.pos_of_expr exp in
-    Error (pos, fun w -> ExpectedConstant (w, what))
+(* unresolved_ctors reads a call to a constructor's name as the construction it
+   is, for a caller that runs before type checking resolves it *)
+let rec infer_const_attr ?(unresolved_ctors = false) ctx exp =
+  let r = infer_const_attr ~unresolved_ctors ctx in
+  (* One result per value of the expression. An expression whose operands do
+     not agree in number of values is ill typed and rejected later; its results
+     are merged into one rather than paired up. *)
+  let combine l1 l2 =
+    if List.compare_lengths l1 l2 = 0 then List.map2 (fun r1 r2 -> r1 >> r2) l1 l2
+    else [R.seq_ l1 >> R.seq_ l2]
   in
+  let error exp what = Error (LH.pos_of_expr exp, what) in
   let rec infer_const_attr_ty ctx ty = 
     let r2 = infer_const_attr_ty ctx in 
     let ty = expand_type_syn ctx ty in
     match ty with 
     | LA.RefinementType (_, (p, b, ty), e) ->
       let ctx = add_const (remove_adt_ctor ctx b) b (LA.Ident (p, b)) ty Local in
-      combine (r2 ty) (infer_const_attr ctx e)
+      combine (r2 ty) (infer_const_attr ~unresolved_ctors ctx e)
     | LA.ArrayType (_, (ty, e)) -> 
       combine (r2 ty) (r e) 
     | LA.History (_, id) -> (
@@ -555,12 +560,12 @@ let rec infer_const_attr ctx exp =
     ) ctx tis in
     let r1 = List.map (fun (_, _, ty) -> infer_const_attr_ty ctx ty) tis in 
     let r1 = List.fold_left combine [R.ok ()] r1 in
-    combine r1 (infer_const_attr ctx e)
+    combine r1 (infer_const_attr ~unresolved_ctors ctx e)
   | ArrayComprehension (p, bs, e) ->
     let ctx = List.fold_left (fun acc_ctx (_, id, _) ->
       add_const acc_ctx id (LA.Ident (p, id)) (LA.Int p) Global
     ) ctx bs in
-    combine [R.ok ()] (infer_const_attr ctx e)
+    combine [R.ok ()] (infer_const_attr ~unresolved_ctors ctx e)
   (* Clock operators *)
   (* Temporal operators *)
   | Pre (_, e) ->
@@ -577,6 +582,12 @@ let rec infer_const_attr ctx exp =
   | AnyOp _ -> assert false
   | ChooseOp _ -> assert false
   
+  | Call (_, ty_args, i, args)
+    when unresolved_ctors
+         && Option.is_some (lookup_constructor ctx (NI.get_name i)) ->
+    let r_args = List.fold_left combine [R.ok ()] (List.map r args) in
+    let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
+    combine r_args r_tys
   | RestartEvery (_, i, _, _) 
   | Call (_, _, i, _) -> (
     let err = error exp "node call or any operator" in
@@ -589,7 +600,14 @@ let rec infer_const_attr ctx exp =
     | _ -> [err]
   )
   | LA.Match (_, e, arms, _) ->
-    r e @ List.concat_map (fun (_, arm_e) -> r arm_e) arms
+    (* A match has the values of its arms, and its scrutinee contributes to
+       each of them *)
+    let values = match List.map (fun (_, arm_e) -> r arm_e) arms with
+      | [] -> [R.ok ()]
+      | first :: rest -> List.fold_left combine first rest
+    in
+    let scrutinee = R.seq_ (r e) in
+    List.map (fun res -> scrutinee >> res) values
   | LA.ADTTerm (_, ty_args, _, args) ->
     let r_args = List.fold_left combine [R.ok ()] (List.map r args) in
     let r_tys = List.fold_left combine [R.ok ()] (List.map (LH.fold_lustre_ty r [R.ok ()] combine) ty_args) in
@@ -599,16 +617,24 @@ let rec infer_const_attr ctx exp =
 let check_expr_is_constant ctx kind e =
   match R.seq_ (infer_const_attr ctx e) with
   | Ok _ -> R.ok ()
-  | Error (pos, exn_fn) -> type_error pos (exn_fn kind)
+  | Error (pos, what) -> type_error pos (ExpectedConstant (kind, what))
+
+(* The position of the first subexpression of e that a constant expression
+   cannot hold, with a description of it. e is read before type checking
+   resolves its constructor applications. *)
+let non_constant_subexpr ctx e =
+  match R.seq_ (infer_const_attr ~unresolved_ctors:true ctx e) with
+  | Ok _ -> None
+  | Error (pos, what) -> Some (pos, what)
 
 let check_and_add_constant_definition ctx i e ty sc =
   match R.seq_ (infer_const_attr ctx e) with
   | Ok _ -> R.ok (add_ty (add_const ctx i e ty sc) i ty)
-  | Error (pos, exn_fn) ->
+  | Error (pos, what) ->
     let where =
       "definition of constant '" ^ HString.string_of_hstring i ^ "'"
     in
-    type_error pos (exn_fn where)
+    type_error pos (ExpectedConstant (where, what))
 
 let check_constant_args ctx i arg_exprs =
   let check param_attr =
@@ -619,11 +645,11 @@ let check_constant_args ctx i arg_exprs =
     R.seq_chain
       (fun _ ((id, is_const_param), res) ->
         match is_const_param, res with
-        | true, Error (pos, exn_fn) -> (
+        | true, Error (pos, what) -> (
           let where =
             "argument for constant parameter '" ^ HString.string_of_hstring id ^ "'"
           in
-          type_error pos (exn_fn where)
+          type_error pos (ExpectedConstant (where, what))
         )
         | _ -> R.ok ()
       )

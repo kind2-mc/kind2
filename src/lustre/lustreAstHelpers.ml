@@ -1438,7 +1438,9 @@ let rec vars_without_node_call_ids: expr -> iset =
   | ConvOp  (_,_,e) -> vars e
   | CompOp (_,_,e1, e2) -> (vars e1) |> SI.union (vars e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
+  | RecordExpr (_, _, ty_args, flds) ->
+    SI.union (vars_of_ty_args ty_args)
+      (SI.flatten (List.map vars (snd (List.split flds))))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
   | StructUpdate (_, e1, idx, Some e2) ->
@@ -1472,11 +1474,43 @@ let rec vars_without_node_call_ids: expr -> iset =
       (SI.flatten (List.map (fun (pat, arm_e) ->
         SI.diff (vars arm_e) (pat_bound_vars pat)) arms))
   | ADTTerm (_, ty_args, _, args) ->
-    SI.union
-      (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty vars SI.empty SI.union ty)) SI.empty ty_args)
-      (SI.flatten (List.map vars args))
+    SI.union (vars_of_ty_args ty_args) (SI.flatten (List.map vars args))
   | AbstractSymConst _ -> SI.empty
   | ADTTester (_, e, _) -> vars e
+
+and vars_of_type ?(into_ty_args = false) ty =
+  let vars_of_type = vars_of_type ~into_ty_args in
+  match ty with
+  | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars_without_node_call_ids e)
+  | TupleType (_, tys) | GroupType (_, tys) -> 
+    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
+  | RecordType (_, _, tis) -> 
+    let vars = List.map (fun (_, _, ty) -> vars_of_type ty) tis in 
+    List.fold_left SI.union SI.empty vars
+  | RefinementType (_, (_, id, ty), e) ->
+    let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
+    let vars2 = vars_of_type ty in 
+    SI.union vars1 vars2
+  | Set (_, ty) -> vars_of_type ty
+  | Map (_, ty1, ty2)
+  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
+  | History (_, id) -> SI.singleton id 
+  | UserType (_, ty_args, _) ->
+    if into_ty_args then
+      List.fold_left SI.union SI.empty (List.map vars_of_type ty_args)
+    else SI.empty
+  | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _
+  | SBitVector _ | UBitVector _ -> SI.empty
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
+
+(* The variables the type arguments of a record or constructor expression
+   mention. A refinement type argument binds its own variable, so the
+   expressions in a type are not simply folded over. *)
+and vars_of_ty_args ty_args =
+  List.fold_left
+    (fun acc ty -> SI.union acc (vars_of_type ~into_ty_args:true ty)) SI.empty ty_args
 
 let rec calls_of_expr: expr -> NI.Set.t =
   function
@@ -1557,7 +1591,9 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | ConvOp  (_, _, e) -> vars e
   | CompOp (_, _, e1, e2) -> (vars e1) |> SI.union (vars e2)
   (* Structured expressions *)
-  | RecordExpr (_, _, _, flds) -> SI.flatten (List.map vars (snd (List.split flds)))
+  | RecordExpr (_, _, ty_args, flds) ->
+    SI.union (vars_of_ty_args ty_args)
+      (SI.flatten (List.map vars (snd (List.split flds))))
   | GroupExpr (_, _, es) -> SI.flatten (List.map vars es)
   (* Update of structured expressions *)
   | StructUpdate (_, e1, idx, Some e2) ->
@@ -1596,9 +1632,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
       (SI.flatten (List.map (fun (pat, arm_e) ->
         SI.diff (vars arm_e) (pat_bound_vars pat)) arms))
   | ADTTerm (_, ty_args, _, args) ->
-    SI.union
-      (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty vars SI.empty SI.union ty)) SI.empty ty_args)
-      (SI.flatten (List.map vars args))
+    SI.union (vars_of_ty_args ty_args) (SI.flatten (List.map vars args))
   | AbstractSymConst _ -> SI.empty
   | ADTTester (_, e, _) -> vars e
 
@@ -1622,33 +1656,6 @@ let rec vars_of_struct_item = function
   | FieldSelection (_, i, _)
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
-
-let rec vars_of_type ?(into_ty_args = false) ty =
-  let vars_of_type = vars_of_type ~into_ty_args in
-  match ty with
-  | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars_without_node_call_ids e)
-  | TupleType (_, tys) | GroupType (_, tys) -> 
-    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
-  | RecordType (_, _, tis) -> 
-    let vars = List.map (fun (_, _, ty) -> vars_of_type ty) tis in 
-    List.fold_left SI.union SI.empty vars
-  | RefinementType (_, (_, id, ty), e) ->
-    let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
-    let vars2 = vars_of_type ty in 
-    SI.union vars1 vars2
-  | Set (_, ty) -> vars_of_type ty
-  | Map (_, ty1, ty2)
-  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
-  | History (_, id) -> SI.singleton id 
-  | UserType (_, ty_args, _) ->
-    if into_ty_args then
-      List.fold_left SI.union SI.empty (List.map vars_of_type ty_args)
-    else SI.empty
-  | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _
-  | SBitVector _ | UBitVector _ -> SI.empty
-  | ADT (_, _, cons) ->
-    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
-    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
 
 (* Renames each quantified variable whose name a binder type of the same
    quantifier mentions, where the quantified variable is not in scope *)

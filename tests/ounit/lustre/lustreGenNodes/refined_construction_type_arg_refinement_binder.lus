@@ -1,0 +1,2 @@
+type R<T> = struct { f: T };
+const C: subtype { v: int | (R@<subtype { z: int | z > v }> { f = 0 }).f = 0 } = 5;

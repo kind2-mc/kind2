@@ -28,6 +28,7 @@ type error_kind =
   | MatchScrutineeUnsupported
   | TemporalBranchQuantifiedVariable of HString.t
   | RefinedConstructionBoundVariable of HString.t
+  | RefinedConstructionNotConstant of string
 
 val error_message : error_kind -> string
 
@@ -53,7 +54,9 @@ val gen_nodes : TypeCheckerContext.tc_context ->
    there, so the refinement cannot be checked by an inserted ascription; the
    declared type of the fresh constant yields the obligation instead. Refuses
    a construction that mentions a variable bound inside it, which no constant
-   can be declared for. *)
+   can be declared for. Returns the declarations, and the fresh constants on
+   their own so that the caller can check them as the user's own globals. *)
 val global_const_subtype_checks : TypeCheckerContext.tc_context ->
                          LustreAst.declaration list ->
-                         (LustreAst.declaration list, [> error]) result
+                         (LustreAst.declaration list * LustreAst.declaration list,
+                          [> error]) result

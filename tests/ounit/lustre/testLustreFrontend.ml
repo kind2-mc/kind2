@@ -1158,6 +1158,17 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_recursive_refinement_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
     | _ -> false);
+  (* The refinement is written inline in the type argument of a constructor
+     term, so its binder is in scope there. Before, that binder was reported as
+     an illegal variable and the program was rejected for the wrong reason. *)
+  mk_test "test a constructor term instantiating a recursive datatype at a refinement type" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_adt_term_recursive.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRefinementInRecursiveAdtField _)) -> true
+    | _ -> false);
+  mk_test "test an input's refinement reaching an output through a type argument" (fun () ->
+    match load_file "./lustreTypeChecker/refinement_type_arg_output_in_input_type.lus" with
+    | Error (`LustreTypeCheckerError (_, AssumptionOnCurrentOutput _)) -> true
+    | _ -> false);
   mk_test "test recursive ADT with a polymorphic datatype field is rejected" (fun () ->
     match load_file "./lustreTypeChecker/adt_recursive_poly_datatype_field.lus" with
     | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField (ty_name, field))) ->
@@ -1650,6 +1661,30 @@ let _ = run_test_tt_main ("frontend LustreGenNodes error tests" >::: [
   mk_test "test refined construction mentioning a quantified variable in a ghost constant" (fun () ->
     match load_file "./lustreGenNodes/refined_construction_quantified_in_ghost_const.lus" with
     | Error (`LustreGenNodesError (_, RefinedConstructionBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test refined construction whose type argument mentions a refinement binder" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_type_arg_refinement_binder.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test refined construction whose type argument mentions a binder of a declared type" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_type_arg_in_type_decl.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test refined construction holding one whose type argument mentions a binder" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_nested_type_arg_binder.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionBoundVariable _)) -> true
+    | _ -> false);
+  mk_test "test refined construction holding an ascription in a refinement predicate" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_ascription_in_refinement.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionNotConstant _)) -> true
+    | _ -> false);
+  mk_test "test refined construction holding a function call in a refinement predicate" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_call_in_refinement.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionNotConstant _)) -> true
+    | _ -> false);
+  mk_test "test refined construction holding an ascription in a decreases measure" (fun () ->
+    match load_file "./lustreGenNodes/refined_construction_ascription_in_decreases.lus" with
+    | Error (`LustreGenNodesError (_, RefinedConstructionNotConstant _)) -> true
     | _ -> false);
   mk_test "test ascribed scrutinee under a quantifier is accepted" (fun () ->
     match load_file "./lustreGenNodes/match_ascribed_scrutinee_quantifier.lus" with

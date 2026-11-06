@@ -183,9 +183,12 @@ let type_check declarations =
        definition or type declaration whose field types carry a refinement:
        a constant expression is expected there, so step 6 cannot check it with
        an ascription *)
-    let* const_inlined_type_and_consts =
+    let* const_inlined_type_and_consts, subtype_check_consts =
       LGN.global_const_subtype_checks inlined_ctx const_inlined_type_and_consts
     in
+    (* The constants declared above get the checks the user's own globals get,
+       so that an ill-scoped one is reported rather than left to a later pass *)
+    let* _, _, _ = TC.type_check_infer_globals inlined_ctx subtype_check_consts in
 
     (* Step 6. Generate nodes for nondeterministic choice operators, type
        ascriptions, temporal expressions in a clocked position, and restarts *)

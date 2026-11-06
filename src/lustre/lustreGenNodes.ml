@@ -35,6 +35,7 @@ type error_kind =
   | MatchScrutineeUnsupported
   | TemporalBranchQuantifiedVariable of HString.t
   | RefinedConstructionBoundVariable of HString.t
+  | RefinedConstructionNotConstant of string
 
 (* The matches whose scrutinee must be shared, as scrutinee_must_be_shared
    classifies them *)
@@ -71,8 +72,11 @@ let error_message = function
   | RefinedConstructionBoundVariable v ->
     "Bound variable '" ^ HString.string_of_hstring v
     ^ "' is not allowed in a record or constructor expression whose field \
-       types contain a refinement type; define the expression as a constant of \
-       the record's type, outside the binder, and use that constant here"
+       types contain a refinement type"
+  | RefinedConstructionNotConstant what ->
+    "Illegal " ^ what
+    ^ " in a record or constructor expression whose field types contain a \
+       refinement type, where a constant expression is expected"
 
 type error = [
   | `LustreGenNodesError of Lib.position * error_kind
@@ -93,6 +97,12 @@ let defer_match_refusal pos =
    checking rejects the program first with a message of its own *)
 let defer_construction_refusal pos v =
   deferred_errors := (pos, RefinedConstructionBoundVariable v) :: !deferred_errors
+
+(* Refuse a construction that cannot be the definition of the constant that
+   would carry its obligation. Deferred, so that an enclosing construct with a
+   message of its own (an argument for a constant parameter, say) reports it. *)
+let defer_not_constant_refusal pos what =
+  deferred_errors := (pos, RefinedConstructionNotConstant what) :: !deferred_errors
 
 let inserted_ascription_infix = ".subtype_"
 
@@ -136,11 +146,15 @@ fun () ->
 
 (* The name of the constant that holds the obligation of a construction met
    where an ascription is not allowed. The leading numeric segment keeps it
-   apart from any user-written identifier. *)
-let mk_fresh_const_check: unit -> HString.t =
-fun () ->
+   apart from any user-written identifier; source names the declaration the
+   construction comes from, where that declaration becomes a node of its own. *)
+let mk_fresh_const_check: HString.t option -> HString.t =
+fun source ->
   i := !i + 1;
-  HString.mk_hstring (string_of_int !i ^ "_" ^ GI.const_subtype_check)
+  let name = string_of_int !i ^ "_" ^ GI.const_subtype_check in
+  HString.mk_hstring (match source with
+    | None -> name
+    | Some id -> name ^ "_" ^ HString.string_of_hstring id)
 
 let is_user_ascription node_id =
   NI.get_node_type node_id = NI.TypeAscription &&
@@ -529,44 +543,70 @@ fun ctx nname e name ty_args field_tys ->
    constants that carry the obligations belong to. *)
 let hoisted_consts: (Lib.position * A.expr * A.lustre_type) list ref = ref []
 
-(* Run [f] and return, besides its result, the constants it hoisted. One
-   construction is reached more than once when the type it occurs in is
-   desugared again (for a generated node's own signature), so the obligations
-   are kept one per position. *)
+(* One construction is reached more than once when the type it occurs in is
+   desugared again (for a generated node's own signature, or for the body of
+   the node whose signature holds it), so one obligation is kept per position
+   and type. Two obligations at one position whose types differ are different
+   checks, and both are kept. *)
+let dedup_hoisted hoisted =
+  List.fold_left (fun acc ((pos, _, ty) as h) ->
+    if List.exists (fun (p, _, t) -> Lib.equal_pos p pos && t = ty) acc then acc
+    else acc @ [h]
+  ) [] hoisted
+
+(* Run [f] and return, besides its result, the constants it hoisted *)
 let collecting_hoisted f =
   let saved = !hoisted_consts in
   hoisted_consts := [];
   let drain () =
     let hoisted = List.rev !hoisted_consts in
     hoisted_consts := saved;
-    List.fold_left (fun acc ((pos, _, _) as h) ->
-      if List.exists (fun (p, _, _) -> Lib.equal_pos p pos) acc then acc
-      else acc @ [h]
-    ) [] hoisted
+    dedup_hoisted hoisted
   in
   match f () with
   | r -> let hoisted = drain () in (r, hoisted)
   | exception e -> ignore (drain ()); raise e
 
 (* Record that the obligation of the construction e of type ty is to be carried
-   by a fresh constant. No declaration can mention a variable bound inside e, so
-   such a construction is refused. A construction mentioning a variable of the
-   enclosing node is left unchecked: a measure and a refinement predicate may
-   mention one, and no obligation about a constant covers those. *)
+   by a fresh constant. The declaration mentions both e and ty, so a variable
+   bound inside either refuses the construction. A construction mentioning a
+   variable of the enclosing node is left unchecked: a measure and a refinement
+   predicate may mention one, and no obligation about a constant covers those. *)
 let hoist_construction ~bound ctx e ty =
   let vars =
-    AH.vars_without_node_call_ids e |> Ctx.SI.elements |> node_arguments ctx
+    Ctx.SI.union
+      (AH.vars_without_node_call_ids e)
+      (AH.vars_of_type (Ctx.expand_type_syn ctx ty))
+    |> Ctx.SI.elements |> node_arguments ctx
   in
   match List.find_opt (fun v -> Ctx.SI.mem v bound) vars with
   | Some v -> defer_construction_refusal (AH.pos_of_expr e) v
   | None ->
     if List.for_all (fun v -> Option.is_some (Ctx.lookup_const ctx v)) vars then
-      hoisted_consts := (AH.pos_of_expr e, e, ty) :: !hoisted_consts
+      match Chk.non_constant_subexpr ctx e with
+      | Some (pos, what) -> defer_not_constant_refusal pos what
+      | None -> hoisted_consts := (AH.pos_of_expr e, e, ty) :: !hoisted_consts
 
 (* The declaration of the constant that carries one hoisted obligation. Its
    position is the construction's, so the obligation is reported there. *)
-let const_check_decl (pos, e, ty) =
-  A.TypedConst (pos, mk_fresh_const_check (), e, ty)
+let const_check_decl ?source (pos, e, ty) =
+  A.TypedConst (pos, mk_fresh_const_check source, e, ty)
+
+(* Whether a construction of type ty is the whole definition of a constant
+   declared at that type, whose own obligation is then the same one. The
+   obligation of a declared type covers the refinements of the whole value, so
+   a refinement over the construction's type covers it too. *)
+let exempt_declared ctx exempt ty =
+  let rec base ty = match Ctx.expand_type_syn ctx ty with
+    | A.RefinementType (_, (_, _, ty), _) -> base ty
+    | ty -> ty
+  in
+  match exempt with
+  | None -> false
+  | Some declared ->
+    match AH.syn_type_equal None (base ty) (base declared) with
+    | Ok equal -> equal
+    | Error () -> false
 
 (* Wrap a record or constructor expression in an inserted ascription to its
    type when its field types contain a refinement, so that the refinement is
@@ -575,7 +615,7 @@ let const_check_decl (pos, e, ty) =
    that type instead. The generated node takes the variables of the type as
    arguments, so a type mentioning a locally bound variable (or one whose type
    is unknown here) is left unchecked. *)
-let ascribe_construction ~insert ~bound ctx node_name orig e name ty_args field_tys gen_nodes =
+let ascribe_construction ?exempt ~insert ~bound ctx node_name orig e name ty_args field_tys gen_nodes =
   match refined_construction_type ctx (Some node_name) orig name ty_args field_tys with
   | Some ty ->
     let ty_vars = AH.vars_of_type (Ctx.expand_type_syn ctx ty) in
@@ -588,14 +628,15 @@ let ascribe_construction ~insert ~bound ctx node_name orig e name ty_args field_
         mk_type_ascription ~inserted:true ctx node_name (AH.pos_of_expr e) e ty
       in
       call, decl :: gen_nodes
+    else if exempt_declared ctx exempt ty then e, gen_nodes
     else (hoist_construction ~bound ctx e ty; e, gen_nodes)
   | None -> e, gen_nodes
 
 (* Every subexpression of a constant expression is constant, so none of its
    constructions can be ascribed: each has its obligation hoisted. The binders
    met on the way are recorded, since a construction mentioning one is refused. *)
-let rec hoist_in_const_expr: ?bound:Ctx.SI.t -> Ctx.tc_context -> NI.t option -> A.expr -> unit =
-fun ?(bound = Ctx.SI.empty) ctx nname e ->
+let rec hoist_in_const_expr: ?bound:Ctx.SI.t -> ?exempt:A.lustre_type -> Ctx.tc_context -> NI.t option -> A.expr -> unit =
+fun ?(bound = Ctx.SI.empty) ?exempt ctx nname e ->
   let r = hoist_in_const_expr ~bound ctx nname in
   let r_ty = hoist_in_const_type ~bound ctx nname in
   (* A binder shadows a constant of the same name, which is why it is removed
@@ -604,9 +645,12 @@ fun ?(bound = Ctx.SI.empty) ctx nname e ->
     hoist_in_const_expr ~bound:(Ctx.SI.union bound (Ctx.SI.of_list ids))
       (List.fold_left (fun ctx id -> Ctx.remove_const ctx id) ctx ids) nname body
   in
+  (* exempt covers only e itself, the definition of the constant it is the
+     declared type of; the recursive calls drop it *)
   let construction orig name ty_args field_tys =
     match refined_construction_type ctx nname orig name ty_args field_tys with
-    | Some ty -> hoist_construction ~bound ctx e ty
+    | Some ty ->
+      if not (exempt_declared ctx exempt ty) then hoist_construction ~bound ctx e ty
     | None -> ()
   in
   match e with
@@ -741,8 +785,8 @@ fun ?(bound = Ctx.SI.empty) ctx node_name fun_ids ty ->
    index those bound by an array comprehension and not shadowed, and varying
    the other ones, bound by a pattern or by 'any' or 'choose', and not
    shadowed. *)
-and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?quant:Ctx.SI.t -> ?index:Ctx.SI.t -> ?varying:Ctx.SI.t -> ?const_pos:bool list -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
-fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = Ctx.SI.empty) ?(varying = Ctx.SI.empty) ?const_pos ctx node_name fun_ids expr -> 
+and desugar_expr: ?insert:bool -> ?bound:Ctx.SI.t -> ?quant:Ctx.SI.t -> ?index:Ctx.SI.t -> ?varying:Ctx.SI.t -> ?const_pos:bool list -> ?exempt:A.lustre_type -> Ctx.tc_context -> NI.t -> NI.t list -> A.expr -> A.expr * A.declaration list =
+fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = Ctx.SI.empty) ?(varying = Ctx.SI.empty) ?const_pos ?exempt ctx node_name fun_ids expr -> 
   (* const_pos flags the values of the expression that must be constant. Each
      is passed to the sub-expression giving it; shared ones are constant if any is. *)
   let split_insert = insert in
@@ -915,7 +959,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
       | Some (A.RecordType (_, _, fields)) -> List.map (fun (_, _, ty) -> ty) fields
       | Some _ | None -> []
     in
-    ascribe_construction ~insert ~bound ctx node_name expr e ident ps field_tys gen_nodes
+    ascribe_construction ?exempt ~insert ~bound ctx node_name expr e ident ps field_tys gen_nodes
   | GroupExpr (pos, ExprList, expr_list) ->
     let expr_list, gen_nodes = match const_pos with
       | Some flags -> desugar_split ~insert:split_insert expr_list flags
@@ -1007,7 +1051,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     (match ty_args, Ctx.lookup_constructor ctx (NI.get_name id) with
     | [], Some (ty_name, field_tys) ->
       let orig = A.ADTTerm (pos, [], NI.get_name id, expr_list) in
-      ascribe_construction ~insert ~bound ctx node_name orig e ty_name [] field_tys gen_nodes
+      ascribe_construction ?exempt ~insert ~bound ctx node_name orig e ty_name [] field_tys gen_nodes
     | _ :: _, _ | [], None -> e, gen_nodes)
   | Match (pos, e, arms, ty_opt) ->
     (* Each match arm body is evaluated under the clock determined by the
@@ -1061,7 +1105,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     let gen_nodes = List.flatten gen_nodes_ty @ List.flatten gen_nodes in
     (match Ctx.lookup_constructor ctx ctor with
     | Some (ty_name, field_tys) ->
-      ascribe_construction ~insert ~bound ctx node_name expr e ty_name ty_args field_tys gen_nodes
+      ascribe_construction ?exempt ~insert ~bound ctx node_name expr e ty_name ty_args field_tys gen_nodes
     | None -> e, gen_nodes)
   | AbstractSymConst _ -> assert false (* never produced before lustreGenNodes runs *)
   | ADTTester (pos, e, c) ->
@@ -1387,7 +1431,7 @@ fun ctx node_name fun_ids ci ->
     A.GhostConst (A.FreeConst (pos, id, ty)), gen_nodes
   | A.GhostConst (A.TypedConst (pos, id, e, ty)) ->
     let ty, gen_nodes_ty = desugar_type ctx node_name fun_ids ty in
-    let e, gen_nodes = desugar_expr ~insert:false ctx node_name fun_ids e in
+    let e, gen_nodes = desugar_expr ~insert:false ~exempt:ty ctx node_name fun_ids e in
     A.GhostConst (A.TypedConst (pos, id, e, ty)), gen_nodes_ty @ gen_nodes
   | A.GhostConst (A.UntypedConst (pos, id, e)) ->
     let e, gen_nodes = desugar_expr ~insert:false ctx node_name fun_ids e in
@@ -1431,7 +1475,8 @@ fun ?(extra = []) ctx node_name fun_ids contract ->
         List.map (desugar_contract_item ctx node_name fun_ids) contract_items
         |> List.split)
     in
-    Some (pos, items @ const_check_ghosts (extra @ hoisted)), List.flatten gen_nodes
+    Some (pos, items @ const_check_ghosts (dedup_hoisted (extra @ hoisted))),
+    List.flatten gen_nodes
   | None ->
     (match extra with
     | [] -> None, []
@@ -1590,7 +1635,7 @@ let desugar_locals ctx id fun_ids locals =
         A.NodeConstDecl (pos, A.FreeConst (pos, id', ty)), gen_nodes
     | A.NodeConstDecl (pos, A.TypedConst (_, id', e, ty)) ->
         let ty, gen_nodes = desugar_type ctx id fun_ids ty in
-        hoist_in_const_expr ctx (Some id) e;
+        hoist_in_const_expr ~exempt:ty ctx (Some id) e;
         A.NodeConstDecl (pos, A.TypedConst (pos, id', e, ty)), gen_nodes
     | A.NodeConstDecl (pos, (A.UntypedConst (_, _, e) as cd)) ->
         hoist_in_const_expr ctx (Some id) e;
@@ -1661,7 +1706,7 @@ fun ctx decls ->
         locals @ List.rev !item_locals, List.flatten items,
         gen_nodes1 @ List.flatten gen_nodes2)
     in
-    let hoisted = sig_hoisted @ hoisted in
+    let hoisted = dedup_hoisted (sig_hoisted @ hoisted) in
     if ext then locals, items, gen_nodes, hoisted
     else
       let consts =
@@ -1708,33 +1753,43 @@ fun ctx decls ->
    obligations of the constructions in them are carried by fresh global
    constants. Each is declared before the declaration it comes from, which the
    dependency order already places after everything it mentions. *)
-let global_const_subtype_checks: Ctx.tc_context -> A.declaration list -> (A.declaration list, [> error]) result =
+let global_const_subtype_checks: Ctx.tc_context -> A.declaration list -> (A.declaration list * A.declaration list, [> error]) result =
 fun ctx decls ->
   let checks_of decl =
+    (* The declaration the obligations come from, which names their analyses *)
+    let source = match decl with
+      | A.ConstDecl (_, (A.TypedConst (_, id, _, _) | A.UntypedConst (_, id, _)
+                        | A.FreeConst (_, id, _)))
+      | A.TypeDecl (_, (A.AliasType (_, id, _, _) | A.FreeType (_, id))) -> Some id
+      | A.NodeDecl _ | A.FuncDecl _ | A.ContractNodeDecl _
+      | A.NodeParamInst _ -> None
+    in
     let (), hoisted = collecting_hoisted (fun () ->
       match decl with
       | A.ConstDecl (_, A.TypedConst (_, _, e, ty)) ->
-        hoist_in_const_expr ctx None e; hoist_in_const_type ctx None ty
+        hoist_in_const_expr ~exempt:ty ctx None e; hoist_in_const_type ctx None ty
       | A.ConstDecl (_, A.UntypedConst (_, _, e)) -> hoist_in_const_expr ctx None e
       | A.ConstDecl (_, A.FreeConst (_, _, ty))
       | A.TypeDecl (_, A.AliasType (_, _, _, ty)) -> hoist_in_const_type ctx None ty
       | A.TypeDecl (_, A.FreeType _) | A.NodeDecl _ | A.FuncDecl _
       | A.ContractNodeDecl _ | A.NodeParamInst _ -> ())
     in
-    List.map (fun ((pos, _, _) as h) ->
-      A.ConstDecl ({ A.start_pos = pos; A.end_pos = pos }, const_check_decl h)
-    ) hoisted
-    @ [decl]
+    let checks =
+      List.map (fun ((pos, _, _) as h) ->
+        A.ConstDecl ({ A.start_pos = pos; A.end_pos = pos }, const_check_decl ?source h)
+      ) hoisted
+    in
+    checks, checks @ [decl]
   in
   (* The global declarations are type checked before this pass, so a refusal
      here stands at once; the ones gen_nodes collects wait for type checking *)
   let saved = !deferred_errors in
   deferred_errors := [];
-  let decls = List.concat_map checks_of decls in
+  let checks, decls = List.map checks_of decls |> List.split in
   let refused = List.rev !deferred_errors in
   deferred_errors := saved;
   match refused with
-  | [] -> Ok decls
+  | [] -> Ok (List.concat decls, List.concat checks)
   | (pos, kind) :: _ -> Error (`LustreGenNodesError (pos, kind))
 
 let gen_nodes: Ctx.tc_context -> A.declaration list
