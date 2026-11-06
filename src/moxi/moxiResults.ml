@@ -363,7 +363,7 @@ let pp_print_const_decls: TransSys.t -> Format.formatter -> (StateVar.t * Model.
 
 let pp_print_model trans_sys prop_name _ppf path =
   if has_model trans_sys path then 
-    Format.printf "%s@,%a@," (derived prop_name "_model") (pp_print_const_decls trans_sys) path
+    Format.printf "%s (@[<v>%a@])" (derived prop_name "_model") (pp_print_const_decls trans_sys) path
   else 
     Format.printf "%s ()" (derived prop_name "_model")
 

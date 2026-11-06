@@ -347,6 +347,12 @@ that proves it as a certificate, or `sat`, with a witnessing trace:
  )
 ```
 
+The `:model` of a sat answer gives the values of the constants of the script,
+declared with `declare-const`, as a list of `define-fun` commands, as in the
+response to the SMT-LIB command `get-model`:
+`:model (q_model ((define-fun k () Int 2) (define-fun l () Int 3)))`. The list
+is empty if the script has no constants.
+
 The invariant of a certificate, `:certificate (q_cert :inv I :k k)`, is a
 term over the variables of the check, which the MoXI definition leaves the
 format of open. It is an SMT-LIB term, except that a variable of a
