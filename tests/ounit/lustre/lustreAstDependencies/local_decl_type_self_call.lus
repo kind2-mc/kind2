@@ -1,0 +1,6 @@
+node main (a: int) returns (y: int);
+var x: subtype { z: int | main (z) = 0 };
+let
+  x = a;
+  y = 0;
+tel

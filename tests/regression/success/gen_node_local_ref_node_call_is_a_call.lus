@@ -1,0 +1,13 @@
+node helper(a: int) returns (b: int);
+let
+  b = a;
+  check "h" b = 0 -> true;
+tel
+
+node main(x: int) returns (y: int);
+var z: subtype { v: int | v = helper(0) };
+let
+  z = 0;
+  y = z;
+  check "m" y = 0;
+tel

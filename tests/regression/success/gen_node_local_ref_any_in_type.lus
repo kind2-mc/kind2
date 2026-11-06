@@ -1,0 +1,7 @@
+node main (c: bool; a: int) returns (y: int);
+var x: subtype { z: int | z >= (any { k: int | k = 0 }) };
+let
+  x = if a >= 0 then a else 0;
+  y = when c then (x -> pre x) else 0;
+  check "p" (not c) => (y = 0);
+tel
