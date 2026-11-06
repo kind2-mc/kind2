@@ -77,6 +77,7 @@ def run(tmp_path, lustre, arrays):
             "-json",
             *arg_list,
             "--smt_trace",
+            "true",
             "--output_dir",
             str(tmp_path / "out"),
             str(path),

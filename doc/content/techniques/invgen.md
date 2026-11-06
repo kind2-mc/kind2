@@ -28,8 +28,6 @@ and two-state invariants implied by previous two-state invariants or the transit
 
 `--invgen_mine_trans <bool>` (default `false`) -- if true, the transition relation will be mined for candidate terms. Can make the set of candidate terms untractable.
 
-`--invgen_renice <int>` (only positive values) -- the bigger the parameter, the lower the priority of invariant generation will be for the operating system.
-
 ## Lock Step K-induction
 
 Another improvement on the PKind invariant generation is the way the search for a k-induction proof of the candidate invariants is performed. In PKind, a bounded model checking engine is run up to a certain depth `d` and discovers falsifiable candidate invariants. The graph used to produce the potential invariants is refined based on this information. Once the bound on the depth is reached, an inductive step instance looks for actual invariants by unrolling up to `d`.

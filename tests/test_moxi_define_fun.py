@@ -151,7 +151,7 @@ def test_definition_given_to_solver(tmp_path):
     trace_dir = tmp_path / "out"
     _, out = run(tmp_path, applied,
                  ["--enable", "BMC", "--enable", "IND",
-                  "--smt_trace", "--output_dir", str(trace_dir)])
+                  "--smt_trace", "true", "--output_dir", str(trace_dir)])
     assert query_answer(out) == "unsat", out
     # The trace of BMC: k-induction declares a logic with uninterpreted
     # functions whatever the system, for the functions of its compression,

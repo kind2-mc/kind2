@@ -22,7 +22,7 @@ kind2 --enable BMC --enable IND <file>
 
 k-Induction can be tweaked with the following options.
 
-`--bmc_max <int>` (default `0`) -- sets an upper bound on the number of unrolling base and step will perform. `0` is for unlimited.
+`--unroll_max <int>` (default `0`) -- sets an upper bound on the number of unrolling base and step will perform. `0` is for unlimited.
 
 `--ind_compress <bool>` (default `false`) -- activates path compression in step, **i.e.** counterexamples with a loop will be dismissed. You can activate several path compression strategies:
 
