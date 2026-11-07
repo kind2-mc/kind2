@@ -41,6 +41,7 @@ module LS = LustreSyntaxChecks
 module LDI = LustreDesugarIfBlocks
 module LDF = LustreDesugarFrameBlocks
 module LDL = LustreDesugarLast
+module LDCB = LustreDesugarConstructorBraces
 module LDAC = LustreDesugarArrayComprehensions
 module LNC = LustreNameCalls
 module RMA = LustreRemoveMultAssign
@@ -71,6 +72,7 @@ type error = [
   | `LustreCheckMatchExpressionsError of Lib.position * LustreCheckMatchExpressions.error_kind
   | `LustreCheckADTDecreasesError of Lib.position * LustreCheckADTDecreases.error_kind
   | `LustreDesugarLastError of Lib.position * LustreDesugarLast.error_kind
+  | `LustreDesugarConstructorBracesError of Lib.position * LustreDesugarConstructorBraces.error_kind
   | `LustreDesugarArrayComprehensionsError of Lib.position * LustreDesugarArrayComprehensions.error_kind
   | `LustreGenNodesError of Lib.position * LustreGenNodes.error_kind
 ]
@@ -159,6 +161,10 @@ let fail_or_warn warning =
 
 let type_check declarations =
   let tc_res = (
+    (* Resolve brace expressions naming a constructor, which every later pass
+       would otherwise treat as records *)
+    let* declarations = LDCB.desugar_constructor_braces declarations in
+
     (* Step 0. Desugar the 'last' operator (only allowed within frame blocks).
        Done before syntax checks and type checking so that the rest of the
        pipeline never sees 'last'. *)

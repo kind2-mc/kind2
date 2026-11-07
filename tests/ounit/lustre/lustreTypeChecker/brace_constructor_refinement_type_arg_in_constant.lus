@@ -1,0 +1,7 @@
+type Nat = subtype { w: int | w >= 0 };
+datatype O<T> = Some (v: T) | None;
+const k: O<int> = Some@<Nat> { v = 0 - 1 };
+node N() returns (y: O<int>);
+let
+  y = k;
+tel

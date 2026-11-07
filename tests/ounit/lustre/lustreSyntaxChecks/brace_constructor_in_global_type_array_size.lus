@@ -1,0 +1,6 @@
+datatype B = W (i: int);
+type Z = B^((W { i = 2 }).i);
+node N(x: B) returns (y: B);
+let
+  y = x;
+tel

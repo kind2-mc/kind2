@@ -1,0 +1,6 @@
+datatype D = Foo (b: int) | E;
+type Foo = struct { a: int };
+node N() returns (y: D);
+let
+  y = E;
+tel

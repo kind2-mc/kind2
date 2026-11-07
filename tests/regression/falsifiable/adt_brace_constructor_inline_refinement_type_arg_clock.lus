@@ -1,0 +1,9 @@
+datatype O<T> = Some (v: T) | None;
+
+node main(c: bool) returns (y: O<int>);
+var first: bool;
+let
+  first = true -> false;
+  y = when c then Some@<subtype { z: int | z >= 0 }> { v = 0 -> 1 } else None@<int>;
+  check not first ==> y <> Some { v = 0 };
+tel

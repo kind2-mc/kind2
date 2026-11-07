@@ -1,0 +1,23 @@
+datatype O<T> = Some (v: T) | None;
+datatype E<A; B> = P (a: A, b: B) | Q;
+datatype R<T> = K (h: T, t: R<T>) | Z;
+
+node id<T>(x: T) returns (y: O<T>);
+let
+  y = Some@<T> { v = x };
+  check y = Some(x);
+tel
+
+node main(x: int; c: bool) returns (i: O<int>; j: O<int>; n: O<int>; p: E<int; bool>; r: R<int>);
+let
+  i = Some { v = x };
+  j = Some@<int> { v = x };
+  n = None@<int> {};
+  p = P { b = c; a = x };
+  r = K@<int> { t = Z@<int> {}; h = x };
+  check i = j;
+  check n = None@<int>;
+  check p = P(x, c);
+  check r = K(x, Z@<int>);
+  check id(x) = i;
+tel

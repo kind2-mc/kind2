@@ -1,0 +1,12 @@
+datatype D = C (a: subtype { w: int | w >= 0 }) | N;
+datatype O<T> = Some (v: T) | None;
+
+type P = subtype { w: D | w <> C { a = 0 - 1 } };
+type Q = [subtype { w: O<int> | w <> Some@<int> { v = 1 } }, int];
+
+node main(x: P; z: Q) returns (y: P; r: Q);
+let
+  y = x;
+  r = z;
+  check y = x;
+tel

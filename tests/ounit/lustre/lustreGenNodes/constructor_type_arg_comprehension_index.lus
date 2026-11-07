@@ -1,0 +1,5 @@
+datatype O<T> = Some (v: T) | None;
+node N() returns (y: O<int>^2);
+let
+  y = (Some@<subtype { w: int | w > i }> { v = i - 1 } foreach i)^2;
+tel

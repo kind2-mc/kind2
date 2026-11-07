@@ -1,0 +1,5 @@
+datatype O<T> = Some (v: T) | None;
+node N() returns ();
+let
+  check exists (i: int) Some@<subtype { w: int | w > i }> { v = i - 1 } <> None@<int>;
+tel

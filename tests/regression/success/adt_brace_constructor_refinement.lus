@@ -1,0 +1,12 @@
+type Nat = subtype { w: int | w >= 0 };
+datatype D = C (a: Nat, b: int) | N;
+datatype O<T> = Some (v: T) | None;
+
+const k: O<Nat> = Some@<Nat> { v = 1 };
+
+node main(x: int) returns (y: D; z: D; o: O<Nat>);
+let
+  y = C { b = x; a = 3 };
+  z = when x >= 0 then C { b = 0; a = x } else N;
+  o = when x >= 0 then Some@<Nat> { v = x } else k;
+tel

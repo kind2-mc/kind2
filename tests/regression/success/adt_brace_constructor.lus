@@ -1,0 +1,18 @@
+datatype L = Cons (hd: int, tl: L) | Nil;
+datatype Wrap = Wrap (v: int);
+type E = enum { A, B };
+type R = struct { p: int; q: bool };
+
+node main(x: int) returns (y: L; w: Wrap; e: E; n: L; r: R);
+let
+  y = Cons { tl = Cons { tl = Nil {}; hd = x + 1 }; hd = x };
+  w = Wrap { v = x };
+  e = B {};
+  n = Nil {};
+  r = R { q = true; p = x };
+  check y = Cons(x, Cons(x + 1, Nil));
+  check w = Wrap(x);
+  check e = B;
+  check n = Nil;
+  check r.p = x and r.q;
+tel

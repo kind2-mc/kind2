@@ -1,0 +1,8 @@
+type S = struct { p: int; q: bool };
+datatype D = C (t: [int, bool], r: S, a: int^2) | N;
+
+node main(x: int) returns (y: D);
+let
+  y = C { a = [x, x + 1]; r = S { q = true; p = x }; t = '(x, true) };
+  check y = C('(x, true), S { p = x; q = true }, [x, x + 1]);
+tel

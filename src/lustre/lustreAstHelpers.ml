@@ -1344,6 +1344,35 @@ let lazy_construct = function
   | TernaryOp (_, LazyIte, e1, e2, e3) -> Some (e1, [e2; e3])
   | _ -> None
 
+(* The variables of a type, given those of an expression. A refinement binder
+   scopes over its predicate only. *)
+let rec vars_of_type_with ?(into_ty_args = false) vars ty =
+  let vars_of_type = vars_of_type_with ~into_ty_args vars in
+  match ty with
+  | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars e)
+  | TupleType (_, tys) | GroupType (_, tys) -> 
+    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
+  | RecordType (_, _, tis) -> 
+    let vars = List.map (fun (_, _, ty) -> vars_of_type ty) tis in 
+    List.fold_left SI.union SI.empty vars
+  | RefinementType (_, (_, id, ty), e) ->
+    let vars1 = SI.diff (vars e) (SI.singleton id) in 
+    let vars2 = vars_of_type ty in 
+    SI.union vars1 vars2
+  | Set (_, ty) -> vars_of_type ty
+  | Map (_, ty1, ty2)
+  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
+  | History (_, id) -> SI.singleton id 
+  | UserType (_, ty_args, _) ->
+    if into_ty_args then
+      List.fold_left SI.union SI.empty (List.map vars_of_type ty_args)
+    else SI.empty
+  | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _
+  | SBitVector _ | UBitVector _ -> SI.empty
+  | ADT (_, _, cons) ->
+    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
+    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
+
 let rec vars_of_node_calls_h obs e =
   let vars obs = vars_of_node_calls_h obs in
   match lazy_construct e with
@@ -1358,10 +1387,10 @@ let rec vars_of_node_calls_h obs e =
   | FieldProject (_, e, _, _) -> vars obs e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty   
   | EmptyMap (_, Some (kt, vt)) -> 
-    SI.union (fold_lustre_ty (vars obs) SI.empty SI.union kt)
-             (fold_lustre_ty (vars obs) SI.empty SI.union vt)
+    SI.union (vars_of_type_with (vars obs) kt)
+             (vars_of_type_with (vars obs) vt)
   | EmptySet (_, Some ty) ->
-    fold_lustre_ty (vars obs) SI.empty SI.union ty
+    vars_of_type_with (vars obs) ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -1399,7 +1428,7 @@ let rec vars_of_node_calls_h obs e =
   | Pre (_, e) -> vars obs e
   | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (vars obs e1) (vars obs e2)
   | TypeAscription (_, e, ty) ->
-    SI.union (vars obs e) (fold_lustre_ty (vars obs) SI.empty SI.union ty)
+    SI.union (vars obs e) (vars_of_type_with (vars obs) ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map (vars true) es)
   | Match (_, e, arms, _) ->
@@ -1408,7 +1437,7 @@ let rec vars_of_node_calls_h obs e =
         SI.diff (vars obs arm_e) (pat_bound_vars pat)) arms))
   | ADTTerm (_, ty_args, _, args) ->
     SI.union
-      (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty (vars obs) SI.empty SI.union ty)) SI.empty ty_args)
+      (List.fold_left (fun acc ty -> SI.union acc (vars_of_type_with (vars obs) ty)) SI.empty ty_args)
       (SI.flatten (List.map (vars obs) args))
   | AbstractSymConst _ -> SI.empty
   | ADTTester (_, e, _) -> vars obs e
@@ -1424,10 +1453,10 @@ let rec vars_without_node_call_ids: expr -> iset =
   | FieldProject (_, e, _, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
-    SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
-             (fold_lustre_ty vars SI.empty SI.union vt)
+    SI.union (vars_of_type_with vars kt) 
+             (vars_of_type_with vars vt)
   | EmptySet (_, Some ty) ->
-    fold_lustre_ty vars SI.empty SI.union ty
+    vars_of_type_with vars ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -1464,7 +1493,7 @@ let rec vars_without_node_call_ids: expr -> iset =
   | Pre (_, e) -> vars e
   | Arrow (_, e1, e2) | Fby (_, e1, e2) ->  SI.union (vars e1) (vars e2)
   | TypeAscription (_, e, ty) ->
-    SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
+    SI.union (vars e) (vars_of_type_with vars ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
   | Match (_, e, arms, _) ->
@@ -1473,7 +1502,7 @@ let rec vars_without_node_call_ids: expr -> iset =
         SI.diff (vars arm_e) (pat_bound_vars pat)) arms))
   | ADTTerm (_, ty_args, _, args) ->
     SI.union
-      (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty vars SI.empty SI.union ty)) SI.empty ty_args)
+      (List.fold_left (fun acc ty -> SI.union acc (vars_of_type_with vars ty)) SI.empty ty_args)
       (SI.flatten (List.map vars args))
   | AbstractSymConst _ -> SI.empty
   | ADTTester (_, e, _) -> vars e
@@ -1543,10 +1572,10 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   | FieldProject (_, e, _, _) -> vars e
   | EmptyMap (_, None) | EmptySet (_, None) -> SI.empty
   | EmptyMap (_, Some (kt, vt)) -> 
-    SI.union (fold_lustre_ty vars SI.empty SI.union kt) 
-             (fold_lustre_ty vars SI.empty SI.union vt)
+    SI.union (vars_of_type_with vars kt) 
+             (vars_of_type_with vars vt)
   | EmptySet (_, Some ty) -> 
-    fold_lustre_ty vars SI.empty SI.union ty
+    vars_of_type_with vars ty
   (* Values *)
   | Const _ -> SI.empty
   (* Operators *)
@@ -1588,7 +1617,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
   (* 'e1 fby e2' is 'e1 -> pre e2' *)
   | Fby (_, e1, _) -> vars e1
   | TypeAscription (_, e, ty) ->
-    SI.union (vars e) (fold_lustre_ty vars SI.empty SI.union ty)
+    SI.union (vars e) (vars_of_type_with vars ty)
   (* Node calls *)
   | Call (_, _, _, es) -> SI.flatten (List.map vars es)
   | Match (_, e, arms, _) ->
@@ -1597,7 +1626,7 @@ let rec vars_without_node_call_ids_current: expr -> iset =
         SI.diff (vars arm_e) (pat_bound_vars pat)) arms))
   | ADTTerm (_, ty_args, _, args) ->
     SI.union
-      (List.fold_left (fun acc ty -> SI.union acc (fold_lustre_ty vars SI.empty SI.union ty)) SI.empty ty_args)
+      (List.fold_left (fun acc ty -> SI.union acc (vars_of_type_with vars ty)) SI.empty ty_args)
       (SI.flatten (List.map vars args))
   | AbstractSymConst _ -> SI.empty
   | ADTTester (_, e, _) -> vars e
@@ -1623,32 +1652,8 @@ let rec vars_of_struct_item = function
   | ArraySliceStructItem (_, i, _)
   | ArrayDef (_, i, _) -> SI.singleton i
 
-let rec vars_of_type ?(into_ty_args = false) ty =
-  let vars_of_type = vars_of_type ~into_ty_args in
-  match ty with
-  | ArrayType (_, (ty, e)) -> SI.union (vars_of_type ty) (vars_without_node_call_ids e)
-  | TupleType (_, tys) | GroupType (_, tys) -> 
-    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
-  | RecordType (_, _, tis) -> 
-    let vars = List.map (fun (_, _, ty) -> vars_of_type ty) tis in 
-    List.fold_left SI.union SI.empty vars
-  | RefinementType (_, (_, id, ty), e) ->
-    let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
-    let vars2 = vars_of_type ty in 
-    SI.union vars1 vars2
-  | Set (_, ty) -> vars_of_type ty
-  | Map (_, ty1, ty2)
-  | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
-  | History (_, id) -> SI.singleton id 
-  | UserType (_, ty_args, _) ->
-    if into_ty_args then
-      List.fold_left SI.union SI.empty (List.map vars_of_type ty_args)
-    else SI.empty
-  | Int _ | Bool _ | Real _ | AbstractType _ | EnumType _
-  | SBitVector _ | UBitVector _ -> SI.empty
-  | ADT (_, _, cons) ->
-    let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
-    List.fold_left SI.union SI.empty (List.map vars_of_type tys)
+let vars_of_type ?(into_ty_args = false) ty =
+  vars_of_type_with ~into_ty_args vars_without_node_call_ids ty
 
 (* Renames each quantified variable whose name a binder type of the same
    quantifier mentions, where the quantified variable is not in scope *)
