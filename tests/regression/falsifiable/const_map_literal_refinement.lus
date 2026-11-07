@@ -1,0 +1,8 @@
+type Nat = subtype { n: int | n >= 0 };
+type S = struct { g: Nat };
+const m: map<int, S> = map[]@<int, S>[1 := S { g = -1 }];
+node N(x: int) returns (y: int);
+let
+  y = m[1].g;
+  check y = -1;
+tel

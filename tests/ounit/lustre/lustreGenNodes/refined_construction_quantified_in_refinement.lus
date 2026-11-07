@@ -1,0 +1,3 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+node N(x: subtype { v: int | forall (j: int) j >= 0 => v >= (R { f = j }).f }) returns (y: int);
+let y = x; tel

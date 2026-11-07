@@ -1,0 +1,9 @@
+type Nat = subtype { n: int | n >= 0 };
+type Inner = struct { g: Nat };
+type Outer = struct { h: Inner };
+const K: Outer = Outer { h = Inner { g = -1 } };
+node N(x: int) returns (y: bool);
+let
+  y = K.h.g = -1;
+  check y;
+tel

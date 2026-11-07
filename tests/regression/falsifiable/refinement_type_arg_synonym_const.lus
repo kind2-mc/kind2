@@ -1,3 +1,5 @@
 type R<T> = struct { f: T };
 type S = R<subtype { w: int | w >= 100 }>;
 const K: int = (S { f = 0 }).f;
+node N(x: int) returns (y: int);
+let y = x + K; tel

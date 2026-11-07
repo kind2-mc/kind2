@@ -20,6 +20,7 @@ module R = Res
 module A = LustreAst
 module AH = LustreAstHelpers
 module NI = NodeId
+module GI = GeneratedIdentifiers
 module Ctx = TypeCheckerContext
 module Chk = LustreTypeChecker
 
@@ -279,7 +280,8 @@ let gen_const_functions ctx decls =
       if Ctx.type_contains_ref ctx ty then 
         let p = s.start_pos in
         let node_type = NI.DefinedConstant in 
-        let node_id = NI.mk_node_id ~node_type id in
+        let user_name = GI.const_subtype_check_source id in
+        let node_id = NI.mk_node_id ~node_type ?user_name id in
         let ops = [s.start_pos, id, ty, A.ClockTrue] in
         let nis = [A.Body (A.Equation (p, A.StructDef (p, [A.SingleIdent (p, id)]), e))] in 
         let func_ty = A.TArr (p, GroupType (p, []), ty) in 
@@ -291,7 +293,7 @@ let gen_const_functions ctx decls =
         in
         (if List.mem `CONTRACTCK (Flags.enabled ()) then
           let func_decl2 =
-            let node_id = NI.mk_node_id ~node_type:NI.FreeConstant id in
+            let node_id = NI.mk_node_id ~node_type:NI.FreeConstant ?user_name id in
             A.FuncDecl (s, (node_id, true, Default, [], [], ops, [], [], None), { is_lemma = false; is_rec = false })
           in
           acc_decls @ [func_decl1; func_decl2]

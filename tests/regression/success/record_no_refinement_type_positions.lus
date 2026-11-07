@@ -1,0 +1,6 @@
+type R = struct { g: int };
+node N(x: subtype { v: int | v >= (R { g = 0 }).g }) returns (y: int^((R { g = 2 }).g));
+let
+  y = x^((R { g = 2 }).g);
+  check y[0] >= 0;
+tel

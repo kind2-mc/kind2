@@ -1,0 +1,4 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+node imported M(x: subtype { v: int | v = (R { f = 0 }).f }) returns (y: int);
+node N(x: int) returns (y: int);
+let y = M(0); tel

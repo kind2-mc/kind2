@@ -27,6 +27,8 @@ type error_kind =
   | MatchScrutineeInLocalDecl
   | MatchScrutineeUnsupported
   | TemporalBranchQuantifiedVariable of HString.t
+  | RefinedConstructionBoundVariable of HString.t
+  | RefinedConstructionNotConstant of string
 
 val error_message : error_kind -> string
 
@@ -45,3 +47,16 @@ val is_user_ascription : NodeId.t -> bool
 val gen_nodes : TypeCheckerContext.tc_context -> 
                          LustreAst.declaration list -> 
                          (LustreAst.declaration list * [> error] option, [> error]) result
+
+(* The global constant and type declarations, with a fresh global constant
+   inserted for each record or constructor expression in one of them whose
+   field types contain a refinement type. A constant expression is expected
+   there, so the refinement cannot be checked by an inserted ascription; the
+   declared type of the fresh constant yields the obligation instead. Refuses
+   a construction that mentions a variable bound inside it, which no constant
+   can be declared for. Returns the declarations, and the fresh constants on
+   their own so that the caller can check them as the user's own globals. *)
+val global_const_subtype_checks : TypeCheckerContext.tc_context ->
+                         LustreAst.declaration list ->
+                         (LustreAst.declaration list * LustreAst.declaration list,
+                          [> error]) result

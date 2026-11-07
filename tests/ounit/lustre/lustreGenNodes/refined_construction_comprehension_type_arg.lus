@@ -1,0 +1,4 @@
+type R<T> = struct { f: T };
+const K: int^3 = ((R@<subtype { w: int | w >= 100 }> { f = i }).f foreach i)^3;
+node N(x: int) returns (y: int);
+let y = x + K[0]; tel

@@ -1,0 +1,8 @@
+type R = struct { g: int };
+const K: int = (R { g = 1 }).g;
+node M(const n: int; x: int) returns (y: int); let y = n + x; tel
+node N(x: int) returns (y: int);
+let
+  y = M((R { g = 2 }).g, x) + K;
+  check y = x + 3;
+tel

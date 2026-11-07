@@ -1,0 +1,7 @@
+type Nat = subtype { n: int | n >= 0 };
+datatype A = C(i: Nat) | D;
+node N(x: subtype { v: A | v <> C(0) }) returns (y: bool);
+let
+  y = true;
+  check y;
+tel

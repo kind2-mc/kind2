@@ -1,0 +1,7 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+node N(x: int) returns (y: int);
+(*@contract
+  const K: bool = forall (j: int) (R { f = j }).f > 0;
+  guarantee K;
+*)
+let y = 1000; tel

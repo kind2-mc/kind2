@@ -1,0 +1,8 @@
+type Nat = subtype { n: int | n >= 0 };
+type R = struct { a: Nat };
+node M(const r: R; x: int) returns (y: int); let y = r.a + x; tel
+node N(x: int) returns (y: int);
+let
+  y = M(R { a = -1 }, x);
+  check y = x - 1;
+tel

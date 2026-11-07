@@ -1,0 +1,7 @@
+datatype O<T> = A | B (h: T);
+
+node N(x: subtype { v: int | v >= 0 and A@<subtype { w: int | w >= 0 }> = A@<subtype { w: int | w >= 0 }> }) returns (y: int);
+let
+  y = x;
+  check "p" y >= 0;
+tel

@@ -1,0 +1,7 @@
+type R = struct { f: subtype { w: int | w >= 100 } };
+const K: int = (R { f = 100 }).f;
+node N(x: int) returns (y: int);
+let
+  y = x + K;
+  check y = x + 100;
+tel

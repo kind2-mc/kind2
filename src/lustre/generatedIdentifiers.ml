@@ -264,6 +264,22 @@ let match_scrutinee = "mscrut"
    passes below must not exempt from the checks a user variable must meet. *)
 let var_is_match_scrutinee = is_generated_ast_name match_scrutinee
 
+(* String constant used in lustreGenNodes.ml as the suffix of the fresh
+   constants that hold the subtype obligation of a record or constructor
+   expression met where an ascription is not allowed: '4_gsubtype' for one
+   declared inside a node, '4_gsubtype_K' for a global one, where K is the
+   declaration it comes from. *)
+let const_subtype_check = "gsubtype"
+
+(* The declaration a global subtype-check constant '<n>_gsubtype_<x>' carries
+   the obligation of. A global constant becomes its own analysis target, so
+   that analysis is reported under the name the user wrote. *)
+let const_subtype_check_source var =
+  match String.split_on_char '_' (HString.string_of_hstring var) with
+  | n :: segment :: (_ :: _ as source) when is_numeral n && segment = const_subtype_check ->
+    Some (HString.mk_hstring (String.concat "_" source))
+  | _ -> None
+
 (* String constant used in lustreDesugarArrayComprehensions.ml as the suffix of
    the fresh locals holding the value of an array comprehension
    (e.g. '4_gcomp'). *)

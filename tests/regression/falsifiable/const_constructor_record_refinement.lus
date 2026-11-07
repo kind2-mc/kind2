@@ -1,0 +1,9 @@
+type Nat = subtype { n: int | n >= 0 };
+type R = struct { f: Nat };
+datatype A = C(r: R) | D;
+const K: A = C(R { f = -1 });
+node N(x: int) returns (y: bool);
+let
+  y = C?(K);
+  check y;
+tel

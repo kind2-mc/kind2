@@ -1,0 +1,4 @@
+type Nat = subtype { n: int | n >= 0 };
+type R = struct { f: subtype { w: int | w >= 100 } };
+node N(x: subtype { v: int | v >= (R { f = (200 : Nat) }).f }) returns (y: int);
+let y = x; tel
