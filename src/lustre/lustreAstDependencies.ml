@@ -653,9 +653,9 @@ let mk_graph_node_decl: Lib.position -> LA.node_decl -> dependency_analysis_data
   let node_refs = node_refs @ List.map (fun (_, _, ty, _) -> extract_node_calls_type ty) ops in
   let node_refs = node_refs @ List.map (fun decl -> match decl with 
     | LA.NodeConstDecl (_, FreeConst (_, _, ty)) 
-    | LA.NodeConstDecl (_, TypedConst (_, _, _, ty)) -> extract_node_calls_type ty
+    | LA.NodeConstDecl (_, TypedConst (_, _, _, ty))
+    | LA.NodeVarDecl (_, (_, _, ty, _)) -> extract_node_calls_type ty
     | LA.NodeConstDecl (_, UntypedConst _) -> []
-    | LA.NodeVarDecl _ -> []
   ) locals |> List.flatten in
   let node_refs = node_refs @ extract_node_calls nitems in
   List.fold_left
