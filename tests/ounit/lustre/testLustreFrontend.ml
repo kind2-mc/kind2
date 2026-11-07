@@ -1226,6 +1226,26 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/adt_instantiation_mismatch.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
     | _ -> false);
+  mk_test "test nested instantiations of one polymorphic ADT are distinct types" (fun () ->
+    match load_file "./lustreTypeChecker/adt_nested_instantiation_mismatch.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test nested instantiations are distinct through a chain of type synonyms" (fun () ->
+    match load_file "./lustreTypeChecker/adt_nested_instantiation_synonym_chain.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test nested instantiations are distinct as a map element" (fun () ->
+    match load_file "./lustreTypeChecker/adt_nested_instantiation_map_element.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedType _)) -> true
+    | _ -> false);
+  mk_test "test a type variable reachable only past a datatype cycle still needs an annotation" (fun () ->
+    match load_file "./lustreTypeChecker/adt_poly_call_uninferable_nested.lus" with
+    | Error (`LustreTypeCheckerError (_, CallRequiresExplicitAnnotation _)) -> true
+    | _ -> false);
+  mk_test "test a triply nested instantiation as a call argument is rejected, not crashed on" (fun () ->
+    match load_file "./lustreTypeChecker/adt_poly_call_triple_nested_arg.lus" with
+    | Error (`LustreTypeCheckerError (_, UnsupportedRecursiveAdtField _)) -> true
+    | _ -> false);
   mk_test "test ADT tester type-checks" (fun () ->
     match load_file "./lustreTypeChecker/adt_tester_basic.lus" with
     | Ok _ -> true

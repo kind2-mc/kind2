@@ -1,0 +1,13 @@
+datatype Opt<T> = N | S (val: T);
+
+node main(i: int) returns (ok: bool);
+var x: Opt<Opt<int>>; y: Opt<Opt<int>>;
+let
+  x = S(S(i));
+  y = x;
+  ok = match y with
+       | S(z) : (match z with | S(v) : v = i | N : false end)
+       | N : false
+       end;
+  check ok;
+tel

@@ -1,0 +1,13 @@
+datatype T1<A, B> = E | P (l: T2<A>, r: T2<B>);
+datatype T2<A> = Z | W (v: A, n: T2<A>);
+
+node main(i: int) returns (ok: bool);
+var u: T2<int>; v: T2<T2<bool>>; x: T1<int, T2<bool>>; y: T1<int, T2<bool>>;
+let
+  u = W(i, Z@<int>);
+  v = Z@<T2<bool>>;
+  x = P(u, v);
+  y = x;
+  ok = P?(x) and P?(y);
+  check ok;
+tel
