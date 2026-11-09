@@ -40,22 +40,6 @@ let enable top =
     if not (List.exists (Scope.equal top) !enabled_tops) then
       enabled_tops := top :: !enabled_tops)
 
-(* The systems built without some finiteness constraints, compared
-   physically. Only the latest are of use (the system the engines run on,
-   and one sliced to a property, looked at as soon as it is built), so the
-   list is kept short. *)
-let omitted_systems : TransSys.t list ref = ref []
-
-let max_omitted = 64
-
-let note_omitted sys =
-  Mutex.protect lock (fun () ->
-    omitted_systems :=
-      sys :: List.filteri (fun i _ -> i < max_omitted - 1) !omitted_systems)
-
-let omitted sys =
-  Mutex.protect lock (fun () -> List.exists (fun s -> s == sys) !omitted_systems)
-
 let requested_flag = ref false
 
 (* The time spent checking counterexamples on the systems with the

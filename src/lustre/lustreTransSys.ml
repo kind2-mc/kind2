@@ -4918,6 +4918,30 @@ let trans_sys_of_nodes
      they are then constraints of the nodes as the canonical forms of the
      ADT values are. Otherwise the system ignores them. *)
   let finite_on = FiniteSets.enabled top in
+  (* The finiteness constraints of the node [n] the system takes: only those
+     of the containers that no equation or call defines, the others being
+     built from them by operations that keep containers finite. An
+     abstracted node defines nothing: its contract replaces its body. *)
+  let finite_sources n =
+    let abstract =
+      A.param_scope_is_abstract analysis_param
+        (base_scope_of_node_id n.N.node_id)
+    in
+    let defined =
+      if abstract then SVS.empty else
+      List.fold_left (fun acc { N.call_outputs } ->
+        List.fold_left (fun acc sv -> SVS.add sv acc)
+          acc (D.values call_outputs))
+        (List.fold_left (fun acc ((sv, _), _) -> SVS.add sv acc)
+           SVS.empty n.N.equations)
+        n.N.calls
+    in
+    let arrays = SVS.of_list n.N.finite_arrays in
+    n.N.finite_constraints |> List.filter (fun e ->
+      let svs = SVS.inter arrays (E.state_vars_of_expr e) in
+      SVS.is_empty svs
+      || SVS.exists (fun sv -> not (SVS.mem sv defined)) svs)
+  in
   let globals =
     if not finite_on then globals
     else
@@ -4932,32 +4956,8 @@ let trans_sys_of_nodes
     else
       N.subsystem_of_nodes subsystem'.SubSystem.source.N.node_id
         (List.map (fun n ->
-           (* Only those of the containers that no equation or call defines,
-              the others being built from them by operations that keep
-              containers finite. An abstracted node defines nothing: its
-              contract replaces its body. *)
-           let abstract =
-             A.param_scope_is_abstract analysis_param
-               (base_scope_of_node_id n.N.node_id)
-           in
-           let defined =
-             if abstract then SVS.empty else
-             List.fold_left (fun acc { N.call_outputs } ->
-               List.fold_left (fun acc sv -> SVS.add sv acc)
-                 acc (D.values call_outputs))
-               (List.fold_left (fun acc ((sv, _), _) -> SVS.add sv acc)
-                  SVS.empty n.N.equations)
-               n.N.calls
-           in
-           let arrays = SVS.of_list n.N.finite_arrays in
-           let sources =
-             n.N.finite_constraints |> List.filter (fun e ->
-               let svs = SVS.inter arrays (E.state_vars_of_expr e) in
-               SVS.is_empty svs
-               || SVS.exists (fun sv -> not (SVS.mem sv defined)) svs)
-           in
            { n with
-             N.adt_constraints = n.N.adt_constraints @ sources;
+             N.adt_constraints = n.N.adt_constraints @ finite_sources n;
              N.finite_constraints = [] }) nodes)
   in
 
@@ -5004,7 +5004,8 @@ let trans_sys_of_nodes
   let nodes = N.nodes_of_subsystem subsystem' in
 
   (* Whether the system leaves out the finiteness constraint of a container
-     it has: a counterexample may then rely on an infinite container *)
+     it has, among those it would take (see [finite_sources]): a
+     counterexample may then rely on an infinite container *)
   let omits_finiteness =
     not finite_on &&
     ((globals.G.finite_global_constraints <> [] &&
@@ -5029,7 +5030,7 @@ let trans_sys_of_nodes
            (D.values n.N.inputs @ n.N.oracles @ D.values n.N.outputs
             @ List.concat_map D.values n.N.locals)
        in
-       n.N.finite_constraints |> List.exists (fun e ->
+       finite_sources n |> List.exists (fun e ->
          E.state_vars_of_expr e |> SVS.exists (fun sv ->
            not (StateVar.is_const sv) && SVS.mem sv svars))))
   in
@@ -5156,7 +5157,10 @@ let trans_sys_of_nodes
     else trans_sys
   in
 
-  if omits_finiteness then FiniteSets.note_omitted trans_sys ;
+  let trans_sys =
+    if omits_finiteness then TransSys.mark_omits_finiteness trans_sys
+    else trans_sys
+  in
 
   trans_sys, subsystem'
 

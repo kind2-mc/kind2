@@ -3971,15 +3971,17 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     | _ ->
       let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in
       let ty = match ty1 with Set (_, _, ty) -> ty | _ -> assert false in
-      (* The result is possibly infinite when an operand is *)
+      (* The result is possibly infinite as [Chk.set_binop_infinite] says *)
       let inf =
-        List.exists (fun e ->
+        let inf e =
           match
             Chk.expand_type_syn_reftype_history info.context
               (infer_type info node_id e)
           with
           | Ok (Set (_, inf, _)) -> inf
-          | _ -> false) [expr1; expr2]
+          | _ -> false
+        in
+        Chk.set_binop_infinite op (inf expr1) (inf expr2)
       in
       let gids3 = { (empty ()) with
         set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ];

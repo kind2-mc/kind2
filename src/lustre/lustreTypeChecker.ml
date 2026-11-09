@@ -1081,6 +1081,24 @@ let strictly f =
 let finiteness_compatible inf1 inf2 =
   if !subtyping then (not inf1) || inf2 else inf1 = inf2
 
+(* Whether the result of the set operation [op] (union, intersection or
+   difference) on sets possibly infinite if [inf1] and [inf2] is: a union
+   is finite when both operands are, an intersection when one is, a
+   difference when its left operand is *)
+let set_binop_infinite op inf1 inf2 =
+  match op with
+  | LA.Union -> inf1 || inf2
+  | LA.Intersection -> inf1 && inf2
+  | _ -> inf1
+
+(* The type of the set operation [op] on the sets of types [ty1] and [ty2],
+   expanded, of the same elements *)
+let set_binop_type op ty1 ty2 =
+  match ty1, ty2 with
+  | LA.Set (p, inf1, t), LA.Set (_, inf2, _) ->
+    LA.Set (p, set_binop_infinite op inf1 inf2, t)
+  | _ -> ty2
+
 (* The depth of the quantifiers that may observe the finiteness of a set
    (see above) the expression being checked is under *)
 let quant_depth = ref 0
@@ -1138,9 +1156,13 @@ let note_container_type ctx nname ty =
     match expand_type_syn_reftype_history ctx ty with
     | Ok base ->
       let q = !quant_depth > 0 in
-      if not (List.exists (fun (n, q', _, b) ->
+      (* Compared as written too: the refinements of the elements decide
+         whether they are finite, and differ between uses of one base type
+         ([set<nat10>] and [set<int>]) *)
+      if not (List.exists (fun (n, q', w, b) ->
           Option.equal NI.equal n nname && q = q'
-          && LH.syn_type_equal None b base = Ok true)
+          && LH.syn_type_equal None b base = Ok true
+          && LH.syn_type_equal None w written = Ok true)
           !container_uses)
       then container_uses := (nname, q, written, base) :: !container_uses
     | Error _ -> ())
@@ -2258,10 +2280,8 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     in
     if b1 then R.ok (ty2, e1, e2, warnings1 @ warnings2)
     else if b2 then
-      (* The union (intersection) of sets is possibly infinite when one of
-         them is *)
-      let* ty = join_lustre_type ctx ty1' ty2' in
-      R.ok (Option.value ty ~default:ty2, e1, e2, warnings1 @ warnings2)
+      let ty = set_binop_type (if op = LA.Plus then LA.Union else LA.Intersection) ty1' ty2' in
+      R.ok (ty, e1, e2, warnings1 @ warnings2)
     else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
   | LA.Minus ->
     let* ty1' = expand_type_syn_reftype_history ctx ty1 in
@@ -2270,9 +2290,7 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     | Set (_, _, ty3), Set (_, _, ty4) ->
       let* same_elem_ty = eq_lustre_type ctx ty3 ty4 in
       if same_elem_ty
-      then
-        let* ty = join_lustre_type ctx ty1' ty2' in
-        R.ok (Option.value ty ~default:ty2, e1, e2, warnings1 @ warnings2)
+      then R.ok (set_binop_type LA.Difference ty1' ty2', e1, e2, warnings1 @ warnings2)
       else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
     | Map (_, _, kt, _), Set (_, _, st) ->
       (* Map subtraction: remove from the map all keys contained in the set *)

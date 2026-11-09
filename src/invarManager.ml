@@ -18,10 +18,9 @@
         
 open Lib
 
-(* The system of the analysis sliced to the property, as IC3IA builds it,
-   for a property that was in the input system and when the nodes are
-   sliced *)
-let sliced_to_property input_sys aparam trans_sys name () =
+(* The property [name] of [trans_sys] to slice the nodes to, as IC3IA
+   does: one that was in the input system, when the nodes are sliced *)
+let slice_target trans_sys name =
   if Flags.slice_nodes () <> `On then None
   else
     let prop = TransSys.property_of_name trans_sys name in
@@ -29,23 +28,51 @@ let sliced_to_property input_sys aparam trans_sys name () =
     | Property.Instantiated _
     | Property.Assumption _
     | Property.Generated (None, _, _) -> None
+    | _ -> Some prop
+
+(* The systems sliced to the properties of [trans_sys], built in its round,
+   by property name: a system is built once for every use *)
+let sliced_cache : (TransSys.t * (string, TransSys.t option) Hashtbl.t) option ref =
+  ref None
+
+(* The system of the analysis sliced to the property, as IC3IA builds it
+   (see [slice_target]) *)
+let sliced_to_property input_sys aparam trans_sys name () =
+  let cache =
+    match !sliced_cache with
+    | Some (sys, cache) when sys == trans_sys -> cache
     | _ ->
-      match
-        InputSystem.trans_sys_of_analysis ~slice_to_prop:prop input_sys
-          (Analysis.param_clone aparam)
-      with
-      | sys, _ -> Some sys
-      | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+      let cache = Hashtbl.create 7 in
+      sliced_cache := Some (trans_sys, cache) ;
+      cache
+  in
+  match Hashtbl.find_opt cache name with
+  | Some sliced -> sliced
+  | None ->
+    let sliced =
+      match slice_target trans_sys name with
+      | None -> None
+      | Some prop ->
+        match
+          InputSystem.trans_sys_of_analysis ~slice_to_prop:prop input_sys
+            (Analysis.param_clone aparam)
+        with
+        | sys, _ -> Some sys
+        | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+    in
+    Hashtbl.replace cache name sliced ;
+    sliced
 
 (* The counterexample [cex] to the property [p] of [trans_sys], a system
    that leaves out the finiteness constraints of some containers, as a
    counterexample of the system with them, if one with the same inputs is
-   found in time (see [FiniteSets]): the property sliced to the property
-   with the constraints, unrolled to the length of the counterexample, with
-   the inputs and the constants fixed to their values in it (the arrays of
-   unknown size, the sets among them, are left free), and the property
-   false at its last step. The values of the variables are then those of
-   the new counterexample, which the containers of are finite. *)
+   found in time (see [FiniteSets]): the system sliced to the property
+   (see [slice_target]) with the constraints, unrolled to the length of
+   the counterexample, with the inputs and the constants fixed to their
+   values in it (the arrays of unknown size, the sets among them, are left
+   free), and the property false at its last step. The new counterexample
+   is the path of its model, over the variables of that system, and its
+   containers are finite. *)
 let finite_counterexample input_sys aparam trans_sys p cex =
   if not (FiniteSets.within_check_budget ()) then None
   else
@@ -54,15 +81,7 @@ let finite_counterexample input_sys aparam trans_sys p cex =
       ~finally:(fun () ->
         FiniteSets.spent_checking (Unix.gettimeofday () -. started))
     @@ fun () ->
-    let prop = TransSys.property_of_name trans_sys p in
-    let slice_to_prop =
-      if Flags.slice_nodes () <> `On then None
-      else match prop.Property.prop_source with
-        | Property.Instantiated _
-        | Property.Assumption _
-        | Property.Generated (None, _, _) -> None
-        | _ -> Some prop
-    in
+    let slice_to_prop = slice_target trans_sys p in
     match
       FiniteSets.with_enabled (fun () ->
         fst
@@ -74,17 +93,6 @@ let finite_counterexample input_sys aparam trans_sys p cex =
       let k = match cex with (_, values) :: _ -> List.length values - 1 | [] -> 0 in
       let state_vars = StateVar.StateVarSet.of_list (TransSys.state_vars sys) in
       let var_at sv i = Term.mk_var (Var.mk_state_var_instance sv (Numeral.of_int i)) in
-      (* The variables of the counterexample in the system, whose values
-         the new counterexample gives *)
-      let observed =
-        cex |> List.concat_map (fun (sv, values) ->
-          if StateVar.StateVarSet.mem sv state_vars then
-            List.mapi (fun i v -> match v with
-              | Model.Term _ -> Some (var_at sv i)
-              | _ -> None) values
-            |> List.filter_map Fun.id
-          else [])
-      in
       match
         SMTSolver.create_instance ~timeout:FiniteSets.check_timeout
           ~produce_models:true (TransSys.get_logic sys) (Flags.Smt.solver ())
@@ -94,17 +102,11 @@ let finite_counterexample input_sys aparam trans_sys p cex =
         Fun.protect ~finally:(fun () -> SMTSolver.delete_instance solver)
         @@ fun () ->
         try
-          let declare = SMTSolver.declare_fun solver in
-          TransSys.define_and_declare_of_bounds sys
-            (SMTSolver.define_fun solver)
-            ~define_rec:(SMTSolver.define_funs_rec solver)
-            declare (SMTSolver.declare_sort solver)
-            Numeral.zero (Numeral.of_int k) ;
-          TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
-          TransSys.init_of_bound (Some declare) sys Numeral.zero
-          |> SMTSolver.assert_term solver ;
+          let k' = Numeral.of_int k in
+          RecUnrolling.declare_and_init solver sys k' ;
           for i = 1 to k do
-            TransSys.trans_of_bound (Some declare) sys (Numeral.of_int i)
+            TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys
+              (Numeral.of_int i)
             |> SMTSolver.assert_term solver
           done ;
           cex |> List.iter (fun (sv, values) ->
@@ -114,26 +116,23 @@ let finite_counterexample input_sys aparam trans_sys p cex =
                 RecUnrolling.fix_value (var_at sv i) value
                 |> List.iter (SMTSolver.assert_term solver))) ;
           TransSys.get_prop_term sys p
-          |> Term.bump_state (Numeral.of_int k)
+          |> Term.bump_state k'
           |> Term.mk_not
           |> SMTSolver.assert_term solver ;
-          SMTSolver.check_sat_and_get_term_values solver
-            (fun _ values ->
-              let value_of t =
-                List.find_map (fun (t', v) ->
-                  if Term.equal t t' then Some v else None) values
-              in
-              Some (cex |> List.map (fun (sv, vs) ->
-                if not (StateVar.StateVarSet.mem sv state_vars) then (sv, vs)
-                else
-                  (sv, List.mapi (fun i v -> match v with
-                     | Model.Term _ -> (
-                       match value_of (var_at sv i) with
-                       | Some t -> Model.Term t
-                       | None -> v)
-                     | _ -> v) vs))))
-            (fun _ -> None)
-            observed
+          if not (SMTSolver.check_sat solver) then None
+          else
+            (* The whole path, the containers included, as the engines
+               read it *)
+            let model =
+              SMTSolver.get_var_values
+                ~array_limit:(`Omit SMTSolver.max_array_elements)
+                solver
+                (TransSys.get_state_var_bounds sys)
+                (TransSys.vars_of_bounds sys Numeral.zero k')
+            in
+            Some
+              (Model.path_from_model (TransSys.state_vars sys) model k'
+               |> Model.path_to_list)
         with
         | SMTSolver.Timeout | SMTSolver.Unknown | SMTSolver.Killed
         | SMTSolver.Died _ | Failure _ | Invalid_argument _ | Not_found
@@ -172,9 +171,9 @@ let handle_events input_sys aparam trans_sys =
            dropped, and the engines run again on that system (see
            [FiniteSets]), on which it is found again if it is genuine *)
         let cex =
-          if FiniteSets.omitted trans_sys
+          if TransSys.omits_finiteness trans_sys
           && (match sliced_to_property input_sys aparam trans_sys p () with
-              | Some sliced -> FiniteSets.omitted sliced
+              | Some sliced -> TransSys.omits_finiteness sliced
               | None -> true)
           then
             match finite_counterexample input_sys aparam trans_sys p cex with

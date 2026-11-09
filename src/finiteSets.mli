@@ -55,14 +55,6 @@ val enable : Scope.t -> unit
     the check of a counterexample found without them *)
 val with_enabled : (unit -> 'a) -> 'a
 
-(** Record that the system was built without the finiteness constraints
-    of some of the containers it has *)
-val note_omitted : TransSys.t -> unit
-
-(** Whether the system was built without the finiteness constraints of
-    some of the containers it has *)
-val omitted : TransSys.t -> bool
-
 (** Forget the request, and the time spent checking counterexamples:
     the engines are about to run on a system *)
 val start_round : unit -> unit

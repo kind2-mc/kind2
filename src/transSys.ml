@@ -262,6 +262,11 @@ type t =
     datatype_types : Type.t list;
     (** Recursive ADTs used anywhere in this system, in dependency order. *)
 
+    omits_finiteness : bool;
+    (** Whether the system leaves out the finiteness constraints of some
+        sets or maps it has: a counterexample may then rely on an infinite
+        one (see [FiniteSets]) *)
+
   }
 
 (* ********************************************************************** *)
@@ -587,6 +592,10 @@ let collect_instances ({ scope } as trans_sys) =
 (* ********************************************************************** *)
 
 let global_constraints { global_constraints } = global_constraints
+
+let omits_finiteness { omits_finiteness } = omits_finiteness
+
+let mark_omits_finiteness t = { t with omits_finiteness = true }
 
 let fn_congruence_groups { fn_congruence_groups } = fn_congruence_groups
 
@@ -2483,7 +2492,8 @@ let mk_trans_sys
       rec_cutoff;
       rec_abstracted;
       rec_cutoff_io;
-      datatype_types;}
+      datatype_types;
+      omits_finiteness = false;}
   in
 
   trans_sys, instance_var_id_start'

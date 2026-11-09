@@ -100,9 +100,11 @@ infinite, or that does not need them to be finite, avoids the cost of the
 
 A finite set is a possibly infinite one: a set (or a set literal) can be
 used where an `iset` is expected, as the value of a variable, an argument of
-a node or the operand of an operator, and an operation on sets one of which
-is possibly infinite gives a possibly infinite set. A possibly infinite set
-cannot be used where a finite one is expected.
+a node or the operand of an operator. The union of sets is possibly
+infinite when one of them is, their intersection when both are, and the
+difference `s - t` when `s` is; the other operators, such as conditionals,
+`->` and `fby`, give a possibly infinite set when one of their operands is.
+A possibly infinite set cannot be used where a finite one is expected.
 
 ```lustre
 node Extend (s: iset<int>; x: int) returns (t: iset<int>)

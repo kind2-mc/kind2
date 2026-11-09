@@ -228,6 +228,12 @@ val expand_type_syn_reftype_history :
 val infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
 (** Infer type of Lustre expression given a typing context *)
 
+val set_binop_infinite : LA.binary_operator -> bool -> bool -> bool
+(** Whether the result of the set operation (union, intersection or
+    difference) on sets, possibly infinite as the Booleans say, is: a union
+    is finite when both operands are, an intersection when one is, a
+    difference when its left operand is. *)
+
 val reset_finite_risk : unit -> unit
 (** Forget the set and map types and the calls recorded by the type checker
     for [finite_risk_types]; done before an input is checked. *)

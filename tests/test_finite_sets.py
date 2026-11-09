@@ -123,6 +123,26 @@ let
   check "same" s = t => (x in t);
 tel
 """,
+    # A use of a set of finite elements does not hide another use of a set
+    # of the same base type, whose elements are not finite
+    "refined_first": """
+type nat10 = subtype { x: int | 0 <= x and x <= 10 };
+node main (b: set<nat10>; s: set<int>) returns ();
+let
+  check "p" exists (i: int) (i in b) or not (i in s);
+tel
+""",
+    # An intersection is finite when one operand is, and a difference when
+    # its left operand is
+    "finite_set_ops": """
+node main (s: set<int>; u: iset<int>) returns (t1, t2: set<int>);
+let
+  t1 = s * u;
+  t2 = s - u;
+  check "inter" (0 in t1) => (0 in s);
+  check "diff" (0 in t2) => not (0 in u);
+tel
+""",
     "via_function": """
 const S: set<int>;
 
@@ -153,6 +173,8 @@ expected = {
     "iset": ({"outside": "falsifiable"}, False),
     "imap": ({"outside": "falsifiable"}, False),
     "iset_from_set": ({"member": "valid", "same": "valid"}, False),
+    "refined_first": ({"p": "unknown"}, True),
+    "finite_set_ops": ({"inter": "valid", "diff": "valid"}, False),
 }
 
 
@@ -212,6 +234,12 @@ tel
 node main (s: iset<int>) returns (b: bool);
 let
   b = f(s);
+tel
+""",
+    "difference": """
+node main (s: set<int>; u: iset<int>) returns (t: set<int>);
+let
+  t = u - s;
 tel
 """,
     "map": """
