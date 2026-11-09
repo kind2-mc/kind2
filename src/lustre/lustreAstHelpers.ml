@@ -92,9 +92,9 @@ let rec fold_lustre_ty ?(into_ty_args = false) f init op ty =
     List.fold_left (fun acc (_, _, ty) -> 
       op acc (r ty) 
     ) init tis
-  | Map (_, kt, vt) -> op (r kt) (r vt)
+  | Map (_, _, kt, vt) -> op (r kt) (r vt)
   | TArr (_, ty1, ty2) -> op (r ty1) (r ty2)
-  | Set (_, ty) -> r ty
+  | Set (_, _, ty) -> r ty
   | ArrayType (_, (ty, e)) 
   | RefinementType (_, (_, _, ty), e) -> 
     op (r ty) (f e)
@@ -110,8 +110,8 @@ let rec map_lustre_ty f ty =
   | EnumType _ | AbstractType _ -> ty
   | History _ -> ty 
   | UserType (p, args, id) -> UserType (p, List.map r args, id)
-  | Map (p, kt, vt) -> Map (p, r kt, r vt)
-  | Set (p, ty) -> Set (p, r ty)
+  | Map (p, inf, kt, vt) -> Map (p, inf, r kt, r vt)
+  | Set (p, inf, ty) -> Set (p, inf, r ty)
   | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, f len))
   | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
   | GroupType (p, tys) -> 
@@ -132,9 +132,9 @@ let rec contains_subtype_satisfying p ty =
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | EnumType _ | AbstractType _ 
   | UserType _ | History _ -> p ty 
-  | Map (_, kt, vt) -> 
+  | Map (_, _, kt, vt) -> 
     p ty || r kt || r vt 
-  | Set (_, ty') -> p ty || r ty' 
+  | Set (_, _, ty') -> p ty || r ty' 
   | ArrayType (_, (ty', _)) -> 
     p ty || r ty'
   | TArr (_, ty1, ty2) -> 
@@ -595,8 +595,8 @@ and subst_in_type_exprs sigma ty =
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _
   | EnumType _ | AbstractType _ | History _ -> ty
   | UserType (p, ty_args, id) -> UserType (p, List.map r ty_args, id)
-  | Map (p, kt, vt) -> Map (p, r kt, r vt)
-  | Set (p, ty) -> Set (p, r ty)
+  | Map (p, inf, kt, vt) -> Map (p, inf, r kt, r vt)
+  | Set (p, inf, ty) -> Set (p, inf, r ty)
   | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, apply_subst_in_expr sigma len))
   | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
   | GroupType (p, tys) -> GroupType (p, List.map r tys)
@@ -796,9 +796,9 @@ and apply_type_subst_in_type: (index * lustre_type) list -> lustre_type -> lustr
     TupleType(pos, List.map (apply_type_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_type_subst_in_type sigma) tys)
-  | Set(pos, ty) -> Set(pos, apply_type_subst_in_type sigma ty)
-  | Map(pos, ty1, ty2) -> 
-    Map(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
+  | Set (pos, inf, ty) -> Set (pos, inf, apply_type_subst_in_type sigma ty)
+  | Map (pos, inf, ty1, ty2) -> 
+    Map (pos, inf, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, apply_type_subst_in_type sigma ty1, apply_type_subst_in_type sigma ty2)
   | RecordType (pos, name, tis) -> 
@@ -828,9 +828,9 @@ let rec apply_subst_in_type sigma = function
     TupleType(pos, List.map (apply_subst_in_type sigma) tys)
   | GroupType(pos, tys) -> 
     GroupType(pos, List.map (apply_subst_in_type sigma) tys)
-  | Set (pos, ty) -> Set (pos, apply_subst_in_type sigma ty)
-  | Map(pos, ty1, ty2) -> 
-    Map(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
+  | Set (pos, inf, ty) -> Set (pos, inf, apply_subst_in_type sigma ty)
+  | Map (pos, inf, ty1, ty2) -> 
+    Map (pos, inf, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | TArr(pos, ty1, ty2) ->
     TArr(pos, apply_subst_in_type sigma ty1, apply_subst_in_type sigma ty2)
   | RecordType (pos, name, tis) -> 
@@ -1636,8 +1636,8 @@ let rec vars_of_type ?(into_ty_args = false) ty =
     let vars1 = SI.diff (vars_without_node_call_ids e) (SI.singleton id) in 
     let vars2 = vars_of_type ty in 
     SI.union vars1 vars2
-  | Set (_, ty) -> vars_of_type ty
-  | Map (_, ty1, ty2)
+  | Set (_, _, ty) -> vars_of_type ty
+  | Map (_, _, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (vars_of_type ty1) (vars_of_type ty2)
   | History (_, id) -> SI.singleton id 
   | UserType (_, ty_args, _) ->
@@ -2229,11 +2229,12 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       r (depth + 1) xt yt >>= fun t ->
       syn_expr_equal depth_limit xe ye >>= fun e ->
       Ok (t && e && HString.equal xi yi)
-    | Map (_, xk, xv), Map (_, yk, yv) ->
+    | Map (_, xf, xk, xv), Map (_, yf, yk, yv) ->
       r (depth + 1) xk yk >>= fun k ->
       r (depth + 1) xv yv >>= fun v ->
-      Ok (k && v)
-    | Set (_, xt), Set (_, yt) -> r (depth + 1) xt yt
+      Ok (k && v && xf = yf)
+    | Set (_, xf, xt), Set (_, yf, yt) ->
+      r (depth + 1) xt yt >>= fun t -> Ok (t && xf = yf)
     (* The constructors carry the instantiated field types, so two
        instantiations of the same polymorphic datatype differ only there *)
     | ADT (_, xn, xctors), ADT (_, yn, yctors) ->
@@ -2622,8 +2623,8 @@ and constants_to_calls_in_type: ident list -> lustre_type -> lustre_type
   match ty with
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _
   | EnumType _ | AbstractType _ | UserType _ | History _ -> ty
-  | Map (p, kt, vt) -> Map (p, r kt, r vt)
-  | Set (p, ty) -> Set (p, r ty)
+  | Map (p, inf, kt, vt) -> Map (p, inf, r kt, r vt)
+  | Set (p, inf, ty) -> Set (p, inf, r ty)
   | ArrayType (p, (ty, len)) -> ArrayType (p, (r ty, constants_to_calls new_func_ids len))
   | TArr (p, ty1, ty2) -> TArr (p, r ty1, r ty2)
   | GroupType (p, tys) -> GroupType (p, List.map r tys)
@@ -2640,7 +2641,7 @@ and constants_to_calls_in_type: ident list -> lustre_type -> lustre_type
 let pos_of_type ty = match ty with 
   | Int p | Bool p | Real p | SBitVector (p, _) | UBitVector (p, _)
   | EnumType (p, _, _) | AbstractType (p, _)
-  | UserType (p, _, _) | History (p, _)  | Map (p, _, _) | Set (p, _)
+  | UserType (p, _, _) | History (p, _)  | Map (p, _, _, _) | Set (p, _, _)
   | ArrayType (p, (_, _)) | TArr (p, _, _) | GroupType (p, _)
   | TupleType (p, _)  | RecordType (p, _, _)
   | RefinementType (p, _, _)

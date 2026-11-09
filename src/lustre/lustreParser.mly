@@ -87,6 +87,8 @@ let mk_span start_pos end_pos =
 %token HISTORY
 %token MAP
 %token SET
+%token IMAP
+%token ISET
     
 (* Tokens for arrays *)
 (* %token ARRAY *)
@@ -466,9 +468,13 @@ lustre_type:
       ) 
     }
   | SET; LT; ty = lustre_type; GT; 
-    { A.Set (mk_pos $startpos, ty) }
+    { A.Set (mk_pos $startpos, false, ty) }
   | MAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT
-    { A.Map (mk_pos $startpos, ty1, ty2) }
+    { A.Map (mk_pos $startpos, false, ty1, ty2) }
+  | ISET; LT; ty = lustre_type; GT; 
+    { A.Set (mk_pos $startpos, true, ty) }
+  | IMAP; LT; ty1 = lustre_type; comma_or_semicolon; ty2 = lustre_type; GT
+    { A.Map (mk_pos $startpos, true, ty1, ty2) }
 
   (* User-defined type *)
   | s = ident; ps = type_static_params { A.UserType (mk_pos $startpos, ps, s) }

@@ -143,8 +143,11 @@ type lustre_type =
    *  as we can have more than one arguments and return 
    *  values  *)
   | RefinementType of position * typed_ident * expr
-  | Map of position * lustre_type * lustre_type
-  | Set of position * lustre_type
+  (* A map or a set type: [Map (_, true, _, _)] is [imap], of maps with
+     possibly infinitely many keys, and [Set (_, true, _)] [iset], of possibly
+     infinite sets; [map] and [set] are of finite ones *)
+  | Map of position * bool * lustre_type * lustre_type
+  | Set of position * bool * lustre_type
   | ADT of position * ident * (ident * (ident * lustre_type) list) list
 
 and proj_kind =
@@ -455,6 +458,15 @@ val mark_bounded_index : position -> unit
 (** Whether the index variable of an array comprehension at the given position
     is bounded by its size in the source *)
 val is_bounded_index : position -> bool
+
+(** The set and map types whose containers a quantifier may observe to be
+    infinite in the array encoding, expanded to base types (see
+    {!LustreTypeChecker.finite_risk_types}). Sets and maps are finite: the
+    containers of these types are compiled with the constraints that make
+    them finite, kept apart in {!LustreNode.finite_constraints} and applied
+    by the analysis only once a counterexample needs them (see
+    {!FiniteSets}). *)
+val finite_risk_types : lustre_type list ref
 
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit

@@ -50,6 +50,17 @@ type t =
     global_constraints: LustreExpr.t list;
     (** Constraints on free constants *)
 
+    finite_global_constraints: LustreExpr.t list;
+    (** The constraints making finite the universes of the sets and maps
+        whose finiteness a quantifier may observe, and those of the free
+        constants among them (see {!LustreNode.finite_constraints}), applied
+        as [global_constraints] only to the systems that need them (see
+        {!FiniteSets}) *)
+
+    finite_numbering_ufs: UfSymbol.t list;
+    (** The functions numbering the members of those universes, applied by
+        [finite_global_constraints] *)
+
     adt_map : adt_map;
     (** ADT type metadata for counterexample reconstruction *)
 

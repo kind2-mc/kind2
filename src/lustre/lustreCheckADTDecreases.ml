@@ -397,9 +397,9 @@ let rec mentions_ty_params ty_params ty =
   | LA.RecordType (_, _, tis) -> List.exists (fun (_, _, ty) -> go ty) tis
   | LA.ADT (_, _, ctors) ->
     List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> go ty) fields) ctors
-  | LA.ArrayType (_, (ty, _)) | LA.Set (_, ty)
+  | LA.ArrayType (_, (ty, _)) | LA.Set (_, _, ty)
   | LA.RefinementType (_, (_, _, ty), _) -> go ty
-  | LA.Map (_, ty1, ty2) | LA.TArr (_, ty1, ty2) -> go ty1 || go ty2
+  | LA.Map (_, _, ty1, ty2) | LA.TArr (_, ty1, ty2) -> go ty1 || go ty2
   | LA.Bool _ | LA.Int _ | LA.Real _ | LA.SBitVector _ | LA.UBitVector _
   | LA.EnumType _ | LA.History _ -> false
 

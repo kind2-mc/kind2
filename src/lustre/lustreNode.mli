@@ -275,6 +275,22 @@ type t = {
       range constraints of enumerated types, they hold in every instance of
       the node, whether it is abstracted by its contract or not. *)
 
+  finite_constraints : LustreExpr.t list;
+  (** Constraints making finite the sets and maps held by the node's
+      variables whose finiteness a quantifier may observe (see
+      {!LustreAst.finite_risk_types}), which their encoding as arrays does
+      not: each container is included in the finite universe of its element
+      type (see {!LustreGlobals.finite_global_constraints}). They are only
+      needed to rule out a counterexample with an infinite container, and
+      the transition system has them, as [adt_constraints], only once one
+      was found (see {!FiniteSets}). *)
+
+  finite_arrays : StateVar.t list;
+  (** The characteristic arrays of those containers (the array of a set,
+      the domain array of a map): the transition system only applies the
+      constraints of those that no equation or call defines, the others
+      being built from them by operations that keep containers finite *)
+
   props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
   (** Proof obligations for the node *)
 

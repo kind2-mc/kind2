@@ -261,13 +261,13 @@ let rec expand_type_syn: tc_context -> tc_type -> tc_type
     let ty1 = expand_type_syn ctx ty1 in 
     let ty2 = expand_type_syn ctx ty2 in 
     TArr (p, ty1, ty2)
-  | Set (p, ty) -> 
+  | Set (p, inf, ty) -> 
     let ty = expand_type_syn ctx ty in 
-    Set (p, ty)
-  | Map (p, ty1, ty2) -> 
+    Set (p, inf, ty)
+  | Map (p, inf, ty1, ty2) -> 
     let ty1 = expand_type_syn ctx ty1 in 
     let ty2 = expand_type_syn ctx ty2 in 
-    Map (p, ty1, ty2)
+    Map (p, inf, ty1, ty2)
   | LA.RefinementType (p1, (p2, id, ty), e) -> 
     let ty = expand_type_syn ctx ty in
     LA.RefinementType (p1, (p2, id, ty), e)
@@ -786,8 +786,8 @@ let type_contains_enum ctx ty =
     | RecordType (_, _, tys) ->
       List.fold_left (fun acc (_, _, ty) -> acc || aux seen ty) false tys
     | ArrayType (_, (ty, _)) -> aux seen ty
-    | Set (_, ty) -> aux seen ty
-    | Map (_, ty1, ty2)
+    | Set (_, _, ty) -> aux seen ty
+    | Map (_, _, ty1, ty2)
     | TArr (_, ty1, ty2) -> aux seen ty1 || aux seen ty2
     | History (_, id) ->
       (match lookup_ty ctx id with
@@ -814,8 +814,8 @@ let type_contains_ref ctx ty =
     | RecordType (_, _, tys) ->
       List.fold_left (fun acc (_, _, ty) -> acc || aux seen ty) false tys
     | ArrayType (_, (ty, _)) -> aux seen ty
-    | Set (_, ty) -> aux seen ty
-    | Map (_, ty1, ty2)
+    | Set (_, _, ty) -> aux seen ty
+    | Map (_, _, ty1, ty2)
     | TArr (_, ty1, ty2) -> aux seen ty1 || aux seen ty2
     | History (_, id) ->
       (match lookup_ty ctx id with
@@ -843,8 +843,8 @@ let rec type_contains_enum_reftype ctx = function
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_enum_reftype ctx ty)
       false tys
   | ArrayType (_, (ty, _)) 
-  | Set (_, ty) -> type_contains_enum_reftype ctx ty
-  | Map (_, ty1, ty2)
+  | Set (_, _, ty) -> type_contains_enum_reftype ctx ty
+  | Map (_, _, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_enum_reftype ctx ty1 || type_contains_enum_reftype ctx ty2
   | History (_, id) -> 
     (match lookup_ty ctx id with 
@@ -875,9 +875,9 @@ let rec type_contains_abstract ctx = function
   | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_abstract ctx ty)
       false tys
-  | Set (_, ty)
+  | Set (_, _, ty)
   | ArrayType (_, (ty, _)) -> type_contains_abstract ctx ty
-  | Map (_, ty1, ty2)
+  | Map (_, _, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_abstract ctx ty1 || type_contains_abstract ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
@@ -918,14 +918,14 @@ let rec type_contains_map_or_set ctx = function
 
 let rec type_contains_array ctx = function
   | LA.ArrayType (_, (_, _)) -> true
-  | Set (_, ty) -> type_contains_array ctx ty
+  | Set (_, _, ty) -> type_contains_array ctx ty
   | RefinementType (_, (_, _, ty), _) -> type_contains_array ctx ty
   | TupleType (_, tys) | GroupType (_, tys) ->
     List.fold_left (fun acc ty -> acc || type_contains_array ctx ty) false tys
   | RecordType (_, _, tys) ->
     List.fold_left (fun acc (_, _, ty) -> acc || type_contains_array ctx ty)
       false tys
-  | Map (_, ty1, ty2)
+  | Map (_, _, ty1, ty2)
   | TArr (_, ty1, ty2) -> type_contains_array ctx ty1 || type_contains_array ctx ty2
   | History (_, id) ->
     (match lookup_ty ctx id with
@@ -1026,8 +1026,8 @@ and ty_vars_of_type ctx node_name ty =
   | RecordType (_, _, tis) -> 
     let vars = List.map (fun (_, _, ty) -> call ty) tis in 
     List.fold_left SI.union SI.empty vars
-  | Set (_, ty) -> call ty
-  | Map (_, ty1, ty2)
+  | Set (_, _, ty) -> call ty
+  | Map (_, _, ty1, ty2)
   | TArr (_, ty1, ty2) -> SI.union (call ty1) (call ty2)
   | AbstractType (_, id) -> (
     match lookup_node_ty_vars ctx node_name,

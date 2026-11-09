@@ -970,6 +970,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
          parameter and the system the engines ran on last. *)
       let rec run_engines param sys =
         RecUnrolling.start_round sys ;
+        FiniteSets.start_round () ;
 
         (* Get rid of messages from the previous analysis. *)
         KEvent.purge_im msg_setup ;
@@ -1000,16 +1001,28 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
           ignore_props stop_if_falsified child_pids in_sys param sys ;
 
         let requested = RecUnrolling.requested () in
+        let finite = FiniteSets.requested () in
 
         (* Killing kids when supervisor's done. The summary of the
            properties is printed on the way, and only once the engines ran
            for the last time. *)
-        (if requested = [] then Some sys else None)
+        (if requested = [] && not finite then Some sys else None)
         |> slaughter_kids `Supervisor ;
 
         match requested with
-        | [] -> param, sys
+        | [] when not finite -> param, sys
         | functions ->
+          (* A counterexample may rely on an infinite set or map: the
+             systems of the top system have the finiteness constraints of
+             their containers from now on (see [FiniteSets]) *)
+          ( if finite then (
+              let { Anal.top } = Anal.info_of_param param in
+              FiniteSets.enable top ;
+              KEvent.log L_info
+                "@[<hov>A counterexample may rely on an infinite set or \
+                 map: applying the finiteness constraints of the sets and \
+                 maps of %a.@]"
+                (KEvent.pp_print_user_node_name in_sys) top ) ) ;
           (* A fresh uid: the symbols and state variables of a system are
              named after the uid of its analysis, and the system is built
              again *)
@@ -1023,7 +1036,7 @@ let analyze msg_setup save_results ignore_props stop_if_falsified slice_to_prop 
                        Scope.Map.add f (RecUnrolling.depth param f + 1) unrollings)
                     unrollings functions }) param
           in
-          KEvent.log L_info
+          if functions <> [] then KEvent.log L_info
             "@[<hov>Unrolling %a further (%a).@]"
             (pp_print_list (KEvent.pp_print_user_node_name in_sys) ", ")
             functions

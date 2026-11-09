@@ -82,6 +82,22 @@ type identifier_maps = {
   call_count : int;
 }
 
+(* The finiteness constraints of the sets and maps (see
+   [A.finite_risk_types]), shared by every copy of the compiler state *)
+type finite_state = {
+  (* The finite universe of each element type of a container (by the index
+     types of its characteristic array), a generated free constant *)
+  mutable universes : (Type.t list * E.t) list;
+  (* The generated free constants of the universes and of their bounds *)
+  mutable universe_consts : (HString.t * Var.t) list;
+  (* The constraints making the universes finite *)
+  mutable universe_constraints : E.t list;
+  (* The finiteness constraints of the free constants *)
+  mutable const_constraints : E.t list;
+  (* The numberings of the universes *)
+  mutable numbering_ufs : UfSymbol.t list;
+}
+
 type compiler_state = {
   nodes : LustreNode.t list;
   node_io : (StateVar.t X.t * StateVar.t X.t * identifier_maps) NI.Map.t;
@@ -106,6 +122,7 @@ type compiler_state = {
   adt_junk_ufs : UfSymbol.t JunkTbl.t;
   (* Canonical-form constraints of the free constants *)
   adt_global_constraints : E.t list;
+  finite : finite_state;
 }
 
 (*
@@ -190,6 +207,129 @@ let rec default_of_type abstract_type_defaults ty =
       E.mk_free_var v
     | _ -> E.mk_int Numeral.zero
 
+(* ********************************************************************** *)
+(* Finiteness of sets and maps                                            *)
+(* ********************************************************************** *)
+
+(* Sets and maps are finite, but they are encoded as arrays, which may be
+   infinite. Where a quantifier may observe the difference (see
+   [A.finite_risk_types]), the characteristic array of a container (the
+   array of a set, the domain array of a map) is constrained to be included
+   in the universe of its element type: a generated free constant, one per
+   element type, whose members are numbered injectively below a generated
+   bound, which makes it finite. The constraints are kept apart (see
+   [N.finite_constraints]) and applied only once a counterexample needs
+   them (see {!FiniteSets}).
+
+   One universe per type, rather than a numbering of each container, keeps
+   the quantified constraints few: each container only adds an inclusion,
+   which is what makes the counterexamples that need finiteness quick to
+   find. A counterexample is a finite trace, whose containers are included
+   in the finite set of the elements they have at its steps, so the
+   universe rules out no counterexample of finite containers. *)
+
+(* The conjunction of the constraints keeping [e], of type [ty], within the
+   range of its type, for a type with a finite range: a dimension of a set
+   over such a type is only defined at the values of the range (an
+   enumerated dimension is expanded over it, cf.
+   [LustreTransSys.constraints_of_arrays]), so a quantifier over the
+   elements must be restricted to it. *)
+let range_guard e ty =
+  match Type.node_of_type ty with
+  | Type.Enum (l, u) ->
+    let ctors = Type.constructors_of_enum ty in
+    let ctor_of n = E.mk_constr (List.nth ctors Numeral.(to_int (n - l))) ty in
+    E.mk_and (E.mk_lte (ctor_of l) e) (E.mk_lte e (ctor_of u))
+  | Type.IntRange (Some l, Some u) ->
+    E.mk_and (E.mk_lte (E.mk_int l) e) (E.mk_lte e (E.mk_int u))
+  | Type.IntRange (Some l, None) -> E.mk_lte (E.mk_int l) e
+  | Type.IntRange (None, Some u) -> E.mk_lte e (E.mk_int u)
+  | _ -> E.t_true
+
+let select_all e is = List.fold_left E.mk_select_and_push e is
+
+(* The universe of the elements with the index types [inner_tys], created
+   with its constraints on first use: the members are numbered below the
+   bound, injectively *)
+let universe_of fin state_var_bounds inner_tys =
+  match
+    List.find_opt (fun (tys, _) -> List.equal Type.equal_types tys inner_tys)
+      fin.universes
+  with
+  | Some (_, u) -> u
+  | None ->
+    let k = List.length fin.universes in
+    (* Generated free constants, as the defaults of abstract types *)
+    let const name ty =
+      let name = Format.sprintf "finite_%s_%d" name k in
+      let sv =
+        StateVar.mk_state_var ~is_input:false ~is_const:true
+          ~for_inv_gen:false name ["res"] ty
+      in
+      fin.universe_consts <-
+        (HString.mk_hstring name, Var.mk_const_state_var sv)
+        :: fin.universe_consts ;
+      (* The dimensions of the array are unbounded, as those of a set *)
+      if Type.is_array ty then
+        SVT.add state_var_bounds sv
+          (List.map (fun _ -> E.Unbound None) (Type.all_index_types_of_array ty)) ;
+      E.mk_var sv
+    in
+    let u_ty =
+      List.fold_right (fun idx acc -> Type.mk_array acc idx) inner_tys Type.t_bool
+    in
+    let u = const "universe" u_ty in
+    let n = const "bound" Type.t_int in
+    let numbering = UfSymbol.mk_fresh_uf_symbol (u_ty :: inner_tys) Type.t_int in
+    fin.numbering_ufs <- numbering :: fin.numbering_ufs ;
+    let zero = E.mk_int Numeral.zero in
+    let x_vars = List.map Var.mk_fresh_var inner_tys in
+    let y_vars = List.map Var.mk_fresh_var inner_tys in
+    let xs = List.map E.mk_free_var x_vars in
+    let ys = List.map E.mk_free_var y_vars in
+    let in_range es = E.mk_and_n (List.map2 range_guard es inner_tys) in
+    let idx es = E.mk_uf numbering Type.t_int (u :: es) in
+    let mem es = select_all u es in
+    fin.universe_constraints <-
+      [ E.mk_lte zero n;
+        (* the members are numbered below the bound *)
+        E.mk_forall x_vars
+          (E.mk_impl (E.mk_and (in_range xs) (mem xs))
+             (E.mk_and (E.mk_lte zero (idx xs)) (E.mk_lt (idx xs) n)));
+        (* the numbering is injective on the members *)
+        E.mk_forall (x_vars @ y_vars)
+          (E.mk_impl
+             (E.mk_and_n
+                [in_range xs; in_range ys; mem xs; mem ys;
+                 E.mk_eq (idx xs) (idx ys)])
+             (E.mk_and_n (List.map2 E.mk_eq xs ys))) ]
+      @ fin.universe_constraints ;
+    fin.universes <- (inner_tys, u) :: fin.universes ;
+    u
+
+(* The finiteness constraint of the container of characteristic array
+   [arr_sv], whose last [n_inner] dimensions are those of the elements, the
+   others those of the arrays and maps it is nested in: at every position
+   of the outer dimensions, its members are members of the universe of
+   their type *)
+let finiteness_constraint cstate arr_sv n_inner =
+  let all_tys =
+    Type.all_index_types_of_array (StateVar.type_of_state_var arr_sv)
+  in
+  let outer_tys, inner_tys =
+    Lib.list_split (List.length all_tys - n_inner) all_tys
+  in
+  let universe = universe_of cstate.finite cstate.state_var_bounds inner_tys in
+  let o_vars = List.map Var.mk_fresh_var outer_tys in
+  let x_vars = List.map Var.mk_fresh_var inner_tys in
+  let os = List.map E.mk_free_var o_vars in
+  let xs = List.map E.mk_free_var x_vars in
+  let in_range = E.mk_and_n (List.map2 range_guard xs inner_tys) in
+  E.mk_forall (o_vars @ x_vars)
+    (E.mk_impl
+       (E.mk_and in_range (select_all (E.mk_var arr_sv) (os @ xs)))
+       (select_all universe xs))
+
 let empty_compiler_state () = {
   nodes = [];
   node_io = NI.Map.empty;
@@ -205,6 +345,13 @@ let empty_compiler_state () = {
   recursive_datatypes = [];
   adt_junk_ufs = JunkTbl.create 4;
   adt_global_constraints = [];
+  finite = {
+    universes = [];
+    universe_consts = [];
+    universe_constraints = [];
+    const_constraints = [];
+    numbering_ufs = [];
+  };
 }
 
 (*
@@ -1022,6 +1169,13 @@ let rec compile ctx gids adt_map scc_map decls =
           (None, id, X.singleton X.empty_index v, true) :: cs.free_constants }
     ) output.abstract_type_defaults output
   in
+  (* The universes of the finite containers, and their bounds *)
+  let output =
+    List.fold_left (fun cs (id, v) ->
+      { cs with free_constants =
+          (None, id, X.singleton X.empty_index v, true) :: cs.free_constants })
+      output output.finite.universe_consts
+  in
   let free_constants = output.free_constants
     |> List.map (fun (_, id, v, is_generated) -> mk_ident id, v, is_generated)
   in
@@ -1029,10 +1183,83 @@ let rec compile ctx gids adt_map scc_map decls =
     { G.free_constants = free_constants;
       G.state_var_bounds = output.state_var_bounds;
       G.global_constraints = output.global_constraints;
+      G.finite_global_constraints =
+        output.finite.const_constraints @ output.finite.universe_constraints;
+      G.finite_numbering_ufs = output.finite.numbering_ufs;
       G.adt_map = ldat_adt_map_to_g_adt_map output.adt_map;
       G.recursive_datatypes = output.recursive_datatypes;
       G.adt_junk_ufs = JunkTbl.fold (fun _ uf acc -> uf :: acc) output.adt_junk_ufs [];
       G.adt_global_constraints = output.adt_global_constraints }
+
+(* The containers of the type [ty] that need finiteness constraints (see
+   [A.finite_risk_types]), each as the structural indexes of its
+   characteristic array in the trie of [ty] (its key without the dimensions
+   of arrays, sets and maps), and the number of element dimensions of the
+   array, its last dimensions. The structural indexes of an entry of a trie
+   identify it: dimensions only follow them. *)
+and finite_containers cstate ctx ty =
+  let compiled ty =
+    compile_ast_type cstate ctx (ref (empty_identifier_maps None)) ty
+  in
+  (* The characteristic array of a set or map type: the array of a set over
+     its elements, or over its keys *)
+  let char_array = function
+    | A.Set (_, _, e) | A.Map (_, _, e, _) -> (
+      match X.values (compiled (A.Set (Lib.dummy_pos, false, e))) with
+      | [t] -> t
+      | _ -> assert false)
+    | _ -> assert false
+  in
+  (* The types are recorded expanded to base types, while [ty] may name
+     synonyms: they are compared through their characteristic arrays. A
+     recorded type that cannot be compiled yet (it names a type declared
+     after the one at hand) is not the type at hand. *)
+  let at_risk ty =
+    let is_map = function A.Map _ -> true | _ -> false in
+    let arr = char_array ty in
+    !A.finite_risk_types |> List.exists (fun rt ->
+      is_map rt = is_map ty
+      && (try Type.equal_types (char_array rt) arr with _ -> false))
+  in
+  let arity e = List.length (X.values (compiled e)) in
+  let under index = List.map (fun (p, n) -> (index :: p, n)) in
+  match ty with
+  | A.Set (_, inf, e) -> if not inf && at_risk ty then [ ([], arity e) ] else []
+  | A.Map (_, inf, k, v) ->
+    (if not inf && at_risk ty then [ ([X.TupleIndex (0, Some X.MapDomain)], arity k) ]
+     else [])
+    @ under (X.TupleIndex (1, Some X.MapValue)) (finite_containers cstate ctx v)
+  | A.ArrayType (_, (e, _)) -> finite_containers cstate ctx e
+  | A.RecordType (_, _, fields) ->
+    List.concat_map (fun (_, i, t) ->
+      under (field_name_to_index cstate.adt_map i)
+        (finite_containers cstate ctx t)) fields
+  | A.TupleType (_, tys) ->
+    List.concat (List.mapi (fun i t ->
+      under (X.TupleIndex (i, None)) (finite_containers cstate ctx t)) tys)
+  | A.RefinementType (_, (_, _, t), _) -> finite_containers cstate ctx t
+  | A.UserType _ -> (
+    match Ctx.expand_type_syn ctx ty with
+    | A.UserType _ -> []
+    | t -> finite_containers cstate ctx t)
+  | _ -> []
+
+(* The characteristic arrays of the containers of the trie [trie], of the
+   state variables of a variable or constant of type [ty], that need
+   finiteness constraints, each with its number of element dimensions *)
+and finite_arrays_of_trie cstate ctx ty trie =
+  if !A.finite_risk_types = [] then [] else
+  match finite_containers cstate ctx ty with
+  | [] -> []
+  | containers ->
+    let is_dim = function
+      | X.SetMapIndex _ | X.ArrayVarIndex _ | X.ArrayIntIndex _ -> true
+      | _ -> false
+    in
+    X.bindings trie |> List.filter_map (fun (key, sv) ->
+      let tags = List.filter (fun i -> not (is_dim i)) key in
+      List.find_opt (fun (p, _) -> X.equal_index p tags) containers
+      |> Option.map (fun (_, n) -> (sv, n)))
 
 and compile_ast_type
   ?(expand=false)
@@ -1085,7 +1312,7 @@ and compile_ast_type
     in 
     (* Flatten nested group types, as is done for group expressions *)
     List.fold_left over_types (0, X.empty) types |> snd |> flatten_list_indexes
-  | A.Set (_, ty1) -> 
+  | A.Set (_, _, ty1) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
     let last_type = List.hd types in
@@ -1107,7 +1334,7 @@ and compile_ast_type
       )
       base_map_type
       (List.tl types)
-  | A.Map (_, ty1, ty2) -> 
+  | A.Map (_, _, ty1, ty2) -> 
     let index_type = compile_ast_type cstate ctx map ty1 in
     let types = List.rev (X.values index_type) in
     let last_type = List.hd types in
@@ -3899,6 +4126,50 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     in
     List.concat_map of_var vars
   in
+  (* The finiteness constraints of the sets and maps held by the node's
+     variables, including the oracles giving the pre-initial values of the
+     containers (see [finiteness_constraint]) *)
+  let finite_arrays =
+    if !A.finite_risk_types = [] then [] else
+    let trie_of id =
+      let id = mk_ident id in
+      try Some (H.find !map.usr_state_var id) with Not_found ->
+      try Some (H.find !map.res_state_var id) with Not_found ->
+      try Some (H.find !map.expr id |> X.map state_var_of_expr)
+      with Not_found -> None
+    in
+    let vars =
+      List.map (fun (_, id, ty, _, _) -> (id, ty)) ast_inputs
+      @ List.map (fun (id, ty, _) -> (id, ty)) gids.GI.oracles
+      @ gids.GI.ib_oracles
+      @ List.map (fun (_, id, ty, _) -> (id, ty)) ast_outputs
+      @ List.filter_map (function
+          | A.NodeVarDecl (_, (_, id, ty, A.ClockTrue)) -> Some (id, ty)
+          | _ -> None) ast_locals
+      @ GI.StringMap.bindings gids.GI.locals
+    in
+    let own =
+      vars |> List.concat_map (fun (id, ty) ->
+        match trie_of id with
+        | Some trie -> finite_arrays_of_trie cstate ctx ty trie
+        | None -> [])
+    in
+    let oracles =
+      SVT.fold (fun oracle closed acc ->
+        match
+          List.find_opt (fun (sv, _) -> StateVar.equal_state_vars sv closed) own
+        with
+        | Some (_, n) -> (oracle, n) :: acc
+        | None -> acc)
+        oracle_state_var_map []
+    in
+    List.sort_uniq (fun (a, _) (b, _) -> StateVar.compare_state_vars a b)
+      (own @ oracles)
+  in
+  let finite_constraints =
+    List.map (fun (sv, n) -> finiteness_constraint cstate sv n) finite_arrays
+  in
+  let finite_arrays = List.map fst finite_arrays in
   let (node:N.t) = { node_id;
     is_extern;
     opacity;
@@ -3912,6 +4183,8 @@ and compile_node_decl scc_map gids_map rec_decreases_map is_function is_rec is_l
     calls;
     asserts;
     adt_constraints;
+    finite_constraints;
+    finite_arrays;
     props;
     contract;
     is_main;
@@ -3950,6 +4223,12 @@ and compile_const_decl ?(is_generated=false) cstate ctx map is_local scope = fun
     let vt = X.fold over_index cty X.empty in
     let var_bounds = SVT.fold (fun k v a -> (k, v) :: a) !map.bounds [] in
     List.iter (fun (k, v) -> SVT.add cstate.state_var_bounds k v) var_bounds;
+    (* The finiteness constraints of the sets and maps of the constant *)
+    finite_arrays_of_trie cstate ctx ty
+      (X.map Var.state_var_of_state_var_instance vt)
+    |> List.iter (fun (sv, n) ->
+      cstate.finite.const_constraints <-
+        finiteness_constraint cstate sv n :: cstate.finite.const_constraints) ;
     let global_constraints =
       let ty = Ctx.expand_type_syn ctx ty in
       let has_ref_type = Ctx.type_contains_ref ctx ty in

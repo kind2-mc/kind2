@@ -199,8 +199,8 @@ let rec _type_contains_adt ctx ty =
   | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.exists r tys
   | A.RecordType (_, _, flds) -> List.exists (fun (_, _, ty) -> r ty) flds
   | A.ArrayType (_, (ty, _)) -> r ty
-  | A.Set (_, ty) -> r ty
-  | A.Map (_, kt, vt) | A.TArr (_, kt, vt) -> r kt || r vt
+  | A.Set (_, _, ty) -> r ty
+  | A.Map (_, _, kt, vt) | A.TArr (_, kt, vt) -> r kt || r vt
   | A.RefinementType (_, (_, _, ty), _) -> r ty
   | A.History (_, id) ->
     (match Ctx.lookup_ty ctx id with None -> false | Some ty -> r ty)
@@ -229,8 +229,8 @@ let rec ty_contains_gids ctx ni ty =
   | A.RecordType (_, _, tis) -> 
     let tys = List.map (fun (_, _, ty) -> ty) tis in 
     List.fold_left (||) false (List.map r tys)
-  | A.Set (_, ty) -> r ty
-  | A.Map (_, ty1, ty2)
+  | A.Set (_, _, ty) -> r ty
+  | A.Map (_, _, ty1, ty2)
   | A.TArr (_, ty1, ty2) ->
     (r ty1) || (r ty2)
   | A.ADT (_, _, cons) ->

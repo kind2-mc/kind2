@@ -960,11 +960,11 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     | _ -> false);
   mk_test "test set with a set payload under two instantiations of a recursive polymorphic ADT is rejected" (fun () ->
     match load_file "./lustreTypeChecker/set_rec_poly_adt_nested_set_payload.lus" with
-    | Error (`LustreTypeCheckerError (_, UnsupportedMapType (Set (_, Int _)))) -> true
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType (Set (_, _, Int _)))) -> true
     | _ -> false);
   mk_test "test contract ghost variable with a set payload under two instantiations of a polymorphic ADT is rejected" (fun () ->
     match load_file "./lustreTypeChecker/contract_ghost_set_poly_adt_nested_set_payload.lus" with
-    | Error (`LustreTypeCheckerError (_, UnsupportedMapType (Set (_, Int _)))) -> true
+    | Error (`LustreTypeCheckerError (_, UnsupportedMapType (Set (_, _, Int _)))) -> true
     | _ -> false);
   mk_test "test map with illtyped access" (fun () ->
     match load_file "./lustreTypeChecker/map_incorrect_access.lus" with

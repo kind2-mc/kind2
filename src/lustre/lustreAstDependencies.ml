@@ -360,8 +360,8 @@ let rec mk_graph_type: LA.lustre_type -> dependency_analysis_data = function
   | RecordType (_, _, ty_ids) -> List.fold_left union_dependency_analysis_data empty_dependency_analysis_data (List.map (fun (_, _, t) -> mk_graph_type t) ty_ids)
   | ArrayType (_, (ty, e)) -> union_dependency_analysis_data (mk_graph_type ty) (mk_graph_expr e)
   | History _ -> empty_dependency_analysis_data
-  | Set (_, ty) -> mk_graph_type ty
-  | Map (_, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
+  | Set (_, _, ty) -> mk_graph_type ty
+  | Map (_, _, ty1, ty2) -> union_dependency_analysis_data (mk_graph_type ty1) (mk_graph_type ty2)
   | TArr (_, aty, rty) -> union_dependency_analysis_data (mk_graph_type aty) (mk_graph_type rty)
   | RefinementType (_, (_, i, ty), e) ->
     let g_expr = remove (mk_graph_expr e) i in
@@ -529,8 +529,8 @@ and extract_node_calls_type: LA.lustre_type -> (LA.ident * Lib.position) list
   | ArrayType (_, (ty, _)) -> extract_node_calls_type ty 
   | TupleType (_, tys)
   | GroupType (_, tys) -> List.map extract_node_calls_type tys |> List.flatten 
-  | Set (_, ty) -> extract_node_calls_type ty
-  | Map (_, ty1, ty2)
+  | Set (_, _, ty) -> extract_node_calls_type ty
+  | Map (_, _, ty1, ty2)
   | TArr (_, ty1, ty2) -> extract_node_calls_type ty1 @ extract_node_calls_type ty2
   | RecordType (_, _, tis) -> List.map (fun (_, _, ty) -> extract_node_calls_type ty) tis |> List.flatten
   | UserType (_, ty_args, _) -> List.concat_map extract_node_calls_type ty_args

@@ -152,8 +152,8 @@ let rec unannot_pos = function
   | A.History (_, id) -> A.History (dpos, id)
   | A.TArr (_, a_ty, r_ty) -> A.TArr (dpos, a_ty, r_ty)
   | A.RefinementType (_,id,e) -> RefinementType (dpos,id,e)
-  | A.Map (_, ty1, ty2) -> Map (dpos, unannot_pos ty1, unannot_pos ty2)
-  | A.Set (_, ty) -> Set (dpos, unannot_pos ty)
+  | A.Map (_, inf, ty1, ty2) -> Map (dpos, inf, unannot_pos ty1, unannot_pos ty2)
+  | A.Set (_, inf, ty) -> Set (dpos, inf, unannot_pos ty)
   | A.ADT (_, id, cons) ->
     A.ADT (dpos, id, List.map (fun (id, flds) -> id, List.map (fun (fn, ty) -> fn, unannot_pos ty) flds) cons)
 let rand_function_name_for _ ts =
