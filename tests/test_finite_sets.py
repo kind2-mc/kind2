@@ -143,6 +143,28 @@ let
   check "diff" (0 in t2) => not (0 in u);
 tel
 """,
+    # A finite set observed through a possibly infinite one, which it is
+    # used as, is finite
+    "widened": """
+node main (s: set<int>) returns ();
+var u: iset<int>;
+let
+  u = s;
+  check "p" exists (i: int) not (i in u);
+tel
+""",
+    "widened_call": """
+node f (a: iset<int>) returns (b: bool);
+let
+  b = 0 in a;
+  check "q" exists (i: int) not (i in a);
+tel
+
+node main (s: set<int>) returns (c: bool);
+let
+  c = f(s);
+tel
+""",
     "via_function": """
 const S: set<int>;
 
@@ -175,6 +197,8 @@ expected = {
     "iset_from_set": ({"member": "valid", "same": "valid"}, False),
     "refined_first": ({"p": "unknown"}, True),
     "finite_set_ops": ({"inter": "valid", "diff": "valid"}, False),
+    "widened": ({"p": "unknown"}, True),
+    "widened_call": ({"f[L10C7].q": "unknown"}, True),
 }
 
 

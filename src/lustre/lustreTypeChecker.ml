@@ -1151,8 +1151,13 @@ let note_call nname callee =
 
 let note_container_type ctx nname ty =
   match expand_type_syn ctx ty with
-  (* A possibly infinite set or map ([iset], [imap]) needs no constraint *)
-  | LA.Set (_, false, _) | LA.Map (_, false, _, _) as written -> (
+  (* A possibly infinite set or map ([iset], [imap]) needs no constraint,
+     but a finite one may be used as one ([u = s] with [u: iset<int>] and
+     [s: set<int>]): a quantifier that observes an [iset<T>] observes the
+     [set<T>] values too, and the finite containers of the type are at
+     risk. The compiler gives the constraints to finite containers only
+     (see [LustreNodeGen.finite_containers]). *)
+  | LA.Set _ | LA.Map _ as written -> (
     match expand_type_syn_reftype_history ctx ty with
     | Ok base ->
       let q = !quant_depth > 0 in
