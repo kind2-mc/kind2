@@ -159,6 +159,14 @@ val pp_print_trans_sys_name : Format.formatter -> t -> unit
 (** Return global constraints on free constants *)
 val global_constraints : t -> Term.t list
 
+(** Whether the system leaves out the finiteness constraints of some sets
+    or maps it has: a counterexample may then rely on an infinite one (see
+    [FiniteSets]) *)
+val omits_finiteness : t -> bool
+
+(** The system, marked as leaving out finiteness constraints *)
+val mark_omits_finiteness : t -> t
+
 (** Return the functional congruence groups of the system's subtree *)
 val fn_congruence_groups : t -> fn_congruence_group list
 

@@ -430,8 +430,8 @@ let rec default_value ctx adt_map pos ty =
       | Some (LA.UserType (_, _, name')) when HString.equal name' name -> assert false
       | Some link -> default_value ctx adt_map pos link
       | None -> assert false)
-  | LA.Set (_, ty) -> LA.EmptySet (pos, Some ty)
-  | LA.Map (_, kt, vt) -> LA.EmptyMap (pos, Some (kt, vt))
+  | LA.Set (_, _, ty) -> LA.EmptySet (pos, Some ty)
+  | LA.Map (_, _, kt, vt) -> LA.EmptyMap (pos, Some (kt, vt))
   | LA.RefinementType (_, (_, _, inner_ty), _) -> default_value ctx adt_map pos inner_ty
   | LA.History (_, id) ->
     (match Ctx.lookup_ty ctx id with
@@ -514,8 +514,8 @@ and desugar_type pos ctx adt_map ty =
         List.map (fun (fp, fn, ft) -> (fp, fn, ds ft)) fields)
     | LA.ArrayType (p, (t, e)) -> LA.ArrayType (p, (ds t, desugar_expr ctx adt_map e))
     | LA.TArr (p, t1, t2) -> LA.TArr (p, ds t1, ds t2)
-    | LA.Map (p, kt, vt) -> LA.Map (p, ds kt, ds vt)
-    | LA.Set (p, t) -> LA.Set (p, ds t)
+    | LA.Map (p, inf, kt, vt) -> LA.Map (p, inf, ds kt, ds vt)
+    | LA.Set (p, inf, t) -> LA.Set (p, inf, ds t)
     | LA.RefinementType _ -> assert false (* handled above *)
     | LA.ADT _ -> assert false (* unreachable: handled above *)
 
@@ -581,8 +581,8 @@ and mk_is_default ctx adt_map pos expr ty =
   in
   let ty = desugar_type pos ctx adt_map ty in
   match ty with
-  | LA.Set (_, kt) -> empty LA.Set kt
-  | LA.Map (_, kt, _) -> empty LA.Map kt
+  | LA.Set (_, _, kt) -> empty LA.Set kt
+  | LA.Map (_, _, kt, _) -> empty LA.Map kt
   | _ ->
     match over_components ctx adt_map pos mk expr ty with
     | Some cs -> cs
@@ -636,8 +636,8 @@ and mk_canonical_exprs ctx adt_map pos expr ty =
         ) (mk_is_default ctx adt_map pos fexpr ftype)
         @ mk fexpr ftype
     ) fields
-  | LA.Set (_, kt) -> only_canonical_keys LA.Set kt
-  | LA.Map (_, kt, vt) ->
+  | LA.Set (_, _, kt) -> only_canonical_keys LA.Set kt
+  | LA.Map (_, _, kt, vt) ->
     let values =
       let k = fresh_canonical_var () in
       let ke = LA.Ident (pos, k) in
@@ -1034,8 +1034,8 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     | LA.GroupType (pos, ts) -> LA.GroupType (pos, List.map rewrite_type ts)
     | LA.ArrayType (pos, (t, e)) -> LA.ArrayType (pos, (rewrite_type t, r e))
     | LA.TArr (pos, t1, t2) -> LA.TArr (pos, rewrite_type t1, rewrite_type t2)
-    | LA.Map (pos, kt, vt) -> LA.Map (pos, rewrite_type kt, rewrite_type vt)
-    | LA.Set (pos, t) -> LA.Set (pos, rewrite_type t)
+    | LA.Map (pos, inf, kt, vt) -> LA.Map (pos, inf, rewrite_type kt, rewrite_type vt)
+    | LA.Set (pos, inf, t) -> LA.Set (pos, inf, rewrite_type t)
     | LA.RefinementType (pos, (p2, id, t), e) ->
       (* Collapse to the named refinement synonym when the type matches one
           unambiguously. Distinct synonyms can share a canonical key (e.g. two

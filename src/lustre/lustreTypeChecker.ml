@@ -484,8 +484,8 @@ let rec infer_const_attr ctx exp =
     | LA.RecordType (_, _, tis) -> 
       let tys = List.map (fun (_, _, ty) -> ty) tis in 
       List.fold_left combine [R.ok ()] (List.map r2 tys)
-    | LA.Set (_, ty) -> r2 ty
-    | LA.Map (_, ty1, ty2)
+    | LA.Set (_, _, ty) -> r2 ty
+    | LA.Map (_, _, ty1, ty2)
     | LA.TArr (_, ty1, ty2) ->
       combine (r2 ty1) (r2 ty2)
     | LA.AbstractType _ | LA.EnumType _  
@@ -814,9 +814,9 @@ let check_uniform_recursion pos ty_name ty_params ctors =
     | LA.TupleType (_, tys) | LA.GroupType (_, tys) -> List.exists non_uniform tys
     | LA.RecordType (_, _, fields) ->
       List.exists (fun (_, _, ty) -> non_uniform ty) fields
-    | LA.ArrayType (_, (ty, _)) | LA.Set (_, ty)
+    | LA.ArrayType (_, (ty, _)) | LA.Set (_, _, ty)
     | LA.RefinementType (_, (_, _, ty), _) -> non_uniform ty
-    | LA.TArr (_, ty1, ty2) | LA.Map (_, ty1, ty2) ->
+    | LA.TArr (_, ty1, ty2) | LA.Map (_, _, ty1, ty2) ->
       non_uniform ty1 || non_uniform ty2
     | LA.ADT (_, _, ctors) ->
       List.exists (fun (_, fields) ->
@@ -997,13 +997,13 @@ let rec expand_type_syn_reftype ?(expand_history = false) ctx ty =
     | None -> type_error pos (UnboundIdentifier i)
     | Some ty -> rec_call ty
   ) else R.ok ty
-  | Map (p, ty1, ty2) -> 
+  | Map (p, inf, ty1, ty2) -> 
     let* ty1 = rec_call ty1 in
     let* ty2 = rec_call ty2 in
-    R.ok (LA.Map (p, ty1, ty2))
-  | Set (p, ty) -> 
+    R.ok (LA.Map (p, inf, ty1, ty2))
+  | Set (p, inf, ty) -> 
     let* ty = rec_call ty in
-    R.ok (LA.Set (p, ty))
+    R.ok (LA.Set (p, inf, ty))
   | RefinementType (_, (_, _, ty), _) -> rec_call ty
   | UserType (_, ty_args, i) as ty -> 
     (match lookup_ty_syn ctx i ty_args with
@@ -1039,6 +1039,233 @@ let expand_type_syn_reftype_history ctx =
   expand_type_syn_reftype ~expand_history:true ctx
 (** Chases the type (and nested types) to its base form to resolve type synonyms. 
     Also simplifies refinement types and history types to their base types. *)
+
+(* ********************************************************************** *)
+(* Set and map types whose finiteness a quantifier may observe            *)
+(* ********************************************************************** *)
+
+(* Sets and maps are finite, but they are encoded as arrays, which may be
+   infinite. Without a quantifier over their elements the difference is
+   invisible: a counterexample of a formula that only tests the membership
+   of finitely many terms (and compares sets, each disequality with one
+   witness element) stays one when every set is restricted to those
+   elements, which no operation on sets prevents (there is no complement).
+   A quantifier can observe it, as [exists (i: int) not (i in s)] does, and
+   so can a function called within one, whose body is evaluated at the
+   quantified arguments. The type checker records the set and map types
+   such bodies use, and the calls they make; [finite_risk_types] closes
+   them under the calls and keeps the types of infinite elements, whose
+   containers the compiler then gives finiteness constraints, applied only
+   once a counterexample needs them (see {!FiniteSets}).
+
+   A quantifier that is existential in the formula a counterexample
+   satisfies observes nothing: its witnesses are finitely many elements,
+   which a restriction of the sets keeps. That is an exists in a reachable
+   property, or a forall in an invariant property, which a counterexample
+   falsifies. Only the property itself is analyzed this way; a quantifier
+   anywhere else may be used in either polarity. *)
+
+(* Whether [eq_lustre_type] compares its first type as a subtype of its
+   second (see [sub_lustre_type]) *)
+let subtyping = ref false
+
+(* [f ()] with the types compared for equality, under [eq_lustre_type] *)
+let strictly f =
+  let saved = !subtyping in
+  subtyping := false ;
+  Fun.protect ~finally:(fun () -> subtyping := saved) f
+
+(* Whether the set or map types possibly infinite if [inf1] and [inf2] are
+   related as [eq_lustre_type] compares them: a finite set (map) is a set
+   (map) of the possibly infinite ones *)
+let finiteness_compatible inf1 inf2 =
+  if !subtyping then (not inf1) || inf2 else inf1 = inf2
+
+(* Whether the result of the set operation [op] (union, intersection or
+   difference) on sets possibly infinite if [inf1] and [inf2] is: a union
+   is finite when both operands are, an intersection when one is, a
+   difference when its left operand is *)
+let set_binop_infinite op inf1 inf2 =
+  match op with
+  | LA.Union -> inf1 || inf2
+  | LA.Intersection -> inf1 && inf2
+  | _ -> inf1
+
+(* The type of the set operation [op] on the sets of types [ty1] and [ty2],
+   expanded, of the same elements *)
+let set_binop_type op ty1 ty2 =
+  match ty1, ty2 with
+  | LA.Set (p, inf1, t), LA.Set (_, inf2, _) ->
+    LA.Set (p, set_binop_infinite op inf1 inf2, t)
+  | _ -> ty2
+
+(* The depth of the quantifiers that may observe the finiteness of a set
+   (see above) the expression being checked is under *)
+let quant_depth = ref 0
+
+(* The positions of the quantifiers of the properties existential in the
+   formula a counterexample satisfies (see above) *)
+let finite_witness_quants : Lib.position list ref = ref []
+
+(* Record the quantifiers of the property [e] existential in the formula a
+   counterexample satisfies: [e] itself for a reachable property, its
+   negation for an invariant one. Only the Boolean connectives are followed:
+   a quantifier under any other operator is used in either polarity. *)
+let note_property_quantifiers ~reachable e =
+  let rec go pos = function
+    | LA.UnaryOp (_, LA.Not, e) -> go (not pos) e
+    | LA.BinaryOp (_, (LA.And | LA.AndThen | LA.Or | LA.OrElse), e1, e2)
+    | LA.TernaryOp (_, (LA.Ite | LA.LazyIte), _, e1, e2)
+    | LA.Arrow (_, e1, e2) -> go pos e1 ; go pos e2
+    | LA.BinaryOp (_, (LA.Impl | LA.LazyImpl), e1, e2) ->
+      go (not pos) e1 ; go pos e2
+    | LA.Quantifier (p, q, _, body) ->
+      let existential = match q with LA.Exists -> pos | LA.Forall -> not pos in
+      if existential && not (Lib.is_dummy_pos p) then
+        finite_witness_quants := p :: !finite_witness_quants ;
+      go pos body
+    | _ -> ()
+  in
+  go reachable e
+
+(* The set and map types (expanded to base types, and as written, with
+   their refinements) used in the body of each node or function, and
+   whether under a quantifier *)
+let container_uses : (NI.t option * bool * LA.lustre_type * LA.lustre_type) list ref =
+  ref []
+
+(* The calls of each node or function, and whether under a quantifier *)
+let call_uses : (NI.t option * NI.t * bool) list ref = ref []
+
+let reset_finite_risk () =
+  quant_depth := 0 ;
+  finite_witness_quants := [] ;
+  container_uses := [] ;
+  call_uses := []
+
+let note_call nname callee =
+  let q = !quant_depth > 0 in
+  if not (List.exists (fun (n, c, q') ->
+      Option.equal NI.equal n nname && NI.equal c callee && q = q') !call_uses)
+  then call_uses := (nname, callee, q) :: !call_uses
+
+let note_container_type ctx nname ty =
+  match expand_type_syn ctx ty with
+  (* A possibly infinite set or map ([iset], [imap]) needs no constraint,
+     but a finite one may be used as one ([u = s] with [u: iset<int>] and
+     [s: set<int>]): a quantifier that observes an [iset<T>] observes the
+     [set<T>] values too, and the finite containers of the type are at
+     risk. The compiler gives the constraints to finite containers only
+     (see [LustreNodeGen.finite_containers]). *)
+  | LA.Set _ | LA.Map _ as written -> (
+    match expand_type_syn_reftype_history ctx ty with
+    | Ok base ->
+      let q = !quant_depth > 0 in
+      (* Compared as written too: the refinements of the elements decide
+         whether they are finite, and differ between uses of one base type
+         ([set<nat10>] and [set<int>]) *)
+      if not (List.exists (fun (n, q', w, b) ->
+          Option.equal NI.equal n nname && q = q'
+          && LH.syn_type_equal None b base = Ok true
+          && LH.syn_type_equal None w written = Ok true)
+          !container_uses)
+      then container_uses := (nname, q, written, base) :: !container_uses
+    | Error _ -> ())
+  | _ -> ()
+
+(* Whether the type [ty] certainly has finitely many values; [`Unknown] for
+   a type variable of a polymorphic declaration, instantiated later *)
+let rec finite_type ctx seen ty =
+  let all tys =
+    List.fold_left (fun acc t -> match acc, finite_type ctx seen t with
+      | `Unknown, _ | _, `Unknown -> `Unknown
+      | `Finite, `Finite -> `Finite
+      | _ -> `Infinite) `Finite tys
+  in
+  let numeral = function
+    | LA.Const (_, LA.Num _) | LA.UnaryOp (_, LA.Uminus, LA.Const (_, LA.Num _)) -> true
+    | _ -> false
+  in
+  let bounds id e =
+    let rec go (l, u) = function
+      | LA.BinaryOp (_, LA.And, e1, e2) -> go (go (l, u) e1) e2
+      | LA.CompOp (_, LA.Lte, b, LA.Ident (_, x))
+      | LA.CompOp (_, LA.Gte, LA.Ident (_, x), b) when HString.equal x id ->
+        (l || numeral b, u)
+      | LA.CompOp (_, LA.Lte, LA.Ident (_, x), b)
+      | LA.CompOp (_, LA.Gte, b, LA.Ident (_, x)) when HString.equal x id ->
+        (l, u || numeral b)
+      | _ -> (l, u)
+    in
+    go (false, false) e
+  in
+  match expand_type_syn ctx ty with
+  | LA.Bool _ | LA.EnumType _ | LA.SBitVector _ | LA.UBitVector _
+  | LA.History _ -> `Finite
+  | LA.Int _ | LA.Real _ | LA.AbstractType _ | LA.TArr _ -> `Infinite
+  | LA.UserType (_, _, i) ->
+    (* Not a synonym: a reference to a datatype being declared, or a type
+       variable of a polymorphic declaration *)
+    if List.mem i seen then `Infinite else `Unknown
+  | LA.TupleType (_, tys) | LA.GroupType (_, tys) -> all tys
+  | LA.RecordType (_, _, fields) -> all (List.map (fun (_, _, t) -> t) fields)
+  | LA.ArrayType (_, (t, _)) | LA.Set (_, _, t) -> all [t]
+  | LA.Map (_, _, k, v) -> all [k; v]
+  | LA.RefinementType (_, (_, id, base), e) -> (
+    match finite_type ctx seen base with
+    | `Finite -> `Finite
+    | r ->
+      (match expand_type_syn ctx base with
+       | LA.Int _ when bounds id e = (true, true) -> `Finite
+       | _ -> r))
+  | LA.ADT (_, name, ctors) ->
+    (* A recursive datatype has infinitely many values *)
+    if List.mem name seen then `Infinite
+    else
+      List.fold_left (fun acc t -> match acc, finite_type ctx (name :: seen) t with
+        | `Unknown, _ | _, `Unknown -> `Unknown
+        | `Finite, `Finite -> `Finite
+        | _ -> `Infinite) `Finite
+        (List.concat_map (fun (_, flds) -> List.map snd flds) ctors)
+
+(* The set and map types whose containers need to be finite in the encoding
+   (see above): the types used under a quantifier, or in a node or function
+   reachable from a call made under a quantifier, whose elements (keys) are
+   not of a finite type, expanded to base types. When one of them is a type
+   variable of a polymorphic declaration, whose instances are only known
+   later, all the set and map types of infinite elements are. *)
+let finite_risk_types ctx =
+  let reachable =
+    let rec go acc = function
+      | [] -> acc
+      | f :: rest ->
+        if List.exists (NI.equal f) acc then go acc rest
+        else
+          let callees =
+            List.filter_map (fun (n, c, _) ->
+              match n with Some n when NI.equal n f -> Some c | _ -> None)
+              !call_uses
+          in
+          go (f :: acc) (callees @ rest)
+    in
+    go [] (List.filter_map (fun (_, c, q) -> if q then Some c else None) !call_uses)
+  in
+  let at_risk (n, q, _, _) =
+    q || (match n with Some n -> List.exists (NI.equal n) reachable | None -> false)
+  in
+  let elem_finite written =
+    match written with
+    | LA.Set (_, _, t) | LA.Map (_, _, t, _) -> finite_type ctx [] t
+    | _ -> `Finite
+  in
+  let risky = List.filter at_risk !container_uses in
+  let poly = List.exists (fun (_, _, w, _) -> elem_finite w = `Unknown) risky in
+  let candidates = if poly then !container_uses else risky in
+  List.fold_left (fun acc (_, _, w, base) ->
+    if elem_finite w = `Finite then acc
+    else if List.exists (fun t -> LH.syn_type_equal None t base = Ok true) acc
+    then acc
+    else base :: acc) [] candidates
 
 let union_keys key id1 id2 = match key, id1, id2 with
   | _, None, None -> None
@@ -1110,8 +1337,8 @@ let unify_types pos ctx is_type_ascription ty1 ty2 =
       R.ok (List.fold_left (StringMap.merge union_keys) StringMap.empty maps)
     | LA.ArrayType (_, (ty1, _)), LA.ArrayType (_, (ty2, _)) ->
       r ty1 ty2
-    | LA.Set (_, ty1), LA.Set (_, ty2) -> r ty1 ty2
-    | LA.Map (_, kt1, vt1), LA.Map (_, kt2, vt2) ->
+    | LA.Set (_, _, ty1), LA.Set (_, _, ty2) -> r ty1 ty2
+    | LA.Map (_, _, kt1, vt1), LA.Map (_, _, kt2, vt2) ->
       let* m1 = r kt1 kt2 in
       let* m2 = r vt1 vt2 in
       R.ok (StringMap.merge union_keys m1 m2)
@@ -1202,6 +1429,12 @@ let rec infer_type_node_args: Lib.position -> tc_context -> LA.expr list -> Node
       else R.ok (LA.GroupType (pos, arg_tys), arg_exprs, List.flatten warnings)
 
 and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
+  = fun ctx nname e ->
+  let* (ty, _, _) as r = infer_type_expr' ctx nname e in
+  note_container_type ctx nname ty ;
+  R.ok r
+
+and infer_type_expr': tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr * [> warning] list, [> error]) result
   = fun ctx nname e -> match e with
   (* Identifiers *)
   | LA.Ident (pos, i) ->
@@ -1232,30 +1465,30 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
        it has not been through the check a declared one gets *)
     let* _ = check_map_set_key_expr_type ctx (LH.pos_of_expr e2) ty1 in
     let e = LA.StructUpdate (pos, e1, [MapIndex (p2, e2)], Some e3) in 
-    R.ok (LA.Map (pos, ty1, ty2), e, warnings1 @ warnings2)
+    R.ok (LA.Map (pos, false, ty1, ty2), e, warnings1 @ warnings2)
   | LA.StructUpdate (pos, (EmptySet (_, None) as e1), [SetIndex (p2, e2)], None) ->
     let* ty, e2, warnings = infer_type_expr ctx nname e2 in 
     (* The element type of a set literal is inferred rather than written down,
        so it has not been through the check a declared one gets *)
     let* _ = check_map_set_key_expr_type ctx (LH.pos_of_expr e2) ty in
     let e = LA.StructUpdate (pos, e1, [SetIndex (p2, e2)], None) in
-    R.ok (LA.Set (pos, ty), e, warnings)
+    R.ok (LA.Set (pos, false, ty), e, warnings)
   (* only reachable through previous 2 cases *)
   | LA.EmptyMap (_, None) | LA.EmptySet (_, None) -> assert false 
   | LA.EmptyMap (pos, Some (kt, vt)) ->
-    let* map_ty, warnings = check_type_well_formed ctx Local nname false (LA.Map (pos, kt, vt)) in 
+    let* map_ty, warnings = check_type_well_formed ctx Local nname false (LA.Map (pos, false, kt, vt)) in 
     let kt, vt = match map_ty with 
-    | LA.Map (_, kt, vt) -> kt, vt 
+    | LA.Map (_, _, kt, vt) -> kt, vt 
     | _ -> assert false 
     in
-    R.ok (LA.Map (pos, kt, vt), LA.EmptyMap (pos, Some (kt, vt)), warnings)
+    R.ok (LA.Map (pos, false, kt, vt), LA.EmptyMap (pos, Some (kt, vt)), warnings)
   | LA.EmptySet (pos, Some ty) -> 
-    let* set_ty, warnings = check_type_well_formed ctx Local nname false (LA.Set (pos, ty)) in 
+    let* set_ty, warnings = check_type_well_formed ctx Local nname false (LA.Set (pos, false, ty)) in 
     let ty = match set_ty with 
-    | LA.Set (_, ty) -> ty 
+    | LA.Set (_, _, ty) -> ty 
     | _ -> assert false 
     in
-    R.ok (LA.Set (pos, ty), LA.EmptySet (pos, Some ty), warnings)
+    R.ok (LA.Set (pos, false, ty), LA.EmptySet (pos, Some ty), warnings)
   | LA.FieldProject (pos, e, fld, _) ->
     let* rec_ty, e, warnings = infer_type_expr ctx nname e in
     let* rec_ty = expand_type_syn_reftype_history ctx rec_ty in
@@ -1334,9 +1567,9 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       | Bool _ ->
         let* e1_ty, e1, warnings2 = infer_type_expr ctx nname e1 in
         let* e2_ty, e2, warnings3 = infer_type_expr ctx nname e2 in
-        eq_lustre_type ctx e1_ty e2_ty >>= fun eq_test ->
-          if eq_test then R.ok (e1_ty, LA.TernaryOp (pos, top, con, e1, e2), warnings1 @ warnings2 @ warnings3)
-          else type_error pos (UnequalIteBranchTypes (e1_ty, e2_ty))
+        join_lustre_type ctx e1_ty e2_ty >>= (function
+          | Some ty -> R.ok (ty, LA.TernaryOp (pos, top, con, e1, e2), warnings1 @ warnings2 @ warnings3)
+          | None -> type_error pos (UnequalIteBranchTypes (e1_ty, e2_ty)))
       | c_ty  ->  type_error pos  (ExpectedBooleanExpression c_ty))
     )
   | LA.ConvOp (pos, cop, e) ->
@@ -1503,7 +1736,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
         let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
          (match ue_ty' with
-         | Map (_, kt, vt) -> (
+         | Map (_, _, kt, vt) -> (
             let* index_type, idx_e, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
@@ -1518,7 +1751,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
         let* ue_ty, ue, warnings1 = infer_type_expr ctx nname ue in
         let* ue_ty' = expand_type_syn_reftype_history ctx ue_ty in
          (match ue_ty' with
-         | Set (_, kt) -> (
+         | Set (_, _, kt) -> (
             let* index_type, idx_e, warnings2 = infer_type_expr ctx nname idx_e in
             let* index_type = expand_type_syn_reftype_history ctx index_type in
             R.ifM (eq_lustre_type ctx index_type kt)
@@ -1534,7 +1767,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
     let* ty, e, warnings2 = infer_type_expr ctx nname e in 
     let* ty = expand_type_syn_reftype_history ctx ty in
     match ty with
-    | LA.Map (_, given_index_type, element_type) -> 
+    | LA.Map (_, _, given_index_type, element_type) -> 
       R.ifM (eq_lustre_type ctx index_type given_index_type)
         (R.ok (element_type, LA.IndexAccess (pos, e, i, k), warnings1 @ warnings2))
         (type_error pos (IlltypedMapIndex (given_index_type, index_type)))
@@ -1577,7 +1810,16 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       else
         R.ok ()
     ) qs) in
-    let* ty, e, warnings2 = infer_type_expr extn_ctx nname e in
+    (* The set and map types of the body, and its calls, are recorded as
+       under a quantifier (see [finite_risk_types]), unless the quantifier
+       is existential in the formula a counterexample satisfies *)
+    let observes =
+      not (List.exists (Lib.equal_pos p) !finite_witness_quants)
+    in
+    if observes then incr quant_depth ;
+    let body = infer_type_expr extn_ctx nname e in
+    if observes then decr quant_depth ;
+    let* ty, e, warnings2 = body in
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
   (* An array comprehension '(e foreach i, j)^m^n' with 'e: T' has type
@@ -1641,15 +1883,15 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
   | LA.Arrow (pos, e1, e2) ->
     let* ty1, e1, warnings1 = infer_type_expr ctx nname e1 in
     let* ty2, e2, warnings2 = infer_type_expr ctx nname e2 in
-    R.ifM (eq_lustre_type ctx ty1 ty2)
-      (R.ok (ty1, LA.Arrow (pos, e1, e2), warnings1 @ warnings2))
-      (type_error pos (IlltypedArrow (ty1, ty2)))
+    join_lustre_type ctx ty1 ty2 >>= (function
+      | Some ty -> R.ok (ty, LA.Arrow (pos, e1, e2), warnings1 @ warnings2)
+      | None -> type_error pos (IlltypedArrow (ty1, ty2)))
   | LA.Fby (pos, e1, e2) ->
     let* ty1, e1, warnings1 = infer_type_expr ctx nname e1 in
     let* ty2, e2, warnings2 = infer_type_expr ctx nname e2 in
-    R.ifM (eq_lustre_type ctx ty1 ty2)
-      (R.ok (ty1, LA.Fby (pos, e1, e2), warnings1 @ warnings2))
-      (type_error pos (IlltypedFby (ty1, ty2)))
+    join_lustre_type ctx ty1 ty2 >>= (function
+      | Some ty -> R.ok (ty, LA.Fby (pos, e1, e2), warnings1 @ warnings2)
+      | None -> type_error pos (IlltypedFby (ty1, ty2)))
   | LA.TypeAscription (pos, e, exp_ty) ->
     let* exp_ty, warnings1 = check_type_well_formed ctx Local nname false exp_ty in 
     let* inf_ty, e, warnings2 = infer_type_expr ctx nname e in
@@ -1694,6 +1936,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       R.ok () 
     in
     Debug.parse "Inferring type for node call %a" NI.pp_print_node_id_user_name node_id ;
+    note_call nname node_id ;
     (* Values 'Input' and 'true' passed to check_type_well_formed are conservative 
        guesses in the case that ty_args contains refinement types. This rules out 
        instantiated polymorphic nodes having ill-formed refinement types (with e.g., assumptions on 
@@ -1734,7 +1977,7 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
       let orig_arg_exprs = arg_exprs in
       let* given_arg_tys, arg_exprs, warnings3 = infer_type_node_args pos ctx arg_exprs nname in
       let given_arg_tys = expand_type_syn ctx given_arg_tys in
-      let* are_equal = eq_lustre_type ctx exp_arg_tys given_arg_tys in
+      let* are_equal = sub_lustre_type ctx given_arg_tys exp_arg_tys in
       let ty_args = if inferred_type_args <> [] then inferred_type_args else ty_args in
       if are_equal then
         let call = LA.Call (pos, ty_args, node_id, arg_exprs) in  
@@ -1836,11 +2079,16 @@ and infer_type_expr: tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr 
 
 and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr * [> warning] list, [> error]) result
   = fun ctx nname expr exp_ty ->
+  note_container_type ctx nname exp_ty ;
+  check_type_expr' ctx nname expr exp_ty
+
+and check_type_expr': tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr * [> warning] list, [> error]) result
+  = fun ctx nname expr exp_ty ->
   match expr with
   (* Identifiers *)
   | Ident (pos, i) as ident ->
     let* ty, e, warnings = infer_type_expr ctx nname ident in
-    R.ifM (eq_lustre_type ctx ty exp_ty)
+    R.ifM (sub_lustre_type ctx ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (IlltypedIdentifier (i, exp_ty, ty)))
   | ModeRef (pos, ids) ->
@@ -1859,7 +2107,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | EmptyMap (pos, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in 
     R.ifM    
-      (eq_lustre_type ctx inf_ty exp_ty) 
+      (sub_lustre_type ctx inf_ty exp_ty) 
       (R.ok (e, warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | FieldProject (pos, expr, fld, _) ->
@@ -1868,39 +2116,39 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | Extract (pos, _, idx1, idx2) as expr -> 
     let* inf_ty, expr, warnings = infer_type_expr ctx nname expr in 
     R.ifM    
-      (eq_lustre_type ctx (UBitVector (pos, idx1 - idx2 + 1)) exp_ty) 
+      (sub_lustre_type ctx (UBitVector (pos, idx1 - idx2 + 1)) exp_ty) 
       (R.ok (expr, warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | UnaryOp (pos, op, e) ->
     let* inf_ty, e, warnings = infer_type_unary_op ctx nname pos e op in
     R.ifM 
-      (eq_lustre_type ctx inf_ty exp_ty) 
+      (sub_lustre_type ctx inf_ty exp_ty) 
       (R.ok (LA.UnaryOp (pos, op, e), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | BinaryOp (pos, op, e1, e2) -> 
     let* inf_ty, e1, e2, warnings = infer_type_binary_op ctx nname pos op e1 e2 in
-    R.ifM (eq_lustre_type ctx inf_ty exp_ty) 
+    R.ifM (sub_lustre_type ctx inf_ty exp_ty) 
       (R.ok (LA.BinaryOp (pos, op, e1, e2), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | LA.TernaryOp (pos, _, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
-    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+    R.ifM (sub_lustre_type ctx inf_ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | ConvOp (pos, cvop, e) ->
     let* inf_ty, e, warnings = infer_type_conv_op ctx nname pos e cvop in
-    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+    R.ifM (sub_lustre_type ctx inf_ty exp_ty)
       (R.ok (LA.ConvOp (pos, cvop, e), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   | CompOp (pos, cop, e1, e2) ->
     let* inf_ty, e1, e2, warnings = infer_type_comp_op ctx nname pos e1 e2 cop in
-    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+    R.ifM (sub_lustre_type ctx inf_ty exp_ty)
       (R.ok (LA.CompOp (pos, cop, e1, e2), warnings))
       (type_error pos (UnificationFailed (exp_ty, inf_ty)))
   (* Values/Constants *)
   | Const (pos, c) ->
     let cty = infer_type_const pos c in
-    R.ifM (eq_lustre_type ctx cty exp_ty)
+    R.ifM (sub_lustre_type ctx cty exp_ty)
       (R.ok (LA.Const (pos, c), []))
       (type_error pos (UnificationFailed (exp_ty, cty)))
 
@@ -1925,7 +2173,7 @@ and check_type_expr: tc_context -> NI.t option -> LA.expr -> tc_type -> (LA.expr
   | LA.ADTTester (pos, _, _)
   | Call (pos, _, _, _) as e ->
     let* inf_ty, e, warnings = infer_type_expr ctx nname e in
-    R.ifM (eq_lustre_type ctx inf_ty exp_ty)
+    R.ifM (sub_lustre_type ctx inf_ty exp_ty)
       (R.ok (e, warnings))
       (type_error pos (ExpectedType (exp_ty, inf_ty)))
   | LA.AbstractSymConst _ -> R.ok (expr, [])
@@ -2006,12 +2254,12 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
   | LA.In _ -> (
     let* ty2 = expand_type_syn_reftype_history ctx ty2 in
     match ty2 with
-    | LA.Set (_, given_index_type) -> (
+    | LA.Set (_, _, given_index_type) -> (
       R.ifM (eq_lustre_type ctx ty1 given_index_type)
         (R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2))
         (type_error pos (ExpectedType (given_index_type, ty1)))
     )
-    | LA.Map (_, given_index_type, _) -> (
+    | LA.Map (_, _, given_index_type, _) -> (
       R.ifM (eq_lustre_type ctx ty1 given_index_type)
         (R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2))
         (type_error pos (ExpectedType (given_index_type, ty1)))
@@ -2032,22 +2280,24 @@ and infer_type_binary_op: tc_context -> NI.t option -> Lib.position
     let* ty1' = expand_type_syn_reftype_history ctx ty1 in 
     let* ty2' = expand_type_syn_reftype_history ctx ty2 in 
     let* b2 = match ty1', ty2' with 
-    | Set (_, ty3), Set (_, ty4) -> eq_lustre_type ctx ty3 ty4 
+    | Set (_, _, ty3), Set (_, _, ty4) -> eq_lustre_type ctx ty3 ty4 
     | _ -> Ok false 
     in
-    if b1 || b2 
-    then R.ok (ty2, e1, e2, warnings1 @ warnings2)
+    if b1 then R.ok (ty2, e1, e2, warnings1 @ warnings2)
+    else if b2 then
+      let ty = set_binop_type (if op = LA.Plus then LA.Union else LA.Intersection) ty1' ty2' in
+      R.ok (ty, e1, e2, warnings1 @ warnings2)
     else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2)) 
   | LA.Minus ->
     let* ty1' = expand_type_syn_reftype_history ctx ty1 in
     let* ty2' = expand_type_syn_reftype_history ctx ty2 in
     (match ty1', ty2' with
-    | Set (_, ty3), Set (_, ty4) ->
+    | Set (_, _, ty3), Set (_, _, ty4) ->
       let* same_elem_ty = eq_lustre_type ctx ty3 ty4 in
       if same_elem_ty
-      then R.ok (ty2, e1, e2, warnings1 @ warnings2)
+      then R.ok (set_binop_type LA.Difference ty1' ty2', e1, e2, warnings1 @ warnings2)
       else type_error pos (ExpectedNumberOrSetTypes (ty1, ty2))
-    | Map (_, kt, _), Set (_, st) ->
+    | Map (_, _, kt, _), Set (_, _, st) ->
       (* Map subtraction: remove from the map all keys contained in the set *)
       let* same_elem_ty = eq_lustre_type ctx kt st in
       if same_elem_ty
@@ -2132,15 +2382,15 @@ and infer_type_comp_op: tc_context -> NI.t option -> Lib.position -> LA.expr -> 
   let* ty2, e2, warnings2 = infer_type_expr ctx nname e2 in
   match op with
   | Neq  | Eq ->
-    R.ifM (eq_lustre_type ctx ty1 ty2)
-      (R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2))
-      (type_error pos (UnificationFailed (ty1, ty2)))
+    join_lustre_type ctx ty1 ty2 >>= (function
+      | Some _ -> R.ok (LA.Bool pos, e1, e2, warnings1 @ warnings2)
+      | None -> type_error pos (UnificationFailed (ty1, ty2)))
   | Lte  | Lt  | Gte | Gt ->
     (* On sets, these are the (proper) subset and superset operators *)
     let* ty1' = expand_type_syn_reftype_history ctx ty1 in
     let* ty2' = expand_type_syn_reftype_history ctx ty2 in
     let* is_set_comparison = match ty1', ty2' with
-      | Set (_, ty3), Set (_, ty4) -> eq_lustre_type ctx ty3 ty4
+      | Set (_, _, ty3), Set (_, _, ty4) -> eq_lustre_type ctx ty3 ty4
       | _ -> Ok false
     in
     if is_set_comparison
@@ -2439,6 +2689,8 @@ and do_item: tc_context -> NI.t -> LA.node_item -> (LA.node_item * [> warning] l
     Debug.parse "Checking Node Item (Annotation Property): %a (%a)"
       LA.pp_print_node_item ann LA.pp_print_expr e
     ; 
+    note_property_quantifiers
+      ~reachable:(match k with LA.Reachable _ -> true | _ -> false) e ;
     let* e, warnings = check_type_expr ctx (Some nname) e (Bool (LH.pos_of_expr e)) in 
     R.ok (LA.AnnotProperty (p, id, e, k), warnings)
   
@@ -2451,8 +2703,8 @@ and check_type_struct_item: tc_context -> LA.struct_item -> tc_type -> (LA.struc
         (Impossible ("Could not find Identifier " ^ (HString.string_of_hstring i)))
       | Some ty -> R.ok ty)
     in
-    let* inferred_is_expected1 = eq_lustre_type ctx exp_ty inf_ty in
-    let* inferred_is_expected2 = eq_lustre_type ctx exp_ty (GroupType (pos, [inf_ty])) in
+    let* inferred_is_expected1 = sub_lustre_type ctx exp_ty inf_ty in
+    let* inferred_is_expected2 = sub_lustre_type ctx exp_ty (GroupType (pos, [inf_ty])) in
     if inferred_is_expected1 || inferred_is_expected2 then
       if member_val ctx i then 
         type_error pos (Impossible ("Constant "
@@ -3240,15 +3492,15 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       else R.ok ()
     in
     match ty' with
-    | LA.Map (p, kt, vt) ->
+    | LA.Map (p, inf, kt, vt) ->
       let* _ = check_map_set_type p ctx kt in 
       let* kt, warnings1 = check_type_well_formed_rec true kt in
       let* vt, warnings2 = check_type_well_formed_rec true vt in 
-      R.ok (LA.Map (p, kt, vt), warnings1 @ warnings2)
-    | LA.Set (p, ty') ->
+      R.ok (LA.Map (p, inf, kt, vt), warnings1 @ warnings2)
+    | LA.Set (p, inf, ty') ->
       let* _ = check_map_set_type p ctx ty' in
       let* ty', warnings = check_type_well_formed_rec true ty' in
-      R.ok (LA.Set (p, ty'), warnings)
+      R.ok (LA.Set (p, inf, ty'), warnings)
     | LA.TArr (p, arg_ty, res_ty) ->
       let* arg_ty, warnings1 = check_type_well_formed_rec true arg_ty in
       let* res_ty, warnings2 = check_type_well_formed_rec true res_ty in 
@@ -3632,18 +3884,25 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
         else R.seqM (&&) true (List.map2 (eq_lustre_type_seen seen ctx) tys1 tys2)
   (* node/function type *)
   | TArr (_, arg_ty1, ret_ty1), TArr (_, arg_ty2, ret_ty2) ->
-    R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
-                    ; eq_lustre_type ctx ret_ty1 ret_ty2 ]
-  | Set (_, ty1), Set (_, ty2) ->
-    eq_lustre_type ctx ty1 ty2
+    strictly (fun () ->
+      R.seqM (&&) true [ eq_lustre_type ctx arg_ty1 arg_ty2
+                      ; eq_lustre_type ctx ret_ty1 ret_ty2 ])
+  (* The elements of a set and the keys of a map are compared for equality,
+     the values of a map as their containers *)
+  | Set (_, inf1, ty1), Set (_, inf2, ty2) ->
+    if not (finiteness_compatible inf1 inf2) then R.ok false
+    else strictly (fun () -> eq_lustre_type ctx ty1 ty2)
   (* map type *)
-  | Map (_, key_ty1, val_ty1), Map (_, key_ty2, val_ty2) ->
-    R.seqM (&&) true [ eq_lustre_type ctx key_ty1 key_ty2
-                    ; eq_lustre_type ctx val_ty1 val_ty2 ]
+  | Map (_, inf1, key_ty1, val_ty1), Map (_, inf2, key_ty2, val_ty2) ->
+    if not (finiteness_compatible inf1 inf2) then R.ok false
+    else
+      R.seqM (&&) true [ strictly (fun () -> eq_lustre_type ctx key_ty1 key_ty2)
+                      ; eq_lustre_type ctx val_ty1 val_ty2 ]
 
   (* special case for type synonyms *)
-  | UserType (pos, ty_args, u), ty
-  | ty, UserType (pos, ty_args, u) ->
+  (* The operands are kept in order, which matters under [sub_lustre_type] *)
+  | UserType (pos, ty_args, u), _
+  | _, UserType (pos, ty_args, u) ->
     if member_ty_syn ctx u then
       let* ty_alias = (match (lookup_ty_syn ctx u ty_args) with
         | None -> type_error pos
@@ -3651,22 +3910,47 @@ and eq_lustre_type_seen : HString.HStringSet.t -> tc_context -> LA.lustre_type -
             ^ (HString.string_of_hstring u)))
         | Some ty -> R.ok ty)
       in
-      eq_lustre_type ctx ty ty_alias
+      (match t1 with
+       | UserType (_, _, u') when HString.equal u u' -> eq_lustre_type ctx ty_alias t2
+       | _ -> eq_lustre_type ctx t1 ty_alias)
     else R.ok false
   (* Another special case for GroupType equality *)
-  | GroupType (_, tys), t
-  | t, GroupType (_, tys) ->
-    if List.length tys = 1
-    then (eq_lustre_type ctx (List.hd tys) t)
-    else R.ok false  
-  | History (pos, v), ty
-  | ty, History (pos, v) -> (
+  | GroupType (_, [ty]), t -> eq_lustre_type ctx ty t
+  | t, GroupType (_, [ty]) -> eq_lustre_type ctx t ty
+  | GroupType _, _ | _, GroupType _ -> R.ok false
+  | History (pos, v), ty -> (
     match lookup_ty ctx v with
     | Some hist_ty -> eq_lustre_type ctx hist_ty ty
     | None -> type_error pos (UnboundIdentifier v)
   )
+  | ty, History (pos, v) -> (
+    match lookup_ty ctx v with
+    | Some hist_ty -> eq_lustre_type ctx ty hist_ty
+    | None -> type_error pos (UnboundIdentifier v)
+  )
   | _, _ -> R.ok false
 (** Compute Equality for lustre types  *)
+
+and sub_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (bool, [> error]) result
+  = fun ctx t1 t2 ->
+  let saved = !subtyping in
+  subtyping := true ;
+  Fun.protect ~finally:(fun () -> subtyping := saved)
+    (fun () -> eq_lustre_type ctx t1 t2)
+(** Whether a value of type [t1] is one of type [t2]: whether the types are
+    equal, except that a finite set or map (of type [set] or [map]) is a set
+    or map of possibly infinite ones ([iset] or [imap]), where they occur
+    as values (not as elements of sets or keys of maps) *)
+
+and join_lustre_type : tc_context -> LA.lustre_type -> LA.lustre_type -> (LA.lustre_type option, [> error]) result
+  = fun ctx t1 t2 ->
+  let* b = sub_lustre_type ctx t2 t1 in
+  if b then R.ok (Some t1)
+  else
+    let* b = sub_lustre_type ctx t1 t2 in
+    R.ok (if b then Some t2 else None)
+(** The type of both the values of type [t1] and those of type [t2], one of
+    the two (see [sub_lustre_type]), if any *)
 
 and is_expr_int_type: tc_context -> NI.t option -> LA.expr -> LA.expr * bool  = fun ctx nname e ->
   R.safe_unwrap (e, false)

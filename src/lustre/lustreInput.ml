@@ -129,6 +129,8 @@ let rec parse lexbuf (chkpnt : LA.t LPMI.checkpoint) =
 let ast_of_channel(in_ch: in_channel) =
 
   let input_source = Flags.input_file () in
+  LustreAst.finite_risk_types := [];
+  LustreTypeChecker.reset_finite_risk ();
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
 
@@ -190,6 +192,9 @@ let type_check declarations =
 
     (* Step 8. Type check nodes and contracts *)
     let* global_ctx, sorted_node_contract_decls, warnings3 = TC.type_check_infer_nodes_and_contracts inlined_ctx sorted_node_contract_decls in
+
+    (* The set and map types whose finiteness a quantifier may observe *)
+    LustreAst.finite_risk_types := TC.finite_risk_types global_ctx ;
 
     (* A refusal of step 6 stands now that no type error explains it *)
     let* () = match deferred_error with None -> Res.ok () | Some e -> Error e in

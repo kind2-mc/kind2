@@ -74,6 +74,16 @@ val requested : unit -> Scope.t list
 val suspect :
   TransSys.t -> string -> (StateVar.t * Model.value list) list -> Scope.t list
 
+(** The formulas that fix the term of a variable to its value in a
+    counterexample: an array of known size to the values of its elements;
+    the value of another array is left out *)
+val fix_value : Term.t -> Model.value -> Term.t list
+
+(** [declare_and_init solver sys k] declares the variables of the system
+    up to the instant [k] in the solver, with its sorts and functions, and
+    asserts its global constraints and its initial state at [0] *)
+val declare_and_init : SMTSolver.t -> TransSys.t -> Numeral.t -> unit
+
 (** The counterexample to the property, which is reported, executes
     instances of recursive functions that their contracts abstract, in a
     compositional and modular analysis. If the functions as they are, rather

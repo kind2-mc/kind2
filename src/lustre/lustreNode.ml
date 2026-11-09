@@ -230,6 +230,10 @@ type t = {
 
   adt_constraints : LustreExpr.t list;
 
+  finite_constraints : LustreExpr.t list;
+
+  finite_arrays : StateVar.t list;
+
   (* Proof obligations for node *)
   props : (StateVar.t * string * Property.prop_source * Property.prop_kind * string) list;
 

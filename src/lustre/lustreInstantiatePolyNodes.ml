@@ -203,8 +203,8 @@ let rec rename_in_ty ren ty =
   | A.GroupType (p, tys) -> A.GroupType (p, List.map r tys)
   | A.RecordType (p, id, tis) ->
     A.RecordType (p, id, List.map (fun (p, i, ty') -> (p, i, r ty')) tis)
-  | A.Map (p, kt, vt) -> A.Map (p, r kt, r vt)
-  | A.Set (p, ty') -> A.Set (p, r ty')
+  | A.Map (p, inf, kt, vt) -> A.Map (p, inf, r kt, r vt)
+  | A.Set (p, inf, ty') -> A.Set (p, inf, r ty')
   | A.TArr (p, ty1, ty2) -> A.TArr (p, r ty1, r ty2)
   | A.UserType (p, ty_args, id) -> A.UserType (p, List.map r ty_args, id)
   | A.History (p, id) ->
@@ -482,13 +482,13 @@ and gen_poly_decls_ty: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     let ctx, gids, ty1, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty1 in 
     let ctx, gids, ty2, decls2, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty2 in 
     ctx, gids, TArr (p, ty1, ty2), decls1 @ decls2, node_decls_map
-  | Map (p, ty1, ty2) -> 
+  | Map (p, inf, ty1, ty2) -> 
     let ctx, gids, ty1, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty1 in 
     let ctx, gids, ty2, decls2, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty2 in 
-    ctx, gids, Map (p, ty1, ty2), decls1 @ decls2, node_decls_map
-  | Set (p, ty) -> 
+    ctx, gids, Map (p, inf, ty1, ty2), decls1 @ decls2, node_decls_map
+  | Set (p, inf, ty) -> 
     let ctx, gids, ty, decls, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
-    ctx, gids, Set (p, ty), decls, node_decls_map
+    ctx, gids, Set (p, inf, ty), decls, node_decls_map
   | RefinementType (p, (p2, id, ty), expr) -> 
     let ctx, gids, ty, decls1, node_decls_map = gen_poly_decls_ty ctx gids node_id node_decls_map ty in 
     let ctx, gids, expr, decls2, node_decls_map = gen_poly_decls_expr ctx gids node_id node_decls_map expr in 
@@ -977,9 +977,9 @@ let rec mentions_ty_var params ty =
   | A.UserType (_, ty_args, id) -> List.mem id params || List.exists r ty_args
   | A.AbstractType (_, id) -> List.mem id params
   | A.RecordType (_, _, fields) -> List.exists (fun (_, _, ty) -> r ty) fields
-  | A.ArrayType (_, (ty, _)) | A.Set (_, ty) -> r ty
+  | A.ArrayType (_, (ty, _)) | A.Set (_, _, ty) -> r ty
   | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.exists r tys
-  | A.TArr (_, ty1, ty2) | A.Map (_, ty1, ty2) -> r ty1 || r ty2
+  | A.TArr (_, ty1, ty2) | A.Map (_, _, ty1, ty2) -> r ty1 || r ty2
   | A.RefinementType (_, (_, _, ty), _) -> r ty
   | A.ADT (_, _, ctors) ->
     List.exists (fun (_, fields) -> List.exists (fun (_, ty) -> r ty) fields) ctors
@@ -996,10 +996,10 @@ let rec bind_ty_params ps acc declared instance =
     when List.length ds = List.length is ->
     List.fold_left2 (bind_ty_params ps) acc ds is
   | A.ArrayType (_, (d, _)), A.ArrayType (_, (i, _))
-  | A.Set (_, d), A.Set (_, i)
+  | A.Set (_, _, d), A.Set (_, _, i)
   | A.RefinementType (_, (_, _, d), _), A.RefinementType (_, (_, _, i), _) ->
     bind_ty_params ps acc d i
-  | A.Map (_, d1, d2), A.Map (_, i1, i2)
+  | A.Map (_, _, d1, d2), A.Map (_, _, i1, i2)
   | A.TArr (_, d1, d2), A.TArr (_, i1, i2) ->
     bind_ty_params ps (bind_ty_params ps acc d1 i1) d2 i2
   | A.TupleType (_, ds), A.TupleType (_, is)
@@ -1050,8 +1050,8 @@ let rec canon_ty_arg ctx record ty =
     (match Ctx.lookup_ty ctx id with Some ty -> r ty | None -> A.History (pos, id))
   | A.RefinementType (pos, (p, i, ty), e) -> A.RefinementType (pos, (p, i, r ty), e)
   | A.ArrayType (pos, (ty, e)) -> A.ArrayType (pos, (r ty, e))
-  | A.Set (pos, ty) -> A.Set (pos, r ty)
-  | A.Map (pos, ty1, ty2) -> A.Map (pos, r ty1, r ty2)
+  | A.Set (pos, inf, ty) -> A.Set (pos, inf, r ty)
+  | A.Map (pos, inf, ty1, ty2) -> A.Map (pos, inf, r ty1, r ty2)
   | A.TArr (pos, ty1, ty2) -> A.TArr (pos, r ty1, r ty2)
   | A.TupleType (pos, tys) -> A.TupleType (pos, List.map r tys)
   | A.GroupType (pos, tys) -> A.GroupType (pos, List.map r tys)
@@ -1128,8 +1128,8 @@ let rec rewrite_ty ctx record params ty =
     A.RefinementType (pos, (p, i, r ty), rewrite_expr ctx record params e)
   | A.ArrayType (pos, (ty, e)) ->
     A.ArrayType (pos, (r ty, rewrite_expr ctx record params e))
-  | A.Set (pos, ty) -> A.Set (pos, r ty)
-  | A.Map (pos, ty1, ty2) -> A.Map (pos, r ty1, r ty2)
+  | A.Set (pos, inf, ty) -> A.Set (pos, inf, r ty)
+  | A.Map (pos, inf, ty1, ty2) -> A.Map (pos, inf, r ty1, r ty2)
   | A.TArr (pos, ty1, ty2) -> A.TArr (pos, r ty1, r ty2)
   | A.TupleType (pos, tys) -> A.TupleType (pos, List.map r tys)
   | A.GroupType (pos, tys) -> A.GroupType (pos, List.map r tys)
@@ -1353,9 +1353,9 @@ let rec type_names_in_ty acc ty =
   | A.ADT (_, id, _) -> id :: acc
   | A.RecordType (_, _, fields) ->
     List.fold_left (fun acc (_, _, ty) -> type_names_in_ty acc ty) acc fields
-  | A.ArrayType (_, (ty, _)) | A.Set (_, ty)
+  | A.ArrayType (_, (ty, _)) | A.Set (_, _, ty)
   | A.RefinementType (_, (_, _, ty), _) -> type_names_in_ty acc ty
-  | A.Map (_, ty1, ty2) | A.TArr (_, ty1, ty2) ->
+  | A.Map (_, _, ty1, ty2) | A.TArr (_, ty1, ty2) ->
     type_names_in_ty (type_names_in_ty acc ty1) ty2
   | A.TupleType (_, tys) | A.GroupType (_, tys) ->
     List.fold_left type_names_in_ty acc tys
@@ -1403,8 +1403,8 @@ let rec has_refinement ctx ty =
     (match Ctx.lookup_ty_syn_body ctx id ty_args with
     | Some (A.ADT _) | None -> false
     | Some body -> r body)
-  | A.ArrayType (_, (ty, _)) | A.Set (_, ty) -> r ty
-  | A.Map (_, ty1, ty2) | A.TArr (_, ty1, ty2) -> r ty1 || r ty2
+  | A.ArrayType (_, (ty, _)) | A.Set (_, _, ty) -> r ty
+  | A.Map (_, _, ty1, ty2) | A.TArr (_, ty1, ty2) -> r ty1 || r ty2
   | A.TupleType (_, tys) | A.GroupType (_, tys) -> List.exists r tys
   | A.RecordType (_, _, fields) -> List.exists (fun (_, _, ty) -> r ty) fields
   | A.ADT _ | A.AbstractType _ | A.EnumType _ | A.History _ | A.Bool _

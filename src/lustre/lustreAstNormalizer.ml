@@ -737,7 +737,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
         let tys = List.filter (fun (_, _, ty) -> Ctx.type_contains_enum ctx ty) tys in
         let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
         List.fold_left (@) [] tys)
-    | A.Set (_, kt) ->
+    | A.Set (_, _, kt) ->
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
       let idx = A.Ident (dpos, idx_str) in
@@ -763,7 +763,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
             A.pp_print_expr expr b
         ) ", ") res;*)
       res
-    | A.Map (_, kt, vt) -> 
+    | A.Map (_, _, kt, vt) -> 
       let idx_str = HString.concat2 (HString.mk_hstring "x") 
                                     (HString.mk_hstring (string_of_int n)) in
       let idx = A.Ident (dpos, idx_str) in
@@ -851,7 +851,7 @@ and mk_ref_type_expr
       let expr = A.BinaryOp(pos, Impl, A.BinaryOp(pos, And, bound1, bound2), expr) in
       A.Quantifier(pos, Forall, [pos, dummy_index, A.Int pos], expr)
     ) exprs
-  | Set (_, ty) -> 
+  | Set (_, _, ty) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
     let idx = A.Ident (pos, dummy_index) in
@@ -869,7 +869,7 @@ and mk_ref_type_expr
     List.map (fun e -> 
       A.Quantifier (dpos, A.Forall, [var], body e assumption1)
     ) exprs1
-  | Map (_, kt, vt) -> 
+  | Map (_, _, kt, vt) -> 
     let pos = AH.pos_of_expr expr in
     let dummy_index = mk_fresh_dummy_index () in
     let idx = A.Ident (pos, dummy_index) in
@@ -3746,7 +3746,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let name = HString.concat2 prefix (HString.mk_hstring "_empty_set") in
     let gids2 = { (empty ()) with 
       empty_sets = [ name, ty ]; 
-      locals = StringMap.singleton name (A.Set (pos, ty));
+      locals = StringMap.singleton name (A.Set (pos, false, ty));
     } in
     let nexpr = A.Ident (pos, name) in 
     nexpr, union gids1 gids2, warnings 
@@ -3761,7 +3761,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let name = HString.concat2 prefix (HString.mk_hstring "_empty_map") in
     let gids3 = { (empty ()) with 
       empty_maps = [ name, kt, vt ]; 
-      locals = StringMap.singleton name (A.Map (pos, kt, vt));
+      locals = StringMap.singleton name (A.Map (pos, false, kt, vt));
     } in
     let nexpr = A.Ident (pos, name) in
     nexpr, union (union gids1 gids2) gids3, warnings1 @ warnings2
@@ -3781,8 +3781,8 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_map_update") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let kt, vt = match infer_type info node_id expr with
-    | A.Map (_, kt, vt) -> kt, vt
+    let inf, kt, vt = match infer_type info node_id expr with
+    | A.Map (_, inf, kt, vt) -> inf, kt, vt
     | _ -> assert false
     in
     (* Use base types *)
@@ -3790,7 +3790,7 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let vt = Chk.expand_type_syn_reftype_history info.context vt |> Result.get_ok in
     let gids4 = { (empty ()) with   
       map_element_updates = [ name1, nexpr1, nexpr2, nexpr3, name2, kt, vt ]; 
-      locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
+      locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, inf, kt, vt)));
     } in 
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3; gids4] in 
@@ -3809,15 +3809,15 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     let prefix = HString.mk_hstring (string_of_int !i) in 
     let name1 = HString.concat2 prefix (HString.mk_hstring "_set_update") in 
     let name2 = HString.concat2 prefix (HString.mk_hstring "_idx") in 
-    let ty = match infer_type info node_id expr with
-    | A.Set (_, ty) -> ty
+    let inf, ty = match infer_type info node_id expr with
+    | A.Set (_, inf, ty) -> inf, ty
     | _ -> assert false
     in
     (* Use base types *)
     let ty = Chk.expand_type_syn_reftype_history info.context ty |> Result.get_ok in
     let gids3 = { (empty ()) with   
       set_insertions = [ name1, nexpr1, nexpr2, name2, ty ]; 
-      locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
+      locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, inf, ty)));
     } in 
     let nexpr = A.Ident (pos, name1) in 
     let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in 
@@ -3956,24 +3956,36 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
       | _ -> assert false
     in
     (match op, ty1 with
-    | A.Difference, A.Map (_, kt, vt) ->
+    | A.Difference, A.Map (_, inf, kt, vt) ->
       (* Map subtraction: remove from the map all keys contained in the set *)
       let name1 = HString.concat2 prefix (HString.mk_hstring "_map_subtraction") in
       let kt = Chk.expand_type_syn_reftype_history info.context kt |> Result.get_ok in
       let vt = Chk.expand_type_syn_reftype_history info.context vt |> Result.get_ok in
       let gids3 = { (empty ()) with
         map_subtractions = [ name1, nexpr1, nexpr2, name2, kt, vt ];
-        locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, kt, vt)));
+        locals = StringMap.add name2 kt (StringMap.singleton name1 (A.Map (pos, inf, kt, vt)));
       } in
       let nexpr = A.Ident (pos, name1) in
       let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
       nexpr, gids, warnings1 @ warnings2
     | _ ->
       let name1 = HString.concat2 prefix (HString.mk_hstring "_set_binop") in
-      let ty = match ty1 with Set (_, ty) -> ty | _ -> assert false in
+      let ty = match ty1 with Set (_, _, ty) -> ty | _ -> assert false in
+      (* The result is possibly infinite as [Chk.set_binop_infinite] says *)
+      let inf =
+        let inf e =
+          match
+            Chk.expand_type_syn_reftype_history info.context
+              (infer_type info node_id e)
+          with
+          | Ok (Set (_, inf, _)) -> inf
+          | _ -> false
+        in
+        Chk.set_binop_infinite op (inf expr1) (inf expr2)
+      in
       let gids3 = { (empty ()) with
         set_binops = [ name1, nexpr1, nexpr2, name2, op, ty ];
-        locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, ty)));
+        locals = StringMap.add name2 ty (StringMap.singleton name1 (A.Set (pos, inf, ty)));
       } in
       let nexpr = A.Ident (pos, name1) in
       let gids = List.fold_left union (empty ()) [gids1; gids2; gids3] in
@@ -4416,13 +4428,13 @@ and normalize_ty ?(guard = None) ?(id = None) info node_id map ty =
     let ty1, gids1, warnings1 = normalize_ty ~guard ~id info node_id map ty1 in 
     let ty2, gids2, warnings2 = normalize_ty ~guard ~id info node_id map ty2 in 
     TArr (p, ty1, ty2 ), union gids1 gids2, warnings1 @ warnings2 
-  | Map (p, kt, vt) -> 
+  | Map (p, inf, kt, vt) -> 
     let kt, gids1, warnings1 = normalize_ty ~guard ~id info node_id map kt in 
     let vt, gids2, warnings2 = normalize_ty ~guard ~id info node_id map vt in 
-    Map (p, kt, vt), union gids1 gids2, warnings1 @ warnings2 
-  | Set (p, ty) -> 
+    Map (p, inf, kt, vt), union gids1 gids2, warnings1 @ warnings2 
+  | Set (p, inf, ty) -> 
     let ty, gids, warnings = normalize_ty ~guard ~id info node_id map ty in 
-    Set (p, ty), gids, warnings 
+    Set (p, inf, ty), gids, warnings 
   | ADT (p, name, constructors) ->
     let constructors, gids, warnings = List.map (fun (cname, fields) ->
       let fields, gids, warnings = List.map (fun (fname, ty) ->

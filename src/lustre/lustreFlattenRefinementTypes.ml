@@ -32,13 +32,13 @@ let rec flatten_ref_type ctx ty = match ty with
   | RecordType (pos, id, tis) -> 
     let tis = List.map (fun (pos, id, ty) -> pos, id, flatten_ref_type ctx ty) tis in 
     RecordType (pos, id, tis) 
-  | Set (pos, ty) -> 
+  | Set (pos, inf, ty) -> 
     let ty = flatten_ref_type ctx ty in 
-    Set (pos, ty)
-  | Map (pos, ty1, ty2) -> 
+    Set (pos, inf, ty)
+  | Map (pos, inf, ty1, ty2) -> 
     let ty1 = flatten_ref_type ctx ty1 in 
     let ty2 = flatten_ref_type ctx ty2 in 
-    Map (pos, ty1, ty2)
+    Map (pos, inf, ty1, ty2)
   | TupleType (pos, tys) | GroupType (pos, tys) -> 
     let tys = List.map (flatten_ref_type ctx) tys in 
     TupleType (pos, tys)
@@ -60,7 +60,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let i = i |> string_of_int |> HString.mk_hstring in
         chase_refinements (A.IndexAccess (pos, acc, A.Const (pos, A.Num i), A.Tuple)) ty
       ) tys |> List.flatten
-    | Set (pos, ty) ->
+    | Set (pos, _, ty) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs = chase_refinements (A.Ident (pos, dummy_index)) ty in
       List.map (fun expr ->
@@ -70,7 +70,7 @@ let rec flatten_ref_type ctx ty = match ty with
         let ty = LustreTypeChecker.expand_type_syn_reftype_history ctx ty |> Result.get_ok in 
         A.Quantifier(pos, Forall, [pos, dummy_index, ty], expr)
       ) exprs
-    | Map (pos, ty1, ty2) ->
+    | Map (pos, _, ty1, ty2) ->
       let dummy_index = AN.mk_fresh_dummy_index () in
       let exprs1 = chase_refinements (A.Ident (pos, dummy_index)) ty1 in
       let exprs1 = List.map (fun expr ->

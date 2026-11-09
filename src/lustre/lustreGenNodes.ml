@@ -531,13 +531,13 @@ fun ctx node_name fun_ids ty ->
   | Int _ | Bool _ | Real _ | SBitVector _ | UBitVector _ 
   | EnumType _ | AbstractType _ 
   | UserType _ | History _ -> ty, [] 
-  | Map (p, kt, vt) -> 
+  | Map (p, inf, kt, vt) -> 
     let kt, gen_nodes1 = r kt in 
     let vt, gen_nodes2 = r vt in
-    Map (p, kt, vt), gen_nodes1 @ gen_nodes2
-  | Set (p, ty) ->
+    Map (p, inf, kt, vt), gen_nodes1 @ gen_nodes2
+  | Set (p, inf, ty) ->
     let ty, gen_nodes = r ty in
-    Set (p, ty), gen_nodes  
+    Set (p, inf, ty), gen_nodes  
   | ArrayType (p, (ty, len)) ->
     let ty, gen_nodes1 = r ty in
     let len, gen_nodes2 = desugar_expr ~insert:false ctx node_name fun_ids len in

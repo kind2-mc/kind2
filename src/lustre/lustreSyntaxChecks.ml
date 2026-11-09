@@ -1168,8 +1168,8 @@ and check_ty_node_calls i ty =
         then syntax_error (LAH.pos_of_expr e) (NodeCallInGlobalTypeDecl i)
         else Ok ()
     | UserType (_, tys, _) -> Res.seq_ (List.map (check_ty_node_calls i) tys)
-    | Map (_, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
-    | Set (_, ty) -> check_ty_node_calls i ty
+    | Map (_, _, ty1, ty2) -> Res.seq_ (List.map (check_ty_node_calls i) [ty1; ty2])
+    | Set (_, _, ty) -> check_ty_node_calls i ty
     | ADT (_, _, cons) ->
       let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
       Res.seq_ (List.map (check_ty_node_calls i) tys)
@@ -1643,11 +1643,11 @@ and check_ty ctx f = function
 | TupleType (_, tys) -> 
   let* warnings = Res.seq (List.map (check_ty ctx f) tys) in 
   Res.ok (List.flatten warnings)
-| Map (_, ty1, ty2) 
+| Map (_, _, ty1, ty2) 
 | TArr (_, ty1, ty2) -> 
   let* warnings = Res.seq (List.map (check_ty ctx f) [ty1; ty2]) in 
   Res.ok (List.flatten warnings)
-| Set (_, ty) -> 
+| Set (_, _, ty) -> 
   check_ty ctx f ty
 | ArrayType (_, (ty, expr)) -> 
   let* warnings1 = check_ty ctx f ty in 
@@ -2126,11 +2126,11 @@ and oqv_check_type tc_ctx inlinable_funcs is_nested ctx ty =
     let* warnings1 = check_expr ctx ovq sz in
     let* warnings2 = oqv_check_type tc_ctx inlinable_funcs true ctx b_ty in
     Ok (warnings1 @ warnings2)
-  | LA.Map (_, kt, vt) ->
+  | LA.Map (_, _, kt, vt) ->
     let* warnings1 = oqv_check_type tc_ctx inlinable_funcs true ctx kt in
     let* warnings2 = oqv_check_type tc_ctx inlinable_funcs true ctx vt in
     Ok (warnings1 @ warnings2)
-  | LA.Set (_, t) ->
+  | LA.Set (_, _, t) ->
     oqv_check_type tc_ctx inlinable_funcs true ctx t
   | LA.TupleType (_, tys) | LA.GroupType (_, tys) ->
     let* warnings1 = Res.seq (List.map (oqv_check_type tc_ctx inlinable_funcs true ctx) tys) in

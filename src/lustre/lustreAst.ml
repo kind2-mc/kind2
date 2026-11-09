@@ -190,8 +190,11 @@ and lustre_type =
   | History of position * ident
   | TArr of position * lustre_type * lustre_type
   | RefinementType of position * typed_ident * expr
-  | Map of position * lustre_type * lustre_type
-  | Set of position * lustre_type
+  (* A map or a set type: [Map (_, true, _, _)] is [imap], of maps with
+     possibly infinitely many keys, and [Set (_, true, _)] [iset], of possibly
+     infinite sets; [map] and [set] are of finite ones *)
+  | Map of position * bool * lustre_type * lustre_type
+  | Set of position * bool * lustre_type
   | ADT of position * ident * (ident * (ident * lustre_type) list) list
 
 and proj_kind =
@@ -430,6 +433,8 @@ let bounded_indices : (position, unit) Hashtbl.t = Hashtbl.create 7
 let mark_bounded_index pos = Hashtbl.replace bounded_indices pos ()
 
 let is_bounded_index pos = Hashtbl.mem bounded_indices pos
+
+let finite_risk_types : lustre_type list ref = ref []
 
 
 (* ********************************************************************** *)
@@ -816,12 +821,12 @@ and pp_print_lustre_type ppf = function
   | UserType (_, tys, s) -> 
     Format.fprintf ppf "%a<%a>" pp_print_ident s
       (pp_print_list pp_print_lustre_type "; ") tys
-  | Map (_, ty1, ty2) -> 
-    Format.fprintf ppf "map<%a; %a>" 
+  | Map (_, inf, ty1, ty2) -> 
+    Format.fprintf ppf (if inf then "imap<%a; %a>" else "map<%a; %a>") 
       pp_print_lustre_type ty1
       pp_print_lustre_type ty2
-  | Set (_, ty) -> 
-    Format.fprintf ppf "set<%a>" 
+  | Set (_, inf, ty) -> 
+    Format.fprintf ppf (if inf then "iset<%a>" else "set<%a>") 
       pp_print_lustre_type ty
   | AbstractType (_, s) ->
     Format.fprintf ppf "%a" pp_print_ident s

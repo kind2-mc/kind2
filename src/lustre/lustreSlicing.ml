@@ -602,6 +602,8 @@ let slice_all_of_node
       N.outputs; 
       N.asserts;
       N.adt_constraints;
+      N.finite_constraints;
+      N.finite_arrays;
       N.props; 
       N.contract;
       N.is_main;
@@ -629,6 +631,8 @@ let slice_all_of_node
     N.calls = [];
     N.asserts = if keep_asserts then asserts else [] ;
     N.adt_constraints;
+    N.finite_constraints;
+    N.finite_arrays;
     N.props =
       if not keep_props then []
       else if for_contract then

@@ -247,6 +247,8 @@ let keyword_table = mk_hashtbl [
   "history", HISTORY ;
   "map", MAP ;
   "set", SET ;
+  "imap", IMAP ;
+  "iset", ISET ;
 
   (* Constant/parameter declaration *)
   "const", CONST ;

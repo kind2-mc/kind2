@@ -18,10 +18,9 @@
         
 open Lib
 
-(* The system of the analysis sliced to the property, as IC3IA builds it,
-   for a property that was in the input system and when the nodes are
-   sliced *)
-let sliced_to_property input_sys aparam trans_sys name () =
+(* The property [name] of [trans_sys] to slice the nodes to, as IC3IA
+   does: one that was in the input system, when the nodes are sliced *)
+let slice_target trans_sys name =
   if Flags.slice_nodes () <> `On then None
   else
     let prop = TransSys.property_of_name trans_sys name in
@@ -29,13 +28,115 @@ let sliced_to_property input_sys aparam trans_sys name () =
     | Property.Instantiated _
     | Property.Assumption _
     | Property.Generated (None, _, _) -> None
+    | _ -> Some prop
+
+(* The systems sliced to the properties of [trans_sys], built in its round,
+   by property name: a system is built once for every use *)
+let sliced_cache : (TransSys.t * (string, TransSys.t option) Hashtbl.t) option ref =
+  ref None
+
+(* The system of the analysis sliced to the property, as IC3IA builds it
+   (see [slice_target]) *)
+let sliced_to_property input_sys aparam trans_sys name () =
+  let cache =
+    match !sliced_cache with
+    | Some (sys, cache) when sys == trans_sys -> cache
     | _ ->
+      let cache = Hashtbl.create 7 in
+      sliced_cache := Some (trans_sys, cache) ;
+      cache
+  in
+  match Hashtbl.find_opt cache name with
+  | Some sliced -> sliced
+  | None ->
+    let sliced =
+      match slice_target trans_sys name with
+      | None -> None
+      | Some prop ->
+        match
+          InputSystem.trans_sys_of_analysis ~slice_to_prop:prop input_sys
+            (Analysis.param_clone aparam)
+        with
+        | sys, _ -> Some sys
+        | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+    in
+    Hashtbl.replace cache name sliced ;
+    sliced
+
+(* The counterexample [cex] to the property [p] of [trans_sys], a system
+   that leaves out the finiteness constraints of some containers, as a
+   counterexample of the system with them, if one with the same inputs is
+   found in time (see [FiniteSets]): the system sliced to the property
+   (see [slice_target]) with the constraints, unrolled to the length of
+   the counterexample, with the inputs and the constants fixed to their
+   values in it (the arrays of unknown size, the sets among them, are left
+   free), and the property false at its last step. The new counterexample
+   is the path of its model, over the variables of that system, and its
+   containers are finite. *)
+let finite_counterexample input_sys aparam trans_sys p cex =
+  if not (FiniteSets.within_check_budget ()) then None
+  else
+    let started = Unix.gettimeofday () in
+    Fun.protect
+      ~finally:(fun () ->
+        FiniteSets.spent_checking (Unix.gettimeofday () -. started))
+    @@ fun () ->
+    let slice_to_prop = slice_target trans_sys p in
+    match
+      FiniteSets.with_enabled (fun () ->
+        fst
+          (InputSystem.trans_sys_of_analysis ?slice_to_prop input_sys
+             (Analysis.param_clone aparam)))
+    with
+    | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+    | sys ->
+      let k = match cex with (_, values) :: _ -> List.length values - 1 | [] -> 0 in
+      let state_vars = StateVar.StateVarSet.of_list (TransSys.state_vars sys) in
+      let var_at sv i = Term.mk_var (Var.mk_state_var_instance sv (Numeral.of_int i)) in
       match
-        InputSystem.trans_sys_of_analysis ~slice_to_prop:prop input_sys
-          (Analysis.param_clone aparam)
+        SMTSolver.create_instance ~timeout:FiniteSets.check_timeout
+          ~produce_models:true (TransSys.get_logic sys) (Flags.Smt.solver ())
       with
-      | sys, _ -> Some sys
-      | exception (Failure _ | Invalid_argument _ | Not_found) -> None
+      | exception (Failure _ | Unix.Unix_error _ | Sys_error _) -> None
+      | solver ->
+        Fun.protect ~finally:(fun () -> SMTSolver.delete_instance solver)
+        @@ fun () ->
+        try
+          let k' = Numeral.of_int k in
+          RecUnrolling.declare_and_init solver sys k' ;
+          for i = 1 to k do
+            TransSys.trans_of_bound (Some (SMTSolver.declare_fun solver)) sys
+              (Numeral.of_int i)
+            |> SMTSolver.assert_term solver
+          done ;
+          cex |> List.iter (fun (sv, values) ->
+            if (StateVar.is_input sv || StateVar.is_const sv)
+            && StateVar.StateVarSet.mem sv state_vars then
+              values |> List.iteri (fun i value ->
+                RecUnrolling.fix_value (var_at sv i) value
+                |> List.iter (SMTSolver.assert_term solver))) ;
+          TransSys.get_prop_term sys p
+          |> Term.bump_state k'
+          |> Term.mk_not
+          |> SMTSolver.assert_term solver ;
+          if not (SMTSolver.check_sat solver) then None
+          else
+            (* The whole path, the containers included, as the engines
+               read it *)
+            let model =
+              SMTSolver.get_var_values
+                ~array_limit:(`Omit SMTSolver.max_array_elements)
+                solver
+                (TransSys.get_state_var_bounds sys)
+                (TransSys.vars_of_bounds sys Numeral.zero k')
+            in
+            Some
+              (Model.path_from_model (TransSys.state_vars sys) model k'
+               |> Model.path_to_list)
+        with
+        | SMTSolver.Timeout | SMTSolver.Unknown | SMTSolver.Killed
+        | SMTSolver.Died _ | Failure _ | Invalid_argument _ | Not_found
+        | Unix.Unix_error _ | End_of_file | Sys_error _ -> None
 
 let handle_events input_sys aparam trans_sys = 
 
@@ -50,8 +151,8 @@ let handle_events input_sys aparam trans_sys =
      [Kind2Flow]), or, when it is at the limit, the property is left
      unknown. *)
   let events =
-    events |> List.filter (function
-      | (_, KEvent.PropStatus (p, Property.PropFalse cex)) -> (
+    events |> List.filter_map (function
+      | (m, KEvent.PropStatus (p, Property.PropFalse cex)) -> (
         (* On Windows the wall clock timeout is only ever noticed by the
            polling loop; a query to a solver is a process to start and
            wait for, and a round can bring dozens of counterexamples at
@@ -61,6 +162,28 @@ let handle_events input_sys aparam trans_sys =
             Stat.update_time Stat.total_time ;
             if timeout > 0. && Stat.get_float Stat.total_time > timeout then
               raise TimeoutWall ) ;
+        (* A counterexample on a system that leaves out the finiteness
+           constraints of containers in the cone of influence of the
+           property may rely on an infinite container. It is reported when
+           the engine found its containers finite in its model. Otherwise
+           it is checked on the system with the constraints, which gives
+           one with the same inputs if there is one; failing that, it is
+           dropped, and the engines run again on that system (see
+           [FiniteSets]), on which it is found again if it is genuine *)
+        let cex =
+          if TransSys.omits_finiteness trans_sys
+          && (match sliced_to_property input_sys aparam trans_sys p () with
+              | Some sliced -> TransSys.omits_finiteness sliced
+              | None -> true)
+          then
+            match finite_counterexample input_sys aparam trans_sys p cex with
+            | Some cex -> Some cex
+            | None -> FiniteSets.request () ; None
+          else Some cex
+        in
+        match cex with
+        | None -> None
+        | Some cex ->
         match RecUnrolling.suspect trans_sys p cex with
         | [] ->
           (* Reported: whether refining the recursive functions whose
@@ -68,7 +191,7 @@ let handle_events input_sys aparam trans_sys =
           RecUnrolling.check_abstractions
             ~sliced:(sliced_to_property input_sys aparam trans_sys p)
             trans_sys p cex ;
-          true
+          Some (m, KEvent.PropStatus (p, Property.PropFalse cex))
         | reached ->
           ( match RecUnrolling.request aparam p reached with
             | `At_limit (too_many, at_limit) ->
@@ -90,9 +213,9 @@ let handle_events input_sys aparam trans_sys =
                   at_limit
                   (Flags.Contracts.rec_unrollings ())
             | `Requested -> () ) ;
-          false
+          None
       )
-      | _ -> true)
+      | event -> Some event)
   in
 
   (* Output events *)
@@ -311,7 +434,7 @@ let rec loop
     (* All properties proved, disproved or given up on? Or a recursive
        function to unroll further, on which the engines are to be run
        again (see [RecUnrolling])? *)
-    let deepening = RecUnrolling.requested () <> [] in
+    let deepening = RecUnrolling.requested () <> [] || FiniteSets.requested () in
     if (RecUnrolling.all_settled trans_sys && not ignore_props)
     || (TransSys.at_least_one_prop_falsified trans_sys && stop_if_falsified)
     || deepening
@@ -325,9 +448,12 @@ let rec loop
           if deepening then
             KEvent.log L_info
               "<Done> @[<v>\
-                Recursive functions to unroll further after %.3fs.@ \
+                %s after %.3fs.@ \
                 Waiting for children to terminate.\
               @]"
+              (if RecUnrolling.requested () <> []
+               then "Recursive functions to unroll further"
+               else "Finiteness constraints of sets and maps to apply")
               (Stat.get_float Stat.total_time)
           else
             KEvent.log L_info

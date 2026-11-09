@@ -49,6 +49,8 @@ type t =
 
     (* Constraints on free constants *)
     global_constraints: E.t list;
+    finite_global_constraints: E.t list;
+    finite_numbering_ufs: UfSymbol.t list;
 
     (* ADT type metadata for counterexample reconstruction *)
     adt_map : adt_map;

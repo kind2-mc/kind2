@@ -342,6 +342,17 @@ let fix_value var value =
          m []
      with Invalid_argument _ -> [])
 
+let declare_and_init solver sys k =
+  TransSys.define_and_declare_of_bounds ~with_check_ufs:true sys
+    (SMTSolver.define_fun solver)
+    ~define_rec:(SMTSolver.define_funs_rec solver)
+    (SMTSolver.declare_fun solver)
+    (SMTSolver.declare_sort solver)
+    Numeral.zero k ;
+  TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
+  TransSys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Numeral.zero
+  |> SMTSolver.assert_term solver
+
 (* The solver for a query on a counterexample of length [k + 1] of the
    system: the one of the round if there is one, with the state variables
    declared up to [k] if they were not, or a new one *)
@@ -368,15 +379,7 @@ let solver_for sys k =
         SMTSolver.create_instance ~timeout:query_timeout ~produce_models:true
           logic (Flags.Smt.solver ()))
     in
-    TransSys.define_and_declare_of_bounds ~with_check_ufs:true sys
-      (SMTSolver.define_fun solver)
-      ~define_rec:(SMTSolver.define_funs_rec solver)
-      (SMTSolver.declare_fun solver)
-      (SMTSolver.declare_sort solver)
-      Numeral.zero k ;
-    TransSys.assert_global_constraints sys (SMTSolver.assert_term solver) ;
-    TransSys.init_of_bound (Some (SMTSolver.declare_fun solver)) sys Numeral.zero
-    |> SMTSolver.assert_term solver ;
+    declare_and_init solver sys k ;
     (* A solver started for every query is part of the cost of the query *)
     if kept then
       first_start query_solver_started (Unix.gettimeofday () -. started) ;

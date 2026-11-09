@@ -8,6 +8,13 @@ Map types have the syntax `map<K, V>` (or `map<K; V>`), where `V` is any type, a
 For example `map<int, int>` denotes (streams of) maps of integers to integers, and
 `map<[bool, int], real>` denotes (streams of) maps of Boolean and integer pairs to reals.
 
+Maps are **finite**: they have finitely many keys, as [sets](../sets/#finiteness)
+have finitely many elements, and Kind 2 reports no counterexample that relies
+on a map with infinitely many keys. Maps that may have infinitely many keys
+have the type `imap<K, V>`, with the same operators, and are to `map<K, V>`
+what [`iset<T>`](../sets/#possibly-infinite-sets) is to `set<T>`: a finite map
+can be used where an `imap` is expected, but not the other way around.
+
 **Map literals** can be built with the constructor `map[k1 := v1; ...; kn := v2]`
 which creates a map with keys `k1` through `kn`, each mapping to its corresponding value.
 For example, `map[0 := 0; 1 := 1]`, `map[{ '(false, 0) } := 0.0]`, and `map[x := y]`

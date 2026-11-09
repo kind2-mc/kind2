@@ -529,13 +529,13 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     let ty' = inline_constants_of_lustre_type ctx ty in
     let expr' = simplify_expr ~ind_vars ctx expr in
     ArrayType (pos, (ty', expr'))
-  | Set (pos, ty) -> 
+  | Set (pos, inf, ty) -> 
     let ty = inline_constants_of_lustre_type ctx ty in 
-    Set (pos, ty)
-  | Map (pos, ty1, ty2) ->
+    Set (pos, inf, ty)
+  | Map (pos, inf, ty1, ty2) ->
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in
-    Map (pos, ty1', ty2')
+    Map (pos, inf, ty1', ty2')
   | TArr (pos, ty1, ty2) ->
     let ty1' = inline_constants_of_lustre_type ctx ty1 in
     let ty2' = inline_constants_of_lustre_type ctx ty2 in
