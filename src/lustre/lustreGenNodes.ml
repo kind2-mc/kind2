@@ -274,6 +274,12 @@ let base_type ctx ty =
   | Ok ty -> ty
   | Error _ -> ty
 
+(* The type a node this pass generates declares for a variable of the enclosing
+   node it reads. Its refinements are left behind: they are established where
+   the value is defined, and a generated node checking one again would evaluate
+   its predicate in an instance of the callees of its own. *)
+let lookup_input_ty ctx i = Option.map (base_type ctx) (Ctx.lookup_ty ctx i)
+
 (* Add the signatures of generated node and function declarations to a context,
    so that the type of a call to one can be inferred. Best-effort: a signature
    that cannot be built here (e.g. because its types still contain operators that
@@ -462,7 +468,7 @@ fun ?(inserted = false) ctx node_name pos e ty ->
     let ty = Ctx.expand_type_syn ctx ty in
     let inputs = AH.vars_of_type ty |> Ctx.SI.elements |> node_arguments ctx in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
-    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun input -> (pos, input, lookup_input_ty ctx input, A.ClockTrue)) inputs in
     let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
       | Some ty -> 
         let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
@@ -644,7 +650,7 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
     in
     let inputs_call = List.map (fun str -> A.Ident (pos, str)) inputs in
     let ctx = Ctx.add_ty ctx id ty in
-    let inputs = List.map (fun input -> (pos, input, Ctx.lookup_ty ctx input, A.ClockTrue)) inputs in
+    let inputs = List.map (fun input -> (pos, input, lookup_input_ty ctx input, A.ClockTrue)) inputs in
     let inputs = List.map (fun (p, inp, opt, cl) -> match opt with 
       | Some ty -> 
         let is_const = match Ctx.lookup_const ctx inp with | Some _ -> true | None -> false in
@@ -949,7 +955,7 @@ fun ctx node_name fun_ids node_type gen_decls orig_e ->
     | Some (_, mpos, ids) -> A.ModeRef (mpos, ids)
     | None -> A.Ident (pos, str)
   ) inputs in
-  let input_tys = List.map (fun input -> Ctx.lookup_ty ctx input) inputs in
+  let input_tys = List.map (fun input -> lookup_input_ty ctx input) inputs in
   (* The type of a free variable may not be known here (e.g. a match-arm
      pattern variable that is only substituted by a later pass) *)
   match List.find_opt (fun (_, ty) -> Option.is_none ty) (List.combine inputs input_tys) with
@@ -1165,7 +1171,7 @@ fun ctx node_name fun_ids pos items r ->
   if List.exists (fun ty -> not (Ctx.SI.is_empty (Ctx.ty_vars_of_type ctx node_name ty))) tys
   then raise (Gen_nodes_error (pos, RestartPolymorphic));
   let input_decls, gen_nodes1 = List.map (fun i ->
-    let ty, gen_nodes = desugar_type ctx node_name fun_ids (lookup_ty i) in
+    let ty, gen_nodes = desugar_type ctx node_name fun_ids (base_type ctx (lookup_ty i)) in
     let is_const = Option.is_some (Ctx.lookup_const ctx i) in
     (pos, i, ty, A.ClockTrue, is_const), gen_nodes) inputs |> List.split
   in
@@ -1472,10 +1478,13 @@ fun ctx decls ->
   let decls =
   List.fold_left2 (fun decls decl (sig_decl, sig_gen_nodes) ->
     match decl, sig_decl with
-    | A.NodeDecl (_, (id, _, _, params, inputs, outputs, locals, items, contract)),
+    | A.NodeDecl (_, (id, _, _, params, _, _, locals, items, contract)),
       A.NodeDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _)) ->
-      let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
+      let ctx = Chk.add_full_node_ctx ctx id params inputs' outputs' locals in
       let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
+      (* The body reads the types of the declarations as this pass rewrote
+         them, so that a node generated for it does not rewrite them again *)
+      let ctx = Chk.add_local_node_ctx ctx locals in
       item_locals := [];
       let items, gen_nodes2 = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
@@ -1483,10 +1492,11 @@ fun ctx decls ->
       let contract, gen_nodes3 = desugar_contract ctx id fun_ids contract in
       let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes2 @ gen_nodes3 in
       decls @ gen_nodes @ [A.NodeDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract))] 
-    | A.FuncDecl (_, (id, _, _, params, inputs, outputs, locals, items, contract), _),
+    | A.FuncDecl (_, (id, _, _, params, _, _, locals, items, contract), _),
       A.FuncDecl (span, (_, ext, opac, _, inputs', outputs', _, _, _), is_rec) ->
-      let ctx = Chk.add_full_node_ctx ctx id params inputs outputs locals in
+      let ctx = Chk.add_full_node_ctx ctx id params inputs' outputs' locals in
       let locals, gen_nodes_loc = desugar_locals ctx id fun_ids locals in
+      let ctx = Chk.add_local_node_ctx ctx locals in
       item_locals := [];
       let items, gen_nodes = List.map (desugar_node_item ctx id fun_ids) items |> List.split in
       let items = List.flatten items in
@@ -1495,9 +1505,9 @@ fun ctx decls ->
       let gen_nodes = sig_gen_nodes @ gen_nodes_loc @ List.flatten gen_nodes in
       decls @ gen_nodes @ gen_nodes2 @
       [A.FuncDecl (span, (id, ext, opac, params, inputs', outputs', locals, items, contract), is_rec)]
-    | A.ContractNodeDecl (_, (id, params, inputs, outputs, contract)),
+    | A.ContractNodeDecl (_, (id, params, _, _, contract)),
       A.ContractNodeDecl (span, (_, _, inputs', outputs', _)) ->
-      let ctx = Chk.add_io_node_ctx ctx id params inputs outputs in
+      let ctx = Chk.add_io_node_ctx ctx id params inputs' outputs' in
       let contract, gen_nodes = desugar_contract ctx id fun_ids (Some contract) in
       let contract = match contract with
       | Some contract -> contract

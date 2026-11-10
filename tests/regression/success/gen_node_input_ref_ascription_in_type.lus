@@ -1,0 +1,7 @@
+type pos = subtype { w: int | w >= 0 };
+
+node main (c: bool; x: subtype { z: int | (z : pos) >= 0 }) returns (y: int);
+let
+  y = when c then (x -> pre x) else 0;
+  check "p" (not c) => (y = 0);
+tel
