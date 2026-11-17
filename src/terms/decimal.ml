@@ -287,6 +287,9 @@ let of_decimal_string s =
 
   in
 
+  (* Sign of the number *)
+  let negative = ref false in
+
   (* Scan integer part and add to buffer *)
   let rec scan_int pos = 
 
@@ -307,10 +310,13 @@ let of_decimal_string s =
           Buffer.add_char int_buf c; 
           scan_int (succ pos) 
 
-        (* Allow sign as the first character, append to buffer *)
-        | '-' | '+' as c when pos = 0 -> 
-          Buffer.add_char int_buf c; 
+        (* Allow sign as the first character, record it separately, since
+           the integer part may be zero, as in -0.5 *)
+        | '-' when pos = 0 -> 
+          negative := true;
           scan_int (succ pos) 
+
+        | '+' when pos = 0 -> scan_int (succ pos) 
 
         (* Fail on other characters *)
         | c -> 
@@ -367,15 +373,10 @@ let of_decimal_string s =
 
     Num.mult_num
     
-      (* Mantissa 
-         
-         Fractional part has sign of integer part *)
-      ((if Num.sign_num int_num < 0 then Num.sub_num else Num.add_num)
-      
-         (* Integer part *)
-         int_num
-         
-         frac)
+      (* Mantissa: integer and fractional part, with the sign of the
+         number *)
+      (let m = Num.add_num int_num frac in
+       if !negative then Num.minus_num m else m)
 
       exp
 
