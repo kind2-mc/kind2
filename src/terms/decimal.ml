@@ -232,16 +232,24 @@ let of_decimal_string s =
   (* Scan exponent part and add to buffer *)
   let rec scan_exp start_pos pos = 
 
-    (* Terminate at end of string *)
-    if (start_pos + pos) >= String.length s then () else
+    (* Terminate at end of string, failing if the exponent has no
+       digits, as in 1e, 1.e or 1.e+, rather than reading the exponent
+       as zero *)
+    if (start_pos + pos) >= String.length s then
+      (if not (String.exists (function '0'..'9' -> true | _ -> false)
+                 (Buffer.contents exp_buf)) then
+         raise
+           (Invalid_argument
+              (Format.sprintf "of_string: no digits in exponent of %S" s)))
+    else
 
       (* Get character at current position *)
-      match String.get s (start_pos + pos) with 
+      match String.get s (start_pos + pos) with
 
         (* Allow digits, append to buffer *)
-        | '0'..'9' as c -> 
-          Buffer.add_char exp_buf c; 
-          scan_exp start_pos (succ pos) 
+        | '0'..'9' as c ->
+          Buffer.add_char exp_buf c;
+          scan_exp start_pos (succ pos)
 
         (* Allow sign as the first character, append to buffer *)
         | '-' | '+' as c when pos = 0 -> 
@@ -268,8 +276,10 @@ let of_decimal_string s =
       (* Get character at current position *)
       match String.get s (start_pos + pos) with
 
-        (* Continue parsing exponent part *)
-        | 'E' | 'e' when pos > 0 -> scan_exp (start_pos + (succ pos)) 0
+        (* Continue parsing exponent part, after at least one digit in
+           the fractional part or in the integer part, as in 1.e5 *)
+        | 'E' | 'e' when pos > 0 || Buffer.length int_buf > 0 ->
+          scan_exp (start_pos + (succ pos)) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
