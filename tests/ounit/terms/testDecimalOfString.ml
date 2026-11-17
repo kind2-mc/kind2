@@ -65,8 +65,9 @@ let test_point_then_exponent _ =
   check "-2.e1" (Decimal.of_int (-20));
   check "+2.E-1" (q 1 5)
 
-(* A string with no digits in its integer or fractional part is rejected,
-   not read as zero, whether or not it has a sign *)
+(* A string with no digits in its integer or fractional part, or with an
+   exponent marker followed by no digits, is rejected, not read as zero,
+   whether or not it has a sign *)
 let test_no_digits _ =
   List.iter
     (fun s ->
@@ -77,7 +78,8 @@ let test_no_digits _ =
            (Format.sprintf "of_string %S: expected an error, got %s" s
               (Decimal.string_of_decimal d)))
     [""; "-"; "+"; "."; "-."; "+."; "-e1"; "+E2"; "e1"; "--1"; "-+1";
-     ".e5"; "-.e5"; "+.E1"]
+     ".e5"; "-.e5"; "+.E1";
+     "1e"; "1E+"; "1e-"; "1.e"; "1.e+"; "-3.E-"; "1.5e"; "1.5e+"]
 
 let tests =
   "Decimal.of_string" >::: [
