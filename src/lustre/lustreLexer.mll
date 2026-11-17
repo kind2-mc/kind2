@@ -354,10 +354,14 @@ let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
    be one token *)
 let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
 
-(* Floating point decimal 
-
-   Don't allow floats like "2." this will conflict with array slicing "2..3" *)
+(* Floating point decimal *)
 let decimal = ['0'-'9']* '.' ['0'-'9']+ (('E'|'e') ('+'|'-')? ['0'-'9']+)?
+
+(* Floating point decimal with a trailing point, as in "2."
+
+   This conflicts with array slicing "2..3", see the rule for a numeral
+   followed by ".." *)
+let trailing_point_decimal = ['0'-'9']+ '.'
 
 (* Floating-point decimal with exponent only *)
 let exponent_decimal = ['0'-'9']+ '.'? ('E'|'e') ('+'|'-')? ['0'-'9']+
@@ -510,6 +514,18 @@ rule token = parse
   (* Decimal or numeral *)
   | decimal as p { DECIMAL (HString.mk_hstring p) }
   | exponent_decimal as p { DECIMAL (HString.mk_hstring p) }
+  | trailing_point_decimal as p { DECIMAL (HString.mk_hstring p) }
+
+  (* A numeral followed by "..", as in the slice "2..3", is longer than
+     the decimal "2.": return the numeral and put ".." back to be read as
+     the next token *)
+  | (numeral as p) ".." {
+    lexbuf.Lexing.lex_curr_pos <- lexbuf.Lexing.lex_curr_pos - 2;
+    lexbuf.Lexing.lex_curr_p <-
+      { lexbuf.Lexing.lex_curr_p with
+        Lexing.pos_cnum = lexbuf.Lexing.lex_curr_p.Lexing.pos_cnum - 2 };
+    NUMERAL (HString.mk_hstring p)
+  }
   | numeral as p { NUMERAL (HString.mk_hstring p) }
 
   | hex_num as p { NUMERAL (HString.mk_hstring p) }

@@ -1,0 +1,21 @@
+-- Real literals with a trailing point, optionally followed by an
+-- exponent, as accepted by the Lustre V6 compiler (issue #1896)
+
+type complex = struct { re: real; im: real };
+
+const i: complex = complex { re = 0. ; im = 1. };
+
+node test () returns ()
+let
+  --%MAIN ;
+  --%PROPERTY 1. = 1.0 ;
+  --%PROPERTY 0. = 0.0 ;
+  --%PROPERTY 12. = (real 12) ;
+  --%PROPERTY 3.+1. = 4.0 ;
+  --%PROPERTY 1.e5 = 100000.0 ;
+  --%PROPERTY 1.E5 = 100000.0 ;
+  --%PROPERTY 1.e+5 = 100000.0 ;
+  --%PROPERTY 1.e-5 = 0.00001 ;
+  --%PROPERTY -2.e1 = -20.0 ;
+  --%PROPERTY i.re = 0.0 and i.im = 1.0 ;
+tel

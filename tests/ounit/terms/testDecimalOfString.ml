@@ -52,6 +52,19 @@ let test_non_negative _ =
   check "-0.0" (Decimal.of_int 0);
   check "0" (Decimal.of_int 0)
 
+(* An exponent may follow the point directly when the integer part has
+   digits, as in 1.e5, and the fractional part may be empty, as in 1.
+   (issue #1896) *)
+let test_point_then_exponent _ =
+  check "1." (Decimal.of_int 1);
+  check "-12." (Decimal.of_int (-12));
+  check "1.e5" (Decimal.of_int 100000);
+  check "1.E5" (Decimal.of_int 100000);
+  check "1.e+5" (Decimal.of_int 100000);
+  check "1.e-5" (q 1 100000);
+  check "-2.e1" (Decimal.of_int (-20));
+  check "+2.E-1" (q 1 5)
+
 (* A string with no digits in its integer or fractional part is rejected,
    not read as zero, whether or not it has a sign *)
 let test_no_digits _ =
@@ -63,13 +76,15 @@ let test_no_digits _ =
          assert_failure
            (Format.sprintf "of_string %S: expected an error, got %s" s
               (Decimal.string_of_decimal d)))
-    [""; "-"; "+"; "."; "-."; "+."; "-e1"; "+E2"; "e1"; "--1"; "-+1"]
+    [""; "-"; "+"; "."; "-."; "+."; "-e1"; "+E2"; "e1"; "--1"; "-+1";
+     ".e5"; "-.e5"; "+.E1"]
 
 let tests =
   "Decimal.of_string" >::: [
     "negative below one" >:: test_negative_below_one;
     "negative from one" >:: test_negative_from_one;
     "non-negative" >:: test_non_negative;
+    "point then exponent" >:: test_point_then_exponent;
     "no digits" >:: test_no_digits;
   ]
 

@@ -268,8 +268,10 @@ let of_decimal_string s =
       (* Get character at current position *)
       match String.get s (start_pos + pos) with
 
-        (* Continue parsing exponent part *)
-        | 'E' | 'e' when pos > 0 -> scan_exp (start_pos + (succ pos)) 0
+        (* Continue parsing exponent part, after at least one digit in
+           the fractional part or in the integer part, as in 1.e5 *)
+        | 'E' | 'e' when pos > 0 || Buffer.length int_buf > 0 ->
+          scan_exp (start_pos + (succ pos)) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
