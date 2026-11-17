@@ -6,11 +6,10 @@ altogether, the sign alone being read as the integer part.
 """
 
 import json
-import subprocess
 
 import pytest
 
-from conftest import common_args, kind2_bin, run_timeout
+from conftest import common_args, kind2_bin, run_kind2
 
 model = """
 node top(r: real) returns (z: real);
@@ -35,20 +34,26 @@ def interpret(tmp_path, input_file):
     lus = tmp_path / "sign.lus"
     lus.write_text(model)
     arg_list = [arg for pair in common_args.items() for arg in pair]
-    proc = subprocess.run(
+    proc = run_kind2(
         [kind2_bin, "-json", *arg_list, "--enable", "interpreter",
-         "--interpreter_input_file", str(input_file), str(lus)],
-        capture_output=True,
-        text=True,
-        timeout=run_timeout,
+         "--interpreter_input_file", str(input_file), str(lus)]
     )
-    objs = json.loads(proc.stdout)
+    stderr = proc.stderr.decode(errors="replace")
+    try:
+        objs = json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        pytest.fail(
+            f"invalid JSON output ({e}), exit code {proc.returncode}\n"
+            f"stdout:\n{proc.stdout.decode(errors='replace')}\n"
+            f"stderr:\n{stderr}"
+        )
     errors = [
         obj["value"]
         for obj in objs
         if obj.get("objectType") == "log" and obj.get("level") in ("error", "fatal")
     ]
     assert errors == [], errors
+    assert proc.returncode == 0, (proc.returncode, stderr)
     [execution] = [obj for obj in objs if obj.get("objectType") == "execution"]
     [z] = [s for s in execution["trace"][0]["streams"] if s["name"] == "z"]
     return [(v["num"], v["den"]) for _, v in z["instantValues"]]

@@ -52,11 +52,25 @@ let test_non_negative _ =
   check "-0.0" (Decimal.of_int 0);
   check "0" (Decimal.of_int 0)
 
+(* A string with no digits in its integer or fractional part is rejected,
+   not read as zero, whether or not it has a sign *)
+let test_no_digits _ =
+  List.iter
+    (fun s ->
+       match Decimal.of_string s with
+       | exception Invalid_argument _ -> ()
+       | d ->
+         assert_failure
+           (Format.sprintf "of_string %S: expected an error, got %s" s
+              (Decimal.string_of_decimal d)))
+    [""; "-"; "+"; "."; "-."; "+."; "-e1"; "+E2"; "e1"; "--1"; "-+1"]
+
 let tests =
   "Decimal.of_string" >::: [
     "negative below one" >:: test_negative_below_one;
     "negative from one" >:: test_negative_from_one;
     "non-negative" >:: test_non_negative;
+    "no digits" >:: test_no_digits;
   ]
 
 let _ = run_test_tt_main tests

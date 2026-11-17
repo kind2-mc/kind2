@@ -287,8 +287,14 @@ let of_decimal_string s =
 
   in
 
-  (* Sign of the number *)
-  let negative = ref false in
+  (* Sign of the number, taken from an optional first character. It is
+     not part of the integer part, which may be zero, as in -0.5 *)
+  let negative = String.length s > 0 && s.[0] = '-' in
+
+  (* Position of the first character after the sign *)
+  let start =
+    if String.length s > 0 && (s.[0] = '-' || s.[0] = '+') then 1 else 0
+  in
 
   (* Scan integer part and add to buffer *)
   let rec scan_int pos = 
@@ -303,20 +309,12 @@ let of_decimal_string s =
         | '.' -> scan_frac (succ pos) 0
 
         (* Continue parsing exponent part *)
-        | 'E' | 'e'  when pos > 0 -> scan_exp (succ pos) 0
+        | 'E' | 'e'  when pos > start -> scan_exp (succ pos) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
           Buffer.add_char int_buf c; 
           scan_int (succ pos) 
-
-        (* Allow sign as the first character, record it separately, since
-           the integer part may be zero, as in -0.5 *)
-        | '-' when pos = 0 -> 
-          negative := true;
-          scan_int (succ pos) 
-
-        | '+' when pos = 0 -> scan_int (succ pos) 
 
         (* Fail on other characters *)
         | c -> 
@@ -329,8 +327,15 @@ let of_decimal_string s =
 
   in
 
-  (* Scan string into buffers starting at the first character *)
-  scan_int 0;
+  (* Scan string into buffers starting after the sign *)
+  scan_int start;
+
+  (* Fail if there are no digits in the integer or the fractional part,
+     as in -, -. or -e5, rather than reading the number as zero *)
+  if Buffer.length int_buf = 0 && Buffer.length frac_buf = 0 then
+    raise
+      (Invalid_argument
+         (Format.sprintf "of_string: no digits in %S" s));
 
   (* Convert integer buffer to numeral, default to zero if empty *)
   let int_num = 
@@ -376,7 +381,7 @@ let of_decimal_string s =
       (* Mantissa: integer and fractional part, with the sign of the
          number *)
       (let m = Num.add_num int_num frac in
-       if !negative then Num.minus_num m else m)
+       if negative then Num.minus_num m else m)
 
       exp
 
