@@ -1,0 +1,12 @@
+node imported nd (z: int) returns (t: int);
+
+node sub (x: subtype { z: int | nd (z) = z }) returns (y: int);
+let
+  y = any { u: int | u = x };
+tel
+
+node main (a: int) returns (b: int);
+let
+  b = sub (a);
+  check "p" true;
+tel

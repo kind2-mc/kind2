@@ -131,8 +131,8 @@ def test_generated_node_of_callee(tmp_path):
     assert selectors(analyses[1][1]) == {}, analyses
 
 
-# The ascription and the subtype of the input x of the node generated for the
-# temporal branch
+# The ascription of the temporal branch. The node generated for the branch
+# declares the x it reads with its base type, so Nat is not checked there again.
 ascription = """
 type Nat = subtype { n: int | n >= 0 };
 
@@ -158,7 +158,6 @@ def test_ascription_in_generated_node(tmp_path, modular):
     assert [top for top, _ in analyses] == ["main"], analyses
     assert analyses[0][1] == {
         "InvProp[L6C3]": "valid",
-        "SubType[L6C16]": "valid",
         "TypeAscription[L6C24]": "valid",
     }, analyses
 
@@ -169,7 +168,6 @@ def test_ascription_in_generated_node_instances(tmp_path):
     assert analyses[0][1] == {
         f"{kind}[{pos}][{i}]": "valid"
         for kind, pos in [
-            ("SubType", "L6C18"),
             ("TypeAscription", "L6C26"),
             # The read x[i] in the generated node
             ("ArrayBounds", "L6C29"),

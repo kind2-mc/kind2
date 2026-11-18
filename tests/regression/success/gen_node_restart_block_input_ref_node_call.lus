@@ -1,0 +1,9 @@
+node imported nd (z: int) returns (t: int);
+
+node main (c: bool; x: subtype { z: int | nd (z) = z }) returns (y: int);
+let
+  restart
+    y = x -> pre x;
+  every c end
+  check "p" c => (y = x);
+tel

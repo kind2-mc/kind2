@@ -344,6 +344,10 @@ let _ = run_test_tt_main ("frontend LustreAstDependencies error tests" >::: [
     match load_file "./lustreAstDependencies/circular_nodes.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
     | _ -> false);
+  mk_test "test a local declaration whose type calls its own node" (fun () ->
+    match load_file "./lustreAstDependencies/local_decl_type_self_call.lus" with
+    | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true
+    | _ -> false);
   mk_test "test cyclic definition of types" (fun () ->
     match load_file "./lustreAstDependencies/circular_types.lus" with
     | Error (`LustreAstDependenciesError (_, CyclicDependency _)) -> true

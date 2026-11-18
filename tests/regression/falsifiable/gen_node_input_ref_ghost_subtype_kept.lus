@@ -1,0 +1,9 @@
+node main (x: int) returns (y: int);
+(*@contract
+  var g: subtype { w: int | w > 0 } = x;
+  guarantee (g : subtype { v: int | v = g }) = g;
+*)
+let
+  y = x;
+  check "p" true;
+tel
