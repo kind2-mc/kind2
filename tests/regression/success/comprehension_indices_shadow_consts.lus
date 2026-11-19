@@ -1,0 +1,18 @@
+-- Index variables of an array comprehension that shadow global constants:
+-- a subexpression made only of them must not be evaluated with the values of
+-- the constants (issue #1594)
+
+const k: int = 7;
+const j: int = 5;
+
+node main () returns (a: int^2^3; b: int^3; c: bool^2^3; d: int^3);
+let
+  a = (k + j foreach k, j)^2^3;
+  b = (-k foreach k)^3;
+  c = (k < j foreach k, j)^2^3;
+  d = (if k = 7 then 1 else 0 foreach k)^3;
+  check a[0][0] = 0 and a[2][1] = 3;
+  check b[2] = -2;
+  check c[0][1] and not c[1][0];
+  check d[0] = 0 and d[2] = 0;
+tel

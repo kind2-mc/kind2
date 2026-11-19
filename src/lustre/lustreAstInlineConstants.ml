@@ -567,6 +567,10 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
       | LA.ArrayDef (_, _, vars) -> acc @ vars 
       | _ -> acc
     ) [] sis in
+    (* They are also removed from the constants of the context, so that the
+       evaluation of a subexpression (e.g. [k + j]) does not read the value of
+       a constant they shadow *)
+    let ctx = List.fold_left TC.remove_const ctx ind_vars in
     (LA.Equation (pos, lhs, simplify_expr ~keep_oob:true ~ind_vars ctx e))
 
 let rec inline_constants_of_const_clocked_type_decl ctx = function
