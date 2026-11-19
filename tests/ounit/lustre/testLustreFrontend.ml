@@ -1134,6 +1134,14 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/array_index_clash_with_enum_variant.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
     | _ -> false);
+  mk_test "test array comprehension index clashes with datatype constructor matched in body" (fun () ->
+    match load_file "./lustreTypeChecker/array_index_clash_with_datatype_constructor.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
+    | _ -> false);
+  mk_test "test array comprehension index clashes with datatype constructor matched in temporal body" (fun () ->
+    match load_file "./lustreTypeChecker/array_index_clash_with_datatype_constructor_temporal.lus" with
+    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
+    | _ -> false);
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
     | Error (`LustreTypeCheckerError (_, UndeclaredType _)) -> true

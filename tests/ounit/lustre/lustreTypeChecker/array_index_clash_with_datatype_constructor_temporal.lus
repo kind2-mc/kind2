@@ -1,0 +1,9 @@
+datatype T = A | B;
+
+node main (t: T) returns (ok: bool);
+var r: int^3;
+let
+  r = ((match t with | A : 0 -> 1 | B : 0 end) foreach A)^3;
+  ok = r[0] >= 0;
+  check "ok" ok;
+tel
