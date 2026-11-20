@@ -1,0 +1,5 @@
+node main (n: int) returns (y: int);
+let
+  y = 0;
+  check forall (k: int) (choose { x: int | x = k }) = k;
+tel

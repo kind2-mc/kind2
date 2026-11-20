@@ -1,0 +1,5 @@
+const id: int = 5;
+node main (x: subrange [0, id] of int) returns ();
+let
+  check x <= 5;
+tel

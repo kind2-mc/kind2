@@ -1,0 +1,4 @@
+node main (const id: int; x: int) returns ();
+let
+  check forall (y: subrange [0, id] of int) y <= id;
+tel

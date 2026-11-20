@@ -1,0 +1,7 @@
+const k: int;
+const m: int = k + 1;
+node main () returns (a: int^3);
+let
+  a = (m foreach k)^3;
+  check a[0] = a[2];
+tel

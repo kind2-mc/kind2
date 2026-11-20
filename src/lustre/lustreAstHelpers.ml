@@ -388,15 +388,12 @@ let rec rename_pat_var id id' = function
 
 let bound_rename_counter = ref 0
 
-(* A fresh name for an alpha-renamed binder. The leading '.' cannot occur in a
-   source identifier, so the name cannot collide and prints as "$n". *)
+(* A fresh name ".bound_<orig>_<n>" for a binder whose user-written name is <orig>.
+   No source identifier starts with '.', so the name cannot collide. *)
 let fresh_bound_ident id =
   incr bound_rename_counter;
-  let base = HString.string_of_hstring id in
-  let base =
-    if String.starts_with ~prefix:".bound_" base then base else ".bound_" ^ base
-  in
-  HString.mk_hstring (Format.sprintf "%s_%d" base !bound_rename_counter)
+  let base = HString.string_of_hstring (original_name id) in
+  HString.mk_hstring (Format.sprintf "%s%s_%d" bound_prefix base !bound_rename_counter)
 
 (* A binder must be renamed before sigma is pushed under it when some
    substitution that actually fires in e would move a free occurrence of the
@@ -1650,19 +1647,6 @@ let rec vars_of_type ?(into_ty_args = false) ty =
     let tys = List.concat_map (fun (_, flds) -> List.map snd flds) cons in
     List.fold_left SI.union SI.empty (List.map vars_of_type tys)
 
-(* Renames each quantified variable whose name a binder type of the same
-   quantifier mentions, where the quantified variable is not in scope *)
-let rename_self_referencing_binders ?(expand = Fun.id) tis e =
-  let mentioned =
-    List.fold_left (fun acc (_, _, ty) -> SI.union acc (vars_of_type (expand ty))) SI.empty tis
-  in
-  List.fold_right (fun (p, i, ty) (tis, e) ->
-    if SI.mem i mentioned then
-      let fresh = fresh_bound_ident i in
-      ((p, fresh, ty) :: tis, apply_subst_in_expr [(i, Ident (p, fresh))] e)
-    else ((p, i, ty) :: tis, e)
-  ) tis ([], e)
-
 let rec defined_vars_with_pos = function
   | Body (Equation (_, StructDef (_, ss), _)) -> List.flatten (List.map vars_of_struct_item_with_pos ss)
   | IfBlock (_, _, l1, l2)
@@ -1957,21 +1941,41 @@ let sort_idents: ident list -> ident list = fun ids ->
   List.sort (fun i1 i2 -> HString.compare i1 i2) ids
 (** sort typed identifiers *)
 
-(* Structural equality of match patterns, used by syn_expr_equal *)
-let rec syn_pattern_equal p1 p2 =
-  match p1, p2 with
-  | VarPat (_, x), VarPat (_, y) -> HString.equal x y
-  | Pat (_, x, xs), Pat (_, y, ys) ->
-    HString.equal x y
-    && List.length xs = List.length ys
-    && List.for_all2 syn_pattern_equal xs ys
-  | VarPat _, Pat _ | Pat _, VarPat _ -> false
+(* Whether x and y name the same variable, where env pairs the binders in scope
+   of either expression compared, innermost first *)
+let alpha_ident_equal env x y =
+  match List.find_opt (fun (a, b) -> HString.equal a x || HString.equal b y) env with
+  | Some (a, b) -> HString.equal a x && HString.equal b y
+  | None -> HString.equal x y
 
-let rec syn_expr_equal depth_limit x y : (bool, unit) result =
+let is_renamed_binder i =
+  String.starts_with ~prefix:bound_prefix (HString.string_of_hstring i)
+
+(* Structural equality of match patterns up to the renaming of their variables,
+   with env extended by the pairs of variables they bind. A variable pattern
+   that is not alpha-renamed may be a nullary constructor, so it must match by
+   name. *)
+let rec syn_pattern_equal env p1 p2 =
+  match p1, p2 with
+  | VarPat (_, x), VarPat (_, y) ->
+    if is_renamed_binder x && is_renamed_binder y then Some ((x, y) :: env)
+    else if HString.equal x y then Some env
+    else None
+  | Pat (_, x, xs), Pat (_, y, ys) ->
+    if HString.equal x y && List.length xs = List.length ys then
+      List.fold_left2 (fun env p1 p2 ->
+        Option.bind env (fun env -> syn_pattern_equal env p1 p2)) (Some env) xs ys
+    else None
+  | VarPat _, Pat _ | Pat _, VarPat _ -> None
+
+(* Structural equality of expressions and types up to the renaming of bound
+   variables *)
+
+let rec syn_expr_equal ?(env = []) depth_limit x y : (bool, unit) result =
   let (>>=) = Res.(>>=) in
-  let rec r depth x y =
+  let rec r env depth x y =
     let rlist xl yl = if List.length xl = List.length yl then
-        List.map2 (fun x y -> r (depth + 1) x y) xl yl
+        List.map2 (fun x y -> r env (depth + 1) x y) xl yl
       else [Ok (false)]
     in
     let join l = List.fold_left
@@ -1981,7 +1985,7 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     in
     if Lib.is_some depth_limit && depth > Lib.get depth_limit then Error ()
     else match x, y with
-    | Ident (_, x), Ident (_, y) -> Ok (HString.equal x y)
+    | Ident (_, x), Ident (_, y) -> Ok (alpha_ident_equal env x y)
     | ModeRef (_, x), ModeRef (_, y) ->
       let t = if List.length x = List.length y then
           List.fold_left2 (fun a x y -> a && HString.equal x y) false x y
@@ -1999,33 +2003,33 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
         | Selector (_, _, xc), Selector (_, _, yc) -> HString.equal xc yc
         | RecordField, Selector _ | Selector _, RecordField -> false
       in
-      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi && pk_equal)
+      r env (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xi yi && pk_equal)
     | Const (_, True), Const(_, True) -> Ok (true)
     | Const (_, False), Const (_, False) -> Ok (true)
     | Const (_, Num x), Const (_, Num y) -> Ok (HString.equal x y)
     | Const (_, Dec x), Const (_, Dec y) -> Ok (HString.equal x y)
     | UnaryOp (_, xop, xe), UnaryOp (_, yop, ye) ->
-      r (depth + 1) xe ye >>= fun e -> Ok (e && xop = yop)
+      r env (depth + 1) xe ye >>= fun e -> Ok (e && xop = yop)
     | BinaryOp (_, xop, xe1, xe2), BinaryOp (_, yop, ye1, ye2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2 && xop = yop)
     | TernaryOp (_, xop, xe1, xe2, xe3), TernaryOp (_, yop, ye1, ye2, ye3) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
-      r (depth + 1) xe3 ye3 >>= fun e3 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe3 ye3 >>= fun e3 ->
       Ok (e1 && e2 && e3 && xop = yop)
     | ConvOp (_, xop, x), ConvOp (_, yop, y) ->
-      r (depth + 1) x y >>= fun e -> Ok (e && xop = yop)
+      r env (depth + 1) x y >>= fun e -> Ok (e && xop = yop)
     | CompOp (_, xop, xe1, xe2), CompOp (_, yop, ye1, ye2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2 && xop = yop)
     | RecordExpr (_, xi, xp, x), RecordExpr (_, yi, yp, y) ->
       let p =
         if List.length xp = List.length yp then
           List.map2 (fun xt yt ->
-            syn_type_equal depth_limit xt yt >>= fun t ->
+            syn_type_equal ~env depth_limit xt yt >>= fun t ->
               Ok (t && HString.equal xi yi))
             xp yp
         else [Ok (false)]
@@ -2039,13 +2043,13 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
     | GroupExpr (_, xop, x), GroupExpr(_, yop, y) ->
       rlist x y |> join >>= fun e -> Ok (e && xop = yop)
     | StructUpdate (_, xe1, xl, Some xe2), StructUpdate (_, ye1, yl, Some ye2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
       let l = if List.length xl = List.length yl then
           List.map2 (fun x y -> match x, y with
             | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
             | Index (_, xe, xk), Index (_, ye, yk) ->
-              r (depth + 1) xe ye >>= fun e -> Ok (e && xk = yk)
+              r env (depth + 1) xe ye >>= fun e -> Ok (e && xk = yk)
             | _ -> Ok (false))
           xl yl
         else [Ok (false)]
@@ -2054,12 +2058,12 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2 && e3)
 
     | StructUpdate (_, xe1, xl, None), StructUpdate (_, ye1, yl, None) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
       let l = if List.length xl = List.length yl then
           List.map2 (fun x y -> match x, y with
             | Label (_, xi), Label (_, yi) -> Ok (HString.equal xi yi)
             | Index (_, xe, xk), Index (_, ye, yk) ->
-              r (depth + 1) xe ye >>= fun e -> Ok (e && xk = yk)
+              r env (depth + 1) xe ye >>= fun e -> Ok (e && xk = yk)
             | _ -> Ok (false))
           xl yl
         else [Ok (false)]
@@ -2068,117 +2072,118 @@ let rec syn_expr_equal depth_limit x y : (bool, unit) result =
       Ok (e1 && e2)
     | StructUpdate _, StructUpdate _ -> Ok false
     | ArrayConstr (_, xe1, xe2), ArrayConstr (_, ye1, ye2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
     | IndexAccess (_, xe1, xe2, xk), IndexAccess (_, ye1, ye2, yk) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2 && xk=yk)
+    (* A binder is in scope in the types of the binders after it *)
     | Quantifier (_, xq, xl, xe), Quantifier (_, yq, yl, ye) ->
-      r (depth + 1) xe ye >>= fun e ->
-      let l = if List.length xl = List.length yl then
-          List.map2 (fun (_, xi, xt) (_, yi, yt) ->
-            syn_type_equal depth_limit xt yt >>= fun t ->
-              Ok (t && HString.equal xi yi))
-          xl yl
-        else [Ok (false)]
-      in
-      l |> join >>= fun l ->
-      Ok (e && l && xq = yq)
-    (* As for quantifiers, the index variables must have the same names *)
+      if List.length xl <> List.length yl then Ok false
+      else
+        let env', l =
+          List.fold_left2 (fun (env, acc) (_, xi, xt) (_, yi, yt) ->
+            ((xi, yi) :: env, syn_type_equal ~env depth_limit xt yt :: acc))
+            (env, []) xl yl
+        in
+        l |> join >>= fun l ->
+        r env' (depth + 1) xe ye >>= fun e ->
+        Ok (e && l && xq = yq)
     | ArrayComprehension (_, xbs, xe), ArrayComprehension (_, ybs, ye) ->
-      r (depth + 1) xe ye >>= fun e ->
-      let l = if List.length xbs = List.length ybs then
-          List.map2 (fun (_, xi, xn) (_, yi, yn) ->
-            r (depth + 1) xn yn >>= fun n ->
-              Ok (n && HString.equal xi yi))
-          xbs ybs
-        else [Ok (false)]
-      in
-      l |> join >>= fun l ->
-      Ok (e && l)
+      if List.length xbs <> List.length ybs then Ok false
+      else
+        let l = List.map2 (fun (_, _, xn) (_, _, yn) -> r env (depth + 1) xn yn) xbs ybs in
+        let env' =
+          List.fold_left2 (fun env (_, xi, _) (_, yi, _) -> (xi, yi) :: env) env xbs ybs
+        in
+        l |> join >>= fun l ->
+        r env' (depth + 1) xe ye >>= fun e ->
+        Ok (e && l)
     | Restart (_, xe, xr), Restart (_, ye, yr) ->
-      r (depth + 1) xe ye >>= fun e ->
-      r (depth + 1) xr yr >>= fun c ->
+      r env (depth + 1) xe ye >>= fun e ->
+      r env (depth + 1) xr yr >>= fun c ->
       Ok (e && c)
     | RestartEvery (_, xi, xl, xe), RestartEvery (_, yi, yl, ye) ->
-      r (depth + 1) xe ye >>= fun e ->
+      r env (depth + 1) xe ye >>= fun e ->
       rlist xl yl |> join >>= fun l ->
       Ok (e && l && NI.equal xi yi)
-    | Pre (_, x), Pre (_, y) -> r (depth + 1) x y
+    | Pre (_, x), Pre (_, y) -> r env (depth + 1) x y
     | TypeAscription (_, xe, xty), TypeAscription (_, ye, yty) ->
-      let* ty_eq = syn_type_equal depth_limit xty yty in 
-      let* e_eq = r (depth + 1) xe ye in
+      let* ty_eq = syn_type_equal ~env depth_limit xty yty in 
+      let* e_eq = r env (depth + 1) xe ye in
       Ok (ty_eq && e_eq)
     | Arrow (_, xe1, xe2), Arrow (_, ye1, ye2)
     | Fby (_, xe1, xe2), Fby (_, ye1, ye2) ->
-      r (depth + 1) xe1 ye1 >>= fun e1 ->
-      r (depth + 1) xe2 ye2 >>= fun e2 ->
+      r env (depth + 1) xe1 ye1 >>= fun e1 ->
+      r env (depth + 1) xe2 ye2 >>= fun e2 ->
       Ok (e1 && e2)
     | Call (_, xts, xi, xl2), Call (_, yts, yi, yl2) when List.length xts == List.length yts ->
       List.map2 (fun xt yt -> 
-        syn_type_equal depth_limit xt yt
+        syn_type_equal ~env depth_limit xt yt
       ) xts yts |> join >>= fun l1 ->
       rlist xl2 yl2 |> join >>= fun l2 -> 
       Ok (l1 && l2 && xi = yi)
     | AnyOp (_, (_, xi, xt), xe), AnyOp (_, (_, yi, yt), ye)
     | ChooseOp (_, (_, xi, xt), xe), ChooseOp (_, (_, yi, yt), ye) ->
-      syn_type_equal depth_limit xt yt >>= fun t ->
-      r (depth + 1) xe ye >>= fun e ->
-      Ok (t && e && HString.equal xi yi)
+      syn_type_equal ~env depth_limit xt yt >>= fun t ->
+      r ((xi, yi) :: env) (depth + 1) xe ye >>= fun e ->
+      Ok (t && e)
     | Extract (_, xe, xi1, xi2), Extract (_, ye, yi1, yi2) ->
-      r (depth + 1) xe ye >>= fun e -> Ok (e && xi1 = yi1 && xi2 = yi2)
+      r env (depth + 1) xe ye >>= fun e -> Ok (e && xi1 = yi1 && xi2 = yi2)
     (* An empty container is determined by its type alone *)
     | EmptyMap (_, None), EmptyMap (_, None) -> Ok (true)
     | EmptyMap (_, Some (xk, xv)), EmptyMap (_, Some (yk, yv)) ->
-      syn_type_equal depth_limit xk yk >>= fun k ->
-      syn_type_equal depth_limit xv yv >>= fun v ->
+      syn_type_equal ~env depth_limit xk yk >>= fun k ->
+      syn_type_equal ~env depth_limit xv yv >>= fun v ->
       Ok (k && v)
     | EmptyMap _, EmptyMap _ -> Ok (false)
     | EmptySet (_, None), EmptySet (_, None) -> Ok (true)
-    | EmptySet (_, Some xt), EmptySet (_, Some yt) -> syn_type_equal depth_limit xt yt
+    | EmptySet (_, Some xt), EmptySet (_, Some yt) -> syn_type_equal ~env depth_limit xt yt
     | EmptySet _, EmptySet _ -> Ok (false)
     | Last (_, x), Last (_, y) -> Ok (HString.equal x y)
     (* Compiles to the default value of the type, so the type decides *)
     | AbstractSymConst (_, xt), AbstractSymConst (_, yt) ->
-      syn_type_equal depth_limit xt yt
+      syn_type_equal ~env depth_limit xt yt
     | ADTTester (_, xe, xc), ADTTester (_, ye, yc) ->
-      r (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xc yc)
+      r env (depth + 1) xe ye >>= fun e -> Ok (e && HString.equal xc yc)
     | ADTTerm (_, xts, xc, xl), ADTTerm (_, yts, yc, yl) ->
       (if List.length xts = List.length yts then
-         List.map2 (syn_type_equal depth_limit) xts yts |> join
+         List.map2 (syn_type_equal ~env depth_limit) xts yts |> join
        else Ok (false)) >>= fun t ->
       rlist xl yl |> join >>= fun l ->
       Ok (t && l && HString.equal xc yc)
     | Match (_, xe, xarms, xty), Match (_, ye, yarms, yty) ->
       (match xty, yty with
        | None, None -> Ok (true)
-       | Some xt, Some yt -> syn_type_equal depth_limit xt yt
+       | Some xt, Some yt -> syn_type_equal ~env depth_limit xt yt
        | Some _, None | None, Some _ -> Ok (false)) >>= fun t ->
       let arms = if List.length xarms = List.length yarms then
           List.map2 (fun (xp, xb) (yp, yb) ->
-            r (depth + 1) xb yb >>= fun b -> Ok (b && syn_pattern_equal xp yp))
+            match syn_pattern_equal env xp yp with
+            | Some env -> r env (depth + 1) xb yb
+            | None -> Ok false)
           xarms yarms
         else [Ok (false)]
       in
       arms |> join >>= fun a ->
-      r (depth + 1) xe ye >>= fun e ->
+      r env (depth + 1) xe ye >>= fun e ->
       Ok (t && a && e)
     | _ -> Ok (false)
   in
-  r 0 x y
+  r env 0 x y
 
-and syn_type_equal depth_limit x y : (bool, unit) result =
+and syn_type_equal ?(env = []) depth_limit x y : (bool, unit) result =
   let (>>=) = Res.(>>=) in
-  let rec r depth x y =
+  let rec r env depth x y =
     (* Pairwise comparison of two lists; unequal lengths make them unequal rather
        than an error, so a mismatch does not abort the whole comparison *)
     let zip_with cmp xl yl = if List.length xl = List.length yl then
         List.map2 cmp xl yl
       else [Ok (false)]
     in
-    let rlist xl yl = zip_with (fun x y -> r (depth + 1) x y) xl yl in
+    let rlist xl yl = zip_with (fun x y -> r env (depth + 1) x y) xl yl in
     let join l = List.fold_left
       (fun a x -> a >>= fun a -> x >>= fun x -> Ok (a && x))
       (Ok (true))
@@ -2203,13 +2208,13 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       rlist xl yl |> join
     | RecordType (_, xn, xl), RecordType (_, yn, yl) ->
       let field (_, xi, xt) (_, yi, yt) =
-        let* t = r (depth + 1) xt yt in
+        let* t = r env (depth + 1) xt yt in
         Ok (t && HString.equal xi yi)
       in
       join (Ok (xn = yn) :: zip_with field xl yl)
     | ArrayType (_, (xt, xe)), ArrayType (_, (yt, ye)) ->
-      r (depth + 1) xt yt >>= fun t ->
-      syn_expr_equal depth_limit xe ye >>= fun e ->
+      r env (depth + 1) xt yt >>= fun t ->
+      syn_expr_equal ~env depth_limit xe ye >>= fun e ->
       Ok (t && e)
     | EnumType (_, xi, xl), EnumType (_, yi, yl) ->
       let t = if List.length xl = List.length yl then
@@ -2219,27 +2224,25 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       in
       Ok (t && HString.equal xi yi)
     | TArr (_, xt1, xt2), TArr (_, yt1, yt2) ->
-      r (depth + 1) xt1 yt1 >>= fun t1 ->
-      r (depth + 1) xt2 yt2 >>= fun t2 ->
+      r env (depth + 1) xt1 yt1 >>= fun t1 ->
+      r env (depth + 1) xt2 yt2 >>= fun t2 ->
       Ok (t1 && t2)
-    | History (_, x), History (_, y) -> Ok (HString.equal x y)
-    (* Syntactic equality, so the bound variables are compared by name rather
-       than up to renaming, as the array sizes above are compared as written *)
+    | History (_, x), History (_, y) -> Ok (alpha_ident_equal env x y)
     | RefinementType (_, (_, xi, xt), xe), RefinementType (_, (_, yi, yt), ye) ->
-      r (depth + 1) xt yt >>= fun t ->
-      syn_expr_equal depth_limit xe ye >>= fun e ->
-      Ok (t && e && HString.equal xi yi)
+      r env (depth + 1) xt yt >>= fun t ->
+      syn_expr_equal ~env:((xi, yi) :: env) depth_limit xe ye >>= fun e ->
+      Ok (t && e)
     | Map (_, xf, xk, xv), Map (_, yf, yk, yv) ->
-      r (depth + 1) xk yk >>= fun k ->
-      r (depth + 1) xv yv >>= fun v ->
+      r env (depth + 1) xk yk >>= fun k ->
+      r env (depth + 1) xv yv >>= fun v ->
       Ok (k && v && xf = yf)
     | Set (_, xf, xt), Set (_, yf, yt) ->
-      r (depth + 1) xt yt >>= fun t -> Ok (t && xf = yf)
+      r env (depth + 1) xt yt >>= fun t -> Ok (t && xf = yf)
     (* The constructors carry the instantiated field types, so two
        instantiations of the same polymorphic datatype differ only there *)
     | ADT (_, xn, xctors), ADT (_, yn, yctors) ->
       let field (xf, xt) (yf, yt) =
-        let* t = r (depth + 1) xt yt in
+        let* t = r env (depth + 1) xt yt in
         Ok (t && HString.equal xf yf)
       in
       let ctor (xc, xflds) (yc, yflds) =
@@ -2248,7 +2251,7 @@ and syn_type_equal depth_limit x y : (bool, unit) result =
       join (Ok (HString.equal xn yn) :: zip_with ctor xctors yctors)
     | _ -> Ok false
   in
-  r 0 x y
+  r env 0 x y
 
 let hash depth_limit expr =
   let rec r depth expr =

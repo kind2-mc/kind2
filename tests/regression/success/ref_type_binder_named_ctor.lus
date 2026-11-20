@@ -1,0 +1,6 @@
+datatype E = A | B;
+node main (e: E; z: subtype { A: int | A > (match e with | A : 1 | B : 2 end) }) returns ();
+let
+  check z > 1;
+  check A?(e) or z > 2;
+tel

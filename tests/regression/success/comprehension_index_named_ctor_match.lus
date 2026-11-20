@@ -1,0 +1,6 @@
+datatype T = A | B;
+node main (t: T) returns (r: int^3);
+let
+  r = ((A + match t with | A : 10 | B : 20 end) foreach A)^3;
+  check r[2] = (if A?(t) then 12 else 22);
+tel

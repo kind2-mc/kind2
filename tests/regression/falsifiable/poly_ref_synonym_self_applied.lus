@@ -1,0 +1,5 @@
+type P<X> = subtype { v: X | exists (i: X) i <> v };
+node main (x: P<P<int>>) returns ();
+let
+  check false;
+tel

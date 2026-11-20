@@ -1,0 +1,7 @@
+datatype E = A | B;
+node main (e: E) returns (y: int);
+let
+  y = any { A: int | A > (match e with | A : 1 | B : 2 end) };
+  check y > 1;
+  check A?(e) or y > 2;
+tel

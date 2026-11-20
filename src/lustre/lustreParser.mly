@@ -451,7 +451,8 @@ lustre_type:
     INT 
     { 
       let p = mk_pos $startpos in 
-      let id = HString.mk_hstring "id" in (
+      (* A binder no source name can be captured by, which displays as "id" *)
+      let id = LustreAstHelpers.fresh_bound_ident (HString.mk_hstring "id") in (
       match l, u with 
       | Some l, Some u -> 
         let l = A.CompOp (p, A.Lte, l, A.Ident (p, id)) in 

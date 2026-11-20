@@ -1,0 +1,5 @@
+datatype T = A (v: int) | B;
+node main (n: int) returns ();
+let
+  check forall (t: T) (match t with | A (w) : (any { x: int | x = w }) = w | B : true end);
+tel

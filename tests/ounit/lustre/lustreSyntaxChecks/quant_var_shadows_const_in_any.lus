@@ -1,0 +1,6 @@
+const k: int = 7;
+node main (n: int) returns (y: int);
+let
+  y = 0;
+  check forall (k: int) (any { x: int | x = k }) = k;
+tel

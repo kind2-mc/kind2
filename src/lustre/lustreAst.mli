@@ -468,6 +468,20 @@ val is_bounded_index : position -> bool
     {!FiniteSets}). *)
 val finite_risk_types : lustre_type list ref
 
+(** The prefix [".bound_"] of the name of an alpha-renamed binder, as built by
+    {!LustreAstHelpers.fresh_bound_ident} *)
+val bound_prefix : string
+
+(** [restore_bound_names s] replaces every alpha-renamed binder name
+    [".bound_<orig>_<n>"] that starts a token of [s] by the name [<orig>] the
+    user wrote. After an identifier or a closing bracket, [".bound_"] is a field
+    projection and is left alone. *)
+val restore_bound_names : string -> string
+
+(** [original_name i] is the name the user wrote for the alpha-renamed binder
+    [i], and [i] itself for any other identifier *)
+val original_name : ident -> ident
+
 (** {1 Pretty-printers} *)
 val pp_print_node_param_list : Format.formatter -> ident list -> unit
 val pp_print_pattern : Format.formatter -> pattern -> unit

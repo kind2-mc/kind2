@@ -169,6 +169,10 @@ let type_check declarations =
     (* Step 1. Basic syntax checks on declarations  *)
     let* warnings1, declarations = LS.syntax_check declarations in
 
+    (* Step 1a. Rename every local binder apart, so that no later pass can
+       capture a name in its scope *)
+    let declarations = LustreRenameBinders.rename_binders declarations in
+
     (* Step 2. Split program into top level const and type decls, and node/contract decls *)
     let (const_type_decls, node_contract_src) = LH.split_program declarations in
 

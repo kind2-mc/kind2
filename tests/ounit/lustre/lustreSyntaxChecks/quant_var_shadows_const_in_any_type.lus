@@ -1,0 +1,5 @@
+const n: int = 3;
+node main (a: int) returns ();
+let
+  check forall (n: int) n >= 0 ==> (any { x: subrange [0, n] of int | true }) <= n;
+tel

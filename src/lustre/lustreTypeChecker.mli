@@ -23,9 +23,8 @@ module LA = LustreAst
 open TypeCheckerContext
 
 (* The kind of declaration a datatype constructor name was found to clash with *)
-type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter | ClashBinder
-  | ClashQuantifierBinder | ClashRefinementBinder | ClashPatternBinder
-  | ClashArrayIndex | ClashLocalVariable | ClashGhostVariable | ClashMode
+type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter
+  | ClashPatternBinder | ClashLocalVariable | ClashGhostVariable | ClashMode
 
 type error_kind = Unknown of string
   | Impossible of string

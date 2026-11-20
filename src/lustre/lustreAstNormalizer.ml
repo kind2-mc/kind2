@@ -698,7 +698,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
       [A.BinaryOp (dpos, A.And, l, u), true]
     )
     | A.ArrayType (_, (ty, upper_bound)) ->
-      let id_str = HString.concat2 (HString.mk_hstring "x") (HString.mk_hstring (string_of_int n)) in
+      let id_str = mk_fresh_dummy_index () in
       let id = A.Ident (dpos, id_str) in
       let ctx = Ctx.add_ty ctx id_str (A.Int dpos) in
       let expr = A.IndexAccess (dpos, expr, id, Array) in
@@ -738,8 +738,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
         let tys = List.map (fun (_, i, ty) -> mk ctx n ty (mk_proj i)) tys in
         List.fold_left (@) [] tys)
     | A.Set (_, _, kt) ->
-      let idx_str = HString.concat2 (HString.mk_hstring "x") 
-                                    (HString.mk_hstring (string_of_int n)) in
+      let idx_str = mk_fresh_dummy_index () in
       let idx = A.Ident (dpos, idx_str) in
       let ctx = Ctx.add_ty ctx idx_str kt in
       let rexpr1 = mk ctx (succ n) kt idx in
@@ -764,8 +763,7 @@ let rec mk_enum_expr ?(mk_enum=true) adt_map ctx node_id expr_type expr =
         ) ", ") res;*)
       res
     | A.Map (_, _, kt, vt) -> 
-      let idx_str = HString.concat2 (HString.mk_hstring "x") 
-                                    (HString.mk_hstring (string_of_int n)) in
+      let idx_str = mk_fresh_dummy_index () in
       let idx = A.Ident (dpos, idx_str) in
       let ctx = Ctx.add_ty ctx idx_str kt in
       let rexpr1 = mk ctx (succ n) kt idx in
@@ -2964,8 +2962,8 @@ and call_context_depends_on_quant_vars info =
    constants being unconstrained, but for the constraints of the types of the
    variables, which are conjoined to the guard, the obligations hold at the
    instance if and only if they hold for all the values of the variables that
-   satisfy the guard. Nested quantifiers bind distinct names (see [normalize_expr]), so a
-   name in the guard denotes the variable of the call's quantifiers with that
+   satisfy the guard. Nested quantifiers bind distinct names (see
+   LustreRenameBinders), so a name in the guard denotes the variable of the call's quantifiers with that
    name, if any *)
 and close_guard info vmap conj =
   let is_outer v =
@@ -4125,37 +4123,6 @@ and normalize_expr ?guard info (node_id : NI.t option) map =
     warnings1 @ warnings2 @ warnings3
   | ArrayComprehension _ -> assert false (* desugared in lustreDesugarArrayComprehensions *)
   | Quantifier (pos, kind, vars, expr) ->
-    (* Binder types are only fully known here, after synonym expansion and
-       instantiation of polymorphic types *)
-    let vars, expr =
-      AH.rename_self_referencing_binders ~expand:(Ctx.expand_type_syn info.context) vars expr
-    in
-    (* A variable that shadows one of an enclosing quantifier is renamed, so
-       that nested quantifiers bind distinct names: the guard of a call is
-       evaluated outside of the quantifiers, where a name must denote a
-       single variable (see [close_guard]). The types of the binders need no
-       renaming: they cannot mention a quantified variable, which the type
-       checker rejects, so a name in them is bound elsewhere, possibly by a
-       refinement type's own binder *)
-    let vars, expr =
-      List.fold_right
-        (fun (p, id, ty) (vars, expr) ->
-          let shadows =
-            List.exists (fun (_, q, _) -> HString.equal q id)
-              info.quantified_variables
-          in
-          if not shadows then (p, id, ty) :: vars, expr
-          else (
-            i := !i + 1;
-            let fresh =
-              HString.concat2
-                (HString.mk_hstring (string_of_int !i ^ "_quant_"))
-                id
-            in
-            let sigma = [(id, A.Ident (p, fresh))] in
-            (p, fresh, ty) :: vars, AH.apply_subst_in_expr sigma expr))
-        vars ([], expr)
-    in
     let ctx =
       List.fold_left (fun ctx (_, i, ty) -> add_binder_to_context ctx i ty)
         info.context vars

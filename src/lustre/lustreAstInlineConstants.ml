@@ -460,26 +460,16 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
     let es' = List.map (fun e -> simplify_expr ~ind_vars ~is_guarded:false ctx e) es in
     Call (pos, ty_args, i, es')
   | Quantifier (pos, q, tis, e) -> 
-    (* 1. Don't inline constants that are shadowed by quantified vars (by removing these constants from the ctx)
-       2. Perform inlining within tis *)
-    let ctx, tis = List.fold_left (fun (acc_ctx, acc_tis) (p, id, ty) -> 
-      (* The quantified variable is not in scope in its own type *)
-      let acc_ti  = (p, id, inline_constants_of_lustre_type ~ind_vars acc_ctx ty) in 
-      let acc_ctx = TC.remove_const acc_ctx id in 
-      acc_ctx, acc_tis @ [acc_ti] 
-    ) (ctx, []) tis in
+    let tis =
+      List.map (fun (p, id, ty) -> (p, id, inline_constants_of_lustre_type ~ind_vars ctx ty)) tis
+    in
     let e' = simplify_expr ~ind_vars ~is_guarded:false ctx e in
-    (* A free constant left in a binder's type must not resolve to the binder *)
-    let tis, e' = LH.rename_self_referencing_binders tis e' in
     Quantifier (pos, q, tis, e')
   | ArrayComprehension (pos, bs, e) ->
-    (* The sizes are constant expressions, in which the index variables are not
-       in scope; in the body, the index variables shadow the constants *)
     let bs =
       List.map (fun (p, id, n) -> (p, id, simplify_size ~ind_vars ctx n)) bs
     in
     let ids = List.map (fun (_, id, _) -> id) bs in
-    let ctx = List.fold_left TC.remove_const ctx ids in
     let e' = simplify_expr ~ind_vars:(ids @ ind_vars) ~is_guarded:false ctx e in
     ArrayComprehension (pos, bs, e')
   | EmptySet (pos, Some ty) -> 
@@ -489,14 +479,8 @@ and simplify_expr ?(keep_oob = false) ?(is_guarded = false) ?(ind_vars = []) ctx
                     inline_constants_of_lustre_type ~ind_vars ctx vt))
   | Match (pos, e, arms, ty_opt) ->
     let e' = simplify_expr ~ind_vars ~is_guarded ctx e in
-    (* Don't inline constants that are shadowed by an arm's pattern variables
-       (by removing these constants from the ctx) *)
     let arms' = List.map (fun (pat, body) ->
-      let arm_ctx =
-        LH.pat_bound_vars pat |> LA.SI.elements
-        |> List.fold_left TC.remove_const ctx
-      in
-      (pat, simplify_expr ~ind_vars ~is_guarded arm_ctx body)
+      (pat, simplify_expr ~ind_vars ~is_guarded ctx body)
     ) arms in
     Match (pos, e', arms', ty_opt)
   | StructUpdate (p, e, lois, e_opt) -> 
@@ -542,8 +526,7 @@ and inline_constants_of_lustre_type ?(ind_vars = []) ctx ty = match ty with
     TArr (pos, ty1', ty2')
   | RefinementType (pos, (pos2, id, ty), expr) ->
     let ty' = inline_constants_of_lustre_type ctx ty in 
-    (* The bound variable shadows any constant of the same name *)
-    let expr' = simplify_expr ~ind_vars (TC.remove_const ctx id) expr in
+    let expr' = simplify_expr ~ind_vars ctx expr in
     RefinementType (pos, (pos2, id, ty'), expr')
     
   | ADT (pos, name, cons) ->
@@ -567,10 +550,6 @@ let inline_constants_of_node_equation: TC.tc_context -> LA.node_equation -> LA.n
       | LA.ArrayDef (_, _, vars) -> acc @ vars 
       | _ -> acc
     ) [] sis in
-    (* They are also removed from the constants of the context, so that the
-       evaluation of a subexpression (e.g. [k + j]) does not read the value of
-       a constant they shadow *)
-    let ctx = List.fold_left TC.remove_const ctx ind_vars in
     (LA.Equation (pos, lhs, simplify_expr ~keep_oob:true ~ind_vars ctx e))
 
 let rec inline_constants_of_const_clocked_type_decl ctx = function

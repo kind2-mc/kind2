@@ -64,6 +64,8 @@ type error_kind = Unknown of string
   | QuantifiedPatternVariableInTemporalBranch of HString.t * HString.t
   | QuantifiedVariableInTypeAscription of HString.t 
   | SymbolicArrayIndexInTypeAscription of HString.t 
+  | QuantifiedVariableInAnyOp of HString.t * string
+  | QuantifiedPatternVariableInAnyOp of HString.t * HString.t * string
   | IllegalNodeCall of (HString.t * string)
   | IllegalAnyOp of string
   | NodeCallInConstant of HString.t
@@ -166,6 +168,11 @@ let error_message kind = match kind with
     ^ HString.string_of_hstring var ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
   | SymbolicArrayIndexInTypeAscription idx -> "Symbolic array index '"
     ^ HString.string_of_hstring idx ^ "' is not allowed in type ascription with type that contains temporal operators or non-inlinable node or function calls"
+  | QuantifiedVariableInAnyOp (var, op) -> "Quantified variable '"
+    ^ HString.string_of_hstring var ^ "' is not allowed in the type or predicate of " ^ op ^ " operator"
+  | QuantifiedPatternVariableInAnyOp (var, q, op) -> "Pattern variable '"
+    ^ HString.string_of_hstring var ^ "', bound by matching an expression that depends on quantified variable '"
+    ^ HString.string_of_hstring q ^ "', is not allowed in the type or predicate of " ^ op ^ " operator"
   | IllegalNodeCall (node, variant) -> "Illegal call to node '"
     ^ HString.string_of_hstring node ^ "', " ^ variant ^ " can only include calls to other functions, not nodes"
   | IllegalAnyOp variant -> "Illegal `any` operator; "
@@ -330,6 +337,8 @@ type context = {
      ascriptions. Such a variable is not quantified: it is the input of the
      node the ascription is abstracted into (see [LustreGenNodes]). *)
   ascription_vars : StringSet.t;
+  (* The bound variables, among [quant_vars], of refinement types *)
+  refinement_vars : StringSet.t;
   pattern_vars : LustreAst.lustre_type option StringMap.t;
   (* The pattern variables, among [pattern_vars], bound by matching a
      scrutinee that depends on quantified variables, each with one of these
@@ -361,6 +370,7 @@ let empty_ctx () = {
     const_locals = StringSet.empty;
     quant_vars = StringMap.empty;
     ascription_vars = StringSet.empty;
+    refinement_vars = StringSet.empty;
     pattern_vars = StringMap.empty;
     quant_pattern_vars = StringMap.empty;
     array_indices = StringMap.empty;
@@ -413,14 +423,16 @@ let ctx_add_binder ctx i is_time_invariant = {
 
 let ctx_add_quant_var ctx i ty = ctx_add_binder {
     ctx with quant_vars = StringMap.add i ty ctx.quant_vars;
-    ascription_vars = StringSet.remove i ctx.ascription_vars
+    ascription_vars = StringSet.remove i ctx.ascription_vars;
+    refinement_vars = StringSet.remove i ctx.refinement_vars
   } i true
 
 (* The context of the predicate of a refinement type with bound variable [i],
    which is quantified in the generated properties *)
 let ctx_enter_refinement ctx i ty =
   let ctx = { ctx with binders = StringMap.map (fun _ -> false) ctx.binders } in
-  ctx_add_binder (ctx_add_quant_var ctx i ty) i false
+  let ctx = ctx_add_quant_var ctx i ty in
+  ctx_add_binder { ctx with refinement_vars = StringSet.add i ctx.refinement_vars } i false
 
 let ctx_add_ascription_var ctx i ty =
   let ctx = ctx_enter_refinement ctx i ty in
@@ -866,8 +878,8 @@ let no_a_dangling_identifier ctx pos i =
   else syntax_error pos (DanglingIdentifier i)
 
 (* A match block pattern variable names a projection of the scrutinee, not a
-   stream the arm may define. A name that is also a node variable is left to the
-   more precise shadowing check in LustreDesugarMatchBlocks. *)
+   stream the arm may define. On a left-hand side, a name that is also a node
+   variable denotes the node variable. *)
 let no_assignment_to_pattern_var ctx pos i =
   if StringMap.mem i ctx.pattern_vars && not (StringMap.mem i ctx.locals)
   then syntax_error pos (AssignmentToPatternVariable i)
@@ -2057,8 +2069,33 @@ and ovq_check_expr inlinable_funcs tc_ctx ctx = function
   in
   let check = List.map over_vars (LA.SI.elements vars) in
   List.fold_left (>>) (Ok []) check
+(* An any/choose operator is abstracted into a node (see LustreGenNodes), which
+   cannot take a quantified variable as an argument, as for a node call *)
+| LA.AnyOp (pos, (_, i, ty), e) -> no_quant_var_in_any_op ctx pos "an 'any'" i ty e
+| LA.ChooseOp (pos, (_, i, ty), e) -> no_quant_var_in_any_op ctx pos "a 'choose'" i ty e
 
 | _ -> Ok []
+
+(* A refinement or ascription binder is the input of the node an any/choose in
+   its predicate is abstracted into, so it is not quantified there *)
+and no_quant_var_in_any_op ctx pos op i ty e =
+  let is_quantified v =
+    StringMap.mem v ctx.quant_vars
+    && not (StringSet.mem v ctx.refinement_vars || StringSet.mem v ctx.ascription_vars)
+  in
+  let vars =
+    LA.SI.union (LAH.vars_of_type ty) (LA.SI.remove i (LAH.vars_without_node_call_ids e))
+    |> LA.SI.elements
+  in
+  match List.find_opt is_quantified vars with
+  | Some v -> syntax_error pos (QuantifiedVariableInAnyOp (v, op))
+  | None ->
+    (* A pattern variable bound by matching a quantified variable stands for it *)
+    match List.find_map (fun v ->
+      StringMap.find_opt v ctx.quant_pattern_vars |> Option.map (fun q -> (v, q))) vars
+    with
+    | Some (v, q) -> syntax_error pos (QuantifiedPatternVariableInAnyOp (v, q, op))
+    | None -> Ok []
 
 (* Each branch comes with the variables its pattern binds, if any, and how
    the guard selects it *)

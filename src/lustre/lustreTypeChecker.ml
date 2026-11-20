@@ -38,9 +38,8 @@ let string_of_tc_type: tc_type -> string = fun t -> Lib.string_of_t LA.pp_print_
 (** String of the type to display in type errors *)
 
 (* The kind of declaration a datatype constructor name was found to clash with *)
-type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter | ClashBinder
-  | ClashQuantifierBinder | ClashRefinementBinder | ClashPatternBinder
-  | ClashArrayIndex | ClashLocalVariable | ClashGhostVariable | ClashMode
+type clashing_decl = ClashNode | ClashFunction | ClashFormalParameter
+  | ClashPatternBinder | ClashLocalVariable | ClashGhostVariable | ClashMode
 
 type error_kind = Unknown of string
   | Impossible of string
@@ -293,11 +292,7 @@ let error_message kind = match kind with
        | ClashNode -> "a declared node"
        | ClashFunction -> "a declared function"
        | ClashFormalParameter -> "a declared formal parameter"
-       | ClashBinder -> "the binder of this 'any' or 'choose' operator"
-       | ClashQuantifierBinder -> "this quantified variable"
-       | ClashRefinementBinder -> "the binder of this refinement type"
        | ClashPatternBinder -> "a variable bound by this pattern"
-       | ClashArrayIndex -> "an index of this array comprehension"
        | ClashLocalVariable -> "a declared local variable"
        | ClashGhostVariable -> "a declared ghost variable"
        | ClashMode -> "a declared mode")
@@ -451,12 +446,6 @@ let is_user_written_node node_id =
   | NI.ClockedExpr | NI.Restarted | NI.DefinedConstant | NI.FreeConstant
   | NI.Matched -> false
 
-(* A name bound by an expression or a type shadows the global value it names,
-   be it a constant or a datatype constructor.  Pattern resolution reads the
-   same context, so a pattern in the binder's scope reads the name as a binder
-   too, and never as the constructor an expression there cannot mean. *)
-let shadow_value ctx i = remove_adt_ctor (shadow_const ctx i) i
-
 let rec infer_const_attr ctx exp =
   let r = infer_const_attr ctx in
   let combine l1 l2 = List.map2 (fun r1 r2 -> r1 >> r2) l1 l2 in
@@ -469,7 +458,7 @@ let rec infer_const_attr ctx exp =
     let ty = expand_type_syn ctx ty in
     match ty with 
     | LA.RefinementType (_, (p, b, ty), e) ->
-      let ctx = add_const (remove_adt_ctor ctx b) b (LA.Ident (p, b)) ty Local in
+      let ctx = add_const ctx b (LA.Ident (p, b)) ty Local in
       combine (r2 ty) (infer_const_attr ctx e)
     | LA.ArrayType (_, (ty, e)) -> 
       combine (r2 ty) (r e) 
@@ -555,7 +544,7 @@ let rec infer_const_attr ctx exp =
   (* Quantified expressions *)
   | Quantifier (p, _, tis, e) ->
     let ctx = List.fold_left (fun acc_ctx (_, id, ty) ->
-      add_const (remove_adt_ctor acc_ctx id) id (LA.Ident (p, id)) ty Global
+      add_const acc_ctx id (LA.Ident (p, id)) ty Global
     ) ctx tis in
     let r1 = List.map (fun (_, _, ty) -> infer_const_attr_ty ctx ty) tis in 
     let r1 = List.fold_left combine [R.ok ()] r1 in
@@ -1383,11 +1372,9 @@ let rec bind_pattern_ty ctx field_ty pat =
   in
   match pat with
   | LA.VarPat (pos, id) ->
-    (* A pattern variable denotes a constructor field, not a global value, so
-       its binding hides a constant of the same name *)
     let as_binder () =
       let* () = check_no_constructor_clash pos ctx (clash_with ClashPatternBinder) id in
-      R.ok (add_ty (shadow_value (remove_const ctx id) id) id field_ty, pat)
+      R.ok (add_ty ctx id field_ty, pat)
     in
     (* At a datatype position, a bare name that names any constructor is a
        constructor pattern, which must be one of this position's type *)
@@ -1795,10 +1782,7 @@ and infer_type_expr': tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr
   | LA.Quantifier (p, q, qs, e) ->
     let* qs, warnings1, extn_ctx =
       (Res.seq_chain (fun (acc_q, acc_w, acc_ctx) (p, id, ty) ->
-        let* () = check_no_constructor_clash p acc_ctx (clash_with ClashQuantifierBinder) id in
         let* ty, warnings = check_type_well_formed acc_ctx Local nname true ty in 
-        (* bound variables shadow global constants and constructors *)
-        let acc_ctx = shadow_value acc_ctx id in
         let acc_ctx = add_ty acc_ctx id ty in
         R.ok (acc_q @ [p, id, ty], acc_w @ warnings, acc_ctx)
       ) ([], [], ctx) qs)
@@ -1823,16 +1807,11 @@ and infer_type_expr': tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr
     R.ok (ty, LA.Quantifier (p, q, qs, e), warnings1 @ warnings2)
 
   (* An array comprehension '(e foreach i, j)^m^n' with 'e: T' has type
-     T^m^n. The index variables are integers in scope in the body only, where
-     they shadow the constants of the same name, and the sizes are checked as
-     the sizes of an array constructor *)
+     T^m^n. The index variables are integers in scope in the body only, and the
+     sizes are checked as the sizes of an array constructor *)
   | LA.ArrayComprehension (p, bs, e) ->
-    let* () =
-      R.seq_ (List.map (fun (ip, id, _) ->
-        check_no_constructor_clash ip ctx (clash_with ClashArrayIndex) id) bs)
-    in
     let extn_ctx = List.fold_left (fun acc_ctx (ip, id, _) ->
-      add_ty (shadow_const acc_ctx id) id (LA.Int ip)
+      add_ty acc_ctx id (LA.Int ip)
     ) ctx bs in
     let* ty, e, warnings1 = infer_type_expr extn_ctx nname e in
     let* bs, warnings2 =
@@ -1852,13 +1831,12 @@ and infer_type_expr': tc_context -> NI.t option -> LA.expr -> (tc_type * LA.expr
      serves the passes that infer types beforehand. *)
   | LA.AnyOp (pos, (ipos, i, ty), e) ->
     let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
-    (* The binder shadows a global value of the same name *)
-    let extn_ctx = add_ty (shadow_value (remove_const ctx i) i) i ty in
+    let extn_ctx = add_ty ctx i ty in
     let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
     R.ok (ty, LA.AnyOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
   | LA.ChooseOp (pos, (ipos, i, ty), e) ->
     let* ty, warnings1 = check_type_well_formed ctx Local nname false ty in
-    let extn_ctx = add_ty (shadow_value (remove_const ctx i) i) i ty in
+    let extn_ctx = add_ty ctx i ty in
     let* e, warnings2 = check_type_expr extn_ctx nname e (Bool pos) in
     R.ok (ty, LA.ChooseOp (pos, (ipos, i, ty), e), warnings1 @ warnings2)
   (* LustreGenNodes leaves a restart in place only when it cannot infer the
@@ -3517,10 +3495,8 @@ and check_type_well_formed: tc_context -> source -> NI.t option -> bool -> tc_ty
       R.ok (LA.ArrayType (p, (b_ty, s)), warnings1 @ warnings2)
     )
     | LA.RefinementType (p, (p2, i, ty'), e) ->
-      let* () = check_no_constructor_clash p2 ctx (clash_with ClashRefinementBinder) i in
       let* ty', warnings1 = check_type_well_formed_rec is_nested ty' in
-      (* The bound variable shadows any global value of the same name *)
-      let ctx = add_ty (shadow_value ctx i) i ty' in
+      let ctx = add_ty ctx i ty' in
       let* _ = (if is_const then 
         let ctx = add_const ctx i (LA.Ident (p, i)) ty' Local in
         check_expr_is_constant ctx "type of constant" e 
@@ -3747,15 +3723,13 @@ and build_node_fun_ty: Lib.position -> tc_context -> NI.t -> HString.t list
                            * LA.clocked_typed_decl list * [> warning] list, [> error]) result
   = fun pos ctx nname params args rets ->
   let* () =
-    (* The output of the node generated for an 'any' or a 'choose' is the
-       binder the user wrote, so the clash is reported against that; the
-       formals of every other generated node name no user-written thing. *)
+    (* The formals of a generated node name no user-written thing *)
     let what =
       match NI.get_node_type nname with
       | NI.Component | NI.Contract -> Some ClashFormalParameter
-      | NI.Any | NI.Choose -> Some ClashBinder
-      | NI.Environment | NI.Type | NI.TypeAscription | NI.ClockedExpr
-      | NI.Restarted | NI.DefinedConstant | NI.FreeConstant | NI.Matched -> None
+      | NI.Any | NI.Choose | NI.Environment | NI.Type | NI.TypeAscription
+      | NI.ClockedExpr | NI.Restarted | NI.DefinedConstant | NI.FreeConstant
+      | NI.Matched -> None
     in
     match what with
     | None -> R.ok ()
