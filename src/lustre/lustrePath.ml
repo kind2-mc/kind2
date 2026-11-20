@@ -848,13 +848,14 @@ let pp_print_lustre_var ppf state_var =
   E.pp_print_lustre_var false ppf state_var
 
 
-(* Output the identifier of an indexed stream *)
+(* Output the identifier of an indexed stream, an alpha-renamed binder under
+   the name the user wrote *)
 let pp_print_stream_ident_pt ppf (index, state_var) =
 
   Format.fprintf
     ppf
-    "%a%a"
-    pp_print_lustre_var state_var
+    "%s%a"
+    (string_of_t pp_print_lustre_var state_var |> LustreAst.restore_bound_names)
     (D.pp_print_index false) index
 
 
@@ -1258,7 +1259,7 @@ let adt_streams_from_bindings (adt_map : G.adt_map) model node bindings =
         reconstruct_adt_at_step model bindings adt_map step root_index type_name disc_sv
       ) in
       if step_strings = [] then None
-      else Some (root_name, step_strings)
+      else Some (LustreAst.restore_bound_names root_name, step_strings)
     ) disc_entries
 
 (* Print a section combining regular streams and ADT-reconstructed string streams.

@@ -1,0 +1,6 @@
+type Q<X> = subtype { v: X | exists (i: X) i <> v };
+node imported N(a: int) returns (y: Q<Q<int>>);
+node main (a: int) returns ();
+let
+  check N(a) = 0 and N(a) <> 0;
+tel

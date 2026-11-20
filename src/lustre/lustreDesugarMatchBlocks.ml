@@ -28,7 +28,6 @@ let (let*) = R.(>>=)
 type error_kind =
   | MisplacedNodeItemInMatchArm of A.node_item
   | MisplacedMatchBlock of A.node_item
-  | ShadowingPatternVariable of HString.t
 
 let error_message = function
   | MisplacedNodeItemInMatchArm ni -> (match ni with
@@ -45,9 +44,6 @@ let error_message = function
     | A.Body _ | A.MatchBlock _ | A.WhenBlock _ | A.FrameBlock _
     | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ | A.RestartBlock _ -> assert false
   )
-  | ShadowingPatternVariable id ->
-    "Match block pattern variable '" ^ HString.string_of_hstring id
-    ^ "' shadows a variable of the enclosing node."
 
 type error = [
   | `LustreDesugarMatchBlocksError of Lib.position * error_kind
@@ -151,41 +147,31 @@ let check_arm_item item =
   | A.IfBlock (pos, _, _, _)
   | A.FrameBlock (pos, _, _, _) -> mk_error pos (MisplacedNodeItemInMatchArm item)
 
-(* The identifiers a pattern variable may not shadow are the
-   enclosing node's inputs, outputs and locals. An arm that rebinds one of them
-   makes an equation naming it ambiguous. *)
-let check_no_shadowing node_vars pat =
-  R.seq_ (List.map (fun (id, pos) ->
-    if A.SI.mem id node_vars then mk_error pos (ShadowingPatternVariable id)
-    else R.ok ())
-    (AH.pat_bound_vars_with_pos pat))
-
 (* The enclosing item is the if block a match block would be nested in, if any. A
    match block becomes a when block, which the if-block desugaring rejects;
    reporting it here keeps the message about the match block the user actually
    wrote. Nesting with when blocks needs no such check: match and when blocks
    both become when blocks, and those nest freely. *)
-let rec desugar_item ctx node_vars enclosing item =
+let rec desugar_item ctx enclosing item =
   match item with
   | A.RestartBlock _ -> assert false (* desugared in lustreGenNodes *)
   | A.Body _ | A.AnnotMain _ | A.AnnotProperty _ | A.Auto _ -> R.ok [item]
   | A.IfBlock (pos, cond, l1, l2) ->
-    let* l1 = desugar_items ctx node_vars (Some item) l1 in
-    let* l2 = desugar_items ctx node_vars (Some item) l2 in
+    let* l1 = desugar_items ctx (Some item) l1 in
+    let* l2 = desugar_items ctx (Some item) l2 in
     R.ok [A.IfBlock (pos, cond, l1, l2)]
   | A.WhenBlock (pos, cond, l1, l2) ->
-    let* l1 = desugar_items ctx node_vars None l1 in
-    let* l2 = desugar_items ctx node_vars None l2 in
+    let* l1 = desugar_items ctx None l1 in
+    let* l2 = desugar_items ctx None l2 in
     R.ok [A.WhenBlock (pos, cond, l1, l2)]
   | A.FrameBlock (pos, vars, nes, nis) ->
-    let* nis = desugar_items ctx node_vars None nis in
+    let* nis = desugar_items ctx None nis in
     R.ok [A.FrameBlock (pos, vars, nes, nis)]
   | A.MatchBlock (pos, scrut, arms, scrut_ty_opt) ->
     let* () = match enclosing with
       | Some encl -> mk_error pos (MisplacedMatchBlock encl)
       | None -> R.ok ()
     in
-    let* () = R.seq_ (List.map (fun (pat, _) -> check_no_shadowing node_vars pat) arms) in
     let* () =
       R.seq_ (List.map (fun (_, items) ->
         R.seq_ (List.map check_arm_item items)) arms)
@@ -194,7 +180,7 @@ let rec desugar_item ctx node_vars enclosing item =
        shadowing an outer one is substituted before the outer binder is *)
     let* arms =
       R.seq (List.map (fun (pat, items) ->
-        let* items = desugar_items ctx node_vars None items in
+        let* items = desugar_items ctx None items in
         R.ok (pat, items)) arms)
     in
     let adt_ty = match scrut_ty_opt with
@@ -238,25 +224,12 @@ let rec desugar_item ctx node_vars enclosing item =
     in
     R.ok (chain branches)
 
-and desugar_items ctx node_vars enclosing items =
-  let* items = R.seq (List.map (desugar_item ctx node_vars enclosing) items) in
+and desugar_items ctx enclosing items =
+  let* items = R.seq (List.map (desugar_item ctx enclosing) items) in
   R.ok (List.flatten items)
 
-let vars_of_node inputs outputs locals =
-  let ins = List.map (fun (_, id, _, _, _) -> id) inputs in
-  let outs = List.map (fun (_, id, _, _) -> id) outputs in
-  let locs = List.filter_map (function
-    | A.NodeVarDecl (_, (_, id, _, _)) -> Some id
-    | A.NodeConstDecl (_, A.FreeConst (_, id, _))
-    | A.NodeConstDecl (_, A.UntypedConst (_, id, _))
-    | A.NodeConstDecl (_, A.TypedConst (_, id, _, _)) -> Some id)
-    locals
-  in
-  A.SI.of_list (ins @ outs @ locs)
-
 let desugar_node ctx (id, is_extern, opac, params, inputs, outputs, locals, items, contract) =
-  let node_vars = vars_of_node inputs outputs locals in
-  let* items = desugar_items ctx node_vars None items in
+  let* items = desugar_items ctx None items in
   R.ok (id, is_extern, opac, params, inputs, outputs, locals, items, contract)
 
 let desugar_declaration ctx decl =

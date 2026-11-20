@@ -1,0 +1,9 @@
+datatype T = A (v: int) | B;
+node main (t: T) returns (y: int);
+let
+  match t with
+  | A (y) : y = y + 1;
+  | B : y = 0;
+  end
+  check when A?(t) then y = t.v + 1 else y = 0;
+tel

@@ -1,0 +1,6 @@
+datatype T = A (v: int) | B;
+node main (n: int) returns (y: int);
+let
+  y = n;
+  check forall (t: T) (any { z: int | z = (if A?(t) then t.v else 0) }) >= 0 or true;
+tel

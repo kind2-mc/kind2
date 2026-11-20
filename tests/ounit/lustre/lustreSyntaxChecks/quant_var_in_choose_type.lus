@@ -1,0 +1,4 @@
+node main (a: int) returns ();
+let
+  check forall (n: int) n >= 0 ==> (choose { x: subrange [0, n] of int | true }) <= n;
+tel

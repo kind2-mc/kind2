@@ -163,46 +163,16 @@ fun ctx ids ->
   in
   close Ctx.SI.empty (Ctx.SI.elements ids)
 
-(* Resolve a match arm before the nodes its body needs are generated, returning
-   the arm's pattern, a substitution to apply to its body, and the context the
-   body is processed in.
-
-   The arm's variables are bound to the types of the constructor fields they
-   stand for, as they are when the arm is type checked later; a variable that
-   shadows a global constant is also renamed apart.  Without this a variable
-   whose name is a constant's would be taken for that constant, and a node
-   generated from the arm body would read the constant instead of the field. *)
 (* What this pass could learn about a match scrutinee's type. Illtyped means
    type inference failed in this pass's context, which may lack declarations
    the later pass has; Unknown means inference could not run here at all. *)
 type scrutinee = Known of A.lustre_type | Illtyped | Unknown
 
-let resolve_arm: Ctx.tc_context -> scrutinee -> A.pattern
-  -> Ctx.tc_context * A.pattern * (HString.t * A.expr) list =
+(* The context a match arm's body is processed in, before the nodes its body
+   needs are generated: the arm's variables are bound to the types of the
+   constructor fields they stand for, as they are when the arm is type checked *)
+let resolve_arm: Ctx.tc_context -> scrutinee -> A.pattern -> Ctx.tc_context =
 fun ctx scrut pat ->
-  (* Only a global constant is renamed away: it is in scope everywhere, so it
-     is the one thing a generated node cannot take a parameter for. A binder
-     may not share a constructor's name at all, so none is renamed for that. A
-     variable of the enclosing node keeps its name, which a match block's own
-     shadowing check still reports. *)
-  let is_global_const id =
-    match Ctx.lookup_const ctx id with
-    | Some (_, _, Ctx.Global) -> true
-    | Some (_, _, (Ctx.Input | Ctx.Output | Ctx.Local | Ctx.Ghost)) | None -> false
-  in
-  (* A binder may not share any constructor's name, so the variable patterns
-     that bind are exactly those whose name is not a constructor *)
-  let renamed =
-    AH.pat_bound_vars_with_pos pat
-    |> List.filter (fun (id, _) ->
-         Ctx.lookup_constructor ctx id |> Option.is_none && is_global_const id)
-    |> List.sort_uniq (fun (i, _) (j, _) -> HString.compare i j)
-    |> List.map (fun (id, ipos) -> (id, ipos, AH.fresh_bound_ident id))
-  in
-  let pat =
-    List.fold_left (fun pat (id, _, fresh) -> AH.rename_pat_var id fresh pat)
-      pat renamed
-  in
   (* Fall back on the constructors the pattern itself names when the scrutinee
      cannot supply the field types. The types are then the ones the datatype
      declares, so a polymorphic datatype's remain in terms of its type
@@ -219,35 +189,18 @@ fun ctx scrut pat ->
             match sub_pat with
             | A.VarPat (_, i) ->
               if Ctx.lookup_constructor ctx i |> Option.is_some then ctx
-              else Ctx.add_ty (Ctx.remove_const ctx i) i ty
+              else Ctx.add_ty ctx i ty
             | A.Pat _ -> bind_from_pattern ctx sub_pat
           ) ctx field_tys sub_pats
   in
   (* The scrutinee's type gives the field types instantiated, so it is preferred
      wherever it is available *)
-  let ctx, rejected =
-    match scrut with
-    | Known scrut_ty ->
-      (match Chk.bind_pattern_ty ctx scrut_ty pat with
-      | Ok (ctx, _) -> ctx, false
-      | Error _ -> bind_from_pattern ctx pat, true)
-    | Illtyped -> bind_from_pattern ctx pat, true
-    | Unknown -> bind_from_pattern ctx pat, false
-  in
-  (* A binder of a pattern the later pass rejects keeps its own name if nothing
-     could type it: renaming it apart would leave the abstractions below unable
-     to stand in for an arm body that mentions it, and the program is reported as
-     an error either way. The rename is kept when the scrutinee's type is merely
-     unknown, since the program may well be sound and reading the shadowed
-     constant would prove the wrong thing. *)
-  let pat, subst =
-    List.fold_left (fun (pat, subst) (id, ipos, fresh) ->
-      if rejected && Ctx.lookup_ty ctx fresh |> Option.is_none then
-        (AH.rename_pat_var fresh id pat, subst)
-      else (pat, (id, A.Ident (ipos, fresh)) :: subst)
-    ) (pat, []) renamed
-  in
-  (ctx, pat, subst)
+  match scrut with
+  | Known scrut_ty ->
+    (match Chk.bind_pattern_ty ctx scrut_ty pat with
+    | Ok (ctx, _) -> ctx
+    | Error _ -> bind_from_pattern ctx pat)
+  | Illtyped | Unknown -> bind_from_pattern ctx pat
 
 (* What can be learnt about a match scrutinee's type before the nodes its own
    subexpressions need are generated. *)
@@ -860,21 +813,17 @@ fun ?(insert = true) ?(bound = Ctx.SI.empty) ?(quant = Ctx.SI.empty) ?(index = C
        its own subexpressions need are generated and while its type can still be
        inferred. *)
     let scrut_ty = scrutinee_type ctx node_name e in
-    let arms = List.map (fun (pat, arm_e) -> resolve_arm ctx scrut_ty pat, arm_e) arms in
+    let arms = List.map (fun (pat, arm_e) -> pat, resolve_arm ctx scrut_ty pat, arm_e) arms in
     let invariant = guard_is_time_invariant ctx quant index varying e in
     let e, gen_nodes1 = rec_call e in
-    let arms, gen_nodes2 = List.map (fun ((arm_ctx, pat, subst), arm_e) ->
-      let arm_e = AH.apply_subst_in_expr subst arm_e in
-      (* A pattern variable shadows a quantified variable of the same name.
-         Type checking has not run yet, so a variable pattern naming a nullary
-         constructor is not a binder (see [resolve_arm]). *)
+    let arms, gen_nodes2 = List.map (fun (pat, arm_ctx, arm_e) ->
+      (* Type checking has not run yet, so a variable pattern naming a nullary
+         constructor is not a binder *)
       let pat_vars =
         AH.pat_bound_vars_with_pos pat |> List.map fst
         |> List.filter (fun id -> Ctx.lookup_constructor ctx id |> Option.is_none)
         |> Ctx.SI.of_list
       in
-      let quant = Ctx.SI.diff quant pat_vars in
-      let index = Ctx.SI.diff index pat_vars in
       let varying = Ctx.SI.union varying pat_vars in
       let arm_e, gen_nodes =
         desugar_expr ~insert:split_insert ~bound ~quant ~index ~varying ?const_pos arm_ctx node_name fun_ids arm_e
@@ -1333,8 +1282,7 @@ fun ctx node_name fun_ids ni ->
     let scrut_ty = scrutinee_type ctx node_name scrut in
     let arms, gen_nodes1 =
       List.map (fun (p, items) ->
-        let arm_ctx, p, subst = resolve_arm ctx scrut_ty p in
-        let items = List.map (AH.apply_subst_in_node_item subst) items in
+        let arm_ctx = resolve_arm ctx scrut_ty p in
         let items, gn = List.map (process_branch_item arm_ctx) items |> List.split in
         (p, List.flatten items), List.flatten gn) arms
       |> List.split

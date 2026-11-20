@@ -356,11 +356,9 @@ let update_context adt_map ctx =
    variables of a quantifier do *)
 let starts_with_digit s = String.length s > 0 && s.[0] >= '0' && s.[0] <= '9'
 
-(* A bound variable is Kind 2-generated iff its name starts with a digit or with
-   the alpha-renaming prefix ".bound_"; a source identifier can start with neither. *)
-let is_generated_bound_var id =
-  let s = HString.string_of_hstring id in
-  starts_with_digit s || String.starts_with ~prefix:".bound_" s
+(* A bound variable is Kind 2-generated, with no name the user wrote, iff its
+   name starts with a digit; a source identifier cannot *)
+let is_generated_bound_var id = starts_with_digit (HString.string_of_hstring id)
 
 let canonical_var_count = ref 0
 
@@ -999,9 +997,11 @@ let ref_type_canonical_key ty =
      - tag equalities "e.<Type>_tag = Ctor" become testers "Ctor?(e)";
      - the always-true discriminant range constraints introduced by enum
        subrange generation ("FirstCtor <= e.<Type>_tag <= LastCtor") are dropped;
-     - generated bound-variable names ("69_index") are renamed to "$1", "$2", ...,
-       numbered locally within this formula.  The "$" prefix is not a legal source
-       identifier, so these names cannot clash with any variable in the expression;
+     - an alpha-renamed binder (".bound_k_3") prints as the name the user wrote;
+     - generated bound-variable names ("69_index"), alpha-renamed or not, are
+       renamed to "$1", "$2", ..., numbered locally within this formula.  The "$"
+       prefix is not a legal source identifier, so these names cannot clash with
+       any variable in the expression;
      - a refinement type matching a named refinement synonym is rendered by name
        (see [ref_type_names] / [ref_type_canonical_key]) rather than its expansion.
    This is the partial inverse of desugar_expr for display purposes. *)
@@ -1037,6 +1037,7 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
     | LA.Map (pos, inf, kt, vt) -> LA.Map (pos, inf, rewrite_type kt, rewrite_type vt)
     | LA.Set (pos, inf, t) -> LA.Set (pos, inf, rewrite_type t)
     | LA.RefinementType (pos, (p2, id, t), e) ->
+      let id = LA.original_name id in
       (* Collapse to the named refinement synonym when the type matches one
           unambiguously. Distinct synonyms can share a canonical key (e.g. two
           separately-declared "subtype { i: int | i > 0 }" aliases): in that
@@ -1074,7 +1075,8 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
       ) ctor_field_names in
       LA.ADTTerm (pos, [], ctor_name, args)
     | _ -> expr)
-  | LA.Ident _ | LA.ModeRef _ | LA.Const _ | LA.Last _ -> expr
+  | LA.Ident (p, id) -> LA.Ident (p, LA.original_name id)
+  | LA.ModeRef _ | LA.Const _ | LA.Last _ -> expr
   (* The element type an empty container is annotated with is a type like any
      other, so it prints by its declared name rather than its encoding *)
   | LA.EmptySet (p, ty) -> LA.EmptySet (p, Option.map rewrite_type ty)
@@ -1131,18 +1133,19 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
   | LA.RestartEvery (p, id, es, e) -> LA.RestartEvery (p, id, rlist es, r e)
   (* Restored for printing by [LustreDesugarArrayComprehensions.restore] *)
   | LA.ArrayComprehension (p, bs, e) ->
-    LA.ArrayComprehension (p, List.map (fun (ip, i, n) -> (ip, i, r n)) bs, r e)
+    let bs = List.map (fun (ip, i, n) -> (ip, LA.original_name i, r n)) bs in
+    LA.ArrayComprehension (p, bs, r e)
   | LA.Quantifier (p, k, idents, e) ->
     (* Rename generated bound variables to "$n", substituting the new name for the
        old one in the body before recursing into it. *)
     let subst, idents =
       List.fold_left_map (fun subst (ip, id, ty) ->
         let ty = rewrite_type ty in
-        if is_generated_bound_var id then begin
+        if is_generated_bound_var (LA.original_name id) then begin
           incr counter;
           let nid = HString.mk_hstring ("$" ^ string_of_int !counter) in
           ((id, nid) :: subst, (ip, nid, ty))
-        end else (subst, (ip, id, ty))
+        end else (subst, (ip, LA.original_name id, ty))
       ) [] idents
     in
     let e =
@@ -1157,5 +1160,8 @@ let rewrite_as_adt_terms ref_type_names adt_map expr =
   in
   go expr
 
+(* The subterms [rewrite_as_adt_terms] leaves alone may still hold alpha-renamed
+   binders *)
 let string_of_expr_as_source ?(ref_type_names = []) adt_map expr =
   LA.string_of_expr (rewrite_as_adt_terms ref_type_names adt_map expr)
+  |> LA.restore_bound_names

@@ -436,6 +436,54 @@ let is_bounded_index pos = Hashtbl.mem bounded_indices pos
 
 let finite_risk_types : lustre_type list ref = ref []
 
+(* The prefix of an alpha-renamed binder (see LustreAstHelpers.fresh_bound_ident),
+   which a source identifier cannot start with *)
+let bound_prefix = ".bound_"
+
+let is_ident_char c =
+  (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+  || c = '_'
+
+(* The name ".bound_<orig>_<n>" was generated from, given the part after the
+   prefix, if it has that shape: the counter is always the last "_<digits>" *)
+let strip_bound_counter s =
+  match String.rindex_opt s '_' with
+  | Some k
+    when k > 0 && k + 1 < String.length s
+      && String.for_all (fun c -> c >= '0' && c <= '9')
+           (String.sub s (k + 1) (String.length s - k - 1)) ->
+    Some (String.sub s 0 k)
+  | Some _ | None -> None
+
+(* A generated name only ever starts a token: after an identifier character or a
+   closing bracket, ".bound_" is the projection of a user field of that name *)
+let restore_bound_names s =
+  let plen = String.length bound_prefix in
+  let len = String.length s in
+  let buf = Buffer.create len in
+  let starts_token i =
+    i = 0 || not (is_ident_char s.[i - 1] || s.[i - 1] = ')' || s.[i - 1] = ']')
+  in
+  let rec go i =
+    if i >= len then ()
+    else if i + plen <= len && String.sub s i plen = bound_prefix && starts_token i then (
+      let j = ref (i + plen) in
+      while !j < len && is_ident_char s.[!j] do incr j done;
+      (match strip_bound_counter (String.sub s (i + plen) (!j - i - plen)) with
+       | Some orig -> Buffer.add_string buf orig
+       | None -> Buffer.add_string buf (String.sub s i (!j - i)));
+      go !j)
+    else (Buffer.add_char buf s.[i]; go (i + 1))
+  in
+  go 0;
+  Buffer.contents buf
+
+let original_name i =
+  let s = HString.string_of_hstring i in
+  if String.starts_with ~prefix:bound_prefix s
+  then HString.mk_hstring (restore_bound_names s)
+  else i
+
 
 (* ********************************************************************** *)
 (* Pretty-printing functions                                              *)

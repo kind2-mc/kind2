@@ -36,7 +36,6 @@
 type error_kind =
   | MisplacedNodeItemInMatchArm of LustreAst.node_item
   | MisplacedMatchBlock of LustreAst.node_item
-  | ShadowingPatternVariable of HString.t
 
 val error_message : error_kind -> string
 

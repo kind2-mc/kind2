@@ -70,6 +70,34 @@ let _ = run_test_tt_main ("frontend LustreSyntaxChecks error tests" >::: [
     match load_file "./lustreSyntaxChecks/non_inlinable_ta_2.lus" with
     | Error (`LustreSyntaxChecksError (_, SymbolicArrayIndexInTypeAscription _)) -> true
     | _ -> false);
+  mk_test "test quantified variable in any" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_var_in_any.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable shadowing a constant in any" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_var_shadows_const_in_any.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test quantified variable in choose" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_var_in_choose.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test quant var in any type" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_var_in_any_type.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test quant var shadows const in any type" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_var_shadows_const_in_any_type.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test quant var in choose type" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_var_in_choose_type.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedVariableInAnyOp _)) -> true
+    | _ -> false);
+  mk_test "test quant pattern var in any" (fun () ->
+    match load_file "./lustreSyntaxChecks/quant_pattern_var_in_any.lus" with
+    | Error (`LustreSyntaxChecksError (_, QuantifiedPatternVariableInAnyOp _)) -> true
+    | _ -> false);
   mk_test "test any operator in function" (fun () ->
     match load_file "./lustreSyntaxChecks/any_op_func.lus" with
     | Error (`LustreSyntaxChecksError (_, IllegalAnyOp _)) -> true
@@ -898,9 +926,9 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_param.lus" with
     | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
-  mk_test "test refinement type bound variable shadowing a constant inside any" (fun () ->
-    match load_file "./lustreTypeChecker/ref_type_binder_shadows_const_any.lus" with
-    | Error (`LustreTypeCheckerError (_, Redeclaration _)) -> true
+  mk_test "test subrange bound naming an input called id" (fun () ->
+    match load_file "./lustreTypeChecker/subrange_bound_named_id_input.lus" with
+    | Error (`LustreTypeCheckerError (_, ExpectedConstant _)) -> true
     | _ -> false);
   mk_test "test quantified variable shadowing a constant in a nested binder type" (fun () ->
     match load_file "./lustreTypeChecker/quant_binder_shadows_const_in_nested_type.lus" with
@@ -1114,33 +1142,9 @@ let _ = run_test_tt_main ("frontend LustreTypeChecker error tests" >::: [
     match load_file "./lustreTypeChecker/enum_variant_clash_with_ghost_const.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithConst _)) -> true
     | _ -> false);
-  mk_test "test 'any' binder clashes with enum variant" (fun () ->
-    match load_file "./lustreTypeChecker/any_binder_clash_with_enum_variant.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode _)) -> true
-    | _ -> false);
-  mk_test "test quantifier binder clashes with enum variant" (fun () ->
-    match load_file "./lustreTypeChecker/quant_binder_clash_with_enum_variant.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashQuantifierBinder))) -> true
-    | _ -> false);
-  mk_test "test refinement type binder clashes with enum variant" (fun () ->
-    match load_file "./lustreTypeChecker/ref_type_binder_clash_with_enum_variant.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashRefinementBinder))) -> true
-    | _ -> false);
   mk_test "test pattern binder clashes with enum variant" (fun () ->
     match load_file "./lustreTypeChecker/pattern_binder_clash_with_enum_variant.lus" with
     | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashPatternBinder))) -> true
-    | _ -> false);
-  mk_test "test array comprehension index clashes with enum variant" (fun () ->
-    match load_file "./lustreTypeChecker/array_index_clash_with_enum_variant.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
-    | _ -> false);
-  mk_test "test array comprehension index clashes with datatype constructor matched in body" (fun () ->
-    match load_file "./lustreTypeChecker/array_index_clash_with_datatype_constructor.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
-    | _ -> false);
-  mk_test "test array comprehension index clashes with datatype constructor matched in temporal body" (fun () ->
-    match load_file "./lustreTypeChecker/array_index_clash_with_datatype_constructor_temporal.lus" with
-    | Error (`LustreTypeCheckerError (_, ConstructorNameClashWithNode (_, _, ClashArrayIndex))) -> true
     | _ -> false);
   mk_test "test undeclared type in ADT constructor argument" (fun () ->
     match load_file "./lustreTypeChecker/adt_undeclared_constructor_arg_type.lus" with
@@ -1643,10 +1647,6 @@ let _ = run_test_tt_main ("frontend LustreDesugarMatchBlocks error tests" >::: [
   mk_test "test match block inside an if block" (fun () ->
     match load_file "./lustreDesugarMatchBlocks/match_block_in_if_block.lus" with
     | Error (`LustreDesugarMatchBlocksError (_, MisplacedMatchBlock _)) -> true
-    | _ -> false);
-  mk_test "test pattern variable shadowing a node output" (fun () ->
-    match load_file "./lustreDesugarMatchBlocks/pattern_variable_shadows_output.lus" with
-    | Error (`LustreDesugarMatchBlocksError (_, ShadowingPatternVariable _)) -> true
     | _ -> false);
 ])
 

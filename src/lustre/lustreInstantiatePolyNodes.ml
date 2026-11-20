@@ -321,10 +321,16 @@ let rec gen_poly_decl: Ctx.tc_context -> GI.t NI.Map.t -> NI.t option -> (A.decl
     | A.EnumType (_, n, _) -> HString.pp_print_hstring ppf n
     | ty -> A.pp_print_lustre_type ppf ty
   in
-  let user_name = Format.asprintf
-    "%a<%a>"
-    HString.pp_print_hstring name
-    (Lib.pp_print_list pp_print_ty_arg ";") ty_args |> HString.mk_hstring
+  (* A refinement binder in a type argument prints as the name the user wrote.
+     The name is laid out on one line, as the generated names are longer. *)
+  let user_name =
+    let buf = Buffer.create 80 in
+    let ppf = Format.formatter_of_buffer buf in
+    Format.pp_set_margin ppf max_int;
+    Format.fprintf ppf "%a<%a>@?"
+      HString.pp_print_hstring name
+      (Lib.pp_print_list pp_print_ty_arg ";") ty_args;
+    Buffer.contents buf |> A.restore_bound_names |> HString.mk_hstring
   in
   (* Check for pre-existing instantiation of the node before compiling a new one *)
   let decl, tyss = NI.Map.find node_id node_decls_map in 

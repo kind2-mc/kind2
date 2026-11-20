@@ -104,11 +104,6 @@ let mk_fresh_var () =
   let prefix = HString.mk_hstring (string_of_int !i) in
   HString.concat2 prefix (HString.mk_hstring ("_" ^ GI.array_comprehension))
 
-(** An index variable of the element-wise definition of a ghost variable *)
-let mk_fresh_index () =
-  i := !i + 1;
-  HString.mk_hstring (string_of_int !i ^ "_gidx")
-
 (** The lowering of the comprehensions of a node body or of a contract *)
 type lowering = {
   (* The node or contract the comprehensions are in, and its context *)
@@ -425,15 +420,7 @@ let lower_contract ctx contract_id ((p, eqs) as contract) =
   in
   let ghosts = ref [] in
   let define p x ty ids extra_ids body =
-    (* The index variables are renamed apart, since the passes that follow
-       do not see them bound in the right-hand side of a ghost variable, as
-       they do in an array definition of a node *)
-    let ids' = List.map (fun _ -> mk_fresh_index ()) ids in
-    let body =
-      List.fold_left2 (fun e i i' -> AH.substitute_naive i (A.Ident (p, i')) e)
-        body ids ids'
-    in
-    let lhs = A.GhostArrayDef (p, (p, x, ty), ids' @ extra_ids) in
+    let lhs = A.GhostArrayDef (p, (p, x, ty), ids @ extra_ids) in
     ghosts := A.GhostVars (p, lhs, body) :: !ghosts
   in
   let mode = Lower { scope_id = contract_id; ctx; lowered = []; define } in

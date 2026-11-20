@@ -1,0 +1,6 @@
+const k: subtype { v: int | v >= 0 };
+type T = subrange [0, k] of int;
+node main (x: int) returns ();
+let
+  check forall (k: int) forall (j: T) j >= 0;
+tel

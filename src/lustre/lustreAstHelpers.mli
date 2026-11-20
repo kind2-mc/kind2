@@ -164,15 +164,6 @@ val vars_of_type: ?into_ty_args:bool -> lustre_type -> SI.t
     while excluding node call identifiers and refinement type bound variables.
     [into_ty_args] also descends into the type arguments of a user type *)
 
-val rename_self_referencing_binders :
-  ?expand:(lustre_type -> lustre_type) ->
-  (Lib.position * ident * lustre_type) list -> expr ->
-  (Lib.position * ident * lustre_type) list * expr
-(** [rename_self_referencing_binders ~expand tis e] alpha-renames, in the
-    quantifier binders [tis] and body [e], each variable whose name occurs in a
-    binder type, after expansion by [expand], where it does not denote the
-    quantified variable *)
-
 val add_exp: Lib.position -> expr -> expr -> expr
 (** Return an AST that adds two expressions*)
 
@@ -219,14 +210,19 @@ val sort_typed_ident: typed_ident list -> typed_ident list
 val sort_idents: ident list -> ident list
 (** Sort identifiers  *)
 
-val syn_expr_equal : int option -> expr -> expr -> (bool, unit) result
-(** Check syntactic equality o Lustre expressions (ignoring positions) up to a certain optional depth.
+val syn_expr_equal :
+  ?env:(ident * ident) list -> int option -> expr -> expr -> (bool, unit) result
+(** Check syntactic equality o Lustre expressions (ignoring positions), up to the
+    renaming of bound variables, up to a certain optional depth.
     If the depth is reached, then [Error ()] is returned, otherwise [Ok false] if the
-    two expressions are unequal and [Ok true] if they are equal.
+    two expressions are unequal and [Ok true] if they are equal. [env] pairs the
+    variables bound around the two expressions, innermost first.
     *)
 
-val syn_type_equal : int option -> lustre_type -> lustre_type -> (bool, unit) result
-(** Check syntactic equality of Lustre types (ignoring positions) up to a certain optional depth.
+val syn_type_equal :
+  ?env:(ident * ident) list -> int option -> lustre_type -> lustre_type -> (bool, unit) result
+(** Check syntactic equality of Lustre types (ignoring positions), up to the
+    renaming of bound variables, up to a certain optional depth.
     If the depth is reached, then [Error ()] is returned, otherwise [Ok false] if the
     two expressions are unequal and [Ok true] if they are equal.*)
 
@@ -302,4 +298,5 @@ val rename_pat_var : LustreAst.ident -> LustreAst.ident -> pattern -> pattern
     knows is a binder. *)
 
 val fresh_bound_ident : LustreAst.ident -> LustreAst.ident
-(** A fresh name for an alpha-renamed binder, derived from its current name *)
+(** A fresh name [".bound_<orig>_<n>"] for an alpha-renamed binder, where
+    [<orig>] is the binder's original name (see {!LustreAst.original_name}) *)
